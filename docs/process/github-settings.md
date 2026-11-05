@@ -58,6 +58,7 @@
 | 허용 Actions | GitHub 소유 Actions만 |
 | SHA 고정 강제 | 켬(지원되는 경우). 워크플로우는 모두 전체 SHA로 고정되어 있다 |
 | 외부 기여자 워크플로우 실행 | 첫 기여자만 승인 필요(`first_time_contributors`, ADR-0013) |
+| `build-test` 툴체인 | 러너 `macos-26`, 이미지에 있는 가장 최신 Xcode 26.x(`XCODE_MAJOR`). 올릴 때는 `ci.yml`의 두 값을 함께 바꾸는 PR을 연다. 실패하면 `.xcresult`와 로그를 7일 보관 아티팩트로 올린다 |
 
 ### 선점 자동화 (ADR-0013)
 
