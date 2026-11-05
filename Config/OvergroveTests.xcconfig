@@ -1,0 +1,10 @@
+// Unit and integration test target settings (hosted in the app so tests can use `@testable import Overgrove`).
+
+PRODUCT_NAME = $(TARGET_NAME)
+PRODUCT_BUNDLE_IDENTIFIER = io.github.kkdy21.overgrove.tests
+GENERATE_INFOPLIST_FILE = YES
+TEST_HOST = $(BUILT_PRODUCTS_DIR)/Overgrove.app/Contents/MacOS/Overgrove
+BUNDLE_LOADER = $(TEST_HOST)
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks @loader_path/../Frameworks
+
+#include? "Personal.xcconfig.local"
