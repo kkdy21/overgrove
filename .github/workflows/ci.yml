@@ -1,6 +1,6 @@
 # Required check: `build-test`
-# Until Phase 3 creates Overgrove.xcodeproj, this job validates repository tooling only and reports success.
-# Phase 3 follow-up: pin the runner image and Xcode version (record the choice in an ADR).
+# Builds the app and runs OvergroveTests on a pinned macOS runner and Xcode major version.
+# Bump RUNNER/XCODE_MAJOR together in a PR; record notable toolchain changes in CHANGELOG.
 name: ci
 
 on:
@@ -19,70 +19,77 @@ concurrency:
 jobs:
   build-test:
     name: build-test
-    runs-on: macos-latest
+    runs-on: macos-26
     timeout-minutes: 30
+    env:
+      XCODE_MAJOR: "26"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          ls -d /Applications/Xcode*.app || true
+          xcode=$(ls -d /Applications/Xcode_${XCODE_MAJOR}*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$xcode" ]; then
+            echo "::error::No Xcode ${XCODE_MAJOR}.x on this runner image."; exit 1
+          fi
+          echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
+          echo "Selected $xcode"
+
       - name: Toolchain
         run: |
           sw_vers
+          xcodebuild -version
+          swift --version
+          xcrun swift-format --version
           git --version
-          xcodebuild -version || true
-          swift --version || true
+          /usr/bin/git --version
 
       - name: Validate repository tooling
         run: |
           set -euo pipefail
-          # Shell scripts must at least parse.
-          for f in scripts/*.sh scripts/github/*.sh .githooks/* .claude/hooks/*.sh; do
+          for f in scripts/*.sh scripts/github/*.sh scripts/lint/*.sh .githooks/* .claude/hooks/*.sh; do
             [ -f "$f" ] || continue
             bash -n "$f"
-            echo "ok  $f"
           done
-          # Only Overgrove/Execution/ may create processes (docs/README.md §2.2).
+          echo "ok  shell syntax"
           scripts/lint/check-forbidden-apis.sh
           echo "ok  forbidden-API check"
-          # JSON files must be valid.
           for f in .github/labels.json .claude/settings.json .swift-format design/tokens/tokens.json; do
-            [ -f "$f" ] || continue
             jq empty "$f"
-            echo "ok  $f"
           done
+          echo "ok  JSON"
 
       - name: Fixture repository smoke test
         run: |
           set -euo pipefail
-          if [ -x scripts/make-fixture-repo.sh ]; then
-            scripts/make-fixture-repo.sh "$RUNNER_TEMP/fixture"
-            scripts/make-fixture-repo.sh --malicious "$RUNNER_TEMP/fixture-malicious"
-          else
-            echo "::notice::scripts/make-fixture-repo.sh not present; skipping."
-          fi
-
-      - name: Detect Xcode project
-        id: detect
-        run: |
-          if [ -d Overgrove.xcodeproj ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No Xcode project yet (created in Phase 3). Build and tests are skipped."
-          fi
+          scripts/make-fixture-repo.sh "$RUNNER_TEMP/fixture"
+          scripts/make-fixture-repo.sh --malicious "$RUNNER_TEMP/fixture-malicious"
 
       - name: swift-format lint
-        if: steps.detect.outputs.present == 'true'
         run: xcrun swift-format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
 
       - name: Build and test
-        if: steps.detect.outputs.present == 'true'
         run: |
           set -o pipefail
           xcodebuild test \
             -project Overgrove.xcodeproj \
             -scheme Overgrove \
             -destination 'platform=macOS' \
+            -resultBundlePath "$RUNNER_TEMP/Overgrove.xcresult" \
             CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
             | tee "$RUNNER_TEMP/xcodebuild.log"
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: xcresult-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/Overgrove.xcresult
+            ${{ runner.temp }}/xcodebuild.log
+          retention-days: 7
+          if-no-files-found: ignore
