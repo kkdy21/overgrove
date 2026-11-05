@@ -94,6 +94,8 @@ OvergroveTests/
 
 `Repository`, `Worktree`, `WorkingState`, `FileChange`, `UpstreamStatus`, `Stash`, `StashDetail`, `CommitNode`, `CommitDetail`, `FileHistoryEntry`, `Branch`, `Issue`, `GHAuthStatus`, `FetchRecord`, `GitPath`(raw 바이트 + 표시 문자열), `ConfigEntry`, `RepoSecurityReport`
 
+보조 타입: `ObjectID`(SHA-1·SHA-256 검증), `ConflictKind`(unmerged XY 7종), `FileStat`(커밋·stash 파일 통계), `Tag`. 정의는 `Overgrove/Models/`에 있다.
+
 ### 2.4 위협 ID (상세: design/security-review.md)
 
 | ID | 위협 |
