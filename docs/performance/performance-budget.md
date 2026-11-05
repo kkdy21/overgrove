@@ -1,6 +1,6 @@
 # 성능 예산
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [benchmark-plan.md](benchmark-plan.md), [docs/README.md §2.8](../README.md), ADR-0008, ADR-0010, HANDOFF G9
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [benchmark-plan.md](benchmark-plan.md), [docs/README.md §2.8](../README.md), ADR-0008, ADR-0010, HANDOFF G9
 
 HANDOFF G9의 "체감상 즉시"를 측정 가능한 수치로 바꾼 문서다. 각 예산에는 측정 시작점과 끝점, 데이터셋, 장비, 회귀 기준이 있다.
 

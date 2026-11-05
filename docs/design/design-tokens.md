@@ -1,6 +1,6 @@
 # 디자인 토큰 (Design Tokens)
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [`design/tokens/tokens.json`](../../design/tokens/tokens.json), [screens.md](screens.md), [interaction.md §6](interaction.md#6-접근성), [iconography.md](iconography.md), ADR-0006, ADR-0010
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [`design/tokens/tokens.json`](../../design/tokens/tokens.json), [screens.md](screens.md), [interaction.md §6](interaction.md#6-접근성), [iconography.md](iconography.md), ADR-0006, ADR-0010
 
 색, 간격, 크기, 글꼴, 움직임의 **단일 원본은 [`design/tokens/tokens.json`](../../design/tokens/tokens.json)이다.** 이 문서는 그 구조와 규칙, 검증 결과, SwiftUI로 옮기는 계획을 설명한다. 값이 서로 다르면 JSON이 맞고 이 문서를 고친다.
 

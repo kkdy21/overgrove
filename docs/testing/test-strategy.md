@@ -1,6 +1,6 @@
 # 테스트 전략
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [fixtures.md](fixtures.md), [security-review.md](../design/security-review.md), [parsing-spec.md](../architecture/parsing-spec.md), [performance-budget.md](../performance/performance-budget.md), ADR-0006, ADR-0008
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [fixtures.md](fixtures.md), [security-review.md](../design/security-review.md), [parsing-spec.md](../architecture/parsing-spec.md), [performance-budget.md](../performance/performance-budget.md), ADR-0006, ADR-0008
 
 Overgrove에서 가장 위험한 곳은 두 군데다.
 - **git 출력 파싱.** 형식, 로케일, 특수 파일명에 따라 결과가 틀어질 수 있다.

@@ -1,6 +1,6 @@
 # ADR-0010: 커밋 그래프 레인은 앱에서 계산한다
 
-> 상태: Proposed (Phase 2 승인 대기) · 날짜: 2026-11-05 · 관련: G6, G9, PB-3, PB-4, [architecture/parsing-spec.md](../architecture/parsing-spec.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 날짜: 2026-11-05 · 관련: G6, G9, PB-3, PB-4, [architecture/parsing-spec.md](../architecture/parsing-spec.md)
 
 ## 맥락
 

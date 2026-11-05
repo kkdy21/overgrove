@@ -1,6 +1,6 @@
 # 아키텍처 개요
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: ADR-0003, ADR-0006, ADR-0008, ADR-0009, ADR-0010, [git-command-catalog.md](git-command-catalog.md), [parsing-spec.md](parsing-spec.md), [../design/security-review.md](../design/security-review.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: ADR-0003, ADR-0006, ADR-0008, ADR-0009, ADR-0010, [git-command-catalog.md](git-command-catalog.md), [parsing-spec.md](parsing-spec.md), [../design/security-review.md](../design/security-review.md)
 
 이 문서는 Overgrove 앱의 구조를 정의한다. 명령 단위 세부 사항은 [git-command-catalog.md](git-command-catalog.md), 출력 형식은 [parsing-spec.md](parsing-spec.md), 보안 근거는 [security-review.md](../design/security-review.md)에 있다.
 

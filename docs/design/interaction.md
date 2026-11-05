@@ -1,6 +1,6 @@
 # 상호작용 명세 (Interaction)
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
 
 이 문서는 선택과 포커스, 키보드, 새로고침과 fetch, 취소, 컨텍스트 메뉴, 접근성을 정한다. 화면 배치는 [screens.md](screens.md)에 있다.
 

@@ -1,6 +1,6 @@
 # 정보 구조 (Information Architecture)
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [screens.md](screens.md), [interaction.md](interaction.md), [../architecture/overview.md](../architecture/overview.md), ADR-0010, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [screens.md](screens.md), [interaction.md](interaction.md), [../architecture/overview.md](../architecture/overview.md), ADR-0010, ADR-0011
 
 이 문서는 Overgrove가 보여 주는 **객체**, 객체 사이의 **관계**, 사용자가 객체 사이를 **이동하는 길**을 정한다. 화면별 배치는 [screens.md](screens.md), 조작 방식은 [interaction.md](interaction.md)에 있다.
 

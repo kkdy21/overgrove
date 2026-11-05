@@ -1,6 +1,6 @@
 # 테스트 픽스처 명세
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [test-strategy.md](test-strategy.md), [security-review.md](../design/security-review.md), [parsing-spec.md](../architecture/parsing-spec.md), [git-command-catalog.md](../architecture/git-command-catalog.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [test-strategy.md](test-strategy.md), [security-review.md](../design/security-review.md), [parsing-spec.md](../architecture/parsing-spec.md), [git-command-catalog.md](../architecture/git-command-catalog.md)
 
 통합 테스트(`INT-xx`)와 보안 테스트(`SEC-Tn-xx`)는 [`scripts/make-fixture-repo.sh`](../../scripts/make-fixture-repo.sh)가 만든 저장소를 쓴다. 이 문서는 픽스처에 무엇이 있는지, 각 상태에서 파서가 무엇을 내야 하는지, 어떤 테스트가 그 상태를 검증하는지를 정의한다.
 

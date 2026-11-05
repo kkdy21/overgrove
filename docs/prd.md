@@ -1,6 +1,6 @@
 # 제품 요구 사항 문서 (PRD)
 
-> 상태: Proposed (Phase 1 승인 대기) · 관련: ADR-0001~0008, ADR-0011, [scope-mvp.md](scope-mvp.md), [roadmap.md](roadmap.md)
+> 상태: Accepted (Phase 1 게이트, 2026-11-05) · 관련: ADR-0001~0008, ADR-0011, [scope-mvp.md](scope-mvp.md), [roadmap.md](roadmap.md)
 
 ## 1. 요약
 
@@ -68,7 +68,7 @@ Overgrove는 **여러 Git 워크트리를 한 화면에서 내려다보는 macOS
 | G6 | 커밋 그래프, 작성자, 날짜, 메시지를 표시하고 상단에 WIP 행을 둔다 | 픽스처의 병합·분기 구조가 레인으로 정확히 표시됨 (GRA 테스트) | S-01 | P0 |
 | G7 | 커밋 상세(변경 파일, diff)와 파일별 이력을 표시한다 | `diff-tree` 결과와 일치, 이름 변경 추적 | S-03, S-09, S-10 | P1 |
 | G8 | GitHub 이슈 목록을 보고, 브랜치명·커밋 메시지의 이슈 번호를 연결한다 | 브랜치 `feat/12-x` → 이슈 #12 링크. gh 미로그인 시 안내 | S-06 | P1 |
-| G9 | 워크트리 10개, 커밋 10만 개 규모에서도 체감상 즉시 전환된다 | PB-1~PB-6 충족 ([performance/performance-budget.md](performance/performance-budget.md)) | 전체 | P0 |
+| G9 | 워크트리 10개, 커밋 10만 개 규모에서도 체감상 즉시 전환된다 | PB-1~PB-8 충족 ([performance/performance-budget.md](performance/performance-budget.md)) | 전체 | P0 |
 | G10 | 소스를 클론한 뒤 Xcode에서 Run 한 번으로 실행된다 | README 절차만으로 깨끗한 맥에서 빌드·실행 성공 | — | P0 |
 
 ---
@@ -115,7 +115,7 @@ Overgrove는 **여러 Git 워크트리를 한 화면에서 내려다보는 macOS
 |---|---|---|
 | 보안 | 위협 T1–T18 대응과 SEC 테스트 전부 통과 | [design/security-review.md](design/security-review.md) |
 | 보안 | 앱은 토큰을 받거나 저장하지 않는다. 텔레메트리 없음 | ADR-0004 |
-| 성능 | PB-1~PB-6 | [performance/performance-budget.md](performance/performance-budget.md) |
+| 성능 | PB-1~PB-8 | [performance/performance-budget.md](performance/performance-budget.md) |
 | 정확성 | 파서 단위 테스트와 픽스처 통합 테스트로 git 출력과 일치함을 보장 | [testing/test-strategy.md](testing/test-strategy.md) |
 | 호환성 | macOS 14+, git 2.36+, gh는 선택 | ADR-0003, ADR-0008 |
 | 접근성 | VoiceOver 레이블, 키보드만으로 모든 조회 가능, 색만으로 상태를 구분하지 않음 | [design/interaction.md](design/interaction.md) |
@@ -131,7 +131,7 @@ Overgrove는 **여러 Git 워크트리를 한 화면에서 내려다보는 macOS
 
 | 지표 | 목표 | 확인 방법 |
 |---|---|---|
-| 성능 예산 | PB-1~PB-6 모두 충족 | PERF 테스트, Phase 4 성능 보고서 |
+| 성능 예산 | PB-1~PB-8 모두 충족 | PERF 테스트, Phase 4 성능 보고서 |
 | 상태 정확도 | 픽스처 시나리오에서 git 결과와 100% 일치 | INT 테스트 |
 | 보안 | SEC-T1~T18 전부 통과, 악성 픽스처 canary 0건 | SEC 테스트 |
 | 빌드 진입 장벽 | README만 보고 깨끗한 맥에서 15분 이내 빌드·실행 | Phase 5 검증 이슈 |

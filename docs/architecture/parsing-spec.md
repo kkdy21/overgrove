@@ -1,6 +1,6 @@
 # 파싱 명세
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: ADR-0008, ADR-0010, [git-command-catalog.md](git-command-catalog.md), [../testing/test-strategy.md](../testing/test-strategy.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: ADR-0008, ADR-0010, [git-command-catalog.md](git-command-catalog.md), [../testing/test-strategy.md](../testing/test-strategy.md)
 
 이 문서는 [git-command-catalog.md](git-command-catalog.md)에 있는 명령의 출력 형식과 파서 규칙을 정의한다. 형식 예시는 Apple Git 2.50.1과 gh 2.95.0에서 실제로 얻은 출력이다. NUL 바이트는 `␀`로 표시한다.
 

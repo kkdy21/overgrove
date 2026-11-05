@@ -1,6 +1,6 @@
 # 화면 명세 (Screens)
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0004, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0004, ADR-0011
 
 HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다.
 

@@ -1,6 +1,6 @@
 # MVP 범위 (v0.1.0)
 
-> 상태: Proposed (Phase 1 승인 대기) · 관련: [prd.md](prd.md), [roadmap.md](roadmap.md), ADR-0004, ADR-0011
+> 상태: Accepted (Phase 1 게이트, 2026-11-05) · 관련: [prd.md](prd.md), [roadmap.md](roadmap.md), ADR-0004, ADR-0011
 
 이 문서는 v0.1.0에 무엇이 들어가고 무엇이 빠지는지, 언제 끝났다고 말할 수 있는지를 정의한다. 범위에 없는 요청은 구현하지 않고 `later` 마일스톤 이슈로 등록한다.
 
@@ -107,7 +107,7 @@
 | D6 | gh 로그인 상태에 따라 이슈 패널이 동작하거나 안내를 표시한다 (설치됨·미설치·미로그인) | PAR-GH-*, QA 체크리스트 |
 | D7 | 위협 T1–T18의 SEC 테스트가 모두 통과하고, 악성 픽스처의 canary가 하나도 생성되지 않는다 | SEC-T1~T18 |
 | D8 | 자격 증명과 원격 URL의 민감 부분이 화면과 로그에서 마스킹된다 | SEC-T11-*, SEC-T16-01 |
-| D9 | PB-1~PB-6을 기준 장비와 기준 저장소에서 충족한다 | PERF 테스트, Phase 4 성능 보고서 |
+| D9 | PB-1~PB-8을 기준 장비와 기준 저장소에서 충족한다 | PERF 테스트, Phase 4 성능 보고서 |
 | D10 | 파서 단위 테스트와 임시 저장소 통합 테스트가 CI(`build-test`)에서 통과한다 | GitHub Actions |
 | D11 | README만 보고 깨끗한 맥에서 소스 빌드·실행에 성공한다 | Phase 5 검증 이슈 |
 | D12 | LICENSE, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, 이슈·PR 템플릿이 있다 | 저장소 확인 |

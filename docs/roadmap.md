@@ -1,10 +1,12 @@
 # 로드맵
 
-> 상태: Proposed (Phase 1 승인 대기) · 관련: [prd.md](prd.md), [scope-mvp.md](scope-mvp.md), [process/phase-gates.md](process/phase-gates.md), [process/issues.md](process/issues.md)
+> 상태: Accepted (Phase 1 게이트, 2026-11-05) · 관련: [prd.md](prd.md), [scope-mvp.md](scope-mvp.md), [process/phase-gates.md](process/phase-gates.md), [process/issues.md](process/issues.md)
 
 이 문서는 Phase, 마일스톤, Epic, 하위 이슈의 **원본 목록**이다. GitHub 이슈는 이 문서와 1:1로 대응하는 시드(`issues-seed.json`, 저장소 밖 작업 파일)로 만든다. 이슈가 만들어진 뒤에는 GitHub 이슈가 진행 상황의 기준이 되고, 이 문서는 구조와 순서를 설명하는 데 쓴다.
 
-규모: Epic 15개, Epic 하위 이슈 90개, v0.2.0 이슈 5개, later 이슈 14개 (총 124개).
+규모: Epic 15개, Epic 하위 이슈 90개, v0.2.0 이슈 5개, later 이슈 14개 (총 124개). 표의 키 옆 `(#n)`이 GitHub 이슈 번호다(#1–#124).
+
+> 진행 상황 (2026-11-05): Phase 1·2 게이트 통과. **Phase 3 착수, 협업자 참여 가능.** 선점 가능한 이슈는 [보드의 Ready to claim 뷰](https://github.com/users/kkdy21/projects/4/views/3)에서 본다.
 
 ---
 
@@ -75,12 +77,12 @@ Phase 3 안에서 먼저 끝내야 하는 이슈(p0, 기능 화면의 선행 조
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P1-01 | docs: review and approve PRD | docs · docs · p0 | S | — |
-| P1-02 | docs: review and approve MVP scope and definition of done | docs · docs · p0 | S | P1-01 |
-| P1-03 | docs: review accepted ADRs 0001-0008, 0011 and 0012 | decision · docs · p0 | S | — |
-| P1-04 | docs: confirm performance budget PB-1 to PB-6 | decision · docs · p1 | S | — |
-| P1-05 | chore(ci): verify GitHub operations setup | chore · ci · p0 | S | — |
-| P1-06 | docs: decide UI language for v0.1.0 (status:needs-decision) | decision · ui · p1 | S | — |
+| P1-01 (#16) | docs: review and approve PRD | docs · docs · p0 | S | — |
+| P1-02 (#17) | docs: review and approve MVP scope and definition of done | docs · docs · p0 | S | P1-01 |
+| P1-03 (#18) | docs: review accepted ADRs 0001-0008, 0011 and 0012 | decision · docs · p0 | S | — |
+| P1-04 (#19) | docs: confirm performance budget PB-1 to PB-6 | decision · docs · p1 | S | — |
+| P1-05 (#20) | chore(ci): verify GitHub operations setup | chore · ci · p0 | S | — |
+| P1-06 (#21) | docs: decide UI language for v0.1.0 (status:needs-decision) | decision · ui · p1 | S | — |
 
 ## 5. Phase 2 — 설계
 
@@ -90,159 +92,159 @@ Phase 3 안에서 먼저 끝내야 하는 이슈(p0, 기능 화면의 선행 조
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P2-01 | docs: review information architecture and screen specs S-01 to S-10 | docs · ui · p0 | M | — |
-| P2-02 | docs: review interaction spec | docs · ui · p0 | S | P2-01 |
-| P2-03 | docs(security): review threat model T1-T18 and accept ADR-0009 | decision · security · p0 | M | — |
-| P2-04 | docs: accept ADR-0010 commit graph layout | decision · git-core · p1 | S | — |
-| P2-05 | docs: review architecture overview, git command catalog and parsing spec | docs · git-core, parser · p0 | M | P2-03 |
-| P2-06 | docs(design): review design tokens and app icon | docs · ui · p1 | S | — |
-| P2-07 | docs: review test strategy, fixtures, performance plan and QA process | docs · docs · p1 | S | — |
-| P2-08 | spike(ui): evaluate SwiftUI preview mocks for wireframes | spike · ui · p2 | S | P2-01, P2-06 |
+| P2-01 (#22) | docs: review information architecture and screen specs S-01 to S-10 | docs · ui · p0 | M | — |
+| P2-02 (#23) | docs: review interaction spec | docs · ui · p0 | S | P2-01 |
+| P2-03 (#24) | docs(security): review threat model T1-T18 and accept ADR-0009 | decision · security · p0 | M | — |
+| P2-04 (#25) | docs: accept ADR-0010 commit graph layout | decision · git-core · p1 | S | — |
+| P2-05 (#26) | docs: review architecture overview, git command catalog and parsing spec | docs · git-core, parser · p0 | M | P2-03 |
+| P2-06 (#27) | docs(design): review design tokens and app icon | docs · ui · p1 | S | — |
+| P2-07 (#28) | docs: review test strategy, fixtures, performance plan and QA process | docs · docs · p1 | S | — |
+| P2-08 (#29) | spike(ui): evaluate SwiftUI preview mocks for wireframes | spike · ui · p2 | S | P2-01, P2-06 |
 
 ## 6. Phase 3 — 개발
 
-### EPIC-P3-SKEL — [EPIC] Phase 3 — Project skeleton and CI
+### EPIC-P3-SKEL (#3) — [EPIC] Phase 3 — Project skeleton and CI
 
 빌드·테스트·린트가 CI에서 도는 빈 앱 골격을 만든다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-SKEL-01 | chore: create Xcode project with app and test targets | chore · ci · p0 | M | P2-05 |
-| P3-SKEL-02 | ci: run xcodebuild build and test in build-test job | chore · ci · p0 | S | P3-SKEL-01 |
-| P3-SKEL-03 | ci: add swift-format lint step | chore · ci · p1 | S | P3-SKEL-02 |
-| P3-SKEL-04 | ci: fail build when Swift package dependencies appear | chore · ci, security · p1 | S | P3-SKEL-02 |
-| P3-SKEL-05 | ci: enable CodeQL analysis for Swift | chore · ci, security · p2 | S | P3-SKEL-02 |
+| P3-SKEL-01 (#30) | chore: create Xcode project with app and test targets | chore · ci · p0 | M | P2-05 |
+| P3-SKEL-02 (#31) | ci: run xcodebuild build and test in build-test job | chore · ci · p0 | S | P3-SKEL-01 |
+| P3-SKEL-03 (#32) | ci: add swift-format lint step | chore · ci · p1 | S | P3-SKEL-02 |
+| P3-SKEL-04 (#33) | ci: fail build when Swift package dependencies appear | chore · ci, security · p1 | S | P3-SKEL-02 |
+| P3-SKEL-05 (#34) | ci: enable CodeQL analysis for Swift | chore · ci, security · p2 | S | P3-SKEL-02 |
 
-### EPIC-P3-DS — [EPIC] Phase 3 — Design system and app icon
+### EPIC-P3-DS (#4) — [EPIC] Phase 3 — Design system and app icon
 
 토큰과 아이콘을 앱 리소스로 재현 가능하게 생성한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-DS-01 | feat(ui): generate DesignSystem tokens from tokens.json | feature · ui · p1 | M | P3-SKEL-01 |
-| P3-DS-02 | chore(design): add palette contrast validation script | chore · ui · p1 | S | P3-DS-01 |
-| P3-DS-03 | feat(ui): add high contrast color variants | feature · ui · p2 | S | P3-DS-01 |
-| P3-DS-04 | chore(design): render AppIcon PNG set from SVG master | chore · ui · p1 | S | P3-SKEL-01 |
-| P3-DS-05 | spike(design): check Icon Composer .icon fallback for macOS 14 | spike · ui · p2 | S | P3-DS-04 |
-| P3-DS-06 | spike(ui): verify SF Symbols names and OS availability (good first issue) | spike · ui · p2 | S | — |
+| P3-DS-01 (#35) | feat(ui): generate DesignSystem tokens from tokens.json | feature · ui · p1 | M | P3-SKEL-01 |
+| P3-DS-02 (#36) | chore(design): add palette contrast validation script | chore · ui · p1 | S | P3-DS-01 |
+| P3-DS-03 (#37) | feat(ui): add high contrast color variants | feature · ui · p2 | S | P3-DS-01 |
+| P3-DS-04 (#38) | chore(design): render AppIcon PNG set from SVG master | chore · ui · p1 | S | P3-SKEL-01 |
+| P3-DS-05 (#39) | spike(design): check Icon Composer .icon fallback for macOS 14 | spike · ui · p2 | S | P3-DS-04 |
+| P3-DS-06 (#40) | spike(ui): verify SF Symbols names and OS availability (good first issue) | spike · ui · p2 | S | — |
 
-### EPIC-P3-SEC — [EPIC] Phase 3 — Security foundation (execution layer)
+### EPIC-P3-SEC (#5) — [EPIC] Phase 3 — Security foundation (execution layer)
 
 ProcessRunner부터 RepoConfigInspector까지 git 실행 계층을 명세대로 구현한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-SEC-01 | feat(git): add ProcessRunner with timeout, output cap and cancellation | feature · git-core, security · p0 | M | P3-SKEL-01 |
-| P3-SEC-02 | feat(git): add GitEnvironment with env allowlist and common hardening args | feature · git-core, security · p0 | M | P3-SEC-01 |
-| P3-SEC-03 | feat(git): add GitCommand allowlist types and GitClient actor | feature · git-core, security · p0 | M | P3-SEC-02 |
-| P3-SEC-04 | feat(security): add RepoConfigInspector to neutralize repo-local config | feature · security, git-core · p0 | L | P3-SEC-03, P3-PARSE-08 |
-| P3-SEC-05 | feat(security): add CredentialMasker for URLs, stderr and logs | feature · security · p0 | S | P3-SKEL-01 |
-| P3-SEC-06 | feat(security): validate object IDs, full ref names and path arguments | feature · security · p0 | S | P3-SEC-03 |
-| P3-SEC-07 | feat(security): add PathValidator for registration and symlink escape | feature · security · p1 | S | P3-SKEL-01 |
-| P3-SEC-08 | feat(git): add GitError taxonomy and stderr classification | feature · git-core · p1 | S | P3-SEC-05 |
+| P3-SEC-01 (#41) | feat(git): add ProcessRunner with timeout, output cap and cancellation | feature · git-core, security · p0 | M | P3-SKEL-01 |
+| P3-SEC-02 (#42) | feat(git): add GitEnvironment with env allowlist and common hardening args | feature · git-core, security · p0 | M | P3-SEC-01 |
+| P3-SEC-03 (#43) | feat(git): add GitCommand allowlist types and GitClient actor | feature · git-core, security · p0 | M | P3-SEC-02 |
+| P3-SEC-04 (#44) | feat(security): add RepoConfigInspector to neutralize repo-local config | feature · security, git-core · p0 | L | P3-SEC-03, P3-PARSE-08 |
+| P3-SEC-05 (#45) | feat(security): add CredentialMasker for URLs, stderr and logs | feature · security · p0 | S | P3-SKEL-01 |
+| P3-SEC-06 (#46) | feat(security): validate object IDs, full ref names and path arguments | feature · security · p0 | S | P3-SEC-03 |
+| P3-SEC-07 (#47) | feat(security): add PathValidator for registration and symlink escape | feature · security · p1 | S | P3-SKEL-01 |
+| P3-SEC-08 (#48) | feat(git): add GitError taxonomy and stderr classification | feature · git-core · p1 | S | P3-SEC-05 |
 
-### EPIC-P3-PARSE — [EPIC] Phase 3 — Parsers, models and graph engine
+### EPIC-P3-PARSE (#6) — [EPIC] Phase 3 — Parsers, models and graph engine
 
 모든 파서와 GraphEngine을 테스트와 함께 구현한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-PARSE-01 | feat(models): add value models | feature · parser · p0 | S | P3-SKEL-01 |
-| P3-PARSE-02 | feat(parser): add WorktreeParser | feature · parser · p0 | S | P3-PARSE-01 |
-| P3-PARSE-03 | feat(parser): add StatusParser for porcelain v2 | feature · parser · p0 | M | P3-PARSE-01 |
-| P3-PARSE-04 | feat(parser): add StashParser | feature · parser · p0 | S | P3-PARSE-01 |
-| P3-PARSE-05 | feat(parser): add LogParser | feature · parser · p0 | S | P3-PARSE-01 |
-| P3-PARSE-06 | feat(parser): add RefParser and RevListParser | feature · parser · p1 | S | P3-PARSE-01 |
-| P3-PARSE-07 | feat(parser): add NumstatParser for diff-tree and stash show | feature · parser · p1 | S | P3-PARSE-01 |
-| P3-PARSE-08 | feat(parser): add ConfigParser, VersionParser and gh JSON parsers | feature · parser, security · p0 | S | P3-PARSE-01 |
-| P3-PARSE-09 | feat(parser): add IssueRefExtractor | feature · parser, github · p1 | S | P3-PARSE-01 |
-| P3-PARSE-10 | test(parser): add adversarial parser inputs | test · parser, security · p0 | M | P3-PARSE-02, P3-PARSE-03, P3-PARSE-05 |
-| P3-PARSE-11 | feat(graph): add GraphEngine lane layout | feature · git-core · p0 | L | P3-PARSE-05 |
+| P3-PARSE-01 (#49) | feat(models): add value models | feature · parser · p0 | S | P3-SKEL-01 |
+| P3-PARSE-02 (#50) | feat(parser): add WorktreeParser | feature · parser · p0 | S | P3-PARSE-01 |
+| P3-PARSE-03 (#51) | feat(parser): add StatusParser for porcelain v2 | feature · parser · p0 | M | P3-PARSE-01 |
+| P3-PARSE-04 (#52) | feat(parser): add StashParser | feature · parser · p0 | S | P3-PARSE-01 |
+| P3-PARSE-05 (#53) | feat(parser): add LogParser | feature · parser · p0 | S | P3-PARSE-01 |
+| P3-PARSE-06 (#54) | feat(parser): add RefParser and RevListParser | feature · parser · p1 | S | P3-PARSE-01 |
+| P3-PARSE-07 (#55) | feat(parser): add NumstatParser for diff-tree and stash show | feature · parser · p1 | S | P3-PARSE-01 |
+| P3-PARSE-08 (#56) | feat(parser): add ConfigParser, VersionParser and gh JSON parsers | feature · parser, security · p0 | S | P3-PARSE-01 |
+| P3-PARSE-09 (#57) | feat(parser): add IssueRefExtractor | feature · parser, github · p1 | S | P3-PARSE-01 |
+| P3-PARSE-10 (#58) | test(parser): add adversarial parser inputs | test · parser, security · p0 | M | P3-PARSE-02, P3-PARSE-03, P3-PARSE-05 |
+| P3-PARSE-11 (#59) | feat(graph): add GraphEngine lane layout | feature · git-core · p0 | L | P3-PARSE-05 |
 
-### EPIC-P3-FIX — [EPIC] Phase 3 — Fixtures and integration tests
+### EPIC-P3-FIX (#7) — [EPIC] Phase 3 — Fixtures and integration tests
 
 픽스처 저장소로 실제 git과 앱 결과를 비교하는 통합 테스트를 만든다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-FIX-01 | test: wire fixture repository script into integration test support | test · ci · p0 | M | P3-SEC-01 |
-| P3-FIX-02 | test(security): add canary-based harness for malicious fixture | test · security · p0 | M | P3-FIX-01 |
-| P3-FIX-03 | test: add integration tests for worktree, status, stash and log | test · git-core · p0 | M | P3-FIX-01, P3-SEC-04, P3-PARSE-03 |
-| P3-FIX-04 | ci: run integration tests in CI and report git version | chore · ci · p1 | S | P3-FIX-03, P3-SKEL-02 |
+| P3-FIX-01 (#60) | test: wire fixture repository script into integration test support | test · ci · p0 | M | P3-SEC-01 |
+| P3-FIX-02 (#61) | test(security): add canary-based harness for malicious fixture | test · security · p0 | M | P3-FIX-01 |
+| P3-FIX-03 (#62) | test: add integration tests for worktree, status, stash and log | test · git-core · p0 | M | P3-FIX-01, P3-SEC-04, P3-PARSE-03 |
+| P3-FIX-04 (#63) | ci: run integration tests in CI and report git version | chore · ci · p1 | S | P3-FIX-03, P3-SKEL-02 |
 
-### EPIC-P3-UI — [EPIC] Phase 3 — Git views
+### EPIC-P3-UI (#8) — [EPIC] Phase 3 — Git views
 
 S-01~S-05, S-09, S-10 화면을 명세대로 구현한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-UI-01 | feat(ui): main window layout with toolbar, sidebar, graph, detail and status bar | feature · ui · p0 | M | P3-DS-01, P3-SEC-03 |
-| P3-UI-02 | feat(ui): worktree list with change counts and ahead/behind | feature · ui · p0 | M | P3-UI-01, P3-PARSE-02, P3-PARSE-03 |
-| P3-UI-03 | feat(ui): WIP detail with staged, unstaged, untracked and conflicted | feature · ui · p0 | M | P3-UI-01, P3-PARSE-03 |
-| P3-UI-04 | feat(ui): worktree detail with security status | feature · ui · p1 | M | P3-UI-01, P3-SEC-04 |
-| P3-UI-05 | feat(ui): commit graph with WIP row and paging | feature · ui · p0 | L | P3-UI-01, P3-PARSE-11 |
-| P3-UI-06 | feat(ui): commit detail and diff viewer | feature · ui · p1 | M | P3-UI-05, P3-PARSE-07 |
-| P3-UI-07 | feat(ui): file history | feature · ui · p2 | S | P3-UI-06 |
-| P3-UI-08 | feat(ui): stash list and stash detail | feature · ui · p0 | M | P3-UI-01, P3-PARSE-04, P3-PARSE-07 |
-| P3-UI-09 | feat(ui): local and remote branch lists | feature · ui · p1 | S | P3-UI-01, P3-PARSE-06 |
-| P3-UI-10 | feat(ui): keyboard shortcuts, focus and context menus | feature · ui · p1 | M | P3-UI-02, P3-UI-05 |
-| P3-UI-11 | feat(ui): search over commits, authors, branches and issue numbers | feature · ui · p2 | S | P3-UI-05 |
-| P3-UI-12 | feat(ui): accessibility labels and VoiceOver pass | feature · ui · p1 | S | P3-UI-03, P3-UI-05 |
+| P3-UI-01 (#64) | feat(ui): main window layout with toolbar, sidebar, graph, detail and status bar | feature · ui · p0 | M | P3-DS-01, P3-SEC-03 |
+| P3-UI-02 (#65) | feat(ui): worktree list with change counts and ahead/behind | feature · ui · p0 | M | P3-UI-01, P3-PARSE-02, P3-PARSE-03 |
+| P3-UI-03 (#66) | feat(ui): WIP detail with staged, unstaged, untracked and conflicted | feature · ui · p0 | M | P3-UI-01, P3-PARSE-03 |
+| P3-UI-04 (#67) | feat(ui): worktree detail with security status | feature · ui · p1 | M | P3-UI-01, P3-SEC-04 |
+| P3-UI-05 (#68) | feat(ui): commit graph with WIP row and paging | feature · ui · p0 | L | P3-UI-01, P3-PARSE-11 |
+| P3-UI-06 (#69) | feat(ui): commit detail and diff viewer | feature · ui · p1 | M | P3-UI-05, P3-PARSE-07 |
+| P3-UI-07 (#70) | feat(ui): file history | feature · ui · p2 | S | P3-UI-06 |
+| P3-UI-08 (#71) | feat(ui): stash list and stash detail | feature · ui · p0 | M | P3-UI-01, P3-PARSE-04, P3-PARSE-07 |
+| P3-UI-09 (#72) | feat(ui): local and remote branch lists | feature · ui · p1 | S | P3-UI-01, P3-PARSE-06 |
+| P3-UI-10 (#73) | feat(ui): keyboard shortcuts, focus and context menus | feature · ui · p1 | M | P3-UI-02, P3-UI-05 |
+| P3-UI-11 (#74) | feat(ui): search over commits, authors, branches and issue numbers | feature · ui · p2 | S | P3-UI-05 |
+| P3-UI-12 (#75) | feat(ui): accessibility labels and VoiceOver pass | feature · ui · p1 | S | P3-UI-03, P3-UI-05 |
 
-### EPIC-P3-SYNC — [EPIC] Phase 3 — Fetch and sync
+### EPIC-P3-SYNC (#9) — [EPIC] Phase 3 — Fetch and sync
 
 안전한 fetch와 ahead/behind 갱신을 구현한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-SYNC-01 | feat(git): fetch per remote with progress, cancel and timeout | feature · git-core, security · p0 | M | P3-SEC-04 |
-| P3-SYNC-02 | feat(ui): show last fetch time and refresh ahead/behind after fetch | feature · ui · p0 | S | P3-SYNC-01, P3-UI-02 |
-| P3-SYNC-03 | feat(git): classify fetch failures and show guidance | feature · git-core, ui · p1 | S | P3-SYNC-01, P3-SEC-08 |
-| P3-SYNC-04 | feat: add optional auto fetch (default off) | feature · git-core, ui · p2 | S | P3-SYNC-01, P3-ONB-03 |
+| P3-SYNC-01 (#76) | feat(git): fetch per remote with progress, cancel and timeout | feature · git-core, security · p0 | M | P3-SEC-04 |
+| P3-SYNC-02 (#77) | feat(ui): show last fetch time and refresh ahead/behind after fetch | feature · ui · p0 | S | P3-SYNC-01, P3-UI-02 |
+| P3-SYNC-03 (#78) | feat(git): classify fetch failures and show guidance | feature · git-core, ui · p1 | S | P3-SYNC-01, P3-SEC-08 |
+| P3-SYNC-04 (#79) | feat: add optional auto fetch (default off) | feature · git-core, ui · p2 | S | P3-SYNC-01, P3-ONB-03 |
 
-### EPIC-P3-GH — [EPIC] Phase 3 — GitHub issues panel
+### EPIC-P3-GH (#10) — [EPIC] Phase 3 — GitHub issues panel
 
 이슈 패널과 이슈 번호 연결을 구현한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-GH-01 | feat(github): add GHClient with gh auth status | feature · github, security · p1 | M | P3-SEC-01, P3-PARSE-08 |
-| P3-GH-02 | feat(ui): add issues panel | feature · ui, github · p1 | M | P3-GH-01, P3-UI-01 |
-| P3-GH-03 | feat(github): link issue numbers from branches and commits | feature · github · p1 | S | P3-GH-02, P3-PARSE-09 |
-| P3-GH-04 | feat(github): degraded mode when gh is missing or logged out | feature · github, ui · p1 | S | P3-GH-01 |
+| P3-GH-01 (#80) | feat(github): add GHClient with gh auth status | feature · github, security · p1 | M | P3-SEC-01, P3-PARSE-08 |
+| P3-GH-02 (#81) | feat(ui): add issues panel | feature · ui, github · p1 | M | P3-GH-01, P3-UI-01 |
+| P3-GH-03 (#82) | feat(github): link issue numbers from branches and commits | feature · github · p1 | S | P3-GH-02, P3-PARSE-09 |
+| P3-GH-04 (#83) | feat(github): degraded mode when gh is missing or logged out | feature · github, ui · p1 | S | P3-GH-01 |
 
-### EPIC-P3-ONB — [EPIC] Phase 3 — Onboarding and settings
+### EPIC-P3-ONB (#11) — [EPIC] Phase 3 — Onboarding and settings
 
 온보딩과 설정 화면을 구현한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-ONB-01 | feat: add repository via NSOpenPanel and manage registered repositories | feature · ui, security · p0 | M | P3-SEC-07, P3-UI-01 |
-| P3-ONB-02 | feat(ui): onboarding with git version and gh status checks | feature · ui · p1 | S | P3-ONB-01, P3-GH-01 |
-| P3-ONB-03 | feat(ui): settings for auto fetch and remote URL display | feature · ui · p2 | S | P3-ONB-01 |
+| P3-ONB-01 (#84) | feat: add repository via NSOpenPanel and manage registered repositories | feature · ui, security · p0 | M | P3-SEC-07, P3-UI-01 |
+| P3-ONB-02 (#85) | feat(ui): onboarding with git version and gh status checks | feature · ui · p1 | S | P3-ONB-01, P3-GH-01 |
+| P3-ONB-03 (#86) | feat(ui): settings for auto fetch and remote URL display | feature · ui · p2 | S | P3-ONB-01 |
 
-### EPIC-P3-PERF — [EPIC] Phase 3 — Performance
+### EPIC-P3-PERF (#12) — [EPIC] Phase 3 — Performance
 
 성능 예산을 충족하도록 조회를 최적화하고 측정 테스트를 만든다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-PERF-01 | perf: parallel per-worktree queries with limit, cancellation and debounce | feature · git-core · p1 | M | P3-FIX-03 |
-| P3-PERF-02 | perf: add in-memory result cache and invalidation | feature · git-core · p1 | M | P3-PERF-01 |
-| P3-PERF-03 | perf: measure graph paging on 100k commits and decide skip vs streaming | feature · git-core, ui · p1 | M | P3-UI-05 |
-| P3-PERF-04 | test(perf): add XCTest performance tests against bench repository | test · ci · p1 | M | P3-PERF-01 |
-| P3-PERF-05 | perf: decide untracked display cap and untracked-files mode | decision · git-core · p1 | S | P3-PERF-04 |
+| P3-PERF-01 (#87) | perf: parallel per-worktree queries with limit, cancellation and debounce | feature · git-core · p1 | M | P3-FIX-03 |
+| P3-PERF-02 (#88) | perf: add in-memory result cache and invalidation | feature · git-core · p1 | M | P3-PERF-01 |
+| P3-PERF-03 (#89) | perf: measure graph paging on 100k commits and decide skip vs streaming | feature · git-core, ui · p1 | M | P3-UI-05 |
+| P3-PERF-04 (#90) | test(perf): add XCTest performance tests against bench repository | test · ci · p1 | M | P3-PERF-01 |
+| P3-PERF-05 (#91) | perf: decide untracked display cap and untracked-files mode | decision · git-core · p1 | S | P3-PERF-04 |
 
-### EPIC-P3-SECTEST — [EPIC] Phase 3 — Security tests
+### EPIC-P3-SECTEST (#13) — [EPIC] Phase 3 — Security tests
 
 SEC 테스트 전체를 작성하고 CI에서 실행한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-SECTEST-01 | test(security): add SEC tests for config execution threats T1-T8 | test · security · p0 | M | P3-FIX-02, P3-SEC-04 |
-| P3-SECTEST-02 | test(security): add SEC tests for injection, environment and credentials T9-T12 | test · security · p0 | M | P3-SEC-06, P3-SEC-05, P3-SYNC-01 |
-| P3-SECTEST-03 | test(security): add SEC tests for writes, file system, resources and logs T13-T16 | test · security · p1 | M | P3-SEC-01, P3-SEC-07 |
-| P3-SECTEST-04 | chore(security): verify supply chain and secret scanning controls T17-T18 | chore · security, ci · p1 | S | P3-SKEL-04 |
+| P3-SECTEST-01 (#92) | test(security): add SEC tests for config execution threats T1-T8 | test · security · p0 | M | P3-FIX-02, P3-SEC-04 |
+| P3-SECTEST-02 (#93) | test(security): add SEC tests for injection, environment and credentials T9-T12 | test · security · p0 | M | P3-SEC-06, P3-SEC-05, P3-SYNC-01 |
+| P3-SECTEST-03 (#94) | test(security): add SEC tests for writes, file system, resources and logs T13-T16 | test · security · p1 | M | P3-SEC-01, P3-SEC-07 |
+| P3-SECTEST-04 (#95) | chore(security): verify supply chain and secret scanning controls T17-T18 | chore · security, ci · p1 | S | P3-SKEL-04 |
 
 ## 7. Phase 4 — 검증
 
@@ -252,11 +254,11 @@ DoD D1–D10, D15를 검증한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P4-01 | test: run manual QA checklist on macOS 14 and latest macOS | test · ui · p0 | M | EPIC-P3-UI |
-| P4-02 | test(security): produce security test pass report T1-T18 | test · security · p0 | S | EPIC-P3-SECTEST |
-| P4-03 | perf: produce performance budget verification report PB-1 to PB-6 | test · git-core · p0 | S | EPIC-P3-PERF |
-| P4-04 | test: verify git compatibility matrix (2.36, Apple Git, Homebrew git) (help wanted) | test · git-core · p1 | M | P3-FIX-04 |
-| P4-05 | chore: run bug bash and triage | chore · ui · p1 | S | P4-01 |
+| P4-01 (#96) | test: run manual QA checklist on macOS 14 and latest macOS | test · ui · p0 | M | EPIC-P3-UI |
+| P4-02 (#97) | test(security): produce security test pass report T1-T18 | test · security · p0 | S | EPIC-P3-SECTEST |
+| P4-03 (#98) | perf: produce performance budget verification report PB-1 to PB-6 | test · git-core · p0 | S | EPIC-P3-PERF |
+| P4-04 (#99) | test: verify git compatibility matrix (2.36, Apple Git, Homebrew git) (help wanted) | test · git-core · p1 | M | P3-FIX-04 |
+| P4-05 (#100) | chore: run bug bash and triage | chore · ui · p1 | S | P4-01 |
 
 ## 8. Phase 5 — 릴리스
 
@@ -266,11 +268,11 @@ DoD D1–D10, D15를 검증한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P5-01 | docs: update README with screenshots, requirements, build steps and security notes | docs · docs · p0 | M | P4-01 |
-| P5-02 | docs: finalize CONTRIBUTING, SECURITY and CODE_OF_CONDUCT | docs · docs · p1 | S | — |
-| P5-03 | docs: write CHANGELOG for v0.1.0 | docs · docs · p0 | S | P4-05 |
-| P5-04 | test: verify build from source on a clean Mac using README only | test · docs · p0 | S | P5-01 |
-| P5-05 | chore: tag v0.1.0 and publish GitHub Release | chore · ci · p0 | S | P5-03, P5-04, P4-02, P4-03 |
+| P5-01 (#101) | docs: update README with screenshots, requirements, build steps and security notes | docs · docs · p0 | M | P4-01 |
+| P5-02 (#102) | docs: finalize CONTRIBUTING, SECURITY and CODE_OF_CONDUCT | docs · docs · p1 | S | — |
+| P5-03 (#103) | docs: write CHANGELOG for v0.1.0 | docs · docs · p0 | S | P4-05 |
+| P5-04 (#104) | test: verify build from source on a clean Mac using README only | test · docs · p0 | S | P5-01 |
+| P5-05 (#105) | chore: tag v0.1.0 and publish GitHub Release | chore · ci · p0 | S | P5-03, P5-04, P4-02, P4-03 |
 
 ## 9. v0.2.0 — 보안·설정 강화
 
@@ -278,11 +280,11 @@ Epic 없이 독립 이슈로 둔다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| V2-01 | feat(git): configurable git executable path | feature · git-core · p2 | M | — |
-| V2-02 | feat(security): add untrusted repository mode | feature · security · p2 | M | — |
-| V2-03 | feat(git): inspect submodule status safely | feature · git-core, security · p2 | M | — |
-| V2-04 | perf: persist cache across launches | feature · git-core · p2 | M | — |
-| V2-05 | feat(security): export masked security report | feature · security, ui · p2 | M | — |
+| V2-01 (#106) | feat(git): configurable git executable path | feature · git-core · p2 | M | — |
+| V2-02 (#107) | feat(security): add untrusted repository mode | feature · security · p2 | M | — |
+| V2-03 (#108) | feat(git): inspect submodule status safely | feature · git-core, security · p2 | M | — |
+| V2-04 (#109) | perf: persist cache across launches | feature · git-core · p2 | M | — |
+| V2-05 (#110) | feat(security): export masked security report | feature · security, ui · p2 | M | — |
 
 ## 10. later — 백로그
 
@@ -290,20 +292,20 @@ Epic 없이 독립 이슈로 둔다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| L-01 | feat: add pull action with safety design | feature · git-core, security · p2 | M | — |
-| L-02 | feat: stage and unstage toggles | feature · git-core, ui · p2 | M | — |
-| L-03 | feat: interactive rebase UI | feature · git-core, ui · p2 | M | — |
-| L-04 | feat: stash apply, pop and drop | feature · git-core, ui · p2 | M | — |
-| L-05 | feat(github): show pull request status | feature · github · p2 | M | — |
-| L-06 | feat(github): create and edit issues | feature · github · p2 | M | — |
-| L-07 | feat(github): support GitHub Enterprise hosts and multiple accounts | feature · github · p2 | M | — |
-| L-08 | feat(github): evaluate GitHub App based authentication | feature · github, security · p2 | M | — |
-| L-09 | feat: auto refresh with FSEvents | feature · git-core, ui · p2 | M | — |
-| L-10 | feat(ui): Korean localization with String Catalog | feature · ui · p2 | M | — |
-| L-11 | feat(ui): graph zoom and stash nodes in graph | feature · ui · p2 | M | — |
-| L-12 | feat(ui): compare two commits and richer diff display | feature · ui · p2 | M | — |
-| L-13 | feat(ui): tags section and selection history navigation | feature · ui · p2 | M | — |
-| L-14 | feat(ui): Quick Look, open on GitHub and custom terminal or editor | feature · ui, security · p2 | M | — |
+| L-01 (#111) | feat: add pull action with safety design | feature · git-core, security · p2 | M | — |
+| L-02 (#112) | feat: stage and unstage toggles | feature · git-core, ui · p2 | M | — |
+| L-03 (#113) | feat: interactive rebase UI | feature · git-core, ui · p2 | M | — |
+| L-04 (#114) | feat: stash apply, pop and drop | feature · git-core, ui · p2 | M | — |
+| L-05 (#115) | feat(github): show pull request status | feature · github · p2 | M | — |
+| L-06 (#116) | feat(github): create and edit issues | feature · github · p2 | M | — |
+| L-07 (#117) | feat(github): support GitHub Enterprise hosts and multiple accounts | feature · github · p2 | M | — |
+| L-08 (#118) | feat(github): evaluate GitHub App based authentication | feature · github, security · p2 | M | — |
+| L-09 (#119) | feat: auto refresh with FSEvents | feature · git-core, ui · p2 | M | — |
+| L-10 (#120) | feat(ui): Korean localization with String Catalog | feature · ui · p2 | M | — |
+| L-11 (#121) | feat(ui): graph zoom and stash nodes in graph | feature · ui · p2 | M | — |
+| L-12 (#122) | feat(ui): compare two commits and richer diff display | feature · ui · p2 | M | — |
+| L-13 (#123) | feat(ui): tags section and selection history navigation | feature · ui · p2 | M | — |
+| L-14 (#124) | feat(ui): Quick Look, open on GitHub and custom terminal or editor | feature · ui, security · p2 | M | — |
 
 ## 11. 이슈 생성과 운영 규칙
 

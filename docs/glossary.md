@@ -1,6 +1,6 @@
 # 용어집
 
-> 상태: Proposed (Phase 1 승인 대기) · 관련: [prd.md](prd.md), [architecture/parsing-spec.md](architecture/parsing-spec.md)
+> 상태: Accepted (Phase 1 게이트, 2026-11-05) · 관련: [prd.md](prd.md), [architecture/parsing-spec.md](architecture/parsing-spec.md)
 
 문서와 UI에서 같은 뜻의 말을 같은 이름으로 쓰기 위한 목록이다. UI 문구(영어)는 [design/screens.md](design/screens.md)를 따른다.
 
