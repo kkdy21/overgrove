@@ -1,6 +1,5 @@
 import Darwin
 import Foundation
-import os
 
 // The only place in the app that creates processes (docs/README.md §2.2, ADR-0008).
 // Callers (GitClient, GHClient) decide *what* to run; this file decides *how* it runs safely:
@@ -9,6 +8,8 @@ import os
 //   - POSIX_SPAWN_CLOEXEC_DEFAULT: the child receives only fds 0–2, never the app's other descriptors
 //   - the child leads its own process group, so termination reaches helpers it spawned (ssh, remote helpers)
 //   - timeouts with SIGTERM → grace period → SIGKILL, output caps, cooperative cancellation (T15)
+//   - event-driven: no thread blocks in read() or waitpid(), so many concurrent runs cannot starve timers
+//   - the exited leader is reaped only at the very end, so its pid/pgid cannot be reused while we still signal it
 
 /// Resource limits for one child process (git-command-catalog.md §2.5).
 struct ProcessLimits: Sendable, Equatable {
@@ -43,6 +44,7 @@ struct ProcessResult: Sendable, Equatable {
     var termination: ProcessTermination
     var stdout: Data
     var stderr: Data
+    /// Output was cut at the limit, or the pipe was abandoned because a stray helper kept it open.
     var stdoutTruncated: Bool
     var stderrTruncated: Bool
     var timedOut: Bool
@@ -55,13 +57,15 @@ struct ProcessResult: Sendable, Equatable {
 }
 
 enum ProcessRunnerError: Error, Equatable {
-    /// The path is not absolute or not an executable file.
+    /// The path is not absolute or not an executable regular file.
     case executableNotFound(path: String)
     /// An argument contains a NUL byte, which would silently truncate it.
     case invalidArgument(index: Int)
     /// An environment key is empty or contains `=` or NUL, or its value contains NUL.
     case invalidEnvironment(key: String)
     case spawnFailed(errno: Int32)
+    /// The exit status could not be collected. Never reported as success.
+    case waitFailed(errno: Int32)
 }
 
 struct ProcessRunner: Sendable {
@@ -80,21 +84,21 @@ struct ProcessRunner: Sendable {
     func run(_ request: ProcessRequest) async throws -> ProcessResult {
         try Self.validate(request)
         try Task.checkCancellation()
-        let execution = try ChildProcess.spawn(request)
-        onLaunch?(execution.pid)
-        execution.start()
+        let child = try ChildProcess.spawn(request)
+        onLaunch?(child.pid)
+        child.start()
         return try await withTaskCancellationHandler {
-            try await execution.result()
+            try await child.result()
         } onCancel: {
-            execution.cancel()
+            child.cancel()
         }
     }
 
     private static func validate(_ request: ProcessRequest) throws {
         let path = request.executable.path
-        guard path.hasPrefix("/"), access(path, X_OK) == 0 else {
-            throw ProcessRunnerError.executableNotFound(path: path)
-        }
+        var info = stat()
+        guard path.hasPrefix("/"), stat(path, &info) == 0, info.st_mode & S_IFMT == S_IFREG, access(path, X_OK) == 0
+        else { throw ProcessRunnerError.executableNotFound(path: path) }
         for (index, argument) in request.arguments.enumerated() where argument.utf8.contains(0) {
             throw ProcessRunnerError.invalidArgument(index: index)
         }
@@ -107,40 +111,49 @@ struct ProcessRunner: Sendable {
 
 // MARK: - Child process lifecycle
 
-private final class ChildProcess: Sendable {
-    private struct State: Sendable {
-        var stdout = Data()
-        var stderr = Data()
-        var stdoutTruncated = false
-        var stderrTruncated = false
-        var stdoutClosed = false
-        var stderrClosed = false
-        var waitStatus: Int32?
-        var timedOut = false
-        var terminating = false
-        var cancelled = false
-        var delivered = false
-        var continuation: CheckedContinuation<ProcessResult, Error>?
-        var outcome: Result<ProcessResult, Error>?
-    }
-
-    /// After the main process exits, give stray holders of its stdout/stderr this long before killing its group.
+/// One running child.
+///
+/// Concurrency: every mutable property is read and written only on `queue`, a private serial queue that also runs
+/// all dispatch source handlers. The entry points (`start`, `result`, `cancel`) hop onto `queue`.
+private final class ChildProcess: @unchecked Sendable {
+    /// After the leader exits, stray holders of its pipes get this long before the group is killed and the
+    /// remaining output is abandoned.
     private static let drainWindow: Duration = .milliseconds(500)
+    /// Fallback in case the exit event is missed (e.g. the child exits before the source is registered).
+    private static let exitPollInterval: Duration = .seconds(1)
     private static let readChunk = 64 * 1024
 
     let pid: pid_t
+    private let limits: ProcessLimits
+    private let startedAt = ContinuousClock.now
+    private let queue: DispatchQueue
     private let stdoutFD: Int32
     private let stderrFD: Int32
-    private let limits: ProcessLimits
-    private let startedAt: ContinuousClock.Instant
-    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    // queue-confined state
+    private var sources: [DispatchSourceProtocol] = []
+    private var stdoutSource: DispatchSourceRead?
+    private var stderrSource: DispatchSourceRead?
+    private var timeoutTimer: DispatchSourceTimer?
+    private var stdout = Data()
+    private var stderr = Data()
+    private var stdoutTruncated = false
+    private var stderrTruncated = false
+    private var exitStatus: ProcessTermination?
+    private var waitError: Int32?
+    private var timedOut = false
+    private var terminating = false
+    private var cancelled = false
+    private var finished = false
+    private var continuation: CheckedContinuation<ProcessResult, Error>?
+    private var outcome: Result<ProcessResult, Error>?
 
     private init(pid: pid_t, stdoutFD: Int32, stderrFD: Int32, limits: ProcessLimits) {
         self.pid = pid
         self.stdoutFD = stdoutFD
         self.stderrFD = stderrFD
         self.limits = limits
-        self.startedAt = ContinuousClock.now
+        self.queue = DispatchQueue(label: "overgrove.process.\(pid)")
     }
 
     // MARK: Spawn
@@ -157,6 +170,7 @@ private final class ChildProcess: Sendable {
         }
         for fd in [outPipe[0], errPipe[0]] {
             _ = fcntl(fd, F_SETFD, FD_CLOEXEC)
+            _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
         }
 
         var actions: posix_spawn_file_actions_t?
@@ -202,87 +216,112 @@ private final class ChildProcess: Sendable {
         return ChildProcess(pid: pid, stdoutFD: outPipe[0], stderrFD: errPipe[0], limits: request.limits)
     }
 
-    // MARK: Run
+    // MARK: Entry points
 
     func start() {
-        let queue = DispatchQueue.global(qos: .userInitiated)
-        queue.async { self.drain(fd: self.stdoutFD, isStdout: true) }
-        queue.async { self.drain(fd: self.stderrFD, isStdout: false) }
-        queue.async { self.reap() }
-        queue.asyncAfter(deadline: .now() + Self.dispatchInterval(limits.timeout)) {
-            let fire = self.state.withLock { state -> Bool in
-                guard state.waitStatus == nil else { return false }
-                state.timedOut = true
-                return true
+        queue.async { [self] in
+            stdoutSource = makeReader(fd: stdoutFD, isStdout: true)
+            stderrSource = makeReader(fd: stderrFD, isStdout: false)
+
+            let exitSource = DispatchSource.makeProcessSource(identifier: pid, eventMask: .exit, queue: queue)
+            exitSource.setEventHandler { [self] in checkExit() }
+            sources.append(exitSource)
+            exitSource.resume()
+
+            let poll = DispatchSource.makeTimerSource(queue: queue)
+            let interval = Self.dispatchInterval(Self.exitPollInterval)
+            poll.schedule(deadline: .now() + interval, repeating: interval)
+            poll.setEventHandler { [self] in checkExit() }
+            sources.append(poll)
+            poll.resume()
+
+            let timeout = DispatchSource.makeTimerSource(queue: queue)
+            timeout.schedule(deadline: .now() + Self.dispatchInterval(limits.timeout))
+            timeout.setEventHandler { [self] in
+                guard exitStatus == nil, waitError == nil else { return }
+                timedOut = true
+                terminate()
             }
-            if fire { self.terminate() }
+            timeoutTimer = timeout
+            sources.append(timeout)
+            timeout.resume()
+
+            checkExit()  // the child may already be gone
         }
     }
 
     func result() async throws -> ProcessResult {
         try await withCheckedThrowingContinuation { continuation in
-            let ready = state.withLock { state -> Result<ProcessResult, Error>? in
-                if let outcome = state.outcome {
-                    state.delivered = true
-                    return outcome
+            queue.async { [self] in
+                if let outcome {
+                    continuation.resume(with: outcome)
+                } else {
+                    self.continuation = continuation
                 }
-                state.continuation = continuation
-                return nil
             }
-            if let ready { continuation.resume(with: ready) }
         }
     }
 
     func cancel() {
-        state.withLock { $0.cancelled = true }
-        terminate()
-    }
-
-    // MARK: Internals
-
-    /// SIGTERM to the process group, then SIGKILL after the grace period if the main process is still alive.
-    private func terminate() {
-        let first = state.withLock { state -> Bool in
-            guard !state.terminating, state.waitStatus == nil else { return false }
-            state.terminating = true
-            return true
-        }
-        guard first else { return }
-        signalGroup(SIGTERM)
-        DispatchQueue.global().asyncAfter(deadline: .now() + Self.dispatchInterval(limits.terminationGracePeriod)) {
-            let alive = self.state.withLock { $0.waitStatus == nil }
-            if alive { self.signalGroup(SIGKILL) }
+        queue.async { [self] in
+            guard !finished else { return }
+            cancelled = true
+            if exitStatus != nil || waitError != nil {
+                abandonPipesAndFinish()  // already exited: do not keep draining for a cancelled caller
+            } else {
+                terminate()
+            }
         }
     }
 
-    private func signalGroup(_ signal: Int32) {
-        if kill(-pid, signal) != 0 {
-            _ = kill(pid, signal)
-        }
+    // MARK: Internals (on queue)
+
+    private func makeReader(fd: Int32, isStdout: Bool) -> DispatchSourceRead {
+        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
+        source.setEventHandler { [self] in drain(fd: fd, isStdout: isStdout) }
+        source.setCancelHandler { close(fd) }
+        sources.append(source)
+        source.resume()
+        return source
     }
 
+    /// Reads everything available. Data beyond the limit is discarded (the pipe keeps draining so the child is not
+    /// stopped by a full pipe before the termination signals arrive).
     private func drain(fd: Int32, isStdout: Bool) {
+        guard isStdout ? stdoutSource != nil : stderrSource != nil else { return }
         let limit = isStdout ? limits.stdoutLimit : limits.stderrLimit
         let buffer = UnsafeMutableRawPointer.allocate(byteCount: Self.readChunk, alignment: 1)
         defer { buffer.deallocate() }
         while true {
             let count = read(fd, buffer, Self.readChunk)
-            if count < 0 && errno == EINTR { continue }
-            guard count > 0 else { break }
-            let chunk = Data(bytes: buffer, count: count)
-            let overflowed = state.withLock { state -> Bool in
-                guard isStdout else {
-                    return Self.append(chunk, to: &state.stderr, limit: limit, truncated: &state.stderrTruncated)
-                }
-                return Self.append(chunk, to: &state.stdout, limit: limit, truncated: &state.stdoutTruncated)
+            if count > 0 {
+                let chunk = Data(bytes: buffer, count: count)
+                let overflowed =
+                    isStdout
+                    ? Self.append(chunk, to: &stdout, limit: limit, truncated: &stdoutTruncated)
+                    : Self.append(chunk, to: &stderr, limit: limit, truncated: &stderrTruncated)
+                if overflowed { terminate() }
+                continue
             }
-            if overflowed { terminate() }
+            if count < 0 && errno == EINTR { continue }
+            if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) { return }
+            // EOF or a read error: this pipe is done.
+            closeReader(isStdout: isStdout, abandoned: false)
+            tryFinish()
+            return
         }
-        close(fd)
-        state.withLock { state in
-            if isStdout { state.stdoutClosed = true } else { state.stderrClosed = true }
+    }
+
+    private func closeReader(isStdout: Bool, abandoned: Bool) {
+        if isStdout, let source = stdoutSource {
+            source.cancel()
+            stdoutSource = nil
+            if abandoned { stdoutTruncated = true }
+        } else if !isStdout, let source = stderrSource {
+            source.cancel()
+            stderrSource = nil
+            if abandoned { stderrTruncated = true }
         }
-        finishIfDone()
     }
 
     /// Appends up to `limit` bytes in total. Returns true the first time data had to be dropped.
@@ -297,56 +336,107 @@ private final class ChildProcess: Sendable {
         return !truncated
     }
 
-    private func reap() {
-        var rawStatus: Int32 = 0
-        while waitpid(pid, &rawStatus, 0) < 0 && errno == EINTR {}
-        let status = rawStatus
-        state.withLock { $0.waitStatus = status }
-        // Helpers the child left behind may still hold the pipes open; do not wait for them forever.
-        DispatchQueue.global().asyncAfter(deadline: .now() + Self.dispatchInterval(Self.drainWindow)) {
-            let pending = self.state.withLock { !$0.stdoutClosed || !$0.stderrClosed }
-            if pending { _ = kill(-self.pid, SIGKILL) }
+    /// Detects exit without reaping (`WNOWAIT`): the zombie keeps the pid and process group id reserved, so the
+    /// group can still be signalled safely until `tryFinish` reaps it.
+    private func checkExit() {
+        guard exitStatus == nil, waitError == nil, !finished else { return }
+        var info = siginfo_t()
+        if waitid(P_PID, id_t(pid), &info, WEXITED | WNOHANG | WNOWAIT) != 0 {
+            if errno == EINTR { return }
+            waitError = errno
+        } else if info.si_pid == pid {
+            exitStatus = info.si_code == CLD_EXITED ? .exited(code: info.si_status) : .signaled(signal: info.si_status)
+        } else {
+            return  // still running
         }
-        finishIfDone()
+        timeoutTimer?.cancel()
+        if cancelled {
+            abandonPipesAndFinish()
+            return
+        }
+        if stdoutSource == nil && stderrSource == nil {
+            tryFinish()
+            return
+        }
+        // Give stray holders of the pipes a short window, then stop waiting for them.
+        let drainTimer = DispatchSource.makeTimerSource(queue: queue)
+        drainTimer.schedule(deadline: .now() + Self.dispatchInterval(Self.drainWindow))
+        drainTimer.setEventHandler { [self] in abandonPipesAndFinish() }
+        sources.append(drainTimer)
+        drainTimer.resume()
     }
 
-    private func finishIfDone() {
-        let delivery = state.withLock {
-            state -> (CheckedContinuation<ProcessResult, Error>, Result<ProcessResult, Error>)? in
-            guard state.outcome == nil, state.stdoutClosed, state.stderrClosed, let status = state.waitStatus else {
-                return nil
-            }
-            let outcome: Result<ProcessResult, Error>
-            if state.cancelled {
-                outcome = .failure(CancellationError())
-            } else {
-                outcome = .success(
-                    ProcessResult(
-                        termination: Self.termination(from: status),
-                        stdout: state.stdout,
-                        stderr: state.stderr,
-                        stdoutTruncated: state.stdoutTruncated,
-                        stderrTruncated: state.stderrTruncated,
-                        timedOut: state.timedOut,
-                        duration: ContinuousClock.now - startedAt
-                    )
+    /// SIGTERM to the group, then SIGKILL to the whole group after the grace period.
+    private func terminate() {
+        guard !terminating, !finished else { return }
+        terminating = true
+        signalGroup(SIGTERM)
+        let grace = DispatchSource.makeTimerSource(queue: queue)
+        grace.schedule(deadline: .now() + Self.dispatchInterval(limits.terminationGracePeriod))
+        grace.setEventHandler { [self] in
+            if !finished { signalGroup(SIGKILL) }
+        }
+        sources.append(grace)
+        grace.resume()
+    }
+
+    /// Only called before the leader is reaped, so `pid` still names our process group.
+    private func signalGroup(_ signal: Int32) {
+        if kill(-pid, signal) != 0 {
+            _ = kill(pid, signal)
+        }
+    }
+
+    private func abandonPipesAndFinish() {
+        guard !finished else { return }
+        if stdoutSource != nil || stderrSource != nil {
+            signalGroup(SIGKILL)
+            closeReader(isStdout: true, abandoned: true)
+            closeReader(isStdout: false, abandoned: true)
+        }
+        tryFinish()
+    }
+
+    private func tryFinish() {
+        guard !finished, exitStatus != nil || waitError != nil, stdoutSource == nil, stderrSource == nil else {
+            return
+        }
+        finished = true
+        for source in sources { source.cancel() }
+        sources.removeAll()
+        timeoutTimer = nil
+
+        var status: Int32 = 0
+        while waitpid(pid, &status, WNOHANG) < 0 && errno == EINTR {}
+
+        let finalOutcome: Result<ProcessResult, Error>
+        if cancelled {
+            finalOutcome = .failure(CancellationError())
+        } else if let waitError {
+            finalOutcome = .failure(ProcessRunnerError.waitFailed(errno: waitError))
+        } else if let exitStatus {
+            finalOutcome = .success(
+                ProcessResult(
+                    termination: exitStatus,
+                    stdout: stdout,
+                    stderr: stderr,
+                    stdoutTruncated: stdoutTruncated,
+                    stderrTruncated: stderrTruncated,
+                    timedOut: timedOut,
+                    duration: ContinuousClock.now - startedAt
                 )
-            }
-            state.outcome = outcome
-            guard let continuation = state.continuation, !state.delivered else { return nil }
-            state.continuation = nil
-            state.delivered = true
-            return (continuation, outcome)
+            )
+        } else {
+            finalOutcome = .failure(ProcessRunnerError.waitFailed(errno: ECHILD))
         }
-        if let (continuation, outcome) = delivery {
-            continuation.resume(with: outcome)
+        stdout = Data()
+        stderr = Data()
+        if let continuation {
+            self.continuation = nil
+            continuation.resume(with: finalOutcome)
+        } else {
+            outcome = finalOutcome
         }
-    }
-
-    /// Decodes a `waitpid` status (the WIFEXITED/WEXITSTATUS/WTERMSIG macros are not imported into Swift).
-    private static func termination(from status: Int32) -> ProcessTermination {
-        let low = status & 0x7f
-        return low == 0 ? .exited(code: (status >> 8) & 0xff) : .signaled(signal: low)
     }
 
     private static func dispatchInterval(_ duration: Duration) -> DispatchTimeInterval {

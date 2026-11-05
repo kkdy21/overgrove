@@ -126,7 +126,7 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertTrue(result.timedOut)
         XCTAssertEqual(result.termination, .signaled(signal: SIGTERM))
         let pid = try XCTUnwrap(recorder.pid)
-        XCTAssertFalse(processExists(pid), "the child must be reaped")
+        XCTAssertFalse(processExists(pid), "the child must be reaped before run() returns")
     }
 
     func testEscalatesToSIGKILLAfterGracePeriod() async throws {
@@ -155,8 +155,8 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertTrue(result.stdoutTruncated)
         let text = try String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
         let grandchild = try XCTUnwrap(pid_t(text))
-        try await Task.sleep(for: .milliseconds(200))
-        XCTAssertFalse(processExists(grandchild), "the whole process group must be terminated")
+        let gone = await eventually { !processExists(grandchild) }
+        XCTAssertTrue(gone, "the whole process group must be terminated")
     }
 
     func testReturnsWhenChildExitsEvenIfABackgroundProcessHoldsStdout() async throws {
@@ -174,12 +174,14 @@ final class ProcessRunnerTests: XCTestCase {
 
     func testCancellationTerminatesTheProcess() async throws {
         let recorder = PIDRecorder()
-        let runner = ProcessRunner(onLaunch: recorder.record)
+        let launched = expectation(description: "launched")
+        let runner = ProcessRunner(onLaunch: { pid in
+            recorder.record(pid)
+            launched.fulfill()
+        })
         let sleeper = request("/bin/sleep", ["30"])
-        let task = Task {
-            try await runner.run(sleeper)
-        }
-        try await Task.sleep(for: .milliseconds(300))
+        let task = Task { try await runner.run(sleeper) }
+        await fulfillment(of: [launched], timeout: 5)
         task.cancel()
         do {
             _ = try await task.value
@@ -191,7 +193,102 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertFalse(processExists(pid), "the child must be reaped after cancellation")
     }
 
+    func testCancellationEscalatesWhenSIGTERMIsIgnored() async throws {
+        let script = try executables.ignoringSIGTERMWithReadyFile()
+        let ready = executables.directory.appendingPathComponent("ready")
+        let recorder = PIDRecorder()
+        let limits = ProcessLimits(
+            timeout: .seconds(30),
+            stdoutLimit: 1024,
+            stderrLimit: 1024,
+            terminationGracePeriod: .milliseconds(300)
+        )
+        let runner = ProcessRunner(onLaunch: recorder.record)
+        let ignoring = request(script.path, [ready.path], limits: limits)
+        let task = Task { try await runner.run(ignoring) }
+        let trapInstalled = await eventually { FileManager.default.fileExists(atPath: ready.path) }
+        XCTAssertTrue(trapInstalled)
+        let clock = ContinuousClock()
+        let start = clock.now
+        task.cancel()
+        await assertThrowsCancellation { _ = try await task.value }
+        XCTAssertLessThan(clock.now - start, .seconds(5))
+        XCTAssertFalse(processExists(try XCTUnwrap(recorder.pid)))
+    }
+
+    // MARK: - Robustness (security review of PR #138)
+
+    func testManyConcurrentRunsStillTimeOut() async throws {
+        // Blocking reads/waits on shared threads used to starve the timeout timers at ~25 concurrent runs.
+        let limits = ProcessLimits(timeout: .milliseconds(300), stdoutLimit: 1024, stderrLimit: 1024)
+        let sleeper = request("/bin/sleep", ["20"], limits: limits)
+        let clock = ContinuousClock()
+        let start = clock.now
+        let results = try await withThrowingTaskGroup(of: ProcessResult.self) { group in
+            for _ in 0..<48 {
+                group.addTask { try await ProcessRunner().run(sleeper) }
+            }
+            return try await group.reduce(into: [ProcessResult]()) { $0.append($1) }
+        }
+        XCTAssertEqual(results.count, 48)
+        XCTAssertTrue(results.allSatisfy(\.timedOut))
+        XCTAssertLessThan(clock.now - start, .seconds(5))
+    }
+
+    func testHelperThatLeavesTheProcessGroupCannotHangTheRun() async throws {
+        // A daemonizing helper (setsid) keeps stdout open after the leader exits.
+        let perl = "/usr/bin/perl"
+        try XCTSkipUnless(FileManager.default.isExecutableFile(atPath: perl), "perl is not available")
+        let program = "use POSIX; if (fork() == 0) { POSIX::setsid(); sleep 30; exit 0 } print \"leader done\\n\";"
+        let clock = ContinuousClock()
+        let start = clock.now
+        let result = try await ProcessRunner().run(request(perl, ["-e", program]))
+        XCTAssertLessThan(clock.now - start, .seconds(3), "the run must not wait for the escaped helper")
+        XCTAssertEqual(result.termination, .exited(code: 0))
+        XCTAssertEqual(String(decoding: result.stdout, as: UTF8.self), "leader done\n")
+        XCTAssertTrue(result.stdoutTruncated, "abandoned output is reported as incomplete")
+    }
+
+    func testChildDoesNotInheritExtraDescriptors() async throws {
+        let probe = try executables.reportingDescriptor()
+        let extra = open("/dev/null", O_RDONLY)  // deliberately without O_CLOEXEC
+        XCTAssertGreaterThanOrEqual(extra, 0)
+        defer { close(extra) }
+        let result = try await ProcessRunner().run(request(probe.path, [String(extra)]))
+        XCTAssertEqual(String(decoding: result.stdout, as: UTF8.self), "clean\n")
+    }
+
+    func testParentDoesNotLeakDescriptors() async throws {
+        let before = openDescriptorCount()
+        for _ in 0..<30 {
+            _ = try await ProcessRunner().run(request("/bin/echo", ["x"]))
+            _ = try? await ProcessRunner().run(request("/bin/echo", directory: URL(fileURLWithPath: "/nonexistent")))
+        }
+        XCTAssertEqual(openDescriptorCount(), before)
+    }
+
+    func testDirectoryIsNotAnExecutable() async {
+        await assertThrows(ProcessRunnerError.executableNotFound(path: "/usr/bin")) {
+            _ = try await ProcessRunner().run(self.request("/usr/bin"))
+        }
+    }
+
     // MARK: - Helpers
+
+    private func assertThrowsCancellation(
+        file: StaticString = #filePath,
+        line: UInt = #line,
+        _ body: () async throws -> Void
+    ) async {
+        do {
+            try await body()
+            XCTFail("expected CancellationError", file: file, line: line)
+        } catch is CancellationError {
+            // expected
+        } catch {
+            XCTFail("unexpected error \(error)", file: file, line: line)
+        }
+    }
 
     private func assertThrows(
         _ expected: ProcessRunnerError,
