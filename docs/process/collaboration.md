@@ -54,12 +54,14 @@ stateDiagram-v2
 | 동시 선점 | 1인당 **2개** | `issue-claim.yml` |
 | 선점 불가 | Epic, `status:blocked`, `status:needs-decision`, `status:triage`, 닫힌 이슈 | `issue-claim.yml` |
 | 남의 이슈 PR | 실패 | `pr-policy` |
-| 담당자 없는 이슈 | 먼저 열린 PR이 이긴다. 뒤에 열린 PR은 실패 | `pr-policy`, `claim-expiry.yml` |
+| 담당자 없는 이슈 | 먼저 열린 PR이 이긴다. 뒤에 열린 PR은 실패하고, `/claim`도 거부된다 | `pr-policy`, `issue-claim.yml`, `claim-expiry.yml` |
+| 인정되는 PR | 열려 있고, `Closes #n`, `<type>/<n>-<slug>` 브랜치, 72시간 안에 갱신 | `claim-expiry.yml`, `pr-policy` |
+| 재선점 제한 | 만료된 같은 이슈는 24시간 동안 다시 선점 불가 | `issue-claim.yml` |
 | 메인테이너 | 기한·선점 검사 면제 | — |
 
 - 시각은 봇 댓글의 UTC 마감 시각을 기준으로 한다. GitHub 스케줄 실행은 지연될 수 있어서 실제 해제는 마감보다 조금 늦을 수 있다.
 - 5시간 안에 끝낼 필요는 없다. **5시간 안에 Draft PR만 열면** 선점이 유지된다. 이후에는 PR이 열려 있는 동안 계속 유지된다.
-- 72시간 넘게 활동이 없는 PR은 메인테이너가 상태를 묻거나 닫을 수 있다. 닫히면 선점이 풀린다.
+- PR이 72시간 넘게 갱신되지 않으면 선점이 풀린다. 다른 사람이 가져갈 수 있다.
 
 ## 4. 개발과 PR
 

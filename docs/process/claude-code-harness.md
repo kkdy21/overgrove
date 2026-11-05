@@ -40,6 +40,7 @@ hook은 **실수를 막는 장치이지 보안 경계가 아니다.** 같은 규
 - 강제 푸시, `main` 대상 푸시, `main`에서의 인자 없는 `git push`
 - `main` 브랜치에서의 `git commit`
 - `gh repo delete/archive/rename`, 공개 범위 변경, `gh secret/variable`, `gh auth token/logout/refresh`, `gh api`를 통한 DELETE와 룰셋 변경
+- 외부 PR 로컬 체크아웃(`gh pr checkout`), `core.hooksPath=/dev/null` 없이 PR ref를 가져오는 `git fetch ... pull/<n>/head` (PR이 넣은 hook 실행 방지)
 - 루트·홈·`.git` 삭제
 
 ### `guard-edit.sh` — 막는 쓰기

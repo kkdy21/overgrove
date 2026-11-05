@@ -43,6 +43,8 @@ Work happens in your **fork**; you do not need any role on this repository.
 | Claim lease | 5 hours to open a PR (draft OK) |
 | Open claims per person | 2 |
 | Unassigned issue | The first open PR wins; later PRs fail the `pr-policy` check |
+| A PR counts only if | it is open, says `Closes #<issue>`, comes from a `<type>/<issue>-<slug>` branch, and was updated in the last 72 hours |
+| Re-claim after expiry | Not for 24 hours on the same issue |
 | Someone else's claimed issue | Your PR fails the `pr-policy` check |
 
 Details and rationale: [docs/process/collaboration.md](docs/process/collaboration.md) (Korean) and

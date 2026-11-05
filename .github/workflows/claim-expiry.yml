@@ -15,6 +15,7 @@ on:
 permissions:
   contents: read
   issues: write
+  pull-requests: read
 
 concurrency:
   group: claim-expiry
@@ -34,5 +35,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           LEASE_HOURS: "5"
+          STALE_HOURS: "72"
+          MAX_CLAIMS: "2"
           DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: scripts/github/claim-expiry.sh $DRY_RUN

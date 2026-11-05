@@ -44,7 +44,11 @@ has 'gh[[:space:]]+auth[[:space:]]+(token|logout|refresh)' && block "Do not read
 has 'gh[[:space:]]+api[^;&|]*(-X|--method)[[:space:]]*DELETE' && block "DELETE calls through gh api are maintainer-only."
 has 'gh[[:space:]]+api[^;&|]*rulesets' && has '(-X|--method)[[:space:]]*(PUT|POST|PATCH)' && block "Ruleset changes go through scripts/github/apply-repo-settings.sh by the maintainer."
 
-# 5) Obvious foot-guns.
+# 5) Never check out untrusted PR code: .githooks is a relative hooksPath, so a PR's own hooks would run here.
+has 'gh[[:space:]]+pr[[:space:]]+checkout' && block "Do not check out PRs locally (their .githooks/.claude hooks would run). Use: git -c core.hooksPath=/dev/null fetch origin pull/<n>/head:refs/remotes/pr/<n> and read with git diff/git show."
+has 'git[^;&|]*fetch[^;&|]*pull/[0-9]+/head' && ! has 'core\.hooksPath=/dev/null' && block "Fetch PR refs with: git -c core.hooksPath=/dev/null fetch origin pull/<n>/head:refs/remotes/pr/<n>"
+
+# 6) Obvious foot-guns.
 has 'rm[[:space:]]+-[a-zA-Z]*r[a-zA-Z]*f?[[:space:]]+(/|~|\$HOME)([[:space:]]|$)' && block "Refusing to delete a root or home directory."
 has 'rm[[:space:]]+-[a-zA-Z]*r[^;&|]*[[:space:]]\.git([[:space:]/]|$)' && block "Refusing to delete .git."
 

@@ -21,10 +21,16 @@ gh pr view <n> --repo kkdy21/overgrove --json title,body,author,headRefName,file
 gh pr checks <n> --repo kkdy21/overgrove
 gh pr diff <n> --repo kkdy21/overgrove
 ```
-필요하면 워크트리에서 직접 확인한다.
-```sh
-git worktree add ../overgrove-review-<n> && cd ../overgrove-review-<n> && gh pr checkout <n>
-```
+**외부 PR을 로컬에 체크아웃하지 않는다.**
+- 이 저장소는 `core.hooksPath=.githooks`(상대 경로)를 쓴다. 그래서 PR 브랜치를 체크아웃하면 **PR이 넣은 `.githooks/*`가 메인테이너 PC에서 실행된다**(실측 재현). 메인테이너 PC에는 admin gh 토큰이 있다.
+- 같은 이유로 PR 트리에서 Claude Code를 열지 않는다. PR의 `.claude/` hooks가 로드되기 때문이다. PR의 스크립트·테스트도 실행하지 않는다. 테스트는 CI(`build-test`)가 맡는다.
+- 파일 내용은 체크아웃 없이 읽는다.
+  ```sh
+  git -c core.hooksPath=/dev/null fetch origin "pull/<n>/head:refs/remotes/pr/<n>"
+  git diff origin/main...pr/<n> -- <path>      # 변경 확인
+  git show pr/<n>:<path>                        # 파일 전체 보기
+  ```
+- `gh pr checkout`은 하네스 hook(`guard-bash.sh`)이 막는다.
 
 | 점검 | 기준 |
 |---|---|
@@ -60,5 +66,5 @@ git worktree add ../overgrove-review-<n> && cd ../overgrove-review-<n> && gh pr 
 - 머지 뒤 이슈가 자동으로 닫혔는지, 보드가 Done인지 확인한다.
 
 ## 5. 정리
-- 리뷰용 워크트리를 지운다: `git worktree remove ../overgrove-review-<n>`
+- 가져온 PR ref를 지운다: `git update-ref -d refs/remotes/pr/<n>`
 - 결과를 표로 보고한다: PR별 판정, 남긴 코멘트 수, 머지 여부, 후속 이슈

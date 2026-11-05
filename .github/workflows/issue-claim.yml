@@ -13,9 +13,13 @@ on:
 permissions:
   contents: read
   issues: write
+  pull-requests: read
 
+# Serialize per commenter so the open-claims cap cannot be raced with a burst of /claim comments.
+# Two different users claiming the same issue at the same moment is resolved after assignment (earliest wins).
+# GitHub keeps only one pending run per group, so in a burst from one user a middle command may get no reply.
 concurrency:
-  group: issue-claim-${{ github.event.issue.number }}
+  group: issue-claim-${{ github.event.comment.user.login }}
   cancel-in-progress: false
 
 jobs:
@@ -35,12 +39,16 @@ jobs:
           BODY: ${{ github.event.comment.body }}
           LEASE_HOURS: "5"
           MAX_CLAIMS: "2"
+          COOLDOWN_HOURS: "24"
         run: |
           set -euo pipefail
-          cmd=$(printf '%s\n' "$BODY" | head -n 1 | tr -d '\r' | awk '{print $1}')
+          first_line=${BODY%%$'\n'*}
+          first_line=${first_line%$'\r'}
+          cmd=${first_line%% *}
           case "$cmd" in /claim|/unclaim) ;; *) exit 0 ;; esac
 
           say() { gh issue comment "$ISSUE" --repo "$REPO" --body "$1" >/dev/null; }
+          assignees_of() { gh api "repos/$REPO/issues/$ISSUE" --jq '[.assignees[].login] | join(" ")'; }
           info=$(gh api "repos/$REPO/issues/$ISSUE")
           state=$(jq -r .state <<<"$info")
           assignees=$(jq -r '[.assignees[].login] | join(" ")' <<<"$info")
@@ -50,7 +58,7 @@ jobs:
 
           if [[ "$cmd" == "/unclaim" ]]; then
             if is_assignee "$ACTOR"; then
-              gh issue edit "$ISSUE" --repo "$REPO" --remove-assignee "$ACTOR" >/dev/null
+              gh api -X DELETE "repos/$REPO/issues/$ISSUE/assignees" -f "assignees[]=$ACTOR" >/dev/null
               say "👋 @$ACTOR released this issue. Anyone can \`/claim\` it now. (선점 해제)"
             else
               say "@$ACTOR you have not claimed this issue, so there is nothing to release."
@@ -58,7 +66,7 @@ jobs:
             exit 0
           fi
 
-          # /claim
+          # ---- /claim ----
           if [[ "$state" != "open" ]]; then say "@$ACTOR this issue is closed and cannot be claimed."; exit 0; fi
           for l in type:epic status:blocked status:needs-decision status:triage; do
             if has_label "$l"; then
@@ -70,18 +78,67 @@ jobs:
             if is_assignee "$ACTOR"; then say "@$ACTOR this issue is already yours."; else say "@$ACTOR this issue is already claimed by @${assignees// /, @}. It is released automatically if no PR is opened within ${LEASE_HOURS} hours of claiming."; fi
             exit 0
           fi
+
+          # Someone else already has an open PR for this issue (branch <type>/<issue>-<slug>): first PR wins.
+          other_pr=$(gh api graphql -F owner="${REPO%%/*}" -F name="${REPO##*/}" -F n="$ISSUE" -f query='
+            query($owner: String!, $name: String!, $n: Int!) {
+              repository(owner: $owner, name: $name) {
+                issue(number: $n) {
+                  closedByPullRequestsReferences(first: 20, includeClosedPrs: false) { nodes { number headRefName author { login } } }
+                }
+              }
+            }' | jq -r --arg me "$ACTOR" --arg n "$ISSUE" '
+              [.data.repository.issue.closedByPullRequestsReferences.nodes[]
+               | select(.author.login != $me and (.headRefName | test("^[a-z]+/" + $n + "-")))]
+              | .[0] | if . then "#\(.number) by @\(.author.login)" else "" end')
+          if [[ -n "$other_pr" ]]; then
+            say "@$ACTOR this issue already has an open pull request ($other_pr). First PR wins — please pick another issue."
+            exit 0
+          fi
+
           if [[ "$ACTOR" != "$OWNER" ]]; then
-            open_claims=$(gh api -X GET search/issues -f q="repo:$REPO is:issue is:open assignee:$ACTOR" --jq .total_count)
+            # Open claims, counted from the issue list API (not the search index, which lags).
+            open_claims=$(gh api --paginate "repos/$REPO/issues?state=open&assignee=$ACTOR&per_page=100" --jq '.[] | select(.pull_request | not) | .number' | wc -l | tr -d ' ')
             if (( open_claims >= MAX_CLAIMS )); then
               say "@$ACTOR you already have $open_claims open claimed issues (limit $MAX_CLAIMS). Finish or \`/unclaim\` one first. (동시 선점 한도 초과)"
               exit 0
             fi
+            # Cooldown: a claim on this issue by the same user expired recently.
+            marker="<!-- claim-expired:$ACTOR -->"
+            recent=$(gh api --paginate "repos/$REPO/issues/$ISSUE/comments?per_page=100" | jq -s --arg m "$marker" --argjson h "$COOLDOWN_HOURS" '
+              [.[][] | select((.body | contains($m)) and ((now - (.created_at | fromdateiso8601)) < ($h * 3600)))] | length')
+            if (( recent > 0 )); then
+              say "@$ACTOR your previous claim on this issue expired less than ${COOLDOWN_HOURS} hours ago. Please let someone else try first. (만료 후 ${COOLDOWN_HOURS}시간 재선점 제한)"
+              exit 0
+            fi
+            # GitHub only lets some users be assigned (e.g. people who commented on the issue).
+            if ! gh api "repos/$REPO/issues/$ISSUE/assignees/$ACTOR" >/dev/null 2>&1; then
+              say "@$ACTOR GitHub does not allow assigning you to this issue yet. A maintainer will take a look."
+              exit 1
+            fi
           fi
 
-          gh issue edit "$ISSUE" --repo "$REPO" --add-assignee "$ACTOR" >/dev/null || true
-          if ! gh api "repos/$REPO/issues/$ISSUE" --jq '[.assignees[].login] | join(" ")' | tr ' ' '\n' | grep -qx "$ACTOR"; then
-            say "@$ACTOR GitHub did not allow assigning you to this issue. A maintainer will look at it."
+          gh api -X POST "repos/$REPO/issues/$ISSUE/assignees" -f "assignees[]=$ACTOR" >/dev/null
+          now_assignees=$(assignees_of)
+          if [[ " $now_assignees " != *" $ACTOR "* ]]; then
+            say "@$ACTOR GitHub did not assign you to this issue. A maintainer will take a look."
             exit 1
           fi
+          # Race with another user's /claim on the same issue: the earliest assignment wins.
+          if [[ "$now_assignees" != "$ACTOR" ]]; then
+            winner=$(gh api graphql -F owner="${REPO%%/*}" -F name="${REPO##*/}" -F n="$ISSUE" -f query='
+              query($owner: String!, $name: String!, $n: Int!) {
+                repository(owner: $owner, name: $name) {
+                  issue(number: $n) { timelineItems(itemTypes: [ASSIGNED_EVENT], last: 20) { nodes { ... on AssignedEvent { createdAt assignee { ... on User { login } } } } } }
+                }
+              }' | jq -r --arg as " $now_assignees " '
+                [.data.repository.issue.timelineItems.nodes[] | select(.assignee.login as $l | $as | contains(" " + $l + " "))]
+                | sort_by(.createdAt) | .[0].assignee.login')
+            if [[ "$winner" != "$ACTOR" ]]; then
+              gh api -X DELETE "repos/$REPO/issues/$ISSUE/assignees" -f "assignees[]=$ACTOR" >/dev/null
+              say "@$ACTOR @$winner claimed this issue a moment earlier, so your claim was undone. Please pick another issue."
+              exit 0
+            fi
+          fi
           deadline=$(date -u -d "+${LEASE_HOURS} hours" '+%Y-%m-%d %H:%M UTC')
-          say "✅ Claimed by @$ACTOR. Open a pull request (a draft is fine) whose body contains \`Closes #$ISSUE\` **before $deadline** (${LEASE_HOURS}h), or the claim is released automatically. Use \`/unclaim\` if you stop. See [collaboration rules](https://github.com/$REPO/blob/main/docs/process/collaboration.md). (선점 완료: ${LEASE_HOURS}시간 안에 PR을 여세요)"
+          say "✅ Claimed by @$ACTOR. Open a pull request (a draft is fine) from a branch named \`<type>/$ISSUE-<slug>\` whose body contains \`Closes #$ISSUE\` **before $deadline** (${LEASE_HOURS}h), or the claim is released automatically. Use \`/unclaim\` if you stop. See [collaboration rules](https://github.com/$REPO/blob/main/docs/process/collaboration.md). (선점 완료: ${LEASE_HOURS}시간 안에 PR을 여세요)"
