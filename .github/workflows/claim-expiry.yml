@@ -1,0 +1,38 @@
+# Releases expired issue claims and applies "first PR wins" (ADR-0013). Logic: scripts/github/claim-expiry.sh
+# Runs on the default branch only (schedule), checks out trusted base-repository code, never PR code.
+name: claim-expiry
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only print what would change"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: claim-expiry
+  cancel-in-progress: false
+
+jobs:
+  expire:
+    name: expire
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Enforce claim lease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          LEASE_HOURS: "5"
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: scripts/github/claim-expiry.sh $DRY_RUN

@@ -1,0 +1,87 @@
+# `/claim` and `/unclaim` issue comment commands (ADR-0013, docs/process/collaboration.md).
+#
+# Security notes (T17):
+#   - Runs on `issue_comment` in the base repository with an `issues: write` token.
+#   - It never checks out or executes repository or PR code.
+#   - The comment body is untrusted: it is passed through env and only its first word is compared to fixed strings.
+name: issue-claim
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-claim-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  claim:
+    name: claim
+    if: ${{ !github.event.issue.pull_request && github.event.comment.user.type != 'Bot' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Handle /claim or /unclaim
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          OWNER: ${{ github.repository_owner }}
+          ISSUE: ${{ github.event.issue.number }}
+          ACTOR: ${{ github.event.comment.user.login }}
+          BODY: ${{ github.event.comment.body }}
+          LEASE_HOURS: "5"
+          MAX_CLAIMS: "2"
+        run: |
+          set -euo pipefail
+          cmd=$(printf '%s\n' "$BODY" | head -n 1 | tr -d '\r' | awk '{print $1}')
+          case "$cmd" in /claim|/unclaim) ;; *) exit 0 ;; esac
+
+          say() { gh issue comment "$ISSUE" --repo "$REPO" --body "$1" >/dev/null; }
+          info=$(gh api "repos/$REPO/issues/$ISSUE")
+          state=$(jq -r .state <<<"$info")
+          assignees=$(jq -r '[.assignees[].login] | join(" ")' <<<"$info")
+          labels=$(jq -r '[.labels[].name] | join(" ")' <<<"$info")
+          has_label() { [[ " $labels " == *" $1 "* ]]; }
+          is_assignee() { [[ " $assignees " == *" $1 "* ]]; }
+
+          if [[ "$cmd" == "/unclaim" ]]; then
+            if is_assignee "$ACTOR"; then
+              gh issue edit "$ISSUE" --repo "$REPO" --remove-assignee "$ACTOR" >/dev/null
+              say "👋 @$ACTOR released this issue. Anyone can \`/claim\` it now. (선점 해제)"
+            else
+              say "@$ACTOR you have not claimed this issue, so there is nothing to release."
+            fi
+            exit 0
+          fi
+
+          # /claim
+          if [[ "$state" != "open" ]]; then say "@$ACTOR this issue is closed and cannot be claimed."; exit 0; fi
+          for l in type:epic status:blocked status:needs-decision status:triage; do
+            if has_label "$l"; then
+              say "@$ACTOR this issue has \`$l\` and cannot be claimed. Epics are worked through their sub-issues; blocked, undecided, or untriaged issues are not ready yet. (선점할 수 없는 상태입니다)"
+              exit 0
+            fi
+          done
+          if [[ -n "$assignees" ]]; then
+            if is_assignee "$ACTOR"; then say "@$ACTOR this issue is already yours."; else say "@$ACTOR this issue is already claimed by @${assignees// /, @}. It is released automatically if no PR is opened within ${LEASE_HOURS} hours of claiming."; fi
+            exit 0
+          fi
+          if [[ "$ACTOR" != "$OWNER" ]]; then
+            open_claims=$(gh api -X GET search/issues -f q="repo:$REPO is:issue is:open assignee:$ACTOR" --jq .total_count)
+            if (( open_claims >= MAX_CLAIMS )); then
+              say "@$ACTOR you already have $open_claims open claimed issues (limit $MAX_CLAIMS). Finish or \`/unclaim\` one first. (동시 선점 한도 초과)"
+              exit 0
+            fi
+          fi
+
+          gh issue edit "$ISSUE" --repo "$REPO" --add-assignee "$ACTOR" >/dev/null || true
+          if ! gh api "repos/$REPO/issues/$ISSUE" --jq '[.assignees[].login] | join(" ")' | tr ' ' '\n' | grep -qx "$ACTOR"; then
+            say "@$ACTOR GitHub did not allow assigning you to this issue. A maintainer will look at it."
+            exit 1
+          fi
+          deadline=$(date -u -d "+${LEASE_HOURS} hours" '+%Y-%m-%d %H:%M UTC')
+          say "✅ Claimed by @$ACTOR. Open a pull request (a draft is fine) whose body contains \`Closes #$ISSUE\` **before $deadline** (${LEASE_HOURS}h), or the claim is released automatically. Use \`/unclaim\` if you stop. See [collaboration rules](https://github.com/$REPO/blob/main/docs/process/collaboration.md). (선점 완료: ${LEASE_HOURS}시간 안에 PR을 여세요)"

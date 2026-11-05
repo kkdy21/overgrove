@@ -1,5 +1,6 @@
 # Required check: `pr-policy`
-# Enforces docs/process/pull-requests.md: Conventional title, `Closes #n` to an open issue, branch naming.
+# Enforces docs/process/pull-requests.md: Conventional title, `Closes #n` to an open issue, branch naming,
+# and the claim policy of ADR-0013 (claimed issues belong to their assignee; otherwise the first open PR wins).
 # Untrusted PR fields are passed through env vars only (never interpolated into the script) to prevent injection.
 name: pr-policy
 
@@ -26,10 +27,45 @@ jobs:
           BODY: ${{ github.event.pull_request.body }}
           BRANCH: ${{ github.event.pull_request.head.ref }}
           AUTHOR: ${{ github.event.pull_request.user.login }}
+          OWNER: ${{ github.repository_owner }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_CREATED: ${{ github.event.pull_request.created_at }}
         run: |
           set -euo pipefail
           fail=0
           err() { echo "::error title=$1::$2"; fail=1; }
+
+          # Claim policy (ADR-0013). The maintainer is exempt.
+          claim_check() {
+            local n="$1" data assignees earlier
+            [ "$AUTHOR" = "$OWNER" ] && return 0
+            data=$(gh api graphql -F owner="${REPO%%/*}" -F name="${REPO##*/}" -F n="$n" -f query='
+              query($owner: String!, $name: String!, $n: Int!) {
+                repository(owner: $owner, name: $name) {
+                  issue(number: $n) {
+                    assignees(first: 5) { nodes { login } }
+                    closedByPullRequestsReferences(first: 20, includeClosedPrs: false) { nodes { number createdAt author { login } } }
+                  }
+                }
+              }')
+            assignees=$(jq -r '[.data.repository.issue.assignees.nodes[].login] | join(" ")' <<<"$data")
+            if [ -n "$assignees" ]; then
+              if [[ " $assignees " != *" $AUTHOR "* ]]; then
+                err "Issue claimed" "#$n is claimed by @${assignees// /, @}. Pick an unclaimed issue and comment /claim, or wait until the claim expires (no PR within 5 hours)."
+              else
+                echo "#$n is claimed by the PR author."
+              fi
+            else
+              earlier=$(jq -r --argjson me "$PR_NUMBER" --arg t "$PR_CREATED" '
+                [.data.repository.issue.closedByPullRequestsReferences.nodes[] | select(.number != $me and .createdAt < $t)]
+                | sort_by(.createdAt) | .[0] | if . then "#\(.number) by @\(.author.login)" else "" end' <<<"$data")
+              if [ -n "$earlier" ]; then
+                err "First PR wins" "#$n is unclaimed but already has an earlier open PR ($earlier). Coordinate in that PR or pick another issue."
+              else
+                echo "#$n is unclaimed and this is the first open PR for it."
+              fi
+            fi
+          }
 
           if [ "$AUTHOR" = "dependabot[bot]" ]; then
             echo "Dependabot PR — issue link and branch rules do not apply."
@@ -59,7 +95,7 @@ jobs:
             for n in $issues; do
               info=$(gh api "repos/$REPO/issues/$n" --jq '[.state, (has("pull_request")|tostring)] | join(" ")' 2>/dev/null || echo "missing")
               case "$info" in
-                "open false") echo "Linked issue #$n is open." ;;
+                "open false") echo "Linked issue #$n is open."; claim_check "$n" ;;
                 missing)      err "Linked issue" "#$n does not exist." ;;
                 *" true")     err "Linked issue" "#$n is a pull request, not an issue." ;;
                 *)            err "Linked issue" "#$n is not open ($info)." ;;

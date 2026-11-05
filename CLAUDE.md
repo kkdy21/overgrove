@@ -40,15 +40,31 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 
 ## 4. 이슈 기반 작업 흐름
 
+### 4.0 역할을 먼저 확인한다
+
+`gh api repos/kkdy21/overgrove --jq .permissions.admin`
+- `true`면 **메인테이너**다. `origin`이 이 저장소이고, 머지와 AI 검수(`/pr-review`)를 맡는다.
+- 그 밖에는 **협업자**다. `origin`이 fork, `upstream`이 이 저장소다. 처음이면 `/onboard`부터 시작한다.
+
+협업자 규칙([collaboration.md](docs/process/collaboration.md), ADR-0013):
+- 작업 전에 이슈에 `/claim` 댓글을 단다(봇이 담당자 지정).
+- **5시간 안에 `Closes #n` Draft PR을 연다.** 열지 않으면 선점이 자동으로 풀린다. 그래서 첫 커밋 직후 `/pr-open --draft`를 실행한다.
+- 동시에 최대 2개까지만 선점한다. 그만둘 때는 `/unclaim`.
+- 남이 선점한 이슈는 건드리지 않는다. 담당자 없는 이슈는 먼저 열린 PR이 이긴다(`pr-policy`가 강제).
+- `upstream`에 push하지 않는다. rebase와 강제 푸시도 하지 않는다. 최신화는 `gh pr update-branch` 또는 `git merge upstream/main`으로 한다.
+
+### 4.1 흐름
+
 **이슈 없이 작업을 시작하지 않는다.** 흐름의 상세는 [`docs/process/development-workflow.md`](docs/process/development-workflow.md)에 있다.
 
 | 단계 | 할 일 | 도구 |
 |---|---|---|
 | 1. 이슈 | 기존 이슈를 찾거나, 템플릿 형식으로 초안을 만들어 승인받고 생성한다 | `/issue-new`, `/issue-triage` |
-| 2. 시작 | `<type>/<issue>-<slug>` 브랜치(필요하면 워크트리)를 만들고 보드 상태를 In progress로 바꾼다 | `/issue-start` |
+| 2. 시작 | 선점을 확인하고(협업자는 `/claim`) `<type>/<issue>-<slug>` 브랜치나 워크트리를 만든다 | `/onboard`, `/issue-start` |
 | 3. 구현 | 명세 → 테스트 → 구현 순서. 파서 변경은 테스트와 함께 | — |
 | 4. 커밋 | Conventional Commits, 영어 제목. hook이 `Refs: #n`을 붙인다 | — |
-| 5. PR | 자체 점검 후 PR 본문을 보여주고 승인받아 연다. 본문에 `Closes #n` 필수 | `/pr-open` |
+| 5. PR | 자체 점검 후 PR을 연다(협업자는 fork에서, 선점 유지용 Draft 먼저). 본문에 `Closes #n` 필수 | `/pr-open` |
+| 5a. 검수·머지 | (메인테이너) AI 검수 후 확인을 받아 squash 머지 | `/pr-review` |
 | 6. 리뷰 | 보안 영향이 있으면 `security-reviewer` 에이전트로 먼저 검토한다 | agents |
 | 7. 결정 | 새 결정은 ADR로 남기고 이슈에 링크한다 | `/adr-new` |
 | 8. Phase 종료 | 빌드, 테스트, 보안 체크리스트 결과를 보고하고 승인받는다 | `/phase-gate` |
@@ -83,7 +99,7 @@ xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'pla
 
 상세는 [`docs/process/claude-code-harness.md`](docs/process/claude-code-harness.md)에 있다.
 
-- **Skills** (`.claude/skills/`): `issue-new`, `issue-triage`, `issue-start`, `pr-open`, `adr-new`, `phase-gate`, `discussion-to-issue`
+- **Skills** (`.claude/skills/`): `onboard`, `issue-new`, `issue-triage`, `issue-start`, `pr-open`, `pr-review`, `adr-new`, `phase-gate`, `discussion-to-issue`
 - **Agents** (`.claude/agents/`):
   - `security-reviewer`: 위협 모델 T1–T18 기준 검토
   - `scope-guard`: 범위·비목표·ADR 위반 검토

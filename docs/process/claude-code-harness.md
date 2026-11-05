@@ -16,7 +16,7 @@ CLAUDE.md                     # 프로젝트 지침 (매 세션 자동 로드)
 │   ├── guard-edit.sh         # PreToolUse(Edit|MultiEdit|Write): 코드·문서 쓰기 검사
 │   └── session-context.sh    # SessionStart: 브랜치·이슈 컨텍스트 주입
 ├── skills/                   # /이름 으로 호출하는 작업 절차
-│   ├── issue-new/  issue-triage/  issue-start/  pr-open/
+│   ├── onboard/  issue-new/  issue-triage/  issue-start/  pr-open/  pr-review/
 │   └── adr-new/  phase-gate/  discussion-to-issue/
 └── agents/                   # 전문 서브에이전트 (읽기 전용)
     ├── security-reviewer.md  scope-guard.md  parser-test-designer.md
@@ -69,10 +69,12 @@ printf '{"tool_input":{"command":"git push --force"},"cwd":"%s"}' "$PWD" | .clau
 
 | skill | 언제 | 핵심 |
 |---|---|---|
+| `/onboard` | 협업자 첫 참여 | 셋업 점검(fork·remote·hooks) → 선점 가능 이슈 제시 → `/claim` → `/issue-start` |
 | `/issue-new` | 새 이슈, 범위 밖 아이디어 기록 | 중복 확인 → 템플릿 형식 초안 → **승인** → 생성, sub-issue·보드 연결 |
 | `/issue-triage` | `status:triage` 정리 | 라벨·마일스톤·완료 조건 제안 → 승인 → 반영 |
 | `/issue-start` | 이슈 작업 시작 | 이슈 상태 확인 → 브랜치/워크트리 → 담당자·보드 갱신 → 테스트 우선 계획 |
-| `/pr-open` | PR 열기 | 자체 점검 → 보안·범위 리뷰 에이전트 → 템플릿 본문 → **승인** → push·PR → 검사 확인 |
+| `/pr-open` | PR 열기 | 자체 점검 → 보안·범위 리뷰 에이전트 → 템플릿 본문 → **승인** → push(협업자는 fork)·PR(Draft 가능) → 검사 확인 |
+| `/pr-review` | (메인테이너) PR 검수 | 선점·검사·범위·보안·테스트 점검 → Conventional Comments 리뷰 → 확인 후 squash 머지 |
 | `/adr-new` | 결정 기록 | 다음 번호, 템플릿, 인덱스·문서·이슈 연결 |
 | `/phase-gate` | Phase 종료 | 산출물·자동 점검·이슈·보안 체크리스트 보고서 → 승인 요청 |
 | `/discussion-to-issue` | 토론 정리 | 결론 요약 → 이슈·ADR 초안 → **승인** → 생성, Discussion에 결론 코멘트 |

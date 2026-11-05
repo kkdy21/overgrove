@@ -145,6 +145,7 @@ flowchart TB
 | Layer | Enforced by | Details |
 |---|---|---|
 | Issue first | `pr-policy` check, templates | [Issues](docs/process/issues.md) |
+| Claim before code (5h to open a draft PR, first PR wins) | `/claim` bot, `claim-expiry` workflow, `pr-policy` check | [Collaboration](docs/process/collaboration.md) |
 | Secrets and personal paths | Git hooks, Claude Code hook, `gitleaks` check, GitHub push protection | [Branching and commits](docs/process/branching-and-commits.md) |
 | Process and shell APIs only in `Overgrove/Execution/` | Git hook, Claude Code hook, `build-test` check | [Security review](docs/design/security-review.md) |
 | Review and merge | `main` ruleset (squash only, required checks, resolved threads) | [Pull requests](docs/process/pull-requests.md) |
@@ -169,8 +170,8 @@ Internal planning and design documents are written in Korean; contributor-facing
 
 ## Contributing
 
-Issues, ideas, and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md). The short version: every
-PR closes an issue, ideas start in [Discussions](https://github.com/kkdy21/overgrove/discussions), and security
+Issues, ideas, and pull requests are welcome, including AI-assisted ones. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
+The short version: comment `/claim` on an issue and open a draft PR within 5 hours, every PR closes an issue, ideas start in [Discussions](https://github.com/kkdy21/overgrove/discussions), and security
 reports go through [private reporting](https://github.com/kkdy21/overgrove/security/advisories/new).
 
 ## Acknowledgements

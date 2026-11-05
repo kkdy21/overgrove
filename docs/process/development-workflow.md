@@ -30,7 +30,7 @@ flowchart LR
 | 토론 | 확정되지 않은 아이디어, 설계 질문은 Discussions에서 시작한다 | Discussion | — |
 | 이슈 | 템플릿을 쓴다. 제목은 영어 Conventional 형식, 본문은 한국어 가능. 완료 조건은 검증 가능한 체크리스트로 쓴다 | Issue | Backlog |
 | 준비 | 완료 조건이 명확하고 의존 이슈가 닫혔으면 Ready로 옮긴다 | — | Ready |
-| 시작 | 담당자를 지정하고 브랜치(또는 워크트리)를 만든다 | `feat/12-worktree-list` | In progress |
+| 시작 | 담당자를 지정하고(협업자는 `/claim`) 브랜치나 워크트리를 만든다. 협업자는 5시간 안에 Draft PR을 연다 | `feat/12-worktree-list` | In progress |
 | 구현 | 명세 → 테스트 → 구현 순서. 명세가 바뀌면 같은 PR에서 문서도 고친다 | 커밋 | In progress |
 | PR | `Closes #n`, 템플릿 체크리스트, 보안 영향 섹션을 채운다 | Pull request | In review |
 | 리뷰 | 필수 검사 통과, 리뷰 스레드 전부 해결 | 리뷰 코멘트 | In review |
@@ -49,7 +49,7 @@ flowchart LR
 |---|---|---|
 | 메인테이너 | @kkdy21 | 이슈 승인, 범위·결정 승인, Phase 승인, 머지 결정 |
 | 구현 에이전트 | Claude Code (프로젝트 하네스) | 이슈 초안, 구현, 테스트, PR 초안. 공개 글쓰기 전에 승인을 요청한다 |
-| 외부 기여자 | 누구나 | 이슈·Discussion 참여, `good first issue` 구현, 리뷰 코멘트 |
+| 협업자 | 누구나 (fork) | `/claim`으로 이슈 선점(5시간 안에 Draft PR), fork에서 구현, PR 제출, 리뷰 대응. 규칙: [collaboration.md](collaboration.md) |
 
 Claude Code 하네스 사용법은 [claude-code-harness.md](claude-code-harness.md)에 있다.
 

@@ -26,3 +26,4 @@
 | [0010](0010-commit-graph-layout-in-app.md) | 커밋 그래프 레인을 앱에서 계산 | Proposed |
 | [0011](0011-no-pull-in-v0-1.md) | v0.1에서 Pull 제외 | Accepted |
 | [0012](0012-solo-maintainer-merge-policy.md) | 1인 메인테이너 머지 정책 | Accepted |
+| [0013](0013-external-contributions-and-issue-claiming.md) | 외부 기여 모델과 이슈 선점 정책 | Accepted |

@@ -43,7 +43,7 @@ gh api -X PUT "repos/$REPO/actions/permissions/selected-actions" --input - >/dev
 JSON
 echo "  ok: only GitHub-owned actions allowed"
 try gh api -X PUT "repos/$REPO/actions/permissions" -F enabled=true -f allowed_actions=selected -F sha_pinning_required=true
-try gh api -X PUT "repos/$REPO/actions/permissions/fork-pr-contributor-approval" -f approval_policy=all_external_contributors
+try gh api -X PUT "repos/$REPO/actions/permissions/fork-pr-contributor-approval" -f approval_policy=first_time_contributors
 
 step "Milestones"
 existing=$(gh api "repos/$REPO/milestones?state=all&per_page=100" --jq '.[].title')
