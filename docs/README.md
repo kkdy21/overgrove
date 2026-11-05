@@ -130,8 +130,8 @@ OvergroveTests/
 | 0006 | 외부 의존성 0개 | Accepted |
 | 0007 | 포맷·린트는 툴체인 내장 swift-format | Accepted |
 | 0008 | git 호출 모델 (Process, 인자 배열, 환경 allowlist, 타임아웃, 출력 상한) | Accepted |
-| 0009 | 저장소 설정 무력화 (RepoConfigInspector) | Proposed |
-| 0010 | 커밋 그래프 레인을 앱에서 계산 | Proposed |
+| 0009 | 저장소 설정 무력화 (RepoConfigInspector) | Accepted |
+| 0010 | 커밋 그래프 레인을 앱에서 계산 | Accepted |
 | 0011 | v0.1에서 Pull 제외 | Accepted |
 | 0012 | 1인 메인테이너 머지 정책 | Accepted |
 | 0013 | 외부 기여 모델과 이슈 선점 정책 (fork PR, 5시간 기한, PR 선착순) | Accepted |

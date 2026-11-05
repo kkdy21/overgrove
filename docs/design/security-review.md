@@ -1,6 +1,6 @@
 # 보안 검토 (위협 모델)
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: ADR-0004, ADR-0006, ADR-0008, ADR-0009, [../architecture/git-command-catalog.md](../architecture/git-command-catalog.md), [../architecture/overview.md](../architecture/overview.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: ADR-0004, ADR-0006, ADR-0008, ADR-0009, [../architecture/git-command-catalog.md](../architecture/git-command-catalog.md), [../architecture/overview.md](../architecture/overview.md)
 
 Overgrove는 **사용자가 고른 로컬 저장소에 대해 시스템 `git`을 실행하는 앱**이다. 저장소는 신뢰할 수 없다고 가정한다. 예를 들어 처음 클론한 오픈소스, 받은 압축 파일, AI 에이전트가 만든 워크트리일 수 있다. 이 문서는 위협 T1–T18 각각에 대해 시나리오, 대응, 잔여 위험, 검증 테스트를 정의한다.
 

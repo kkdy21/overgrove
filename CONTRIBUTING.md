@@ -84,7 +84,7 @@ Refs #12
 
 ### 5. Review and merge
 
-- Only the maintainer merges. Reviews may be AI-assisted (the `/pr-review` workflow), followed by the maintainer's decision.
+- Only the maintainer merges, and every contributor PR is reviewed first: it needs an approving review from the maintainer's account. Reviews may be AI-assisted (the `/pr-review` workflow), but the maintainer makes the call.
 - **No rebasing or force-pushing needed.** If `main` moves ahead, use the "Update branch" button or `gh pr update-branch <n>` (or merge `upstream/main`). Squash merge keeps `main` linear anyway.
 - Keep "Allow edits by maintainers" enabled so the maintainer can update your branch.
 - Your **first** PR needs a maintainer to approve the workflow run before checks start; later PRs run automatically.

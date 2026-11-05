@@ -4,9 +4,9 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 
 ## 0. 지금 상태
 
-- Phase 1(기획)과 Phase 2(설계) 문서가 작성되어 **메인테이너 승인을 기다리는 중**이다. 앱 코드와 Xcode 프로젝트는 아직 없다.
-- 진행 상황은 [`docs/roadmap.md`](docs/roadmap.md)와 GitHub 마일스톤·Projects 보드가 기준이다.
-- Phase 3(개발)은 메인테이너가 Phase 2를 승인한 뒤에 시작한다. 승인 전에는 Swift 코드를 쓰지 않는다.
+- Phase 1(기획)과 Phase 2(설계) 게이트를 통과했다(2026-11-05, [phase-gates.md §4](docs/process/phase-gates.md)). **Phase 3(개발)이 진행 중이고 협업자가 참여할 수 있다.**
+- 앱 코드와 Xcode 프로젝트는 아직 없다. 첫 작업은 Project skeleton Epic(#3)의 Xcode 프로젝트 생성이다. 보안 기반과 파서 테스트를 화면 기능보다 먼저 한다([roadmap.md](docs/roadmap.md)의 순서).
+- 진행 상황은 GitHub 이슈, [보드](https://github.com/users/kkdy21/projects/4), 마일스톤이 기준이다. 선점 가능한 이슈는 보드의 "Ready to claim" 뷰에 있다.
 
 ## 1. 작업 전에 읽을 것
 

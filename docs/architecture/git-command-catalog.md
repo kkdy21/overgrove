@@ -1,6 +1,6 @@
 # git·gh 명령 카탈로그
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: ADR-0004, ADR-0008, ADR-0009, ADR-0010, ADR-0011, [overview.md](overview.md), [parsing-spec.md](parsing-spec.md), [../design/security-review.md](../design/security-review.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: ADR-0004, ADR-0008, ADR-0009, ADR-0010, ADR-0011, [overview.md](overview.md), [parsing-spec.md](parsing-spec.md), [../design/security-review.md](../design/security-review.md)
 
 이 문서는 앱이 실행할 수 있는 **모든 외부 명령의 allowlist**다. 여기에 없는 명령은 코드에 타입으로 존재하지 않는다. 새 명령이 필요하면 이 문서를 먼저 고치고, PR에 `area:security` 라벨을 붙인다.
 

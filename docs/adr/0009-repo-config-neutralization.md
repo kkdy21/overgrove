@@ -1,6 +1,6 @@
 # ADR-0009: 저장소 설정을 검사해 위험한 키를 무력화한다 (RepoConfigInspector)
 
-> 상태: Proposed (Phase 2 승인 대기) · 날짜: 2026-11-05 · 관련: T4–T8, T11, T14, [design/security-review.md](../design/security-review.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 날짜: 2026-11-05 · 관련: T4–T8, T11, T14, [design/security-review.md](../design/security-review.md)
 
 ## 맥락
 

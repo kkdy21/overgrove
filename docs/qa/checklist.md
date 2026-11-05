@@ -1,6 +1,6 @@
 # 수동 QA 체크리스트
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [process.md](process.md), [fixtures.md](../testing/fixtures.md), [screens.md](../design/screens.md), [interaction.md](../design/interaction.md), [security-review.md](../design/security-review.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [process.md](process.md), [fixtures.md](../testing/fixtures.md), [screens.md](../design/screens.md), [interaction.md](../design/interaction.md), [security-review.md](../design/security-review.md)
 
 Phase 4 QA 이슈 본문에 이 목록을 복사해서 쓴다. 항목마다 결과(✅ 통과 / ❌ 실패 → 버그 # / ➖ 해당 없음 + 사유)와 증거를 남긴다 ([process.md §3.1](process.md)).
 

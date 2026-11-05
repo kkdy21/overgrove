@@ -1,6 +1,6 @@
 # QA 프로세스
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [checklist.md](checklist.md), [bug-triage.md](bug-triage.md), [release-checklist.md](release-checklist.md), [test-strategy.md](../testing/test-strategy.md), [phase-gates.md](../process/phase-gates.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [checklist.md](checklist.md), [bug-triage.md](bug-triage.md), [release-checklist.md](release-checklist.md), [test-strategy.md](../testing/test-strategy.md), [phase-gates.md](../process/phase-gates.md)
 
 Phase 4(검증)의 흐름과 버그 처리 방식을 정한다. Overgrove는 메인테이너 1명과 Claude Code가 개발한다. 그래서 QA는 "다른 사람이 확인한다" 대신 **증거를 남기고 메인테이너가 승인한다**는 방식으로 운영한다.
 
@@ -45,7 +45,7 @@ flowchart LR
 
 - 자동 테스트가 전부 통과한다. 건너뛴 테스트가 있으면 각각 이슈 번호가 있어야 하고, 보안 테스트는 하나도 건너뛰지 않았어야 한다.
 - 수동 QA 체크리스트의 모든 항목이 "통과" 또는 "해당 없음(사유 기재)"이다.
-- 성능 예산 PB-1–PB-6을 모두 지킨다 ([performance-budget.md](../performance/performance-budget.md)).
+- 성능 예산 PB-1–PB-8을 모두 지킨다 ([performance-budget.md](../performance/performance-budget.md)).
 - 열린 버그 가운데 S1, S2가 없다. S3 이하는 `v0.2.0`이나 `later`로 옮기고 릴리스 노트의 "알려진 문제"에 적는다.
 - [release-checklist.md](release-checklist.md)로 넘어갈 준비가 됐다고 메인테이너가 승인한다.
 

@@ -1,6 +1,6 @@
 # 벤치마크 계획
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [performance-budget.md](performance-budget.md), [test-strategy.md](../testing/test-strategy.md), ADR-0008, ADR-0010
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [performance-budget.md](performance-budget.md), [test-strategy.md](../testing/test-strategy.md), ADR-0008, ADR-0010
 
 [성능 예산](performance-budget.md)을 어떻게 재고, 회귀를 어떻게 잡는지 정한다. 앱이 없는 지금도 쓸 수 있는 git 계층 측정 도구와, Phase 3 이후의 앱 측정 방법을 함께 다룬다.
 

@@ -1,6 +1,6 @@
 # 버그 트리아지
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [process.md](process.md), [issues.md](../process/issues.md), [SECURITY.md](../../SECURITY.md), [security-review.md](../design/security-review.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [process.md](process.md), [issues.md](../process/issues.md), [SECURITY.md](../../SECURITY.md), [security-review.md](../design/security-review.md)
 
 새 버그 이슈를 분류하는 기준이다. 목표는 두 가지다. **심각도(S)는 사용자가 받는 영향**을, **priority 라벨은 처리 순서**를 나타낸다. 둘은 보통 같이 움직이지만 다를 수도 있다. 예를 들어 영향은 작지만 릴리스를 막는 회귀는 S3라도 p1이 될 수 있다.
 

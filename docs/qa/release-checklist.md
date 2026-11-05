@@ -1,6 +1,6 @@
 # 릴리스 체크리스트 (v0.1.0)
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [release.md](../process/release.md), [process.md](process.md), [scope-mvp.md](../scope-mvp.md), [security-review.md](../design/security-review.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [release.md](../process/release.md), [process.md](process.md), [scope-mvp.md](../scope-mvp.md), [security-review.md](../design/security-review.md)
 
 릴리스 이슈 `chore(release): v0.1.0`의 완료 조건으로 이 목록을 복사한다. 절차(브랜치, 태그, GitHub Release 생성)는 [release.md](../process/release.md)를 따른다. 이 문서는 "태그를 찍기 전에 무엇을 확인하는가"만 다룬다.
 
@@ -35,7 +35,7 @@
 
 - [ ] `main`의 최신 커밋에서 필수 검사 3개(`gitleaks`, `pr-policy`, `build-test`)가 녹색이다.
 - [ ] CodeQL 경고가 0개이거나, 남은 경고마다 사유가 기록되어 있다.
-- [ ] 성능 예산 PB-1–PB-6을 기준 장비에서 측정했고 모두 지킨다. 결과를 `docs/performance/results/`에 남겼다 ([benchmark-plan.md §5](../performance/benchmark-plan.md)).
+- [ ] 성능 예산 PB-1–PB-8을 기준 장비에서 측정했고 모두 지킨다. 결과를 `docs/performance/results/`에 남겼다 ([benchmark-plan.md §5](../performance/benchmark-plan.md)).
 - [ ] `scripts/measure-git-baseline.sh`를 릴리스 시점의 Apple Git으로 다시 돌렸고, 기준선과 크게 다르지 않다 (±20%).
 - [ ] 불안정한 테스트로 건너뛴 항목(`XCTSkip("flaky: …")`)이 모두 이슈로 추적되고 있다.
 - [ ] `swift format lint --strict`의 경고가 0개다.

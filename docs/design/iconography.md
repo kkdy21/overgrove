@@ -1,6 +1,6 @@
 # 아이콘과 심볼 (Iconography)
 
-> 상태: Proposed (Phase 2 승인 대기) · 관련: [`design/icon/`](../../design/icon/), [design-tokens.md](design-tokens.md), [interaction.md §6](interaction.md#6-접근성), [screens.md](screens.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [`design/icon/`](../../design/icon/), [design-tokens.md](design-tokens.md), [interaction.md §6](interaction.md#6-접근성), [screens.md](screens.md)
 
 ---
 
