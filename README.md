@@ -32,6 +32,32 @@ If you develop several features in parallel with `git worktree`, it is hard to a
 
 Overgrove answers those questions on one screen, without mixing in write operations.
 
+## Who is it for
+
+Overgrove is for developers who keep several worktrees going at once, often with an AI coding agent working in each,
+and want one calm window that answers *"what is going on where?"*
+
+It is a good fit if:
+
+- **Your Git GUI slows your Mac down.** Clients that keep file watchers running on every repository can use a lot of
+  CPU and memory once you have many worktrees open. Overgrove v0.1 has no always-on file watcher: it refreshes when the
+  window becomes active, when you press ⌘R, and after a fetch.
+- **A tool you relied on stopped getting updates.** Overgrove is MIT-licensed, has zero third-party dependencies, and
+  builds from source with Xcode alone, so it is easy to keep alive.
+- **Your current client cannot show your worktrees side by side.** Worktrees are the primary object here: each one with
+  its branch, uncommitted changes, and ahead/behind status, plus the repository's stashes, all in one sidebar.
+- **You don't want to pay a subscription for a read-only overview.** Free and open source. No account, no telemetry.
+- **You are tired of hopping between terminal tabs to run `git status`.** One window replaces the round of `cd` and
+  `git status`, and you keep using the CLI for the actual writes.
+- **You run AI agents in parallel worktrees** and need to see what each one changed before you review or merge.
+
+It is probably not for you yet if:
+
+- you want to stage, commit, push, pull, or rebase from a GUI. v0.1 is read-only plus `git fetch`; write operations are
+  on the [`later`](https://github.com/kkdy21/overgrove/milestone/3) list.
+- you need Windows or Linux.
+- you want a signed, notarized download. Overgrove is source-only for now.
+
 ## Planned features (v0.1.0)
 
 - **Worktrees:** every worktree with its branch, HEAD, path, and locked or prunable state
