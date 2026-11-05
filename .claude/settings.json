@@ -45,7 +45,10 @@
       "Bash(gh label delete:*)",
       "Bash(gh project:*)",
       "Bash(gh api:*)",
-      "Bash(scripts/github/:*)"
+      "Bash(scripts/github/:*)",
+      "Bash(gh repo fork:*)",
+      "Bash(gh pr ready:*)",
+      "Bash(gh pr update-branch:*)"
     ],
     "deny": [
       "Bash(git push --force:*)",
@@ -67,7 +70,10 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-context.sh" }
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-context.sh"
+          }
         ]
       }
     ],
@@ -75,13 +81,19 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-bash.sh" }
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-bash.sh"
+          }
         ]
       },
       {
         "matcher": "Edit|MultiEdit|Write",
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-edit.sh" }
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/guard-edit.sh"
+          }
         ]
       }
     ]

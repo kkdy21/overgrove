@@ -44,5 +44,7 @@ HANDOFF §6.4는 `main` 보호 규칙으로 "필수 리뷰 1명 이상(본인 �
 
 ## 후속 작업
 
+- [x] 외부 기여 모델 결정: fork PR + 메인테이너만 머지 → 승인 0 유지 ([ADR-0013](0013-external-contributions-and-issue-claiming.md))
+
 - [ ] 룰셋 적용과 확인 ([process/github-settings.md](../process/github-settings.md))
 - [ ] 공동 메인테이너 합류 시 재검토

@@ -57,7 +57,16 @@
 | Actions의 PR 승인 | 끔 |
 | 허용 Actions | GitHub 소유 Actions만 |
 | SHA 고정 강제 | 켬(지원되는 경우). 워크플로우는 모두 전체 SHA로 고정되어 있다 |
-| 외부 기여자 첫 실행 | 승인 필요 |
+| 외부 기여자 워크플로우 실행 | 첫 기여자만 승인 필요(`first_time_contributors`, ADR-0013) |
+
+### 선점 자동화 (ADR-0013)
+
+| 워크플로우 | 트리거 | 권한 | 하는 일 |
+|---|---|---|---|
+| `issue-claim.yml` | 이슈 댓글 `/claim`, `/unclaim` | `issues: write` | 담당자 지정·해제, 동시 선점 2개 제한, 선점 불가 라벨 거부 |
+| `claim-expiry.yml` | 30분마다, 수동 실행(dry-run 가능) | `issues: write` | PR 없이 5시간 지난 선점 해제, 담당자 없는 이슈에 PR 선착순 지정 (`scripts/github/claim-expiry.sh`) |
+
+두 워크플로우는 PR 코드를 체크아웃하거나 실행하지 않는다. 댓글 본문은 `env`로만 받아 첫 단어를 고정 문자열과 비교한다.
 
 ### 마일스톤
 

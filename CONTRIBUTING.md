@@ -10,25 +10,48 @@ Thanks for your interest! Overgrove is a small, security-sensitive project, so w
 
 1. **No issue, no PR.** Every pull request must close an issue (`Closes #123`). Small fixes are welcome too — open a quick
    `chore` or `bug` issue first.
-2. **Discuss before you design.** Ideas and open questions start in [Discussions](https://github.com/kkdy21/overgrove/discussions).
+2. **Claim before you code.** Comment `/claim` on the issue and open a (draft) PR within 5 hours — see below.
+3. **Discuss before you design.** Ideas and open questions start in [Discussions](https://github.com/kkdy21/overgrove/discussions).
    When something is agreed, it becomes an issue.
-3. **Security problems are never public.** Report them privately — see [SECURITY.md](SECURITY.md).
-4. **Stay in scope.** v0.1 is read-only (plus `git fetch`). Write operations such as push, pull, reset, staging, and rebase are
+4. **Security problems are never public.** Report them privately — see [SECURITY.md](SECURITY.md).
+5. **Stay in scope.** v0.1 is read-only (plus `git fetch`). Write operations such as push, pull, reset, staging, and rebase are
    out of scope. Proposals for them are welcome as `later` issues.
-5. Be kind. We follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+6. Be kind. We follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Workflow at a glance
 
 ```
-Discussion (optional) → Issue (triaged, labeled) → Branch → Commits → Pull request → Review → Squash merge → Issue closes
+Discussion (optional) → Issue (triaged) → /claim → Fork branch → Draft PR (≤ 5h) → Commits → Ready PR → Review → Squash merge → Issue closes
 ```
 
-### 1. Pick or open an issue
+### 1. Pick an issue and claim it
 
-- Use an issue template: **Feature**, **Bug**, **Spike**, **Decision**, **Docs**, or **Chore**.
-- Look for [`good first issue`](https://github.com/kkdy21/overgrove/labels/good%20first%20issue) and
-  [`help wanted`](https://github.com/kkdy21/overgrove/labels/help%20wanted).
-- Comment on the issue before starting so work is not duplicated. The maintainer will assign it.
+Work happens in your **fork**; you do not need any role on this repository.
+
+1. Find an issue that is open, unassigned, not an epic, not labeled `status:blocked` / `status:needs-decision` /
+   `status:triage`, and whose dependencies are closed. Good starting points:
+   [`good first issue`](https://github.com/kkdy21/overgrove/labels/good%20first%20issue),
+   [`help wanted`](https://github.com/kkdy21/overgrove/labels/help%20wanted), and the current phase on the
+   [project board](https://github.com/users/kkdy21/projects/4).
+2. Comment **`/claim`** on the issue. A bot assigns you and posts a deadline.
+3. **Open a pull request (a draft is fine) with `Closes #<issue>` within 5 hours**, or the claim is released
+   automatically. Once your PR is open, the claim stays while the PR is open.
+4. Comment **`/unclaim`** if you stop, so someone else can take it.
+
+| Rule | Value |
+|---|---|
+| Claim lease | 5 hours to open a PR (draft OK) |
+| Open claims per person | 2 |
+| Unassigned issue | The first open PR wins; later PRs fail the `pr-policy` check |
+| A PR counts only if | it is open, says `Closes #<issue>`, comes from a `<type>/<issue>-<slug>` branch, and was updated in the last 72 hours |
+| Re-claim after expiry | Not for 24 hours on the same issue |
+| Someone else's claimed issue | Your PR fails the `pr-policy` check |
+
+Details and rationale: [docs/process/collaboration.md](docs/process/collaboration.md) (Korean) and
+[ADR-0013](docs/adr/0013-external-contributions-and-issue-claiming.md).
+
+Found something new? Open an issue with a template first (**Feature**, **Bug**, **Spike**, **Decision**, **Docs**, or
+**Chore**). The maintainer triages it before it can be claimed.
 
 ### 2. Branch
 
@@ -61,6 +84,11 @@ Refs #12
 
 ### 5. Review and merge
 
+- Only the maintainer merges. Reviews may be AI-assisted (the `/pr-review` workflow), followed by the maintainer's decision.
+- **No rebasing or force-pushing needed.** If `main` moves ahead, use the "Update branch" button or `gh pr update-branch <n>` (or merge `upstream/main`). Squash merge keeps `main` linear anyway.
+- Keep "Allow edits by maintainers" enabled so the maintainer can update your branch.
+- Your **first** PR needs a maintainer to approve the workflow run before checks start; later PRs run automatically.
+
 - CI must pass: `gitleaks` (secret scan), `pr-policy` (title/body/branch rules), `build-test` (build and tests).
 - We merge with **squash merge** only. The branch is deleted after merge.
 - Review comments follow [Conventional Comments](https://conventionalcomments.org/) labels
@@ -72,9 +100,21 @@ Requirements: macOS 14 or later, a recent Xcode, `git` 2.36 or later, and [gitle
 for the local secret-scan hooks. `gh` is optional (only needed for the GitHub issues panel and for maintainer scripts).
 
 ```sh
-git clone https://github.com/kkdy21/overgrove.git
+gh repo fork kkdy21/overgrove --clone --remote   # origin = your fork, upstream = kkdy21/overgrove
 cd overgrove
-./scripts/bootstrap.sh     # installs Git hooks (core.hooksPath=.githooks) and checks your toolchain
+./scripts/bootstrap.sh                           # installs Git hooks (core.hooksPath=.githooks) and checks your toolchain
+```
+
+### Quick start with Claude Code
+
+The project harness (`CLAUDE.md`, `.claude/` skills, agents, and hooks) is committed, so Claude Code follows the same
+rules for every contributor. After the setup above:
+
+```sh
+claude
+> /onboard          # checks your setup, lists claimable issues, comments /claim, starts a branch or worktree
+> /pr-open --draft  # right after your first meaningful commit, to keep the claim
+> /pr-open          # when the acceptance criteria are met (or mark the draft ready)
 ```
 
 > The Xcode project is created in Phase 3. Until then the repository contains planning, design, and tooling only.
@@ -97,9 +137,14 @@ swift format lint --strict --recursive --configuration .swift-format Overgrove O
 
 ## Using AI coding assistants
 
-The maintainer develops with Claude Code. The project-level harness (`CLAUDE.md`, `.claude/`) is part of the repo and
-documents the same rules as this file. If you use an AI assistant, you are still responsible for every line you submit:
-read it, test it, and make sure it follows the rules above.
+AI-assisted contributions are welcome. The maintainer develops and reviews with Claude Code, and the project harness
+(`CLAUDE.md`, `.claude/`) encodes the same rules as this file.
+
+- **You are responsible for every line you submit**: read it, test it locally, and be able to explain it.
+- Say so in the PR body when a large part was generated (`AI-assisted: <tool>`). `Co-Authored-By` trailers are fine.
+- Do not disable or bypass the repository hooks or rules (`--no-verify`, changing `core.hooksPath`, and so on).
+- One issue, one PR. If the assistant wanders out of scope, drop those changes and suggest a `later` issue instead.
+- Do not run several agents on the same issue and open several PRs. Experiment in your fork, submit one PR.
 
 ## Licensing
 

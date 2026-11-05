@@ -40,6 +40,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | 프로세스 | [process/pull-requests.md](process/pull-requests.md) | PR 규칙, 리뷰와 코멘트 규약, 머지 정책 |
 | 프로세스 | [process/branching-and-commits.md](process/branching-and-commits.md) | 브랜치명, 커밋 메시지, Git hooks |
 | 프로세스 | [process/discussions.md](process/discussions.md) | Discussions 운영, 토론에서 결정과 이슈로 넘어가는 법 |
+| 프로세스 | [process/collaboration.md](process/collaboration.md) | 외부 기여 모델, 이슈 선점(`/claim`, 5시간 기한, PR 선착순), AI 기여 규칙 |
 | 프로세스 | [process/phase-gates.md](process/phase-gates.md) | Phase별 산출물과 승인 기준 |
 | 프로세스 | [process/release.md](process/release.md) | 버전 정책, 릴리스 절차 |
 | 프로세스 | [process/github-settings.md](process/github-settings.md) | 저장소 설정(룰셋, 보안, 라벨, 보드)과 재현 스크립트 |
@@ -133,6 +134,7 @@ OvergroveTests/
 | 0010 | 커밋 그래프 레인을 앱에서 계산 | Proposed |
 | 0011 | v0.1에서 Pull 제외 | Accepted |
 | 0012 | 1인 메인테이너 머지 정책 | Accepted |
+| 0013 | 외부 기여 모델과 이슈 선점 정책 (fork PR, 5시간 기한, PR 선착순) | Accepted |
 
 ### 2.6 테스트 ID
 
@@ -198,6 +200,7 @@ git 계층 실측 기준선(이 표의 근거)은 [performance/benchmark-plan.md
   - `resolution:` duplicate, wontfix, invalid
   - `good first issue`, `help wanted`
 - 필수 상태 검사(Required checks): `gitleaks`, `pr-policy`, `build-test`
+- 이슈 선점: 이슈 댓글 `/claim`·`/unclaim`, 기한 5시간(PR 없으면 해제), 1인당 2개, 담당자 없는 이슈는 PR 선착순 (ADR-0013)
 - 브랜치명: `<type>/<issue>-<slug>`. type은 `feat`, `fix`, `docs`, `test`, `chore`, `spike`, `refactor`, `perf`, `ci` 중 하나
 - 커밋: Conventional Commits, 영어 제목. 이슈 번호는 `Refs: #n` 트레일러로 남긴다 (`prepare-commit-msg` hook이 브랜치명에서 자동 추가)
 - 머지: squash 전용. squash 커밋 제목은 PR 제목을 쓴다

@@ -24,6 +24,8 @@
 
 Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으로 통과시킨다).
 
+`pr-policy`는 선점 규칙(ADR-0013)도 검사한다. 남이 선점한 이슈를 닫는 PR, 또는 담당자 없는 이슈에 먼저 열린 PR이 이미 있는데 뒤에 열린 PR은 실패한다. 메인테이너는 면제다.
+
 ## 3. 필수 상태 검사
 
 `main` 룰셋이 아래 세 검사의 통과를 요구한다. 브랜치는 최신 `main` 기준이어야 한다(strict).
@@ -46,7 +48,8 @@ Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으�
   - **모든 리뷰 스레드 해결**(conversation resolution)
   - 보안 영향 PR은 `security-reviewer` 에이전트 검토 결과를 PR 코멘트로 남긴다
 - 강제 푸시, `main` 삭제, 비선형 이력은 룰셋이 막는다. 우회 권한(bypass)을 가진 사람은 없다.
-- 외부 기여자가 생기면 필수 승인 수를 1로 올리는 것을 다시 검토한다(ADR-0012 후속 작업).
+- 외부 기여는 fork PR로 받고 머지는 메인테이너만 한다(ADR-0013). 협업자에게 머지 권한이 없으므로 승인 0 룰셋을 유지한다. 메인테이너의 검수는 `/pr-review`로 AI의 도움을 받을 수 있다.
+- 외부 기여자의 첫 PR은 메인테이너가 워크플로우 실행을 승인해야 검사가 돈다(`first_time_contributors`).
 
 ## 5. 리뷰와 코멘트 규약
 
@@ -79,7 +82,14 @@ Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으�
 2. `security-reviewer` 에이전트 결과(판정과 발견 사항 표)를 PR 코멘트로 남긴다.
 3. 위협 대응이 바뀌면 [security-review.md](../design/security-review.md)와 SEC 테스트를 같은 PR에서 갱신한다.
 
-## 7. 오래된 PR
+## 7. 외부 PR을 안전하게 검토하기
 
-- 14일간 움직임이 없는 PR에는 상태를 묻는다. 30일이면 닫고 이슈를 Backlog로 돌린다.
+- **외부 PR을 로컬에 체크아웃하지 않는다.** `core.hooksPath=.githooks`가 상대 경로라서, 체크아웃하면 PR이 넣은 hook이 메인테이너 PC에서 실행된다. PR의 `.claude/` 설정, 스크립트, 테스트도 마찬가지로 실행하지 않는다.
+- 내용은 `git -c core.hooksPath=/dev/null fetch origin pull/<n>/head:refs/remotes/pr/<n>`으로 가져와 `git diff`, `git show`로 읽는다. 테스트는 CI가 맡는다.
+- 하네스 hook이 `gh pr checkout`과 보호 없는 PR ref fetch를 막는다. `/pr-review` 스킬은 이 절차를 따른다.
+
+## 8. 오래된 PR
+
+- 협업자 PR은 72시간 동안 갱신이 없으면 선점이 자동으로 풀린다(ADR-0013). 메인테이너는 상태를 묻거나 PR을 닫는다.
+- 메인테이너 자신의 PR은 14일간 움직임이 없으면 다시 검토한다.
 - Draft PR은 조기 피드백용이다. 필수 검사는 Draft에서도 돈다.
