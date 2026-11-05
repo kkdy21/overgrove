@@ -1,0 +1,22 @@
+// App target settings. Inherits Config/Base.xcconfig through the project-level configuration.
+
+PRODUCT_NAME = $(TARGET_NAME)
+PRODUCT_BUNDLE_IDENTIFIER = io.github.kkdy21.overgrove
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_CFBundleDisplayName = Overgrove
+INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.developer-tools
+INFOPLIST_KEY_NSHumanReadableCopyright = Copyright © 2026 Overgrove contributors. MIT License.
+
+// The app reads repositories anywhere on disk, so the App Sandbox is off (HANDOFF §4).
+// Hardened Runtime stays on; security relies on docs/design/security-review.md instead.
+ENABLE_APP_SANDBOX = NO
+ENABLE_HARDENED_RUNTIME = YES
+
+COMBINE_HIDPI_IMAGES = YES
+ENABLE_PREVIEWS = YES
+LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks
+
+#include? "Personal.xcconfig.local"

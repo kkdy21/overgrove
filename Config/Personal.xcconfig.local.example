@@ -1,0 +1,7 @@
+// Copy to Config/Personal.xcconfig.local (git-ignored) to override settings on your machine only.
+// Never commit team IDs, certificates, or personal paths.
+//
+// Example: sign with your own Apple Development certificate instead of ad-hoc signing.
+// CODE_SIGN_STYLE = Automatic
+// DEVELOPMENT_TEAM = ABCDE12345
+// CODE_SIGN_IDENTITY = Apple Development
