@@ -85,7 +85,7 @@ stateDiagram-v2
 - `/pr-review` 스킬이 다음을 점검하고 Conventional Comments로 리뷰를 남긴다.
   - 연결 이슈의 완료 조건, 선점, 필수 검사
   - 범위(`scope-guard`), 보안(`security-reviewer`), 테스트, 문서
-- 메인테이너가 확인하면 squash 머지(또는 auto-merge)한다. 머지 권한은 메인테이너에게만 있다.
+- **모든 협업자 PR은 검수를 거친다.** 메인테이너 계정의 Approve 리뷰가 있어야 머지한다. 메인테이너가 판정을 확인하면 squash 머지(또는 auto-merge)한다. 머지 권한은 메인테이너에게만 있다.
 - 리뷰 스레드는 코멘트 작성자가 resolve한다. 모든 스레드가 해결되어야 머지할 수 있다(룰셋).
 
 ## 7. 분쟁과 예외
