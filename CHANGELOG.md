@@ -17,5 +17,6 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Contributor docs, issue/PR/discussion templates, labels, CI workflows (secret scan, PR policy, build, CodeQL),
   Git hooks, and the Claude Code project harness.
 - README: development process diagram ("How we work") and a table of which control enforces each rule.
+- README: "Who is it for" section describing the problems Overgrove targets and when it is not a fit yet.
 
 [Unreleased]: https://github.com/kkdy21/overgrove/commits/main
