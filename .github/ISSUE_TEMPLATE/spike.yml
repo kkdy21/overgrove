@@ -1,0 +1,34 @@
+name: Spike
+description: A time-boxed investigation. Produces knowledge, not product code. / 시간 상자를 둔 조사
+title: "spike: "
+labels: ["type:spike", "status:triage"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question to answer / 조사 질문
+      description: One clear question. If there are several, open several spikes.
+      placeholder: "Can SwiftUI List render 100k rows of commit graph at 60fps, or do we need NSTableView?"
+    validations:
+      required: true
+  - type: input
+    id: timebox
+    attributes:
+      label: Time box / 시간 상자
+      placeholder: "4h / 1d"
+    validations:
+      required: true
+  - type: textarea
+    id: approach
+    attributes:
+      label: Approach / 조사 방법
+  - type: textarea
+    id: output
+    attributes:
+      label: Where the result will be recorded / 결과 기록 위치
+      description: A comment on this issue, a doc under docs/, or a new ADR. Throwaway code must not be merged into the app.
+      value: |
+        - [ ] Findings summarized in a comment on this issue
+        - [ ] Follow-up issues or ADR opened
+    validations:
+      required: true

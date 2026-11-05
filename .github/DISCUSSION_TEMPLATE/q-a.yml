@@ -1,0 +1,16 @@
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question / 질문
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you tried / 시도해 본 것
+  - type: input
+    id: env
+    attributes:
+      label: Environment (optional)
+      placeholder: "macOS 15.5, Xcode 16.4, git 2.50.1, Overgrove 1a2b3c4"

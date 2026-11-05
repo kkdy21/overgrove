@@ -1,0 +1,88 @@
+# Required check: `build-test`
+# Until Phase 3 creates Overgrove.xcodeproj, this job validates repository tooling only and reports success.
+# Phase 3 follow-up: pin the runner image and Xcode version (record the choice in an ADR).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: build-test
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: |
+          sw_vers
+          git --version
+          xcodebuild -version || true
+          swift --version || true
+
+      - name: Validate repository tooling
+        run: |
+          set -euo pipefail
+          # Shell scripts must at least parse.
+          for f in scripts/*.sh scripts/github/*.sh .githooks/* .claude/hooks/*.sh; do
+            [ -f "$f" ] || continue
+            bash -n "$f"
+            echo "ok  $f"
+          done
+          # Only Overgrove/Execution/ may create processes (docs/README.md §2.2).
+          scripts/lint/check-forbidden-apis.sh
+          echo "ok  forbidden-API check"
+          # JSON files must be valid.
+          for f in .github/labels.json .claude/settings.json .swift-format design/tokens/tokens.json; do
+            [ -f "$f" ] || continue
+            jq empty "$f"
+            echo "ok  $f"
+          done
+
+      - name: Fixture repository smoke test
+        run: |
+          set -euo pipefail
+          if [ -x scripts/make-fixture-repo.sh ]; then
+            scripts/make-fixture-repo.sh "$RUNNER_TEMP/fixture"
+            scripts/make-fixture-repo.sh --malicious "$RUNNER_TEMP/fixture-malicious"
+          else
+            echo "::notice::scripts/make-fixture-repo.sh not present; skipping."
+          fi
+
+      - name: Detect Xcode project
+        id: detect
+        run: |
+          if [ -d Overgrove.xcodeproj ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Xcode project yet (created in Phase 3). Build and tests are skipped."
+          fi
+
+      - name: swift-format lint
+        if: steps.detect.outputs.present == 'true'
+        run: xcrun swift-format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
+
+      - name: Build and test
+        if: steps.detect.outputs.present == 'true'
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Overgrove.xcodeproj \
+            -scheme Overgrove \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
+            | tee "$RUNNER_TEMP/xcodebuild.log"

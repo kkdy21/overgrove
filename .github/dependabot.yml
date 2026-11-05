@@ -1,0 +1,16 @@
+# Overgrove has no third-party Swift packages (ADR-0006).
+# Dependabot keeps the pinned GitHub Actions SHAs current.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: ["type:chore", "area:ci"]
+    commit-message:
+      prefix: "ci"
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]

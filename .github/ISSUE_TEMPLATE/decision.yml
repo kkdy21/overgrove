@@ -1,0 +1,46 @@
+name: Decision (ADR candidate)
+description: A decision that needs to be made and recorded in docs/adr/. / ADR 후보 결정
+title: "decision: "
+labels: ["type:decision", "status:needs-decision"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discuss options in the comments. When decided, record an ADR in `docs/adr/` (use the `adr-new` workflow), link it here, and close this issue with the PR that adds the ADR.
+        선택지 토론은 댓글로 하고, 결정되면 `docs/adr/`에 ADR을 남긴 뒤 이 이슈에 링크합니다.
+  - type: textarea
+    id: question
+    attributes:
+      label: Decision to make / 결정할 질문
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and constraints / 맥락과 제약
+      description: Goals, non-goals, security principles, performance budget, prior ADRs that apply.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options / 선택지
+      value: |
+        ### Option A — 
+        - Pros:
+        - Cons:
+
+        ### Option B — 
+        - Pros:
+        - Cons:
+    validations:
+      required: true
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation (optional) / 추천안
+  - type: input
+    id: deadline
+    attributes:
+      label: Decide by / 결정 기한
+      placeholder: "Before starting #34"

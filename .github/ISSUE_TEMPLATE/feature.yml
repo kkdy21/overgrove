@@ -1,0 +1,66 @@
+name: Feature
+description: A new capability within the current scope. / 현재 범위 안의 새 기능
+title: "feat: "
+labels: ["type:feature", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping shape Overgrove. v0.1 is **read-only** (plus `git fetch`); write operations go to the `later` milestone.
+        제목은 영어 Conventional 형식(`feat(scope): ...`)으로, 본문은 한국어 또는 영어로 작성하세요.
+  - type: textarea
+    id: background
+    attributes:
+      label: Background / 배경
+      description: What problem does this solve, and for whom? Link the Discussion if there was one.
+      placeholder: "When I have 8 worktrees open, I can't tell which ones have stashed work…"
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal / 목표
+      description: What should be true when this is done? Reference PRD goals (G1–G10) if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria / 완료 조건
+      description: A checklist that can be verified. Include tests to add.
+      value: |
+        - [ ] 
+        - [ ] Tests added (parser / integration / UI as appropriate)
+        - [ ] Docs updated
+    validations:
+      required: true
+  - type: dropdown
+    id: phase
+    attributes:
+      label: Phase
+      options:
+        - Phase 1 — plan
+        - Phase 2 — design
+        - Phase 3 — dev
+        - Phase 4 — qa
+        - Phase 5 — release
+        - Not sure / 모름
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options: [git-core, parser, ui, github, security, ci, docs]
+  - type: textarea
+    id: security
+    attributes:
+      label: Security considerations / 보안 고려 사항
+      description: Does this touch git invocation, parsing of untrusted output, file paths, credentials, or the network? See docs/design/security-review.md (T1–T18).
+      placeholder: "None / T9 (argument injection) because…"
+  - type: textarea
+    id: references
+    attributes:
+      label: References / 참고
+      description: Related issues, ADRs, docs, screens (S-xx).

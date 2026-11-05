@@ -1,0 +1,42 @@
+title: "[Idea] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas and design proposals start here. When the discussion reaches a conclusion, the maintainer converts it into issues
+        (and an ADR if a decision was made) and links them below. See docs/process/discussions.md.
+        아이디어와 설계 제안은 여기서 시작합니다. 결론이 나면 이슈(필요하면 ADR)로 옮기고 링크를 남깁니다.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 문제
+      description: What is hard today? Who runs into it?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal / 제안
+      description: Sketches, ASCII wireframes, or command examples are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered / 고려한 대안
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope fit / 범위
+      description: v0.1 is read-only plus `git fetch` (docs/scope-mvp.md).
+      options:
+        - Fits v0.1 (read-only)
+        - Needs write access (later)
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security impact / 보안 영향
+      description: Would this run new git commands, read new files, or touch the network or credentials?

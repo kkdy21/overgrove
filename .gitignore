@@ -1,0 +1,43 @@
+# ── macOS ───────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# ── Xcode / Swift ──────────────────────────────────────
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.xcresult
+.build/
+.swiftpm/
+timeline.xctimeline
+playground.xcworkspace
+
+# ── Secrets & local overrides (never commit) ───────────
+*.xcconfig.local
+Local.xcconfig
+.env
+.env.*
+*.p12
+*.p8
+*.cer
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.keychain-db
+
+# ── Claude Code (personal settings stay local) ─────────
+.claude/settings.local.json
+.claude/*.local.*
+
+# ── Tooling output ─────────────────────────────────────
+/.fixtures/
+/.bench/
+gitleaks-report.*
+*.sarif

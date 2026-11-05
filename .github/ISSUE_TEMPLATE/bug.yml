@@ -1,0 +1,72 @@
+name: Bug report
+description: Something does not work as specified. / 명세와 다르게 동작하는 문제
+title: "fix: "
+labels: ["type:bug", "status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Security issue? Stop here** and use [private vulnerability reporting](https://github.com/kkdy21/overgrove/security/advisories/new).
+        Please remove tokens, private repository names, and personal paths from logs and screenshots. / 로그·스크린샷에서 토큰, 비공개 저장소 이름, 개인 경로를 지워 주세요.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / 재현 절차
+      description: Ideally a script that builds a minimal repository (see scripts/make-fixture-repo.sh for style).
+      placeholder: |
+        1. git init demo && cd demo && git worktree add ../demo-wt -b feat/x
+        2. Open the repository in Overgrove
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result / 기대 결과
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result / 실제 결과
+      description: Include the error message shown in the app if any.
+    validations:
+      required: true
+  - type: textarea
+    id: comparison
+    attributes:
+      label: What does plain git (or another tool) show? / 비교 대상 결과
+      description: e.g. output of `git status --porcelain=v2` or `git worktree list` for the same repository, or what lazygit shows.
+  - type: input
+    id: overgrove-version
+    attributes:
+      label: Overgrove version or commit
+      placeholder: "v0.1.0 or 1a2b3c4"
+    validations:
+      required: true
+  - type: input
+    id: git-version
+    attributes:
+      label: git version (`git --version`)
+      placeholder: "git version 2.50.1 (Apple Git-155)"
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: "macOS 15.5 (Apple Silicon)"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity (your estimate) / 심각도
+      description: See docs/qa/bug-triage.md
+      options:
+        - S1 — data loss, crash on launch, or wrong state shown as correct
+        - S2 — core feature broken, no workaround
+        - S3 — feature degraded, workaround exists
+        - S4 — cosmetic
+    validations:
+      required: true

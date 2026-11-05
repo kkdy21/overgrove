@@ -1,0 +1,253 @@
+# 상호작용 명세 (Interaction)
+
+> 상태: Proposed (Phase 2 승인 대기) · 관련: [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
+
+이 문서는 선택과 포커스, 키보드, 새로고침과 fetch, 취소, 컨텍스트 메뉴, 접근성을 정한다. 화면 배치는 [screens.md](screens.md)에 있다.
+
+---
+
+## 1. 선택과 포커스 모델
+
+### 1.1 세 가지 상태
+
+| 상태 | 개수 | 설명 | 바뀌는 계기 |
+|---|---|---|---|
+| **포커스 워크트리** | 창마다 1 | WIP 행과 HEAD 링의 기준 | 사이드바 워크트리 행 선택만 ([information-architecture.md §2.2](information-architecture.md#22-포커스-워크트리)) |
+| **주 선택(selection)** | 창마다 1 | 상세 패널이 보여 주는 항목. `wip(worktree)`, `worktreeInfo(worktree)`, `commit(sha)`, `stash(index)`, `issue(number)` 중 하나 | 사이드바·그래프에서 항목 선택 |
+| **보조 선택(file)** | 0 또는 1 | 주 선택 안의 파일 하나. 중앙 Diff 뷰어(S-10)를 구동 | 상세 패널 파일 목록에서 선택 |
+
+- 주 선택은 비지 않는다. 선택을 해제하면 포커스 워크트리의 `wip`로 돌아간다. WIP가 비어 있으면 `worktreeInfo`로 돌아간다. 상세 패널이 빈 채로 남는 순간을 만들지 않는다.
+- 사이드바와 그래프는 같은 주 선택을 공유한다. 사이드바에서 브랜치를 고르면 그래프의 팁 커밋 행이 선택되고 사이드바 브랜치 행도 강조된다. 그 뒤 그래프에서 다른 커밋을 고르면 사이드바 강조는 사라진다.
+- v0.1은 **다중 선택이 없다.** 두 커밋 비교는 `later`다.
+- 저장소를 다시 열면 포커스 워크트리와 주 선택을 복원한다. 대상이 사라졌으면 기본값(main 워크트리의 `wip`)으로 돌아간다.
+
+### 1.2 패널 포커스
+
+- 키보드 포커스는 사이드바, 중앙(그래프 / 파일 이력 / Diff), 상세 패널 중 한 곳에 있다.
+- 포커스된 패널의 선택 행은 `color.surface.selection`, 포커스가 없는 패널의 선택 행은 `color.surface.selection-inactive`로 칠한다 (macOS 표준).
+- `Tab` / `⇧Tab`으로 사이드바 → 중앙 → 상세 순서로 포커스를 옮긴다. `⌘1`~`⌘4`로 바로 옮길 수도 있다.
+
+### 1.3 중앙 영역 전환
+
+- S-09(파일 이력)과 S-10(Diff 뷰어)은 중앙 영역을 **잠시 덮는다.** 왼쪽 위 `‹ Graph` 버튼이나 `⎋`로 그래프에 돌아간다.
+- 돌아가면 그래프 스크롤 위치와 이전 주 선택을 그대로 복원한다.
+- 덮인 상태에서 사이드바 항목을 고르면 그래프로 돌아간 뒤 그 항목을 선택한다.
+
+---
+
+## 2. 포인터 동작
+
+| 동작 | 대상 | 결과 |
+|---|---|---|
+| 클릭 | 사이드바 워크트리 행 | 포커스 워크트리 변경 + 주 선택 `wip` + 그래프를 HEAD로 스크롤 |
+| 클릭 | 사이드바 브랜치 행 | 주 선택 = 팁 커밋, 그래프 스크롤 |
+| 클릭 | 그래프 행 | 주 선택 = 그 커밋 (WIP 행이면 `wip`) |
+| 클릭 | 상세 패널 파일 행 | 보조 선택 + 중앙을 S-10으로 |
+| 더블클릭 | S-09 행 | 그 커밋의 해당 파일 diff (S-10) |
+| 클릭 | 상태바 경고 `⚠ 1 prunable` | 그 워크트리를 주 선택 |
+| 클릭 | 상태바 gh 상태 | S-07의 GitHub 단계 열기 |
+| 호버 | 배지, 상대 시각, 잘린 경로 | 툴팁: 전체 값 (`size` 제한 없음, 0.5초 지연) |
+| 우클릭 | 행 | 컨텍스트 메뉴 (§5) |
+
+그래프의 드래그 앤 드롭, 사이드바 재정렬은 없다.
+
+---
+
+## 3. 키보드 단축키
+
+### 3.1 최종안
+
+HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확인했다. 시스템이나 SwiftUI가 기본으로 주는 명령(`⌘Q`, `⌘H`, `⌘M`, `⌘W`, `⌘N`, `⌘,`, `⌃⌘F` 전체 화면 등)은 그대로 두고 덮어쓰지 않는다.
+
+| 단축키 | 명령 | 메뉴 위치 | 비고 |
+|---|---|---|---|
+| `⌘O` | Add Repository… | File | 표준 Open |
+| `⌘N` | New Window | File | 표준 |
+| `⌘R` | Refresh | View | 로컬 git 조회만. 네트워크 없음 |
+| `⌘⇧R` | Fetch | Repository | **HANDOFF의 `⌘⇧F`에서 변경.** 아래 3.2 참고 |
+| `⌘.` | Stop | Repository | 진행 중인 fetch나 긴 조회를 취소. macOS 표준 취소 단축키 |
+| `⌘F` | Find | Edit › Find | 그래프 필터 |
+| `⌘G` / `⌘⇧G` | Find Next / Previous | Edit › Find | 표준 |
+| `⌘J` | Jump to HEAD | Navigate | 포커스 워크트리의 HEAD로 스크롤하고 선택. TextEdit 등의 "Jump to Selection" 관례 |
+| `⌘I` | Show Worktree Info | Navigate | 워크트리 맥락에서 `Changes` ↔ `Worktree` 세그먼트 전환. Finder의 Get Info 관례 |
+| `⌘1` | Focus Sidebar | Navigate | |
+| `⌘2` | Focus Graph | Navigate | S-09, S-10이 열려 있으면 그쪽 |
+| `⌘3` | Focus Detail | Navigate | |
+| `⌘4` | Focus Issues | Navigate | 사이드바 ISSUES 섹션으로 이동하고 펼친다 |
+| `⌃⌘S` | Show/Hide Sidebar | View | `NavigationSplitView` 기본 명령 |
+| `⌥⌘0` | Show/Hide Detail | View | Xcode 관례. SwiftUI 기본 inspector 명령이 다른 단축키를 주면 그것을 따른다 (Phase 3 확인) |
+| `⌘C` | Copy | Edit | 선택에 따라 SHA, 파일 경로(저장소 기준), stash ref, 이슈 URL |
+| `⌥⌘C` | Copy Full Path | Edit | 파일·워크트리의 절대 경로. Finder "Copy as Pathname" 관례 |
+| `↑` / `↓` | 이전 / 다음 행 | — | 모든 목록 |
+| `⌘↑` / `⌘↓` | 처음 / 마지막 행 | — | 그래프에서 `⌘↑`는 WIP 행(있으면) |
+| `←` / `→` | 접기 / 펼치기 | — | 사이드바 섹션과 폴더 |
+| `⏎` | Open | — | 사이드바·그래프 → 상세 패널로 포커스 이동. 상세 파일 목록 → S-10 열기 |
+| `⎋` | Back / Clear | — | 우선순위: ① S-09·S-10 닫기 ② 검색어 지우기 ③ 주 선택을 기본값으로 |
+| `Tab` / `⇧Tab` | 다음 / 이전 패널 | — | 전체 키보드 접근 |
+
+### 3.2 바꾼 이유와 확인한 충돌
+
+| 후보 | 판단 |
+|---|---|
+| `⌘⇧F` (HANDOFF 초안) | 시스템 예약은 아니지만 IntelliJ, VS Code, Xcode에서 "Find in Files/Project"다. 사용자가 검색하려다 네트워크 fetch를 시작하게 된다. **제외** |
+| `⌘⇧R` | 브라우저의 "강제 새로고침" 관례와 의미가 맞다. `⌘R`은 로컬 새로고침, `⌘⇧R`은 원격까지 새로고침이라는 짝이 생긴다. 시스템 예약 아님. **채택** |
+| `⌘1`~`⌘4` | Finder(보기 방식), Xcode(내비게이터)에서도 앱 고유 용도로 쓰는 영역이다. 시스템 예약 아님. 유지 |
+| `Space` (Quick Look) | 저장소 파일을 Quick Look 플러그인에 넘기게 된다. 보안 검토 전까지 `later` |
+| `⌘[` / `⌘]` (선택 이력 뒤로/앞으로) | 유용하지만 v0.1 범위 밖. `later` |
+| `⌘+` / `⌘−` (확대) | 그래프 행 높이와 글자 크기 배율. `later` (§6.3) |
+
+---
+
+## 4. 새로고침과 fetch
+
+### 4.1 새로고침 (로컬 조회)
+
+새로고침은 네트워크를 쓰지 않는 git 조회 묶음이다. 대상은 워크트리 목록, 워크트리별 status, 브랜치, stash, upstream 비교, 그래프 첫 페이지다. 명령 목록은 [git-command-catalog.md](../architecture/git-command-catalog.md)에 있다.
+
+| 계기 | 범위 | 비고 |
+|---|---|---|
+| 저장소 열기 | 전체 | PB-1 (1초 이내) |
+| 창이 key window가 됨 | 전체 | 마지막 새로고침 후 3초가 지나지 않았으면 건너뛴다 |
+| `⌘R` | 전체 | 항상 실행 |
+| fetch 완료 | 브랜치, upstream 비교, 그래프 | |
+| 설정 변경 (untracked 표시 등) | 영향받는 워크트리 status | |
+
+- 파일 시스템 감시(FSEvents)로 자동 새로고침하는 기능은 `later`다. IDE에서 파일을 고치고 Overgrove로 돌아오면 창 활성화로 갱신된다.
+- **화면을 막지 않는다.** 새로고침 중에도 이전 데이터를 그대로 보여 주고 상태바에 `Refreshing…`과 작은 스피너만 둔다. 워크트리 하나의 status가 500ms를 넘기면 그 행에만 작은 스피너를 붙인다.
+- 결과가 오면 제자리에서 바꾼다. 정렬이 안정적이므로 행이 튀지 않는다. 배지 수가 바뀌면 `motion.duration-fast` 동안 옅게 페이드한다. Reduce Motion이면 애니메이션을 끈다.
+- 실패하면 이전 데이터를 `opacity.stale`로 흐리게 두고, 상태바에 `Refresh failed — Details`를 띄운다.
+
+### 4.2 fetch (원격)
+
+fetch는 **저장소 단위**이고 사용자의 git 자격 증명 설정(credential helper, SSH)을 그대로 쓴다. 앱은 자격 증명을 묻지 않는다 (HANDOFF §7).
+
+```mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Fetching: Fetch 버튼 / ⌘⇧R / 자동 fetch
+    Fetching --> Idle: 성공 → "Fetched just now"
+    Fetching --> Failed: 인증 실패 / 네트워크 / 시간 초과(120s) / 기타
+    Fetching --> Idle: Stop / ⌘. → "Fetch cancelled"
+    Failed --> Fetching: Try Again
+    Failed --> Idle: 다음 성공 시
+```
+
+| 상태 | 툴바 버튼 | 상태바 |
+|---|---|---|
+| Idle | `↓ Fetch` | `Fetched 2 min ago` / `Never fetched` |
+| Fetching | `■ Stop` (같은 자리) | `Fetching origin… 12 s` (원격이 여럿이면 `Fetching 2 remotes…`) |
+| 성공 | `↓ Fetch` | `Fetched just now`, 이후 상대 시각 |
+| 실패 | `↓ Fetch` | `⚠ Fetch failed — Details`. 마지막 성공 시각도 남긴다: `Last fetched 2 h ago · last attempt failed` |
+
+실패 문구는 마스킹한 stderr의 패턴으로 분류한다. 분류 규칙은 [architecture/overview.md](../architecture/overview.md)의 에러 모델을 따른다.
+
+| 분류 | 요약 문구 | Details에 넣는 안내 |
+|---|---|---|
+| 인증 | `Authentication failed for origin` | `Run "git fetch" in Terminal to check your credentials. Overgrove does not prompt for passwords.` |
+| 네트워크 | `Could not reach github.com` | 원격 호스트 이름(자격 증명 제거) |
+| 시간 초과 | `Fetch timed out after 120 s` | 원격 이름 |
+| 원격 없음 | `No remotes configured` | — |
+| 기타 | `Fetch failed` | 마스킹한 stderr 마지막 몇 줄 |
+
+- 저장소 하나에 fetch는 동시에 하나만 돈다. 자동 fetch가 도는 중에 사용자가 Fetch를 누르면 새로 시작하지 않고 진행 중인 작업을 보여 준다.
+- 자동 fetch(S-08, 기본 끔)는 창이 비활성일 때 건너뛰고, 실패해도 알림을 띄우지 않는다. 상태바에만 남긴다.
+- v0.1은 시스템 알림(Notification Center)을 쓰지 않는다.
+
+### 4.3 긴 작업과 취소
+
+| 작업 | 취소 방법 | 시간 제한 |
+|---|---|---|
+| fetch | `Stop` 버튼, `⌘.` | 120초 (ADR-0008) |
+| 그래프 다음 페이지 | 스크롤로 벗어나면 자동 취소 | 15초 |
+| Diff 로드 | 다른 파일·항목으로 이동하면 자동 취소 | 15초 |
+| 파일 이력 | `⎋`로 닫으면 자동 취소 | 15초 |
+| 이슈 목록 | 저장소 전환 시 자동 취소 | 15초 |
+
+- 취소하면 해당 git 프로세스를 종료한다. 종료 절차는 `ProcessRunner`가 맡는다 ([architecture/overview.md](../architecture/overview.md)).
+- 시간 제한을 넘기면 해당 영역에 에러 상태(`Timed out after 15 s` + `Try Again`)를 보여 준다. 다른 영역은 영향받지 않는다.
+- 로딩 표시는 150ms가 지나도 결과가 없을 때만 보여 준다. 짧은 작업에서 깜빡임을 막는다.
+
+---
+
+## 5. 컨텍스트 메뉴
+
+모든 메뉴는 **조회와 복사만** 한다. 쓰기 동작은 비활성 항목으로도 넣지 않는다.
+
+| 대상 | v0.1 포함 | later |
+|---|---|---|
+| 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03) | Open on GitHub, Compare with…, Copy Permalink |
+| WIP 행 | Show Changes (S-02), Show Worktree Info (S-05) | — |
+| 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder | Quick Look, Open With… |
+| 워크트리 행 | Show Changes, Show Info, Copy Path, Copy Branch Name, Reveal in Finder, Open in Terminal | Open in 사용자 지정 터미널·에디터 |
+| 브랜치 행 | Show in Graph, Copy Name, Copy Upstream Name | — |
+| 원격 그룹 행 | Copy Remote URL (자격 증명 제거), Fetch This Remote → v0.1 제외 | Fetch This Remote |
+| Stash 행 | Show Changes, Copy Ref, Copy SHA | — |
+| 이슈 행 | Open in Browser, Copy URL, Copy Number, Show Linked Branch | — |
+
+**보안 조건** ([security-review.md](security-review.md)):
+
+- **Reveal in Finder** — 경로를 `PathValidator`로 확인한다. 실제 경로가 저장소(또는 워크트리) 밖이면 열지 않고 `This path points outside the repository`를 보여 준다 (T14). `NSWorkspace.activateFileViewerSelecting`을 쓰고 파일을 실행하지 않는다.
+- **Open in Terminal** — `NSWorkspace`로 Terminal.app에 폴더 URL을 넘긴다. 셸 문자열을 만들지 않으므로 `Overgrove/Execution/` 규칙과 충돌하지 않는다. 사용자 지정 터미널(iTerm, Ghostty 등)은 `later`.
+- **Open With… / 기본 앱으로 열기는 넣지 않는다.** 저장소 안의 `.command`, `.app`, 스크립트를 실행할 수 있기 때문이다.
+- **Copy Remote URL** — 항상 자격 증명을 제거한 URL을 복사한다. "Show full remote URLs" 설정을 켜도 마찬가지다 (T11).
+- **Open in Browser** — `https://` URL만 연다.
+
+---
+
+## 6. 접근성
+
+### 6.1 VoiceOver
+
+| 요소 | 라벨 예 | 비고 |
+|---|---|---|
+| 워크트리 행 | `feat/12-worktree-list, worktree, focused, 6 changed, 2 ahead, locked` | 화면에서 숨긴 배지도 모두 읽는다 |
+| 그래프 행 | `Commit a1b2c3d, feat: add status parser, Ko, 2 hours ago, branches feat/12 and origin/feat/12, HEAD of worktree feat/12` | 레인 그림은 `accessibilityHidden`. merge 커밋이면 `merge commit, 2 parents`를 덧붙인다 |
+| WIP 행 | `Uncommitted changes in feat/12: 3 staged, 2 unstaged, 1 untracked, 1 conflicted` | |
+| 파일 행 | `Staged, modified, Sources/Parsing/Status.swift, 42 lines added, 8 removed` | 상태와 종류를 단어로 읽는다 |
+| 상태 심볼 | `Staged`, `Conflicted` 등 | 심볼 단독으로 쓰일 때 |
+| 상대 시각 | `2 hours ago` + hint `3 November 2026, 14:22` | |
+| 상태바 | 요소별로 분리해 읽는다 | |
+
+- 사용자 지정 rotor: `Worktrees`, `Conflicted Files`, `Changes` 그룹(STAGED, UNSTAGED…).
+- 새로고침이나 fetch 결과처럼 상태가 바뀌면 `AccessibilityNotification.Announcement`로 짧게 알린다. 예: `Fetch finished`, `Fetch failed: authentication`.
+
+### 6.2 색에만 의존하지 않는다
+
+| 정보 | 색 외의 구분 수단 |
+|---|---|
+| 파일 상태 | 그룹 헤더 텍스트 + 상태별 SF Symbol 모양 ([iconography.md §5](iconography.md#5-상태-심볼-매핑)) |
+| ahead / behind | `↑` / `↓` 방향 (두 상태는 의도적으로 같은 색이다) |
+| 충돌, prunable, locked | 서로 다른 심볼 + 툴팁 텍스트 |
+| 그래프 레인 | 위치 + 각 행의 ref 알약 텍스트. 레인 색은 보조 수단이다 |
+| diff 추가/삭제 | `+` / `−` 기호와 줄 번호 열 |
+| 선택 행 | 배경 + 선택 행에서는 상태 심볼도 `text.on-selection`으로 바뀌어 모양만 남는다 |
+
+상태 색 쌍 중 일부는 색각 이상 시뮬레이션에서 구분되지 않는다(초록 staged와 주황 unstaged 등). 그래서 위 보조 수단은 **선택 사항이 아니라 필수**다. 측정값은 [design-tokens.md §5](design-tokens.md#5-검증-결과)에 있다.
+
+### 6.3 글자 크기와 확대
+
+- 모든 텍스트는 SwiftUI 텍스트 스타일(`Font.body`, `.callout` 등)로 지정한다. 포인트 크기를 직접 쓰지 않는다.
+- 사이드바 행 높이는 시스템 설정 "Sidebar icon size"를 따른다.
+- macOS는 iOS 같은 전역 Dynamic Type이 없다. 그래프는 가상화를 위해 행 높이를 `size.row-graph`(24px)로 고정한다. 그래서 v0.1의 그래프는 글자 크기 확대에 대응하지 않는다. `⌘+`/`⌘−` 확대(행 높이와 글자를 함께 키움)는 `later`로 두고 이 제약을 [scope-mvp.md](../scope-mvp.md)에 적는다.
+
+### 6.4 대비
+
+- 텍스트는 배경 대비 4.5:1 이상이다. 시스템 label 색을 쓰므로 자동으로 만족한다.
+- 상태 심볼과 그래프 노드처럼 의미를 가진 그래픽은 3:1 이상이다. 상태 색은 3.45:1 이상으로 검증했다. 그래프 레인의 light 모드 슬롯 5~7은 3:1 미만이지만 각 행에 텍스트 라벨이 있어 완화 조건을 만족한다. 근거는 [design-tokens.md §5](design-tokens.md#5-검증-결과)에 있다.
+- **Increase Contrast**: 시스템 색은 자동으로 대응한다. 앱 고유 색(상태, 레인, diff)은 Phase 3에서 Asset Catalog의 High Contrast 변형을 만든다. 변형은 배경 대비 4.5:1 이상이어야 한다.
+- **Reduce Transparency**: 사이드바 머티리얼이 자동으로 불투명해진다. 추가 작업은 없다.
+
+### 6.5 움직임과 키보드
+
+- Reduce Motion이 켜져 있으면 이동 애니메이션을 크로스페이드(`motion.duration-fast`)로 바꾸거나 없앤다.
+- 모든 기능은 키보드만으로 쓸 수 있어야 한다 (전체 키보드 접근). 포커스 링은 시스템 기본(`color.border.focus`)을 쓴다.
+- 인라인 아이콘 버튼의 클릭 영역은 `size.hit-target-min`(20px) 이상이다.
+
+---
+
+## 7. 화면 문구 원칙
+
+- 영어, 문장형 대문자(Sentence case)를 쓴다. 메뉴 항목과 버튼은 macOS 관례대로 Title Case를 쓴다(`Show History`, `Open in Terminal`).
+- 에러 문구는 "무엇이 실패했는가 + 사용자가 할 수 있는 일" 순서로 쓴다. 내부 예외 이름이나 마스킹하지 않은 stderr를 그대로 보여 주지 않는다.
+- 앱이 하지 않는 일(토큰 저장, 자동 로그인, prune)은 필요한 곳에서 짧게 밝힌다. 예: `Overgrove never asks for or stores tokens.`
+- GitKraken을 포함한 다른 제품의 고유 명칭과 문구를 쓰지 않는다.

@@ -1,0 +1,73 @@
+# Required check: `pr-policy`
+# Enforces docs/process/pull-requests.md: Conventional title, `Closes #n` to an open issue, branch naming.
+# Untrusted PR fields are passed through env vars only (never interpolated into the script) to prevent injection.
+name: pr-policy
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  pr-policy:
+    name: pr-policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check title, linked issue, and branch name
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TITLE: ${{ github.event.pull_request.title }}
+          BODY: ${{ github.event.pull_request.body }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+          fail=0
+          err() { echo "::error title=$1::$2"; fail=1; }
+
+          if [ "$AUTHOR" = "dependabot[bot]" ]; then
+            echo "Dependabot PR — issue link and branch rules do not apply."
+            exit 0
+          fi
+
+          # 1) Conventional Commits title (English), e.g. "feat(parser): parse rename records"
+          title_re='^(feat|fix|docs|test|refactor|perf|chore|ci|build|style|revert)(\([a-z0-9._/-]+\))?!?: [^ ].{0,99}$'
+          if ! printf '%s' "$TITLE" | grep -Eq "$title_re"; then
+            err "PR title" "Use Conventional Commits, e.g. 'feat(parser): parse rename records' (max ~100 chars)."
+          fi
+
+          # 2) Branch name: <type>/<issue>-<slug>
+          branch_re='^(feat|fix|docs|test|chore|spike|refactor|perf|ci)/([0-9]+)-[a-z0-9._-]+$'
+          branch_issue=""
+          if printf '%s' "$BRANCH" | grep -Eq "$branch_re"; then
+            branch_issue=$(printf '%s' "$BRANCH" | sed -E 's#^[a-z]+/([0-9]+)-.*#\1#')
+          else
+            err "Branch name" "Name the branch <type>/<issue>-<slug>, e.g. feat/12-worktree-list."
+          fi
+
+          # 3) Body links at least one open issue with a closing keyword
+          issues=$(printf '%s' "$BODY" | grep -Eio '(close[sd]?|fix(e[sd])?|resolve[sd]?)[[:space:]]+#[0-9]+' | grep -Eo '[0-9]+' | sort -u || true)
+          if [ -z "$issues" ]; then
+            err "Linked issue" "The PR body must contain 'Closes #<issue>' (no issue, no PR)."
+          else
+            for n in $issues; do
+              info=$(gh api "repos/$REPO/issues/$n" --jq '[.state, (has("pull_request")|tostring)] | join(" ")' 2>/dev/null || echo "missing")
+              case "$info" in
+                "open false") echo "Linked issue #$n is open." ;;
+                missing)      err "Linked issue" "#$n does not exist." ;;
+                *" true")     err "Linked issue" "#$n is a pull request, not an issue." ;;
+                *)            err "Linked issue" "#$n is not open ($info)." ;;
+              esac
+            done
+            if [ -n "$branch_issue" ] && ! printf '%s\n' $issues | grep -qx "$branch_issue"; then
+              err "Branch/issue mismatch" "Branch refers to #$branch_issue but the body closes: $(echo $issues)."
+            fi
+          fi
+
+          exit $fail

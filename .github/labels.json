@@ -1,0 +1,39 @@
+[
+  { "name": "type:feature",       "color": "1f6feb", "description": "New user-facing capability" },
+  { "name": "type:bug",           "color": "d73a4a", "description": "Something does not work as specified" },
+  { "name": "type:spike",         "color": "8250df", "description": "Time-boxed investigation that produces knowledge, not product code" },
+  { "name": "type:decision",      "color": "bf8700", "description": "Decision to make; outcome recorded as an ADR in docs/adr/" },
+  { "name": "type:docs",          "color": "0e8a16", "description": "Documentation only" },
+  { "name": "type:test",          "color": "5319e7", "description": "Tests, fixtures, or test infrastructure" },
+  { "name": "type:chore",         "color": "6e7781", "description": "Maintenance, tooling, dependencies" },
+  { "name": "type:epic",          "color": "0b3d91", "description": "Parent issue that groups sub-issues for a phase or theme" },
+
+  { "name": "phase:plan",         "color": "c5def5", "description": "Phase 1 — planning (product)" },
+  { "name": "phase:design",       "color": "bfd4f2", "description": "Phase 2 — design" },
+  { "name": "phase:dev",          "color": "a2c4f5", "description": "Phase 3 — engineering" },
+  { "name": "phase:qa",           "color": "88b4f0", "description": "Phase 4 — verification (QA)" },
+  { "name": "phase:release",      "color": "6fa3eb", "description": "Phase 5 — open-source release" },
+
+  { "name": "area:git-core",      "color": "fbca04", "description": "GitClient, command allowlist, process execution" },
+  { "name": "area:parser",        "color": "f9d0c4", "description": "Parsing git / gh output into models" },
+  { "name": "area:ui",            "color": "c2e0c6", "description": "SwiftUI views, design system, interaction" },
+  { "name": "area:github",        "color": "d4c5f9", "description": "gh CLI integration, issues panel" },
+  { "name": "area:security",      "color": "b60205", "description": "Security-relevant change; requires the security checklist" },
+  { "name": "area:ci",            "color": "ededed", "description": "GitHub Actions, hooks, repository automation" },
+  { "name": "area:docs",          "color": "d4f0d4", "description": "Docs structure, process, contributor experience" },
+
+  { "name": "priority:p0",        "color": "b60205", "description": "Blocks the milestone; do first" },
+  { "name": "priority:p1",        "color": "d93f0b", "description": "Required for the milestone" },
+  { "name": "priority:p2",        "color": "fbca04", "description": "Nice to have; can slip to a later milestone" },
+
+  { "name": "status:triage",      "color": "ffffff", "description": "New; needs labels, milestone, and acceptance criteria" },
+  { "name": "status:blocked",     "color": "000000", "description": "Waiting on another issue or external factor" },
+  { "name": "status:needs-decision", "color": "e99695", "description": "Cannot proceed until a decision (ADR) is made" },
+
+  { "name": "resolution:duplicate", "color": "cfd3d7", "description": "Closed as a duplicate of another issue" },
+  { "name": "resolution:wontfix",   "color": "cfd3d7", "description": "Closed; will not be addressed" },
+  { "name": "resolution:invalid",   "color": "cfd3d7", "description": "Closed; not a valid report or request" },
+
+  { "name": "good first issue",   "color": "7057ff", "description": "Small, well-scoped, good for newcomers" },
+  { "name": "help wanted",        "color": "008672", "description": "Extra attention or outside help is welcome" }
+]

@@ -1,0 +1,23 @@
+name: Documentation
+description: Add or fix documentation. / 문서 추가·수정
+title: "docs: "
+labels: ["type:docs", "area:docs", "status:triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What is missing or wrong? / 무엇이 빠졌거나 틀렸나요?
+      description: Link the file and section.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change / 제안
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: No personal paths, tokens, or private repository names are included. / 개인 경로·토큰·비공개 저장소 이름 없음
+          required: true

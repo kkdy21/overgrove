@@ -1,0 +1,19 @@
+name: Chore
+description: Small maintenance work, tooling, CI, dependencies. / 작은 유지보수·도구·CI 작업
+title: "chore: "
+labels: ["type:chore", "status:triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What and why / 무엇을, 왜
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when / 완료 조건
+      value: |
+        - [ ] 
+    validations:
+      required: true

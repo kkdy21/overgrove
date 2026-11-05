@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+<title>Overgrove S-01 main window mockup (dark, medium fidelity)</title>
+<defs><clipPath id="win"><rect width="1280" height="800" rx="12"/></clipPath></defs><g clip-path="url(#win)">
+<rect x="0" y="0" width="1280" height="800" rx="0" fill="#1e1e1e" opacity="1"/>
+<rect x="0" y="0" width="1280" height="52" rx="0" fill="#2b2b2b" opacity="1"/>
+<line x1="0" y1="52" x2="1280" y2="52" stroke="#3d3d3d" stroke-width="1"/>
+<circle cx="20" cy="26.0" r="6" fill="#ff5f57"/>
+<circle cx="40" cy="26.0" r="6" fill="#febc2e"/>
+<circle cx="60" cy="26.0" r="6" fill="#28c840"/>
+<rect x="84" y="13" width="128" height="26" rx="6" fill="#3a3a3c" opacity="1"/>
+<text x="96" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8e8e6" text-anchor="start" opacity="1">overgrove</text>
+<text x="198" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="middle" opacity="1">⌄</text>
+<rect x="222" y="13" width="84" height="26" rx="6" fill="#3a3a3c" opacity="1"/>
+<text x="236" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">↓</text>
+<text x="252" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">Fetch</text>
+<text x="520" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">⑂</text>
+<text x="538" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">feat/12-worktree-list</text>
+<rect x="1010" y="13" width="254" height="26" rx="6" fill="#3a3a3c" opacity="1"/>
+<text x="1026" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">⌕</text>
+<text x="1046" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#6e6e73" text-anchor="start" opacity="1">Search</text>
+<text x="1246" y="31" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="end" opacity="1">⌘F</text>
+<rect x="0" y="53" width="240" height="721" rx="0" fill="#262626" opacity="1"/>
+<line x1="240" y1="52" x2="240" y2="774" stroke="#3d3d3d" stroke-width="1"/>
+<text x="16" y="80" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">WORKTREES (4)</text>
+<text x="30" y="102" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">main</text>
+<text x="224" y="102" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6e6e73" text-anchor="end" opacity="1">main</text>
+<rect x="8" y="110" width="224" height="24" rx="5" fill="#0a5fc4" opacity="1"/>
+<circle cx="20" cy="122" r="3.5" fill="#ffffff"/>
+<text x="30" y="126" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#ffffff" text-anchor="start" opacity="1">feat/12-worktree…</text>
+<text x="224" y="126" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#ffffff" text-anchor="end" opacity="1">↑2</text>
+<text x="200" y="126" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#ffffff" text-anchor="end" opacity="1">✎6</text>
+<text x="30" y="150" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">hotfix</text>
+<text x="224" y="150" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a19f97" text-anchor="end" opacity="1">🔒</text>
+<text x="30" y="174" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="0.55">old-spike</text>
+<text x="224" y="174" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#f5a524" text-anchor="end" opacity="1">⚠</text>
+<text x="16" y="206" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">LOCAL (4)</text>
+<text x="30" y="228" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">main</text>
+<text x="30" y="252" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">▸</text>
+<text x="48" y="252" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">feat/</text>
+<text x="30" y="276" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">hotfix</text>
+<text x="224" y="276" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">🌲</text>
+<text x="16" y="308" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">REMOTE</text>
+<text x="30" y="330" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">▸</text>
+<text x="48" y="330" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">origin</text>
+<text x="224" y="330" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#6e6e73" text-anchor="end" opacity="1">3</text>
+<text x="16" y="362" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">STASHES (2)</text>
+<text x="30" y="384" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">stash@{0}  WIP on feat/12</text>
+<text x="30" y="408" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">stash@{1}  experiment</text>
+<text x="16" y="440" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">ISSUES (5)</text>
+<text x="30" y="462" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">#12  Worktree list</text>
+<text x="224" y="462" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">🌲</text>
+<text x="30" y="486" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">#15  Parse LFS pointers</text>
+<rect x="241" y="60" width="698" height="24" rx="0" fill="#0a84ff1f" opacity="1"/>
+<line x1="259" y1="120.0" x2="259" y2="264.0" stroke="#008300" stroke-width="2"/>
+<line x1="273" y1="96.0" x2="273" y2="216.0" stroke="#3987e5" stroke-width="2"/>
+<path d="M273 216.0 L273 222.0 C273 232.8 259 226.8 259 240.0" stroke="#3987e5" stroke-width="2" fill="none" stroke-linecap="round"/>
+<path d="M259 168.0 C259 178.0 287 176.0 287 192.0" stroke="#e66767" stroke-width="2" fill="none"/>
+<path d="M287 192.0 L287 222.0 C287 232.8 259 226.8 259 240.0" stroke="#e66767" stroke-width="2" fill="none" stroke-linecap="round"/>
+<line x1="273" y1="72.0" x2="273" y2="96.0" stroke="#a1a1a6" stroke-width="1.5" stroke-dasharray="2 3"/>
+<circle cx="273" cy="72.0" r="4.5" fill="#1e1e1e" stroke="#a1a1a6" stroke-width="1.5" stroke-dasharray="2 2"/>
+<text x="308" y="76.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#e8e8e6" text-anchor="start" opacity="1">WIP</text>
+<text x="344" y="76.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#fb5a8a" text-anchor="start" opacity="1">⚠ 1 conflicted</text>
+<text x="438" y="76.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">·  3 staged  ·  2 unstaged  ·  1 untracked</text>
+<circle cx="273" cy="96.0" r="6" fill="#1e1e1e"/>
+<circle cx="273" cy="96.0" r="4" fill="#3987e5"/>
+<circle cx="273" cy="96.0" r="7.5" fill="none" stroke="#0a84ff" stroke-width="1.5"/>
+<text x="308" y="100.0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">a1b2c3d</text>
+<text x="372" y="100.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">feat: add status parser</text>
+<rect x="530.05" y="88.0" width="137.9" height="16" rx="4" fill="#3987e5" opacity="0.32"/>
+<text x="537.05" y="100.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">feat/12-worktree-list</text>
+<rect x="673.4499999999999" y="88.5" width="101.5" height="15" rx="4" fill="none" stroke="#3987e5" stroke-width="1" opacity="1"/>
+<text x="679.9499999999999" y="100.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">origin/feat/12…</text>
+<text x="878" y="100.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">Ko</text>
+<text x="926" y="100.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">2h</text>
+<circle cx="259" cy="120.0" r="6" fill="#1e1e1e"/>
+<circle cx="259" cy="120.0" r="4" fill="#008300"/>
+<text x="308" y="124.0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">9f0a1b2</text>
+<text x="372" y="124.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">fix: guard empty remote list</text>
+<rect x="561.8" y="112.0" width="37.6" height="16" rx="4" fill="#008300" opacity="0.32"/>
+<text x="568.8" y="124.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">main</text>
+<rect x="604.9" y="112.5" width="77.9" height="15" rx="4" fill="none" stroke="#008300" stroke-width="1" opacity="1"/>
+<text x="611.4" y="124.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">origin/main</text>
+<text x="878" y="124.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">Ko</text>
+<text x="926" y="124.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">5h</text>
+<circle cx="273" cy="144.0" r="6" fill="#1e1e1e"/>
+<circle cx="273" cy="144.0" r="4" fill="#3987e5"/>
+<text x="308" y="148.0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">e4f5a6b</text>
+<text x="372" y="148.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">refactor: split parser module</text>
+<text x="878" y="148.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">Ko</text>
+<text x="926" y="148.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">1d</text>
+<circle cx="259" cy="168.0" r="6" fill="#1e1e1e"/>
+<circle cx="259" cy="168.0" r="3.2" fill="#1e1e1e" stroke="#008300" stroke-width="2"/>
+<text x="308" y="172.0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">0b1c2d3</text>
+<text x="372" y="172.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">Merge branch 'docs/8-adr'</text>
+<text x="878" y="172.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">Ko</text>
+<text x="926" y="172.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">2d</text>
+<circle cx="287" cy="192.0" r="6" fill="#1e1e1e"/>
+<circle cx="287" cy="192.0" r="4" fill="#e66767"/>
+<text x="308" y="196.0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">9c8d7e6</text>
+<text x="372" y="196.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">docs: add ADR-0008</text>
+<rect x="498.8" y="184.5" width="113.30000000000001" height="15" rx="4" fill="none" stroke="#e66767" stroke-width="1" opacity="1"/>
+<text x="505.3" y="196.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">origin/docs/8-adr</text>
+<text x="878" y="196.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">Ko</text>
+<text x="926" y="196.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">3d</text>
+<circle cx="273" cy="216.0" r="6" fill="#1e1e1e"/>
+<circle cx="273" cy="216.0" r="4" fill="#3987e5"/>
+<text x="308" y="220.0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">5d6e7f8</text>
+<text x="372" y="220.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">test: add status parser fixtures</text>
+<text x="878" y="220.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">Ko</text>
+<text x="926" y="220.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">3d</text>
+<circle cx="259" cy="240.0" r="6" fill="#1e1e1e"/>
+<circle cx="259" cy="240.0" r="4" fill="#008300"/>
+<text x="308" y="244.0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">7f8e9d0</text>
+<text x="372" y="244.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">chore: bootstrap repository</text>
+<rect x="555.45" y="232.0" width="61.2" height="16" rx="4" fill="#3a3a3c" opacity="1"/>
+<text x="562.45" y="244.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="10.5" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">⌂ v0.0.1</text>
+<text x="878" y="244.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">Ko</text>
+<text x="926" y="244.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">5d</text>
+<circle cx="259" cy="264.0" r="6" fill="#1e1e1e"/>
+<circle cx="259" cy="264.0" r="4" fill="#008300"/>
+<text x="308" y="268.0" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">1a2b3c4</text>
+<text x="372" y="268.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" text-anchor="start" opacity="1">Initial commit</text>
+<text x="878" y="268.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">Ko</text>
+<text x="926" y="268.0" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">5d</text>
+<line x1="940" y1="52" x2="940" y2="774" stroke="#3d3d3d" stroke-width="1"/>
+<text x="958" y="82" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#e8e8e6" text-anchor="start" opacity="1">WIP — feat/12-worktree-list</text>
+<rect x="958" y="100" width="150" height="22" rx="6" fill="#3a3a3c" opacity="1"/>
+<rect x="960" y="102" width="73" height="18" rx="5" fill="#5a5a5e" opacity="1"/>
+<text x="996" y="115" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#e8e8e6" text-anchor="middle" opacity="1">Changes</text>
+<text x="1071" y="115" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a1a1a6" text-anchor="middle" opacity="1">Worktree</text>
+<text x="958" y="140" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="start" opacity="1">~/dev/overgrove-wt/12-worktree-list</text>
+<text x="958" y="168" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#fb5a8a" text-anchor="start" opacity="1">⚠</text>
+<text x="976" y="168" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">CONFLICTED (1)</text>
+<text x="960" y="190" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#fb5a8a" text-anchor="start" opacity="1">⚠</text>
+<text x="978" y="190" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">U</text>
+<text x="994" y="190" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5"><tspan fill="#a1a1a6">Sources/Graph/</tspan><tspan fill="#e8e8e6">Layout.swift</tspan></text>
+<text x="958" y="222" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#30c048" text-anchor="start" opacity="1">✓</text>
+<text x="976" y="222" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">STAGED (3)</text>
+<text x="1262" y="222" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="end" opacity="1">+54 −12</text>
+<text x="960" y="244" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#30c048" text-anchor="start" opacity="1">✓</text>
+<text x="978" y="244" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">M</text>
+<text x="994" y="244" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5"><tspan fill="#a1a1a6">Sources/Parsing/</tspan><tspan fill="#e8e8e6">Status.swift</tspan></text>
+<text x="960" y="266" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#30c048" text-anchor="start" opacity="1">✓</text>
+<text x="978" y="266" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">A</text>
+<text x="994" y="266" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5"><tspan fill="#a1a1a6">Sources/Git/</tspan><tspan fill="#e8e8e6">GitClient.swift</tspan></text>
+<text x="960" y="288" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#30c048" text-anchor="start" opacity="1">✓</text>
+<text x="978" y="288" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">R</text>
+<text x="994" y="288" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5"><tspan fill="#a1a1a6"></tspan><tspan fill="#e8e8e6">Old.swift &#8594; New.swift</tspan></text>
+<text x="958" y="320" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#f5a524" text-anchor="start" opacity="1">✎</text>
+<text x="976" y="320" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">UNSTAGED (2)</text>
+<text x="1262" y="320" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="end" opacity="1">+11 −3</text>
+<text x="960" y="342" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#f5a524" text-anchor="start" opacity="1">✎</text>
+<text x="978" y="342" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">M</text>
+<text x="994" y="342" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5"><tspan fill="#a1a1a6">Sources/Graph/</tspan><tspan fill="#e8e8e6">Graph.swift</tspan></text>
+<text x="960" y="364" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#f5a524" text-anchor="start" opacity="1">✎</text>
+<text x="978" y="364" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">D</text>
+<text x="994" y="364" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5"><tspan fill="#a1a1a6">Sources/</tspan><tspan fill="#e8e8e6">Legacy.swift</tspan></text>
+<text x="958" y="396" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a19f97" text-anchor="start" opacity="1">?</text>
+<text x="976" y="396" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11" font-weight="700" fill="#6e6e73" text-anchor="start" opacity="1">UNTRACKED (1)</text>
+<text x="960" y="418" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12" font-weight="400" fill="#a19f97" text-anchor="start" opacity="1">?</text>
+<text x="978" y="418" font-family="SF Mono, Menlo, Monaco, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">?</text>
+<text x="994" y="418" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="12.5"><tspan fill="#a1a1a6"></tspan><tspan fill="#e8e8e6">notes.md</tspan></text>
+<rect x="0" y="774" width="1280" height="26" rx="0" fill="#2b2b2b" opacity="1"/>
+<line x1="0" y1="774" x2="1280" y2="774" stroke="#3d3d3d" stroke-width="1"/>
+<text x="14" y="792" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a1a1a6" text-anchor="start" opacity="1">⟳  Fetched 2 min ago   ·   ↑2 ↓0   ·   4 worktrees   ·</text>
+<text x="242" y="792" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#f5a524" text-anchor="start" opacity="1">⚠ 1 prunable</text>
+<text x="1266" y="792" font-family="SF Pro Text, -apple-system, Helvetica Neue, Helvetica, Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a1a1a6" text-anchor="end" opacity="1">gh: @octocat  ✓</text>
+</g></svg>

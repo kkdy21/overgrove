@@ -1,0 +1,13 @@
+# Default owner for everything.
+*                         @kkdy21
+
+# Security-sensitive paths: changes here always need the maintainer's eyes.
+/Overgrove/Execution/     @kkdy21
+/Overgrove/Git/           @kkdy21
+/Overgrove/GitHub/        @kkdy21
+/Overgrove/Security/      @kkdy21
+/.github/workflows/       @kkdy21
+/.githooks/               @kkdy21
+/.claude/                 @kkdy21
+/.gitleaks.toml           @kkdy21
+/SECURITY.md              @kkdy21

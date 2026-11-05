@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Validates Conventional Commits headers (docs/process/branching-and-commits.md).
+set -euo pipefail
+msg_file="$1"
+header=$(grep -v '^#' "$msg_file" | sed -n '/[^[:space:]]/{p;q;}')
+
+case "$header" in
+  "Merge "*|"Revert \""*|"fixup! "*|"squash! "*|"amend! "*) exit 0 ;;
+esac
+
+re='^(feat|fix|docs|test|refactor|perf|chore|ci|build|style|revert)(\([a-z0-9._/-]+\))?!?: [^ ].*$'
+if ! printf '%s' "$header" | grep -Eq "$re"; then
+  cat >&2 <<MSG
+✋ Commit header must follow Conventional Commits:
+     <type>(<optional scope>): <summary>
+   types: feat fix docs test refactor perf chore ci build style revert
+   got:   $header
+MSG
+  exit 1
+fi
+if (( ${#header} > 100 )); then
+  echo "✋ Commit header is ${#header} characters; keep it at 100 or fewer." >&2
+  exit 1
+fi

@@ -1,0 +1,37 @@
+# gitleaks configuration for Overgrove
+#
+# Used by:
+#   - .githooks/pre-commit   (staged changes)
+#   - .githooks/pre-push     (commits about to be pushed)
+#   - .github/workflows/secret-scan.yml (CI, full history on main, PR range on PRs)
+#
+# Policy (see SECURITY.md and docs/design/security-review.md, threat T18):
+#   - Default gitleaks rules are always on.
+#   - Personal home-directory paths must not be committed to this public repo.
+#   - Test fixtures that need credential-shaped strings must build them at runtime
+#     instead of committing literals. As a last resort, mark a single line with
+#     `gitleaks:allow` and explain why in the PR.
+
+title = "Overgrove gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "personal-home-path"
+description = "Absolute path inside a personal home directory (/Users/<name>/ or /home/<name>/)"
+regex = '''(?:/Users|/home)/[A-Za-z0-9._-]+/'''
+keywords = ["/users/", "/home/"]
+
+  [[rules.allowlists]]
+  description = "Placeholders and well-known non-personal homes"
+  regexTarget = "match"
+  regexes = [
+    '''(?:/Users|/home)/(?:Shared|you|me|user|username|example|runner|someone)/''',
+  ]
+
+[[allowlists]]
+description = "Binary assets"
+paths = [
+  '''\.(?:png|jpg|jpeg|icns|pdf)$''',
+]
