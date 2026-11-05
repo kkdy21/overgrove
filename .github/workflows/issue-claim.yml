@@ -15,17 +15,19 @@ permissions:
   issues: write
   pull-requests: read
 
-# Serialize per commenter so the open-claims cap cannot be raced with a burst of /claim comments.
-# Two different users claiming the same issue at the same moment is resolved after assignment (earliest wins).
-# GitHub keeps only one pending run per group, so in a burst from one user a middle command may get no reply.
-concurrency:
-  group: issue-claim-${{ github.event.comment.user.login }}
-  cancel-in-progress: false
-
 jobs:
   claim:
     name: claim
-    if: ${{ !github.event.issue.pull_request && github.event.comment.user.type != 'Bot' }}
+    # Only command comments start this job, so ordinary comments never enter the concurrency group below.
+    if: >-
+      ${{ !github.event.issue.pull_request && github.event.comment.user.type != 'Bot' &&
+          (startsWith(github.event.comment.body, '/claim') || startsWith(github.event.comment.body, '/unclaim')) }}
+    # Serialize per commenter so the open-claims cap cannot be raced with a burst of /claim comments.
+    # Two different users claiming the same issue at once is resolved after assignment (earliest wins).
+    # GitHub keeps only one pending run per group: in a burst of commands from one user, a middle one may be dropped.
+    concurrency:
+      group: issue-claim-${{ github.event.comment.user.login }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
