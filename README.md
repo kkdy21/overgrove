@@ -78,6 +78,55 @@ open Overgrove.xcodeproj   # available from Phase 3
 # then press ⌘R in Xcode
 ```
 
+## How we work
+
+Every change starts as an issue and reaches `main` only through a pull request that passes the same safety net
+locally, in CI, and in the branch ruleset. Planning documents move through phase gates that the maintainer approves.
+
+```mermaid
+flowchart TB
+    subgraph plan["1 · Plan"]
+        direction LR
+        DIS["Discussion<br/>ideas · design"] -->|agreed| ISS["Issue<br/>template · labels · milestone"]
+        ISS --> BRD["Projects board<br/>Backlog → Ready"]
+        ISS -.->|needs a decision| ADR["Decision issue<br/>→ ADR"]
+    end
+
+    subgraph build["2 · Build (local)"]
+        direction LR
+        BR["Branch or worktree<br/>type/issue-slug"] --> CC["Claude Code harness<br/>skills · agents · guard hooks"]
+        CC --> GH["Git hooks<br/>gitleaks · commit format<br/>forbidden APIs"]
+    end
+
+    subgraph verify["3 · Verify (GitHub)"]
+        direction LR
+        PR["Pull request<br/>Closes #n"] --> CK[["Required checks<br/>gitleaks · pr-policy · build-test"]]
+        CK --> RV["Review<br/>threads resolved"]
+    end
+
+    subgraph ship["4 · Merge"]
+        direction LR
+        RS["main ruleset<br/>squash only · no bypass"] --> SQ["Squash merge"]
+        SQ --> DONE["Issue closed<br/>board Done"]
+    end
+
+    plan -->|start work| build
+    build -->|git push| verify
+    verify --> ship
+    ship -.->|phase complete| GATE(["Phase gate<br/>maintainer approval"])
+```
+
+| Layer | Enforced by | Details |
+|---|---|---|
+| Issue first | `pr-policy` check, templates | [Issues](docs/process/issues.md) |
+| Secrets and personal paths | Git hooks, Claude Code hook, `gitleaks` check, GitHub push protection | [Branching and commits](docs/process/branching-and-commits.md) |
+| Process and shell APIs only in `Overgrove/Execution/` | Git hook, Claude Code hook, `build-test` check | [Security review](docs/design/security-review.md) |
+| Review and merge | `main` ruleset (squash only, required checks, resolved threads) | [Pull requests](docs/process/pull-requests.md) |
+| Phase approval | Maintainer, `/phase-gate` report | [Phase gates](docs/process/phase-gates.md) |
+
+The full flow is described in [docs/process/development-workflow.md](docs/process/development-workflow.md), and the
+Claude Code harness in [docs/process/claude-code-harness.md](docs/process/claude-code-harness.md).
+
 ## Project documents
 
 | | |

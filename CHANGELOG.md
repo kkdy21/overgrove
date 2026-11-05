@@ -16,5 +16,6 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Test strategy, fixture and benchmark repository generators, performance budget, and QA process.
 - Contributor docs, issue/PR/discussion templates, labels, CI workflows (secret scan, PR policy, build, CodeQL),
   Git hooks, and the Claude Code project harness.
+- README: development process diagram ("How we work") and a table of which control enforces each rule.
 
 [Unreleased]: https://github.com/kkdy21/overgrove/commits/main
