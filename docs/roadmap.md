@@ -80,7 +80,7 @@ Phase 3 안에서 먼저 끝내야 하는 이슈(p0, 기능 화면의 선행 조
 | P1-01 (#16) | docs: review and approve PRD | docs · docs · p0 | S | — |
 | P1-02 (#17) | docs: review and approve MVP scope and definition of done | docs · docs · p0 | S | P1-01 |
 | P1-03 (#18) | docs: review accepted ADRs 0001-0008, 0011 and 0012 | decision · docs · p0 | S | — |
-| P1-04 (#19) | docs: confirm performance budget PB-1 to PB-6 | decision · docs · p1 | S | — |
+| P1-04 (#19) | docs: confirm performance budget PB-1 to PB-8 | decision · docs · p1 | S | — |
 | P1-05 (#20) | chore(ci): verify GitHub operations setup | chore · ci · p0 | S | — |
 | P1-06 (#21) | docs: decide UI language for v0.1.0 (status:needs-decision) | decision · ui · p1 | S | — |
 
@@ -256,7 +256,7 @@ DoD D1–D10, D15를 검증한다.
 |---|---|---|---|---|
 | P4-01 (#96) | test: run manual QA checklist on macOS 14 and latest macOS | test · ui · p0 | M | EPIC-P3-UI |
 | P4-02 (#97) | test(security): produce security test pass report T1-T18 | test · security · p0 | S | EPIC-P3-SECTEST |
-| P4-03 (#98) | perf: produce performance budget verification report PB-1 to PB-6 | test · git-core · p0 | S | EPIC-P3-PERF |
+| P4-03 (#98) | perf: produce performance budget verification report PB-1 to PB-8 | test · git-core · p0 | S | EPIC-P3-PERF |
 | P4-04 (#99) | test: verify git compatibility matrix (2.36, Apple Git, Homebrew git) (help wanted) | test · git-core · p1 | M | P3-FIX-04 |
 | P4-05 (#100) | chore: run bug bash and triage | chore · ui · p1 | S | P4-01 |
 
