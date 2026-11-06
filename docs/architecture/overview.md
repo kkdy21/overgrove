@@ -195,6 +195,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | case | 의미 | 사용자 메시지 (요약) | 재시도 |
 |---|---|---|---|
 | `executableNotFound` | git·gh 실행 파일 없음 | "git을 찾을 수 없습니다. Xcode Command Line Tools를 설치하세요." | 설치 후 |
+| `launchFailed(errno)` | 실행 파일은 있으나 프로세스를 시작하지 못함 (`posix_spawn` 실패) | "git을 시작하지 못했습니다 (오류 N)." | 수동 |
 | `unsupportedVersion(found)` | git < 2.36 | "git 2.36 이상이 필요합니다 (현재 X)." | 업데이트 후 |
 | `notARepository` | 경로가 저장소가 아님 | "Git 저장소가 아닙니다." | — |
 | `dubiousOwnership` | `safe.directory` 거부 | "다른 사용자가 소유한 저장소라 git이 거부했습니다. 앱은 이 검사를 우회하지 않습니다." | — |
@@ -213,6 +214,9 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 fetch 실패는 `authenticationFailed`, `networkUnavailable`, `timeout`, 그 밖(`nonZeroExit`, `blockedBySecurityPolicy`)으로 분류한다. **분류는 이 에러 모델이 맡는다.** 화면(S-01 상태바, S-05)은 분류 결과와 메시지를 표시만 하고, stderr를 직접 해석하지 않는다.
 
 ### 6.2 메시지 원칙
+
+- v0.1 UI는 영어만 쓴다(ADR-0005). 위 표의 메시지는 의미 요약이며, 실제 문구는 `Overgrove/Git/GitError.swift`의 `message`가 원본이다.
+- stderr에서 온 텍스트는 `MaskedText`로만 보관한다. 이 타입은 `CredentialMasker`를 거치는 생성자만 있어서, 마스킹하지 않은 stderr가 에러·화면·로그에 들어갈 수 없다.
 
 - stderr를 그대로 보여 주지 않는다. 다음 순서로 처리한다.
   1. `CredentialMasker`로 마스킹
