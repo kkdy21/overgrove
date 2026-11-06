@@ -57,6 +57,8 @@ extension WorktreeParser {
         let path: GitPath
         let offset: Int
         var head: ObjectID?
+        /// Tracked separately because the unborn all-zero `HEAD` leaves `head` at `nil`.
+        var hasHead = false
         var branch: String?
         var isDetached = false
         var isBare = false
@@ -88,8 +90,11 @@ extension WorktreeParser {
             if token.starts(with: Self.worktreePrefix) {
                 throw ParseError(parser: name, offset: offset, reason: "duplicate worktree attribute")
             } else if token.starts(with: Self.headPrefix) {
+                guard !hasHead else { throw Self.duplicate("HEAD", offset: offset) }
+                hasHead = true
                 head = try Self.head(token.dropFirst(Self.headPrefix.count), offset: offset)
             } else if token.starts(with: Self.branchPrefix) {
+                guard branch == nil else { throw Self.duplicate("branch", offset: offset) }
                 let ref = token.dropFirst(Self.branchPrefix.count)
                 guard !ref.isEmpty else { throw ParseError(parser: name, offset: offset, reason: "empty branch") }
                 // A ref name goes back to git as an argument, so a lossy decode would name a different ref.
@@ -98,8 +103,10 @@ extension WorktreeParser {
                 }
                 branch = refName
             } else if token.elementsEqual("detached".utf8) {
+                guard !isDetached else { throw Self.duplicate("detached", offset: offset) }
                 isDetached = true
             } else if token.elementsEqual("bare".utf8) {
+                guard !isBare else { throw Self.duplicate("bare", offset: offset) }
                 isBare = true
             } else if let reason = Self.flag("locked", in: token) {
                 lock = .locked(reason: reason)
@@ -125,6 +132,12 @@ extension WorktreeParser {
                 isPrunable: isPrunable,
                 prunableReason: prunableReason
             )
+        }
+
+        /// A repeated single-valued attribute means the record is not what git prints; reading on would let the
+        /// later line silently override the earlier one.
+        private static func duplicate(_ attribute: String, offset: Int) -> ParseError {
+            ParseError(parser: name, offset: offset, reason: "duplicate \(attribute) attribute")
         }
 
         /// The all-zero OID marks an unborn branch and maps to `nil`.

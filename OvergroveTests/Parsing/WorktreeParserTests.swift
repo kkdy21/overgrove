@@ -19,8 +19,10 @@ final class WorktreeParserTests: XCTestCase {
         try WorktreeParser.parse(output(records), truncated: truncated)
     }
 
-    private func assertFails(_ data: Data, reason: String, file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertThrowsError(try WorktreeParser.parse(data), file: file, line: line) { error in
+    private func assertFails(
+        _ data: Data, reason: String, _ message: String = "", file: StaticString = #filePath, line: UInt = #line
+    ) {
+        XCTAssertThrowsError(try WorktreeParser.parse(data), message, file: file, line: line) { error in
             let parseError = error as? ParseError
             XCTAssertEqual(parseError?.parser, "WorktreeParser", file: file, line: line)
             XCTAssertEqual(parseError?.reason, reason, file: file, line: line)
@@ -240,6 +242,22 @@ final class WorktreeParserTests: XCTestCase {
         assertFails(output([["worktree dev/repo", "HEAD \(oid)", "detached"]]), reason: "relative worktree path")
         assertFails(output([["worktree -dash", "HEAD \(oid)", "detached"]]), reason: "relative worktree path")
         assertFails(output([["worktree  /tmp/dev/repo", "HEAD \(oid)", "detached"]]), reason: "relative worktree path")
+    }
+
+    func testDuplicateSingleValuedAttributesFail() {
+        let path = "worktree /tmp/dev/repo"
+        assertFails(output([[path, "HEAD \(oid)", "HEAD \(oid)", "detached"]]), reason: "duplicate HEAD attribute")
+        assertFails(
+            output([[path, "HEAD \(zeroOID)", "HEAD \(oid)", "branch refs/heads/main"]]),
+            reason: "duplicate HEAD attribute",
+            "an unborn HEAD still counts as present"
+        )
+        assertFails(
+            output([[path, "HEAD \(oid)", "branch refs/heads/main", "branch refs/heads/other"]]),
+            reason: "duplicate branch attribute"
+        )
+        assertFails(output([[path, "HEAD \(oid)", "detached", "detached"]]), reason: "duplicate detached attribute")
+        assertFails(output([[path, "bare", "bare"]]), reason: "duplicate bare attribute")
     }
 
     func testParseErrorOffsetPointsAtFailingToken() {
