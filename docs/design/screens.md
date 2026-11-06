@@ -355,9 +355,9 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 | Light | Dark |
 |---|---|
-| ![S-04 Stash 상세 (light)](../../design/mockups/s-04-stash-detail-light.png) | ![S-04 Stash 상세 (dark)](../../design/mockups/s-04-stash-detail-dark.png) |
+| ![S-04 Stash 상세 (light)](../../design/mockups/s04-stash-detail-light.png) | ![S-04 Stash 상세 (dark)](../../design/mockups/s04-stash-detail-dark.png) |
 
-원본: [`s-04-stash-detail-light.svg`](../../design/mockups/s-04-stash-detail-light.svg), [`s-04-stash-detail-dark.svg`](../../design/mockups/s-04-stash-detail-dark.svg)
+원본: [`s04-stash-detail-light.svg`](../../design/mockups/s04-stash-detail-light.svg), [`s04-stash-detail-dark.svg`](../../design/mockups/s04-stash-detail-dark.svg)
 
 **v0.1 제외.** apply, pop, drop, branch from stash. 화면에 안내 문구도 두지 않는다.
 
@@ -478,9 +478,9 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 | Light | Dark |
 |---|---|
-| ![S-06 이슈 패널 (light)](../../design/mockups/s-06-issue-panel-light.png) | ![S-06 이슈 패널 (dark)](../../design/mockups/s-06-issue-panel-dark.png) |
+| ![S-06 이슈 패널 (light)](../../design/mockups/s06-issue-panel-light.png) | ![S-06 이슈 패널 (dark)](../../design/mockups/s06-issue-panel-dark.png) |
 
-원본: [`s-06-issue-panel-light.svg`](../../design/mockups/s-06-issue-panel-light.svg), [`s-06-issue-panel-dark.svg`](../../design/mockups/s-06-issue-panel-dark.svg)
+원본: [`s06-issue-panel-light.svg`](../../design/mockups/s06-issue-panel-light.svg), [`s06-issue-panel-dark.svg`](../../design/mockups/s06-issue-panel-dark.svg)
 
 **v0.1 제외.** 이슈 생성·수정·코멘트, PR 상태, 본문 렌더링, GitHub Enterprise.
 
@@ -572,9 +572,9 @@ Advanced
 
 | Light | Dark |
 |---|---|
-| ![S-08 설정 (light)](../../design/mockups/s-08-settings-light.png) | ![S-08 설정 (dark)](../../design/mockups/s-08-settings-dark.png) |
+| ![S-08 설정 (light)](../../design/mockups/s08-settings-light.png) | ![S-08 설정 (dark)](../../design/mockups/s08-settings-dark.png) |
 
-원본: [`s-08-settings-light.svg`](../../design/mockups/s-08-settings-light.svg), [`s-08-settings-dark.svg`](../../design/mockups/s-08-settings-dark.svg)
+원본: [`s08-settings-light.svg`](../../design/mockups/s08-settings-light.svg), [`s08-settings-dark.svg`](../../design/mockups/s08-settings-dark.svg)
 
 ---
 
@@ -611,9 +611,9 @@ Advanced
 
 | Light | Dark |
 |---|---|
-| ![S-09 파일 이력 (light)](../../design/mockups/s-09-file-history-light.png) | ![S-09 파일 이력 (dark)](../../design/mockups/s-09-file-history-dark.png) |
+| ![S-09 파일 이력 (light)](../../design/mockups/s09-file-history-light.png) | ![S-09 파일 이력 (dark)](../../design/mockups/s09-file-history-dark.png) |
 
-원본: [`s-09-file-history-light.svg`](../../design/mockups/s-09-file-history-light.svg), [`s-09-file-history-dark.svg`](../../design/mockups/s-09-file-history-dark.svg)
+원본: [`s09-file-history-light.svg`](../../design/mockups/s09-file-history-light.svg), [`s09-file-history-dark.svg`](../../design/mockups/s09-file-history-dark.svg)
 
 ---
 
