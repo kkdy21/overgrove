@@ -4,7 +4,7 @@
 
 이 문서는 Phase, 마일스톤, Epic, 하위 이슈의 **원본 목록**이다. GitHub 이슈는 이 문서와 1:1로 대응하는 시드(`issues-seed.json`, 저장소 밖 작업 파일)로 만든다. 이슈가 만들어진 뒤에는 GitHub 이슈가 진행 상황의 기준이 되고, 이 문서는 구조와 순서를 설명하는 데 쓴다.
 
-규모: Epic 15개, Epic 하위 이슈 97개, Epic에 속하지 않은 v0.1.0 이슈 7개, v0.2.0 이슈 7개, later 이슈 16개 (총 142개). 표의 키 옆 `(#n)`이 GitHub 이슈 번호다. 운영 중에 생겨 곧바로 닫힌 이슈(README·CI 정비, 버그 수정, 프로세스 변경 등 #125–#151의 일부와 #172)는 표에 넣지 않는다.
+규모: Epic 15개, Epic 하위 이슈 97개, Epic에 속하지 않은 v0.1.0 이슈 8개, v0.2.0 이슈 7개, later 이슈 16개 (총 143개). 표의 키 옆 `(#n)`이 GitHub 이슈 번호다. 운영 중에 생겨 곧바로 닫힌 이슈(README·CI 정비, 버그 수정, 프로세스 변경 등 #125–#151의 일부와 #172)는 표에 넣지 않는다.
 
 > 진행 상황 (2026-11-06): Phase 3 진행 중. 골격·CI(#30–#32)와 실행·보안 기반 Epic(#5)을 마쳤고, 모델(#49)과 설정·버전·gh 파서(#56)가 들어왔다. 화면 목업 1차(#159)에 이어 메인테이너 피드백을 반영한 패널 테마 재디자인(#166, ADR-0014)을 마쳤다. 협업자 본격 모집 전이며, 지금 선점할 수 있는 이슈는 [보드의 Ready to claim 뷰](https://github.com/users/kkdy21/projects/4/views/3)에서 본다.
 
@@ -272,6 +272,7 @@ SEC 테스트 전체를 작성하고 CI에서 실행한다.
 | V1-05 (#164) | decision: v0.1 build order — worktree review flow before the commit graph? (status:needs-decision) | decision · ui, git-core · p1 | S | — |
 | V1-06 (#166) | docs(design): redesign with boxed resizable panels and a vivid original lane palette | docs · ui · p0 | L | V1-02 |
 | V1-07 (#175) | docs: sync roadmap and gate log after the redesign; harden the scenario script | docs · docs · p1 | S | — |
+| V1-08 (#176) | docs(design): mockups for stash detail, issue panel, settings, and file history | docs · ui · p1 | M | V1-06 |
 
 ## 7. Phase 4 — 검증
 
