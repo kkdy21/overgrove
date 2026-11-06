@@ -40,6 +40,15 @@ struct TestExecutables {
         try script("linger", "sleep 300 &\necho started\nexit 0")
     }
 
+    /// Starts a helper that ignores SIGTERM and holds no pipe (pid written to $1), then floods stdout so the output
+    /// limit triggers termination. The leader itself dies on SIGTERM.
+    func spawningSIGTERMIgnoringHelperThenFlooding() throws -> URL {
+        try script(
+            "stubborn-helper",
+            "(trap '' TERM; exec sleep 300) >/dev/null 2>&1 &\necho $! > \"$1\"\nwhile :; do echo flood; done"
+        )
+    }
+
     /// Ignores SIGTERM, creates the file passed as $1 once the trap is installed, then idles.
     func ignoringSIGTERMWithReadyFile() throws -> URL {
         try script("ignore-term-ready", "trap '' TERM\n: > \"$1\"\nwhile :; do sleep 1; done")

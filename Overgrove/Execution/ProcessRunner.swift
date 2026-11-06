@@ -380,8 +380,10 @@ private final class ChildProcess: @unchecked Sendable {
         grace.resume()
     }
 
-    /// Only called before the leader is reaped, so `pid` still names our process group.
+    /// Only called before the leader is reaped, so `pid` still names our process group. If waiting failed
+    /// (e.g. someone else reaped the child), the pid is no longer reserved and nothing is signalled.
     private func signalGroup(_ signal: Int32) {
+        guard waitError == nil else { return }
         if kill(-pid, signal) != 0 {
             _ = kill(pid, signal)
         }
@@ -406,6 +408,9 @@ private final class ChildProcess: @unchecked Sendable {
         sources.removeAll()
         timeoutTimer = nil
 
+        // A helper in the group may ignore SIGTERM and hold no pipe; finish it off while the zombie leader still
+        // reserves the process group id.
+        if terminating { signalGroup(SIGKILL) }
         var status: Int32 = 0
         while waitpid(pid, &status, WNOHANG) < 0 && errno == EINTR {}
 
@@ -441,7 +446,8 @@ private final class ChildProcess: @unchecked Sendable {
 
     private static func dispatchInterval(_ duration: Duration) -> DispatchTimeInterval {
         let (seconds, attoseconds) = duration.components
-        return .nanoseconds(Int(seconds) * 1_000_000_000 + Int(attoseconds / 1_000_000_000))
+        let clamped = min(max(seconds, 0), 86_400 * 365)  // avoid overflow for absurd limits
+        return .nanoseconds(Int(clamped) * 1_000_000_000 + Int(attoseconds / 1_000_000_000))
     }
 }
 

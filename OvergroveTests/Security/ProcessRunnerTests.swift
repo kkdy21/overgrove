@@ -235,6 +235,25 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertLessThan(clock.now - start, .seconds(5))
     }
 
+    func testHelperIgnoringSIGTERMIsKilledWhenTheRunFinishes() async throws {
+        // Re-review of #138: the leader dies on SIGTERM and the pipes close, so the run finishes before the grace
+        // timer; the stubborn helper must still get SIGKILL while the leader's process group id is reserved.
+        let script = try executables.spawningSIGTERMIgnoringHelperThenFlooding()
+        let pidFile = executables.directory.appendingPathComponent("helper.pid")
+        let limits = ProcessLimits(
+            timeout: .seconds(30),
+            stdoutLimit: 1024,
+            stderrLimit: 1024,
+            terminationGracePeriod: .seconds(5)
+        )
+        let result = try await ProcessRunner().run(request(script.path, [pidFile.path], limits: limits))
+        XCTAssertTrue(result.stdoutTruncated)
+        let text = try String(contentsOf: pidFile, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+        let helper = try XCTUnwrap(pid_t(text))
+        let gone = await eventually(timeout: .seconds(1)) { !processExists(helper) }
+        XCTAssertTrue(gone, "the helper must not outlive the run")
+    }
+
     func testHelperThatLeavesTheProcessGroupCannotHangTheRun() async throws {
         // A daemonizing helper (setsid) keeps stdout open after the leader exits.
         let perl = "/usr/bin/perl"
