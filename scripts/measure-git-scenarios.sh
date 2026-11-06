@@ -78,11 +78,12 @@ measure S2 "status, 추적 파일 10만 개" g -C "$R100" "${STATUS[@]}"
 
 find "$W0/src" -type f -exec touch {} +
 measure S3a "status, 파일 1만 개 mtime만 변경 (index 갱신 없음)" g -C "$W0" "${STATUS[@]}"
-"$GIT" -C "$W0" update-index -q --refresh >/dev/null 2>&1 || true
+# index 갱신도 공통 보안 인자로 실행한다. --no-optional-locks여도 update-index --refresh는 index를 다시 쓴다
+g -C "$W0" update-index -q --refresh >/dev/null 2>&1 || true
 measure S3b "같은 워크트리, index 갱신 뒤" g -C "$W0" "${STATUS[@]}"
 find "$R100/src" -type f -exec touch {} +
 measure S3c "status, 파일 10만 개 mtime만 변경 (index 갱신 없음)" g -C "$R100" "${STATUS[@]}"
-"$GIT" -C "$R100" update-index -q --refresh >/dev/null 2>&1 || true
+g -C "$R100" update-index -q --refresh >/dev/null 2>&1 || true
 measure S3d "같은 저장소, index 갱신 뒤" g -C "$R100" "${STATUS[@]}"
 
 mkdir -p "$W1/gen"
