@@ -48,6 +48,8 @@ final class RepoConfigInspectorTests: XCTestCase {
 
     func testTruncatedListingBlocks() {
         XCTAssertTrue(inspect([], partial: true).report.isBlocked)
+        XCTAssertNil(inspect([], partial: true).safetyContext, "a blocked report yields no safety context")
+        XCTAssertNotNil(inspect([]).safetyContext)
     }
 
     func testCredentialHelpersAreResetAndTrustedOnesReinsertedInOrder() {
@@ -103,6 +105,8 @@ final class RepoConfigInspectorTests: XCTestCase {
             (entry(.local, "diff.fixture.textconv", "x"), .reported), (entry(.local, "gpg.program", "x"), .reported),
             (entry(.local, "log.showsignature", "true"), .reported), (entry(.local, "core.worktree", "/"), .warned),
             (entry(.local, "http.proxy", "http://p"), .warned), (entry(.local, "maintenance.auto", "true"), .reported),
+            (entry(.local, "core.attributesfile", "/tmp/fifo"), .warned),
+            (entry(.local, "diff.orderfile", "x"), .warned),
         ]
         for (entry, handling) in samples {
             let findings = inspect([entry]).report.findings
@@ -150,18 +154,21 @@ final class RepoConfigInspectorFixtureTests: XCTestCase {
         let worktree = fixture.repository
 
         // Inspect the repository's own configuration.
-        let config = try await client.run(.configList, in: worktree)
+        let config = try await client.run(.configList, in: worktree, safety: .preInspection)
         let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(config.stdout))
         XCTAssertFalse(inspection.report.isBlocked)
         XCTAssertTrue(inspection.neutralization.contains("filter.fixture.clean="))
         XCTAssertTrue(inspection.report.findings.contains { $0.threat == "T6" })
 
         // With the neutralization arguments, status runs no payload at all.
-        _ = try await client.run(.status, in: worktree, neutralization: inspection.neutralization)
+        let safety = try XCTUnwrap(inspection.safetyContext)
+        _ = try await client.run(.status, in: worktree, safety: safety)
         XCTAssertEqual(fixture.canaries(), [], "no repository-configured program may run")
 
         // Control: the common arguments alone do not stop the clean filter (T4), proving the test is meaningful.
-        _ = try await client.run(.status, in: worktree)
+        let unneutralized = RepoSafetyContext(
+            inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
+        _ = try await client.run(.status, in: worktree, safety: unneutralized)
         XCTAssertTrue(fixture.canaries().contains("T4-filter-clean"), "canaries: \(fixture.canaries())")
     }
 }

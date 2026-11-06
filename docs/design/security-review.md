@@ -357,6 +357,7 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^url\..+\.(insteadof\|pushinsteadof)$` | 전송 | 보고 | T5 |
 | `^http\.(.+\.)?(proxy\|sslcainfo\|sslcapath\|sslcert\|sslkey)$` | 전송 보안 | 경고 | T11 |
 | `^core\.worktree$` | 범위 | 경고 | T14 |
+| `^core\.(attributesfile\|excludesfile)$`, `^diff\.orderfile$` | 자원 | 경고 (FIFO·장치를 가리키면 타임아웃까지 git이 멈출 수 있음, #148 리뷰) | T15 |
 | `^include\.path$`, `^includeif\..+\.path$` | 구성 | 보고 (`--includes`로 함께 검사함) | — |
 | `^fetch\.recursesubmodules$`, `^submodule\.recurse$` | 전송 | 보고 (`--no-recurse-submodules`) | T5 |
 | `^submodule\..+\.update$` (값이 `!`로 시작) | 실행 | 보고 (앱이 쓰지 않는 명령) | — |

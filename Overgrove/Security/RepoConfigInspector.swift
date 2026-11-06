@@ -18,6 +18,16 @@ struct RepoConfigInspection: Sendable, Equatable {
     /// `core.sshCommand` from a trusted scope; repository-local values are ignored (T5).
     let trustedSSHCommand: String?
     let remotes: [Remote]
+
+    /// Arguments for `GitClient`. `nil` when the report blocks queries (fail closed).
+    var safetyContext: RepoSafetyContext? {
+        guard !report.isBlocked else { return nil }
+        return RepoSafetyContext(
+            inspectedNeutralization: neutralization,
+            fetchAuthentication: fetchAuthentication,
+            trustedSSHCommand: trustedSSHCommand
+        )
+    }
 }
 
 /// Inspects `git config --list --show-scope -z --includes` output and decides how to neutralize keys that can make
@@ -114,6 +124,8 @@ enum RepoConfigInspector {
             case "hookspath": return ("T2", .reported)
             case "askpass": return ("T12", .reported)
             case "worktree": return ("T14", .warned)
+            // A path that points at a FIFO or device could stall git until the timeout (review of #148).
+            case "attributesfile", "excludesfile": return ("T15", .warned)
             default: return nil
             }
         case "remote":
@@ -126,6 +138,8 @@ enum RepoConfigInspector {
             return nil
         case "diff" where variable == "external" || variable == "textconv" || variable == "command":
             return ("T3", .reported)
+        case "diff" where variable == "orderfile":
+            return ("T15", .warned)
         case "gpg" where variable == "program":
             return ("T7", .reported)
         case "log" where variable == "showsignature":
