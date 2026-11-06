@@ -13,15 +13,17 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case aheadBehind(local: FullRefName, upstream: FullRefName)
     case stashList
     case stashFiles(ObjectID)
-    case stashPatch(ObjectID, path: GitPath)
+    /// Patch of one file in a stash. Tracked changes are diffed against the stash's base (`^1`); files from the
+    /// untracked part (`stash -u`) come from the third parent (`^3`). `git stash show` accepts no pathspec.
+    case stashPatch(ObjectID, path: GitPath, fromUntracked: Bool)
     case graphPage(skip: Int, limit: Int)
     case commitMeta(ObjectID)
     /// `firstParent` is set for merge commits, which are compared with their first parent.
     case commitFiles(ObjectID, firstParent: ObjectID?)
     case commitPatch(ObjectID, parent: ObjectID?, path: GitPath)
     case worktreeDiff(path: GitPath, staged: Bool)
-    /// Diff of an untracked file against /dev/null. Run only after `PathValidator` placed it inside the worktree.
-    case untrackedPreview(path: GitPath)
+    /// Diff of an untracked file against /dev/null. Only a `WorktreeFile` (checked by `PathValidator`) is accepted.
+    case untrackedPreview(WorktreeFile)
     case fileHistory(path: GitPath, limit: Int)
 
     enum Location: Sendable, Equatable {
@@ -68,11 +70,12 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
                 "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
                 "--end-of-options", oid.hex,
             ]
-        case .stashPatch(let oid, let path):
-            return [
-                "stash", "show", "-p", "--include-untracked", "--no-ext-diff", "--no-textconv", "--end-of-options",
-                oid.hex,
-            ] + (try Self.pathspec(path))
+        case .stashPatch(let oid, let path, let fromUntracked):
+            // Options (including --root) must come before --end-of-options, revisions after it.
+            let options =
+                ["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv"] + (fromUntracked ? ["--root"] : [])
+            let revisions = fromUntracked ? ["\(oid.hex)^3"] : ["\(oid.hex)^1", oid.hex]
+            return options + ["--end-of-options"] + revisions + (try Self.pathspec(path))
         case .graphPage(let skip, let limit):
             return [
                 "log", "--exclude=refs/stash", "--all", "--date-order", "-z", Self.logFormat,
@@ -94,12 +97,20 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .worktreeDiff(let path, let staged):
             return ["diff", "--no-ext-diff", "--no-textconv", "-M"] + (staged ? ["--cached"] : [])
                 + (try Self.pathspec(path))
-        case .untrackedPreview(let path):
-            guard let argument = path.argument else { throw Self.unrepresentable }
-            return ["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", argument]
+        case .untrackedPreview(let file):
+            return ["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", file.relativePath]
         case .fileHistory(let path, let limit):
             return ["log", "--follow", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit))]
                 + (try Self.pathspec(path))
+        }
+    }
+
+    /// Commands that read worktree content or history can run repository-configured programs (filters, T4), so they
+    /// need the neutralization arguments from `RepoConfigInspector` first. Only these may run before inspection.
+    var requiresInspection: Bool {
+        switch self {
+        case .version, .probeRepository, .configList: false
+        default: true
         }
     }
 

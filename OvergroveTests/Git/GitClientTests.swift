@@ -9,10 +9,11 @@ private let parent = ObjectID(String(repeating: "cd", count: 20))!
 private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .version, .probeRepository, .configList, .worktreeList, .status, .refs,
     .aheadBehind(local: FullRefName("refs/heads/feat/12-x")!, upstream: FullRefName("refs/remotes/origin/feat/12-x")!),
-    .stashList, .stashFiles(oid), .stashPatch(oid, path: GitPath("--output=x")), .graphPage(skip: 500, limit: 500),
+    .stashList, .stashFiles(oid), .stashPatch(oid, path: GitPath("--output=x"), fromUntracked: false),
+    .stashPatch(oid, path: GitPath("new.txt"), fromUntracked: true), .graphPage(skip: 500, limit: 500),
     .commitMeta(oid), .commitFiles(oid, firstParent: nil), .commitFiles(oid, firstParent: parent),
     .commitPatch(oid, parent: parent, path: GitPath("-x")), .worktreeDiff(path: GitPath("a b.txt"), staged: true),
-    .worktreeDiff(path: GitPath(":(exclude)x"), staged: false), .untrackedPreview(path: GitPath("new.txt")),
+    .worktreeDiff(path: GitPath(":(exclude)x"), staged: false),
     .fileHistory(path: GitPath("*"), limit: 100),
 ]
 
@@ -64,8 +65,12 @@ final class GitCommandTests: XCTestCase {
                 "--end-of-options", oid.hex,
             ],
             [
-                "stash", "show", "-p", "--include-untracked", "--no-ext-diff", "--no-textconv", "--end-of-options",
-                oid.hex, "--", "--output=x",
+                "diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--end-of-options", "\(oid.hex)^1", oid.hex,
+                "--", "--output=x",
+            ],
+            [
+                "diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "\(oid.hex)^3",
+                "--", "new.txt",
             ],
             [
                 "log", "--exclude=refs/stash", "--all", "--date-order", "-z", ReadOnlyGitCommand.logFormat,
@@ -89,7 +94,6 @@ final class GitCommandTests: XCTestCase {
             ],
             ["diff", "--no-ext-diff", "--no-textconv", "-M", "--cached", "--", "a b.txt"],
             ["diff", "--no-ext-diff", "--no-textconv", "-M", "--", ":(exclude)x"],
-            ["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", "new.txt"],
             ["log", "--follow", "-z", ReadOnlyGitCommand.logFormat, "-n", "100", "--", "*"],
         ]
         XCTAssertEqual(allReadOnlyCommands.count, expected.count)
@@ -111,7 +115,7 @@ final class GitCommandTests: XCTestCase {
     func testLossyPathsAreRejected() {
         let lossy = GitPath(raw: Data([0x61, 0xFF]))
         for command in [
-            ReadOnlyGitCommand.fileHistory(path: lossy, limit: 10), .untrackedPreview(path: lossy),
+            ReadOnlyGitCommand.fileHistory(path: lossy, limit: 10),
             .worktreeDiff(path: lossy, staged: false),
         ] {
             XCTAssertThrowsError(try command.subcommandArguments()) {
@@ -131,6 +135,8 @@ final class GitCommandTests: XCTestCase {
 final class GitClientIntegrationTests: XCTestCase {
     private var repository: GitTestRepository!
     private var client: GitClient!
+    private let inspected = RepoSafetyContext(
+        inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
 
     override func setUp() async throws {
         repository = try await GitTestRepository.make()
@@ -143,18 +149,53 @@ final class GitClientIntegrationTests: XCTestCase {
 
     func testStatusAndWorktreeListSucceed() async throws {
         try repository.write("a.txt", "a\n")
-        let status = try await client.run(.status, in: repository.root)
+        let status = try await client.run(.status, in: repository.root, safety: inspected)
         XCTAssertTrue(String(decoding: status.stdout, as: UTF8.self).contains("? a.txt"))
-        let worktrees = try await client.run(.worktreeList, in: repository.root)
+        let worktrees = try await client.run(.worktreeList, in: repository.root, safety: inspected)
         XCTAssertTrue(String(decoding: worktrees.stdout, as: UTF8.self).hasPrefix("worktree "))
-        let version = try await client.run(.version, in: nil)
+        let version = try await client.run(.version, in: nil, safety: .preInspection)
         XCTAssertTrue(String(decoding: version.stdout, as: UTF8.self).hasPrefix("git version "))
     }
 
     func testUntrackedPreviewAcceptsExitCodeOne() async throws {
         try repository.write("new.txt", "hello\n")
-        let output = try await client.run(.untrackedPreview(path: GitPath("new.txt")), in: repository.root)
+        let file = try XCTUnwrap(PathValidator.worktreeFile(GitPath("new.txt"), in: repository.root))
+        let output = try await client.run(.untrackedPreview(file), in: repository.root, safety: inspected)
         XCTAssertTrue(String(decoding: output.stdout, as: UTF8.self).contains("+hello"))
+    }
+
+    func testCommandsNeedInspectionFirst() async {
+        do {
+            _ = try await client.run(.status, in: repository.root, safety: .preInspection)
+            XCTFail("status must not run before the configuration is inspected")
+        } catch let error as GitError {
+            guard case .configInspectionFailed = error else { return XCTFail("got \(error)") }
+        } catch {
+            XCTFail("unexpected \(error)")
+        }
+    }
+
+    func testStashPatchForTrackedAndUntrackedFiles() async throws {
+        try repository.write("tracked.txt", "v1\n")
+        try await repository.git(["add", "tracked.txt"])
+        try await repository.git(["commit", "-q", "-m", "base"])
+        try repository.write("tracked.txt", "v2\n")
+        try repository.write("untracked.txt", "fresh\n")
+        try await repository.git(["stash", "push", "-q", "--include-untracked", "-m", "wip"])
+        let listed = try await repository.git(["rev-parse", "stash@{0}"])
+        let stash = try XCTUnwrap(
+            ObjectID(String(decoding: listed.stdout, as: UTF8.self).trimmingCharacters(in: .newlines)))
+
+        let tracked = try await client.run(
+            .stashPatch(stash, path: GitPath("tracked.txt"), fromUntracked: false), in: repository.root,
+            safety: inspected
+        )
+        XCTAssertTrue(String(decoding: tracked.stdout, as: UTF8.self).contains("+v2"))
+        let untracked = try await client.run(
+            .stashPatch(stash, path: GitPath("untracked.txt"), fromUntracked: true), in: repository.root,
+            safety: inspected
+        )
+        XCTAssertTrue(String(decoding: untracked.stdout, as: UTF8.self).contains("+fresh"))
     }
 
     func testNotARepositoryIsClassified() async throws {
@@ -163,7 +204,7 @@ final class GitClientIntegrationTests: XCTestCase {
         try FileManager.default.createDirectory(at: plain, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: plain) }
         do {
-            _ = try await client.run(.status, in: plain)
+            _ = try await client.run(.status, in: plain, safety: inspected)
             XCTFail("expected notARepository")
         } catch let error as GitError {
             guard case .notARepository = error else { return XCTFail("got \(error)") }
@@ -172,7 +213,7 @@ final class GitClientIntegrationTests: XCTestCase {
 
     func testMissingWorktreeIsClassified() async {
         do {
-            _ = try await client.run(.status, in: URL(fileURLWithPath: "/nonexistent/worktree"))
+            _ = try await client.run(.status, in: URL(fileURLWithPath: "/nonexistent/worktree"), safety: inspected)
             XCTFail("expected worktreeMissing")
         } catch let error as GitError {
             XCTAssertEqual(error, .worktreeMissing(path: "/nonexistent/worktree"))
@@ -181,17 +222,62 @@ final class GitClientIntegrationTests: XCTestCase {
         }
     }
 
+    func testCancelledWaiterLeavesTheQueue() async throws {
+        let client = GitClient(environment: repository.environment, maximumConcurrency: 1)
+        let root = repository.root
+        let safety = inspected
+        // Occupy the only slot with a slow command, then cancel a queued one.
+        let blocker = Task { try await client.run(.graphPage(skip: 0, limit: 1), in: root, safety: safety) }
+        let queued = Task { try await client.run(.status, in: root, safety: safety) }
+        queued.cancel()
+        do {
+            _ = try await queued.value
+        } catch let error as GitError {
+            XCTAssertEqual(error, .cancelled)
+        }
+        _ = try? await blocker.value
+        let after = try await client.run(.status, in: root, safety: safety)
+        XCTAssertNotNil(after, "the slot is not leaked")
+    }
+
     func testConcurrencyIsCapped() async throws {
         let client = GitClient(environment: repository.environment, maximumConcurrency: 3)
         let root = repository.root
+        let safety = inspected
         try await withThrowingTaskGroup(of: Void.self) { group in
             for _ in 0..<16 {
-                group.addTask { _ = try await client.run(.status, in: root) }
+                group.addTask { _ = try await client.run(.status, in: root, safety: safety) }
             }
             try await group.waitForAll()
         }
         let peak = await client.peakConcurrency
         XCTAssertLessThanOrEqual(peak, 3)
         XCTAssertGreaterThan(peak, 0)
+    }
+}
+
+/// PathValidator.worktreeFile (T14, security review of #148).
+final class WorktreeFileTests: XCTestCase {
+    func testOnlyContainedRegularFilesAndLinksAreAccepted() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("overgrove-wtf-\(UUID().uuidString)")
+        let outside = root.appendingPathComponent("outside")
+        let worktree = root.appendingPathComponent("wt")
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: worktree, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try "x".write(to: worktree.appendingPathComponent("ok.txt"), atomically: true, encoding: .utf8)
+        try "secret".write(to: outside.appendingPathComponent("secret"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(mkfifo(worktree.appendingPathComponent("pipe").path, 0o600), 0)
+        try FileManager.default.createSymbolicLink(
+            atPath: worktree.appendingPathComponent("link").path, withDestinationPath: "../outside/secret"
+        )
+
+        XCTAssertNotNil(PathValidator.worktreeFile(GitPath("ok.txt"), in: worktree))
+        XCTAssertNotNil(PathValidator.worktreeFile(GitPath("link"), in: worktree), "links are shown as link text")
+        XCTAssertNil(PathValidator.worktreeFile(GitPath("pipe"), in: worktree), "a FIFO would block git")
+        XCTAssertNil(PathValidator.worktreeFile(GitPath("/etc/hosts"), in: worktree))
+        XCTAssertNil(PathValidator.worktreeFile(GitPath("../outside/secret"), in: worktree))
+        XCTAssertNil(PathValidator.worktreeFile(GitPath("missing.txt"), in: worktree))
+        XCTAssertNil(PathValidator.worktreeFile(GitPath(raw: Data([0x61, 0xFF])), in: worktree))
     }
 }

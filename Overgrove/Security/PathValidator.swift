@@ -103,6 +103,28 @@ enum PathValidator {
         return .linked(name: name)
     }
 
+    /// Validates a worktree-relative path for reading file content (untracked previews, T14).
+    ///
+    /// Rejects absolute paths, `..` components, lossy paths, files whose real location is outside the worktree,
+    /// and anything that is not a regular file or a symbolic link (a FIFO would block git until the timeout).
+    static func worktreeFile(_ path: GitPath, in worktree: URL) -> WorktreeFile? {
+        guard let relative = path.argument, !relative.isEmpty, !relative.hasPrefix("/"),
+            !relative.split(separator: "/").contains("..")
+        else { return nil }
+        let url = worktree.appendingPathComponent(relative)
+        var info = stat()
+        guard lstat(url.path, &info) == 0 else { return nil }
+        let type = info.st_mode & S_IFMT
+        guard type == S_IFREG || type == S_IFLNK else { return nil }
+        if type == S_IFLNK {
+            // Show only the link text; git diff --no-index prints a symlink as its target string.
+            guard case .inside = containment(of: url.deletingLastPathComponent(), in: worktree) else { return nil }
+            return WorktreeFile(relativePath: relative)
+        }
+        guard case .inside = containment(of: url, in: worktree) else { return nil }
+        return WorktreeFile(relativePath: relative)
+    }
+
     // MARK: - Helpers
 
     /// Removes `.` and `..` components and duplicate slashes without touching the file system.
@@ -132,5 +154,15 @@ enum PathValidator {
         defer { try? handle.close() }
         guard let data = try? handle.read(upToCount: 4097), data.count <= 4096 else { return nil }
         return String(data: data, encoding: .utf8)
+    }
+}
+
+/// A worktree-relative path that `PathValidator.worktreeFile(_:in:)` checked: relative, no `..`, inside the
+/// worktree, and a regular file or symbolic link.
+struct WorktreeFile: Sendable, Hashable {
+    let relativePath: String
+
+    fileprivate init(relativePath: String) {
+        self.relativePath = relativePath
     }
 }
