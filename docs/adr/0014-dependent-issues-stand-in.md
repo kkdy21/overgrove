@@ -1,6 +1,6 @@
 # ADR-0014: 의존 이슈를 기다리지 않는다 — stand-in으로 먼저 개발하고 머지만 순서대로
 
-> 상태: Accepted · 날짜: 2026-11-06 · 관련: #ISSUE_NO, [ADR-0013](0013-external-contributions-and-issue-claiming.md), [process/collaboration.md §4.1](../process/collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때)
+> 상태: Accepted · 날짜: 2026-11-06 · 관련: #172, [ADR-0013](0013-external-contributions-and-issue-claiming.md), [process/collaboration.md §4.1](../process/collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때)
 
 ## 맥락
 
