@@ -5,7 +5,7 @@ description: Overgrove 협업자의 시작점. "백로그 확인해서 진행해
 
 # onboard — 백로그에서 PR까지
 
-기준 문서: `CLAUDE.md`(특히 §0.1, §2.1), `docs/process/collaboration.md`, ADR-0013
+기준 문서: `CLAUDE.md`(특히 §0.1, §2.1), `docs/process/collaboration.md`(의존 이슈는 §4.1), ADR-0013, ADR-0015
 
 ## 0. 위치 확인
 - `git rev-parse --show-toplevel`과 `git remote -v`를 확인한다.
@@ -32,18 +32,31 @@ sudo xcodebuild -runFirstLaunch
 ```
 
 ## 2. 이슈 고르기 — 사용자가 고른다
+
+### 2.0 기다리던 내 PR부터
+```sh
+gh pr list --repo kkdy21/overgrove --author @me --state open --json number,title,isDraft,headRefName,body
+```
+- Draft PR마다 의존 이슈가 모두 완료로 닫혔는지 확인한다(`gh issue view <d> --json state,stateReason`). 의존 이슈는 연결 이슈의 `## 의존성` 절과 PR 본문의 `Depends on #<d>` 줄에 있는 이슈다.
+- 모두 끝난 PR이 있으면 사용자에게 알리고 새 이슈보다 먼저 마무리한다(`/pr-open`의 "의존 이슈가 끝났을 때").
+- 완료되지 않고 닫힌 의존 이슈(중복, not planned)가 있으면 멈추고 묻는다. 메인테이너의 결정이 필요하다.
+
+### 2.1 새 이슈 후보
 ```sh
 gh issue list --repo kkdy21/overgrove --state open --limit 200 \
   --search "no:assignee -label:type:epic -label:status:blocked -label:status:needs-decision -label:status:triage" \
   --json number,title,labels,milestone,body
 ```
-- 후보마다 본문 "## 의존성"의 `#번호`가 모두 닫혔는지 확인한다(`gh issue view <n> --json state`). 열린 의존성이 있으면 제외한다.
+- 후보마다 본문 "## 의존성"의 `#번호` 상태를 확인한다(`gh issue view <d> --json state,stateReason,assignees`).
+  - 열린 의존성이 있어도 후보에서 빼지 않는다(ADR-0015). 의존 이슈의 상태를 `끝남`, `진행 중 #d(@담당자)`, `미착수 #d`로 정리한다.
+  - 완료되지 않고 닫힌 의존 이슈가 있는 후보는 뺀다. 메인테이너가 의존성 절을 고쳐야 하는 상태다.
 - 우선순위:
   1. 현재 마일스톤 `v0.1.0`
-  2. `priority:p0` → `p1` → `p2`
-  3. 크기 S·M
-  4. `good first issue`
-- 상위 3–5개를 표로 보여준다(번호, 제목, 우선순위, 크기, 한 줄 요약). **사용자가 고르게 한다.** 사용자가 "알아서 골라"라고 하면 1순위를 고른다.
+  2. 의존성이 모두 끝난 이슈
+  3. `priority:p0` → `p1` → `p2`
+  4. 크기 S·M
+  5. `good first issue`
+- 상위 3–5개를 표로 보여준다(번호, 제목, 우선순위, 크기, 의존성, 한 줄 요약). 의존 이슈가 남은 후보에는 stand-in으로 진행한다는 점을 적는다. **사용자가 고르게 한다.** 사용자가 "알아서 골라"라고 하면 1순위를 고른다.
 
 ## 3. 선점
 ```sh
@@ -56,6 +69,7 @@ gh issue comment <n> --repo kkdy21/overgrove --body "/claim"
 
 ## 4. 시작과 구현
 1. `/issue-start <n>`으로 `upstream/main` 기준 `<type>/<n>-<slug>` 브랜치(또는 워크트리)를 만들고 계획을 세운다.
+   - 의존 이슈가 남아 있으면 `/issue-start`의 "의존 이슈 준비"를 따른다. 아무도 선점하지 않은 의존 이슈는 직접 선점할지 사용자에게 묻는다. 그 밖에는 필요한 부분만 `STAND-IN(#<d>)` 주석을 단 stand-in으로 만든다. 남의 미머지 PR은 merge하거나 체크아웃하지 않는다.
 2. 명세를 읽는다: 이슈 본문, `docs/architecture/*`, `docs/design/*`, 관련 ADR, `docs/README.md` §2 식별자.
 3. **테스트를 먼저** 쓴다.
    - 파서: 실제 git 출력을 채집해 픽스처로 쓴다.
@@ -74,9 +88,13 @@ gh issue comment <n> --repo kkdy21/overgrove --body "/claim"
   ```
 - 시간에 의존하는 테스트를 추가했다면 `-test-iterations 5 -run-tests-until-failure`로 불안정성을 확인한다.
 - 보안 영향 경로를 건드렸다면 `security-reviewer` 에이전트를 돌린다. 경로: `Execution/`, `Git/`, `GitHub/`, `Parsing/`, `Security/`, `.github/`, `.githooks/`, `.claude/hooks/`, `scripts/github/`
-- PR 본문의 체크리스트와 검증 방법을 채우고 `gh pr ready <n>`로 바꾼다.
+- PR 본문의 체크리스트와 검증 방법을 채운다.
+- 의존 이슈가 모두 완료로 닫혔고 stand-in이 남지 않았으면(`git diff upstream/main...HEAD | grep -n 'STAND-IN(#'` 결과 없음) `gh pr ready <n>`로 바꾼다.
+- 의존 이슈가 남아 있으면 **Draft로 둔다.** 이때 `pr-policy`의 "Waiting on dependency" 실패는 정상이다.
 - `gh pr checks <n> --watch`로 확인한다. 첫 PR은 메인테이너가 워크플로우 실행을 승인해야 검사가 돈다는 점을 알린다.
 - 사용자에게 보고한다: PR 링크, 바뀐 것, 검증 결과, 남은 질문.
+  - Draft로 남겼다면 무엇을 기다리는지(의존 이슈 번호와 상태)도 함께 보고한다.
+  - 의존 이슈가 닫히면 봇이 PR에 댓글로 알린다. 그때 "백로그 확인해서 진행해줘"라고 하면 2.0에서 이어서 마무리한다는 점을 알린다.
 
 ## 멈추고 묻는 경우
 - 이슈 선택
@@ -84,6 +102,8 @@ gh issue comment <n> --repo kkdy21/overgrove --body "/claim"
 - 범위 밖 변경이 필요할 때: `later` 이슈 초안을 제안한다
 - 보안 판단이 서지 않을 때
 - 셋업에 사용자의 손(로그인, sudo)이 필요할 때
+- 의존 이슈가 완료되지 않고 닫혔거나 의존이 순환할 때
+- 아무도 선점하지 않은 의존 이슈를 직접 선점할지 정할 때
 
 ## 하지 않는 것
 - 머지
@@ -92,3 +112,5 @@ gh issue comment <n> --repo kkdy21/overgrove --body "/claim"
 - `--no-verify`
 - 남이 선점한 이슈 작업
 - 동시에 3개 이상 선점
+- 남의 미머지 PR을 merge하거나 체크아웃하기
+- 의존 이슈가 남았거나 stand-in이 남은 PR을 Ready로 바꾸기

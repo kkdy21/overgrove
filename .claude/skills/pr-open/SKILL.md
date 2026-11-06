@@ -30,11 +30,15 @@ xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'pla
 - `git diff $BASE/main...HEAD --stat`으로 변경 범위가 이슈 하나에 맞는지 확인한다.
 - 다음 경로를 건드렸으면 `security-reviewer` 에이전트를 돌린다: `Overgrove/Execution|Git|GitHub|Parsing|Security`, `.github/workflows`, `.githooks`, `.claude/hooks`, `scripts/github`
 - 범위가 의심되면 `scope-guard` 에이전트를 돌린다.
+- Ready로 바꾸기 전에 의존성을 확인한다(ADR-0015).
+  - 연결 이슈의 `## 의존성` 절과 PR 본문의 `Depends on`에 있는 이슈가 모두 완료로 닫혔는가(`gh issue view <d> --json state,stateReason`). 하나라도 열려 있으면 Draft로 둔다.
+  - stand-in이 남지 않았는가. `git diff $BASE/main...HEAD | grep -n 'STAND-IN(#'` 결과가 비어 있어야 한다.
 
 ## 4. PR 초안
 - **제목**: 영어 Conventional 형식. squash 커밋 제목이 된다. 예: `feat(parser): parse porcelain v2 rename records`
 - **본문**: `.github/pull_request_template.md`를 채운다.
   - 첫 줄에 `Closes #<n>`
+  - 이슈의 `## 의존성` 절에 없는 의존 이슈(작업 중 발견)는 그다음 줄부터 `Depends on #<d>`로 한 줄씩 적는다. 의존 이슈가 남아 있으면 Draft로 열고, stand-in으로 대신한 부분을 요약에 적는다
   - 검증 방법(실행한 명령과 결과)
   - 체크리스트에서 해당 없는 항목은 이유를 적는다
   - AI로 만든 변경이면 "AI-assisted: Claude Code" 한 줄을 넣는다
@@ -55,10 +59,24 @@ xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'pla
   gh pr create --repo kkdy21/overgrove --base main --head "$me:$branch" --title "<title>" --body-file <tmp> [--draft]
   ```
   "Allow edits by maintainers"를 켜 둔다(기본값). 메인테이너가 `Update branch`를 대신 눌러줄 수 있다.
-- `gh pr checks <n> --watch`로 `gitleaks`, `pr-policy`, `build-test`를 확인하고 보고한다. 외부 기여자의 첫 PR은 메인테이너가 워크플로우 실행을 승인해야 검사가 돈다.
-- Draft로 열었다면 완료 조건을 다 채운 뒤 `gh pr ready <n>`로 바꾼다.
+- `gh pr checks <n> --watch`로 `gitleaks`, `pr-policy`, `build-test`를 확인하고 보고한다. 외부 기여자의 첫 PR은 메인테이너가 워크플로우 실행을 승인해야 검사가 돈다. 의존 이슈를 기다리는 Draft라면 `pr-policy`의 "Waiting on dependency" 실패는 정상이다.
+- Draft로 열었다면 완료 조건을 다 채우고 의존 이슈가 모두 끝난 뒤 `gh pr ready <n>`로 바꾼다.
 
 ## 7. 이후
 - 리뷰 코멘트에 대응하고 스레드는 코멘트 작성자가 resolve한다.
 - `main`이 앞서 나가면 `gh pr update-branch <n>` 또는 `git merge $BASE/main`을 쓴다. rebase와 강제 푸시는 하지 않는다.
 - 머지는 메인테이너가 한다(`/pr-review`).
+
+## 8. 의존 이슈가 끝났을 때
+`dependency-closed` 봇이 PR에 "🔓 #<d> is done" 댓글을 달았거나, `/onboard` 2.0에서 의존 이슈가 모두 끝난 Draft PR을 찾았을 때 한다.
+```sh
+git fetch $BASE
+git merge $BASE/main
+```
+- 충돌하면 의존 이슈 쪽(main)을 택한다(`git checkout --theirs <file>`). 내 이슈에서 그 파일을 바꾼 부분이 있었다면 다시 적용한다.
+- stand-in을 모두 지우고 실제 코드에 맞게 고친다.
+  - `git diff $BASE/main...HEAD | grep -n 'STAND-IN(#'` 결과가 비어 있어야 한다.
+  - `git diff $BASE/main...HEAD --stat`에 내 이슈의 변경만 남아야 한다.
+- 3단계 점검을 모두 돌리고 push한다. push하면 `pr-policy`가 다시 돈다.
+- 의존 이슈가 모두 끝났으면 `gh pr ready <n>`로 바꾸고 보고한다.
+- 봇이 "⚠️ closed without being completed" 댓글을 달았다면 멈추고 사용자에게 알린다. 메인테이너의 결정(다른 이슈에 의존, stand-in을 정식 코드로 흡수, 범위 변경)이 필요하다.

@@ -60,14 +60,15 @@
 | 외부 기여자 워크플로우 실행 | 첫 기여자만 승인 필요(`first_time_contributors`, ADR-0013) |
 | `build-test` 툴체인 | 러너 `macos-26`, 이미지에 있는 가장 최신 Xcode 26.x(`XCODE_MAJOR`). 올릴 때는 `ci.yml`의 두 값을 함께 바꾸는 PR을 연다. 실패하면 `.xcresult`와 로그를 7일 보관 아티팩트로 올린다 |
 
-### 선점 자동화 (ADR-0013)
+### 선점·의존성 자동화 (ADR-0013, ADR-0015)
 
 | 워크플로우 | 트리거 | 권한 | 하는 일 |
 |---|---|---|---|
 | `issue-claim.yml` | 이슈 댓글 `/claim`, `/unclaim` | `issues: write` | 담당자 지정·해제, 동시 선점 2개 제한, 선점 불가 라벨 거부 |
 | `claim-expiry.yml` | 30분마다, 수동 실행(dry-run 가능) | `issues: write` | PR 없이 5시간 지난 선점 해제, 담당자 없는 이슈에 PR 선착순 지정 (`scripts/github/claim-expiry.sh`) |
+| `dependency-closed.yml` | 메인테이너가 이슈를 닫을 때 | `pull-requests: write` | 그 이슈에 의존하는 열린 PR에 댓글로 알림(완료면 main 합치기 안내, 완료가 아니면 메인테이너 결정 요청) |
 
-두 워크플로우는 PR 코드를 체크아웃하거나 실행하지 않는다. 댓글 본문은 `env`로만 받아 첫 단어를 고정 문자열과 비교한다.
+세 워크플로우는 PR 코드를 체크아웃하거나 실행하지 않는다. 댓글 본문은 `env`로만 받아 첫 단어를 고정 문자열과 비교한다. `dependency-closed.yml`은 PR·이슈 본문을 API로 읽어 이슈 번호만 뽑는다.
 
 ### 마일스톤
 

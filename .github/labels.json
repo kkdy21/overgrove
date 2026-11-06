@@ -27,7 +27,7 @@
   { "name": "priority:p2",        "color": "fbca04", "description": "Nice to have; can slip to a later milestone" },
 
   { "name": "status:triage",      "color": "ffffff", "description": "New; needs labels, milestone, and acceptance criteria" },
-  { "name": "status:blocked",     "color": "000000", "description": "Waiting on another issue or external factor" },
+  { "name": "status:blocked",     "color": "000000", "description": "Waiting on an external factor; dependencies on other issues go under ## 의존성" },
   { "name": "status:needs-decision", "color": "e99695", "description": "Cannot proceed until a decision (ADR) is made" },
 
   { "name": "resolution:duplicate", "color": "cfd3d7", "description": "Closed as a duplicate of another issue" },

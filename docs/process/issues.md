@@ -25,6 +25,7 @@
 - **본문은 한국어 또는 영어**로 쓴다(ADR-0005).
 - **완료 조건**은 검증 가능한 체크리스트로 쓴다. "잘 동작한다" 대신 "PAR-STATUS-07 테스트 통과"처럼 쓴다.
 - 관련 식별자를 적는다: 목표 G·비목표 N, 화면 S-xx, 위협 T-xx, 테스트 ID, ADR 번호([docs/README.md §2](../README.md)).
+- **의존성**은 본문 마지막의 `## 의존성` 절에 `- #n 제목` 형식으로 적는다. 없으면 `- 없음`이라고 쓴다. `pr-policy`와 `dependency-closed` 워크플로우가 이 절의 `#번호`를 읽으므로, 의존성이 아닌 관련 이슈는 "참고"에 적는다(ADR-0015).
 - 공개 저장소다. 토큰, 개인 경로, 비공개 저장소 이름, 고객 정보는 쓰지 않는다.
 
 ## 3. 라벨
@@ -37,7 +38,7 @@
 | `phase:` | plan, design, dev, qa, release | 정확히 1개 |
 | `area:` | git-core, parser, ui, github, security, ci, docs | 1개 이상 |
 | `priority:` | p0, p1, p2 | 트리아지 후 1개 |
-| `status:` | triage, blocked, needs-decision | 해당할 때만 |
+| `status:` | triage, blocked, needs-decision | 해당할 때만. `blocked`는 외부 요인을 기다릴 때만 쓴다. 다른 이슈를 기다리는 것은 `## 의존성` 절로 표시하고 선점을 막지 않는다 |
 | `resolution:` | duplicate, wontfix, invalid | 종료 사유가 있을 때 |
 | 기여 유도 | `good first issue`, `help wanted` | 외부 기여에 적합할 때 |
 
@@ -68,7 +69,7 @@
 2. 중복 확인: 중복이면 원본을 링크하고 `resolution:duplicate`로 닫는다.
 3. 범위 판단: 범위 밖이면 `later`로 보낸다.
 4. 라벨 확정: type, phase, area, priority. bug면 심각도와 priority를 매핑한다([bug-triage.md](../qa/bug-triage.md)).
-5. 완료 조건 보강 → `status:triage` 제거 → 보드 Backlog 또는 Ready
+5. 완료 조건과 `## 의존성` 절 보강 → `status:triage` 제거 → 보드 Backlog 또는 Ready(의존 이슈가 모두 끝났으면)
 
 ## 7. 종료 규칙
 

@@ -25,7 +25,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 6. 첫 커밋 직후 `/pr-open --draft`
 7. 완료 조건 충족
 8. 전체 테스트·lint·보안 점검
-9. PR Ready
+9. PR Ready. 의존 이슈가 남아 있으면 Draft로 두고 무엇을 기다리는지 보고한다
 10. 보고
 
 중간에 멈추고 사용자에게 묻는 경우:
@@ -34,6 +34,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 - 범위 밖 변경이 필요할 때
 - 보안 영향 판단이 서지 않을 때
 - 셋업에 사용자의 손(로그인, sudo)이 필요할 때
+- 의존 이슈가 완료되지 않고 닫혔거나 의존이 순환할 때
 
 **머지는 하지 않는다.** 머지는 메인테이너가 검수 후에 한다.
 
@@ -89,11 +90,12 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 - `true`면 **메인테이너**다. `origin`이 이 저장소이고, 머지와 AI 검수(`/pr-review`)를 맡는다.
 - 그 밖에는 **협업자**다. `origin`이 fork, `upstream`이 이 저장소다. 처음이면 `/onboard`부터 시작한다.
 
-협업자 규칙([collaboration.md](docs/process/collaboration.md), ADR-0013):
+협업자 규칙([collaboration.md](docs/process/collaboration.md), ADR-0013, ADR-0015):
 - 작업 전에 이슈에 `/claim` 댓글을 단다(봇이 담당자 지정).
 - **5시간 안에 `Closes #n` Draft PR을 연다.** 열지 않으면 선점이 자동으로 풀린다. 그래서 첫 커밋 직후 `/pr-open --draft`를 실행한다.
 - 동시에 최대 2개까지만 선점한다. 그만둘 때는 `/unclaim`.
 - 남이 선점한 이슈는 건드리지 않는다. 담당자 없는 이슈는 먼저 열린 PR이 이긴다(`pr-policy`가 강제).
+- **의존 이슈가 안 끝났어도 기다리지 않는다**(ADR-0015). 필요한 부분은 `STAND-IN(#<n>)` 주석을 단 stand-in으로 직접 만든다. 남의 미머지 PR은 merge하거나 체크아웃하지 않는다. PR은 내 이슈만 닫고, 의존 이슈가 끝날 때까지 Draft로 둔다. 상세는 [collaboration.md §4.1](docs/process/collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때).
 - `upstream`에 push하지 않는다. rebase와 강제 푸시도 하지 않는다. 최신화는 `gh pr update-branch` 또는 `git merge upstream/main`으로 한다.
 
 ### 4.1 흐름

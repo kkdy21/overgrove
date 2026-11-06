@@ -28,3 +28,4 @@
 | [0012](0012-solo-maintainer-merge-policy.md) | 1인 메인테이너 머지 정책 | Accepted |
 | [0013](0013-external-contributions-and-issue-claiming.md) | 외부 기여 모델과 이슈 선점 정책 | Accepted |
 | [0014](0014-panel-theme-and-split-layout.md) | 메인 창의 자체 패널 테마와 사용자 정의 분할 레이아웃 | Accepted |
+| [0015](0015-dependent-issues-stand-in.md) | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |

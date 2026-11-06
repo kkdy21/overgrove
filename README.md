@@ -167,6 +167,7 @@ flowchart TB
 |---|---|---|
 | Issue first | `pr-policy` check, templates | [Issues](docs/process/issues.md) |
 | Claim before code (5h to open a draft PR, first PR wins) | `/claim` bot, `claim-expiry` workflow, `pr-policy` check | [Collaboration](docs/process/collaboration.md) |
+| Don't wait for unfinished dependencies: build stand-ins, merge in dependency order | `pr-policy` check, `dependency-closed` workflow | [Collaboration](docs/process/collaboration.md) |
 | Secrets and personal paths | Git hooks, Claude Code hook, `gitleaks` check, GitHub push protection | [Branching and commits](docs/process/branching-and-commits.md) |
 | Process and shell APIs only in `Overgrove/Execution/` | Git hook, Claude Code hook, `build-test` check | [Security review](docs/design/security-review.md) |
 | Review and merge | `main` ruleset (squash only, required checks, resolved threads) | [Pull requests](docs/process/pull-requests.md) |
