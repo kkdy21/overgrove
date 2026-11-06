@@ -88,7 +88,11 @@ extension WorktreeParser {
             } else if token.starts(with: Self.branchPrefix) {
                 let ref = token.dropFirst(Self.branchPrefix.count)
                 guard !ref.isEmpty else { throw ParseError(parser: name, offset: offset, reason: "empty branch") }
-                branch = String(decoding: ref, as: UTF8.self)
+                // A ref name goes back to git as an argument, so a lossy decode would name a different ref.
+                guard let refName = String(data: Data(ref), encoding: .utf8) else {
+                    throw ParseError(parser: name, offset: offset, reason: "invalid UTF-8 branch")
+                }
+                branch = refName
             } else if token.elementsEqual("detached".utf8) {
                 isDetached = true
             } else if token.elementsEqual("bare".utf8) {

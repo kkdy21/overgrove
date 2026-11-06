@@ -229,6 +229,13 @@ final class WorktreeParserTests: XCTestCase {
         )
     }
 
+    func testInvalidUTF8BranchFails() {
+        var data = Data("worktree /tmp/dev/repo\u{0}HEAD \(oid)\u{0}branch refs/heads/bad".utf8)
+        data.append(contentsOf: [0xFF, 0xFE])
+        data.append(Data("\u{0}\u{0}".utf8))
+        assertFails(data, reason: "invalid UTF-8 branch")
+    }
+
     func testParseErrorOffsetPointsAtFailingToken() {
         let data = output([["worktree /tmp/dev/repo", "HEAD \(oid)"], ["worktree /tmp/dev/wt", "HEAD bad"]])
         let expected = data.count - "HEAD bad\u{0}\u{0}".utf8.count
