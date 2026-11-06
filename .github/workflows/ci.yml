@@ -62,6 +62,7 @@ jobs:
             jq empty "$f"
           done
           echo "ok  JSON"
+          scripts/github/board-sync-rules.test.sh
 
       - name: Fixture repository smoke test
         run: |

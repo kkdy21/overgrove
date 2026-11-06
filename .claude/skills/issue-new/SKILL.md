@@ -40,6 +40,7 @@ description: Overgrove 저장소에 새 GitHub 이슈를 템플릿 형식으로 
      gh api -X POST repos/kkdy21/overgrove/issues/<epic>/sub_issues -F sub_issue_id=$child_id
      ```
      Epic 본문의 task list에도 `- [ ] #<child>`를 추가한다.
-   - Projects 보드에 추가한다(`project` scope 필요).
+   - Projects 보드에 추가한다(`project` scope 필요). `board-sync`가 열림 이벤트에서도 추가하므로 실패해도 괜찮다.
      `gh project item-add <번호> --owner kkdy21 --url <issue-url>`
+   - 보드 Status: 의존 이슈가 남았으면 Backlog(자동), 의존 이슈가 없고 바로 시작할 수 있으면 Ready로 옮긴다(`gh project item-edit`). 선점·PR·닫힘에 따른 이동은 자동이다(ADR-0016).
 8. **보고**: 생성된 이슈 URL을 알려준다.

@@ -48,10 +48,11 @@ Work happens in your **fork**; you do not need any role on this repository.
 | Re-claim after expiry | Not for 24 hours on the same issue |
 | Someone else's claimed issue | Your PR fails the `pr-policy` check |
 | Unfinished dependency | Claim anyway and build a stand-in; your PR passes `pr-policy` only after the dependency is done |
+| Project board | Updates itself: claim or draft PR → In progress, ready PR → In review, merge → Done, released claim → Ready. You never need to edit it |
 
 Details and rationale: [docs/process/collaboration.md](docs/process/collaboration.md) (Korean),
 [ADR-0013](docs/adr/0013-external-contributions-and-issue-claiming.md), and
-[ADR-0015](docs/adr/0015-dependent-issues-stand-in.md).
+[ADR-0015](docs/adr/0015-dependent-issues-stand-in.md), and [ADR-0016](docs/adr/0016-board-status-automation.md).
 
 #### When your issue depends on unfinished work
 

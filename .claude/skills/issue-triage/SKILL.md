@@ -18,3 +18,4 @@ description: status:triage 상태인 Overgrove 이슈(주로 외부 제보)를 �
 4. 반영
    - `gh issue edit <n> --add-label ... --remove-label status:triage --milestone ...`
    - 필요하면 `gh issue comment <n> --body-file ...`
+   - **보드 Status**: 의존 이슈가 남았으면 Backlog로 둔다. 의존 이슈가 모두 끝났고 완료 조건이 명확하면 Ready로 옮긴다(메인테이너, `gh project item-edit`). 의존성이 없는 이슈를 Ready로 올리는 일은 자동화하지 않으므로 여기서 판단한다. 나머지 이동(선점, PR, 닫힘, 의존 이슈 완료)은 `board-sync`가 한다(ADR-0016, `docs/process/development-workflow.md` §2.1).

@@ -23,7 +23,13 @@ git remote -v
   - 완료되지 않고 닫힌 의존 이슈(중복, not planned)가 있으면 멈추고 묻는다.
 
 ## 3. 선점 보장 (ADR-0013)
-- **담당자가 나**면 그대로 진행한다.
+- **담당자가 나**면 다른 세션이 이미 하고 있는지 먼저 확인한다(같은 계정의 여러 세션, `docs/process/development-workflow.md` §5.1).
+  ```sh
+  git ls-remote --heads $BASE "refs/heads/*/<n>-*"
+  gh issue view <n> --repo kkdy21/overgrove --json closedByPullRequestsReferences --jq '.closedByPullRequestsReferences[].number'
+  git worktree list
+  ```
+  셋 다 없거나, 있는 것이 이 세션이 만든 것이면 진행한다. 그 밖에는 멈추고 사용자에게 묻는다.
 - **담당자가 없음**
   - 메인테이너: `gh issue edit <n> --add-assignee @me`
   - 협업자: `gh issue comment <n> --repo kkdy21/overgrove --body "/claim"`을 남기고 봇이 지정할 때까지 확인한다(최대 60초).
@@ -42,7 +48,8 @@ git remote -v
   ```sh
   git fetch $BASE && git worktree add ../overgrove-worktrees/<n>-<slug> -b <branch> $BASE/main
   ```
-- 메인테이너만 보드 Status를 `In progress`로 바꾼다(`gh project item-edit`, `project` scope 필요).
+- 보드 Status는 담당자 지정과 Draft PR에 따라 자동으로 `In progress`가 된다(ADR-0016). `PROJECT_TOKEN`이 아직 없으면 메인테이너는 `scripts/github/board-sync.sh issue <n>`을 돌린다.
+- 같은 계정으로 다른 세션도 돌고 있으면 **워크트리 방식을 쓴다.** 한 폴더에서 브랜치를 바꾸면 다른 세션의 작업을 덮는다.
 
 ## 4.1 의존 이슈 준비 (열린 의존성이 있을 때)
 기준: `docs/process/collaboration.md` §4.1, ADR-0015
