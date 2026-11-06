@@ -85,6 +85,35 @@ final class CredentialMaskerTests: XCTestCase {
         XCTAssertEqual(CredentialMasker.mask(once), once)
     }
 
+    func testAdversarialInputIsMaskedInLinearTime() {
+        // #143: the old URL pattern backtracked quadratically (32 KB took 14 s). stderr can carry remote-controlled
+        // text up to 256 KB, so every rule must stay linear.
+        let size = 256 * 1024
+        let inputs = [
+            String(repeating: "y", count: size),
+            String(repeating: "a://", count: size / 4),
+            String(repeating: "https://x", count: size / 9),
+            "https://" + String(repeating: "u", count: size) + "@",
+            String(repeating: "?token=", count: size / 7),
+            String(repeating: "gh" + "p_", count: size / 4),
+            String(repeating: "authorization", count: size / 13),
+        ]
+        let clock = ContinuousClock()
+        for input in inputs {
+            let start = clock.now
+            _ = CredentialMasker.mask(input)
+            XCTAssertLessThan(clock.now - start, .seconds(1), "input starting with \(input.prefix(12))")
+        }
+    }
+
+    func testUserinfoEdgeCases() {
+        XCTAssertEqual(CredentialMasker.mask("a://b@c a://d"), "a://***@c a://d")
+        XCTAssertEqual(CredentialMasker.mask("'https://t@h/x' and https://h2/y"), "'https://***@h/x' and https://h2/y")
+        XCTAssertEqual(CredentialMasker.mask("https://@host/"), "https://@host/", "empty userinfo has nothing to hide")
+        XCTAssertEqual(CredentialMasker.mask("see https://u:p@h"), "see https://***@h")
+        XCTAssertEqual(CredentialMasker.mask("x://y://u@h"), "x://y://***@h", "resumes at the inner scheme")
+    }
+
     func testMasksInvalidUTF8Bytes() {
         var bytes = Data("https://u:\(secret)@h/".utf8)
         bytes.append(0xFF)
