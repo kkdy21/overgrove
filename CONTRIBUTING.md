@@ -116,7 +116,7 @@ Refs #12
 
 ## Development setup
 
-Requirements: macOS 14 or later, a recent Xcode, `git` 2.36 or later, and [gitleaks](https://github.com/gitleaks/gitleaks)
+Requirements: macOS 14 or later, Xcode 26 or later, `git` 2.36 or later, and [gitleaks](https://github.com/gitleaks/gitleaks)
 for the local secret-scan hooks. `gh` is optional (only needed for the GitHub issues panel and for maintainer scripts).
 
 ```sh
@@ -150,7 +150,15 @@ Claude stops to ask when it needs a decision, a login, or `sudo`. It never merge
 > /pr-open          # when the acceptance criteria are met (or mark the draft ready)
 ```
 
-> The Xcode project is created in Phase 3. Until then the repository contains planning, design, and tooling only.
+### Build and test
+
+Open `Overgrove.xcodeproj` and press ⌘U to run the tests (⌘R opens a placeholder window for now). CI runs the same
+tests with:
+
+```sh
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS' \
+  CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO
+```
 
 ### Formatting
 
@@ -167,6 +175,8 @@ swift format lint --strict --recursive --configuration .swift-format Overgrove O
 - Only `Overgrove/Execution/` may create processes (`Process`, `NSTask`, `posix_spawn`, `system`).
 - Git commands are built from the allowlisted command types. Never build command lines from strings, and never use a shell.
 - No secrets, tokens, or personal paths (`/Users/<name>/…`) in commits, issues, or PRs. Hooks and CI run gitleaks.
+- `README.md` is the source of truth. If you change it, say so in the PR; the maintainer keeps the Korean translation
+  (`README.ko.md`) in sync.
 
 ## Using AI coding assistants
 

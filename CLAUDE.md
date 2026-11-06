@@ -4,13 +4,13 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 
 ## 0. 지금 상태
 
-- Phase 1·2 게이트를 통과했고([phase-gates.md §4](docs/process/phase-gates.md)), **Phase 3(개발)이 진행 중이며 협업자를 받는다.**
+- Phase 1·2 게이트를 통과했고([phase-gates.md §4](docs/process/phase-gates.md)), **Phase 3(개발)이 진행 중이다.** 협업자 본격 모집 전에 로드맵을 정리하는 중이며, 하네스와 기여 절차는 이미 협업자 기준으로 동작한다.
 - 실행·보안 기반이 들어와 있다:
   - Xcode 프로젝트, CI
   - `ProcessRunner`, `GitEnvironment`, `GitCommand`·`GitClient`, `RepoConfigInspector`
   - `CredentialMasker`, `PathValidator`, `GitError`
   - 모델, 설정·버전·gh 파서
-- 이제 파서(worktree·status·stash·log·ref), GraphEngine, 픽스처 통합 테스트, 디자인 시스템이 열려 있다. 화면은 그다음이다([roadmap.md](docs/roadmap.md)의 순서).
+- 이제 파서(worktree·status·stash·log·ref), GraphEngine, 픽스처 통합 테스트, 디자인 시스템이 열려 있다. 화면은 그다음이다([roadmap.md](docs/roadmap.md)의 순서). 화면 목업은 1차(#159)를 마쳤고 재디자인(#166)이 진행 중이다. 화면 착수 순서는 #164에서 정한다.
 - 진행 상황은 GitHub 이슈, [보드](https://github.com/users/kkdy21/projects/4), 마일스톤이 기준이다. 선점 가능한 이슈는 보드의 "Ready to claim" 뷰에 있다.
 
 ## 0.1 "백로그 확인해서 진행해줘"
