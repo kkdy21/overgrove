@@ -18,6 +18,11 @@ struct RepoConfigInspection: Sendable, Equatable {
     /// `core.sshCommand` from a trusted scope; repository-local values are ignored (T5).
     let trustedSSHCommand: String?
     let remotes: [Remote]
+    /// Set when queries are fine but `git fetch` must not run (e.g. a repository-local CA or client certificate).
+    let fetchBlockingReason: String?
+    /// False when the effective configuration can change without any config file changing
+    /// (`includeIf.onbranch:` depends on HEAD), so the inspection must not be cached.
+    let isCacheable: Bool
 
     /// Arguments for `GitClient`. `nil` when the report blocks queries (fail closed).
     var safetyContext: RepoSafetyContext? {
@@ -25,7 +30,8 @@ struct RepoConfigInspection: Sendable, Equatable {
         return RepoSafetyContext(
             inspectedNeutralization: neutralization,
             fetchAuthentication: fetchAuthentication,
-            trustedSSHCommand: trustedSSHCommand
+            trustedSSHCommand: trustedSSHCommand,
+            fetchBlockingReason: fetchBlockingReason
         )
     }
 }
@@ -39,13 +45,19 @@ enum RepoConfigInspector {
         var blockingReason: String?
         var neutralizedDrivers: [String] = []
         var restoreTLS: [String] = []
+        var resetProxies: [String] = []
         var hasUntrustedHelper = false
+        var fetchBlockingReason: String?
 
         if listing.isPartial {
             blockingReason = "The configuration listing was truncated, so it could not be inspected completely."
         }
 
         for entry in listing.entries where entry.scope.isRepositoryControlled {
+            // git splits `-c key=value` at the first "=", so such a key could inject another setting (review of #150).
+            if entry.subsection?.contains("=") == true, ["http", "credential", "filter"].contains(entry.section) {
+                blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
+            }
             guard let (threat, handling) = classify(entry) else { continue }
             findings.append(RepoSecurityReport.Finding(entry: entry, threat: threat, handling: handling))
 
@@ -60,7 +72,12 @@ enum RepoConfigInspector {
             case ("credential", "helper"):
                 hasUntrustedHelper = true
             case ("http", "sslverify"):
-                if isFalse(entry.value) && !restoreTLS.contains(entry.key) { restoreTLS.append(entry.key) }
+                // Always force true: git accepts many spellings of false (0k, 0x0, -0, …), so never guess.
+                if !restoreTLS.contains(entry.key) { restoreTLS.append(entry.key) }
+            case ("http", "proxy"):
+                if !resetProxies.contains(entry.key) { resetProxies.append(entry.key) }
+            case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"):
+                fetchBlockingReason = "This repository sets its own TLS certificate files; fetching is disabled."
             default:
                 break
             }
@@ -84,6 +101,12 @@ enum RepoConfigInspector {
             }
         }
         fetchAuthentication += restoreTLS.flatMap { ["-c", "\($0)=true"] }
+        // A repository-local proxy could receive credentials released by a trusted helper (review of #150).
+        // Re-assert the trusted value for the same key, or an empty value (no proxy).
+        for key in resetProxies {
+            let trusted = listing.entries.last { !$0.scope.isRepositoryControlled && $0.key == key }?.value ?? ""
+            fetchAuthentication += ["-c", "\(key)=\(trusted)"]
+        }
 
         let trustedSSHCommand =
             listing.entries.last {
@@ -98,12 +121,18 @@ enum RepoConfigInspector {
             remotes.append(.init(name: name, url: url, displayURL: CredentialMasker.mask(url)))
         }
 
+        let dependsOnHEAD = listing.entries.contains {
+            $0.section == "includeif" && ($0.subsection?.lowercased().hasPrefix("onbranch:") ?? false)
+        }
+
         return RepoConfigInspection(
             report: RepoSecurityReport(findings: findings, blockingReason: blockingReason),
             neutralization: neutralization,
             fetchAuthentication: fetchAuthentication,
             trustedSSHCommand: trustedSSHCommand,
-            remotes: remotes
+            remotes: remotes,
+            fetchBlockingReason: fetchBlockingReason,
+            isCacheable: !dependsOnHEAD
         )
     }
 
@@ -119,7 +148,8 @@ enum RepoConfigInspector {
             return ("T6", .neutralized)
         case "core":
             switch variable {
-            case "sshcommand", "gitproxy", "alternaterefscommand": return ("T5", .neutralized)
+            case "sshcommand", "gitproxy": return ("T5", .neutralized)
+            case "alternaterefscommand": return ("T5", .reported)
             case "fsmonitor": return ("T1", .reported)
             case "hookspath": return ("T2", .reported)
             case "askpass": return ("T12", .reported)
@@ -133,8 +163,8 @@ enum RepoConfigInspector {
             if variable == "url", value.hasPrefix("ext::") || value.hasPrefix("fd::") { return ("T5", .reported) }
             return nil
         case "http":
-            if variable == "sslverify" { return isFalse(entry.value) ? ("T11", .neutralized) : nil }
-            if ["proxy", "sslcainfo", "sslcapath", "sslcert", "sslkey"].contains(variable) { return ("T11", .warned) }
+            if variable == "sslverify" || variable == "proxy" { return ("T11", .neutralized) }
+            if ["sslcainfo", "sslcapath", "sslcert", "sslkey"].contains(variable) { return ("T11", .warned) }
             return nil
         case "diff" where variable == "external" || variable == "textconv" || variable == "command":
             return ("T3", .reported)
@@ -165,11 +195,6 @@ enum RepoConfigInspector {
         }
     }
 
-    /// git's boolean false spellings; an empty value also means false.
-    private static func isFalse(_ value: String?) -> Bool {
-        guard let value else { return false }  // valueless boolean means true
-        return ["false", "no", "off", "0", ""].contains(value.lowercased())
-    }
 }
 
 /// Caches inspections per repository until one of its configuration files changes (modification time or size).
@@ -198,6 +223,10 @@ actor RepoConfigInspectionCache {
     }
 
     func store(_ inspection: RepoConfigInspection, for repositoryID: String, fingerprint: Fingerprint) {
+        guard inspection.isCacheable else {
+            entries[repositoryID] = nil
+            return
+        }
         entries[repositoryID] = (fingerprint, inspection)
     }
 

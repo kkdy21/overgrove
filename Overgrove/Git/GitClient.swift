@@ -18,29 +18,44 @@ struct RepoSafetyContext: Sendable, Equatable {
     let fetchAuthentication: [String]
     let trustedSSHCommand: String?
     let isInspected: Bool
+    /// Set when the repository's configuration makes fetching unsafe; queries still run.
+    let fetchBlockingReason: String?
 
     static let preInspection = RepoSafetyContext(
         neutralization: [],
         fetchAuthentication: [],
         trustedSSHCommand: nil,
-        isInspected: false
+        isInspected: false,
+        fetchBlockingReason: nil
     )
 
-    init(inspectedNeutralization: [String], fetchAuthentication: [String], trustedSSHCommand: String?) {
+    init(
+        inspectedNeutralization: [String],
+        fetchAuthentication: [String],
+        trustedSSHCommand: String?,
+        fetchBlockingReason: String? = nil
+    ) {
         self.init(
             neutralization: inspectedNeutralization,
             fetchAuthentication: fetchAuthentication,
             trustedSSHCommand: trustedSSHCommand,
-            isInspected: true
+            isInspected: true,
+            fetchBlockingReason: fetchBlockingReason
         )
     }
 
-    private init(neutralization: [String], fetchAuthentication: [String], trustedSSHCommand: String?, isInspected: Bool)
-    {
+    private init(
+        neutralization: [String],
+        fetchAuthentication: [String],
+        trustedSSHCommand: String?,
+        isInspected: Bool,
+        fetchBlockingReason: String?
+    ) {
         self.neutralization = neutralization
         self.fetchAuthentication = fetchAuthentication
         self.trustedSSHCommand = trustedSSHCommand
         self.isInspected = isInspected
+        self.fetchBlockingReason = fetchBlockingReason
     }
 }
 
@@ -105,6 +120,9 @@ actor GitClient {
     func fetch(_ command: FetchCommand, in repository: URL, safety: RepoSafetyContext) async throws -> GitOutput {
         guard safety.isInspected else {
             throw GitError.configInspectionFailed(reason: "repository configuration has not been inspected")
+        }
+        if let reason = safety.fetchBlockingReason {
+            throw GitError.configInspectionFailed(reason: reason)
         }
         let arguments = environment.arguments(
             for: command.subcommandArguments(),

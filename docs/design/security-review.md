@@ -346,7 +346,8 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^core\.sshcommand$` | 실행 | **무력화**: `GIT_SSH_COMMAND` (항상) | T5 |
 | `^core\.gitproxy$` | 실행 | **무력화**: 빈 `GIT_PROXY_COMMAND` (항상) | T5 |
 | `^remote\..+\.uploadpack$` | 실행 | **무력화**: `--upload-pack` (fetch, 항상) | T5 |
-| `^http\.(.+\.)?sslverify$` (값이 false 계열) | 전송 보안 | **무력화**: 같은 키 `=true` (fetch) | T11 |
+| `^http\.(.+\.)?sslverify$` | 전송 보안 | **무력화**: 값과 관계없이 같은 키 `=true` (fetch). git은 `0k`, `0x0`, `-0` 등도 false로 읽으므로 추측하지 않는다 (#150 리뷰) | T11 |
+| `^http\.(.+\.)?proxy$` | 전송 보안 | **무력화**: 같은 키에 신뢰 scope 값, 없으면 빈 값 (fetch). 로컬 프록시가 신뢰 helper가 내준 자격 증명을 받을 수 있다 (#150 리뷰 실측) | T11 |
 | `^core\.fsmonitor$` | 실행 | 보고 (공통 인자로 차단) | T1 |
 | `^core\.hookspath$` | 실행 | 보고 (공통 인자로 차단) | T2 |
 | `^core\.askpass$` | 실행 | 보고 (공통 인자와 환경으로 차단) | T12 |
@@ -355,7 +356,9 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^protocol\.(.+\.)?allow$` | 전송 | 보고 (`ext`·`fd`는 강제 never) | T5 |
 | `^remote\..+\.url$` (값이 `ext::` 또는 `fd::`로 시작) | 전송 | 보고 (차단됨) | T5 |
 | `^url\..+\.(insteadof\|pushinsteadof)$` | 전송 | 보고 | T5 |
-| `^http\.(.+\.)?(proxy\|sslcainfo\|sslcapath\|sslcert\|sslkey)$` | 전송 보안 | 경고 | T11 |
+| `^http\.(.+\.)?(sslcainfo\|sslcapath\|sslcert\|sslkey)$` | 전송 보안 | 경고 + **fetch 차단** (조회는 허용) | T11 |
+| `http`·`credential`·`filter` 키의 subsection에 `=` | 구성 | **조회 차단**: git이 `-c`를 첫 `=`에서 잘라 다른 키를 주입할 수 있다 (#150 리뷰) | T9 |
+| `^includeif\.onbranch:` | 구성 | 캐시하지 않음 (HEAD에 따라 설정이 바뀜) | — |
 | `^core\.worktree$` | 범위 | 경고 | T14 |
 | `^core\.(attributesfile\|excludesfile)$`, `^diff\.orderfile$` | 자원 | 경고 (FIFO·장치를 가리키면 타임아웃까지 git이 멈출 수 있음, #148 리뷰) | T15 |
 | `^include\.path$`, `^includeif\..+\.path$` | 구성 | 보고 (`--includes`로 함께 검사함) | — |

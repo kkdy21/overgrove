@@ -75,9 +75,10 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertEqual(inspect([entry(.global, "credential.helper", "osxkeychain")]).fetchAuthentication, [])
     }
 
-    func testSECT11_03_LocalSSLVerifyFalseIsRestored() {
+    func testSECT11_03_LocalSSLVerifyIsAlwaysForcedTrue() {
+        // git reads 0k, 00, 0x0, -0, … as false, so every local sslVerify is overridden (review of #150).
         let result = inspect([
-            entry(.local, "http.sslverify", "false"), entry(.local, "http.https://example.com.sslverify", "0"),
+            entry(.local, "http.sslverify", "0k"), entry(.local, "http.https://example.com.sslverify", "true"),
             entry(.global, "http.https://intranet.example.sslverify", "false"),
         ])
         XCTAssertEqual(
@@ -85,6 +86,38 @@ final class RepoConfigInspectorTests: XCTestCase {
             ["-c", "http.sslverify=true", "-c", "http.https://example.com.sslverify=true"],
             "a user's own global choice is respected"
         )
+    }
+
+    func testLocalProxyIsReplacedWithTheTrustedValueOrNothing() {
+        let result = inspect([
+            entry(.global, "http.proxy", "http://corp-proxy:3128"), entry(.local, "http.proxy", "http://evil:8080"),
+            entry(.local, "http.https://github.com.proxy", "http://evil:8080"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            ["-c", "http.proxy=http://corp-proxy:3128", "-c", "http.https://github.com.proxy="]
+        )
+    }
+
+    func testLocalCertificateFilesBlockFetchOnly() {
+        let result = inspect([entry(.local, "http.sslcainfo", "/tmp/evil-ca.pem")])
+        XCTAssertFalse(result.report.isBlocked)
+        XCTAssertNotNil(result.fetchBlockingReason)
+        XCTAssertNotNil(result.safetyContext?.fetchBlockingReason)
+    }
+
+    func testKeysContainingEqualsBlock() {
+        XCTAssertTrue(inspect([entry(.local, "http.https://example.com/a.b=c.sslverify", "false")]).report.isBlocked)
+        XCTAssertTrue(inspect([entry(.local, "credential.https://x=y.helper", "!evil")]).report.isBlocked)
+    }
+
+    func testIncludeIfOnBranchIsNotCacheable() async {
+        let inspection = inspect([entry(.local, "includeif.onbranch:evil.path", "evil.cfg")])
+        XCTAssertFalse(inspection.isCacheable)
+        let cache = RepoConfigInspectionCache()
+        await cache.store(inspection, for: "repo", fingerprint: RepoConfigInspectionCache.Fingerprint.make([]))
+        let hit = await cache.inspection(for: "repo", fingerprint: RepoConfigInspectionCache.Fingerprint.make([]))
+        XCTAssertNil(hit)
     }
 
     func testTrustedSSHCommandIgnoresLocalValues() {
@@ -104,7 +137,8 @@ final class RepoConfigInspectorTests: XCTestCase {
             (entry(.local, "url.ext::sh -c x.insteadof", "https://a/"), .reported),
             (entry(.local, "diff.fixture.textconv", "x"), .reported), (entry(.local, "gpg.program", "x"), .reported),
             (entry(.local, "log.showsignature", "true"), .reported), (entry(.local, "core.worktree", "/"), .warned),
-            (entry(.local, "http.proxy", "http://p"), .warned), (entry(.local, "maintenance.auto", "true"), .reported),
+            (entry(.local, "http.proxy", "http://p"), .neutralized), (entry(.local, "http.sslcainfo", "x"), .warned),
+            (entry(.local, "maintenance.auto", "true"), .reported),
             (entry(.local, "core.attributesfile", "/tmp/fifo"), .warned),
             (entry(.local, "diff.orderfile", "x"), .warned),
         ]

@@ -281,3 +281,23 @@ final class WorktreeFileTests: XCTestCase {
         XCTAssertNil(PathValidator.worktreeFile(GitPath(raw: Data([0x61, 0xFF])), in: worktree))
     }
 }
+
+final class FetchBlockingTests: XCTestCase {
+    func testFetchIsRefusedWhenTheRepositoryBlocksIt() async throws {
+        let environment = try await GitEnvironment.discover()
+        let client = GitClient(environment: environment)
+        let safety = RepoSafetyContext(
+            inspectedNeutralization: [],
+            fetchAuthentication: [],
+            trustedSSHCommand: nil,
+            fetchBlockingReason: "local CA"
+        )
+        do {
+            _ = try await client.fetch(
+                .fetch(remote: RemoteName("origin")!), in: URL(fileURLWithPath: "/tmp"), safety: safety)
+            XCTFail("expected configInspectionFailed")
+        } catch let error as GitError {
+            XCTAssertEqual(error, .configInspectionFailed(reason: "local CA"))
+        }
+    }
+}
