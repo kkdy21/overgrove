@@ -19,4 +19,10 @@ While the major version is `0`, minor versions may contain breaking changes.
 - README: development process diagram ("How we work") and a table of which control enforces each rule.
 - README: "Who is it for" section describing the problems Overgrove targets and when it is not a fit yet.
 
+### Changed
+
+- Design: the main window uses its own panel theme — three rounded, resizable, independently scrolling panels with
+  grab handles, an original high-chroma lane palette, avatar graph nodes, and a Refs column. Adds the art direction
+  document and ADR-0014, re-validates every color token, and redraws all mockups (#166).
+
 [Unreleased]: https://github.com/kkdy21/overgrove/commits/main
