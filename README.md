@@ -12,14 +12,20 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Platform: macOS 14+" src="https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey.svg">
-  <img alt="Status: planning" src="https://img.shields.io/badge/status-planning-orange.svg">
+  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg">
+</p>
+
+<p align="center">
+  <strong>English</strong> | <a href="README.ko.md">한국어</a>
 </p>
 
 ---
 
-> **Status: planning and design (pre-alpha).** There is no app code yet. This repository currently holds the product
-> spec, design, architecture, security review, and project tooling. Follow the
-> [roadmap](docs/roadmap.md) and the [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1).
+> **Status: pre-alpha, not usable yet.** The foundation that runs `git` safely is implemented and tested: process
+> execution, hardened git invocation, repository config inspection, credential masking, and path validation. Parsers
+> are in progress, and the app window is still a placeholder. The first round of screen mockups is below; a redesign
+> is in progress in [#166](https://github.com/kkdy21/overgrove/issues/166). Follow the [roadmap](docs/roadmap.md)
+> and the [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1).
 
 ## Why
 
@@ -53,8 +59,8 @@ It is a good fit if:
 
 It is probably not for you yet if:
 
-- you want to stage, commit, push, pull, or rebase from a GUI. v0.1 is read-only plus `git fetch`; write operations are
-  on the [`later`](https://github.com/kkdy21/overgrove/milestone/3) list.
+- you want to stage, commit, push, pull, or rebase from a GUI. Overgrove stays read-only plus `git fetch`; commits,
+  pushes, and cleanup are left to your terminal or your AI agents.
 - you need Windows or Linux.
 - you want a signed, notarized download. Overgrove is source-only for now.
 
@@ -71,14 +77,18 @@ It is probably not for you yet if:
 
 - **Worktrees:** every worktree with its branch, HEAD, path, and locked or prunable state
 - **Working state per worktree:** staged, unstaged, untracked, and conflicted files
+- **Changes against the base branch:** a PR-style view of what a worktree changed since it branched off `main`
+  (commits ahead, changed files, untracked files), so you can review an agent's work before opening the pull request
 - **Stashes:** the repository's stash list with a per-stash change summary
 - **Ahead/behind:** compared with each branch's upstream after `git fetch`, with the last fetch time
-- **Commit graph:** author, date, and message, with a *WIP* row on top for uncommitted changes
+- **Commit graph:** author, date, and message, with a *WIP* row on top for uncommitted changes; commits co-authored by
+  an AI agent (`Co-authored-by` trailer) are marked
 - **Commit details and file history**
 - **GitHub issues (optional):** listed through your existing `gh` login and linked to branches by issue number
 
 **Read-only by design.** The only operation that touches a remote is `git fetch`. Push, pull, merge, reset, and staging
-are intentionally out of scope for v0.1 ([scope](docs/scope-mvp.md)).
+are intentionally left out: Overgrove sits next to your terminal or AI agents, which do the writing
+([scope](docs/scope-mvp.md)).
 
 ## Security
 
@@ -86,7 +96,9 @@ Opening an untrusted repository in a Git client can run code that the repository
 defensive approach:
 
 - `git` is invoked with argument arrays, never through a shell
-- dangerous repository settings (fsmonitor, hooks, filters, external diff, custom SSH commands, …) are forced off
+- dangerous repository settings (fsmonitor, hooks, filters, external diff, credential helpers, custom SSH commands, …)
+  are forced off
+- a repository cannot route `git fetch` through its own proxy or TLS certificates
 - the child environment is built from an allowlist
 - every command has a timeout and an output limit
 - credentials in remote URLs are masked
@@ -97,8 +109,9 @@ Read [SECURITY.md](SECURITY.md) for details and for how to report a vulnerabilit
 ## Requirements
 
 - macOS 14 Sonoma or later
-- Xcode (a recent release) to build from source
-- `git` 2.36 or later (the system `/usr/bin/git` is used by default)
+- Xcode 26 or later to build from source
+- Git 2.36 or later. Overgrove runs Apple's `git` from the developer directory selected with `xcode-select` (Xcode or
+  the Command Line Tools)
 - Optional: [GitHub CLI](https://cli.github.com/) (`gh`), logged in, for the issues panel
 
 ## Build from source
@@ -108,9 +121,8 @@ Overgrove is distributed **as source only**. No signed or notarized binaries are
 ```sh
 git clone https://github.com/kkdy21/overgrove.git
 cd overgrove
-./scripts/bootstrap.sh
-open Overgrove.xcodeproj   # available from Phase 3
-# then press ⌘R in Xcode
+./scripts/bootstrap.sh     # installs the Git hooks and checks your toolchain
+open Overgrove.xcodeproj   # ⌘U runs the tests; ⌘R opens a placeholder window for now
 ```
 
 ## How we work
@@ -175,7 +187,7 @@ Claude Code harness in [docs/process/claude-code-harness.md](docs/process/claude
 | Process | [Contributing](CONTRIBUTING.md) · [Development workflow](docs/process/development-workflow.md) · [Code of Conduct](CODE_OF_CONDUCT.md) |
 
 Internal planning and design documents are written in Korean; contributor-facing documents are in English
-([ADR-0005](docs/adr/0005-documentation-language.md)).
+([ADR-0005](docs/adr/0005-documentation-language.md)). This README is also available in [Korean](README.ko.md).
 
 ## Contributing
 

@@ -12,6 +12,7 @@
 |---|---|---|
 | [`scripts/make-bench-repo.sh`](../../scripts/make-bench-repo.sh) | 대형 기준 저장소 생성 (결정적) | 지금 |
 | [`scripts/measure-git-baseline.sh`](../../scripts/measure-git-baseline.sh) | git 계층 비용 측정, Markdown 표 출력 | 지금 |
+| [`scripts/measure-git-scenarios.sh`](../../scripts/measure-git-scenarios.sh) | 기준선에 없는 시나리오: 파일 10만 개, index가 오래된 상태, untracked 대량, 브랜치 ahead/behind, 설정 검사. 기준 저장소를 바꾼다 | 지금 |
 | XCTest `measure(metrics:)` | `XCTClockMetric`, `XCTCPUMetric`, `XCTMemoryMetric`, `XCTOSSignpostMetric` | Phase 3 |
 | `os_signpost` | 앱 내부 구간 표시 (저장소 열기, status 배치, 그래프 첫 페이지, 레인 계산) | Phase 3 |
 | Instruments | Time Profiler, Allocations, SwiftUI, Hitches, os_signpost 템플릿 | Phase 3 이후 원인 분석 |
@@ -114,6 +115,12 @@ signpost 이름은 `subsystem = io.github.kkdy21.overgrove`, `category = perform
 3. 전체 메타데이터 적재(B10)는 commit-graph와 무관하게 약 550ms다. 출력 크기가 병목이다.
 4. 설계 권고는 [performance-budget.md §4](performance-budget.md)에 있다.
 
+### 4.3 재측정 기록
+
+| 날짜 | git | 요약 | 기록 |
+|---|---|---|---|
+| 2026-11-06 | 2.54.0 (Apple Git-157) | 예산 위반 없음. 직접 실행 p50이 20% 넘게 늘어난 항목 7개로 회귀 경고 수준(원인 미확정). 추가 시나리오 S1–S6에서 index가 오래된 상태의 status가 파일 1만 개 276ms, 10만 개 5.2초 | [results/2026-11-06-apple-git-2.54.md](results/2026-11-06-apple-git-2.54.md) |
+
 ---
 
 ## 5. 회귀 감시
@@ -133,7 +140,9 @@ signpost 이름은 `subsystem = io.github.kkdy21.overgrove`, `category = perform
 
 ## 6. 앞으로 측정할 시나리오 (Phase 4)
 
-- untracked 파일 수만 개(`node_modules` 같은) 워크트리의 status
+- untracked 파일 수만 개(`node_modules` 같은) 워크트리의 status — 2만 개까지는 쟀다(2026-11-06, S4). git 시간보다 출력 크기(383KB)가 문제다
+- index가 오래된 상태의 status — 쟀다(2026-11-06, S3). 앱 측정(PERF)에도 넣는다(#168)
+- fetch가 도는 동안 status 새로고침이 얼마나 밀리는지(#76)
 - 서브모듈이 있는 저장소
 - 네트워크 원격 fetch (타임아웃 120초 경계, 진행 표시)
 - 차가운 캐시 (재부팅 직후 첫 열기)

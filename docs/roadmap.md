@@ -4,9 +4,9 @@
 
 이 문서는 Phase, 마일스톤, Epic, 하위 이슈의 **원본 목록**이다. GitHub 이슈는 이 문서와 1:1로 대응하는 시드(`issues-seed.json`, 저장소 밖 작업 파일)로 만든다. 이슈가 만들어진 뒤에는 GitHub 이슈가 진행 상황의 기준이 되고, 이 문서는 구조와 순서를 설명하는 데 쓴다.
 
-규모: Epic 15개, Epic 하위 이슈 90개, v0.2.0 이슈 5개, later 이슈 14개 (총 124개). 표의 키 옆 `(#n)`이 GitHub 이슈 번호다(#1–#124).
+규모: Epic 15개, Epic 하위 이슈 96개, Epic에 속하지 않은 v0.1.0 이슈 6개, v0.2.0 이슈 7개, later 이슈 16개 (총 140개). 표의 키 옆 `(#n)`이 GitHub 이슈 번호다. 운영 중에 생겨 곧바로 닫힌 이슈(README·CI 정비, 버그 수정 등 #125–#151의 일부)는 표에 넣지 않는다.
 
-> 진행 상황 (2026-11-05): Phase 1·2 게이트 통과. **Phase 3 착수, 협업자 참여 가능.** 선점 가능한 이슈는 [보드의 Ready to claim 뷰](https://github.com/users/kkdy21/projects/4/views/3)에서 본다.
+> 진행 상황 (2026-11-06): Phase 3 진행 중. 골격·CI(#30–#32)와 실행·보안 기반 Epic(#5)을 마쳤고, 모델(#49)과 설정·버전·gh 파서(#56)가 들어왔다. 화면 목업 1차(#159)를 마쳤고, 메인테이너 피드백을 반영한 재디자인(#166)이 진행 중이다. 협업자 본격 모집 전이며, 지금 선점할 수 있는 이슈는 [보드의 Ready to claim 뷰](https://github.com/users/kkdy21/projects/4/views/3)에서 본다.
 
 ---
 
@@ -26,7 +26,7 @@ Phase 1·2 산출물은 저장소 셋업에서 초안으로 작성되었다. 그
 
 | 마일스톤 | 의미 | 포함 |
 |---|---|---|
-| `v0.1.0` | MVP | Phase 1~5의 모든 Epic과 하위 이슈 |
+| `v0.1.0` | MVP | Phase 1~5의 모든 Epic과 하위 이슈, Epic에 속하지 않은 v0.1.0 이슈(§6 끝) |
 | `v0.2.0` | 보안·설정 강화 | §9 |
 | `later` | 범위 밖 아이디어 보관 | §10 |
 
@@ -69,9 +69,11 @@ Phase 3 안에서 먼저 끝내야 하는 이슈(p0, 기능 화면의 선행 조
 3. P3-FIX-01 → P3-FIX-02 → P3-SECTEST-01
 4. 그 다음 P3-UI-*, P3-SYNC-*, P3-GH-*
 
+화면 디자인(#166)이 확정되기 전에도 파서·GraphEngine(P3-PARSE), 픽스처·통합 테스트(P3-FIX), 보안 테스트(P3-SECTEST), 디자인 시스템(P3-DS), fetch 계층(P3-SYNC-01·03·05)은 진행할 수 있다. 화면 착수 순서는 #164에서, 자동 새로고침을 v0.1에 넣을지는 #163에서 정한다.
+
 ## 4. Phase 1 — 기획
 
-**EPIC-P1** — [EPIC] Phase 1 — Planning (`type:epic`, `priority:p0`)
+**EPIC-P1 (#1)** — [EPIC] Phase 1 — Planning (`type:epic`, `priority:p0`)
 
 메인테이너가 기획 산출물과 보안 원칙·인증 방식을 검토하고 승인한다.
 
@@ -86,7 +88,7 @@ Phase 3 안에서 먼저 끝내야 하는 이슈(p0, 기능 화면의 선행 조
 
 ## 5. Phase 2 — 설계
 
-**EPIC-P2** — [EPIC] Phase 2 — Design (`type:epic`, `priority:p0`)
+**EPIC-P2 (#2)** — [EPIC] Phase 2 — Design (`type:epic`, `priority:p0`)
 
 화면 흐름, 데이터 흐름, 보안 체크리스트를 승인해 Phase 3 착수 조건을 갖춘다.
 
@@ -99,7 +101,8 @@ Phase 3 안에서 먼저 끝내야 하는 이슈(p0, 기능 화면의 선행 조
 | P2-05 (#26) | docs: review architecture overview, git command catalog and parsing spec | docs · git-core, parser · p0 | M | P2-03 |
 | P2-06 (#27) | docs(design): review design tokens and app icon | docs · ui · p1 | S | — |
 | P2-07 (#28) | docs: review test strategy, fixtures, performance plan and QA process | docs · docs · p1 | S | — |
-| P2-08 (#29) | spike(ui): evaluate SwiftUI preview mocks for wireframes | spike · ui · p2 | S | P2-01, P2-06 |
+
+P2-08(#29)은 Phase 3 화면 Epic으로 옮겼다(§6 EPIC-P3-UI).
 
 ## 6. Phase 3 — 개발
 
@@ -160,6 +163,7 @@ ProcessRunner부터 RepoConfigInspector까지 git 실행 계층을 명세대로 
 | P3-PARSE-09 (#57) | feat(parser): add IssueRefExtractor | feature · parser, github · p1 | S | P3-PARSE-01 |
 | P3-PARSE-10 (#58) | test(parser): add adversarial parser inputs | test · parser, security · p0 | M | P3-PARSE-02, P3-PARSE-03, P3-PARSE-05 |
 | P3-PARSE-11 (#59) | feat(graph): add GraphEngine lane layout | feature · git-core · p0 | L | P3-PARSE-05 |
+| P3-PARSE-12 (#160) | feat(parser): read co-author trailers to mark AI-assisted commits | feature · parser · p2 | S | P3-PARSE-05 |
 
 ### EPIC-P3-FIX (#7) — [EPIC] Phase 3 — Fixtures and integration tests
 
@@ -174,7 +178,7 @@ ProcessRunner부터 RepoConfigInspector까지 git 실행 계층을 명세대로 
 
 ### EPIC-P3-UI (#8) — [EPIC] Phase 3 — Git views
 
-S-01~S-05, S-09, S-10 화면을 명세대로 구현한다.
+S-01~S-05, S-09, S-10 화면과 기준 브랜치 비교 화면(S-11, #158)을 명세대로 구현한다.
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
@@ -190,6 +194,9 @@ S-01~S-05, S-09, S-10 화면을 명세대로 구현한다.
 | P3-UI-10 (#73) | feat(ui): keyboard shortcuts, focus and context menus | feature · ui · p1 | M | P3-UI-02, P3-UI-05 |
 | P3-UI-11 (#74) | feat(ui): search over commits, authors, branches and issue numbers | feature · ui · p2 | S | P3-UI-05 |
 | P3-UI-12 (#75) | feat(ui): accessibility labels and VoiceOver pass | feature · ui · p1 | S | P3-UI-03, P3-UI-05 |
+| P2-08 (#29) | spike(ui): evaluate SwiftUI preview mocks for wireframes | spike · ui · p2 | S | P2-01, P2-06, V1-02, V1-06 |
+| P3-UI-13 (#157) | feat(git): compare a worktree with its base branch (merge-base diff) | feature · git-core, parser · p1 | M | P3-PARSE-07 |
+| P3-UI-14 (#158) | feat(ui): PR-style changes view of a worktree against its base branch | feature · ui · p1 | M | P3-UI-06, P3-UI-13 |
 
 ### EPIC-P3-SYNC (#9) — [EPIC] Phase 3 — Fetch and sync
 
@@ -201,6 +208,7 @@ S-01~S-05, S-09, S-10 화면을 명세대로 구현한다.
 | P3-SYNC-02 (#77) | feat(ui): show last fetch time and refresh ahead/behind after fetch | feature · ui · p0 | S | P3-SYNC-01, P3-UI-02 |
 | P3-SYNC-03 (#78) | feat(git): classify fetch failures and show guidance | feature · git-core, ui · p1 | S | P3-SYNC-01, P3-SEC-08 |
 | P3-SYNC-04 (#79) | feat: add optional auto fetch (default off) | feature · git-core, ui · p2 | S | P3-SYNC-01, P3-ONB-03 |
+| P3-SYNC-05 (#161) | feat(security): allow only built-in git transports with GIT_ALLOW_PROTOCOL | feature · security, git-core · p1 | S | — |
 
 ### EPIC-P3-GH (#10) — [EPIC] Phase 3 — GitHub issues panel
 
@@ -234,6 +242,8 @@ S-01~S-05, S-09, S-10 화면을 명세대로 구현한다.
 | P3-PERF-03 (#89) | perf: measure graph paging on 100k commits and decide skip vs streaming | feature · git-core, ui · p1 | M | P3-UI-05 |
 | P3-PERF-04 (#90) | test(perf): add XCTest performance tests against bench repository | test · ci · p1 | M | P3-PERF-01 |
 | P3-PERF-05 (#91) | perf: decide untracked display cap and untracked-files mode | decision · git-core · p1 | S | P3-PERF-04 |
+| P3-PERF-06 (#167) | docs(perf): re-measure git baseline on Apple Git 2.54; add stale-index and large-repo scenarios | docs · docs, git-core · p1 | M | — |
+| P3-PERF-07 (#168) | feat(ui): explain slow status caused by a stale index | feature · ui, git-core · p2 | S | P3-PERF-01 |
 
 ### EPIC-P3-SECTEST (#13) — [EPIC] Phase 3 — Security tests
 
@@ -246,9 +256,22 @@ SEC 테스트 전체를 작성하고 CI에서 실행한다.
 | P3-SECTEST-03 (#94) | test(security): add SEC tests for writes, file system, resources and logs T13-T16 | test · security · p1 | M | P3-SEC-01, P3-SEC-07 |
 | P3-SECTEST-04 (#95) | chore(security): verify supply chain and secret scanning controls T17-T18 | chore · security, ci · p1 | S | P3-SKEL-04 |
 
+### Epic에 속하지 않은 v0.1.0 이슈
+
+설계 보완, 문서, 결정처럼 특정 Epic에 묶기 어려운 v0.1.0 이슈다.
+
+| Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
+|---|---|---|---|---|
+| V1-01 (#152) | docs: guide for self-hosted and corporate git servers (tokens, SSH, CA, proxy) | docs · docs · p1 | M | P3-SYNC-03, P3-SYNC-05 |
+| V1-02 (#159) | docs(design): reference survey and high-fidelity mockups for key screens | docs · ui · p1 | L | — |
+| V1-03 (#162) | docs: sync README, roadmap and scope with the current plan; add a Korean README | docs · docs · p1 | S | — |
+| V1-04 (#163) | decision: auto refresh in v0.1 — manual only, or watch while the window is visible? (status:needs-decision) | decision · git-core, ui · p1 | S | — |
+| V1-05 (#164) | decision: v0.1 build order — worktree review flow before the commit graph? (status:needs-decision) | decision · ui, git-core · p1 | S | — |
+| V1-06 (#166) | docs(design): redesign with boxed resizable panels and a vivid original lane palette | docs · ui · p0 | L | V1-02 |
+
 ## 7. Phase 4 — 검증
 
-**EPIC-P4** — [EPIC] Phase 4 — QA (`type:epic`, `priority:p0`)
+**EPIC-P4 (#14)** — [EPIC] Phase 4 — QA (`type:epic`, `priority:p0`)
 
 DoD D1–D10, D15를 검증한다.
 
@@ -262,7 +285,7 @@ DoD D1–D10, D15를 검증한다.
 
 ## 8. Phase 5 — 릴리스
 
-**EPIC-P5** — [EPIC] Phase 5 — Open source release (`type:epic`, `priority:p0`)
+**EPIC-P5 (#15)** — [EPIC] Phase 5 — Open source release (`type:epic`, `priority:p0`)
 
 문서, 태그, 릴리스 노트를 준비한다.
 
@@ -285,6 +308,10 @@ Epic 없이 독립 이슈로 둔다.
 | V2-03 (#108) | feat(git): inspect submodule status safely | feature · git-core, security · p2 | M | — |
 | V2-04 (#109) | perf: persist cache across launches | feature · git-core · p2 | M | — |
 | V2-05 (#110) | feat(security): export masked security report | feature · security, ui · p2 | M | — |
+| V2-06 (#153) | decision: pass shell proxy environment variables to git? (status:needs-decision) | decision · security · p2 | S | — |
+| V2-07 (#155) | decision: scope of write operations after v0.1 | decision · git-core · p1 | S | — |
+
+V2-07(#155)은 "조회 전용 유지"로 결정했다(2026-11-06). ADR을 쓴 뒤 닫는다.
 
 ## 10. later — 백로그
 
@@ -306,6 +333,8 @@ Epic 없이 독립 이슈로 둔다.
 | L-12 (#122) | feat(ui): compare two commits and richer diff display | feature · ui · p2 | M | — |
 | L-13 (#123) | feat(ui): tags section and selection history navigation | feature · ui · p2 | M | — |
 | L-14 (#124) | feat(ui): Quick Look, open on GitHub and custom terminal or editor | feature · ui, security · p2 | M | — |
+| L-15 (#154) | feat(github): issue panel providers for GitLab (glab) and Forgejo/Gitea (tea) | feature · github · p2 | M | — |
+| L-16 (#156) | feat(git): clean up finished and prunable worktrees safely | feature · git-core, security · p2 | M | V2-07 |
 
 ## 11. 이슈 생성과 운영 규칙
 
