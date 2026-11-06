@@ -140,12 +140,8 @@ OvergroveTests/
 | 0011 | v0.1에서 Pull 제외 | Accepted |
 | 0012 | 1인 메인테이너 머지 정책 | Accepted |
 | 0013 | 외부 기여 모델과 이슈 선점 정책 (fork PR, 5시간 기한, PR 선착순) | Accepted |
-<<<<<<< HEAD
 | 0014 | 메인 창의 자체 패널 테마와 사용자 정의 분할 레이아웃 | Accepted |
 | 0015 | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |
-=======
-| 0014 | 메인 창의 자체 패널 테마와 사용자 정의 분할 레이아웃 | Accepted |
->>>>>>> origin/main
 
 ### 2.6 테스트 ID
 
