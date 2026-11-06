@@ -9,7 +9,7 @@
 ## 1. 원칙
 
 1. **시스템이 먼저다.** 표면, 텍스트, 구분선, 선택, 포커스, 액센트는 macOS 시스템 색(`NSColor.labelColor` 등)을 쓴다. 그러면 다크 모드, 사용자 액센트 색, Increase Contrast, 앞으로의 OS 변화가 자동으로 반영된다. JSON의 hex 값은 문서와 목업에 쓰는 근삿값일 뿐이다.
-2. **앱 고유 색은 세 묶음뿐이다.** 상태 색(status), 그래프 레인 색(graph.lane), diff 배경색(diff). 그 밖의 색이 필요하면 먼저 시스템 색으로 해결할 수 있는지 본다.
+2. **앱 고유 색은 네 묶음뿐이다.** 상태 색(status), 그래프 레인 색(graph.lane), diff 배경색(diff), 작성자 아바타 색(avatar, #159에서 추가). 그 밖의 색이 필요하면 먼저 시스템 색으로 해결할 수 있는지 본다.
 3. **브랜드 색은 앱 아이콘에만 쓴다.** `primitive.color.forest.*`는 아이콘과 README 마크용이다. 앱 UI의 강조색은 사용자의 시스템 액센트 색이다. 앱이 액센트 색을 정하지 않는다.
 4. **색은 의미를 혼자 지지 않는다.** 모든 상태 색은 SF Symbol과 텍스트를 함께 쓴다 ([iconography.md §5](iconography.md#5-상태-심볼-매핑), [interaction.md §6.2](interaction.md#62-색에만-의존하지-않는다)).
 5. **GitKraken을 포함한 다른 제품의 팔레트를 쓰지 않는다.** 레인 팔레트는 데이터 시각화용 범주형 기준 팔레트에서 출발해 아래 §5 방식으로 다시 검증했다. 청록·보라 계열의 브랜드 톤을 주조색으로 쓰지 않는다.
@@ -26,10 +26,11 @@ primitive/          원시 값. 의미 없음. 앱 코드에서 직접 참조 �
   color.status.*            상태 색 단계 (green-600, amber-400 …)
   color.lane.*              레인 색상군의 light/dark 단계
   color.diff.*              diff 배경 단계
+  color.avatar.*            작성자 이니셜 아바타 채움 단계 (#159)
   color.system-fallback.*   macOS 시스템 색의 근삿값 (문서·목업용)
 semantic/           역할. 앱 코드가 참조하는 유일한 층
   color.surface.*  color.text.*  color.border.*  color.accent
-  color.status.*   color.graph.*  color.diff.*
+  color.status.*   color.graph.*  color.diff.*  color.avatar.*
   spacing.*  radius.*  typography.*  size.*  motion.*  opacity.*
 ```
 
@@ -114,14 +115,45 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | `diff.hunk-header-bg` | `#eaf0fb` | `#1d2a40` |
 | `diff.gutter-added` / `gutter-removed` | `status.staged` / `status.conflicted` 별칭 | |
 
-### 3.4 간격·모서리·크기·글꼴·움직임
+### 3.4 작성자 아바타 (#159)
+
+네트워크 아바타(Gravatar, GitHub 프로필 사진)는 쓰지 않는다. 앱이 외부로 요청을 보내지 않고, 작성자 이메일을 제3자에게 넘기지 않기 위해서다. 대신 이름 이니셜(최대 2자)을 색 원 위에 쓴다.
+
+| 인덱스 | 색상군 | 값 (light = dark) | 흰 이니셜 대비 |
+|---|---|---|---|
+| 0 | green | `#1d7a4a` | 5.34 |
+| 1 | blue | `#2f67c8` | 5.39 |
+| 2 | red | `#c62f3e` | 5.42 |
+| 3 | violet | `#7048c8` | 6.09 |
+| 4 | orange | `#b04f00` | 5.30 |
+| 5 | teal | `#00778f` | 5.20 |
+| 6 | gold | `#8a6a00` | 5.07 |
+| 7 | magenta | `#a8389a` | 5.68 |
+
+- **결정적 색.** 인덱스 = 작성자 이메일을 앞뒤 공백 제거·소문자화한 뒤 FNV-1a 32비트 해시 mod 8. Swift의 `hashValue`는 실행마다 바뀌므로 쓰지 않는다. 같은 사람은 어느 저장소, 어느 창에서나 같은 색이다.
+- **light와 dark에서 같은 값.** 테마를 바꿔도 사람의 색이 바뀌지 않게 했다. 이니셜은 `avatar.initials`(흰색).
+- **색은 보조 단서다.** 아바타 옆에는 항상 이름이 있거나(그래프, 커밋 상세, 작성자 필터 칩) 툴팁과 VoiceOver 라벨에 이름이 있다(사이드바 원격 브랜치). 8색을 모두 구분해야 의미가 통하는 화면은 만들지 않는다 (§5.4).
+- 선택된 행에서는 아바타 바깥에 1px `text.on-selection` 링을 둔다. 아바타 색과 선택 색의 대비가 1.0~1.1이기 때문이다.
+- AI 공동 작성자(`Co-Authored-By:` 트레일러로 판별)는 이니셜 아바타 대신 `text.secondary` 테두리 원 + `sparkles` 심볼로 그린다. 사람처럼 보이게 하지 않는다.
+
+### 3.5 컨트롤 표면 (#159)
+
+| 토큰 | Light | Dark | 런타임 |
+|---|---|---|---|
+| `surface.control` | `#ffffff` | `#3a3a3c` | `NSColor.controlColor` (시스템 컨트롤 재질). hex는 목업용 근삿값 |
+
+툴바 버튼, 검색 필드, 세그먼트 컨트롤, 작성자 필터 칩의 바탕이다. 창 배경과의 대비는 1.13~1.18이라 경계는 `border.separator` 1px 선이 맡는다(시스템 컨트롤과 같다). 텍스트 대비는 §5.5.
+
+`primitive.color.system-fallback.window-close` / `window-minimize` / `window-zoom`은 시스템이 그리는 창 버튼을 목업에 그리기 위한 값이다. 앱 코드는 참조하지 않는다.
+
+### 3.6 간격·모서리·크기·글꼴·움직임
 
 | 묶음 | 값 |
 |---|---|
 | `spacing` | xxs 2 · xs 4 · sm 8 · md 12 · lg 16 · xl 24 · xxl 32 (px) |
 | `radius` | sm 4 (배지, ref 알약) · md 6 (버튼, 시스템 컨트롤과 같음) · lg 10 (카드, popover) · pill |
 | `size` | 사이드바 행 24, 그래프 행 24 (고정, 가상화 전제), 파일 행 22, 레인 폭 14, 노드 8 (merge 6, HEAD 10), 간선 2, 노드 링 2, 최소 클릭 영역 20. 패널 폭: 사이드바 200/240/360, 상세 280/340, 그래프 최소 420. 창 최소 960×600 |
-| `typography` | macOS 텍스트 스타일에 대응한다: body 13, headline 13 bold, title(상세 제목) 15 semibold, callout 12, section-header 11 bold, caption 10, mono 12 (SF Mono), mono-small 11. **앱 코드는 포인트 크기가 아니라 SwiftUI 텍스트 스타일을 쓴다** |
+| `typography` | macOS 텍스트 스타일에 대응한다: large-title 26 bold(S-07 온보딩 제목 전용, #159), body 13, headline 13 bold, title(상세 제목) 15 semibold, callout 12, section-header 11 bold, caption 10, mono 12 (SF Mono), mono-small 11. **앱 코드는 포인트 크기가 아니라 SwiftUI 텍스트 스타일을 쓴다** |
 | `motion` | fast 120ms · standard 200ms · slow 350ms · easing `cubic-bezier(0.2, 0, 0, 1)`. Reduce Motion이면 크로스페이드나 애니메이션 없음 |
 | `opacity` | disabled 0.4 · stale 0.6 (새로고침 실패 후 이전 데이터) |
 
@@ -221,6 +253,31 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | hunk header | 14.71 | 11.74 |
 
 텍스트는 `text.primary` 근삿값(light `#1d1d1f`, dark `#e8e8e6`) 기준이다. 모두 4.5:1 이상이고, 단어 강조 dark를 빼면 7:1 이상이다.
+
+### 5.4 작성자 아바타 (#159)
+
+2026-11-06 측정. 도구와 방식은 위와 같다(WCAG 2 대비, OKLab ΔE ×100).
+
+| 검사 | 기준 | 결과 |
+|---|---|---|
+| 흰 이니셜 대비 | ≥ 4.5:1 (작은 굵은 글자) | **최소 5.07** (gold) · 최대 6.09 (violet) |
+| light 표면 대비 (content / sidebar) | 참고 (≥ 3:1이면 원 경계가 보임) | 5.07–6.09 / 4.14–4.97 |
+| dark 표면 대비 (content / sidebar) | 참고 | 2.74–3.29 / 2.36–2.83 |
+| 정상 시각 분리 (모든 쌍) | 참고 | 최소 **8.9** (red↔orange), 다음 9.2 (orange↔gold), 10.2 (blue↔violet) |
+
+- 8색을 같은 명도(OKLCH L 0.51–0.55)에 두어 흰 이니셜 대비를 고르게 맞췄다. 그 대가로 모든 쌍 분리는 범주형 기준(≥ 15)에 못 미친다. 아바타 색은 이름과 함께만 쓰는 보조 단서이므로 받아들인다. 명도를 흩어 분리를 키우면 흰 글자 대비가 4.5:1 아래로 떨어지는 색이 생겼다.
+- dark 표면에서 원 경계 대비가 3:1 아래인 색이 있다. 원 안의 흰 이니셜(대비 ≥ 5.07)과 옆의 이름이 정보를 전달하므로 원 경계는 장식으로 본다.
+- 그래프 레인 팔레트와 색상군 이름이 겹치지만 값은 다르다. 아바타는 레인보다 어둡고(흰 글자용), 원 안에 글자가 있어 노드(글자 없는 점)와 모양으로 구분된다.
+- 후보 비교: 처음 고른 vivid 8색(`#2e7d32` 등)은 red↔orange ΔE 6.0, green↔olive 5.3이라 버렸다. 명도·채도를 고정해 색상각을 45°씩 나눈 자동 탐색안은 최소 ΔE 9.1이었지만 채도 0.09로 탁해서 쓰지 않았다.
+
+### 5.5 컨트롤 표면 위 텍스트 (#159)
+
+| 텍스트 | Light (`#ffffff`) | Dark (`#3a3a3c`) |
+|---|---|---|
+| `text.primary` | 16.83 | 9.25 |
+| `text.secondary` | 5.07 | 4.41 |
+
+dark의 `text.secondary`는 4.5:1에 조금 못 미친다(4.41). 컨트롤 안에서는 단축키 힌트(`⌘F`)와 칩 개수처럼 보조 정보에만 쓰고, 버튼 라벨은 `text.primary`로 쓴다. 검색 필드 placeholder는 원래 `text.tertiary`(placeholder 전용)다.
 
 ---
 

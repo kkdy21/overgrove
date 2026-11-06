@@ -1,8 +1,8 @@
 # 화면 명세 (Screens)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0004, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159) · 관련: [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
 
-HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다.
+HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. S-11(기준 브랜치 대비 변경)은 #158에서 추가했다. 고충실도 목업은 [mockups.md](mockups.md)에 모았고, 각 절에도 링크를 둔다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다.
 
 **HANDOFF 대비 바뀐 점**
 
@@ -66,11 +66,13 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 와이어프레임의 `🔒 ⚠ 🌲 ✓ ✎ ?`는 SF Symbol 자리를 나타낸다. 실제 심볼은 [iconography.md §5](iconography.md#5-상태-심볼-매핑)를 따른다.
 
-**중간 충실도 목업 (dark).** 토큰 값으로 그린 S-01이다. 글리프는 SF Symbol 대신 유니코드 문자로 대신했고, 글자 폭은 렌더러에 따라 조금 다르다. 기준은 PNG 렌더다.
+**고충실도 목업 (#159).** 토큰 값으로 그린 S-01이다. 글리프는 SF Symbol을 흉내 낸 단순 도형이고, 글꼴은 렌더러에 따라 SF Pro 대신 Helvetica Neue로 보일 수 있다. 기준은 PNG 렌더다. 설명은 [mockups.md](mockups.md#s-01-메인-창)에 있다.
 
-![S-01 메인 창 목업 (dark)](../../design/mockups/main-window-dark.png)
+| Light | Dark |
+|---|---|
+| ![S-01 메인 창 목업 (light)](../../design/mockups/main-window-light.png) | ![S-01 메인 창 목업 (dark)](../../design/mockups/main-window-dark.png) |
 
-원본: [`design/mockups/main-window-dark.svg`](../../design/mockups/main-window-dark.svg)
+원본: [`main-window-light.svg`](../../design/mockups/main-window-light.svg), [`main-window-dark.svg`](../../design/mockups/main-window-dark.svg)
 
 ### 툴바
 
@@ -93,14 +95,32 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 |---|---|---|
 | 그래프 | 레인, 노드, 간선. 레인 색은 `color.graph.lane.0~7` 순환 (ADR-0010) | `size.graph-lane-width`, `size.graph-node`, `size.graph-edge` |
 | SHA | 짧은 SHA 7자 | `typography.mono-small`, `text.secondary` |
-| 제목 | 커밋 제목 첫 줄 + ref 알약(로컬, 원격, 태그, `HEAD`) | `typography.body`, 알약 `radius.sm` |
-| 작성자 | 작성자 이름. 폭이 좁으면 이니셜 | `text.secondary` |
+| 제목 | 커밋 제목 첫 줄 + AI 배지(있으면) + ref 알약(로컬, 원격, 태그, `HEAD`). 폭이 모자라면 제목을 먼저 줄이고, 알약은 최대 170px | `typography.body`, 알약 `radius.sm` |
+| 작성자 | 이니셜 아바타(16px) + 작성자 이름. 폭이 좁으면 아바타만 남기고 이름은 툴팁으로 | `color.avatar.*`, 이름 `text.secondary` |
 | 날짜 | 상대 시각(`2h`, `3d`), 툴팁에 절대 시각(ISO 8601, 로컬 시간대) | `text.secondary` |
 
 - **WIP 행.** 포커스 워크트리에 미커밋 변경이 있을 때만 맨 위에 둔다. 속이 빈 점선 노드(`color.graph.wip-node`)를 쓰고, 행 배경은 `color.surface.wip-row`, 요약 문구는 `3 staged · 2 unstaged · 1 untracked`. 충돌이 있으면 맨 앞에 `⚠ 2 conflicted`를 붙인다. 변경이 없으면 WIP 행을 숨긴다.
 - **HEAD 링.** 포커스 워크트리의 HEAD 커밋 노드에 `color.graph.head-ring` 링을 두른다. 다른 워크트리의 HEAD에는 작은 `tree` 심볼과 워크트리 이름 알약을 붙인다.
 - **ref 알약.** 로컬 브랜치는 레인 색을 `ref-pill-local-fill-opacity`(0.18)로 채운다. 원격 브랜치는 레인 색 테두리만, 태그는 `tag` 심볼 + 중립 색이다. 알약 텍스트는 항상 `text.primary`다.
+  - (#159 보완) 로컬 브랜치와 같은 이름의 `origin/` 브랜치가 같은 커밋을 가리키면 알약 하나로 합친다: 채움 + 테두리 + 끝의 `network` 심볼. 툴팁에 두 ref 이름을 모두 쓴다. 다른 커밋을 가리키면 따로 그린다.
+  - (#159 보완) 다른 워크트리가 체크아웃한 브랜치는 그 브랜치 알약 앞에 `tree` 심볼을 붙인다(워크트리 이름은 툴팁). 별도 워크트리 알약은 브랜치가 없는 **detached HEAD 워크트리**에만 `tree` + 디렉터리 이름으로 그린다. 같은 행에 같은 뜻의 알약이 두 개 생기지 않게 하기 위해서다.
 - **페이지 단위 로드.** 처음 500개를 그리고 스크롤에 따라 다음 페이지를 불러온다 (PB-3, PB-4). 행 높이는 `size.row-graph`(24px)로 고정한다.
+
+### 작성자 표현과 AI 배지
+
+팀과 AI 에이전트가 함께 쓰는 저장소에서 "누가(무엇이) 이 커밋을 만들었는가"를 그래프에서 바로 읽게 한다 (#159). 근거 조사는 [references.md](references.md)에 있다.
+
+| 요소 | 위치 | 표현 | 규칙 |
+|---|---|---|---|
+| 이니셜 아바타 | 그래프 작성자 열, S-03 Author, S-11 커밋 목록, 작성자 칩, 사이드바 원격 브랜치 | 지름 16px 원 + 이니셜 최대 2자(굵게, `avatar.initials`) | 색 = `color.avatar.(FNV-1a(소문자 이메일) mod 8)` ([design-tokens.md §3.4](design-tokens.md#34-작성자-아바타-159)). 네트워크 아바타(Gravatar, GitHub 프로필)는 쓰지 않는다. 선택된 행에서는 1px `text.on-selection` 링 |
+| 작성자 필터 칩 줄 | 그래프 위 40px 줄 (`person.2` 심볼로 시작) | `All` + 작성자 칩(아바타 + 이름 + 불러온 커밋 수) + 구분선 + `AI-assisted` 칩(`sparkles`) | 칩 순서는 불러온 커밋 수 내림차순. 5명을 넘으면 `+n` 메뉴로 접는다. 칩 하나를 고르면 검색과 같은 방식으로 일치 행만 강조하고 나머지는 `opacity.disabled`로 흐린다(행을 숨기지 않는다. 그래프 모양이 유지된다). 고른 칩은 `accent` 채움 + `text.on-selection`. 검색어와 함께 쓰면 AND |
+| AI 배지 | 그래프 제목 뒤, S-03 Co-author 행, S-11 커밋 목록 | `sparkles` + `AI` 글자, `text.secondary` 테두리 알약 | 커밋 메시지에 AI 도구를 가리키는 `Co-Authored-By:` 트레일러가 있을 때만 붙인다. 판별 목록(이름·이메일 패턴)은 후속 이슈에서 정한다. 색은 쓰지 않는다(상태 색, 레인 색과 겹치지 않게). 글자 `AI`가 의미를 전달한다 |
+| AI 공동 작성자 | S-03 메타 | `text.secondary` 테두리 원 + `sparkles` (이니셜 아바타를 쓰지 않음) + 이름 + AI 배지 | 사람 아바타처럼 보이지 않게 한다 |
+| 원격 브랜치 마지막 커미터 | 사이드바 REMOTE의 브랜치 행 오른쪽 | 아바타(16px) + 팁 커밋의 상대 시각 | 이름은 툴팁과 VoiceOver(`Last commit by Alex Kim, 2 hours ago`). 배지 우선순위는 행에서 가장 낮다. 폭이 모자라면 시각 → 아바타 순으로 숨긴다 |
+
+**데이터와 후속 작업.** 아바타와 칩은 이미 읽는 작성자 이름·이메일만 쓴다. AI 배지는 커밋 트레일러를 읽어야 하므로 로그 포맷에 트레일러 필드(예: `%(trailers:key=Co-authored-by,valueonly)`)를 더해야 한다. 이 변경은 [git-command-catalog.md](../architecture/git-command-catalog.md)와 파싱 명세를 고치는 후속 이슈로 남긴다. 서명 관련 `%G` 필드는 계속 쓰지 않는다 (T7).
+
+**새 심볼.** `sparkles`(AI), `person.2`(작성자 필터), `plus.forwardslash.minus`(기준 대비 변경). [iconography.md §5.3](iconography.md#53-객체와-동작) 표에 후속으로 더한다.
 
 ### 상세 패널
 
@@ -180,6 +200,12 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 | untracked가 상한 초과 | `UNTRACKED (5,000+)` + `Showing first 5,000 files`. 상한은 성능 측정 후 확정 ([performance-budget.md](../performance/performance-budget.md)) |
 | 워크트리 경로 없음 (prunable) | `questionmark.folder` + `Worktree directory is missing` + `Run git worktree prune in Terminal to clean up`. 앱은 prune하지 않는다 |
 
+**목업.** 충돌이 있는 에이전트 워크트리를 포커스한 상태. `logger.go`가 staged와 unstaged에 모두 나오고(`MM`), rename은 `{old → new}`로 줄여 쓴다. [mockups.md](mockups.md#s-02-wip-상세)
+
+| Light | Dark |
+|---|---|
+| ![S-02 WIP 상세 (light)](../../design/mockups/s02-wip-detail-light.png) | ![S-02 WIP 상세 (dark)](../../design/mockups/s02-wip-detail-dark.png) |
+
 **v0.1 제외.** 스테이징 토글 체크박스, discard, 부분 스테이징, 커밋 메시지 입력.
 
 ---
@@ -217,7 +243,7 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 | 요소 | 내용 |
 |---|---|
 | 제목줄 | 전체 SHA는 툴팁과 `Copy SHA`로, 화면에는 7자 |
-| 메타 | Author, Date(작성 시각), Committer(다를 때만), Parents(merge면 둘 이상, 누르면 그 커밋 선택), Refs, Issues(메시지와 ref에서 찾은 번호, gh 로그인 시 제목 표시) |
+| 메타 | Author(아바타 + 이름 + 이메일), Co-author(트레일러가 있을 때만, AI면 AI 배지), Date(작성 시각), Committer(다를 때만), Parents(merge면 둘 이상, 누르면 그 커밋 선택), Refs, Issues(메시지와 ref에서 찾은 번호, gh 로그인 시 제목 표시) |
 | 본문 | 메시지 전체. 고정폭이 아닌 `typography.body`. URL은 링크로 만들지 않는다(v0.1) |
 | 파일 | 종류 글자 + 경로 + `+n −m`. 바이너리는 `binary`. merge 커밋은 첫 번째 부모 기준 diff이고 그 사실을 헤더에 적는다 (`Changes vs first parent`) |
 | 서명 | 표시하지 않는다. 서명 검증은 `gpg.program`을 실행하므로 v0.1에서 하지 않는다 (T7) |
@@ -228,6 +254,12 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 |---|---|
 | 로딩 | 메타는 `CommitNode`에 이미 있으므로 즉시 표시한다. 파일 목록만 로딩 |
 | 파일 수가 많음 | 처음 1,000개를 보여 주고 `Show all 4,213 files` |
+
+**목업.** `AI-assisted` 칩으로 그래프를 거른 상태에서 AI 공동 작성 커밋을 고른 화면. 제목은 두 줄까지 감싼다. 트레일러 줄은 본문에서 `text.secondary`로 쓴다. [mockups.md](mockups.md#s-03-커밋-상세)
+
+| Light | Dark |
+|---|---|
+| ![S-03 커밋 상세 (light)](../../design/mockups/s03-commit-detail-light.png) | ![S-03 커밋 상세 (dark)](../../design/mockups/s03-commit-detail-dark.png) |
 
 **v0.1 제외.** cherry-pick, revert, 이 커밋으로 체크아웃, GitHub에서 열기.
 
@@ -295,6 +327,8 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 │ State       6 changed · 1 untracked · no conflicts     │
 │ Lock        not locked                                 │
 │ Last fetch  2 min ago (repository)                     │
+│ Base        main  1 commit ahead · 4 files             │
+│             [ ± Compare with Base… ]  ⌘⇧B              │
 ├────────────────────────────────────────────────────────┤
 │ SECURITY                                               │
 │  ✓ Hooks disabled                                      │
@@ -314,6 +348,7 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 | State | `WorkingState` 요약 |
 | Lock | `locked` + 이유(`git worktree lock --reason`이 있으면) |
 | Last fetch | 저장소 단위임을 `(repository)`로 밝힌다. **이 화면에 Fetch 버튼을 두지 않는다.** fetch는 저장소 단위이므로 툴바 하나로 통일한다 |
+| Base | 기준 브랜치(기본은 기본 브랜치)와 그 대비 요약. `Compare with Base…`는 S-11을 연다 (#158) |
 | SECURITY | 위협 모델 대응이 이 저장소에 적용되었는지 보여 준다. 항상 켜져 있는 항목(hooks, fsmonitor, ext diff, 마스킹)은 `✓`로 표시한다. `RepoConfigInspector`가 무력화한 저장소 설정이 있으면 `⚠` + 개수, 펼치면 키 이름 목록을 보여 준다(값은 보여 주지 않는다). 항목 정의는 [security-review.md](security-review.md)와 ADR-0009를 따른다 |
 
 **데이터.** `Worktree`, `UpstreamStatus`, `WorkingState`, `FetchRecord`, `RepoConfigInspector` 결과.
@@ -322,6 +357,12 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 |---|---|
 | prunable | Path에 `⚠ Directory missing`. 나머지 필드는 마지막으로 알려진 값을 흐리게 표시 |
 | bare 저장소의 main 항목 | 목록에서 숨기므로 이 화면으로 오지 않는다 |
+
+**목업.** SECURITY 섹션에서 무력화된 저장소 설정 2개를 펼친 상태. 키 이름만 보이고 값은 보이지 않는다. [mockups.md](mockups.md#s-05-워크트리-상세)
+
+| Light | Dark |
+|---|---|
+| ![S-05 워크트리 상세 (light)](../../design/mockups/s05-worktree-detail-light.png) | ![S-05 워크트리 상세 (dark)](../../design/mockups/s05-worktree-detail-dark.png) |
 
 **v0.1 제외.** 워크트리 추가·삭제·이동·잠금·prune.
 
@@ -411,6 +452,12 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 
 - 앱은 `gh auth login`이나 `xcode-select --install`을 **직접 실행하지 않는다.** 명령을 복사할 수 있게만 한다 (HANDOFF §7.2).
 - `Open Repository`는 1, 2단계가 성공하면 활성화된다.
+
+**목업.** 1, 2단계 성공, 3단계(GitHub) 미로그인. 제목은 `typography.large-title`(#159에서 추가)을 쓴다. [mockups.md](mockups.md#s-07-온보딩)
+
+| Light | Dark |
+|---|---|
+| ![S-07 온보딩 (light)](../../design/mockups/s07-onboarding-light.png) | ![S-07 온보딩 (dark)](../../design/mockups/s07-onboarding-dark.png) |
 
 ---
 
@@ -522,4 +569,71 @@ diff 명령은 항상 `--no-ext-diff --no-textconv`로 실행한다 (T3). 텍스
 | LFS 포인터 | 포인터 텍스트를 그대로 보여 준다. LFS 필터를 실행하지 않는다 (T4) |
 | 심볼릭 링크 | 링크 대상 경로 문자열의 변화만 보여 준다 |
 
+**목업.** S-03의 파일 목록에서 파일을 고른 상태. 상세 패널의 선택 행이 남아 있고 `↑`/`↓`로 다음 파일로 넘어간다. [mockups.md](mockups.md#s-10-diff-뷰어)
+
+| Light | Dark |
+|---|---|
+| ![S-10 Diff 뷰어 (light)](../../design/mockups/s10-diff-viewer-light.png) | ![S-10 Diff 뷰어 (dark)](../../design/mockups/s10-diff-viewer-dark.png) |
+
 **v0.1 제외.** 줄 단위 스테이징, 문법 강조, 이미지 diff, 편집.
+
+---
+
+## S-11 기준 브랜치 대비 변경
+
+**목적.** 워크트리가 기준 브랜치에 비해 무엇을 바꿨는지 PR의 "Files changed"처럼 본다. AI 에이전트 작업을 PR 전에 검토하는 핵심 동선이다 (#158, 데이터는 #157).
+
+**진입.**
+- 사이드바 워크트리 행 컨텍스트 메뉴 `Compare with Base`
+- S-05의 `Compare with Base…` 버튼
+- 단축키 `⌘⇧B` (포커스 워크트리 기준. 시스템 예약 아님. [interaction.md §3](interaction.md#3-키보드-단축키) 표에는 #158 구현 때 더한다)
+
+S-09, S-10처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 그래프에 돌아간다. 상세 패널에는 커밋 목록과 파일 목록이 오고, 파일을 고르면 중앙에 그 파일의 패치(S-10과 같은 뷰어)가 나온다. 앱 안의 다른 화면(S-02, S-03 → S-10)과 같은 방향이다.
+
+```
+중앙 영역                                                         상세 패널
+┌──────────────────────────────────────────────────────────┐ ┌──────────────────────────────────────┐
+│ ‹ Graph  Changes vs [⑂ main ⌃⌄]       Include uncommitted ●│ │ feat/42-rate-limit                    │
+│ 2 commits ahead · 0 behind · uncommitted: 5 files ·       │ │ compared with main, including …       │
+│ 8 files · +272 −85                  merge base 3c5d6f1    │ │ COMMITS AHEAD (2)                     │
+├──────────────────────────────────────────────────────────┤ │  ◌ Uncommitted changes       5 files  │
+│ internal/http/middleware.go  Modified · 1 commit + uncom… │ │  AK a91f3c2 feat(ratelimit): …  [AI]  │
+├──────────────────────────────────────────────────────────┤ │  AK 7d20e18 test(ratelimit): …  [AI]  │
+│ @@ -8,11 +8,24 @@ import (                                │ │ FILES CHANGED (8)           +272 −85  │
+│   8   8      "net/http"                                   │ │  M internal/http/middleware.go [WIP]  │
+│  11      −                                                │ │  A internal/ratelimit/limiter.go      │
+│      11 +    "github.com/acme/api/internal/ratelimit"     │ │  R internal/http/{noop.go → pass…}    │
+│ …                                                         │ │ UNTRACKED (2)                         │
+└──────────────────────────────────────────────────────────┘ │  ? docs/rate-limit.md                 │
+                                                             └──────────────────────────────────────┘
+```
+
+| 요소 | 내용 |
+|---|---|
+| 기준 브랜치 선택 | 팝업 버튼. 기본은 기본 브랜치(`origin/HEAD`가 가리키는 것, 없으면 `main`/`master`). 로컬·원격 브랜치를 고를 수 있다. 고른 값은 워크트리별로 기억한다 |
+| `Include uncommitted` | 켜면(기본) 워크트리의 staged·unstaged 변경을 파일 목록과 패치에 합치고 UNTRACKED 섹션을 보인다. 끄면 merge base와 HEAD 사이의 커밋된 변경만 |
+| 요약 줄 | ahead 커밋 수, 기준이 앞선 커밋 수(behind), 미커밋 파일 수(토글이 켜졌을 때), 파일 수, `+n −m`, merge base 짧은 SHA |
+| COMMITS AHEAD | merge base 이후 이 워크트리 HEAD에만 있는 커밋. 아바타 + SHA + 제목 + AI 배지. 토글이 켜져 있으면 맨 위에 `Uncommitted changes`(점선 WIP 노드)를 둔다. 커밋을 고르면 상세가 S-03으로 바뀌고 S-11은 닫힌다 |
+| FILES CHANGED | 종류 글자(M/A/D/R/C/T) + 경로 + `+n −m`. rename은 `{old → new}`. 미커밋 변경이 섞인 파일은 `WIP` 알약을 붙인다(색 없음). 정렬은 경로 오름차순 |
+| UNTRACKED | 토글이 켜졌을 때만. `questionmark.circle` + `?` + 경로. 줄 수는 세지 않는다 |
+| 패치 머리 | 경로, 변경 종류, 출처(`n commits`, `+ uncommitted`), 그 파일의 `+n −m` |
+| 사이드바 배지 (선택) | 워크트리 행에 `plus.forwardslash.minus` + 기준 대비 변경 파일 수. 우선순위는 이슈 번호 다음(가장 낮음). 기본은 끔 |
+
+**데이터.** #157의 비교 결과: merge base, ahead/behind 수, `diff --numstat`/`--name-status`(merge base…HEAD, 토글이 켜지면 작업 트리까지), untracked 목록. 모든 diff는 `--no-ext-diff --no-textconv` (T3). 명령은 [git-command-catalog.md](../architecture/git-command-catalog.md)에 먼저 더한다.
+
+| 상태 | 표현 |
+|---|---|
+| 로딩 | 요약 줄 자리에 작은 스피너 + `Comparing with main…`. 150ms 규칙은 공통과 같다 |
+| 차이 없음 | `checkmark.circle` + `No changes compared with main` |
+| 기준 브랜치 없음 | `exclamationmark.triangle` + `Base branch main was not found` + `Choose Base…` |
+| 갈라진 지점 없음 | `exclamationmark.triangle` + `No common ancestor with main` (관련 없는 이력) |
+| 큰 비교 | 파일 1,000개 초과 시 처음 1,000개 + `Show all 4,213 files`. 패치는 S-10의 큰 diff 규칙을 따른다 |
+| detached HEAD | 기준 대비 비교는 HEAD 커밋 기준으로 동작한다. 제목에 `detached @ a1b2c3d` |
+
+**목업.** [mockups.md](mockups.md#s-11-기준-브랜치-대비-변경)
+
+| Light | Dark |
+|---|---|
+| ![S-11 기준 브랜치 대비 변경 (light)](../../design/mockups/s11-changes-vs-base-light.png) | ![S-11 기준 브랜치 대비 변경 (dark)](../../design/mockups/s11-changes-vs-base-dark.png) |
+
+**v0.1 제외.** 병합 가능 여부·충돌 예측, PR 생성, 두 임의 커밋 비교, 리뷰 코멘트.

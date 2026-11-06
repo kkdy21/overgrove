@@ -70,6 +70,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⌘G` / `⌘⇧G` | Find Next / Previous | Edit › Find | 표준 |
 | `⌘J` | Jump to HEAD | Navigate | 포커스 워크트리의 HEAD로 스크롤하고 선택. TextEdit 등의 "Jump to Selection" 관례 |
 | `⌘I` | Show Worktree Info | Navigate | 워크트리 맥락에서 `Changes` ↔ `Worktree` 세그먼트 전환. Finder의 Get Info 관례 |
+| `⌘⇧B` | Compare with Base… | Repository | 포커스 워크트리를 기준 브랜치와 비교(S-11, #158). Xcode의 Build는 `⌘B`라 겹치지 않는다 |
 | `⌘1` | Focus Sidebar | Navigate | |
 | `⌘2` | Focus Graph | Navigate | S-09, S-10이 열려 있으면 그쪽 |
 | `⌘3` | Focus Detail | Navigate | |
