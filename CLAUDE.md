@@ -98,6 +98,11 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 - **의존 이슈가 안 끝났어도 기다리지 않는다**(ADR-0015). 필요한 부분은 `STAND-IN(#<n>)` 주석을 단 stand-in으로 직접 만든다. 남의 미머지 PR은 merge하거나 체크아웃하지 않는다. PR은 내 이슈만 닫고, 의존 이슈가 끝날 때까지 Draft로 둔다. 상세는 [collaboration.md §4.1](docs/process/collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때).
 - `upstream`에 push하지 않는다. rebase와 강제 푸시도 하지 않는다. 최신화는 `gh pr update-branch` 또는 `git merge upstream/main`으로 한다.
 
+메인테이너 세션 규칙([development-workflow.md §5.1](docs/process/development-workflow.md#51-같은-계정으로-여러-세션을-돌릴-때)):
+- 같은 계정으로 여러 세션을 돌리면 **세션마다 워크트리를 따로** 쓰고, 담당자 없는 이슈만 골라 **즉시 담당자를 지정**한다.
+- 담당자가 나인 이슈라도 그 이슈의 원격 브랜치, 열린 PR, 워크트리가 이미 있으면 다른 세션의 작업이다. 멈추고 묻는다.
+- 보드 Status는 사람이 옮기지 않는다. 담당자, PR, 닫힘에 따라 `board-sync`가 맞춘다(ADR-0016). 의존성이 없는 Backlog 이슈를 Ready로 올리는 트리아지만 손으로 한다.
+
 ### 4.1 흐름
 
 **이슈 없이 작업을 시작하지 않는다.** 흐름의 상세는 [`docs/process/development-workflow.md`](docs/process/development-workflow.md)에 있다.

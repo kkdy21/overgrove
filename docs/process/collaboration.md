@@ -58,7 +58,8 @@ stateDiagram-v2
 | 인정되는 PR | 열려 있고, `Closes #n`, `<type>/<n>-<slug>` 브랜치, 72시간 안에 갱신 | `claim-expiry.yml`, `pr-policy` |
 | 재선점 제한 | 만료된 같은 이슈는 24시간 동안 다시 선점 불가 | `issue-claim.yml` |
 | 의존 이슈가 열린 이슈 | 선점할 수 있다. PR은 의존 이슈가 모두 완료된 뒤에야 통과한다(§4.1) | `pr-policy`, `dependency-closed.yml` |
-| 메인테이너 | 기한·선점 검사 면제 | — |
+| 메인테이너 | 기한·선점 검사 면제. 같은 계정으로 여러 세션을 돌리면 [development-workflow.md §5.1](development-workflow.md#51-같은-계정으로-여러-세션을-돌릴-때)을 따른다 | — |
+| 보드 Status | 선점 → In progress, Draft PR → In progress, PR Ready → In review, 머지 → Done, 선점 해제·만료 → Ready. 협업자가 보드를 고칠 필요가 없다 | `board-sync.yml`, 선점 봇의 마지막 단계(ADR-0016) |
 
 - 시각은 봇 댓글의 UTC 마감 시각을 기준으로 한다. GitHub 스케줄 실행은 지연될 수 있어서 실제 해제는 마감보다 조금 늦을 수 있다.
 - 5시간 안에 끝낼 필요는 없다. **5시간 안에 Draft PR만 열면** 선점이 유지된다. 이후에는 PR이 열려 있는 동안 계속 유지된다.

@@ -18,7 +18,7 @@ description: Overgrove 협업자의 시작점. "백로그 확인해서 진행해
 | 항목 | 확인 | 안 되어 있으면 |
 |---|---|---|
 | gh 로그인 | `gh auth status` | 사용자에게 `! gh auth login -h github.com -w`(브라우저 인증)를 실행해 달라고 한다. 안 되면 별도 터미널에서 실행 |
-| 역할 | `gh api repos/kkdy21/overgrove --jq .permissions.admin` | `true`면 메인테이너다. 이 스킬 대신 `/issue-start`를 쓴다 |
+| 역할 | `gh api repos/kkdy21/overgrove --jq .permissions.admin` | `true`면 **메인테이너 세션**이다. fork·hooks 점검과 `/claim`은 건너뛴다. 2단계 추천만 같이 하고, 사용자가 고르면 `/issue-start`로 시작한다. 담당자 지정이 `/claim`을 대신한다. 같은 계정의 다른 세션과 겹치지 않게 `docs/process/development-workflow.md` §5.1을 따른다 |
 | 원격 | `origin`이 내 fork, `upstream`이 `kkdy21/overgrove` | `gh repo fork --remote --remote-name origin`. 기존 origin은 upstream이 된다 |
 | hooks·도구 | `./scripts/bootstrap.sh` | ✗ 항목을 안내한다(gitleaks 등) |
 | Xcode | `xcode-select -p`가 `Xcode.app`을 가리키는지, `xcodebuild -checkFirstLaunchStatus`의 종료 코드가 0인지 | 사용자에게 **별도 터미널에서** 실행을 요청한다(sudo 비밀번호가 필요해 대신 실행하지 않는다). 아래 순서를 지켜야 앞 명령이 실패하지 않는다 |

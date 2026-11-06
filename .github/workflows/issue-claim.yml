@@ -2,8 +2,11 @@
 #
 # Security notes (T17):
 #   - Runs on `issue_comment` in the base repository with an `issues: write` token.
-#   - It never checks out or executes repository or PR code.
+#   - It never checks out or executes PR code. It checks out the default branch only to run
+#     scripts/github/board-sync.sh after a claim actually changed.
 #   - The comment body is untrusted: it is passed through env and only its first word is compared to fixed strings.
+#   - Assignments made here use GITHUB_TOKEN, which does not start board-sync.yml, so the last step updates the board
+#     itself with PROJECT_TOKEN (project scope only) from the checked-out default branch (ADR-0016).
 name: issue-claim
 
 on:
@@ -31,7 +34,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Handle /claim or /unclaim
+        id: claim
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -61,6 +68,7 @@ jobs:
           if [[ "$cmd" == "/unclaim" ]]; then
             if is_assignee "$ACTOR"; then
               gh api -X DELETE "repos/$REPO/issues/$ISSUE/assignees" -f "assignees[]=$ACTOR" >/dev/null
+              echo "changed=true" >>"$GITHUB_OUTPUT"
               say "👋 @$ACTOR released this issue. Anyone can \`/claim\` it now. (선점 해제)"
             else
               say "@$ACTOR you have not claimed this issue, so there is nothing to release."
@@ -142,5 +150,19 @@ jobs:
               exit 0
             fi
           fi
+          echo "changed=true" >>"$GITHUB_OUTPUT"
           deadline=$(date -u -d "+${LEASE_HOURS} hours" '+%Y-%m-%d %H:%M UTC')
           say "✅ Claimed by @$ACTOR. Open a pull request (a draft is fine) from a branch named \`<type>/$ISSUE-<slug>\` whose body contains \`Closes #$ISSUE\` **before $deadline** (${LEASE_HOURS}h), or the claim is released automatically. Use \`/unclaim\` if you stop. See [collaboration rules](https://github.com/$REPO/blob/main/docs/process/collaboration.md). (선점 완료: ${LEASE_HOURS}시간 안에 PR을 여세요)"
+      - name: Sync board status
+        if: ${{ !cancelled() && steps.claim.outputs.changed == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::notice title=board-sync::PROJECT_TOKEN is not set, so the board was not updated."
+            exit 0
+          fi
+          scripts/github/board-sync.sh issue "$ISSUE"

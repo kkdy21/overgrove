@@ -69,7 +69,7 @@ gh pr diff <n> --repo kkdy21/overgrove
   ```sh
   gh pr merge <n> --repo kkdy21/overgrove --squash --delete-branch    # 또는 --auto (검사 완료 시 자동)
   ```
-- 머지 뒤 이슈가 자동으로 닫혔는지, 보드가 Done인지 확인한다.
+- 머지 뒤 이슈가 자동으로 닫혔는지, 보드가 Done인지 확인한다. Done이 아니면 `scripts/github/board-sync.sh issue <n>`을 돌리고, `PROJECT_TOKEN`이 설정되어 있는지 본다(ADR-0016).
 
 ## 5. 정리
 - 가져온 PR ref를 지운다: `git update-ref -d refs/remotes/pr/<n>`

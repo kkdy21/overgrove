@@ -142,6 +142,7 @@ OvergroveTests/
 | 0013 | 외부 기여 모델과 이슈 선점 정책 (fork PR, 5시간 기한, PR 선착순) | Accepted |
 | 0014 | 메인 창의 자체 패널 테마와 사용자 정의 분할 레이아웃 | Accepted |
 | 0015 | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |
+| 0016 | 보드 Status는 워크플로우가 project 전용 토큰으로 맞춘다 | Accepted |
 
 ### 2.6 테스트 ID
 
