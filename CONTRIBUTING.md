@@ -29,7 +29,8 @@ Discussion (optional) → Issue (triaged) → /claim → Fork branch → Draft P
 Work happens in your **fork**; you do not need any role on this repository.
 
 1. Find an issue that is open, unassigned, not an epic, not labeled `status:blocked` / `status:needs-decision` /
-   `status:triage`, and whose dependencies are closed. Good starting points:
+   `status:triage`. Issues whose dependencies are already done are the easiest start, but you do not have to wait for
+   dependencies (see below). Good starting points:
    [`good first issue`](https://github.com/kkdy21/overgrove/labels/good%20first%20issue),
    [`help wanted`](https://github.com/kkdy21/overgrove/labels/help%20wanted), and the current phase on the
    [project board](https://github.com/users/kkdy21/projects/4).
@@ -46,9 +47,28 @@ Work happens in your **fork**; you do not need any role on this repository.
 | A PR counts only if | it is open, says `Closes #<issue>`, comes from a `<type>/<issue>-<slug>` branch, and was updated in the last 72 hours |
 | Re-claim after expiry | Not for 24 hours on the same issue |
 | Someone else's claimed issue | Your PR fails the `pr-policy` check |
+| Unfinished dependency | Claim anyway and build a stand-in; your PR passes `pr-policy` only after the dependency is done |
 
-Details and rationale: [docs/process/collaboration.md](docs/process/collaboration.md) (Korean) and
-[ADR-0013](docs/adr/0013-external-contributions-and-issue-claiming.md).
+Details and rationale: [docs/process/collaboration.md](docs/process/collaboration.md) (Korean),
+[ADR-0013](docs/adr/0013-external-contributions-and-issue-claiming.md), and
+[ADR-0014](docs/adr/0014-dependent-issues-stand-in.md).
+
+#### When your issue depends on unfinished work
+
+You do not have to wait for another issue to be merged.
+
+1. **Build what you need yourself.** Write only the part of the dependency that your issue uses, as a *stand-in*, and
+   mark each block with a `STAND-IN(#<issue>)` comment. Use the names from the dependency's spec so the switch is small.
+2. **Do not merge or check out someone else's unmerged PR.** Its Git hooks, `.claude/` hooks, and tests would run on
+   your machine. If it has a PR, read the diff (`gh pr diff`) to match names, nothing more.
+3. **Your PR closes only your issue and stays a draft.** If the dependency is not already listed under `## 의존성` in
+   your issue, add a `Depends on #<issue>` line to the PR body.
+
+`pr-policy` fails while a dependency is open or a stand-in is left, so nothing merges out of order. When the dependency
+closes, a bot comments on your PR: merge `upstream/main`, replace the stand-ins with the real code, run the tests, and
+mark the PR ready. If nobody has claimed the dependency, you may claim it as well and build your issue on top of your own
+branch. Rejected, abandoned, and closed-as-not-planned dependencies are covered in
+[collaboration.md §4.1](docs/process/collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때) (Korean).
 
 Found something new? Open an issue with a template first (**Feature**, **Bug**, **Spike**, **Decision**, **Docs**, or
 **Chore**). The maintainer triages it before it can be claimed.

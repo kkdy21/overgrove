@@ -1,6 +1,6 @@
 # PR 규칙
 
-> 상태: Accepted · 관련: [ADR-0012](../adr/0012-solo-maintainer-merge-policy.md), [`.github/pull_request_template.md`](../../.github/pull_request_template.md), [`.github/workflows/pr-policy.yml`](../../.github/workflows/pr-policy.yml)
+> 상태: Accepted · 관련: [ADR-0012](../adr/0012-solo-maintainer-merge-policy.md), [ADR-0014](../adr/0014-dependent-issues-stand-in.md), [`.github/pull_request_template.md`](../../.github/pull_request_template.md), [`.github/workflows/pr-policy.yml`](../../.github/workflows/pr-policy.yml)
 
 ## 1. PR을 열기 전에
 
@@ -26,6 +26,11 @@ Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으�
 
 `pr-policy`는 선점 규칙(ADR-0013)도 검사한다. 남이 선점한 이슈를 닫는 PR, 또는 담당자 없는 이슈에 먼저 열린 PR이 이미 있는데 뒤에 열린 PR은 실패한다. 메인테이너는 면제다.
 
+`pr-policy`는 의존성(ADR-0014)도 검사한다. 메인테이너도 면제가 아니다.
+- 의존 이슈는 연결 이슈 본문의 `## 의존성` 절과 PR 본문의 `Depends on #<n>` 줄에 있는 이슈다. 하나라도 열려 있으면 실패한다. 완료가 아닌 사유(중복, not planned)로 닫혀도 실패한다.
+- PR이 추가한 줄에 `STAND-IN(#<n>)`이 남아 있으면 실패한다.
+- 의존 이슈를 기다리는 PR은 Draft로 둔다. 절차는 [collaboration.md §4.1](collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때)에 있다.
+
 ## 3. 필수 상태 검사
 
 `main` 룰셋이 아래 세 검사의 통과를 요구한다. 브랜치는 최신 `main` 기준이어야 한다(strict).
@@ -33,7 +38,7 @@ Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으�
 | 검사 | 워크플로우 | 내용 |
 |---|---|---|
 | `gitleaks` | `secret-scan.yml` | PR 커밋 범위의 비밀 정보·개인 경로 검사 |
-| `pr-policy` | `pr-policy.yml` | 제목, 연결 이슈, 브랜치명 |
+| `pr-policy` | `pr-policy.yml` | 제목, 연결 이슈, 브랜치명, 선점, 의존성 |
 | `build-test` | `ci.yml` | 도구 검증, 픽스처 스모크, (Phase 3 이후) swift-format lint, 빌드와 테스트 |
 
 `codeql`은 필수가 아니지만, 경고가 나오면 머지 전에 확인한다.
@@ -92,5 +97,6 @@ Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으�
 ## 8. 오래된 PR
 
 - 협업자 PR은 72시간 동안 갱신이 없으면 선점이 자동으로 풀린다(ADR-0013). 메인테이너는 상태를 묻거나 PR을 닫는다.
+- 의존 이슈를 기다리는 Draft PR은 갱신이 없다는 이유만으로 닫지 않는다. 의존 이슈가 닫히면 `dependency-closed` 봇이 작성자에게 알린다. 그 뒤에도 움직임이 없으면 위 규칙을 따른다.
 - 메인테이너 자신의 PR은 14일간 움직임이 없으면 다시 검토한다.
 - Draft PR은 조기 피드백용이다. 필수 검사는 Draft에서도 돈다.

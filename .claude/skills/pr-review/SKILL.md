@@ -12,7 +12,9 @@ description: Overgrove 메인테이너가 열린 PR을 AI로 검수한다. 필�
 gh pr list --repo kkdy21/overgrove --state open --json number,title,author,isDraft,createdAt,statusCheckRollup,labels \
   --jq '.[] | {number,title,author:.author.login,isDraft,checks:([.statusCheckRollup[]?.conclusion]|unique)}'
 ```
-- 우선순위: Draft가 아님 → 필수 검사 통과 → 오래된 순
+- 우선순위: Draft가 아님 → 다른 PR이 기다리는 PR → 필수 검사 통과 → 오래된 순
+  - "다른 PR이 기다리는 PR"은 그 PR이 닫는 이슈가 다른 열린 PR의 의존 이슈인 경우다. 의존 이슈는 연결 이슈의 `## 의존성` 절과 PR 본문의 `Depends on #<n>` 줄에 있다(ADR-0014). 이런 PR을 먼저 머지해야 뒤의 PR이 풀린다.
+  - 의존 이슈를 기다리는 Draft(`pr-policy`의 "Waiting on dependency")는 건너뛴다.
 - 외부 기여자의 첫 PR이라 워크플로우가 "승인 대기"면, diff에 워크플로우·스크립트 변경이 없는지 먼저 본다. 그다음 Actions 탭에서 실행을 승인하도록 사용자에게 안내한다.
 
 ## 2. PR별 점검
@@ -37,6 +39,7 @@ gh pr diff <n> --repo kkdy21/overgrove
 | 연결 이슈 | `Closes #n`. 이슈의 완료 조건을 모두 만족하는가 |
 | 선점 | PR 작성자가 이슈 담당자인가. 같은 이슈의 다른 PR이 있으면 먼저 열린 PR을 우선한다 |
 | 필수 검사 | `gitleaks`, `pr-policy`, `build-test` 통과 |
+| 의존성 | `pr-policy`의 의존성·stand-in 검사 통과. diff에 연결 이슈 밖의 코드(의존 이슈의 코드나 stand-in)가 없는가. 작업 중 발견한 의존성이 `Depends on`으로 적혀 있는가 |
 | 범위 | `scope-guard` 에이전트. 이슈 밖 변경이나 비목표 위반이 없는가 |
 | 보안 | 보안 영향 경로를 건드렸다면 `security-reviewer` 에이전트 결과가 "통과"인가 |
 | 테스트 | 파서 변경에 PAR 테스트, 위협 대응 변경에 SEC 테스트가 있는가. 테스트가 실제로 실패 → 통과로 바뀌는 내용인가 |
@@ -60,6 +63,7 @@ gh pr diff <n> --repo kkdy21/overgrove
 - 조건: **협업자 PR은 메인테이너 계정의 Approve 리뷰 필수**(메인테이너 본인 PR은 예외), 필수 검사 통과, **모든 리뷰 스레드 해결**
 - Approve 없이 협업자 PR을 머지하지 않는다. 메인테이너가 "검수 생략"을 지시해도 최소한 3단계 점검표를 돌리고 결과를 PR 코멘트로 남긴다.
 - 브랜치가 뒤처졌으면 `gh pr update-branch <n>`을 쓴다. 기여자에게 rebase나 강제 푸시를 요구하지 않는다(squash merge라서 merge 커밋이 이력에 남지 않는다).
+- 의존 관계가 있으면 의존되는 PR부터 머지한다. 머지하면 `dependency-closed`가 기다리는 PR에 알린다. 기다리던 PR의 stand-in 정리는 작성자가 하므로, 그 PR을 `update-branch`로 대신 최신화하지 않는다.
 - 사용자 확인 후:
   ```sh
   gh pr merge <n> --repo kkdy21/overgrove --squash --delete-branch    # 또는 --auto (검사 완료 시 자동)

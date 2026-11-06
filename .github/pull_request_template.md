@@ -5,6 +5,12 @@ It becomes the squash-commit title on main. / PR 제목은 영어 Conventional �
 
 Closes #
 
+<!--
+Needs another unfinished issue? Add a line "Depends on #<issue>" below this comment for each one that is not already
+under "## 의존성" in the linked issue, and keep this PR as a draft until they are done. Mark temporary code for them
+with STAND-IN(#<issue>) comments. See CONTRIBUTING.md, "When your issue depends on unfinished work".
+-->
+
 ## Summary / 요약
 
 <!-- What changed and why. Link docs, ADRs, screens (S-xx), threats (T-xx). -->
@@ -24,6 +30,7 @@ Closes #
 - [ ] No secrets, tokens, private repository names, or personal paths (`/Users/<name>/…`)
 - [ ] No new third-party dependency (or an accepted ADR is linked)
 - [ ] Out-of-scope ideas were filed as `later` issues instead of being implemented here
+- [ ] Every dependency is done and no `STAND-IN(#<issue>)` code is left (otherwise the PR stays a draft)
 
 ## Security impact / 보안 영향
 

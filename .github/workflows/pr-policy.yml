@@ -1,6 +1,7 @@
 # Required check: `pr-policy`
 # Enforces docs/process/pull-requests.md: Conventional title, `Closes #n` to an open issue, branch naming,
-# and the claim policy of ADR-0013 (claimed issues belong to their assignee; otherwise the first open PR wins).
+# the claim policy of ADR-0013 (claimed issues belong to their assignee; otherwise the first open PR wins), and the
+# dependency rule of ADR-0014 (a PR passes only after every issue it depends on is done and no stand-in code is left).
 # Untrusted PR fields are passed through env vars only (never interpolated into the script) to prevent injection.
 name: pr-policy
 
@@ -19,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check title, linked issue, and branch name
+      - name: Check title, linked issue, branch name, claim, and dependencies
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -69,6 +70,11 @@ jobs:
             fi
           }
 
+          # Dependencies (ADR-0014): "Depends on #n" lines in a PR body, and #n under the "## 의존성" (or "Dependencies")
+          # heading of an issue body. Keep these two functions in sync with .github/workflows/dependency-closed.yml.
+          depends_on_lines() { tr -d '\r' | grep -Ei '^[[:space:]]*([-*][[:space:]]+)?depends[[:space:]]+on([[:space:]]|:)' | grep -Eo '#[0-9]+' | tr -d '#' || true; }
+          dependency_section() { tr -d '\r' | awk '/^#+[ \t]*(의존성|Dependencies)/ {f=1; next} /^#+[ \t]/ {f=0} f' | grep -Eo '#[0-9]+' | tr -d '#' || true; }
+
           if [ "$AUTHOR" = "dependabot[bot]" ]; then
             echo "Dependabot PR — issue link and branch rules do not apply."
             exit 0
@@ -114,6 +120,38 @@ jobs:
             if [ -n "$branch_issue" ] && ! printf '%s\n' $issues | grep -qx "$branch_issue"; then
               err "Branch/issue mismatch" "Branch refers to #$branch_issue but the body closes: $(echo $issues)."
             fi
+          fi
+
+          # 4) Dependencies (ADR-0014). Work may start on top of unfinished issues, but it merges only after them.
+          deps=$( { printf '%s\n' "$BODY" | depends_on_lines
+                    for n in $issues; do { gh api "repos/$REPO/issues/$n" --jq '.body // ""' 2>/dev/null || true; } | dependency_section; done
+                  } | sort -un)
+          for d in $deps; do
+            case " $(echo $issues) " in *" $d "*) continue ;; esac
+            # gh prints the error body to stdout on failure, so only parse the output of a successful call.
+            if dinfo=$(gh api "repos/$REPO/issues/$d" --jq '[.state, (.state_reason // "none"), (has("pull_request")|tostring)] | join(" ")' 2>/dev/null); then
+              read -r dstate dreason dis_pr <<<"$dinfo"
+            else
+              dstate=missing dreason="" dis_pr=""
+            fi
+            if [ "$dstate" = "missing" ]; then
+              err "Dependency" "#$d does not exist. Fix the 'Depends on' line or the issue's dependency section."
+            elif [ "$dis_pr" = "true" ]; then
+              err "Dependency" "#$d is a pull request. Depend on the issue it closes instead: 'Depends on #<issue>'."
+            elif [ "$dstate" = "open" ]; then
+              err "Waiting on dependency" "#$d is not done yet. This is expected for a draft that builds on unfinished work: keep the PR as a draft. When #$d is merged, merge main into this branch, replace its STAND-IN code, and push."
+            elif [ "$dreason" = "completed" ]; then
+              echo "Dependency #$d is done."
+            else
+              err "Dependency not completed" "#$d was closed without being completed ($dreason). Ask the maintainer on the linked issue whether to depend on another issue, keep the needed code in this PR, or change the scope."
+            fi
+          done
+
+          # 5) Stand-in code for unfinished dependencies must not reach main.
+          standins=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files?per_page=100" \
+            --jq '.[] | .filename as $f | (.patch // "") | split("\n")[] | select(startswith("+") and test("STAND-IN\\(#[0-9]+\\)")) | $f' 2>/dev/null | sort -u || true)
+          if [ -n "$standins" ]; then
+            err "Stand-in code" "Replace the STAND-IN code with the real implementation before merging: $(echo $standins)"
           fi
 
           exit $fail

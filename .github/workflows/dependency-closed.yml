@@ -1,0 +1,66 @@
+# Tells open pull requests that depend on an issue when that issue closes (ADR-0014, docs/process/collaboration.md §4.1).
+# A PR depends on issue #n if its body has a "Depends on #n" line, or if an issue it closes lists #n under "## 의존성".
+#
+# Security notes:
+#   - Runs on `issues` events in the base repository. It never checks out or runs repository or PR code.
+#   - PR and issue bodies are untrusted. They are read through the API and only scanned for issue numbers.
+name: dependency-closed
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: write
+
+jobs:
+  notify:
+    name: notify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Comment on dependent pull requests
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          REASON: ${{ github.event.issue.state_reason }}
+        run: |
+          set -euo pipefail
+          # Keep these two functions in sync with .github/workflows/pr-policy.yml.
+          depends_on_lines() { tr -d '\r' | grep -Ei '^[[:space:]]*([-*][[:space:]]+)?depends[[:space:]]+on([[:space:]]|:)' | grep -Eo '#[0-9]+' | tr -d '#' || true; }
+          dependency_section() { tr -d '\r' | awk '/^#+[ \t]*(의존성|Dependencies)/ {f=1; next} /^#+[ \t]/ {f=0} f' | grep -Eo '#[0-9]+' | tr -d '#' || true; }
+
+          rows=$(gh api graphql --paginate -F owner="${REPO%%/*}" -F name="${REPO##*/}" -f query='
+            query($owner: String!, $name: String!, $endCursor: String) {
+              repository(owner: $owner, name: $name) {
+                pullRequests(states: OPEN, first: 50, after: $endCursor) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes { number author { login } body closingIssuesReferences(first: 10) { nodes { body } } }
+                }
+              }
+            }' --jq '.data.repository.pullRequests.nodes[] | @base64')
+
+          guide="https://github.com/$REPO/blob/main/docs/process/collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때"
+          status=0
+          for row in $rows; do
+            pr_json=$(printf '%s' "$row" | base64 -d)
+            pr=$(jq -r '.number' <<<"$pr_json")
+            author=$(jq -r '.author.login // "ghost"' <<<"$pr_json")
+            deps=$( { jq -r '.body // ""' <<<"$pr_json" | depends_on_lines
+                      jq -c '.closingIssuesReferences.nodes[].body // ""' <<<"$pr_json" |
+                        while IFS= read -r body; do jq -r '.' <<<"$body" | dependency_section; done
+                    } | sort -un)
+            case " $(echo $deps) " in *" $ISSUE "*) ;; *) continue ;; esac
+
+            if [ "$REASON" = "completed" ]; then
+              msg="🔓 #$ISSUE is done, and this pull request depends on it. @$author: merge \`main\` into this branch (from a fork: \`git merge upstream/main\`), replace the STAND-IN code for #$ISSUE with the real implementation, run the tests, and push. Mark the PR ready once \`pr-policy\` passes. See the [collaboration rules]($guide). (의존 이슈 #${ISSUE}가 끝났습니다. main을 합치고 stand-in을 실제 코드로 바꾼 뒤 Ready로 바꾸세요.)"
+            else
+              msg="⚠️ #$ISSUE was closed without being completed (${REASON:-unknown}), and this pull request depends on it, so \`pr-policy\` will fail. @$author: ask the maintainer on the linked issue whether to depend on another issue instead (for a duplicate), keep the needed code in this PR, or change the scope. See the [collaboration rules]($guide). (의존 이슈가 완료되지 않은 채 닫혔습니다. 연결 이슈에서 메인테이너에게 방향을 물어 주세요.)"
+            fi
+            echo "notify PR #$pr (@$author): #$ISSUE closed as ${REASON:-unknown}"
+            gh pr comment "$pr" --repo "$REPO" --body "$msg" >/dev/null || { echo "::warning::could not comment on PR #$pr"; status=1; }
+          done
+          exit $status

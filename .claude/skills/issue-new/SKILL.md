@@ -18,7 +18,8 @@ description: Overgrove 저장소에 새 GitHub 이슈를 템플릿 형식으로 
 3. **초안 작성**
    - **제목**: 영어 Conventional 형식. 예: `feat(parser): parse porcelain v2 rename records`, `[EPIC] Phase 3 — Git layer`
    - **본문**: 한국어 가능. 템플릿 필드 순서를 그대로 따른다.
-     feature 기준: 배경 / 목표 / 완료 조건(체크리스트) / Phase / Area / 보안 고려 사항 / 참고
+     feature 기준: 배경 / 목표 / 완료 조건(체크리스트) / Phase / Area / 보안 고려 사항 / 참고 / 의존성
+   - **의존성**: 마지막에 `## 의존성` 절을 두고 선행 이슈를 `- #n 제목`으로 적는다. 없으면 `- 없음`이라고 쓴다. `pr-policy`와 `dependency-closed` 워크플로우가 이 절의 번호를 읽으므로, 의존성이 아닌 관련 이슈는 "참고"에 적는다(ADR-0014).
    - 관련 문서는 상대 경로로 링크한다. G·N, S-xx, T-xx, 테스트 ID, ADR 번호를 적는다. 식별자는 `docs/README.md` §2 기준이다.
    - **금지**: 개인 경로, 토큰, 내부 저장소 이름
 4. **라벨·마일스톤 선택**

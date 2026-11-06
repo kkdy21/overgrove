@@ -1,6 +1,6 @@
 # 개발 흐름 (이슈 기반)
 
-> 상태: Accepted · 관련: [issues.md](issues.md), [pull-requests.md](pull-requests.md), [branching-and-commits.md](branching-and-commits.md), [discussions.md](discussions.md), ADR-0012
+> 상태: Accepted · 관련: [issues.md](issues.md), [pull-requests.md](pull-requests.md), [branching-and-commits.md](branching-and-commits.md), [discussions.md](discussions.md), ADR-0012, ADR-0014
 
 Overgrove의 모든 작업은 GitHub 이슈에서 시작해서 이슈가 닫히며 끝난다. **이슈 없는 PR은 머지하지 않는다.**
 
@@ -29,11 +29,11 @@ flowchart LR
 |---|---|---|---|
 | 토론 | 확정되지 않은 아이디어, 설계 질문은 Discussions에서 시작한다 | Discussion | — |
 | 이슈 | 템플릿을 쓴다. 제목은 영어 Conventional 형식, 본문은 한국어 가능. 완료 조건은 검증 가능한 체크리스트로 쓴다 | Issue | Backlog |
-| 준비 | 완료 조건이 명확하고 의존 이슈가 닫혔으면 Ready로 옮긴다 | — | Ready |
+| 준비 | 완료 조건이 명확하고 의존 이슈가 모두 끝났으면 Ready로 옮긴다. Ready는 바로 시작하기 좋은 이슈라는 뜻이다. 의존 이슈가 남은 이슈도 착수할 수 있다([collaboration.md §4.1](collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때)) | — | Ready |
 | 시작 | 담당자를 지정하고(협업자는 `/claim`) 브랜치나 워크트리를 만든다. 협업자는 5시간 안에 Draft PR을 연다 | `feat/12-worktree-list` | In progress |
 | 구현 | 명세 → 테스트 → 구현 순서. 명세가 바뀌면 같은 PR에서 문서도 고친다 | 커밋 | In progress |
 | PR | `Closes #n`, 템플릿 체크리스트, 보안 영향 섹션을 채운다 | Pull request | In review |
-| 리뷰 | 필수 검사 통과, 리뷰 스레드 전부 해결 | 리뷰 코멘트 | In review |
+| 리뷰 | 필수 검사 통과(`pr-policy`는 의존 이슈가 모두 끝나야 통과), 리뷰 스레드 전부 해결 | 리뷰 코멘트 | In review |
 | 머지 | squash merge, 브랜치 자동 삭제 | `main`의 커밋 1개 | Done |
 
 ## 3. 크기와 단위
@@ -74,6 +74,7 @@ git worktree remove ../overgrove-worktrees/12-worktree-list
 |---|---|
 | 명세가 모호하다 | 추측해서 구현하지 않는다. 이슈에 질문 코멘트를 달거나 `type:decision` 이슈를 만든다 |
 | 결정이 필요하다 | 이슈에 `status:needs-decision`을 붙이고 decision 이슈를 링크한다 |
-| 다른 이슈를 기다린다 | `status:blocked`를 붙이고 본문 "의존성"에 링크한다 |
+| 다른 이슈의 결과물이 필요하다 | 기다리지 않는다. stand-in으로 개발하고 PR은 Draft로 둔다. 이슈 본문에 없는 의존성은 PR 본문에 `Depends on #<n>`으로 적는다([collaboration.md §4.1](collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때)) |
+| 외부 요인을 기다린다 | 메인테이너가 `status:blocked`를 붙이고 이유를 코멘트로 남긴다. 다른 저장소의 수정, 도구 출시처럼 이 저장소의 이슈가 아닌 것만 해당한다 |
 | 범위 밖 아이디어가 생겼다 | 구현하지 않고 `later` 마일스톤 이슈로 남긴다 |
 | 보안 문제를 발견했다 | 공개 이슈를 만들지 않는다. [SECURITY.md](../../SECURITY.md) 절차를 따른다 |
