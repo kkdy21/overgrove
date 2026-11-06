@@ -1,0 +1,140 @@
+import Foundation
+import XCTest
+
+@testable import Overgrove
+
+/// GitEnvironment: security-review.md §3.1–§3.2, SEC-T10-01/02.
+final class GitEnvironmentTests: XCTestCase {
+    private var executables: TestExecutables!
+
+    override func setUpWithError() throws {
+        executables = try TestExecutables()
+    }
+
+    override func tearDown() {
+        executables.remove()
+    }
+
+    private let hostileParent: [String: String] = [
+        "GIT_DIR": "/evil/.git",
+        "GIT_WORK_TREE": "/evil",
+        "GIT_CONFIG_PARAMETERS": "'core.fsmonitor=touch /tmp/pwned'",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "core.hooksPath",
+        "GIT_CONFIG_VALUE_0": "/evil/hooks",
+        "GIT_SSH_COMMAND": "evil-ssh",
+        "GIT_EXEC_PATH": "/evil/libexec",
+        "GIT_EXTERNAL_DIFF": "/evil/diff",
+        "DYLD_INSERT_LIBRARIES": "/evil/lib.dylib",
+        "PATH": "/evil/bin:/usr/bin",
+        "HOME": "/Users/example",
+        "TMPDIR": "/tmp/example/",
+        "SSH_AUTH_SOCK": "/tmp/agent.sock",
+    ]
+
+    func testSECT10_01_DangerousParentVariablesNeverReachGit() {
+        let environment = GitEnvironment.environment(parent: hostileParent)
+        for key in [
+            "GIT_DIR", "GIT_WORK_TREE", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0",
+            "GIT_CONFIG_VALUE_0", "GIT_EXEC_PATH", "GIT_EXTERNAL_DIFF", "DYLD_INSERT_LIBRARIES",
+        ] {
+            XCTAssertNil(environment[key], key)
+        }
+        XCTAssertEqual(
+            environment["GIT_SSH_COMMAND"], GitEnvironment.defaultSSHCommand, "the parent's value is ignored")
+        XCTAssertEqual(environment["HOME"], "/Users/example")
+        XCTAssertEqual(environment["SSH_AUTH_SOCK"], "/tmp/agent.sock")
+        XCTAssertEqual(environment["GIT_TERMINAL_PROMPT"], "0")
+        XCTAssertEqual(environment["GIT_OPTIONAL_LOCKS"], "0")
+        XCTAssertEqual(environment["GIT_ASKPASS"], "")
+        XCTAssertEqual(environment["GIT_PROXY_COMMAND"], "")
+        XCTAssertEqual(environment["LC_ALL"], "C")
+    }
+
+    func testSECT10_01_ChildSeesOnlyTheAllowlist() async throws {
+        let environment = GitEnvironment.environment(parent: hostileParent)
+        let result = try await ProcessRunner().run(
+            ProcessRequest(
+                executable: URL(fileURLWithPath: "/usr/bin/env"),
+                arguments: [],
+                environment: environment,
+                currentDirectory: nil,
+                limits: .query
+            )
+        )
+        let keys = String(decoding: result.stdout, as: UTF8.self)
+            .split(separator: "\n").compactMap { $0.split(separator: "=", maxSplits: 1).first.map(String.init) }
+        XCTAssertEqual(Set(keys), Set(environment.keys))
+    }
+
+    func testSECT10_02_PathIsFixed() {
+        XCTAssertEqual(GitEnvironment.environment(parent: hostileParent)["PATH"], GitEnvironment.path)
+        XCTAssertEqual(GitEnvironment.environment(parent: [:])["PATH"], GitEnvironment.path)
+    }
+
+    func testTrustedSSHCommandIsUsedWhenProvided() {
+        let environment = GitEnvironment.environment(parent: [:], trustedSSHCommand: "ssh -i ~/.ssh/work")
+        XCTAssertEqual(environment["GIT_SSH_COMMAND"], "ssh -i ~/.ssh/work")
+    }
+
+    func testCommonArgumentsMatchTheSecurityReview() {
+        // Snapshot of security-review.md §3.1; change both together.
+        XCTAssertEqual(
+            GitEnvironment.commonArguments,
+            [
+                "--no-pager", "--no-optional-locks", "--literal-pathspecs",
+                "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.askPass=",
+                "-c", "protocol.ext.allow=never", "-c", "protocol.fd.allow=never", "-c", "core.alternateRefsCommand=",
+                "-c", "log.showSignature=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
+                "-c", "color.ui=never",
+            ]
+        )
+    }
+
+    func testArgumentOrder() {
+        let environment = GitEnvironment(
+            executable: URL(fileURLWithPath: "/usr/bin/git"),
+            version: GitVersion(major: 2, minor: 50, patch: 1)
+        )
+        let arguments = environment.arguments(
+            for: ["fetch", "--no-recurse-submodules", "origin"],
+            neutralization: ["-c", "filter.lfs.clean="],
+            fetchAuthentication: ["-c", "credential.helper="]
+        )
+        XCTAssertEqual(
+            arguments,
+            GitEnvironment.commonArguments + [
+                "-c", "filter.lfs.clean=", "-c", "credential.helper=", "fetch", "--no-recurse-submodules", "origin",
+            ]
+        )
+    }
+
+    func testDiscoversTheRealGit() async throws {
+        let environment = try await GitEnvironment.discover()
+        XCTAssertTrue(environment.version.isSupported)
+        XCTAssertTrue(environment.executable.path.hasSuffix("/usr/bin/git"))
+        XCTAssertNotEqual(environment.executable.path, "/usr/bin/git", "the xcrun shim is bypassed")
+        XCTAssertTrue(FileManager.default.isExecutableFile(atPath: environment.executable.path))
+    }
+
+    func testRejectsAnOldGit() async throws {
+        let fake = try executables.fakeDeveloperDirectory(versionLine: "git version 2.30.1")
+        do {
+            _ = try await GitEnvironment.discover(developerDirectory: { fake })
+            XCTFail("expected unsupportedVersion")
+        } catch let error as GitError {
+            XCTAssertEqual(error, .unsupportedVersion(found: GitVersion(major: 2, minor: 30, patch: 1)))
+        }
+    }
+
+    func testMissingDeveloperToolsIsExecutableNotFound() async {
+        do {
+            _ = try await GitEnvironment.discover(developerDirectory: { nil })
+            XCTFail("expected executableNotFound")
+        } catch let error as GitError {
+            guard case .executableNotFound = error else { return XCTFail("got \(error)") }
+        } catch {
+            XCTFail("unexpected \(error)")
+        }
+    }
+}

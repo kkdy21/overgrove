@@ -59,6 +59,17 @@ struct TestExecutables {
         try script("fd-probe", "if [ -e \"/dev/fd/$1\" ]; then echo leaked; else echo clean; fi")
     }
 
+    /// A fake developer directory whose `usr/bin/git` prints the given `git version` line.
+    func fakeDeveloperDirectory(versionLine: String) throws -> URL {
+        let root = directory.appendingPathComponent("fake-developer-\(UUID().uuidString)", isDirectory: true)
+        let bin = root.appendingPathComponent("usr/bin", isDirectory: true)
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        let git = bin.appendingPathComponent("git")
+        try "#!/bin/sh\necho '\(versionLine)'\n".write(to: git, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: git.path)
+        return root
+    }
+
     private func script(_ name: String, _ body: String) throws -> URL {
         let url = directory.appendingPathComponent(name)
         try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
