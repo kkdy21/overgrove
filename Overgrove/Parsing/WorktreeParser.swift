@@ -76,6 +76,10 @@ extension WorktreeParser {
             guard !raw.isEmpty else {
                 throw ParseError(parser: name, offset: offset, reason: "empty worktree path")
             }
+            // git always prints absolute worktree paths; anything else would resolve against an unrelated directory.
+            guard raw.first == UInt8(ascii: "/") else {
+                throw ParseError(parser: name, offset: offset, reason: "relative worktree path")
+            }
             path = GitPath(raw: Data(raw))
             self.offset = offset
         }

@@ -236,6 +236,12 @@ final class WorktreeParserTests: XCTestCase {
         assertFails(data, reason: "invalid UTF-8 branch")
     }
 
+    func testRelativeWorktreePathFails() {
+        assertFails(output([["worktree dev/repo", "HEAD \(oid)", "detached"]]), reason: "relative worktree path")
+        assertFails(output([["worktree -dash", "HEAD \(oid)", "detached"]]), reason: "relative worktree path")
+        assertFails(output([["worktree  /tmp/dev/repo", "HEAD \(oid)", "detached"]]), reason: "relative worktree path")
+    }
+
     func testParseErrorOffsetPointsAtFailingToken() {
         let data = output([["worktree /tmp/dev/repo", "HEAD \(oid)"], ["worktree /tmp/dev/wt", "HEAD bad"]])
         let expected = data.count - "HEAD bad\u{0}\u{0}".utf8.count
