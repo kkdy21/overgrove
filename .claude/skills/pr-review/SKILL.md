@@ -63,6 +63,7 @@ gh pr diff <n> --repo kkdy21/overgrove
 - 조건: **협업자 PR은 메인테이너 계정의 Approve 리뷰 필수**(메인테이너 본인 PR은 예외), 필수 검사 통과, **모든 리뷰 스레드 해결**
 - Approve 없이 협업자 PR을 머지하지 않는다. 메인테이너가 "검수 생략"을 지시해도 최소한 3단계 점검표를 돌리고 결과를 PR 코멘트로 남긴다.
 - 브랜치가 뒤처졌으면 `gh pr update-branch <n>`을 쓴다. 기여자에게 rebase나 강제 푸시를 요구하지 않는다(squash merge라서 merge 커밋이 이력에 남지 않는다).
+- 머지 직전에 의존 이슈 상태를 다시 확인한다(`gh issue view <d> --json state,stateReason`). `pr-policy`는 PR 이벤트에서만 다시 돌아서, 통과한 뒤 의존 이슈가 다시 열려도 초록으로 남는다.
 - 의존 관계가 있으면 의존되는 PR부터 머지한다. 머지하면 `dependency-closed`가 기다리는 PR에 알린다. 기다리던 PR의 stand-in 정리는 작성자가 하므로, 그 PR을 `update-branch`로 대신 최신화하지 않는다.
 - 사용자 확인 후:
   ```sh

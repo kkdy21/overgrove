@@ -66,7 +66,7 @@
 |---|---|---|---|
 | `issue-claim.yml` | 이슈 댓글 `/claim`, `/unclaim` | `issues: write` | 담당자 지정·해제, 동시 선점 2개 제한, 선점 불가 라벨 거부 |
 | `claim-expiry.yml` | 30분마다, 수동 실행(dry-run 가능) | `issues: write` | PR 없이 5시간 지난 선점 해제, 담당자 없는 이슈에 PR 선착순 지정 (`scripts/github/claim-expiry.sh`) |
-| `dependency-closed.yml` | 이슈가 닫힐 때 | `pull-requests: write` | 그 이슈에 의존하는 열린 PR에 댓글로 알림(완료면 main 합치기 안내, 완료가 아니면 메인테이너 결정 요청) |
+| `dependency-closed.yml` | 메인테이너가 이슈를 닫을 때 | `pull-requests: write` | 그 이슈에 의존하는 열린 PR에 댓글로 알림(완료면 main 합치기 안내, 완료가 아니면 메인테이너 결정 요청) |
 
 세 워크플로우는 PR 코드를 체크아웃하거나 실행하지 않는다. 댓글 본문은 `env`로만 받아 첫 단어를 고정 문자열과 비교한다. `dependency-closed.yml`은 PR·이슈 본문을 API로 읽어 이슈 번호만 뽑는다.
 

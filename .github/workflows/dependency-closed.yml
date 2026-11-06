@@ -4,6 +4,8 @@
 # Security notes:
 #   - Runs on `issues` events in the base repository. It never checks out or runs repository or PR code.
 #   - PR and issue bodies are untrusted. They are read through the API and only scanned for issue numbers.
+#   - Only issues closed by the maintainer notify anyone (merges are done by the maintainer). Anyone else closing or
+#     reopening an issue cannot make the bot post or mention people.
 name: dependency-closed
 
 on:
@@ -18,6 +20,7 @@ permissions:
 jobs:
   notify:
     name: notify
+    if: ${{ github.event.sender.login == github.repository_owner }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -30,8 +33,9 @@ jobs:
         run: |
           set -euo pipefail
           # Keep these two functions in sync with .github/workflows/pr-policy.yml.
-          depends_on_lines() { tr -d '\r' | grep -Ei '^[[:space:]]*([-*][[:space:]]+)?depends[[:space:]]+on([[:space:]]|:)' | grep -Eo '#[0-9]+' | tr -d '#' || true; }
-          dependency_section() { tr -d '\r' | awk '/^#+[ \t]*(의존성|Dependencies)/ {f=1; next} /^#+[ \t]/ {f=0} f' | grep -Eo '#[0-9]+' | tr -d '#' || true; }
+          # Numbers are normalized ("#012" -> 12) because the API reads them that way.
+          depends_on_lines() { tr -d '\r' | grep -Ei '^[[:space:]]*([-*][[:space:]]+)?depends[[:space:]]+on([[:space:]]|:)' | grep -Eo '#[0-9]{1,9}' | tr -d '#' | awk '{print $1+0}' || true; }
+          dependency_section() { tr -d '\r' | awk '/^#+[ \t]*(의존성|Dependencies)/ {f=1; next} /^#+[ \t]/ {f=0} f' | grep -Eo '#[0-9]{1,9}' | tr -d '#' | awk '{print $1+0}' || true; }
 
           rows=$(gh api graphql --paginate -F owner="${REPO%%/*}" -F name="${REPO##*/}" -f query='
             query($owner: String!, $name: String!, $endCursor: String) {
