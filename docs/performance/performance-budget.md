@@ -15,7 +15,7 @@ HANDOFF G9의 "체감상 즉시"를 측정 가능한 수치로 바꾼 문서다.
 | 기준 장비 | Apple Silicon M1급 (M1, M1 Pro). 실측은 M1 Pro 10코어, 32GB, macOS 26.6 |
 | 기준 데이터셋 | `scripts/make-bench-repo.sh` 기본값: 커밋 100,024개(병합 2,782개), 브랜치 13개, 태그 10개, 추적 파일 10,000개, 워크트리 10개(각각 staged 5 · unstaged 15 · untracked 10), stash 5개 |
 | commit-graph | 별도 표기가 없으면 **있음**(`--commit-graph`). gc를 한 번이라도 거친 실제 저장소는 대개 commit-graph가 있다 (`gc.writeCommitGraph` 기본 true). 없는 조건은 보조 예산으로 따로 둔다 |
-| git | `/usr/bin/git` 2.50.1 (Apple Git-155). 앱 기본값과 같다 (ADR-0008) |
+| git | `/usr/bin/git` 2.50.1 (Apple Git-155). 앱은 shim을 거치지 않고 `xcode-select -p` 아래의 실제 실행 파일을 쓴다(§4 권고 1, `GitEnvironment.discover`). 2.54.0 (Apple Git-157) 재측정: [results/2026-11-06-apple-git-2.54.md](results/2026-11-06-apple-git-2.54.md) |
 | 실행 조건 | [git-command-catalog.md §2](../architecture/git-command-catalog.md)의 공통 인자와 환경 변수를 그대로 쓴다 |
 | 통계 | p95, nearest-rank, 반복 20회 이상. 첫 실행은 워밍업으로 버린다 |
 | 캐시 상태 | 따뜻한 캐시(warm). 같은 측정을 두 번째부터 센다. 차가운 캐시(cold)는 참고용으로만 기록한다 |
@@ -97,6 +97,8 @@ git 계층: 해당 없음.
 
 **판단**: 여유가 크다 (git 약 35ms). 목표는 300ms로 두되, 회귀 감시는 git 계층 기준 +50%(약 55ms)로 더 엄격하게 둔다. untracked 파일이 수만 개인 저장소(`node_modules` 같은 경우)는 별도 시나리오로 Phase 4에서 측정한다. HANDOFF §9의 `--untracked-files=all` 주의 사항에 해당한다.
 
+**index가 오래된 상태 (2026-11-06 측정)**: 파일 내용은 그대로이고 mtime만 바뀐 파일이 많으면, 앱은 index를 쓰지 않으므로(`--no-optional-locks`) status가 매번 그 파일들을 다시 해시한다. 파일 1만 개에서 p95 328ms로 이 예산을 넘고, 10만 개에서는 5.8초다. 터미널이나 에이전트가 git을 한 번 실행하면 원래 속도로 돌아온다. 앱은 index를 갱신하지 않는다(쓰기이고, 에이전트의 git 작업과 `index.lock`이 부딪칠 수 있다). 대신 느린 status를 감지해 안내한다(#168). 이 상태는 PB-5 판정에서 빼고 PERF 시나리오로 따로 기록한다([results/2026-11-06-apple-git-2.54.md](results/2026-11-06-apple-git-2.54.md) S3).
+
 ### PB-6 커밋 10만 개 메타데이터 적재 시 메모리 — **300MB 이하**
 
 - **측정**: 저장소 열기 → 그래프 전체 적재 → `XCTMemoryMetric` 최대 물리 메모리.
@@ -132,6 +134,9 @@ docs/README.md §2.8에는 없는 항목이다. 승인되면 공통 규약에 �
 4. **ahead/behind는 status 헤더에서 얻는다.** `--branch`의 `# branch.ab`를 쓰면 `rev-list --left-right --count`를 따로 부르지 않아도 된다. 워크트리 10개 기준으로 89–169ms를 아낀다.
 5. **그래프는 스트리밍 한 번으로 받는다** (PB-3 제안 2).
 6. **파일 이력은 follow 없는 조회를 먼저 보여준다.** `--follow`는 비싸다 (392–675ms). 먼저 `log -- <path>` 결과(25–153ms)를 보여주고, 이름 변경 이전 이력은 follow 결과가 오면 덧붙이는 방식을 S-09 설계에서 검토한다.
+7. **로컬 브랜치 ahead/behind는 `for-each-ref` 한 번으로 얻는다** (2026-11-06 측정). `%(upstream:track,nobracket)`을 붙여도 1ms 안팎만 늘어난다. 브랜치마다 `rev-list`를 실행하면 13개에 95ms가 들고 그동안 동시 실행 슬롯을 차지한다(#54).
+8. **fetch는 조회와 다른 동시 실행 한도를 쓴다.** fetch는 최대 120초 동안 슬롯을 잡을 수 있다. 조회와 같은 한도(4)를 쓰면 원격이 여러 개이거나 자동 fetch가 겹칠 때 status 새로고침이 줄을 선다(#76).
+9. **자동 새로고침을 넣는다면 재실행 간격에 상한을 둔다.** 창이 화면에 보일 때만 감시하고, 워크트리별로 디바운스하고, 워크트리별로 한 번에 하나만 실행하며, 마지막 소요 시간에 비례해 간격을 늘린다(예: max(2초, 소요 시간 × 10)). index가 오래된 10만 개 저장소(5.2초)에서도 한 코어의 약 10%로 묶인다(#163).
 
 ---
 
