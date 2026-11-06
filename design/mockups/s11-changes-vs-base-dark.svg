@@ -1,0 +1,454 @@
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="1280" height="800" viewBox="0 0 1280 800">
+<title>Overgrove S-11 changes vs base branch mockup (dark)</title>
+<defs><clipPath id="win"><rect x="0" y="0" width="1280" height="800" rx="10"/></clipPath><clipPath id="diffclip"><rect x="240" y="156" width="700" height="620" rx="0"/></clipPath></defs>
+<g clip-path="url(#win)">
+<rect x="0" y="0" width="1280" height="800" fill="#323232"/>
+<rect x="0" y="0" width="240" height="776" fill="#2a2a2a"/>
+<line x1="239.5" y1="0" x2="239.5" y2="776" stroke="#3d3d3d" stroke-width="1"/>
+<circle cx="20" cy="26" r="6" fill="#ff5f57"/>
+<circle cx="40" cy="26" r="6" fill="#febc2e"/>
+<circle cx="60" cy="26" r="6" fill="#28c840"/>
+<rect x="204.5" y="20.375" width="15" height="11.25" rx="2" fill="none" stroke="#a1a1a6" stroke-width="1.2"/>
+<line x1="209.375" y1="20.375" x2="209.375" y2="31.625" stroke="#a1a1a6" stroke-width="1.2"/>
+<text x="16" y="74" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" fill="#a1a1a6" letter-spacing=".3">WORKTREES (6)</text>
+<path d="M33.0 88.0 L36.3 93.1 L34.8 93.1 L37.8 97.0 L28.2 97.0 L31.2 93.1 L29.7 93.1 Z" fill="#a1a1a6" stroke="#a1a1a6" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="33" y1="97" x2="33" y2="100" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<text x="46" y="98.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">main</text>
+<text x="80.184" y="98" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6">main worktree</text>
+<path d="M33.0 112.0 L36.3 117.1 L34.8 117.1 L37.8 121.0 L28.2 121.0 L31.2 117.1 L29.7 117.1 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="33" y1="121" x2="33" y2="124" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<text x="213.884" y="122" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="500" fill="#fb5a8a">1</text>
+<path d="M204.9 112.3 L210.9 122.8 L198.9 122.8 Z" fill="#fb5a8a" stroke="#fb5a8a" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="204.884" y1="115.9" x2="204.884" y2="119.5" stroke="#2a2a2a" stroke-width="1.5" stroke-linecap="round"/>
+<circle cx="204.884" cy="121.3" r="0.95" fill="#2a2a2a"/>
+<text x="184.768" y="122" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6">6</text>
+<path d="M172.6 122.1 L173.7 119.1 L179.8 112.8 L182.0 115.0 L175.7 121.0 Z" fill="#a1a1a6"/>
+<line x1="173.743" y1="119.1" x2="175.668" y2="121.025" stroke="#a1a1a6" stroke-width="0.8"/>
+<text x="46" y="122.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">agent/refactor-lo…</text>
+<rect x="8" y="130" width="224" height="24" rx="6" fill="#0a5fc4"/>
+<circle cx="19" cy="142" r="3" fill="#ffffff"/>
+<path d="M33.0 136.0 L36.3 141.1 L34.8 141.1 L37.8 145.0 L28.2 145.0 L31.2 141.1 L29.7 141.1 Z" fill="none" stroke="#ffffff" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="33" y1="145" x2="33" y2="148" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/>
+<text x="213.884" y="146" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#ffffff">7</text>
+<path d="M201.8 146.1 L202.9 143.1 L208.9 136.8 L211.1 139.0 L204.8 145.0 Z" fill="#ffffff"/>
+<line x1="202.859" y1="143.1" x2="204.784" y2="145.025" stroke="#ffffff" stroke-width="0.8"/>
+<text x="185.768" y="146" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="500" fill="#ffffff">2</text>
+<line x1="179.768" y1="146" x2="179.768" y2="138" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M177.0 140.8 L179.8 137.8 L182.5 140.8" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="160.652" y="146" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#ffffff">8</text>
+<line x1="146.977" y1="139.525" x2="150.827" y2="139.525" stroke="#ffffff" stroke-width="1.2"/>
+<line x1="148.902" y1="137.6" x2="148.902" y2="141.45" stroke="#ffffff" stroke-width="1.2"/>
+<line x1="152.477" y1="144.475" x2="156.327" y2="144.475" stroke="#ffffff" stroke-width="1.2"/>
+<line x1="154.127" y1="138.15" x2="149.177" y2="145.85" stroke="#ffffff" stroke-width="1"/>
+<text x="46" y="146.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#ffffff">feat/42-rate-…</text>
+<path d="M33.0 160.0 L36.3 165.1 L34.8 165.1 L37.8 169.0 L28.2 169.0 L31.2 165.1 L29.7 165.1 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="33" y1="169" x2="33" y2="172" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<text x="213.884" y="170" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6">3</text>
+<path d="M201.8 170.1 L202.9 167.1 L208.9 160.8 L211.1 163.0 L204.8 169.0 Z" fill="#a1a1a6"/>
+<line x1="202.859" y1="167.1" x2="204.784" y2="169.025" stroke="#a1a1a6" stroke-width="0.8"/>
+<text x="185.768" y="170" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="500" fill="#4f9bf0">1</text>
+<line x1="179.768" y1="170" x2="179.768" y2="162" stroke="#4f9bf0" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M177.0 164.8 L179.8 161.8 L182.5 164.8" fill="none" stroke="#4f9bf0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="46" y="170.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">fix/57-token-refresh</text>
+<path d="M33.0 184.0 L36.3 189.1 L34.8 189.1 L37.8 193.0 L28.2 193.0 L31.2 189.1 L29.7 189.1 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="33" y1="193" x2="33" y2="196" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<rect x="209.68" y="189.4" width="8.64" height="6" rx="1.5" fill="#a19f97"/>
+<path d="M211.3 189.4 L211.3 187.3 A2.7 2.7 0 0 1 216.7 187.3 L216.7 189.4" fill="none" stroke="#a19f97" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="46" y="194.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">detached @ b2e8a44</text>
+<path d="M33.0 208.0 L36.3 213.1 L34.8 213.1 L37.8 217.0 L28.2 217.0 L31.2 213.1 L29.7 213.1 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="33" y1="217" x2="33" y2="220" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<path d="M206.5 210.4 L210.7 210.4 L212.0 212.1 L219.5 212.1 L219.5 218.6 L206.5 218.6 Z" fill="none" stroke="#f5a524" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="213" y="217.77" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="9.1" font-weight="700" fill="#f5a524" text-anchor="middle">?</text>
+<text x="46" y="218.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6" fill-opacity="0.6">spike/grpc</text>
+<text x="113.633" y="218" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6" fill-opacity="0.6">path missing</text>
+<text x="16" y="248" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" fill="#a1a1a6" letter-spacing=".3">LOCAL (5)</text>
+<line x1="30.3" y1="264.7" x2="30.3" y2="271.3" stroke="#a1a1a6" stroke-width="1.2"/>
+<path d="M30.3 269.5 C30.3 267.1 36.0 268.0 36.0 265.3" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="30.3" cy="272.32" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="30.3" cy="263.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="36" cy="263.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<path d="M214.0 262.5 L217.0 267.2 L215.7 267.2 L218.4 270.8 L209.6 270.8 L212.3 267.2 L211.0 267.2 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="214" y1="270.75" x2="214" y2="273.5" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<text x="46" y="272.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">main</text>
+<path d="M24.9 289.5 L27.4 292.0 L24.9 294.5" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M34.0 288.7 L37.9 288.7 L39.1 290.2 L46.0 290.2 L46.0 296.2 L34.0 296.2 Z" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="213.884" y="296" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6">1</text>
+<text x="52" y="296.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">agent/</text>
+<path d="M23.5 314.9 L26.0 317.4 L28.5 314.9" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M34.0 312.7 L37.9 312.7 L39.1 314.2 L46.0 314.2 L46.0 320.2 L34.0 320.2 Z" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="52" y="320.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">feat/</text>
+<line x1="44.3" y1="336.7" x2="44.3" y2="343.3" stroke="#a1a1a6" stroke-width="1.2"/>
+<path d="M44.3 341.5 C44.3 339.1 50.0 340.0 50.0 337.3" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="44.3" cy="344.32" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="44.3" cy="335.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="50" cy="335.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<path d="M214.0 334.5 L217.0 339.2 L215.7 339.2 L218.4 342.8 L209.6 342.8 L212.3 339.2 L211.0 339.2 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="214" y1="342.75" x2="214" y2="345.5" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<text x="193.884" y="344" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="500" fill="#4f9bf0">2</text>
+<line x1="187.884" y1="344" x2="187.884" y2="336" stroke="#4f9bf0" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M185.1 338.8 L187.9 335.8 L190.6 338.8" fill="none" stroke="#4f9bf0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="344.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">42-rate-limit</text>
+<path d="M24.9 361.5 L27.4 364.0 L24.9 366.5" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M34.0 360.7 L37.9 360.7 L39.1 362.2 L46.0 362.2 L46.0 368.2 L34.0 368.2 Z" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="213.884" y="368" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6">1</text>
+<text x="52" y="368.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">fix/</text>
+<text x="16" y="398" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" fill="#a1a1a6" letter-spacing=".3">REMOTE</text>
+<path d="M23.5 416.9 L26.0 419.4 L28.5 416.9" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="40" cy="418" r="5.5" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<path d="M40.0 412.5 C36.1 415.8 36.1 420.2 40.0 423.5 C43.9 420.2 43.9 415.8 40.0 412.5" fill="none" stroke="#a1a1a6" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="34.5" y1="418" x2="45.5" y2="418" stroke="#a1a1a6" stroke-width="1"/>
+<text x="52" y="422.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">origin</text>
+<text x="220" y="422" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">4</text>
+<line x1="44.3" y1="438.7" x2="44.3" y2="445.3" stroke="#a1a1a6" stroke-width="1.2"/>
+<path d="M44.3 443.5 C44.3 441.1 50.0 442.0 50.0 439.3" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="44.3" cy="446.32" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="44.3" cy="437.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="50" cy="437.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="220" y="446" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">2h</text>
+<circle cx="194" cy="442" r="8" fill="#1d7a4a"/>
+<text x="194" y="444.65" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.36" font-weight="700" fill="#ffffff" text-anchor="middle">AK</text>
+<text x="59" y="446.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">feat/42-rate-limit</text>
+<line x1="44.3" y1="462.7" x2="44.3" y2="469.3" stroke="#a1a1a6" stroke-width="1.2"/>
+<path d="M44.3 467.5 C44.3 465.1 50.0 466.0 50.0 463.3" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="44.3" cy="470.32" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="44.3" cy="461.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="50" cy="461.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="220" y="470" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">1d</text>
+<circle cx="194" cy="466" r="8" fill="#2f67c8"/>
+<text x="194" y="468.65" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.36" font-weight="700" fill="#ffffff" text-anchor="middle">SR</text>
+<text x="59" y="470.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">feat/48-metrics</text>
+<line x1="44.3" y1="486.7" x2="44.3" y2="493.3" stroke="#a1a1a6" stroke-width="1.2"/>
+<path d="M44.3 491.5 C44.3 489.1 50.0 490.0 50.0 487.3" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="44.3" cy="494.32" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="44.3" cy="485.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="50" cy="485.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="220" y="494" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">5h</text>
+<circle cx="194" cy="490" r="8" fill="#7048c8"/>
+<text x="194" y="492.65" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.36" font-weight="700" fill="#ffffff" text-anchor="middle">MP</text>
+<text x="59" y="494.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">fix/57-token-refresh</text>
+<line x1="44.3" y1="510.7" x2="44.3" y2="517.3" stroke="#a1a1a6" stroke-width="1.2"/>
+<path d="M44.3 515.5 C44.3 513.1 50.0 514.0 50.0 511.3" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="44.3" cy="518.32" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="44.3" cy="509.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="50" cy="509.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="220" y="518" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">1d</text>
+<circle cx="194" cy="514" r="8" fill="#8a6a00"/>
+<text x="194" y="516.65" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.36" font-weight="700" fill="#ffffff" text-anchor="middle">JL</text>
+<text x="59" y="518.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">main</text>
+<text x="16" y="548" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" fill="#a1a1a6" letter-spacing=".3">STASHES (2)</text>
+<path d="M27.0 568.0 L28.8 563.8 L37.2 563.8 L39.0 568.0 L39.0 572.5 L27.0 572.5 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M27.0 568.0 L30.9 568.0 L31.5 569.8 L34.5 569.8 L35.1 568.0 L39.0 568.0" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="46" y="572.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">stash@{0}</text>
+<text x="109.59" y="572.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">WIP on feat/42-ra…</text>
+<path d="M27.0 592.0 L28.8 587.8 L37.2 587.8 L39.0 592.0 L39.0 596.5 L27.0 596.5 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M27.0 592.0 L30.9 592.0 L31.5 593.8 L34.5 593.8 L35.1 592.0 L39.0 592.0" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="46" y="596.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">stash@{1}</text>
+<text x="109.59" y="596.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">spike notes</text>
+<text x="16" y="626" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" fill="#a1a1a6" letter-spacing=".3">ISSUES (3)</text>
+<circle cx="33" cy="646" r="5.5" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="33" y="648.64" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.44" font-weight="700" fill="#a1a1a6" text-anchor="middle">#</text>
+<path d="M214.0 640.5 L217.0 645.2 L215.7 645.2 L218.4 648.8 L209.6 648.8 L212.3 645.2 L211.0 645.2 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="214" y1="648.75" x2="214" y2="651.5" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<text x="46" y="650.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">#42</text>
+<text x="73.684" y="650.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">Rate limit per tenant</text>
+<circle cx="33" cy="670" r="5.5" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="33" y="672.64" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.44" font-weight="700" fill="#a1a1a6" text-anchor="middle">#</text>
+<path d="M214.0 664.5 L217.0 669.2 L215.7 669.2 L218.4 672.8 L209.6 672.8 L212.3 669.2 L211.0 669.2 Z" fill="none" stroke="#a1a1a6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="214" y1="672.75" x2="214" y2="675.5" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round"/>
+<text x="46" y="674.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">#57</text>
+<text x="73.684" y="674.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">Token refresh race</text>
+<circle cx="33" cy="694" r="5.5" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="33" y="696.64" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.44" font-weight="700" fill="#a1a1a6" text-anchor="middle">#</text>
+<text x="46" y="698.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">#61</text>
+<text x="73.684" y="698.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">Paginate audit log</text>
+<text x="256" y="24" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="700" fill="#e8e8e6">api</text>
+<path d="M282.2 17.7 L283.8 16.2 L285.3 17.7" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M282.2 20.3 L283.8 21.8 L285.3 20.3" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="256" y="39" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6">acme/api</text>
+<rect x="328" y="12" width="84" height="28" rx="6" fill="#3a3a3c" stroke="#3d3d3d" stroke-width="1"/>
+<circle cx="351.627" cy="26" r="6.5" fill="none" stroke="#e8e8e6" stroke-width="1.3"/>
+<line x1="351.627" y1="22.528" x2="351.627" y2="29.472" stroke="#e8e8e6" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M349.2 27.1 L351.6 29.7 L354.0 27.1" fill="none" stroke="#e8e8e6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="362.627" y="30.68" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">Fetch</text>
+<line x1="606.784" y1="22.7" x2="606.784" y2="29.3" stroke="#a1a1a6" stroke-width="1.2"/>
+<path d="M606.8 27.5 C606.8 25.1 612.5 26.0 612.5 23.3" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="606.784" cy="30.32" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="606.784" cy="21.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="612.484" cy="21.68" r="1.32" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="621.484" y="30.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">feat/42-rate-limit</text>
+<rect x="1040" y="12" width="224" height="28" rx="6" fill="#3a3a3c" stroke="#3d3d3d" stroke-width="1"/>
+<circle cx="1054.1" cy="25.1" r="3.3" fill="none" stroke="#a1a1a6" stroke-width="1.4"/>
+<line x1="1056.5" y1="27.5" x2="1059.8" y2="30.8" stroke="#a1a1a6" stroke-width="1.6" stroke-linecap="round"/>
+<text x="1068" y="30.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#6e6e73">Search commits, authors, refs</text>
+<text x="1252" y="30.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="end">⌘F</text>
+<line x1="240" y1="51.5" x2="1280" y2="51.5" stroke="#3d3d3d" stroke-width="1"/>
+<rect x="240" y="52" width="700" height="72" fill="#1e1e1e"/>
+<rect x="256" y="60" width="72" height="24" rx="6" fill="#3a3a3c" stroke="#3d3d3d" stroke-width="1"/>
+<path d="M270.2 69.2 L267.5 72.0 L270.2 74.8" fill="none" stroke="#e8e8e6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="280" y="76.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6">Graph</text>
+<text x="344" y="77" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="15" font-weight="600" fill="#e8e8e6">Changes vs</text>
+<rect x="435.37" y="60" width="68.184" height="24" rx="6" fill="#3a3a3c" stroke="#3d3d3d" stroke-width="1"/>
+<line x1="444.895" y1="68.975" x2="444.895" y2="75.025" stroke="#a1a1a6" stroke-width="1.2"/>
+<path d="M444.9 73.4 C444.9 71.2 450.1 72.0 450.1 69.5" fill="none" stroke="#a1a1a6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="444.895" cy="75.96" r="1.21" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="444.895" cy="68.04" r="1.21" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="450.12" cy="68.04" r="1.21" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<text x="457.37" y="76.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="500" fill="#e8e8e6">main</text>
+<path d="M492.0 70.7 L493.6 69.2 L495.1 70.7" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M492.0 73.3 L493.6 74.8 L495.1 73.3" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="898" y="64.5" width="26" height="15" rx="7.5" fill="#0a7aff"/>
+<circle cx="916.5" cy="72" r="6" fill="#ffffff"/>
+<text x="890" y="76.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6" text-anchor="end">Include uncommitted</text>
+<text x="256" y="108" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="500" fill="#e8e8e6">2 commits ahead</text>
+<text x="351.364" y="108" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6"> · </text>
+<text x="361.372" y="108" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">0 behind</text>
+<text x="408.064" y="108" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6"> · </text>
+<text x="418.072" y="108" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">uncommitted: 5 files</text>
+<text x="527.008" y="108" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6"> · </text>
+<text x="537.016" y="108" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="500" fill="#e8e8e6">8 files</text>
+<text x="569.488" y="108" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6"> · </text>
+<text x="579.496" y="108" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="500" fill="#30c048">+272</text>
+<text x="614.397" y="108" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="500" fill="#fb5a8a">−85</text>
+<text x="924" y="108" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">merge base 3c5d6f1</text>
+<line x1="240" y1="123.5" x2="940" y2="123.5" stroke="#3d3d3d" stroke-width="1"/>
+<rect x="240" y="124" width="700" height="32" fill="#323232"/>
+<line x1="240" y1="155.5" x2="940" y2="155.5" stroke="#3d3d3d" stroke-width="1"/>
+<text x="256" y="144.5" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#a1a1a6">internal/http/</text>
+<text x="357.153" y="144.5" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">middleware.go</text>
+<text x="463.08" y="144" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6">Modified · 1 commit + uncommitted · +40 −4</text>
+<rect x="240" y="156" width="700" height="620" fill="#1e1e1e"/>
+<g clip-path="url(#diffclip)">
+<rect x="240" y="156" width="700" height="20" fill="#1d2a40"/>
+<text x="256" y="170" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">@@ -8,11 +8,24 @@ import (</text>
+<text x="276" y="190" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">8</text>
+<text x="312" y="190" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">8</text>
+<text x="340" y="190" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    "net/http"</text>
+<text x="276" y="210" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">9</text>
+<text x="312" y="210" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">9</text>
+<text x="340" y="210" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    "strconv"</text>
+<text x="276" y="230" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">10</text>
+<text x="312" y="230" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">10</text>
+<text x="340" y="230" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    "time"</text>
+<rect x="240" y="236" width="700" height="20" fill="#45192a"/>
+<text x="276" y="250" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">11</text>
+<text x="322" y="250" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#fb5a8a" text-anchor="middle">−</text>
+<text x="340" y="250" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6"></text>
+<rect x="240" y="256" width="700" height="20" fill="#173a22"/>
+<text x="312" y="270" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">11</text>
+<text x="322" y="270" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="270" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    "github.com/acme/api/internal/ratelimit"</text>
+<text x="276" y="290" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">12</text>
+<text x="312" y="290" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">12</text>
+<text x="340" y="290" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">)</text>
+<text x="276" y="310" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">13</text>
+<text x="312" y="310" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">13</text>
+<text x="340" y="310" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6"></text>
+<rect x="240" y="316" width="700" height="20" fill="#45192a"/>
+<text x="276" y="330" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">14</text>
+<text x="322" y="330" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#fb5a8a" text-anchor="middle">−</text>
+<text x="340" y="330" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">// RateLimit is a placeholder that allows every request.</text>
+<rect x="240" y="336" width="700" height="20" fill="#45192a"/>
+<text x="276" y="350" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">15</text>
+<text x="322" y="350" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#fb5a8a" text-anchor="middle">−</text>
+<text x="340" y="350" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">func RateLimit(next http.Handler) http.Handler {</text>
+<rect x="240" y="356" width="700" height="20" fill="#45192a"/>
+<text x="276" y="370" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">16</text>
+<text x="322" y="370" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#fb5a8a" text-anchor="middle">−</text>
+<text x="340" y="370" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    return next</text>
+<rect x="240" y="376" width="700" height="20" fill="#173a22"/>
+<text x="312" y="390" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">14</text>
+<text x="322" y="390" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="390" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">// RateLimit rejects requests over the tenant's window with 429.</text>
+<rect x="240" y="396" width="700" height="20" fill="#173a22"/>
+<text x="312" y="410" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">15</text>
+<text x="322" y="410" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="410" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">func RateLimit(l *ratelimit.Limiter, next http.Handler) http.Handler {</text>
+<rect x="240" y="416" width="700" height="20" fill="#173a22"/>
+<text x="312" y="430" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">16</text>
+<text x="322" y="430" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="430" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {</text>
+<rect x="240" y="436" width="700" height="20" fill="#173a22"/>
+<text x="312" y="450" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">17</text>
+<text x="322" y="450" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="450" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">        key := TenantFrom(r.Context())</text>
+<rect x="240" y="456" width="700" height="20" fill="#173a22"/>
+<text x="312" y="470" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">18</text>
+<text x="322" y="470" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="470" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">        ok, retry := l.Allow(key, time.Now())</text>
+<rect x="240" y="476" width="700" height="20" fill="#173a22"/>
+<text x="312" y="490" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">19</text>
+<text x="322" y="490" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="490" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">        if !ok {</text>
+<rect x="240" y="496" width="700" height="20" fill="#173a22"/>
+<text x="312" y="510" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">20</text>
+<text x="322" y="510" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="510" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">            w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())))</text>
+<rect x="240" y="516" width="700" height="20" fill="#173a22"/>
+<text x="312" y="530" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">21</text>
+<text x="322" y="530" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="530" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">            http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)</text>
+<rect x="240" y="536" width="700" height="20" fill="#173a22"/>
+<text x="312" y="550" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">22</text>
+<text x="322" y="550" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="550" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">            return</text>
+<rect x="240" y="556" width="700" height="20" fill="#173a22"/>
+<text x="312" y="570" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">23</text>
+<text x="322" y="570" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="570" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">        }</text>
+<rect x="240" y="576" width="700" height="20" fill="#173a22"/>
+<text x="312" y="590" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">24</text>
+<text x="322" y="590" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="590" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">        next.ServeHTTP(w, r)</text>
+<rect x="240" y="596" width="700" height="20" fill="#173a22"/>
+<text x="312" y="610" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">25</text>
+<text x="322" y="610" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="610" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    })</text>
+<text x="276" y="630" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">17</text>
+<text x="312" y="630" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">26</text>
+<text x="340" y="630" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">}</text>
+<rect x="240" y="636" width="700" height="20" fill="#1d2a40"/>
+<text x="256" y="650" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">@@ -40,6 +49,9 @@ func Chain(h http.Handler, m ...Middleware) http.Handler {</text>
+<text x="276" y="670" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">40</text>
+<text x="312" y="670" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">49</text>
+<text x="340" y="670" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    for i := len(m) - 1; i &gt;= 0; i-- {</text>
+<text x="276" y="690" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">41</text>
+<text x="312" y="690" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">50</text>
+<text x="340" y="690" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">        h = m[i](h)</text>
+<text x="276" y="710" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">42</text>
+<text x="312" y="710" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">51</text>
+<text x="340" y="710" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    }</text>
+<rect x="240" y="716" width="700" height="20" fill="#173a22"/>
+<text x="312" y="730" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">52</text>
+<text x="322" y="730" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="730" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    // Rate limiting runs after auth so the tenant is known.</text>
+<rect x="240" y="736" width="700" height="20" fill="#173a22"/>
+<text x="312" y="750" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">53</text>
+<text x="322" y="750" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="750" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    h = RateLimit(defaultLimiter, h)</text>
+<rect x="240" y="756" width="700" height="20" fill="#173a22"/>
+<text x="312" y="770" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">54</text>
+<text x="322" y="770" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="700" fill="#30c048" text-anchor="middle">+</text>
+<text x="340" y="770" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6"></text>
+<text x="276" y="790" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">43</text>
+<text x="312" y="790" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">55</text>
+<text x="340" y="790" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">    return h</text>
+</g>
+<line x1="331.5" y1="156" x2="331.5" y2="776" stroke="#3d3d3d" stroke-width="1"/>
+<line x1="940.5" y1="52" x2="940.5" y2="776" stroke="#3d3d3d" stroke-width="1"/>
+<rect x="941" y="52" width="339" height="724" fill="#1e1e1e"/>
+<text x="956" y="84" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="15" font-weight="600" fill="#e8e8e6">feat/42-rate-limit</text>
+<text x="956" y="102" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6">compared with main, including uncommitted changes</text>
+<text x="956" y="134" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" fill="#a1a1a6" letter-spacing=".3">COMMITS AHEAD (2)</text>
+<circle cx="964" cy="153" r="5" fill="none" stroke="#a1a1a6" stroke-width="1.5" stroke-dasharray="2 2"/>
+<text x="978" y="157.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="500" fill="#e8e8e6">Uncommitted changes</text>
+<text x="1264" y="157" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#a1a1a6" text-anchor="end">5 files</text>
+<circle cx="964" cy="175" r="8" fill="#1d7a4a"/>
+<text x="964" y="177.65" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.36" font-weight="700" fill="#ffffff" text-anchor="middle">AK</text>
+<text x="978" y="179" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">a91f3c2</text>
+<text x="1032.36" y="179.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6">feat(ratelimit): add sliding window…</text>
+<rect x="1230" y="167" width="34" height="16" rx="4" fill="none" stroke="#a1a1a6" stroke-width="1" stroke-opacity="0.7"/>
+<path d="M1239.25 171.50 Q1240.37 174.38 1243.25 175.50 Q1240.37 176.62 1239.25 179.50 Q1238.13 176.62 1235.25 175.50 Q1238.13 174.38 1239.25 171.50 Z" fill="#a1a1a6"/>
+<path d="M1243.00 170.35 Q1243.53 171.72 1244.90 172.25 Q1243.53 172.78 1243.00 174.15 Q1242.47 172.78 1241.10 172.25 Q1242.47 171.72 1243.00 170.35 Z" fill="#a1a1a6"/>
+<text x="1248" y="178.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="700" fill="#a1a1a6">AI</text>
+<circle cx="964" cy="197" r="8" fill="#1d7a4a"/>
+<text x="964" y="199.65" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.36" font-weight="700" fill="#ffffff" text-anchor="middle">AK</text>
+<text x="978" y="201" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">7d20e18</text>
+<text x="1032.36" y="201.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6">test(ratelimit): cover burst and ref…</text>
+<rect x="1230" y="189" width="34" height="16" rx="4" fill="none" stroke="#a1a1a6" stroke-width="1" stroke-opacity="0.7"/>
+<path d="M1239.25 193.50 Q1240.37 196.38 1243.25 197.50 Q1240.37 198.62 1239.25 201.50 Q1238.13 198.62 1235.25 197.50 Q1238.13 196.38 1239.25 193.50 Z" fill="#a1a1a6"/>
+<path d="M1243.00 192.35 Q1243.53 193.72 1244.90 194.25 Q1243.53 194.78 1243.00 196.15 Q1242.47 194.78 1241.10 194.25 Q1242.47 193.72 1243.00 192.35 Z" fill="#a1a1a6"/>
+<text x="1248" y="200.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="700" fill="#a1a1a6">AI</text>
+<text x="956" y="234" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" fill="#a1a1a6" letter-spacing=".3">FILES CHANGED (8)</text>
+<text x="1264" y="234" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#fb5a8a" text-anchor="end">−85</text>
+<text x="1238.13" y="234" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#30c048" text-anchor="end">+272</text>
+<rect x="948" y="242" width="324" height="22" rx="6" fill="#0a5fc4"/>
+<text x="956" y="257" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#ffffff">M</text>
+<rect x="1181.93" y="245.5" width="30.33" height="15" rx="4" fill="none" stroke="#ffffff" stroke-width="1" stroke-opacity="0.6"/>
+<text x="1197.1" y="256.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#ffffff" text-anchor="middle">WIP</text>
+<text x="972" y="257.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#ffffff" fill-opacity="0.85">internal/http/</text>
+<text x="1046.4" y="257.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#ffffff">middleware.go</text>
+<text x="1264" y="257" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#ffffff" text-anchor="end">−4</text>
+<text x="1244.75" y="257" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#ffffff" text-anchor="end">+40</text>
+<text x="956" y="279" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">A</text>
+<text x="972" y="279.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">internal/ratelimit/</text>
+<text x="1069.5" y="279.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">limiter.go</text>
+<text x="1264" y="279" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#fb5a8a" text-anchor="end">−0</text>
+<text x="1244.75" y="279" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#30c048" text-anchor="end">+112</text>
+<text x="956" y="301" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">A</text>
+<rect x="1181.93" y="289.5" width="30.33" height="15" rx="4" fill="none" stroke="#a1a1a6" stroke-width="1" stroke-opacity="0.6"/>
+<text x="1197.1" y="300.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6" text-anchor="middle">WIP</text>
+<text x="972" y="301.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">internal/ratelimit/</text>
+<text x="1069.5" y="301.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">window.go</text>
+<text x="1264" y="301" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#fb5a8a" text-anchor="end">−0</text>
+<text x="1244.75" y="301" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#30c048" text-anchor="end">+58</text>
+<text x="956" y="323" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">A</text>
+<text x="972" y="323.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">internal/ratelimit/</text>
+<text x="1069.5" y="323.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">limiter_test.go</text>
+<text x="1264" y="323" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#fb5a8a" text-anchor="end">−0</text>
+<text x="1244.75" y="323" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#30c048" text-anchor="end">+44</text>
+<text x="956" y="345" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">R</text>
+<rect x="1181.93" y="333.5" width="30.33" height="15" rx="4" fill="none" stroke="#a1a1a6" stroke-width="1" stroke-opacity="0.6"/>
+<text x="1197.1" y="344.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6" text-anchor="middle">WIP</text>
+<text x="972" y="345.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">i…p/</text>
+<text x="999.924" y="345.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">{noop.go → passthrough.go}</text>
+<text x="1264" y="345" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#fb5a8a" text-anchor="end">−31</text>
+<text x="1238.13" y="345" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#30c048" text-anchor="end">+6</text>
+<text x="956" y="367" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">M</text>
+<rect x="1188.55" y="355.5" width="30.33" height="15" rx="4" fill="none" stroke="#a1a1a6" stroke-width="1" stroke-opacity="0.6"/>
+<text x="1203.72" y="366.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6" text-anchor="middle">WIP</text>
+<text x="972" y="367.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">cmd/api/</text>
+<text x="1024.01" y="367.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">main.go</text>
+<text x="1264" y="367" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#fb5a8a" text-anchor="end">−3</text>
+<text x="1244.75" y="367" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#30c048" text-anchor="end">+9</text>
+<text x="956" y="389" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">D</text>
+<rect x="1181.93" y="377.5" width="30.33" height="15" rx="4" fill="none" stroke="#a1a1a6" stroke-width="1" stroke-opacity="0.6"/>
+<text x="1197.1" y="388.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6" text-anchor="middle">WIP</text>
+<text x="972" y="389.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">internal/http/</text>
+<text x="1046.4" y="389.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">noop_limiter.go</text>
+<text x="1264" y="389" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#fb5a8a" text-anchor="end">−41</text>
+<text x="1238.13" y="389" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#30c048" text-anchor="end">+0</text>
+<text x="956" y="411" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">M</text>
+<text x="972" y="411.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">go.mod</text>
+<text x="1264" y="411" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#fb5a8a" text-anchor="end">−6</text>
+<text x="1244.75" y="411" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="500" fill="#30c048" text-anchor="end">+3</text>
+<circle cx="962" cy="440" r="5.4" fill="none" stroke="#a19f97" stroke-width="1.3"/>
+<path d="M959.9 438.6 C959.9 435.9 964.3 435.9 964.3 438.8 C964.3 440.4 962.0 440.3 962.0 441.6" fill="none" stroke="#a19f97" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="962" cy="443.24" r="0.9" fill="#a19f97"/>
+<text x="974" y="444" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="700" fill="#a1a1a6" letter-spacing=".3">UNTRACKED (2)</text>
+<circle cx="962" cy="463" r="5.4" fill="none" stroke="#a19f97" stroke-width="1.3"/>
+<path d="M959.9 461.6 C959.9 458.9 964.3 458.9 964.3 461.8 C964.3 463.4 962.0 463.3 962.0 464.6" fill="none" stroke="#a19f97" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="962" cy="466.24" r="0.9" fill="#a19f97"/>
+<text x="974" y="467" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">?</text>
+<text x="990" y="467.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">docs/</text>
+<text x="1022.98" y="467.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">rate-limit.md</text>
+<circle cx="962" cy="485" r="5.4" fill="none" stroke="#a19f97" stroke-width="1.3"/>
+<path d="M959.9 483.6 C959.9 480.9 964.3 480.9 964.3 483.8 C964.3 485.4 962.0 485.3 962.0 486.6" fill="none" stroke="#a19f97" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="962" cy="488.24" r="0.9" fill="#a19f97"/>
+<text x="974" y="489" font-family="'SF Mono', Menlo, monospace" font-size="11" font-weight="400" fill="#a1a1a6">?</text>
+<text x="990" y="489.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6">internal/ratelimit/</text>
+<text x="1087.5" y="489.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#e8e8e6">bench_test.go</text>
+<rect x="0" y="776" width="1280" height="24" fill="#323232"/>
+<line x1="0" y1="776.5" x2="1280" y2="776.5" stroke="#3d3d3d" stroke-width="1"/>
+<path d="M25.5 788.0 A4.5 4.5 0 1 1 23.2 784.1" fill="none" stroke="#a1a1a6" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M21.2 782.8 L23.7 784.0 L22.6 786.4" fill="none" stroke="#a1a1a6" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="31" y="791.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6">Fetched 2 min ago</text>
+<text x="114.55" y="791.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6">  ·  </text>
+<line x1="132.45" y1="791.6" x2="132.45" y2="784.4" stroke="#4f9bf0" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M130.0 786.9 L132.5 784.2 L134.9 786.9" fill="none" stroke="#4f9bf0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="138.45" y="791.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="500" fill="#4f9bf0">2</text>
+<line x1="154.01" y1="784.4" x2="154.01" y2="791.6" stroke="#4f9bf0" stroke-width="1.5" stroke-linecap="round"/>
+<path d="M151.5 789.1 L154.0 791.8 L156.5 789.1" fill="none" stroke="#4f9bf0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="160.01" y="791.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="500" fill="#4f9bf0">0</text>
+<text x="165.57" y="791.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6">  ·  6 worktrees  ·  </text>
+<path d="M246.3 785.0 L249.8 785.0 L250.9 786.4 L257.3 786.4 L257.3 791.9 L246.3 791.9 Z" fill="none" stroke="#f5a524" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="251.77" y="791.19" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="7.7" font-weight="700" fill="#f5a524" text-anchor="middle">?</text>
+<text x="260.77" y="791.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="500" fill="#f5a524">1 prunable</text>
+<text x="1264" y="791.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="10" font-weight="400" fill="#a1a1a6" text-anchor="end">gh: @mina-dev</text>
+<circle cx="1187.27" cy="788" r="5.5" fill="none" stroke="#a1a1a6" stroke-width="1.1"/>
+<circle cx="1187.27" cy="786.9" r="1.76" fill="#a1a1a6"/>
+<path d="M1184.0 791.6 C1184.5 788.8 1190.0 788.8 1190.6 791.6" fill="#a1a1a6"/>
+<circle cx="1191.39" cy="791.3" r="2.75" fill="#30c048" stroke="#323232" stroke-width="1"/>
+<path d="M1190.1 791.4 L1191.1 792.4 L1192.8 790.3" fill="none" stroke="#323232" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<rect x="0.5" y="0.5" width="1279" height="799" rx="10" fill="none" stroke="#3d3d3d" stroke-width="1"/>
+</svg>

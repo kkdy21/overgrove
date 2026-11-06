@@ -58,6 +58,15 @@ It is probably not for you yet if:
 - you need Windows or Linux.
 - you want a signed, notarized download. Overgrove is source-only for now.
 
+## Screenshots
+
+> **Design mockups — the app is in development.** These images are drawn from the design tokens with sample data;
+> they are not screenshots of a running build. More screens are in [docs/design/mockups.md](docs/design/mockups.md).
+
+| Light | Dark |
+|---|---|
+| ![Overgrove main window mockup, light appearance](design/mockups/main-window-light.png) | ![Overgrove main window mockup, dark appearance](design/mockups/main-window-dark.png) |
+
 ## Planned features (v0.1.0)
 
 - **Worktrees:** every worktree with its branch, HEAD, path, and locked or prunable state

@@ -25,6 +25,8 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | 설계 | [design/interaction.md](design/interaction.md) | 상호작용, 키보드, 로딩·빈·에러 상태, 접근성 |
 | 설계 | [design/design-tokens.md](design/design-tokens.md) | 디자인 토큰 설명 (원본: `design/tokens/tokens.json`) |
 | 설계 | [design/iconography.md](design/iconography.md) | 앱 아이콘과 심볼 사용 원칙 (원본: `design/icon/`) |
+| 설계 | [design/references.md](design/references.md) | macOS Git 클라이언트·HIG 레퍼런스 패턴 조사 (브랜드 요소는 쓰지 않음) |
+| 설계 | [design/mockups.md](design/mockups.md) | 주요 화면 목업 갤러리 (라이트·다크, 원본 SVG와 생성 스크립트) |
 | 설계 원본 | [`design/`](../design/) | `tokens/tokens.json`(토큰 원본), `icon/`(아이콘 SVG 원본), `mockups/`(S-01 목업) |
 | 보안 | [design/security-review.md](design/security-review.md) | 위협 모델(T-xx), 대응, 보안 테스트 매핑, 체크리스트 |
 | 테스트 | [testing/test-strategy.md](testing/test-strategy.md) | 테스트 피라미드, 테스트 ID 체계, CI 실행 범위 |
@@ -167,6 +169,7 @@ ID 원본 위치: SEC → [design/security-review.md](design/security-review.md)
 | S-08 | 설정 |
 | S-09 | 파일 이력 |
 | S-10 | Diff 뷰어 |
+| S-11 | 기준 브랜치 대비 변경 (PR식 비교, #157·#158) |
 
 ### 2.7.1 단축키
 
