@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="1440" height="560" viewBox="0 0 1440 560">
+<title>Overgrove — S-08 settings</title>
+<defs><filter id="winshadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.28"/></filter><clipPath id="set0"><rect x="24" y="40" width="448" height="470" rx="12"/></clipPath><clipPath id="set1"><rect x="496" y="40" width="448" height="470" rx="12"/></clipPath><clipPath id="set2"><rect x="968" y="40" width="448" height="470" rx="12"/></clipPath></defs>
+<rect x="0" y="0" width="1440" height="560" fill="#d4d8df"/>
+<rect x="24.0" y="40" width="448" height="470" rx="12" fill="#ececec" filter="url(#winshadow)"/>
+<g clip-path="url(#set0)">
+<rect x="24" y="40" width="448" height="470" fill="#ececec"/>
+<rect x="24" y="40" width="448" height="78" fill="#e4e4e4"/>
+<line x1="24" y1="118.5" x2="472" y2="118.5" stroke="#e6e6e6" stroke-width="1"/>
+<circle cx="44" cy="58" r="6" fill="#ff5f57"/>
+<circle cx="64" cy="58" r="6" fill="#febc2e"/>
+<circle cx="84" cy="58" r="6" fill="#28c840"/>
+<text x="248" y="62.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="600" fill="#4a4a4f" text-anchor="middle">General</text>
+<rect x="116" y="74" width="80" height="40" rx="7" fill="#d6d6d6"/>
+<line x1="160.675" y1="88" x2="164.075" y2="88" stroke="#0e764a" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="159.306" y1="91.3057" x2="161.71" y2="93.7099" stroke="#0e764a" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="156" y1="92.675" x2="156" y2="96.075" stroke="#0e764a" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="152.694" y1="91.3057" x2="150.29" y2="93.7099" stroke="#0e764a" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="151.325" y1="88" x2="147.925" y2="88" stroke="#0e764a" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="152.694" y1="84.6943" x2="150.29" y2="82.2901" stroke="#0e764a" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="156" y1="83.325" x2="156" y2="79.925" stroke="#0e764a" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="159.306" y1="84.6943" x2="161.71" y2="82.2901" stroke="#0e764a" stroke-width="2.72" stroke-linecap="round"/>
+<circle cx="156" cy="88" r="4.93" fill="none" stroke="#0e764a" stroke-width="2.21"/>
+<circle cx="156" cy="88" r="1.7" fill="#0e764a"/>
+<text x="156" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#1d1d1f" text-anchor="middle">General</text>
+<path d="M239.5 83.3 L245.0 83.3 L246.7 85.5 L256.5 85.5 L256.5 94.0 L239.5 94.0 Z" fill="none" stroke="#6e6e73" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="248" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="middle">Repositories</text>
+<line x1="332.35" y1="82.9" x2="347.65" y2="82.9" stroke="#6e6e73" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="334.9" cy="82.9" r="1.7" fill="#6e6e73"/>
+<line x1="332.35" y1="88" x2="347.65" y2="88" stroke="#6e6e73" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="345.95" cy="88" r="1.7" fill="#6e6e73"/>
+<line x1="332.35" y1="93.1" x2="347.65" y2="93.1" stroke="#6e6e73" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="339.15" cy="93.1" r="1.7" fill="#6e6e73"/>
+<text x="340" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="middle">Advanced</text>
+<rect x="44" y="138" width="408" height="44" rx="9" fill="#ffffff"/>
+<rect x="44.5" y="138.5" width="407" height="43" rx="8.5" fill="none" stroke="#dedede" stroke-width="1"/>
+<text x="58" y="164.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#1d1d1f">Fetch automatically</text>
+<rect x="256.5" y="149" width="133" height="22" rx="6" fill="#ffffff" stroke="#cfcfcf" stroke-width="1"/>
+<text x="266" y="164.2" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#6e6e73">Every 10 minutes</text>
+<path d="M376.3 158.6 L378.0 156.9 L379.7 158.6" fill="none" stroke="#6e6e73" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M376.3 161.4 L378.0 163.1 L379.7 161.4" fill="none" stroke="#6e6e73" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="402" y="150" width="36" height="20" rx="10" fill="#dedede"/>
+<circle cx="412" cy="160" r="8.2" fill="#ffffff"/>
+<text x="48" y="200" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11.5" font-weight="400" fill="#6e6e73">Off by default. Fetch uses your git credential helper or SSH.</text>
+<rect x="44" y="222" width="408" height="44" rx="9" fill="#ffffff"/>
+<rect x="44.5" y="222.5" width="407" height="43" rx="8.5" fill="none" stroke="#dedede" stroke-width="1"/>
+<text x="58" y="248.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#1d1d1f">Show full remote URLs</text>
+<rect x="402" y="234" width="36" height="20" rx="10" fill="#dedede"/>
+<circle cx="412" cy="244" r="8.2" fill="#ffffff"/>
+<text x="48" y="284" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11.5" font-weight="400" fill="#6e6e73">Credentials in URLs are always masked.</text>
+<rect x="44" y="306" width="408" height="44" rx="9" fill="#ffffff"/>
+<rect x="44.5" y="306.5" width="407" height="43" rx="8.5" fill="none" stroke="#dedede" stroke-width="1"/>
+<text x="58" y="332.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#1d1d1f">Show untracked files</text>
+<rect x="402" y="318" width="36" height="20" rx="10" fill="#0e764a"/>
+<circle cx="428" cy="328" r="8.2" fill="#ffffff"/>
+</g>
+<rect x="24.5" y="40.5" width="447" height="469" rx="11.5" fill="none" stroke="#000000" stroke-width="1" stroke-opacity="0.149"/>
+<rect x="496.0" y="40" width="448" height="470" rx="12" fill="#ececec" filter="url(#winshadow)"/>
+<g clip-path="url(#set1)">
+<rect x="496" y="40" width="448" height="470" fill="#ececec"/>
+<rect x="496" y="40" width="448" height="78" fill="#e4e4e4"/>
+<line x1="496" y1="118.5" x2="944" y2="118.5" stroke="#e6e6e6" stroke-width="1"/>
+<circle cx="516" cy="58" r="6" fill="#ff5f57"/>
+<circle cx="536" cy="58" r="6" fill="#febc2e"/>
+<circle cx="556" cy="58" r="6" fill="#28c840"/>
+<text x="720" y="62.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="600" fill="#4a4a4f" text-anchor="middle">Repositories</text>
+<line x1="632.675" y1="88" x2="636.075" y2="88" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="631.306" y1="91.3057" x2="633.71" y2="93.7099" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="628" y1="92.675" x2="628" y2="96.075" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="624.694" y1="91.3057" x2="622.29" y2="93.7099" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="623.325" y1="88" x2="619.925" y2="88" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="624.694" y1="84.6943" x2="622.29" y2="82.2901" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="628" y1="83.325" x2="628" y2="79.925" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="631.306" y1="84.6943" x2="633.71" y2="82.2901" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<circle cx="628" cy="88" r="4.93" fill="none" stroke="#6e6e73" stroke-width="2.21"/>
+<circle cx="628" cy="88" r="1.7" fill="#6e6e73"/>
+<text x="628" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="middle">General</text>
+<rect x="680" y="74" width="80" height="40" rx="7" fill="#d6d6d6"/>
+<path d="M711.5 83.3 L717.0 83.3 L718.7 85.5 L728.5 85.5 L728.5 94.0 L711.5 94.0 Z" fill="none" stroke="#0e764a" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="720" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#1d1d1f" text-anchor="middle">Repositories</text>
+<line x1="804.35" y1="82.9" x2="819.65" y2="82.9" stroke="#6e6e73" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="806.9" cy="82.9" r="1.7" fill="#6e6e73"/>
+<line x1="804.35" y1="88" x2="819.65" y2="88" stroke="#6e6e73" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="817.95" cy="88" r="1.7" fill="#6e6e73"/>
+<line x1="804.35" y1="93.1" x2="819.65" y2="93.1" stroke="#6e6e73" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="811.15" cy="93.1" r="1.7" fill="#6e6e73"/>
+<text x="812" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="middle">Advanced</text>
+<rect x="516" y="138" width="408" height="104" rx="9" fill="#ffffff"/>
+<rect x="516.5" y="138.5" width="407" height="103" rx="8.5" fill="none" stroke="#dedede" stroke-width="1"/>
+<path d="M532.0 159.6 L537.2 159.6 L538.8 161.6 L548.0 161.6 L548.0 169.6 L532.0 169.6 Z" fill="none" stroke="#6e6e73" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="558" y="160" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="600" fill="#1d1d1f">api</text>
+<text x="558" y="177" font-family="'OG Mono', 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#6e6e73">~/dev/api</text>
+<rect x="834.5" y="153" width="75" height="22" rx="6" fill="#ffffff" stroke="#cfcfcf" stroke-width="1"/>
+<text x="872" y="168.2" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#1d1d1f" text-anchor="middle">Remove</text>
+<line x1="530" y1="190.5" x2="910" y2="190.5" stroke="#e6e6e6" stroke-width="1"/>
+<path d="M532.0 211.6 L537.2 211.6 L538.8 213.6 L548.0 213.6 L548.0 221.6 L532.0 221.6 Z" fill="none" stroke="#6e6e73" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="558" y="212" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="600" fill="#1d1d1f">overgrove</text>
+<text x="558" y="229" font-family="'OG Mono', 'SF Mono', Menlo, monospace" font-size="11.5" font-weight="400" fill="#6e6e73">~/dev/overgrove</text>
+<rect x="834.5" y="205" width="75" height="22" rx="6" fill="#ffffff" stroke="#cfcfcf" stroke-width="1"/>
+<text x="872" y="220.2" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#1d1d1f" text-anchor="middle">Remove</text>
+<rect x="516.5" y="256" width="75" height="22" rx="6" fill="#ffffff" stroke="#cfcfcf" stroke-width="1"/>
+<text x="554" y="271.2" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#1d1d1f" text-anchor="middle">Add…</text>
+<text x="520" y="306" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11.5" font-weight="400" fill="#6e6e73">Overgrove only reads folders you add here.</text>
+</g>
+<rect x="496.5" y="40.5" width="447" height="469" rx="11.5" fill="none" stroke="#000000" stroke-width="1" stroke-opacity="0.149"/>
+<rect x="968.0" y="40" width="448" height="470" rx="12" fill="#ececec" filter="url(#winshadow)"/>
+<g clip-path="url(#set2)">
+<rect x="968" y="40" width="448" height="470" fill="#ececec"/>
+<rect x="968" y="40" width="448" height="78" fill="#e4e4e4"/>
+<line x1="968" y1="118.5" x2="1416" y2="118.5" stroke="#e6e6e6" stroke-width="1"/>
+<circle cx="988" cy="58" r="6" fill="#ff5f57"/>
+<circle cx="1008" cy="58" r="6" fill="#febc2e"/>
+<circle cx="1028" cy="58" r="6" fill="#28c840"/>
+<text x="1192" y="62.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="600" fill="#4a4a4f" text-anchor="middle">Advanced</text>
+<line x1="1104.67" y1="88" x2="1108.08" y2="88" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="1103.31" y1="91.3057" x2="1105.71" y2="93.7099" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="1100" y1="92.675" x2="1100" y2="96.075" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="1096.69" y1="91.3057" x2="1094.29" y2="93.7099" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="1095.33" y1="88" x2="1091.92" y2="88" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="1096.69" y1="84.6943" x2="1094.29" y2="82.2901" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="1100" y1="83.325" x2="1100" y2="79.925" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<line x1="1103.31" y1="84.6943" x2="1105.71" y2="82.2901" stroke="#6e6e73" stroke-width="2.72" stroke-linecap="round"/>
+<circle cx="1100" cy="88" r="4.93" fill="none" stroke="#6e6e73" stroke-width="2.21"/>
+<circle cx="1100" cy="88" r="1.7" fill="#6e6e73"/>
+<text x="1100" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="middle">General</text>
+<path d="M1183.5 83.3 L1189.0 83.3 L1190.7 85.5 L1200.5 85.5 L1200.5 94.0 L1183.5 94.0 Z" fill="none" stroke="#6e6e73" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1192" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#6e6e73" text-anchor="middle">Repositories</text>
+<rect x="1244" y="74" width="80" height="40" rx="7" fill="#d6d6d6"/>
+<line x1="1276.35" y1="82.9" x2="1291.65" y2="82.9" stroke="#0e764a" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="1278.9" cy="82.9" r="1.7" fill="#0e764a"/>
+<line x1="1276.35" y1="88" x2="1291.65" y2="88" stroke="#0e764a" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="1289.95" cy="88" r="1.7" fill="#0e764a"/>
+<line x1="1276.35" y1="93.1" x2="1291.65" y2="93.1" stroke="#0e764a" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="1283.15" cy="93.1" r="1.7" fill="#0e764a"/>
+<text x="1284" y="108" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11" font-weight="400" fill="#1d1d1f" text-anchor="middle">Advanced</text>
+<rect x="988" y="138" width="408" height="96" rx="9" fill="#ffffff"/>
+<rect x="988.5" y="138.5" width="407" height="95" rx="8.5" fill="none" stroke="#dedede" stroke-width="1"/>
+<text x="1002" y="164.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#1d1d1f">Git executable</text>
+<rect x="1303.68" y="149" width="77.8157" height="22" rx="6" fill="#ffffff" stroke="#cfcfcf" stroke-width="1"/>
+<text x="1342.59" y="164.2" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#1d1d1f" text-anchor="middle">Choose…</text>
+<line x1="1002" y1="182.5" x2="1382" y2="182.5" stroke="#e6e6e6" stroke-width="1"/>
+<text x="1002" y="204" font-family="'OG Mono', 'SF Mono', Menlo, monospace" font-size="12.5" font-weight="400" fill="#1d1d1f">/usr/bin/git</text>
+<circle cx="1008" cy="220" r="4.9" fill="none" stroke="#267d30" stroke-width="1.3"/>
+<path d="M1005.8 220.1 L1007.5 221.9 L1010.4 218.2" fill="none" stroke="#267d30" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1018" y="224" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11.5" font-weight="400" fill="#6e6e73">git 2.50.1 (Apple Git-155)</text>
+<text x="992" y="254" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11.5" font-weight="400" fill="#6e6e73">Must be an absolute path. Checked with --version when changed.</text>
+<rect x="988" y="276" width="408" height="44" rx="9" fill="#ffffff"/>
+<rect x="988.5" y="276.5" width="407" height="43" rx="8.5" fill="none" stroke="#dedede" stroke-width="1"/>
+<text x="1002" y="302.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#1d1d1f">Verbose logging</text>
+<rect x="1346" y="288" width="36" height="20" rx="10" fill="#dedede"/>
+<circle cx="1356" cy="298" r="8.2" fill="#ffffff"/>
+<text x="992" y="338" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="11.5" font-weight="400" fill="#6e6e73">Credentials are masked in logs too.</text>
+</g>
+<rect x="968.5" y="40.5" width="447" height="469" rx="11.5" fill="none" stroke="#000000" stroke-width="1" stroke-opacity="0.149"/>
+</svg>

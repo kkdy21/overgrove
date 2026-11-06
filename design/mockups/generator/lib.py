@@ -215,12 +215,14 @@ class Svg:
         self.add(inner)
         self.add('</g>')
 
-    def open_group(self, op=1.0, clip=None):
+    def open_group(self, op=1.0, clip=None, transform=None):
         a = '<g'
         if op < 1:
             a += f' opacity="{op:.3g}"'
         if clip:
             a += f' clip-path="url(#{clip})"'
+        if transform:
+            a += f' transform="{transform}"'
         self.add(a + '>')
 
     def close_group(self):
