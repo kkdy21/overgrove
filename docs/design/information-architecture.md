@@ -77,11 +77,11 @@ erDiagram
 
 | 영역 | 역할 | 바뀌는 계기 |
 |---|---|---|
-| 툴바 | 저장소 전환, Fetch, 포커스 워크트리의 브랜치 표시, 검색 | 저장소 전환, 포커스 변경 |
+| 툴바 | 저장소 전환, 포커스 워크트리 칩, Fetch·Refresh·Compare·Terminal·Finder, 검색 | 저장소 전환, 포커스 변경 |
 | 사이드바 | 저장소 안의 탐색 목록: WORKTREES, LOCAL, REMOTE, STASHES, ISSUES | 새로고침 |
 | 중앙 영역 | 기본은 커밋 그래프. 필요할 때 Diff 뷰어(S-10)나 파일 이력(S-09)으로 바뀐다 | 선택, `⎋`로 복귀 |
 | 상세 패널 | 선택한 항목 하나의 상세 (S-02 ~ S-06) | 선택 |
-| 상태바 | 저장소 단위 요약: 마지막 fetch, ahead/behind, 워크트리 수, 경고, gh 상태 | 새로고침, fetch |
+| 상태바 | 저장소 단위 요약: 읽기 전용 표시, 마지막 fetch, ahead/behind, 워크트리 수, 경고, gh 상태 | 새로고침, fetch |
 
 ### 3.1 선택이 바꾸는 패널
 
@@ -190,7 +190,7 @@ flowchart LR
 | 5 | locked | `lock.fill` | `status.locked` | 워크트리 |
 | 6 | 이슈 번호 | `#12` 알약 | `text.secondary` 테두리 | 워크트리, 로컬 브랜치 |
 | — | 워크트리 체크아웃 표시 | `tree` 심볼 | `text.secondary` | 로컬 브랜치 (그 브랜치를 체크아웃한 워크트리가 있을 때) |
-| — | 포커스 표시 | 행 앞의 `●` | `accent` | 워크트리 (포커스 워크트리만) |
+| — | 포커스 표시 | 워크트리 타일 오른쪽 위의 점 (#166) | `accent` | 워크트리 (포커스 워크트리만) |
 
 변경 파일 수는 경고가 아니라 정보이므로 색을 쓰지 않는다. 세부 구분(staged, unstaged, untracked)은 S-02와 툴팁에서 본다. 상태 색과 심볼의 전체 규칙은 [iconography.md §5](iconography.md#5-상태-심볼-매핑)와 [design-tokens.md](design-tokens.md)를 따른다.
 

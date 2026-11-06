@@ -29,4 +29,10 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Value models and parsers for `git config`, `git version`, and `gh` JSON output.
 - Korean README (`README.ko.md`) with an English/Korean switcher at the top of both files.
 
+### Changed
+
+- Design: the main window uses its own panel theme — three rounded, resizable, independently scrolling panels with
+  grab handles, an original high-chroma lane palette, avatar graph nodes, and a Refs column. Adds the art direction
+  document and ADR-0014, re-validates every color token, and redraws all mockups (#166).
+
 [Unreleased]: https://github.com/kkdy21/overgrove/commits/main

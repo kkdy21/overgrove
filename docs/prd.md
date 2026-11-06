@@ -119,7 +119,7 @@ Overgrove는 **여러 Git 워크트리를 한 화면에서 내려다보는 macOS
 | 정확성 | 파서 단위 테스트와 픽스처 통합 테스트로 git 출력과 일치함을 보장 | [testing/test-strategy.md](testing/test-strategy.md) |
 | 호환성 | macOS 14+, git 2.36+, gh는 선택 | ADR-0003, ADR-0008 |
 | 접근성 | VoiceOver 레이블, 키보드만으로 모든 조회 가능, 색만으로 상태를 구분하지 않음 | [design/interaction.md](design/interaction.md) |
-| 외형 | 다크 모드, 시스템 액센트 컬러를 따름. 브랜드 요소는 자체 디자인 | [design/design-tokens.md](design/design-tokens.md) |
+| 외형 | 라이트·다크 모드의 자체 패널 테마(상자로 나뉜 세 패널, 크기 조절). 액센트는 브랜드 초록이고, 사용자가 시스템 액센트 색을 고르면 그것을 따른다. 브랜드 요소는 자체 디자인 (#166, ADR-0014) | [design/art-direction.md](design/art-direction.md), [design/design-tokens.md](design/design-tokens.md) |
 | 공급망 | 외부 패키지 0개 | ADR-0006 |
 | 빌드 | 클론 후 Xcode Run 한 번 | G10 |
 

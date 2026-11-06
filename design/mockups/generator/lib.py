@@ -1,7 +1,7 @@
 """Mockup toolkit: token resolver, text measurement, SVG primitives, SF-Symbol-like glyphs."""
 import json, math, re
 from xml.sax.saxutils import escape
-from fontTools.ttLib import TTCollection
+from fontTools.ttLib import TTFont
 
 import os
 REPO = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
@@ -45,6 +45,9 @@ class Theme:
     def lane(self, i):
         return self(f'graph.lane.{i % 8}')
 
+    def on_lane(self, i):
+        return self(f'graph.on-lane.{i % 8}')
+
     def avatar(self, i):
         return self(f'avatar.{i % 8}')
 
@@ -58,23 +61,30 @@ def fnv1a(s):
 
 
 # ---------------------------------------------------------------- text metrics
-_HN = TTCollection('/System/Library/Fonts/HelveticaNeue.ttc')
-_FACES = {400: _HN.fonts[0], 500: _HN.fonts[10], 700: _HN.fonts[1]}
+# Widths come from the same fonts the renderer uses: static SF Pro / SF Mono instances built by mkfonts.py.
+_FONTDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.fonts')
+_STYLE = {400: 'Regular', 500: 'Medium', 600: 'Semibold', 700: 'Bold'}
+_FACES = {}
 _CACHE = {}
 
 
-def _face(weight):
-    if weight >= 600:
-        return _FACES[700]
-    if weight >= 500:
-        return _FACES[500]
-    return _FACES[400]
-
-
-def tw(s, size, weight=400, mono=False):
+def _face(weight, mono=False):
     if mono:
-        return len(s) * size * 0.6021
-    f = _face(weight)
+        key = ('mono', 600 if weight >= 600 else 400)
+        path = f"{_FONTDIR}/OGMono-{_STYLE[key[1]]}.ttf"
+    else:
+        w = 700 if weight >= 650 else 600 if weight >= 550 else 500 if weight >= 450 else 400
+        key = ('sans', w)
+        path = f"{_FONTDIR}/OGSans-{_STYLE[w]}.ttf"
+    if key not in _FACES:
+        if not os.path.exists(path):
+            raise SystemExit('run mkfonts.py first (render.sh does this)')
+        _FACES[key] = TTFont(path)
+    return _FACES[key]
+
+
+def tw(s, size, weight=400, mono=False, ls=0):
+    f = _face(weight, mono)
     key = (id(f), s)
     if key not in _CACHE:
         cmap = f.getBestCmap()
@@ -84,10 +94,11 @@ def tw(s, size, weight=400, mono=False):
         for ch in s:
             g = cmap.get(ord(ch))
             if g is None:
-                g = cmap.get(ord('M'))
+                w += upm * (1.0 if ord(ch) > 0x2E80 else 0.6)  # CJK and other fallbacks
+                continue
             w += hm[g][0]
         _CACHE[key] = w / upm
-    return _CACHE[key] * size
+    return _CACHE[key] * size + ls * len(s)
 
 
 def fit(s, size, maxw, weight=400, mono=False, middle=False):
@@ -106,8 +117,8 @@ def fit(s, size, maxw, weight=400, mono=False, middle=False):
     return s.rstrip() + '…'
 
 
-SANS = "-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif"
-MONO = "'SF Mono', Menlo, monospace"
+SANS = "'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif"
+MONO = "'OG Mono', 'SF Mono', Menlo, monospace"
 
 
 def _color(c):
@@ -192,7 +203,7 @@ class Svg:
         if ls:
             a += f' letter-spacing="{ls}"'
         self.add(a + f'>{escape(s)}</text>')
-        return tw(s, size, weight, mono)
+        return tw(s, size, weight, mono, float(ls) if ls else 0)
 
     def group(self, inner, op=1.0, transform=None):
         a = '<g'
@@ -305,16 +316,17 @@ def g_question_folder(S, cx, cy, s, c):  # questionmark.folder
     S.text(cx, cy + r * .58, '?', size=s * .7, fill=c, weight=700, anchor='middle')
 
 
-def g_tree(S, cx, cy, s, c, filled=False):  # tree / tree.fill
+def g_tree(S, cx, cy, s, c, filled=False):  # tree / tree.fill (round canopy + trunk)
     r = s / 2
-    d = (f'M{cx:.1f} {cy - r:.1f} L{cx + r * .55:.1f} {cy - r * .15:.1f} L{cx + r * .3:.1f} {cy - r * .15:.1f} '
-         f'L{cx + r * .8:.1f} {cy + r * .5:.1f} L{cx - r * .8:.1f} {cy + r * .5:.1f} L{cx - r * .3:.1f} {cy - r * .15:.1f} '
-         f'L{cx - r * .55:.1f} {cy - r * .15:.1f} Z')
+    S.line(cx, cy + r * .12, cx, cy + r * .98, c, sw=max(1.2, s * .13), cap='round')
     if filled:
-        S.path(d, fill=c, stroke=c, sw=.8)
+        S.circle(cx, cy - r * .3, r * .66, fill=c)
+        S.circle(cx - r * .38, cy - r * .02, r * .4, fill=c)
+        S.circle(cx + r * .38, cy - r * .02, r * .4, fill=c)
     else:
-        S.path(d, stroke=c, sw=1.1)
-    S.line(cx, cy + r * .5, cx, cy + r, c, sw=1.4, cap='round')
+        S.path(f'M{cx - r * .5:.2f} {cy + r * .32:.2f} A{r * .42:.2f} {r * .42:.2f} 0 0 1 {cx - r * .62:.2f} {cy - r * .38:.2f} '
+               f'A{r * .62:.2f} {r * .62:.2f} 0 0 1 {cx + r * .62:.2f} {cy - r * .38:.2f} '
+               f'A{r * .42:.2f} {r * .42:.2f} 0 0 1 {cx + r * .5:.2f} {cy + r * .32:.2f} Z', stroke=c, sw=max(1.0, s * .1))
 
 
 def g_branch(S, cx, cy, s, c):  # arrow.triangle.branch (simplified: trunk + fork with nodes)
@@ -484,3 +496,31 @@ def g_person2(S, cx, cy, s, c):  # person.2
     S.path(f'M{cx - r * .9:.1f} {cy + r * .7:.1f} C{cx - r * .85:.1f} {cy:.1f} {cx + r * .25:.1f} {cy:.1f} {cx + r * .3:.1f} {cy + r * .7:.1f}', stroke=c, sw=1.1)
     S.circle(cx + r * .45, cy - r * .45, r * .25, stroke=c, sw=1.1)
     S.path(f'M{cx + r * .45:.1f} {cy - r * .02:.1f} C{cx + r * .8:.1f} {cy:.1f} {cx + r * .95:.1f} {cy + r * .3:.1f} {cx + r * .95:.1f} {cy + r * .55:.1f}', stroke=c, sw=1.1)
+
+
+def g_ellipsis(S, cx, cy, s, c):  # ellipsis
+    r = s / 2
+    for dx in (-r * .62, 0, r * .62):
+        S.circle(cx + dx, cy, s * .085 + .35, fill=c)
+
+
+def g_sidebar_right(S, cx, cy, s, c):  # sidebar.right
+    r = s / 2
+    S.rect(cx - r, cy - r * .75, s, r * 1.5, r=2, stroke=c, sw=1.2)
+    S.line(cx + r * .35, cy - r * .75, cx + r * .35, cy + r * .75, c, sw=1.2)
+
+
+def g_finder(S, cx, cy, s, c):  # folder.badge (Reveal in Finder)
+    r = s / 2
+    S.path(f'M{cx - r:.1f} {cy - r * .6:.1f} L{cx - r * .32:.1f} {cy - r * .6:.1f} L{cx - r * .12:.1f} {cy - r * .36:.1f} '
+           f'L{cx + r:.1f} {cy - r * .36:.1f} L{cx + r:.1f} {cy + r * .72:.1f} L{cx - r:.1f} {cy + r * .72:.1f} Z', stroke=c, sw=1.2)
+    S.path(f'M{cx + r * .05:.1f} {cy - r * .05:.1f} L{cx + r * .55:.1f} {cy + r * .2:.1f} L{cx + r * .05:.1f} {cy + r * .45:.1f}', stroke=c, sw=1.1)
+
+
+def g_resize_cursor(S, cx, cy, s, c, outline):  # resize left/right cursor
+    r = s / 2
+    d = (f'M{cx - r:.1f} {cy:.1f} L{cx - r * .45:.1f} {cy - r * .5:.1f} L{cx - r * .45:.1f} {cy - r * .18:.1f} '
+         f'L{cx + r * .45:.1f} {cy - r * .18:.1f} L{cx + r * .45:.1f} {cy - r * .5:.1f} L{cx + r:.1f} {cy:.1f} '
+         f'L{cx + r * .45:.1f} {cy + r * .5:.1f} L{cx + r * .45:.1f} {cy + r * .18:.1f} L{cx - r * .45:.1f} {cy + r * .18:.1f} '
+         f'L{cx - r * .45:.1f} {cy + r * .5:.1f} Z')
+    S.path(d, fill=c, stroke=outline, sw=1.2)
