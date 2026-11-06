@@ -23,8 +23,8 @@
 
 > **상태: 프리알파. 아직 써 볼 수 있는 단계는 아닙니다.** git을 안전하게 실행하는 기반은 구현과 테스트를 마쳤습니다.
 > 프로세스 실행, 보안을 강화한 git 호출, 저장소 설정 검사, 자격 증명 마스킹, 경로 검증이 여기에 해당합니다.
-> 파서는 작업 중이고, 앱 창에는 아직 임시 화면만 나옵니다. 아래 이미지는 1차 디자인 목업이며, 지금은
-> [#166](https://github.com/kkdy21/overgrove/issues/166)에서 다시 디자인하고 있습니다. 진행 상황은
+> 파서는 작업 중이고, 앱 창에는 아직 임시 화면만 나옵니다. 아래 이미지는 현재 디자인 목업입니다
+> ([#166](https://github.com/kkdy21/overgrove/issues/166)). 진행 상황은
 > [로드맵](docs/roadmap.md)과 [v0.1.0 마일스톤](https://github.com/kkdy21/overgrove/milestone/1)에서 볼 수 있습니다.
 
 ## 왜 만들었나
@@ -181,7 +181,7 @@ flowchart TB
 | | |
 |---|---|
 | 제품 | [PRD](docs/prd.md) · [MVP 범위](docs/scope-mvp.md) · [용어집](docs/glossary.md) · [로드맵](docs/roadmap.md) |
-| 디자인 | [정보 구조](docs/design/information-architecture.md) · [화면](docs/design/screens.md) · [인터랙션](docs/design/interaction.md) · [디자인 토큰](docs/design/design-tokens.md) · [아이콘](docs/design/iconography.md) |
+| 디자인 | [아트 디렉션](docs/design/art-direction.md) · [정보 구조](docs/design/information-architecture.md) · [화면](docs/design/screens.md) · [인터랙션](docs/design/interaction.md) · [디자인 토큰](docs/design/design-tokens.md) · [아이콘](docs/design/iconography.md) |
 | 엔지니어링 | [아키텍처](docs/architecture/overview.md) · [Git 명령 카탈로그](docs/architecture/git-command-catalog.md) · [파싱 명세](docs/architecture/parsing-spec.md) · [ADR](docs/adr/) |
 | 보안 | [보안 검토와 위협 모델](docs/design/security-review.md) · [SECURITY.md](SECURITY.md) |
 | 품질 | [테스트 전략](docs/testing/test-strategy.md) · [성능 예산](docs/performance/performance-budget.md) · [QA 프로세스](docs/qa/process.md) |

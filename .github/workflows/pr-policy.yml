@@ -1,7 +1,7 @@
 # Required check: `pr-policy`
 # Enforces docs/process/pull-requests.md: Conventional title, `Closes #n` to an open issue, branch naming,
 # the claim policy of ADR-0013 (claimed issues belong to their assignee; otherwise the first open PR wins), and the
-# dependency rule of ADR-0014 (a PR passes only after every issue it depends on is done and no stand-in code is left).
+# dependency rule of ADR-0015 (a PR passes only after every issue it depends on is done and no stand-in code is left).
 # Untrusted PR fields are passed through env vars only (never interpolated into the script) to prevent injection.
 name: pr-policy
 
@@ -70,7 +70,7 @@ jobs:
             fi
           }
 
-          # Dependencies (ADR-0014): "Depends on #n" lines in a PR body, and #n under the "## 의존성" (or "Dependencies")
+          # Dependencies (ADR-0015): "Depends on #n" lines in a PR body, and #n under the "## 의존성" (or "Dependencies")
           # heading of an issue body. Keep these two functions in sync with .github/workflows/dependency-closed.yml.
           # Numbers are normalized ("#012" -> 12) because the API reads them that way.
           depends_on_lines() { tr -d '\r' | grep -Ei '^[[:space:]]*([-*][[:space:]]+)?depends[[:space:]]+on([[:space:]]|:)' | grep -Eo '#[0-9]{1,9}' | tr -d '#' | awk '{print $1+0}' || true; }
@@ -123,7 +123,7 @@ jobs:
             fi
           fi
 
-          # 4) Dependencies (ADR-0014). Work may start on top of unfinished issues, but it merges only after them.
+          # 4) Dependencies (ADR-0015). Work may start on top of unfinished issues, but it merges only after them.
           deps=$( { printf '%s\n' "$BODY" | depends_on_lines
                     for n in $issues; do { gh api "repos/$REPO/issues/$n" --jq '.body // ""' 2>/dev/null || true; } | dependency_section; done
                   } | sort -un)

@@ -5,7 +5,7 @@ description: Overgrove 협업자의 시작점. "백로그 확인해서 진행해
 
 # onboard — 백로그에서 PR까지
 
-기준 문서: `CLAUDE.md`(특히 §0.1, §2.1), `docs/process/collaboration.md`(의존 이슈는 §4.1), ADR-0013, ADR-0014
+기준 문서: `CLAUDE.md`(특히 §0.1, §2.1), `docs/process/collaboration.md`(의존 이슈는 §4.1), ADR-0013, ADR-0015
 
 ## 0. 위치 확인
 - `git rev-parse --show-toplevel`과 `git remote -v`를 확인한다.
@@ -48,7 +48,7 @@ gh issue list --repo kkdy21/overgrove --state open --limit 200 \
   --json number,title,labels,milestone,body
 ```
 - 후보마다 본문 "## 의존성"의 `#번호` 상태를 확인한다(`gh issue view <d> --json state,stateReason,assignees`).
-  - 열린 의존성이 있어도 후보에서 빼지 않는다(ADR-0014). 의존 이슈의 상태를 `끝남`, `진행 중 #d(@담당자)`, `미착수 #d`로 정리한다.
+  - 열린 의존성이 있어도 후보에서 빼지 않는다(ADR-0015). 의존 이슈의 상태를 `끝남`, `진행 중 #d(@담당자)`, `미착수 #d`로 정리한다.
   - 완료되지 않고 닫힌 의존 이슈가 있는 후보는 뺀다. 메인테이너가 의존성 절을 고쳐야 하는 상태다.
 - 우선순위:
   1. 현재 마일스톤 `v0.1.0`

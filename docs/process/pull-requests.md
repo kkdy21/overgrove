@@ -1,6 +1,6 @@
 # PR 규칙
 
-> 상태: Accepted · 관련: [ADR-0012](../adr/0012-solo-maintainer-merge-policy.md), [ADR-0014](../adr/0014-dependent-issues-stand-in.md), [`.github/pull_request_template.md`](../../.github/pull_request_template.md), [`.github/workflows/pr-policy.yml`](../../.github/workflows/pr-policy.yml)
+> 상태: Accepted · 관련: [ADR-0012](../adr/0012-solo-maintainer-merge-policy.md), [ADR-0015](../adr/0015-dependent-issues-stand-in.md), [`.github/pull_request_template.md`](../../.github/pull_request_template.md), [`.github/workflows/pr-policy.yml`](../../.github/workflows/pr-policy.yml)
 
 ## 1. PR을 열기 전에
 
@@ -26,7 +26,7 @@ Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으�
 
 `pr-policy`는 선점 규칙(ADR-0013)도 검사한다. 남이 선점한 이슈를 닫는 PR, 또는 담당자 없는 이슈에 먼저 열린 PR이 이미 있는데 뒤에 열린 PR은 실패한다. 메인테이너는 면제다.
 
-`pr-policy`는 의존성(ADR-0014)도 검사한다. 메인테이너도 면제가 아니다.
+`pr-policy`는 의존성(ADR-0015)도 검사한다. 메인테이너도 면제가 아니다.
 - 의존 이슈는 연결 이슈 본문의 `## 의존성` 절과 PR 본문의 `Depends on #<n>` 줄에 있는 이슈다. 하나라도 열려 있으면 실패한다. 완료가 아닌 사유(중복, not planned)로 닫혔거나, 메인테이너가 아닌 사람이 완료로 닫았어도 실패한다. 의존 이슈는 20개까지 적을 수 있다.
 - PR이 추가한 줄에 `STAND-IN(#<n>)`이 남아 있으면 실패한다.
 - 이 검사는 실수를 막는 장치다. 통과한 뒤 의존 이슈가 다시 열려도 검사는 다시 돌지 않으므로, 메인테이너는 머지 직전에 의존 이슈 상태를 직접 확인한다.

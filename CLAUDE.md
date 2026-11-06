@@ -10,7 +10,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
   - `ProcessRunner`, `GitEnvironment`, `GitCommand`·`GitClient`, `RepoConfigInspector`
   - `CredentialMasker`, `PathValidator`, `GitError`
   - 모델, 설정·버전·gh 파서
-- 이제 파서(worktree·status·stash·log·ref), GraphEngine, 픽스처 통합 테스트, 디자인 시스템이 열려 있다. 화면은 그다음이다([roadmap.md](docs/roadmap.md)의 순서). 화면 목업은 1차(#159)를 마쳤고 재디자인(#166)이 진행 중이다. 화면 착수 순서는 #164에서 정한다.
+- 이제 파서(worktree·status·stash·log·ref), GraphEngine, 픽스처 통합 테스트, 디자인 시스템이 열려 있다. 화면은 그다음이다([roadmap.md](docs/roadmap.md)의 순서). 화면 목업은 1차(#159)에 이어 패널 테마 재디자인(#166, [ADR-0014](docs/adr/0014-panel-theme-and-split-layout.md))까지 마쳤다. 모양의 기준은 [art-direction.md](docs/design/art-direction.md)다. 화면 착수 순서는 #164에서 정한다.
 - 진행 상황은 GitHub 이슈, [보드](https://github.com/users/kkdy21/projects/4), 마일스톤이 기준이다. 선점 가능한 이슈는 보드의 "Ready to claim" 뷰에 있다.
 
 ## 0.1 "백로그 확인해서 진행해줘"
@@ -90,12 +90,12 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 - `true`면 **메인테이너**다. `origin`이 이 저장소이고, 머지와 AI 검수(`/pr-review`)를 맡는다.
 - 그 밖에는 **협업자**다. `origin`이 fork, `upstream`이 이 저장소다. 처음이면 `/onboard`부터 시작한다.
 
-협업자 규칙([collaboration.md](docs/process/collaboration.md), ADR-0013, ADR-0014):
+협업자 규칙([collaboration.md](docs/process/collaboration.md), ADR-0013, ADR-0015):
 - 작업 전에 이슈에 `/claim` 댓글을 단다(봇이 담당자 지정).
 - **5시간 안에 `Closes #n` Draft PR을 연다.** 열지 않으면 선점이 자동으로 풀린다. 그래서 첫 커밋 직후 `/pr-open --draft`를 실행한다.
 - 동시에 최대 2개까지만 선점한다. 그만둘 때는 `/unclaim`.
 - 남이 선점한 이슈는 건드리지 않는다. 담당자 없는 이슈는 먼저 열린 PR이 이긴다(`pr-policy`가 강제).
-- **의존 이슈가 안 끝났어도 기다리지 않는다**(ADR-0014). 필요한 부분은 `STAND-IN(#<n>)` 주석을 단 stand-in으로 직접 만든다. 남의 미머지 PR은 merge하거나 체크아웃하지 않는다. PR은 내 이슈만 닫고, 의존 이슈가 끝날 때까지 Draft로 둔다. 상세는 [collaboration.md §4.1](docs/process/collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때).
+- **의존 이슈가 안 끝났어도 기다리지 않는다**(ADR-0015). 필요한 부분은 `STAND-IN(#<n>)` 주석을 단 stand-in으로 직접 만든다. 남의 미머지 PR은 merge하거나 체크아웃하지 않는다. PR은 내 이슈만 닫고, 의존 이슈가 끝날 때까지 Draft로 둔다. 상세는 [collaboration.md §4.1](docs/process/collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때).
 - `upstream`에 push하지 않는다. rebase와 강제 푸시도 하지 않는다. 최신화는 `gh pr update-branch` 또는 `git merge upstream/main`으로 한다.
 
 ### 4.1 흐름

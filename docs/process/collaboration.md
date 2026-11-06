@@ -1,6 +1,6 @@
 # 협업 규칙 (외부 기여, 이슈 선점, 의존 이슈, AI 기여)
 
-> 상태: Accepted · 관련: [ADR-0013](../adr/0013-external-contributions-and-issue-claiming.md), [ADR-0014](../adr/0014-dependent-issues-stand-in.md), [CONTRIBUTING.md](../../CONTRIBUTING.md), [issues.md](issues.md), [pull-requests.md](pull-requests.md)
+> 상태: Accepted · 관련: [ADR-0013](../adr/0013-external-contributions-and-issue-claiming.md), [ADR-0015](../adr/0015-dependent-issues-stand-in.md), [CONTRIBUTING.md](../../CONTRIBUTING.md), [issues.md](issues.md), [pull-requests.md](pull-requests.md)
 
 이 문서는 메인테이너 외의 협업자(사람, 또는 Claude Code 같은 AI 에이전트를 쓰는 사람)가 이슈를 가져가 개발하는 규칙을 정한다. 영어 요약은 [CONTRIBUTING.md](../../CONTRIBUTING.md)에 있다.
 
@@ -75,7 +75,7 @@ stateDiagram-v2
 
 ### 4.1 의존 이슈가 아직 끝나지 않았을 때
 
-이슈 A에 이슈 B의 결과물이 필요한데 B가 아직 머지되지 않았어도 **기다리지 않는다**(ADR-0014). 규칙은 세 가지다.
+이슈 A에 이슈 B의 결과물이 필요한데 B가 아직 머지되지 않았어도 **기다리지 않는다**(ADR-0015). 규칙은 세 가지다.
 
 1. **필요한 만큼 직접 만든다.** B에서 A가 쓰는 부분만 내 브랜치에 stand-in(임시 구현)으로 만들고, 블록마다 `// STAND-IN(#<B>)` 주석을 단다. 이름과 시그니처는 B의 명세(이슈 본문, `docs/architecture/`)를 따른다. 그래야 B가 머지된 뒤 고칠 것이 적다.
 2. **남의 미머지 코드는 가져오지 않는다.** B의 PR 브랜치를 merge하거나 체크아웃하지 않는다. 그 PR이 넣은 hooks와 테스트가 내 PC에서 실행되기 때문이다. B에 PR이 있으면 `gh pr diff`로 읽어서 이름을 맞추는 데만 쓴다.

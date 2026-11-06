@@ -23,11 +23,12 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | 설계 | [design/information-architecture.md](design/information-architecture.md) | 정보 구조, 내비게이션 |
 | 설계 | [design/screens.md](design/screens.md) | 화면 명세 (S-xx) |
 | 설계 | [design/interaction.md](design/interaction.md) | 상호작용, 키보드, 로딩·빈·에러 상태, 접근성 |
+| 설계 | [design/art-direction.md](design/art-direction.md) | 아트 디렉션: 패널 구조, 분할선·스크롤, 색, 그래프·알약·사이드바 모양의 수치 (#166) |
 | 설계 | [design/design-tokens.md](design/design-tokens.md) | 디자인 토큰 설명 (원본: `design/tokens/tokens.json`) |
 | 설계 | [design/iconography.md](design/iconography.md) | 앱 아이콘과 심볼 사용 원칙 (원본: `design/icon/`) |
 | 설계 | [design/references.md](design/references.md) | macOS Git 클라이언트·HIG 레퍼런스 패턴 조사 (브랜드 요소는 쓰지 않음) |
 | 설계 | [design/mockups.md](design/mockups.md) | 주요 화면 목업 갤러리 (라이트·다크, 원본 SVG와 생성 스크립트) |
-| 설계 원본 | [`design/`](../design/) | `tokens/tokens.json`(토큰 원본), `icon/`(아이콘 SVG 원본), `mockups/`(S-01 목업) |
+| 설계 원본 | [`design/`](../design/) | `tokens/tokens.json`(토큰 원본), `icon/`(아이콘 SVG 원본), `mockups/`(주요 화면 목업과 `generator/` 생성기·색 검증기) |
 | 보안 | [design/security-review.md](design/security-review.md) | 위협 모델(T-xx), 대응, 보안 테스트 매핑, 체크리스트 |
 | 테스트 | [testing/test-strategy.md](testing/test-strategy.md) | 테스트 피라미드, 테스트 ID 체계, CI 실행 범위 |
 | 테스트 | [testing/fixtures.md](testing/fixtures.md) | 임시 저장소 픽스처 명세 (`scripts/make-fixture-repo.sh`) |
@@ -139,7 +140,12 @@ OvergroveTests/
 | 0011 | v0.1에서 Pull 제외 | Accepted |
 | 0012 | 1인 메인테이너 머지 정책 | Accepted |
 | 0013 | 외부 기여 모델과 이슈 선점 정책 (fork PR, 5시간 기한, PR 선착순) | Accepted |
-| 0014 | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |
+<<<<<<< HEAD
+| 0014 | 메인 창의 자체 패널 테마와 사용자 정의 분할 레이아웃 | Accepted |
+| 0015 | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |
+=======
+| 0014 | 메인 창의 자체 패널 테마와 사용자 정의 분할 레이아웃 | Accepted |
+>>>>>>> origin/main
 
 ### 2.6 테스트 ID
 
@@ -207,7 +213,7 @@ git 계층 실측 기준선(이 표의 근거)은 [performance/benchmark-plan.md
   - `good first issue`, `help wanted`
 - 필수 상태 검사(Required checks): `gitleaks`, `pr-policy`, `build-test`
 - 이슈 선점: 이슈 댓글 `/claim`·`/unclaim`, 기한 5시간(PR 없으면 해제), 1인당 2개, 담당자 없는 이슈는 PR 선착순 (ADR-0013)
-- 의존성: 이슈 본문 `## 의존성` 절, PR 본문 `Depends on #<n>` 줄, 임시 구현 표시 `STAND-IN(#<n>)` 주석. 의존 이슈가 모두 완료로 닫혀야 `pr-policy`가 통과한다 (ADR-0014)
+- 의존성: 이슈 본문 `## 의존성` 절, PR 본문 `Depends on #<n>` 줄, 임시 구현 표시 `STAND-IN(#<n>)` 주석. 의존 이슈가 모두 완료로 닫혀야 `pr-policy`가 통과한다 (ADR-0015)
 - 브랜치명: `<type>/<issue>-<slug>`. type은 `feat`, `fix`, `docs`, `test`, `chore`, `spike`, `refactor`, `perf`, `ci` 중 하나
 - 커밋: Conventional Commits, 영어 제목. 이슈 번호는 `Refs: #n` 트레일러로 남긴다 (`prepare-commit-msg` hook이 브랜치명에서 자동 추가)
 - 머지: squash 전용. squash 커밋 제목은 PR 제목을 쓴다

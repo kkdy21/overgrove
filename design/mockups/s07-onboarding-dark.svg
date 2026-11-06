@@ -1,14 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="1280" height="800" viewBox="0 0 1280 800">
-<title>Overgrove S-07 onboarding mockup (dark)</title>
-<defs><clipPath id="win"><rect x="0" y="0" width="1280" height="800" rx="10"/></clipPath></defs>
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="1440" height="900" viewBox="0 0 1440 900">
+<title>Overgrove — S-07 onboarding</title>
+<defs><clipPath id="win"><rect x="0" y="0" width="1440" height="900" rx="12"/></clipPath><clipPath id="obclip"><rect x="320" y="52" width="800" height="818" rx="10"/></clipPath></defs>
 <g clip-path="url(#win)">
-<rect x="0" y="0" width="1280" height="800" fill="#323232"/>
+<rect x="0" y="0" width="1440" height="900" fill="#0e1116"/>
 <circle cx="20" cy="26" r="6" fill="#ff5f57"/>
+<circle cx="20" cy="26" r="6" fill="none" stroke="#000000" stroke-width="0.5" stroke-opacity="0.149"/>
 <circle cx="40" cy="26" r="6" fill="#febc2e"/>
+<circle cx="40" cy="26" r="6" fill="none" stroke="#000000" stroke-width="0.5" stroke-opacity="0.149"/>
 <circle cx="60" cy="26" r="6" fill="#28c840"/>
-<text x="640" y="30.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="700" fill="#a1a1a6" text-anchor="middle">Overgrove Setup</text>
-<line x1="0" y1="51.5" x2="1280" y2="51.5" stroke="#3d3d3d" stroke-width="1"/>
-<svg x="604.0" y="100" width="72" height="67.5" viewBox="190 262 640 600">
+<circle cx="60" cy="26" r="6" fill="none" stroke="#000000" stroke-width="0.5" stroke-opacity="0.149"/>
+<text x="720" y="30.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="600" fill="#b0b6c0" text-anchor="middle">Overgrove Setup</text>
+<rect x="320" y="52" width="800" height="818" rx="10" fill="#191d24"/>
+<g clip-path="url(#obclip)">
+<svg x="686.0" y="136" width="68" height="63.8" viewBox="190 262 640 600">
 
 <defs>
 <mask id="gap" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
@@ -27,55 +31,68 @@
 <path d="M776.5 458.6 A37.0 37.0 0 0 1 729.0 504.6 A41.5 41.5 0 0 1 667.0 530.1 A37.7 37.7 0 0 1 604.5 505.2 A41.2 41.2 0 0 1 558.7 456.9 A36.8 36.8 0 0 1 556.8 391.1 A41.5 41.5 0 0 1 575.9 326.9 A37.8 37.8 0 0 1 636.3 296.9 A40.9 40.9 0 0 1 702.3 294.6 A36.7 36.7 0 0 1 754.5 334.2 A41.3 41.3 0 0 1 788.4 391.7 A38.1 38.1 0 0 1 776.5 458.6 Z"/>
 </g>
 </svg>
-<text x="640" y="212" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="26" font-weight="700" fill="#e8e8e6" text-anchor="middle">Welcome to Overgrove</text>
-<text x="640" y="238" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="400" fill="#a1a1a6" text-anchor="middle">See every worktree of a repository at a glance. Read-only — the only network action is git fetch.</text>
-<rect x="280" y="272" width="720" height="96" rx="10" fill="#1e1e1e" stroke="#3d3d3d" stroke-width="1"/>
-<circle cx="312" cy="300" r="12" fill="#30c048"/>
-<path d="M307.8 300.0 L310.8 303.3 L316.5 296.4" fill="none" stroke="#1e1e1e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="344" y="305" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="700" fill="#e8e8e6">Add a repository</text>
-<rect x="836" y="288" width="140" height="24" rx="6" fill="#3a3a3c" stroke="#3d3d3d" stroke-width="1"/>
-<text x="906" y="304.32" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6" text-anchor="middle">Choose Folder…</text>
-<circle cx="350" cy="328" r="5.9" fill="none" stroke="#30c048" stroke-width="1.3"/>
-<path d="M347.3 328.1 L349.4 330.2 L352.8 325.9" fill="none" stroke="#30c048" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="364" y="332.5" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">~/dev/api</text>
-<text x="439.027" y="332.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">Git repository · 6 worktrees</text>
-<text x="344" y="352" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">Only folders you choose here are ever read.</text>
-<rect x="280" y="384" width="720" height="72" rx="10" fill="#1e1e1e" stroke="#3d3d3d" stroke-width="1"/>
-<circle cx="312" cy="412" r="12" fill="#30c048"/>
-<path d="M307.8 412.0 L310.8 415.3 L316.5 408.4" fill="none" stroke="#1e1e1e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="344" y="417" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="700" fill="#e8e8e6">git</text>
-<circle cx="350" cy="436" r="5.9" fill="none" stroke="#30c048" stroke-width="1.3"/>
-<path d="M347.3 436.1 L349.4 438.2 L352.8 433.9" fill="none" stroke="#30c048" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="364" y="440.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6">git 2.50.1 (Apple Git-155)</text>
-<text x="506.268" y="440.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">at /usr/bin/git</text>
-<rect x="280" y="472" width="720" height="200" rx="10" fill="#1e1e1e" stroke="#3d3d3d" stroke-width="1"/>
-<circle cx="312" cy="500" r="11.25" fill="none" stroke="#f5a524" stroke-width="1.5"/>
-<text x="312" y="504.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="700" fill="#f5a524" text-anchor="middle">3</text>
-<text x="344" y="505" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="700" fill="#e8e8e6">GitHub</text>
-<text x="395.082" y="505" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">(optional — used only to show issues)</text>
-<text x="976" y="505" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#4f9bf0" text-anchor="end">Skip</text>
-<circle cx="351" cy="528" r="6.5" fill="none" stroke="#f5a524" stroke-width="1.1"/>
-<circle cx="351" cy="526.7" r="2.08" fill="#f5a524"/>
-<path d="M347.1 532.2 C347.8 529.0 354.2 529.0 354.9 532.2" fill="#f5a524"/>
-<circle cx="355.875" cy="531.9" r="3.25" fill="#f5a524" stroke="#1e1e1e" stroke-width="1"/>
-<line x1="354.575" y1="530.6" x2="357.175" y2="533.2" stroke="#1e1e1e" stroke-width="1"/>
-<line x1="357.175" y1="530.6" x2="354.575" y2="533.2" stroke="#1e1e1e" stroke-width="1"/>
-<text x="366" y="532.5" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="500" fill="#f5a524">Not logged in to GitHub CLI</text>
-<text x="344" y="560" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6">Run this in Terminal, then check again:</text>
-<rect x="344" y="572" width="240" height="32" rx="6" fill="#323232" stroke="#3d3d3d" stroke-width="1"/>
-<text x="356" y="593" font-family="'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e8e8e6">gh auth login</text>
-<rect x="592" y="576" width="80" height="24" rx="6" fill="#3a3a3c" stroke="#3d3d3d" stroke-width="1"/>
-<rect x="610.066" y="584.5" width="7.7" height="9.45" rx="1.5" fill="none" stroke="#e8e8e6" stroke-width="1.1"/>
-<path d="M612.9 582.8 L612.9 581.7 L621.3 581.7 L621.3 591.1 L619.2 591.1" fill="none" stroke="#e8e8e6" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="626.666" y="592.32" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6">Copy</text>
-<rect x="344" y="620" width="112" height="24" rx="6" fill="#3a3a3c" stroke="#3d3d3d" stroke-width="1"/>
-<text x="400" y="636.32" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#e8e8e6" text-anchor="middle">Check Again</text>
-<rect x="468.04" y="631.45" width="7.92" height="5.5" rx="1.5" fill="#a1a1a6"/>
-<path d="M469.5 631.5 L469.5 629.5 A2.5 2.5 0 0 1 474.5 629.5 L474.5 631.5" fill="none" stroke="#a1a1a6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="484" y="636" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">Overgrove never asks for or stores tokens. Authentication stays with gh.</text>
-<text x="280" y="714" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#a1a1a6">Reopen anytime from Help › Setup Assistant.</text>
-<rect x="848" y="698" width="152" height="28" rx="6" fill="#0a7aff"/>
-<text x="924" y="716.68" font-family="-apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="500" fill="#ffffff" text-anchor="middle">Open Repository</text>
+<text x="720" y="236" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="26" font-weight="700" fill="#e7eaef" text-anchor="middle">Welcome to Overgrove</text>
+<text x="720" y="262" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13.5" font-weight="400" fill="#b0b6c0" text-anchor="middle">See every worktree of a repository at a glance.</text>
+<rect x="672.698" y="278" width="94.6035" height="24" rx="12" fill="#68d36f" fill-opacity="0.12"/>
+<path d="M687.7 284.0 L692.5 286.1 L692.5 289.7 C692.5 293.0 689.8 294.8 687.7 296.0 C685.6 294.8 682.9 293.0 682.9 289.7 L682.9 286.1 Z" fill="none" stroke="#68d36f" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M685.4 290.0 L687.2 291.8 L690.1 288.2" fill="none" stroke="#68d36f" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="697.698" y="294.2" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="600" fill="#68d36f">Read-only</text>
+<text x="720" y="324" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#888e99" text-anchor="middle">The only network action is git fetch. Nothing in your repositories is ever changed.</text>
+<rect x="376" y="352" width="688" height="92" rx="10" fill="#21252e"/>
+<rect x="376.5" y="352.5" width="687" height="91" rx="9.5" fill="none" stroke="#21252e" stroke-width="1"/>
+<circle cx="406" cy="380" r="12" fill="#68d36f"/>
+<path d="M401.8 380.0 L404.8 383.3 L410.5 376.4" fill="none" stroke="#21252e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="436" y="384.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13.5" font-weight="700" fill="#e7eaef">Add a repository</text>
+<rect x="922.63" y="367.5" width="120.87" height="25" rx="6.5" fill="#ffffff" fill-opacity="0.0588" stroke="#3d434c" stroke-width="1"/>
+<text x="934.13" y="384.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="500" fill="#e7eaef">Choose Folder…</text>
+<circle cx="442" cy="408" r="5.9" fill="none" stroke="#68d36f" stroke-width="1.3"/>
+<path d="M439.3 408.1 L441.4 410.2 L444.8 405.9" fill="none" stroke="#68d36f" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="456" y="412.5" font-family="'OG Mono', 'SF Mono', Menlo, monospace" font-size="12" font-weight="400" fill="#e7eaef">~/dev/api</text>
+<text x="532.762" y="412.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#b0b6c0">Git repository · 6 worktrees</text>
+<text x="436" y="432" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#888e99">Only folders you choose here are ever read.</text>
+<rect x="376" y="456" width="688" height="70" rx="10" fill="#21252e"/>
+<rect x="376.5" y="456.5" width="687" height="69" rx="9.5" fill="none" stroke="#21252e" stroke-width="1"/>
+<circle cx="406" cy="484" r="12" fill="#68d36f"/>
+<path d="M401.8 484.0 L404.8 487.3 L410.5 480.4" fill="none" stroke="#21252e" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="436" y="488.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13.5" font-weight="700" fill="#e7eaef">git</text>
+<circle cx="442" cy="507" r="5.9" fill="none" stroke="#68d36f" stroke-width="1.3"/>
+<path d="M439.3 507.1 L441.4 509.2 L444.8 504.9" fill="none" stroke="#68d36f" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="456" y="511.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#e7eaef">git 2.50.1 (Apple Git-155)</text>
+<text x="613.799" y="511.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#888e99">at /usr/bin/git</text>
+<rect x="376" y="538" width="688" height="196" rx="10" fill="#21252e"/>
+<rect x="376.5" y="538.5" width="687" height="195" rx="9.5" fill="none" stroke="#21252e" stroke-width="1"/>
+<circle cx="406" cy="566" r="11.25" fill="none" stroke="#fcb442" stroke-width="1.6"/>
+<text x="406" y="570.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13" font-weight="700" fill="#fcb442" text-anchor="middle">3</text>
+<text x="436" y="570.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="13.5" font-weight="700" fill="#e7eaef">GitHub</text>
+<text x="491.547" y="570.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#888e99">optional — used only to show issues</text>
+<text x="1044" y="570.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="500" fill="#6fb2fc" text-anchor="end">Skip</text>
+<circle cx="443" cy="594" r="6.5" fill="none" stroke="#fcb442" stroke-width="1.1"/>
+<circle cx="443" cy="592.7" r="2.08" fill="#fcb442"/>
+<path d="M439.1 598.2 C439.8 595.0 446.2 595.0 446.9 598.2" fill="#fcb442"/>
+<circle cx="447.875" cy="597.9" r="3.25" fill="#fcb442" stroke="#21252e" stroke-width="1"/>
+<line x1="446.575" y1="596.6" x2="449.175" y2="599.2" stroke="#21252e" stroke-width="1"/>
+<line x1="449.175" y1="596.6" x2="446.575" y2="599.2" stroke="#21252e" stroke-width="1"/>
+<text x="458" y="598.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="600" fill="#fcb442">Not logged in to GitHub CLI</text>
+<text x="436" y="626" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="400" fill="#e7eaef">Run this in Terminal, then check again:</text>
+<rect x="436" y="636" width="250" height="32" rx="7" fill="#14181e" stroke="#3d434c" stroke-width="1"/>
+<text x="448" y="656.5" font-family="'OG Mono', 'SF Mono', Menlo, monospace" font-size="12.5" font-weight="400" fill="#e7eaef">$ gh auth login</text>
+<rect x="694.5" y="639.5" width="72.3538" height="25" rx="6.5" fill="#ffffff" fill-opacity="0.0588" stroke="#3d434c" stroke-width="1"/>
+<rect x="706.8" y="648.75" width="7.15" height="8.775" rx="1.5" fill="none" stroke="#e7eaef" stroke-width="1.1"/>
+<path d="M709.4 647.1 L709.4 646.1 L717.2 646.1 L717.2 654.9 L715.2 654.9" fill="none" stroke="#e7eaef" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="724" y="656.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="500" fill="#e7eaef">Copy</text>
+<rect x="436.5" y="685.5" width="116.635" height="25" rx="6.5" fill="#ffffff" fill-opacity="0.0588" stroke="#3d434c" stroke-width="1"/>
+<path d="M459.5 698.0 A5.5 5.5 0 1 1 456.8 693.2" fill="none" stroke="#e7eaef" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M454.3 691.7 L457.3 693.0 L455.9 696.1" fill="none" stroke="#e7eaef" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="466" y="702.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="500" fill="#e7eaef">Check Again</text>
+<rect x="566.04" y="697.45" width="7.92" height="5.5" rx="1.5" fill="#888e99"/>
+<path d="M567.5 697.5 L567.5 695.5 A2.5 2.5 0 0 1 572.5 695.5 L572.5 697.5" fill="none" stroke="#888e99" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="582" y="702.2" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#888e99">Overgrove never asks for or stores tokens.</text>
+<text x="376" y="772" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12" font-weight="400" fill="#888e99">Reopen anytime from Help › Setup Assistant.</text>
+<rect x="937.131" y="753" width="124.763" height="30" rx="7" fill="#43d59a"/>
+<text x="949.131" y="772.5" font-family="'OG Sans', -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif" font-size="12.5" font-weight="600" fill="#0e1116">Open Repository</text>
 </g>
-<rect x="0.5" y="0.5" width="1279" height="799" rx="10" fill="none" stroke="#3d3d3d" stroke-width="1"/>
+<rect x="320.5" y="52.5" width="799" height="817" rx="9.5" fill="none" stroke="#2b303a" stroke-width="1"/>
+<line x1="330" y1="53.5" x2="1110" y2="53.5" stroke="#ffffff" stroke-width="1" stroke-opacity="0.035"/>
+</g>
+<rect x="0.5" y="0.5" width="1439" height="899" rx="12" fill="none" stroke="#ffffff" stroke-width="1" stroke-opacity="0.122"/>
 </svg>

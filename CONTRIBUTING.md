@@ -51,7 +51,7 @@ Work happens in your **fork**; you do not need any role on this repository.
 
 Details and rationale: [docs/process/collaboration.md](docs/process/collaboration.md) (Korean),
 [ADR-0013](docs/adr/0013-external-contributions-and-issue-claiming.md), and
-[ADR-0014](docs/adr/0014-dependent-issues-stand-in.md).
+[ADR-0015](docs/adr/0015-dependent-issues-stand-in.md).
 
 #### When your issue depends on unfinished work
 

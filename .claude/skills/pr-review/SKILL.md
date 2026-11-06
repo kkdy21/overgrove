@@ -13,7 +13,7 @@ gh pr list --repo kkdy21/overgrove --state open --json number,title,author,isDra
   --jq '.[] | {number,title,author:.author.login,isDraft,checks:([.statusCheckRollup[]?.conclusion]|unique)}'
 ```
 - 우선순위: Draft가 아님 → 다른 PR이 기다리는 PR → 필수 검사 통과 → 오래된 순
-  - "다른 PR이 기다리는 PR"은 그 PR이 닫는 이슈가 다른 열린 PR의 의존 이슈인 경우다. 의존 이슈는 연결 이슈의 `## 의존성` 절과 PR 본문의 `Depends on #<n>` 줄에 있다(ADR-0014). 이런 PR을 먼저 머지해야 뒤의 PR이 풀린다.
+  - "다른 PR이 기다리는 PR"은 그 PR이 닫는 이슈가 다른 열린 PR의 의존 이슈인 경우다. 의존 이슈는 연결 이슈의 `## 의존성` 절과 PR 본문의 `Depends on #<n>` 줄에 있다(ADR-0015). 이런 PR을 먼저 머지해야 뒤의 PR이 풀린다.
   - 의존 이슈를 기다리는 Draft(`pr-policy`의 "Waiting on dependency")는 건너뛴다.
 - 외부 기여자의 첫 PR이라 워크플로우가 "승인 대기"면, diff에 워크플로우·스크립트 변경이 없는지 먼저 본다. 그다음 Actions 탭에서 실행을 승인하도록 사용자에게 안내한다.
 

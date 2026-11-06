@@ -30,7 +30,7 @@ xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'pla
 - `git diff $BASE/main...HEAD --stat`으로 변경 범위가 이슈 하나에 맞는지 확인한다.
 - 다음 경로를 건드렸으면 `security-reviewer` 에이전트를 돌린다: `Overgrove/Execution|Git|GitHub|Parsing|Security`, `.github/workflows`, `.githooks`, `.claude/hooks`, `scripts/github`
 - 범위가 의심되면 `scope-guard` 에이전트를 돌린다.
-- Ready로 바꾸기 전에 의존성을 확인한다(ADR-0014).
+- Ready로 바꾸기 전에 의존성을 확인한다(ADR-0015).
   - 연결 이슈의 `## 의존성` 절과 PR 본문의 `Depends on`에 있는 이슈가 모두 완료로 닫혔는가(`gh issue view <d> --json state,stateReason`). 하나라도 열려 있으면 Draft로 둔다.
   - stand-in이 남지 않았는가. `git diff $BASE/main...HEAD | grep -n 'STAND-IN(#'` 결과가 비어 있어야 한다.
 

@@ -23,8 +23,8 @@
 
 > **Status: pre-alpha, not usable yet.** The foundation that runs `git` safely is implemented and tested: process
 > execution, hardened git invocation, repository config inspection, credential masking, and path validation. Parsers
-> are in progress, and the app window is still a placeholder. The first round of screen mockups is below; a redesign
-> is in progress in [#166](https://github.com/kkdy21/overgrove/issues/166). Follow the [roadmap](docs/roadmap.md)
+> are in progress, and the app window is still a placeholder. The screen mockups below are the current design
+> ([#166](https://github.com/kkdy21/overgrove/issues/166)). Follow the [roadmap](docs/roadmap.md)
 > and the [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1).
 
 ## Why
@@ -181,7 +181,7 @@ Claude Code harness in [docs/process/claude-code-harness.md](docs/process/claude
 | | |
 |---|---|
 | Product | [PRD](docs/prd.md) · [MVP scope](docs/scope-mvp.md) · [Glossary](docs/glossary.md) · [Roadmap](docs/roadmap.md) |
-| Design | [Information architecture](docs/design/information-architecture.md) · [Screens](docs/design/screens.md) · [Interaction](docs/design/interaction.md) · [Design tokens](docs/design/design-tokens.md) · [Iconography](docs/design/iconography.md) |
+| Design | [Art direction](docs/design/art-direction.md) · [Information architecture](docs/design/information-architecture.md) · [Screens](docs/design/screens.md) · [Interaction](docs/design/interaction.md) · [Design tokens](docs/design/design-tokens.md) · [Iconography](docs/design/iconography.md) |
 | Engineering | [Architecture](docs/architecture/overview.md) · [Git command catalog](docs/architecture/git-command-catalog.md) · [Parsing spec](docs/architecture/parsing-spec.md) · [ADRs](docs/adr/) |
 | Security | [Security review & threat model](docs/design/security-review.md) · [SECURITY.md](SECURITY.md) |
 | Quality | [Test strategy](docs/testing/test-strategy.md) · [Performance budget](docs/performance/performance-budget.md) · [QA process](docs/qa/process.md) |

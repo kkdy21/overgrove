@@ -13,7 +13,7 @@ description: status:triage 상태인 Overgrove 이슈(주로 외부 제보)를 �
    - **범위**: v0.1 범위(조회 + fetch) 밖이면 마일스톤을 `later`로 둔다.
    - **라벨**: type, phase, area, priority를 정한다. bug면 심각도 S1–S4를 priority에 매핑한다.
    - **완료 조건**: 비어 있으면 검증 가능한 체크리스트를 제안한다.
-   - **의존성**: `## 의존성` 절이 없으면 선행 이슈를 찾아 제안한다. 없으면 `- 없음`으로 둔다. 다른 이슈를 기다린다는 이유로 `status:blocked`를 붙이지 않는다(ADR-0014).
+   - **의존성**: `## 의존성` 절이 없으면 선행 이슈를 찾아 제안한다. 없으면 `- 없음`으로 둔다. 다른 이슈를 기다린다는 이유로 `status:blocked`를 붙이지 않는다(ADR-0015).
 3. 변경 사항(라벨 추가·제거, 마일스톤, 코멘트 초안)을 이슈별 표로 보여주고 **승인**을 받는다.
 4. 반영
    - `gh issue edit <n> --add-label ... --remove-label status:triage --milestone ...`

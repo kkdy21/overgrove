@@ -1,4 +1,4 @@
-# Tells open pull requests that depend on an issue when that issue closes (ADR-0014, docs/process/collaboration.md §4.1).
+# Tells open pull requests that depend on an issue when that issue closes (ADR-0015, docs/process/collaboration.md §4.1).
 # A PR depends on issue #n if its body has a "Depends on #n" line, or if an issue it closes lists #n under "## 의존성".
 #
 # Security notes:
