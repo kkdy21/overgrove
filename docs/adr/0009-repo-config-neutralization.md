@@ -64,6 +64,6 @@ HANDOFF의 대응(`-c core.fsmonitor=false -c core.hooksPath=/dev/null`, `--no-e
 
 ## 후속 작업
 
-- [ ] RepoConfigInspector 구현 (Phase 3 보안 기반 Epic)
+- [x] RepoConfigInspector 구현 (Phase 3 보안 기반 Epic, #44 → PR #150). 구현 과정에서 처리 범위가 넓어졌다(로컬 프록시 무력화, 자체 TLS 인증서가 있으면 fetch 차단, `=`가 든 subsection은 조회 차단). 위 §4 표보다 [security-review.md §3.3](../design/security-review.md)이 현재 기준이다
 - [ ] 악성 픽스처(`scripts/make-fixture-repo.sh --malicious`)의 canary 기반 SEC-T4~T8 테스트
 - [ ] v0.2.0: 저장소별 "신뢰하지 않음" 모드 (fetch 차단, file 프로토콜 차단)

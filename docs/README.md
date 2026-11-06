@@ -218,7 +218,7 @@ git 계층 실측 기준선(이 표의 근거)은 [performance/benchmark-plan.md
 
 1. **머리말.** 제목 바로 아래에 상태 줄을 둔다.
    `> 상태: Draft | Proposed | Accepted | Superseded · 관련: ADR-000N, #이슈`
-2. **언어.** 내부 문서는 한국어로 쓰고 기술 용어는 영문 그대로 둔다. 외부 기여자 접점(README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, 템플릿)은 영어로 쓴다 (ADR-0005).
+2. **언어.** 내부 문서는 한국어로 쓰고 기술 용어는 영문 그대로 둔다. 외부 기여자 접점(README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, 템플릿)은 영어로 쓴다 (ADR-0005). `README.ko.md`는 `README.md`의 한국어판이다. 원본은 영어판이고, README를 고치는 PR에서 두 파일을 함께 고친다. 외부 기여자가 영어판만 고치면 메인테이너가 한국어판을 맞춘다.
 3. **링크.** 저장소 안 문서는 상대 경로로 링크한다. 개인 홈 디렉터리 경로(`/Users/<이름>/...`)는 쓰지 않는다. 예시 경로는 `~/dev/...` 형태로 쓴다.
 4. **다이어그램.** Mermaid 코드 블록을 쓴다. GitHub에서 바로 렌더링된다.
 5. **결정.** 문서에서 새로운 결정을 내리면 ADR로 옮기고 링크한다. 문서 안에 결정 근거를 길게 쓰지 않는다.

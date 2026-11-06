@@ -162,7 +162,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 
 - **Swift 6 언어 모드**와 strict concurrency(`complete`)를 켠다. 경고 없이 빌드되어야 한다.
 - 모델은 모두 `struct` + `Sendable` + `Equatable`이다. 바이트 데이터는 `Data`로 넘긴다.
-- **동시 실행 상한**: `GitClient`는 git 프로세스를 동시에 최대 `min(활성 CPU 코어 수, 8)`개까지만 띄운다. 워크트리 10개를 동시에 조회해도 시스템을 포화시키지 않는다.
+- **동시 실행 상한**: `GitClient`는 git 프로세스를 동시에 최대 4개까지만 띄운다(`GitClient.defaultConcurrency`). 워크트리 10개의 status를 병렬도별로 재 보면 4를 넘을 때 이득이 작고 디스크 경합만 커진다([performance-budget.md §4](../performance/performance-budget.md)). fetch가 이 한도를 오래 붙잡지 않도록 별도 한도를 두는 문제는 #76에서 다룬다.
 - **취소**: 저장소나 워크트리를 바꾸면 이전 Task를 취소한다. `ProcessRunner`는 `withTaskCancellationHandler`로 취소를 받으면 프로세스를 종료한다 (SIGTERM → 2초 → SIGKILL).
 - **디바운스**: 같은 워크트리의 새로고침 요청이 300ms 안에 반복되면 마지막 요청만 실행한다. 사용자가 누른 `⌘R`은 디바운스하지 않는다.
 - **fetch**는 저장소당 한 번에 하나만 실행한다. 진행 중에 다시 누르면 무시하고 진행 상태를 보여 준다.
