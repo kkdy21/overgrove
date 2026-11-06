@@ -4,9 +4,38 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 
 ## 0. 지금 상태
 
-- Phase 1(기획)과 Phase 2(설계) 게이트를 통과했다(2026-11-05, [phase-gates.md §4](docs/process/phase-gates.md)). **Phase 3(개발)이 진행 중이고 협업자가 참여할 수 있다.**
-- 앱 코드와 Xcode 프로젝트는 아직 없다. 첫 작업은 Project skeleton Epic(#3)의 Xcode 프로젝트 생성이다. 보안 기반과 파서 테스트를 화면 기능보다 먼저 한다([roadmap.md](docs/roadmap.md)의 순서).
+- Phase 1·2 게이트를 통과했고([phase-gates.md §4](docs/process/phase-gates.md)), **Phase 3(개발)이 진행 중이며 협업자를 받는다.**
+- 실행·보안 기반이 들어와 있다:
+  - Xcode 프로젝트, CI
+  - `ProcessRunner`, `GitEnvironment`, `GitCommand`·`GitClient`, `RepoConfigInspector`
+  - `CredentialMasker`, `PathValidator`, `GitError`
+  - 모델, 설정·버전·gh 파서
+- 이제 파서(worktree·status·stash·log·ref), GraphEngine, 픽스처 통합 테스트, 디자인 시스템이 열려 있다. 화면은 그다음이다([roadmap.md](docs/roadmap.md)의 순서).
 - 진행 상황은 GitHub 이슈, [보드](https://github.com/users/kkdy21/projects/4), 마일스톤이 기준이다. 선점 가능한 이슈는 보드의 "Ready to claim" 뷰에 있다.
+
+## 0.1 "백로그 확인해서 진행해줘"
+
+사용자가 이렇게(또는 "check the backlog and work on it", "할 거 찾아서 해줘") 말하면 **`/onboard` 스킬을 실행하고, 그 안의 단계를 PR이 Ready가 될 때까지 이어서 진행한다.** 순서는 이렇다.
+
+1. 셋업 점검: gh 로그인, fork 원격, hooks, Xcode
+2. 선점 가능한 이슈 추천 → **사용자가 고름**
+3. `/claim`
+4. `/issue-start`
+5. 테스트 우선 구현
+6. 첫 커밋 직후 `/pr-open --draft`
+7. 완료 조건 충족
+8. 전체 테스트·lint·보안 점검
+9. PR Ready
+10. 보고
+
+중간에 멈추고 사용자에게 묻는 경우:
+- 이슈를 고를 때
+- 명세가 모호하거나 결정이 필요할 때
+- 범위 밖 변경이 필요할 때
+- 보안 영향 판단이 서지 않을 때
+- 셋업에 사용자의 손(로그인, sudo)이 필요할 때
+
+**머지는 하지 않는다.** 머지는 메인테이너가 검수 후에 한다.
 
 ## 1. 작업 전에 읽을 것
 
@@ -31,6 +60,20 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
    - 원격 URL과 stderr는 마스킹한 뒤에만 화면이나 로그에 쓴다.
 6. **외부 의존성을 추가하지 않는다.** Swift 패키지, 바이너리, 서드파티 GitHub Action 모두 해당한다. 꼭 필요하면 ADR을 먼저 쓴다.
 7. GitHub Actions는 **전체 커밋 SHA로 고정**하고 `permissions:`는 최소로 둔다. PR 제목·본문 같은 신뢰할 수 없는 값은 `env:`로만 넘긴다.
+
+### 2.1 기반 코드 사용 규칙 (새 기능을 만들 때)
+
+- **git 호출은 반드시 `GitClient`를 거친다.**
+  - 명령이 필요하면 `ReadOnlyGitCommand`에 case를 추가하고, 카탈로그와 스냅샷 테스트(SEC-T9-01)를 함께 고친다.
+  - `GitClient.run`에는 `RepoConfigInspector.inspect(...).safetyContext`로 만든 `RepoSafetyContext`를 넘긴다. 검사 전에는 `version`, `probeRepository`, `configList`만 실행된다.
+- **gh 호출**은 GHClient(#80) 이후 그것을 거친다. 그 전에는 gh를 직접 실행하지 않는다.
+- **파서**는 `Data`를 받아 실패 시 `ParseError`를 던진다. 화면에는 `GitError`(`message`, `detail`)만 쓴다.
+- **stderr와 원격 URL**은 `MaskedText` 또는 `CredentialMasker`를 거친 값만 화면·로그에 쓴다.
+- **파일 내용을 읽을 경로**는 `PathValidator`로 검증한다(미리보기는 `WorktreeFile`만).
+- **테스트**:
+  - 실제 git이 필요하면 `GitTestRepository`(임시 저장소)나 `FixtureRepo`(`scripts/make-fixture-repo.sh`, `--malicious` 포함)를 쓴다.
+  - 시간에 의존하는 테스트는 준비가 끝난 뒤에 신호를 보내 경쟁을 피하고, `-test-iterations`로 불안정성을 확인한다.
+  - 실제 git 출력은 채집해 픽스처로 쓴다.
 
 ## 3. 절대 규칙 — 공개 저장소
 

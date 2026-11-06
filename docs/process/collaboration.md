@@ -19,10 +19,10 @@ gh auth login                                  # GitHub 로그인
 gh repo fork kkdy21/overgrove --clone --remote # origin=내 fork, upstream=kkdy21/overgrove
 cd overgrove
 ./scripts/bootstrap.sh                         # Git hooks 설치, 도구 점검
-claude                                         # Claude Code 실행 → "/onboard"
+claude                                         # Claude Code 실행 → "백로그 확인해서 진행해줘"
 ```
 
-`/onboard` 스킬이 하는 일:
+"백로그 확인해서 진행해줘"는 `/onboard` 스킬을 실행하고, PR이 Ready가 될 때까지 이어서 진행한다(CLAUDE.md §0.1). `/onboard` 스킬이 하는 일:
 1. 셋업 점검
 2. 선점 가능한 이슈 목록 제시. 조건은 담당자 없음, Epic·blocked·undecided 아님, 의존 이슈 닫힘
 3. 사용자가 고른 이슈에 `/claim` 댓글

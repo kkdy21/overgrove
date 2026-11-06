@@ -112,8 +112,21 @@ rules for every contributor. After the setup above:
 
 ```sh
 claude
-> /onboard          # checks your setup, lists claimable issues, comments /claim, starts a branch or worktree
-> /pr-open --draft  # right after your first meaningful commit, to keep the claim
+> 백로그 확인해서 진행해줘        # or: "check the backlog and work on it"
+```
+
+That one sentence runs the whole flow (`/onboard`):
+1. Setup checks: gh login, fork remotes, hooks, Xcode.
+2. A short list of claimable issues; you pick one.
+3. `/claim`, a branch, and a test-first implementation.
+4. A draft PR right after the first commit, to keep the claim.
+5. Lint, tests, and security checks; the PR is marked ready.
+
+Claude stops to ask when it needs a decision, a login, or `sudo`. It never merges. You can also run the steps yourself:
+
+```text
+> /onboard          # setup + pick + claim + start
+> /pr-open --draft  # right after your first meaningful commit
 > /pr-open          # when the acceptance criteria are met (or mark the draft ready)
 ```
 
