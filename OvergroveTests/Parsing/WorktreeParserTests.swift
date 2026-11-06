@@ -3,7 +3,7 @@ import XCTest
 
 @testable import Overgrove
 
-/// PAR-WT-01…09 (parsing-spec.md §2).
+/// PAR-WT-01…09 (parsing-spec.md §2). PAR-WT-07 also covers SEC-T15-03 (truncated parser input).
 ///
 /// Inputs mirror real `git worktree list --porcelain -z` output from Apple Git 2.54.0; only the paths are replaced.
 final class WorktreeParserTests: XCTestCase {
@@ -89,6 +89,26 @@ final class WorktreeParserTests: XCTestCase {
         XCTAssertEqual(worktrees.map(\.isLocked), [false, true, true, true])
     }
 
+    /// The parser keeps lock reasons byte-for-byte; neutralizing control and bidi characters is the display layer's
+    /// job. The test pins that nothing is stripped or reordered here.
+    func testPARWT03_LockReasonWithControlAndBidiCharactersIsKeptVerbatim() throws {
+        let reason = "evil\u{1B}[31m\t\u{07}\u{202E}txt.exe\u{2066}x\u{2069}\u{200F}"
+        let worktree = try XCTUnwrap(
+            try parse([
+                ["worktree /tmp/dev/repo", "HEAD \(oid)", "branch refs/heads/main"],
+                ["worktree /tmp/dev/wt", "HEAD \(oid)", "detached", "locked \(reason)"],
+            ]).worktrees.last
+        )
+        XCTAssertEqual(worktree.lock, .locked(reason: reason))
+    }
+
+    func testPARWT03_LockedWithEmptyReasonHasNoReason() throws {
+        let worktree = try XCTUnwrap(
+            try parse([["worktree /tmp/dev/repo", "HEAD \(oid)", "detached", "locked "]]).worktrees.first
+        )
+        XCTAssertEqual(worktree.lock, .locked(reason: nil), "`locked ` with an empty reason is the same as `locked`")
+    }
+
     func testPARWT04_PrunableWithReason() throws {
         let worktrees = try parse([
             ["worktree /tmp/dev/repo", "HEAD \(oid)", "branch refs/heads/main"],
@@ -155,6 +175,7 @@ final class WorktreeParserTests: XCTestCase {
         XCTAssertNil(path.argument)
     }
 
+    /// PAR-WT-07 / SEC-T15-03: output cut at the size limit drops the incomplete last record.
     func testPARWT07_TruncatedOutputDropsLastRecord() throws {
         var data = output([
             ["worktree /tmp/dev/repo", "HEAD \(oid)", "branch refs/heads/main"],
