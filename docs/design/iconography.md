@@ -1,6 +1,6 @@
 # 아이콘과 심볼 (Iconography)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [`design/icon/`](../../design/icon/), [design-tokens.md](design-tokens.md), [interaction.md §6](interaction.md#6-접근성), [screens.md](screens.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 심볼 추가 (#166) · 관련: [`design/icon/`](../../design/icon/), [art-direction.md](art-direction.md), [design-tokens.md](design-tokens.md), [interaction.md §6](interaction.md#6-접근성), [screens.md](screens.md)
 
 ---
 
@@ -71,7 +71,7 @@ SVG는 사람이 읽을 수 있는 형태로 유지한다. 작은 생성 스크�
 
 1. 상태 색은 반드시 심볼과 함께 쓴다. 심볼은 반드시 텍스트 라벨이나 VoiceOver 라벨과 함께 쓴다.
 2. **같은 맥락에 함께 나오는 상태는 실루엣이 달라야 한다.** 색각 이상이 있어도 모양으로 구분할 수 있게 하기 위해서다. 상태 색은 색각 이상 시뮬레이션에서 일부 쌍이 구분되지 않는다 ([design-tokens.md §5.2](design-tokens.md#52-상태-색)).
-3. 선택된 행에서는 심볼 색이 `text.on-selection`(흰색)으로 바뀐다. 그때도 모양으로 상태를 알 수 있어야 한다.
+3. 선택된 행(`surface.selection`)에서도 심볼 색을 유지한다. light 모드에서 3:1에 못 미치는 `status.untracked`와 레인 7 심볼만 `text.secondary`로 바꾼다(#166). 그때도 모양으로 상태를 알 수 있어야 한다.
 4. 렌더링 모드는 기본 monochrome이다. 크기는 `size.symbol-small`(12) 또는 `size.symbol-medium`(14)을 쓴다.
 
 ### 5.1 파일 상태 (S-02 그룹 헤더와 행)
@@ -118,6 +118,14 @@ SVG는 사람이 읽을 수 있는 형태로 유지한다. 작은 생성 스크�
 | 브라우저에서 열기 | `arrow.up.right.square` |
 | 에러 | `exclamationmark.triangle` |
 | 작업 트리 깨끗함 | `checkmark.circle` |
+| AI 공동 작성 | `sparkles` |
+| 작성자 필터 | `person.2` |
+| 기준 브랜치 대비 변경 (Compare) | `plus.forwardslash.minus` |
+| 열·밀도 메뉴 | `ellipsis` |
+| 사이드바 / 상세 패널 토글 | `sidebar.left` / `sidebar.right` |
+| 읽기 전용 표시 (상태바) | `checkmark.shield` |
+
+**워크트리 타일 (#166).** 사이드바 워크트리 행, 상세 패널 머리, 툴바 포커스 칩에서는 `tree.fill`을 둥근 사각형 타일 안에 둔다. 타일은 그 브랜치 레인 색 18%로 채우고 심볼은 레인 색이다. detached와 prunable 워크트리는 중립 색(`text.secondary`) 타일에 `tree`를 쓴다. 규칙은 [art-direction.md §6](art-direction.md#6-사이드바)에 있다.
 
 - 최소 지원 OS(macOS 14)에서 쓸 수 있는 SF Symbols 5 이름만 고른다. Phase 3 첫 UI 이슈에서 SF Symbols 앱으로 이름과 가용 OS를 확인하고, 없는 이름은 이 표를 고친다.
 - 다른 Git 클라이언트나 GitHub의 고유 아이콘(Octicons 등)을 흉내 내지 않는다.

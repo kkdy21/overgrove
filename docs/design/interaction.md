@@ -1,6 +1,6 @@
 # 상호작용 명세 (Interaction)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 패널 크기 조절 추가 (#166) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
 
 이 문서는 선택과 포커스, 키보드, 새로고침과 fetch, 취소, 컨텍스트 메뉴, 접근성을 정한다. 화면 배치는 [screens.md](screens.md)에 있다.
 
@@ -48,8 +48,38 @@
 | 클릭 | 상태바 gh 상태 | S-07의 GitHub 단계 열기 |
 | 호버 | 배지, 상대 시각, 잘린 경로 | 툴팁: 전체 값 (`size` 제한 없음, 0.5초 지연) |
 | 우클릭 | 행 | 컨텍스트 메뉴 (§5) |
+| 드래그 | 패널 사이 홈(분할선) | 패널 폭 조절 (§2.1) |
+| 더블클릭 | 패널 사이 홈 | 양쪽 패널을 기본 폭으로 |
+| 드래그 | 그래프 열 머리의 구분선 | 열 폭 조절 (§2.1) |
 
 그래프의 드래그 앤 드롭, 사이드바 재정렬은 없다.
+
+### 2.1 패널 크기 조절과 스크롤
+
+메인 창은 사이드바, 중앙, 상세 세 패널을 둥근 상자로 나누고 그 사이 8pt 홈을 분할선으로 쓴다(#166, [ADR-0014](../adr/0014-panel-theme-and-split-layout.md)). 모양은 [art-direction.md §3](art-direction.md#3-창-구조)에 있다.
+
+| 항목 | 규칙 |
+|---|---|
+| 잡는 영역 | 홈 전체(폭 `size.panel-gap` 8pt, 패널 높이 전체). 가운데의 4×28pt 손잡이는 표시일 뿐이고 영역을 줄이지 않는다 |
+| 포인터 표시 | 올리면 손잡이가 액센트 색이 되고 홈에 액센트 10%를 칠한다. 커서는 `resizeLeftRight`. 최소 폭에 닿으면 넓히는 쪽, 최대 폭에 닿으면 좁히는 쪽 한 방향 커서 |
+| 폭 범위 | 사이드바 220~420(기본 256), 상세 300~560(기본 344), 중앙 최소 480. 중앙은 나머지를 모두 차지한다 |
+| 더블클릭 | 그 분할선 양쪽 패널을 기본 폭으로 되돌린다 |
+| 접기 | 사이드바나 상세를 최소 폭보다 40pt 넘게 더 좁히면 접힌다. 놓기 전까지는 접힐 자리를 반투명 미리보기로 보여 준다. 다시 열기: 툴바 사이드바 버튼, `⌃⌘S`(사이드바), `⌥⌘0`(상세), View 메뉴. 중앙 패널은 접히지 않는다 |
+| 창 크기 변경 | 중앙이 먼저 늘고 준다. 중앙이 최소 폭에 닿으면 상세 → 사이드바 순으로 최소 폭까지 줄어든다. 창 최소 폭은 1040pt이고, 패널을 접으면 그만큼 작아진다 |
+| 기억 | 패널 폭, 접힘 상태, 그래프 열 폭과 표시 여부를 저장소마다 저장한다. 저장소를 다시 열면 복원한다 |
+| 키보드 | 분할선은 VoiceOver에서 조절 가능한 요소다(`Sidebar width, 256 points`). 포커스를 둔 뒤 `←` `→`로 8pt씩, `⌥←` `⌥→`로 최소·최대까지 옮긴다 |
+| 움직임 | 끄는 동안 애니메이션 없이 포인터를 따른다. 접기·펼치기는 `motion.duration-standard`, Reduce Motion이면 즉시 |
+
+**그래프 열.**
+- 열 머리(Refs, Graph, Message, Author, Date, SHA)의 구분선을 끌어 폭을 바꾼다. 더블클릭하면 내용에 맞춘다.
+- 패널 머리 오른쪽 `⋯` 메뉴에서 Author, Date, SHA를 숨기거나 보인다. Refs, Graph, Message는 숨길 수 없다.
+- Graph 열은 레인 수에 맞춰 자동으로 정해진다. 레인이 `size.graph-max-lanes-visible`(12)을 넘으면 Graph 열 안에서만 가로로 스크롤한다.
+
+**스크롤.**
+- 세 패널은 각자 따로 세로 스크롤한다. 패널 머리와 그래프 열 머리는 고정이다.
+- 사이드바 섹션 머리는 스크롤할 때 패널 위쪽에 붙는다.
+- 상세 패널 아래의 비교 카드(S-02, S-05)는 고정이고, 그 위 목록만 스크롤한다.
+- 스크롤바는 시스템 설정을 따르는 오버레이 스타일이다(`surface.scrollbar-thumb`).
 
 ---
 
@@ -75,8 +105,8 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⌘2` | Focus Graph | Navigate | S-09, S-10이 열려 있으면 그쪽 |
 | `⌘3` | Focus Detail | Navigate | |
 | `⌘4` | Focus Issues | Navigate | 사이드바 ISSUES 섹션으로 이동하고 펼친다 |
-| `⌃⌘S` | Show/Hide Sidebar | View | `NavigationSplitView` 기본 명령 |
-| `⌥⌘0` | Show/Hide Detail | View | Xcode 관례. SwiftUI 기본 inspector 명령이 다른 단축키를 주면 그것을 따른다 (Phase 3 확인) |
+| `⌃⌘S` | Show/Hide Sidebar | View | macOS 표준 단축키. 사용자 정의 분할 컨테이너에 직접 연결한다 (ADR-0014) |
+| `⌥⌘0` | Show/Hide Detail | View | Xcode 관례 |
 | `⌘C` | Copy | Edit | 선택에 따라 SHA, 파일 경로(저장소 기준), stash ref, 이슈 URL |
 | `⌥⌘C` | Copy Full Path | Edit | 파일·워크트리의 절대 경로. Finder "Copy as Pathname" 관례 |
 | `↑` / `↓` | 이전 / 다음 행 | — | 모든 목록 |
@@ -221,22 +251,22 @@ stateDiagram-v2
 | 충돌, prunable, locked | 서로 다른 심볼 + 툴팁 텍스트 |
 | 그래프 레인 | 위치 + 각 행의 ref 알약 텍스트. 레인 색은 보조 수단이다 |
 | diff 추가/삭제 | `+` / `−` 기호와 줄 번호 열 |
-| 선택 행 | 배경 + 선택 행에서는 상태 심볼도 `text.on-selection`으로 바뀌어 모양만 남는다 |
+| 선택 행 | `surface.selection` 배경. 상태 심볼과 레인 색은 그대로 둔다. light 모드에서 3:1에 못 미치는 `status.untracked`(2.93)와 레인 7(2.48)만 `text.secondary`로 바꾼다. 모양은 그대로다 |
 
 상태 색 쌍 중 일부는 색각 이상 시뮬레이션에서 구분되지 않는다(초록 staged와 주황 unstaged 등). 그래서 위 보조 수단은 **선택 사항이 아니라 필수**다. 측정값은 [design-tokens.md §5](design-tokens.md#5-검증-결과)에 있다.
 
 ### 6.3 글자 크기와 확대
 
 - 모든 텍스트는 SwiftUI 텍스트 스타일(`Font.body`, `.callout` 등)로 지정한다. 포인트 크기를 직접 쓰지 않는다.
-- 사이드바 행 높이는 시스템 설정 "Sidebar icon size"를 따른다.
-- macOS는 iOS 같은 전역 Dynamic Type이 없다. 그래프는 가상화를 위해 행 높이를 `size.row-graph`(24px)로 고정한다. 그래서 v0.1의 그래프는 글자 크기 확대에 대응하지 않는다. `⌘+`/`⌘−` 확대(행 높이와 글자를 함께 키움)는 `later`로 두고 이 제약을 [scope-mvp.md](../scope-mvp.md)에 적는다.
+- 사이드바와 그래프의 행 높이는 고정이다(`size.row-sidebar` 28, `size.row-worktree` 46, `size.row-graph` 30).
+- macOS는 iOS 같은 전역 Dynamic Type이 없다. 그래프는 가상화를 위해 행 높이를 `size.row-graph`(30px)로 고정한다. 그래서 v0.1의 그래프는 글자 크기 확대에 대응하지 않는다. `⌘+`/`⌘−` 확대(행 높이와 글자를 함께 키움)는 `later`로 두고 이 제약을 [scope-mvp.md](../scope-mvp.md)에 적는다.
 
 ### 6.4 대비
 
-- 텍스트는 배경 대비 4.5:1 이상이다. 시스템 label 색을 쓰므로 자동으로 만족한다.
-- 상태 심볼과 그래프 노드처럼 의미를 가진 그래픽은 3:1 이상이다. 상태 색은 3.45:1 이상으로 검증했다. 그래프 레인의 light 모드 슬롯 5~7은 3:1 미만이지만 각 행에 텍스트 라벨이 있어 완화 조건을 만족한다. 근거는 [design-tokens.md §5](design-tokens.md#5-검증-결과)에 있다.
-- **Increase Contrast**: 시스템 색은 자동으로 대응한다. 앱 고유 색(상태, 레인, diff)은 Phase 3에서 Asset Catalog의 High Contrast 변형을 만든다. 변형은 배경 대비 4.5:1 이상이어야 한다.
-- **Reduce Transparency**: 사이드바 머티리얼이 자동으로 불투명해진다. 추가 작업은 없다.
+- 텍스트는 배경 대비 4.5:1 이상이다. 패널 테마의 모든 표면에서 검증했다. `text.tertiary`는 선택 행과 컨트롤 위에서 `text.secondary`로 바꾼다.
+- 상태 심볼, 그래프 레인, 분할선 손잡이처럼 의미를 가진 그래픽은 3:1 이상이다. 상태 색은 최저 3.20, 레인은 최저 3.10(light) / 5.71(dark), 손잡이는 홈 대비 4.22 / 3.59다. 근거는 [design-tokens.md §5](design-tokens.md#5-검증-결과)에 있다.
+- **Increase Contrast**: 패널 테마는 앱이 직접 대응한다. 패널 테두리 → `border.strong`, `text.tertiary` → `text.secondary`, 컨트롤 테두리 1.5pt. 상태·레인·diff 색은 Phase 3에서 Asset Catalog의 High Contrast 변형을 만든다(배경 대비 4.5:1 이상).
+- **Reduce Transparency**: 메인 창은 반투명 재질을 쓰지 않는다. 시스템이 그리는 메뉴·팝오버만 영향을 받는다.
 
 ### 6.5 움직임과 키보드
 

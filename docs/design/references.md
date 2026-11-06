@@ -1,6 +1,6 @@
 # 디자인 참고 조사 (References)
 
-> 상태: Draft · 관련: [screens.md](screens.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [mockups.md](mockups.md), ADR-0010, ADR-0011, #158
+> 상태: Draft · 관련: [art-direction.md](art-direction.md), [screens.md](screens.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [mockups.md](mockups.md), ADR-0010, ADR-0011, #158
 
 이 문서는 macOS Git 클라이언트와 Apple Human Interface Guidelines(HIG)에서 **배치와 정보 표시 패턴**을 조사하고, Overgrove가 무엇을 받아들이고 무엇을 받아들이지 않는지 기록한다. 확정된 화면 명세는 [screens.md](screens.md)이고, 목업은 [mockups.md](mockups.md)에 있다. 이 문서는 근거를 모아 두는 곳이며, 여기서 새 결정을 내리지 않는다. 결정이 필요한 항목은 "열린 질문"으로 표시한다.
 
@@ -172,6 +172,14 @@ Tower의 diff 보기가 Unified/Split 전환을 제공하는지는 공식 출처
 - 작성자 이니셜 표시. GitKraken은 선택 사항이지만 Overgrove는 이니셜만 쓴다(§4.4).
 - 작성자로 그래프를 거르는 조작. Overgrove는 그래프 툴바의 작성자 필터 칩 줄로 둔다(§4.4).
 - 브랜치 이름과 폴더 이름이 다를 때 둘 다 보여 주는 규칙. Overgrove의 워크트리 행 이름 규칙과 같은 결론이다.
+- (#166) 배치 패턴:
+  - 상자로 분명히 나뉜 세 영역과 끌어서 바꾸는 크기
+  - 그래프 왼쪽의 ref 열과 알약에서 노드까지의 연결선
+  - 작성자 아바타를 노드로 쓰는 그래프
+  - 아이콘 위에 라벨을 둔 툴바
+  - 선택 열(Author, Date, SHA)
+
+  열 이름은 `Refs`, `Graph`, `Message`, `Author`, `Date`, `SHA`로 따로 정했다. 색 값은 가져오지 않았다([art-direction.md §11](art-direction.md#11-참고한-것과-가져오지-않은-것)).
 
 **채택하지 않음**
 
@@ -179,7 +187,7 @@ Tower의 diff 보기가 Unified/Split 전환을 제공하는지는 공식 출처
 - 상태바의 서비스 요약, 요금제, 확대 비율. Overgrove 상태바는 저장소 단위의 Git 상태 요약만 둔다.
 - 에이전트 세션 카드와 에이전트 상태 연동. Overgrove는 git이 남긴 결과(워크트리, 커밋, trailer)만 읽고 에이전트 프로세스와 연동하지 않는다. AI의 흔적은 커밋의 `Co-authored-by:` trailer에서만 읽는다.
 - 워크트리마다 WIP 노드를 그리는 방식은 v0.1에서 받아들이지 않는다. S-01은 포커스 워크트리의 WIP 행만 둔다. 다른 워크트리의 미커밋 상태는 사이드바 배지로 본다. 여러 WIP 행은 **열린 질문**이다(later 후보).
-- 워크트리를 탭으로 묶는 방식, Gravatar·identicon, GitKraken 고유의 명칭과 화면 문구 ([interaction.md §7](interaction.md#7-화면-문구-원칙)), 청록·보라 계열 브랜드 톤 ([design-tokens.md §1](design-tokens.md#1-원칙)).
+- 워크트리를 탭으로 묶는 방식, Gravatar·identicon, GitKraken 고유의 명칭과 화면 문구 ([interaction.md §7](interaction.md#7-화면-문구-원칙)), 색 값(레인 팔레트, 청록 계열 브랜드 톤. [design-tokens.md §1](design-tokens.md#1-원칙)).
 
 **출처**
 
@@ -273,7 +281,7 @@ HIG 웹 페이지는 스크립트로 그려져 본문을 바로 받지 못했다
 
 **색과 접근성**
 
-- 같은 색으로 서로 다른 뜻을 나타내지 않는다. 라이트, 다크, Increase Contrast 모두에서 맞는 색을 쓴다. 시스템 색을 우선한다.
+- 같은 색으로 서로 다른 뜻을 나타내지 않는다. 라이트, 다크, Increase Contrast 모두에서 맞는 색을 쓴다. (#166 이후 메인 창은 자체 패널 테마를 쓰고, 네이티브 컨트롤은 시스템 색을 쓴다. [art-direction.md](art-direction.md))
 - 색만으로 정보를 전하지 않는다. 모양이나 아이콘을 함께 쓴다. 대비는 WCAG AA 수준을 기준으로 삼는다.
 
 **Overgrove의 대응**
@@ -318,7 +326,7 @@ HIG 웹 페이지는 스크립트로 그려져 본문을 바로 받지 못했다
 ### 4.3 커밋 그래프 레인
 
 - GitKraken은 열이 브랜치, 선이 merge와 관계를 나타낸다고 설명하고, 브랜치 위에 마우스를 올리면 관련 커밋만 강조한다. Fork는 merge를 접는다. lazygit은 그래프 표시를 끌 수 있고, 커밋 색에 push 여부 같은 상태를 싣는다.
-- **Overgrove 결론.** 레인은 앱이 계산하고(ADR-0010), 색은 `color.graph.lane.0~7`을 순환한다. 레인 색은 "어느 줄기인가"만 뜻하고 작성자나 push 상태를 싣지 않는다. 한 색에 한 뜻만 둔다는 HIG 지침 때문이다. 작성자 색은 아바타(§4.4)에만 쓴다. stash 노드, merge 접기, 마우스 올림 강조는 v0.1에 없다.
+- **Overgrove 결론.** 레인은 앱이 계산하고(ADR-0010), 색은 `color.graph.lane.0~7`을 순환한다. 팔레트는 다크 캔버스 위에서 선명한 고채도 8색이고 이웃 레인이 멀리 떨어진 색이 되도록 순서를 정했다(#166, [art-direction.md §4.3](art-direction.md#43-레인-팔레트)). 레인 색은 "어느 줄기인가"만 뜻하고 작성자나 push 상태를 싣지 않는다. 한 색에 한 뜻만 둔다는 HIG 지침 때문이다. 작성자 색은 아바타(§4.4)에만 쓴다. stash 노드, merge 접기, 마우스 올림 강조는 v0.1에 없다.
 
 ### 4.4 작성자 표시
 

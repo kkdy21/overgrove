@@ -1,8 +1,8 @@
 # 화면 명세 (Screens)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159) · 관련: [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159), 패널 테마 레이아웃으로 개정 (#166) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
 
-HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. S-11(기준 브랜치 대비 변경)은 #158에서 추가했다. 고충실도 목업은 [mockups.md](mockups.md)에 모았고, 각 절에도 링크를 둔다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다.
+HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. S-11(기준 브랜치 대비 변경)은 #158에서 추가했다. 고충실도 목업은 [mockups.md](mockups.md)에 모았고, 각 절에도 링크를 둔다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다. 패널, 그래프, 알약을 그리는 규칙(수치)은 [art-direction.md](art-direction.md)에 있다.
 
 **HANDOFF 대비 바뀐 점**
 
@@ -32,41 +32,52 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 **진입.** 앱 실행 시 마지막으로 연 저장소. 등록한 저장소가 없으면 S-07 온보딩.
 
-**레이아웃.** `NavigationSplitView` 3단(사이드바 / 중앙 / 상세) + 툴바 + 하단 상태바.
+**레이아웃.** 툴바 + **둥근 상자 패널 3개**(사이드바 / 중앙 / 상세) + 하단 상태바. 패널 사이 8pt 홈이 크기 조절 손잡이다. `NavigationSplitView`가 아니라 사용자 정의 분할 컨테이너를 쓴다([ADR-0014](../adr/0014-panel-theme-and-split-layout.md)). 크기, 표면, 분할선, 스크롤 규칙은 [art-direction.md §3](art-direction.md#3-창-구조), 동작은 [interaction.md §2.1](interaction.md#21-패널-크기-조절과-스크롤)에 있다.
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────────────────┐
-│ ● ● ●  [overgrove ▾]   [↓ Fetch]        ⑂ feat/12-worktree-list            [ 🔍 Search   ⌘F ] │
-├───────────────────┬────────────────────────────────────────────────┬─────────────────────────┤
-│ WORKTREES (4)     │ ◌  WIP   3 staged · 2 unstaged · 1 untracked   │ feat/12-worktree-list   │
-│ ● main      main  │ │                                              │ [ Changes | Worktree ]  │
-│ ● feat/12   ✎6 ↑2 │ ◉  a1b2c3d  feat: add status parser   Ko   2h  │                         │
-│   hotfix    🔒    │ │  ⟨feat/12⟩                                   │ STAGED (3)              │
-│   old-spike ⚠     │ ◉  e4f5a6b  fix: handle empty stash   Ko   1d  │  ✓ M  Parser.swift      │
-│                   │ ├─╮                                            │  ✓ A  GitClient.swift   │
-│ LOCAL (4)         │ │ ◉  9c8d7e6  docs: add ADR-0008     Ko   3d  │  ✓ D  Old.swift         │
-│   main            │ │ │  ⟨origin/docs⟩                             │                         │
-│ ▸ feat/           │ ◉─╯  0b1c2d3  Merge branch 'docs'     Ko   4d  │ UNSTAGED (2)            │
-│   hotfix    🌲    │ │                                              │  ✎ M  Graph.swift       │
-│                   │ ◉  7f8e9d0  chore: bootstrap repo     Ko   5d  │  ✎ M  Sidebar.swift     │
-│ REMOTE            │ │  ⟨main⟩ ⟨origin/main⟩ ⟨v0.0.1⟩               │                         │
-│ ▸ origin (3)      │                                                │ UNTRACKED (1)           │
-│                   │                                                │  ? ?  notes.md          │
-│ STASHES (2)       │                                                │                         │
-│   stash@{0}  WIP… │                                                │                         │
-│   stash@{1}  exp  │                                                │                         │
-│                   │                                                │                         │
-│ ISSUES (5)        │                                                │                         │
-│   #12  feat/12 🌲 │                                                │                         │
-│   #15  Parse Lfs… │                                                │                         │
-├───────────────────┴────────────────────────────────────────────────┴─────────────────────────┤
-│ ⟳ Fetched 2 min ago · ↑2 ↓0 · 4 worktrees · ⚠ 1 prunable                     gh: @octocat ✓  │
-└──────────────────────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ● ● ● ◧ [overgrove ⌃] › [◆ feat/12-worktree… ↑2]  ↓Fetch ⟳Refresh │ ±Compare │ ▭Terminal ▭Finder  [⌕ Search ⌘F]       │
+│ ╭──────────────────────╮ ╭─────────────────────────────────────────────────────────╮ ╭──────────────────────────────╮ │
+│ │⌕ Filter          ⌥⌘F │ │☺ All · Ko 12 · Lee 4 · Park 3   ✦ AI-assisted 5   ⋯     │ │◆ feat/12…  Changes│Worktree  │ │
+│ ├──────────────────────┤ ├─────────────────────────────────────────────────────────┤ ├──────────────────────────────┤ │
+│ │˅ WORKTREES        4  │ │Refs           │Graph │Message               │Author│Date│ │⌂ ~/dev/overgrove-wt/12-…     │ │
+│ │◆ main                │ ├─────────────────────────────────────────────────────────┤ │6 changed files ▬▬▬▬ +54 −12  │ │
+│ │  main worktree  ~/dev│ │┆12-worktree┆┈┈┈┈◌    WIP  3 staged · 2 unstaged · 1 unt…│ │╭ ⚠ Conflicted  1 ─────────╮  │ │
+│ │◆ feat/12-wor…  ✎6 ↑2 │ │[■ feat/12 ⊕]────◉    feat: add status parser   Ko    2h │ ││ U Sources/…/Layout.swift │  │ │
+│ │  12-worktree-list    │ │                 ◉    fix: handle empty stash   Ko    1d │ │╰──────────────────────────╯  │ │
+│ │◆ hotfix           ⌧  │ │                 ◉─╮  Merge branch 'docs'     Ko    3d   │ │╭ ✓ Staged  3      +54 −12 ╮  │ │
+│ │◆ old-spike         ⚠ │ │[origin/docs]────┼─◉  docs: add ADR-0008 ✦AI  Lee    4d  │ ││ M …/Status.swift  +40 −8 │  │ │
+│ │  path missing        │┃│[main ⊕] +1──────◉─╯  chore: bootstrap repo     Ko    5d │┃││ A …/GitClient.swift  +14 │  │ │
+│ │˅ LOCAL            4  │┃│                 │                                       │┃│╰──────────────────────────╯  │ │
+│ │  ⑂ main            ◆ │ │                 ◉    init                      Ko    6d │ │╭ ✎ Unstaged  2     +11 −3 ╮  │ │
+│ │  › feat/           2 │ │                                                         │ ││ M …/Graph.swift   +11 −1 │  │ │
+│ │˅ REMOTE           3  │ │                                                         │ │╰──────────────────────────╯  │ │
+│ │  › origin            │ │                                                         │ │                              │ │
+│ │˅ STASHES          2  │ │                                                         │ │                              │ │
+│ │  stash@{0}  WIP on … │ │                                                         │ │╭ ± Changes vs [main ⌃]    ╮  │ │
+│ │˅ ISSUES           5  │ │                                                         │ ││ 1 ahead · 0 behind · 4 f │  │ │
+│ │  #12 Worktree list ◆ │ │                                                        ▐│ ││ [Compare with Base…] ⌘⇧B │  │ │
+│ │                    ▐ │ │                                                         │ │╰──────────────────────────╯  │ │
+│ ╰──────────────────────╯ ╰─────────────────────────────────────────────────────────╯ ╰──────────────────────────────╯ │
+│ ◈ Read-only · ⟳ Fetched 2 min ago · ↑2 ↓0 · 4 worktrees · ⚠ 1 prunable                                 gh: @octocat ✓ │
+└───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-와이어프레임의 `🔒 ⚠ 🌲 ✓ ✎ ?`는 SF Symbol 자리를 나타낸다. 실제 심볼은 [iconography.md §5](iconography.md#5-상태-심볼-매핑)를 따른다.
+와이어프레임의 기호는 자리 표시다.
+- `◆`: 레인 색 워크트리 타일(`tree`)
+- `■`: 레인 색으로 채운 알약
+- `⊕`: `network`
+- `┆…┆`: WIP 점선 알약
+- `◌`: WIP 노드
+- `◉`: 아바타 노드
+- `▐`: 스크롤바
+- `┃`: 분할선 손잡이
+- `⌧`: `lock.fill`
+- `◈`: `checkmark.shield`
 
-**고충실도 목업 (#159).** 토큰 값으로 그린 S-01이다. 글리프는 SF Symbol을 흉내 낸 단순 도형이고, 글꼴은 렌더러에 따라 SF Pro 대신 Helvetica Neue로 보일 수 있다. 기준은 PNG 렌더다. 설명은 [mockups.md](mockups.md#s-01-메인-창)에 있다.
+실제 심볼은 [iconography.md §5](iconography.md#5-상태-심볼-매핑)를 따른다.
+
+**고충실도 목업 (#166).** 토큰 값으로 그린 S-01이다. 글리프는 SF Symbol을 흉내 낸 단순 도형이고 글꼴은 SF Pro·SF Mono다. 기준은 PNG 렌더다. 설명은 [mockups.md](mockups.md#s-01-메인-창)에 있다.
 
 | Light | Dark |
 |---|---|
@@ -78,33 +89,60 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 | 요소 | 동작 | 비고 |
 |---|---|---|
-| 저장소 전환 메뉴 `[overgrove ▾]` | 등록한 저장소 목록, `Add Repository…` (`⌘O`), `Manage Repositories…` | 저장소 이름은 디렉터리 이름 |
-| `Fetch` 버튼 | 저장소의 모든 원격을 fetch. 진행 중에는 `Stop` 버튼으로 바뀐다 | 단축키 `⌘⇧R`. 피드백은 [interaction.md §4](interaction.md#4-새로고침과-fetch) |
-| 포커스 브랜치 표시 `⑂ feat/12-…` | 누르면 그래프를 포커스 워크트리의 HEAD로 스크롤 (`⌘J`와 같음) | detached면 `detached @ a1b2c3d`. 체크아웃 기능 없음 |
+| 사이드바 토글 | 사이드바를 접거나 연다 | `⌃⌘S` |
+| 저장소 전환 메뉴 `[overgrove ⌃]` | 등록한 저장소 목록, `Add Repository…` (`⌘O`), `Manage Repositories…` | 저장소 이름은 디렉터리 이름, 옆에 원격 소유자(있으면) |
+| 포커스 워크트리 칩 `◆ feat/12-… ↑2 ⌘J` | 누르면 그래프를 포커스 워크트리의 HEAD로 스크롤 (`⌘J`와 같음) | 레인 색 틴트 + 워크트리 타일. detached면 `detached @ a1b2c3d`. 체크아웃 기능 없음 |
+| `Fetch` | 저장소의 모든 원격을 fetch. 진행 중에는 `Stop`으로 바뀐다 | `⌘⇧R`. 피드백은 [interaction.md §4](interaction.md#4-새로고침과-fetch) |
+| `Refresh` | 로컬 git 조회만 다시 한다. 네트워크 없음 | `⌘R` |
+| `Compare` | 포커스 워크트리를 기준 브랜치와 비교(S-11) | `⌘⇧B` |
+| `Terminal`, `Finder` | 포커스 워크트리 폴더를 Terminal.app / Finder로 연다. 워크트리 컨텍스트 메뉴의 `Open in Terminal`, `Reveal in Finder`와 같고 보안 조건도 같다 | [interaction.md §5](interaction.md#5-컨텍스트-메뉴) |
 | 검색 필드 | 그래프를 커밋 메시지, 작성자, SHA 앞부분, ref 이름, 이슈 번호(`#12`)로 필터 | `⌘F`. 일치 행만 강조하고 나머지는 흐리게. `⌘G` / `⌘⇧G`로 다음·이전 일치 |
 
-v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
+가운데 동작 버튼은 아이콘 위에 라벨을 둔다(NSToolbar의 icon-and-label 모드). v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.** 비활성 버튼으로도 두지 않는다.
 
 ### 사이드바
 
-섹션, 정렬, 배지 규칙은 [information-architecture.md §4](information-architecture.md#4-사이드바-섹션)를 따른다. 너비는 `size.sidebar-width-*`(200 / 240 / 360), 행 높이는 `size.row-sidebar`, 섹션 헤더는 `typography.section-header`.
+섹션, 정렬, 배지 규칙은 [information-architecture.md §4](information-architecture.md#4-사이드바-섹션)를 따른다.
+
+- 너비: `size.sidebar-width-*`(220 / 256 / 420)
+- 행 높이: 워크트리는 두 줄 `size.row-worktree`(46), 나머지는 `size.row-sidebar`(28)
+- 섹션 헤더: `typography.section-header`
+- 패널 머리: 필터 필드(`⌥⌘F`)
+
+워크트리 행 왼쪽의 타일은 그 브랜치의 레인 색이라 그래프의 같은 줄과 색으로 이어진다. 세부 모양은 [art-direction.md §6](art-direction.md#6-사이드바)에 있다.
 
 ### 중앙: 커밋 그래프
 
+패널 머리(40)에는 작성자 필터 칩 줄을, 그 아래(28)에는 열 머리를 둔다. 열 머리의 구분선을 끌어 열 폭을 바꾸고, 패널 머리 오른쪽 `⋯` 메뉴에서 Author, Date, SHA 열을 숨기거나 보인다.
+
 | 열 | 내용 | 토큰 |
 |---|---|---|
-| 그래프 | 레인, 노드, 간선. 레인 색은 `color.graph.lane.0~7` 순환 (ADR-0010) | `size.graph-lane-width`, `size.graph-node`, `size.graph-edge` |
-| SHA | 짧은 SHA 7자 | `typography.mono-small`, `text.secondary` |
-| 제목 | 커밋 제목 첫 줄 + AI 배지(있으면) + ref 알약(로컬, 원격, 태그, `HEAD`). 폭이 모자라면 제목을 먼저 줄이고, 알약은 최대 170px | `typography.body`, 알약 `radius.sm` |
-| 작성자 | 이니셜 아바타(16px) + 작성자 이름. 폭이 좁으면 아바타만 남기고 이름은 툴팁으로 | `color.avatar.*`, 이름 `text.secondary` |
-| 날짜 | 상대 시각(`2h`, `3d`), 툴팁에 절대 시각(ISO 8601, 로컬 시간대) | `text.secondary` |
+| Refs | ref 알약 하나 + `+n` 칩(툴팁에 나머지). 알약 오른쪽 끝에서 노드까지 레인 색 연결선 | `size.column-refs-ideal`(172), 알약 `size.ref-pill-height` |
+| Graph | 레인, 간선, 노드. 레인 색은 `color.graph.lane.0~7` 순환 (ADR-0010) | `size.graph-lane-width`, `size.graph-node`, `size.graph-edge` |
+| Message | 커밋 제목 첫 줄 + AI 배지(있으면). 폭이 모자라면 제목을 줄인다 | `typography.body` |
+| Author | 작성자 이름. 얼굴(이니셜 아바타)은 노드에 있다 | `size.column-author-ideal`, `text.secondary` |
+| Date | 상대 시각(`2h`, `3d`), 툴팁에 절대 시각(ISO 8601, 로컬 시간대) | `size.column-date-ideal`, `text.tertiary` |
+| SHA | 짧은 SHA 7자 | `typography.mono-small`, `text.tertiary` |
 
-- **WIP 행.** 포커스 워크트리에 미커밋 변경이 있을 때만 맨 위에 둔다. 속이 빈 점선 노드(`color.graph.wip-node`)를 쓰고, 행 배경은 `color.surface.wip-row`, 요약 문구는 `3 staged · 2 unstaged · 1 untracked`. 충돌이 있으면 맨 앞에 `⚠ 2 conflicted`를 붙인다. 변경이 없으면 WIP 행을 숨긴다.
-- **HEAD 링.** 포커스 워크트리의 HEAD 커밋 노드에 `color.graph.head-ring` 링을 두른다. 다른 워크트리의 HEAD에는 작은 `tree` 심볼과 워크트리 이름 알약을 붙인다.
-- **ref 알약.** 로컬 브랜치는 레인 색을 `ref-pill-local-fill-opacity`(0.18)로 채운다. 원격 브랜치는 레인 색 테두리만, 태그는 `tag` 심볼 + 중립 색이다. 알약 텍스트는 항상 `text.primary`다.
-  - (#159 보완) 로컬 브랜치와 같은 이름의 `origin/` 브랜치가 같은 커밋을 가리키면 알약 하나로 합친다: 채움 + 테두리 + 끝의 `network` 심볼. 툴팁에 두 ref 이름을 모두 쓴다. 다른 커밋을 가리키면 따로 그린다.
-  - (#159 보완) 다른 워크트리가 체크아웃한 브랜치는 그 브랜치 알약 앞에 `tree` 심볼을 붙인다(워크트리 이름은 툴팁). 별도 워크트리 알약은 브랜치가 없는 **detached HEAD 워크트리**에만 `tree` + 디렉터리 이름으로 그린다. 같은 행에 같은 뜻의 알약이 두 개 생기지 않게 하기 위해서다.
-- **페이지 단위 로드.** 처음 500개를 그리고 스크롤에 따라 다음 페이지를 불러온다 (PB-3, PB-4). 행 높이는 `size.row-graph`(24px)로 고정한다.
+- **노드.** 일반 커밋은 작성자 이니셜 아바타를 레인 색 링으로 감싼 원(지름 22)이다. 병합 커밋은 레인 색 작은 원(10)이다. 모든 노드에 캔버스 색 후광을 둘러 뒤로 지나가는 선과 떨어뜨린다.
+- **선택 행.** 그 커밋의 레인 색 16%(`graph.selection-opacity`) + 왼쪽 3pt 레인 색 막대. 선택 행의 `text.tertiary`는 `text.secondary`로 바꾼다.
+- **WIP 행.** 포커스 워크트리에 미커밋 변경이 있을 때만 맨 위에 둔다.
+  - 노드: 속이 빈 점선 노드(`color.graph.wip-node`)와 HEAD까지의 점선
+  - 배경: `color.surface.wip-row`
+  - Refs 열: 워크트리 폴더 이름을 쓴 점선 알약
+  - 요약 문구: `WIP 3 staged · 2 unstaged · 1 untracked`. 충돌이 있으면 맨 앞에 `⚠ 2 conflicted`
+  - 변경이 없으면 WIP 행을 숨긴다.
+- **HEAD 링.** 포커스 워크트리의 HEAD 노드 바깥에 `color.graph.head-ring`(액센트) 링을 한 겹 더 두른다.
+- **ref 알약.** 종류별 모양은 [art-direction.md §5.5](art-direction.md#55-ref-알약)를 따른다. 요약:
+  - 포커스 워크트리가 체크아웃한 브랜치는 레인 색으로 채운다(`graph.on-lane.*` 글자).
+  - 다른 워크트리가 체크아웃한 브랜치는 레인 색 20% 채움 + 테두리 + `tree`다.
+  - 그 밖의 로컬 브랜치는 `tree` 없이 같은 모양이다.
+  - 원격 브랜치는 테두리 + `network`, 태그는 중립 색 + `tag`다.
+  - (#159) 로컬 브랜치와 같은 이름의 `origin/` 브랜치가 같은 커밋을 가리키면 알약 하나로 합친다(끝에 `network`). 툴팁에 두 ref 이름을 모두 쓴다. 다른 커밋을 가리키면 따로 그린다.
+  - (#159) 별도 워크트리 알약은 브랜치가 없는 **detached HEAD 워크트리**에만 `tree` + 디렉터리 이름으로 그린다. 같은 행에 같은 뜻의 알약이 두 개 생기지 않게 하기 위해서다.
+  - 한 행에 ref가 여럿이면 순서는 포커스 워크트리 브랜치 → 로컬 → 원격 → 태그이고, 첫 번째만 알약으로 보인다.
+- **페이지 단위 로드.** 처음 500개를 그리고 스크롤에 따라 다음 페이지를 불러온다 (PB-3, PB-4). 행 높이는 `size.row-graph`(30px)로 고정한다.
+- **가로 넘침.** 레인이 12개(`size.graph-max-lanes-visible`)를 넘으면 Graph 열 안에서만 가로로 스크롤한다.
 
 ### 작성자 표현과 AI 배지
 
@@ -112,24 +150,25 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 
 | 요소 | 위치 | 표현 | 규칙 |
 |---|---|---|---|
-| 이니셜 아바타 | 그래프 작성자 열, S-03 Author, S-11 커밋 목록, 작성자 칩, 사이드바 원격 브랜치 | 지름 16px 원 + 이니셜 최대 2자(굵게, `avatar.initials`) | 색 = `color.avatar.(FNV-1a(소문자 이메일) mod 8)` ([design-tokens.md §3.4](design-tokens.md#34-작성자-아바타-159)). 네트워크 아바타(Gravatar, GitHub 프로필)는 쓰지 않는다. 선택된 행에서는 1px `text.on-selection` 링 |
-| 작성자 필터 칩 줄 | 그래프 위 40px 줄 (`person.2` 심볼로 시작) | `All` + 작성자 칩(아바타 + 이름 + 불러온 커밋 수) + 구분선 + `AI-assisted` 칩(`sparkles`) | 칩 순서는 불러온 커밋 수 내림차순. 5명을 넘으면 `+n` 메뉴로 접는다. 칩 하나를 고르면 검색과 같은 방식으로 일치 행만 강조하고 나머지는 `opacity.disabled`로 흐린다(행을 숨기지 않는다. 그래프 모양이 유지된다). 고른 칩은 `accent` 채움 + `text.on-selection`. 검색어와 함께 쓰면 AND |
-| AI 배지 | 그래프 제목 뒤, S-03 Co-author 행, S-11 커밋 목록 | `sparkles` + `AI` 글자, `text.secondary` 테두리 알약 | 커밋 메시지에 AI 도구를 가리키는 `Co-Authored-By:` 트레일러가 있을 때만 붙인다. 판별 목록(이름·이메일 패턴)은 후속 이슈에서 정한다. 색은 쓰지 않는다(상태 색, 레인 색과 겹치지 않게). 글자 `AI`가 의미를 전달한다 |
-| AI 공동 작성자 | S-03 메타 | `text.secondary` 테두리 원 + `sparkles` (이니셜 아바타를 쓰지 않음) + 이름 + AI 배지 | 사람 아바타처럼 보이지 않게 한다 |
+| 이니셜 아바타 | **그래프 노드**(지름 17 + 레인 색 링), S-03 Author, S-11 커밋 목록, 작성자 칩, 사이드바 원격 브랜치(16px) | 원 + 이니셜 최대 2자(굵게, `avatar.initials`) | 색 = `color.avatar.(FNV-1a(소문자 이메일) mod 8)` ([design-tokens.md §3.5](design-tokens.md#35-작성자-아바타-159)). 네트워크 아바타(Gravatar, GitHub 프로필)는 쓰지 않는다. 노드의 이름은 Author 열, 툴팁, VoiceOver로 함께 준다 |
+| 작성자 필터 칩 줄 | 그래프 패널 머리(40px, `person.2` 심볼로 시작) | `All` + 작성자 칩(아바타 + 이름 + 불러온 커밋 수) + 구분선 + `AI-assisted` 칩(`sparkles`) | 칩 순서는 불러온 커밋 수 내림차순. 5명을 넘으면 `+n` 메뉴로 접는다. 칩 하나를 고르면 검색과 같은 방식으로 일치 행만 강조하고 나머지는 `opacity.disabled`로 흐린다(행을 숨기지 않는다. 그래프 모양이 유지된다). 고른 칩은 `accent` 채움 + `text.on-accent`. 검색어와 함께 쓰면 AND |
+| AI 배지 | 그래프 Message 열의 제목 뒤, S-03 Co-author 행, S-11 커밋 목록 | `sparkles` + `AI` 글자, `text.tertiary` 테두리 알약 | 커밋 메시지에 AI 도구를 가리키는 `Co-Authored-By:` 트레일러가 있을 때만 붙인다. 판별 목록(이름·이메일 패턴)은 후속 이슈에서 정한다. 색은 쓰지 않는다(상태 색, 레인 색과 겹치지 않게). 글자 `AI`가 의미를 전달한다 |
+| AI 공동 작성자 | S-03 메타 | `text.tertiary` 테두리 원 + `sparkles` (이니셜 아바타를 쓰지 않음) + 이름 + AI 배지 | 사람 아바타처럼 보이지 않게 한다 |
 | 원격 브랜치 마지막 커미터 | 사이드바 REMOTE의 브랜치 행 오른쪽 | 아바타(16px) + 팁 커밋의 상대 시각 | 이름은 툴팁과 VoiceOver(`Last commit by Alex Kim, 2 hours ago`). 배지 우선순위는 행에서 가장 낮다. 폭이 모자라면 시각 → 아바타 순으로 숨긴다 |
 
 **데이터와 후속 작업.** 아바타와 칩은 이미 읽는 작성자 이름·이메일만 쓴다. AI 배지는 커밋 트레일러를 읽어야 하므로 로그 포맷에 트레일러 필드(예: `%(trailers:key=Co-authored-by,valueonly)`)를 더해야 한다. 이 변경은 [git-command-catalog.md](../architecture/git-command-catalog.md)와 파싱 명세를 고치는 후속 이슈로 남긴다. 서명 관련 `%G` 필드는 계속 쓰지 않는다 (T7).
 
-**새 심볼.** `sparkles`(AI), `person.2`(작성자 필터), `plus.forwardslash.minus`(기준 대비 변경). [iconography.md §5.3](iconography.md#53-객체와-동작) 표에 후속으로 더한다.
+**새 심볼.** `sparkles`(AI), `person.2`(작성자 필터), `plus.forwardslash.minus`(기준 대비 변경), `ellipsis`(열·밀도 메뉴), `terminal`, `folder`(툴바). [iconography.md §5.3](iconography.md#53-객체와-동작)에 있다.
 
 ### 상세 패널
 
-선택에 따라 S-02~S-06 중 하나를 보여 준다. 너비는 `size.detail-width-*`(280 / 340)이고, 사용자가 숨길 수 있다(View 메뉴 `Hide Detail`).
+선택에 따라 S-02~S-06 중 하나를 보여 준다. 너비는 `size.detail-width-*`(300 / 344 / 560)이다. 분할선을 최소 폭 아래로 끌거나 View 메뉴 `Hide Detail`(`⌥⌘0`)로 접는다. 패널 안 묶음은 카드(`surface.raised`)로 나누고, S-02와 S-05는 아래에 **기준 브랜치 비교 카드**를 고정한다([art-direction.md §7](art-direction.md#7-상세-패널)).
 
 ### 상태바
 
 | 요소 | 예 | 출처 |
 |---|---|---|
+| 읽기 전용 표시 | `🛡 Read-only` (`checkmark.shield`, `status.ok`). 항상 맨 앞 | — |
 | 마지막 fetch | `Fetched 2 min ago` / `Never fetched` / `Fetch failed — Details` | `FetchRecord` |
 | 포커스 워크트리의 ahead/behind | `↑2 ↓0` / `No upstream` | `UpstreamStatus` |
 | 워크트리 수 | `3 worktrees` | `Worktree` |
@@ -157,38 +196,45 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 **진입.** 그래프의 WIP 행 선택, 또는 사이드바에서 워크트리 행 선택 (`Changes` 세그먼트가 기본).
 
 ```
-┌──────────────────────────────────────┐
-│ WIP — feat/12-worktree-list          │
-│ [ Changes | Worktree ]               │
-│ ~/dev/overgrove-wt/12-worktree-list  │
-├──────────────────────────────────────┤
-│ CONFLICTED (1)                       │
-│  ⚠ U  Sources/Graph/Layout.swift     │
-│                                      │
-│ STAGED (3)                  +54 −12  │
-│  ✓ M  Sources/Parsing/Status.swift   │
-│  ✓ A  Sources/Git/GitClient.swift    │
-│  ✓ R  Old.swift → New.swift          │
-│                                      │
-│ UNSTAGED (2)                 +11 −3  │
-│  ✎ M  Sources/Graph/Graph.swift      │
-│  ✎ D  Sources/Legacy.swift           │
-│                                      │
-│ UNTRACKED (1)                        │
-│  ? ?  notes.md                       │
-└──────────────────────────────────────┘
+╭──────────────────────────────────────────╮
+│ ◆ feat/12-worktree-list  Changes│Worktree│
+├──────────────────────────────────────────┤
+│ ⌂ ~/dev/overgrove-wt/12-worktree-list  ⧉ │
+│ 7 changed files  ▬▬▬▬▬▬▬▬▬▬▬▬   +65 −15  │
+│ ╭ ⚠ Conflicted  1 ─────────────────────╮ │
+│ │ U Sources/Graph/Layout.swift         │ │
+│ ╰──────────────────────────────────────╯ │
+│ ╭ ✓ Staged  3  ──────────── +54 −12 ───╮ │
+│ │ M Sources/Parsing/Status.swift +40 −8│ │
+│ │ A Sources/Git/GitClient.swift    +12 │ │
+│ │ R {Old.swift → New.swift}     +2 −4 │ │
+│ ╰──────────────────────────────────────╯ │
+│ ╭ ✎ Unstaged  2  ───────────── +11 −3 ─╮ │
+│ │ M Sources/Graph/Graph.swift   +11 −1 │ │
+│ │ D Sources/Legacy.swift            −2 │ │
+│ ╰──────────────────────────────────────╯ │
+│ ╭ ? Untracked  1 ──────────────────────╮ │
+│ │ ? notes.md                           │ │
+│ ╰──────────────────────────────────────╯ │
+├──────────────────────────────────────────┤
+│ ╭ ± Changes vs [main ⌃]   base 3c5d6f1 ╮ │
+│ │ 1 commit ahead · 0 behind · 4 files  │ │
+│ │ [Compare with Base…]  ⌘⇧B            │ │
+│ ╰──────────────────────────────────────╯ │
+╰──────────────────────────────────────────╯
 ```
 
 | 요소 | 내용 |
 |---|---|
-| 제목 | `WIP — <브랜치>` 또는 `WIP — detached @ <sha>`. `typography.title` |
+| 머리 | 워크트리 타일(레인 색) + `<브랜치>` 또는 `detached @ <sha>`(`typography.body-emphasized`). 그 아래 본문 첫 줄에 경로와 복사 버튼, 둘째 줄에 `n changed files`, 추가·삭제 비율 막대, 합계 `+n −m` |
 | 세그먼트 | `Changes`(S-02) / `Worktree`(S-05). 워크트리 행에서 들어왔을 때만 보인다 |
 | 그룹 순서 | **CONFLICTED → STAGED → UNSTAGED → UNTRACKED.** 충돌을 가장 먼저 본다. 빈 그룹은 숨긴다 |
-| 그룹 헤더 | 상태 심볼, 이름, 개수, 그룹 합계 `+n −m` (untracked는 합계 없음) |
-| 파일 행 | 상태 심볼(그룹 색) + 변경 종류 글자(M/A/D/R/C/T/U, `typography.mono-small`, `text.secondary`) + 경로. 경로는 디렉터리를 `text.secondary`, 파일 이름을 `text.primary`로 쓴다. 길면 가운데를 줄인다 |
-| rename | `Old.swift → New.swift` |
+| 그룹 | 그룹마다 카드(`surface.raised`) 하나. 카드 머리는 상태 심볼, 이름, 개수 칩, 그룹 합계 `+n −m` (untracked는 합계 없음) |
+| 파일 행 | 변경 종류 배지(M/A/D/R/C/T/U/?, 상태 색으로 채운 16pt 사각형 + `on-status.*` 글자) + 경로 + `+n −m`(0인 쪽은 숨김). 경로는 디렉터리를 `text.tertiary`, 파일 이름을 `text.primary` Medium으로 쓴다. 길면 디렉터리 앞부분을 `…/`로 줄인다 |
+| rename | `{Old.swift → New.swift}` (공통 디렉터리는 앞에 한 번) |
 | 한 파일이 staged와 unstaged에 모두 있음 (`MM`) | 두 그룹에 각각 한 번씩 나타난다 |
 | 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 펼치지 않는다 (later) |
+| 비교 카드 (하단 고정) | `Changes vs [기준 ⌃]`, `n commits ahead · n behind · n files`, `+n −m`, 기준 커밋, `Compare with Base…`(`⌘⇧B`, S-11). 위 목록만 스크롤된다 (#166) |
 
 **데이터.** `WorkingState`, `FileChange`. staged numstat은 `diff --cached --numstat`, unstaged는 `diff --numstat`에서 온다 ([git-command-catalog.md](../architecture/git-command-catalog.md)).
 
@@ -200,7 +246,7 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 | untracked가 상한 초과 | `UNTRACKED (5,000+)` + `Showing first 5,000 files`. 상한은 성능 측정 후 확정 ([performance-budget.md](../performance/performance-budget.md)) |
 | 워크트리 경로 없음 (prunable) | `questionmark.folder` + `Worktree directory is missing` + `Run git worktree prune in Terminal to clean up`. 앱은 prune하지 않는다 |
 
-**목업.** 충돌이 있는 에이전트 워크트리를 포커스한 상태. `logger.go`가 staged와 unstaged에 모두 나오고(`MM`), rename은 `{old → new}`로 줄여 쓴다. [mockups.md](mockups.md#s-02-wip-상세)
+**목업.** 충돌이 있는 에이전트 워크트리를 포커스한 상태. `logger.go`가 staged와 unstaged에 모두 나오고(`MM`), rename은 `{old → new}`로 줄여 쓴다. 아래에 `main` 대비 비교 카드(`1 commit ahead · 3 behind`)가 고정되어 있다. [mockups.md](mockups.md#s-02-wip-상세)
 
 | Light | Dark |
 |---|---|
@@ -316,28 +362,34 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 **진입.** 사이드바 워크트리 행 선택 후 `Worktree` 세그먼트.
 
 ```
-┌────────────────────────────────────────────────────────┐
-│ WORKTREE  feat/12-worktree-list                        │
-│ [ Changes | Worktree ]                                 │
+╭────────────────────────────────────────────────────────╮
+│ ◆ feat/12-worktree-list             Changes│Worktree   │
 ├────────────────────────────────────────────────────────┤
-│ Path        ~/dev/overgrove-wt/12-worktree-list   ⧉    │
-│ HEAD        a1b2c3d  feat: add status parser           │
-│ Branch      feat/12-worktree-list                      │
-│ Upstream    origin/feat/12-worktree-list  ↑2 ↓0        │
-│ State       6 changed · 1 untracked · no conflicts     │
-│ Lock        not locked                                 │
-│ Last fetch  2 min ago (repository)                     │
-│ Base        main  1 commit ahead · 4 files             │
-│             [ ± Compare with Base… ]  ⌘⇧B              │
+│ ╭────────────────────────────────────────────────────╮ │
+│ │ Path        ~/dev/overgrove-wt/12-worktree-list  ⧉ │ │
+│ │ HEAD        a1b2c3d  feat: add status parser       │ │
+│ │ Branch      feat/12-worktree-list                  │ │
+│ │ Upstream    origin/feat/12-worktree-list  ↑2 ↓0    │ │
+│ │ State       6 changed · 1 untracked · 0 conflicts  │ │
+│ │ Lock        Not locked                             │ │
+│ │ Last fetch  2 min ago (repository)                 │ │
+│ ╰────────────────────────────────────────────────────╯ │
+│ ╭ Security ─────────────────────────────── always on ╮ │
+│ │  ◈ Hooks disabled                                  │ │
+│ │  ◈ fsmonitor disabled                              │ │
+│ │  ◈ External diff and textconv disabled             │ │
+│ │  ◈ Remote URL credentials masked                   │ │
+│ │  ╭ ⚠ Config overrides neutralized          2  ˅ ╮  │ │
+│ │  │   filter.lfs.process                         │  │ │
+│ │  │   core.sshCommand                            │  │ │
+│ │  ╰──────────────────────────────────────────────╯  │ │
+│ ╰────────────────────────────────────────────────────╯ │
 ├────────────────────────────────────────────────────────┤
-│ SECURITY                                               │
-│  ✓ Hooks disabled                                      │
-│  ✓ fsmonitor disabled                                  │
-│  ✓ External diff and textconv disabled                 │
-│  ✓ Remote URL credentials masked                       │
-│  ⚠ Repository config overrides neutralized (2)  ›      │
-│      filter.lfs.process, core.sshCommand               │
-└────────────────────────────────────────────────────────┘
+│ ╭ ± Changes vs [main ⌃]               base 3c5d6f1 ╮ │
+│ │ 1 commit ahead · 0 behind · 4 files     +46 −12  │ │
+│ │ [Compare with Base…]  ⌘⇧B                        │ │
+│ ╰──────────────────────────────────────────────────╯ │
+╰────────────────────────────────────────────────────────╯
 ```
 
 | 요소 | 내용 |
@@ -348,7 +400,7 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 | State | `WorkingState` 요약 |
 | Lock | `locked` + 이유(`git worktree lock --reason`이 있으면) |
 | Last fetch | 저장소 단위임을 `(repository)`로 밝힌다. **이 화면에 Fetch 버튼을 두지 않는다.** fetch는 저장소 단위이므로 툴바 하나로 통일한다 |
-| Base | 기준 브랜치(기본은 기본 브랜치)와 그 대비 요약. `Compare with Base…`는 S-11을 연다 (#158) |
+| Base | 기준 브랜치(기본은 기본 브랜치)와 그 대비 요약. S-02와 같은 **하단 고정 비교 카드**로 보여 준다. `Compare with Base…`는 S-11을 연다 (#158, #166) |
 | SECURITY | 위협 모델 대응이 이 저장소에 적용되었는지 보여 준다. 항상 켜져 있는 항목(hooks, fsmonitor, ext diff, 마스킹)은 `✓`로 표시한다. `RepoConfigInspector`가 무력화한 저장소 설정이 있으면 `⚠` + 개수, 펼치면 키 이름 목록을 보여 준다(값은 보여 주지 않는다). 항목 정의는 [security-review.md](security-review.md)와 ADR-0009를 따른다 |
 
 **데이터.** `Worktree`, `UpstreamStatus`, `WorkingState`, `FetchRecord`, `RepoConfigInspector` 결과.
@@ -358,7 +410,7 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 | prunable | Path에 `⚠ Directory missing`. 나머지 필드는 마지막으로 알려진 값을 흐리게 표시 |
 | bare 저장소의 main 항목 | 목록에서 숨기므로 이 화면으로 오지 않는다 |
 
-**목업.** SECURITY 섹션에서 무력화된 저장소 설정 2개를 펼친 상태. 키 이름만 보이고 값은 보이지 않는다. [mockups.md](mockups.md#s-05-워크트리-상세)
+**목업.** 정보 카드, Security 카드(무력화된 저장소 설정 2개를 펼친 상태, 키 이름만 보이고 값은 없음), 하단 고정 비교 카드. [mockups.md](mockups.md#s-05-워크트리-상세)
 
 | Light | Dark |
 |---|---|
@@ -453,7 +505,7 @@ v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.**
 - 앱은 `gh auth login`이나 `xcode-select --install`을 **직접 실행하지 않는다.** 명령을 복사할 수 있게만 한다 (HANDOFF §7.2).
 - `Open Repository`는 1, 2단계가 성공하면 활성화된다.
 
-**목업.** 1, 2단계 성공, 3단계(GitHub) 미로그인. 제목은 `typography.large-title`(#159에서 추가)을 쓴다. [mockups.md](mockups.md#s-07-온보딩)
+**목업.** 창 가운데의 패널 하나에 마크, 제목(`typography.large-title`), `Read-only` 배지, 단계 카드 3개를 둔다. 1, 2단계 성공, 3단계(GitHub) 미로그인. [mockups.md](mockups.md#s-07-온보딩)
 
 | Light | Dark |
 |---|---|
