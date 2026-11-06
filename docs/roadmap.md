@@ -182,7 +182,7 @@ S-01~S-05, S-09, S-10 화면과 기준 브랜치 비교 화면(S-11, #158)을 �
 
 | Key | 제목 | 유형 · 영역 · 우선순위 | 규모 | 의존성 |
 |---|---|---|---|---|
-| P3-UI-01 (#64) | feat(ui): main window layout with toolbar, sidebar, graph, detail and status bar | feature · ui · p0 | M | P3-DS-01, P3-SEC-03 |
+| P3-UI-01 (#64) | feat(ui): main window layout with toolbar, sidebar, graph, detail and status bar | feature · ui · p0 | L | P3-DS-01, P3-SEC-03, P2-08 |
 | P3-UI-02 (#65) | feat(ui): worktree list with change counts and ahead/behind | feature · ui · p0 | M | P3-UI-01, P3-PARSE-02, P3-PARSE-03 |
 | P3-UI-03 (#66) | feat(ui): WIP detail with staged, unstaged, untracked and conflicted | feature · ui · p0 | M | P3-UI-01, P3-PARSE-03 |
 | P3-UI-04 (#67) | feat(ui): worktree detail with security status | feature · ui · p1 | M | P3-UI-01, P3-SEC-04 |
@@ -194,7 +194,7 @@ S-01~S-05, S-09, S-10 화면과 기준 브랜치 비교 화면(S-11, #158)을 �
 | P3-UI-10 (#73) | feat(ui): keyboard shortcuts, focus and context menus | feature · ui · p1 | M | P3-UI-02, P3-UI-05 |
 | P3-UI-11 (#74) | feat(ui): search over commits, authors, branches and issue numbers | feature · ui · p2 | S | P3-UI-05 |
 | P3-UI-12 (#75) | feat(ui): accessibility labels and VoiceOver pass | feature · ui · p1 | S | P3-UI-03, P3-UI-05 |
-| P2-08 (#29) | spike(ui): evaluate SwiftUI preview mocks for wireframes | spike · ui · p2 | S | P2-01, P2-06, V1-02, V1-06 |
+| P2-08 (#29) | spike(ui): check SwiftUI feasibility of the panel theme (ADR-0014) with preview mocks | spike · ui · p1 | S | P2-01, P2-06, V1-02, V1-06 |
 | P3-UI-13 (#157) | feat(git): compare a worktree with its base branch (merge-base diff) | feature · git-core, parser · p1 | M | P3-PARSE-07 |
 | P3-UI-14 (#158) | feat(ui): PR-style changes view of a worktree against its base branch | feature · ui · p1 | M | P3-UI-06, P3-UI-13 |
 
