@@ -117,6 +117,22 @@ final class WorktreeParserTests: XCTestCase {
         XCTAssertFalse(worktrees[1].isMain)
     }
 
+    func testPARWT05_BareLinkedWorktreeFails() {
+        assertFails(
+            output([["worktree /tmp/dev/repo.git", "bare"], ["worktree /tmp/dev/wt", "bare"]]),
+            reason: "bare linked worktree"
+        )
+    }
+
+    func testPARWT05_BareWithCheckoutAttributesFails() {
+        let reason = "bare with HEAD, branch, or detached"
+        let path = "worktree /tmp/dev/repo.git"
+        assertFails(output([[path, "bare", "HEAD \(oid)"]]), reason: reason)
+        assertFails(output([[path, "bare", "HEAD \(zeroOID)"]]), reason: reason)
+        assertFails(output([[path, "bare", "branch refs/heads/main"]]), reason: reason)
+        assertFails(output([[path, "bare", "detached"]]), reason: reason)
+    }
+
     func testPARWT06_PathsWithSpaceNewlineNFDAndEmoji() throws {
         let nfd = "/tmp/dev/cafe\u{0301}"
         let nfc = "/tmp/dev/caf\u{00E9}"

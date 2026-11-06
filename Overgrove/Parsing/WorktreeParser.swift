@@ -121,6 +121,13 @@ extension WorktreeParser {
             if isDetached, branch != nil {
                 throw ParseError(parser: name, offset: offset, reason: "both branch and detached")
             }
+            // Only the main repository can be bare, and a bare record carries no checkout (parsing-spec.md §2).
+            if isBare, !isMain {
+                throw ParseError(parser: name, offset: offset, reason: "bare linked worktree")
+            }
+            if isBare, hasHead || branch != nil || isDetached {
+                throw ParseError(parser: name, offset: offset, reason: "bare with HEAD, branch, or detached")
+            }
             return Worktree(
                 path: path,
                 head: head,
