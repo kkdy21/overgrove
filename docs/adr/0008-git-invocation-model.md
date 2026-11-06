@@ -87,7 +87,7 @@
 
 ## 후속 작업
 
-- [ ] ProcessRunner, GitEnvironment, GitCommand, GitClient 구현 (Phase 3 보안 기반 Epic)
+- [ ] ProcessRunner(#41 ✓), GitEnvironment(#42 ✓), GitCommand·GitClient(#43) 구현
 - [ ] 인자 배열 스냅샷 테스트 SEC-T9-xx, SEC-T10-xx
-- [ ] `/usr/bin/git`은 xcrun shim이라 호출마다 약 8ms가 더 든다(실측 15ms 대 7ms, [benchmark-plan.md](../performance/benchmark-plan.md)). 앱 시작 시 `xcrun --find git`으로 실제 경로를 한 번 확정해 캐시하는 방안을 Phase 3에서 결정한다
+- [x] git 실행 파일: `xcode-select -p`(설치 대화상자를 띄우지 않음)로 활성 개발자 디렉터리를 얻고 `<dir>/usr/bin/git`을 한 번 확정해 직접 실행한다. `/usr/bin/git` shim의 호출당 약 8ms와, 개발 도구가 없을 때 뜨는 설치 대화상자를 피한다(`GitEnvironment.discover`, #42)
 - [ ] v0.2.0: 사용자 지정 git 경로 설정
