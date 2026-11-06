@@ -23,8 +23,8 @@
 
 > **Status: pre-alpha, not usable yet.** The foundation that runs `git` safely is implemented and tested: process
 > execution, hardened git invocation, repository config inspection, credential masking, and path validation. Parsers
-> are in progress, and the app window is still a placeholder. The first round of screen mockups is below; a redesign
-> is in progress in [#166](https://github.com/kkdy21/overgrove/issues/166). Follow the [roadmap](docs/roadmap.md)
+> are in progress, and the app window is still a placeholder. The screen mockups below are the current design
+> ([#166](https://github.com/kkdy21/overgrove/issues/166)). Follow the [roadmap](docs/roadmap.md)
 > and the [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1).
 
 ## Why
