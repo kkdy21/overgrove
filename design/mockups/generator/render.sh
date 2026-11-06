@@ -14,6 +14,7 @@ $PY mkfonts.py
 export PANGOCAIRO_BACKEND=fc
 export FONTCONFIG_FILE="$(pwd)/.fonts/fonts.conf"
 $PY screens.py "$OUT" "$@" | tail -1
+rendered=""
 for f in "$OUT"/*.svg; do
   name=$(basename "$f" .svg)
   if [ "$#" -gt 0 ]; then
@@ -24,5 +25,7 @@ for f in "$OUT"/*.svg; do
     *) width=1440 ;;
   esac
   rsvg-convert -w "$width" "$f" -o "$OUT/$name.png"
+  rendered="$rendered $OUT/$name.png"
 done
-$PY pngopt.py "$OUT"/*.png >/dev/null
+# shellcheck disable=SC2086 # word splitting is intended; names have no spaces
+$PY pngopt.py $rendered >/dev/null

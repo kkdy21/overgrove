@@ -342,7 +342,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | Base commit | stash의 첫 번째 부모. 누르면 그래프에서 그 커밋 선택 |
 | Branch | 메시지 `WIP on <branch>` / `On <branch>`에서 추정. 추정임을 `(from message)`로 밝힌다 |
 | Includes | index 커밋(두 번째 부모), untracked 커밋(세 번째 부모) 존재 여부 |
-| 파일 | untracked 커밋에서 온 파일은 `questionmark` 심볼로 표시 |
+| 파일 | 종류 배지 + 경로 + `+n −m`. untracked 커밋에서 온 파일은 `questionmark` 심볼로 표시하고, 파일 카드 아래에 범례 한 줄(`From the stash’s untracked-files commit`)을 둔다 |
 | 버튼 | `Copy Ref`만 둔다 |
 
 **데이터.** `Stash`, `StashDetail`.
@@ -350,6 +350,14 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 상태 | 표현 |
 |---|---|
 | stash 없음 | 사이드바 섹션에 `No stashes` 한 줄 (섹션은 유지) |
+
+**목업 (#176).** 사이드바에서 `stash@{0}`을 고른 상태. 사이드바는 STASHES가 보이도록 스크롤되어 있고 맨 위에 WORKTREES 섹션 머리가 붙어 있다. 상세 패널은 메시지, 정보 카드(Base commit, Branch `(from message)`, Includes), Files 카드, 아래 고정 `Copy Ref` 버튼이다. 그래프는 바뀌지 않는다(stash 노드 없음). [mockups.md](mockups.md#s-04-stash-상세)
+
+| Light | Dark |
+|---|---|
+| ![S-04 Stash 상세 (light)](../../design/mockups/s-04-stash-detail-light.png) | ![S-04 Stash 상세 (dark)](../../design/mockups/s-04-stash-detail-dark.png) |
+
+원본: [`s-04-stash-detail-light.svg`](../../design/mockups/s-04-stash-detail-light.svg), [`s-04-stash-detail-dark.svg`](../../design/mockups/s-04-stash-detail-dark.svg)
 
 **v0.1 제외.** apply, pop, drop, branch from stash. 화면에 안내 문구도 두지 않는다.
 
@@ -449,10 +457,10 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 | 요소 | 내용 |
 |---|---|
-| 상태 | `Open` / `Closed` + 심볼(`number.circle` / `checkmark.seal`)과 텍스트 |
+| 상태 | `Open` / `Closed` + 심볼(`number.circle` / `checkmark.seal`)과 텍스트. 중립 알약으로 그리고 상태 색을 쓰지 않는다. 옆에 `updated 3h ago · opened by <이름>` |
 | 라벨 | 라벨 이름만 중립 알약으로 표시한다. GitHub 라벨 색은 쓰지 않는다 (상태 색과 충돌하고 대비를 보장할 수 없음) |
 | LINKED | 연결된 워크트리, 브랜치, 커밋(최근 5개). 누르면 해당 항목 선택 |
-| 본문 | v0.1에서는 표시하지 않는다. Markdown 렌더링과 원격 이미지 로드를 피하기 위해서다. `Open in Browser`로 본다 |
+| 본문 | v0.1에서는 표시하지 않는다. Markdown 렌더링과 원격 이미지 로드를 피하기 위해서다. `Open in Browser`로 본다. 그 자리에 `The issue body is not shown in Overgrove. Open it in your browser to read or reply.` 한 줄을 둔다 |
 | Open in Browser | `gh`가 준 URL이 `https://`이고 호스트가 저장소 원격의 GitHub 호스트와 같을 때만 연다 |
 
 **데이터.** `Issue`, `GHAuthStatus`, 연결 계산 결과.
@@ -465,6 +473,14 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 권한 없음 / 저장소 없음 | `Cannot read issues for owner/repo` + `Details` | — |
 | 이슈 없음 | `No open issues` | — |
 | 불러오는 중 | 섹션 헤더에 작은 스피너 | — |
+
+**목업 (#176).** 사이드바 ISSUES 섹션(머리 오른쪽 `Open ⌄` 필터)에서 `#42`를 고른 상태. 그래프는 연결된 브랜치의 팁 커밋 행을 점선 테두리와 옅은 레인 색으로 강조만 하고 선택하지 않는다. 상세 패널은 상태, 정보 카드(Labels 중립 알약, Assignees, Milestone), Linked 카드(워크트리, 원격 브랜치, 커밋), 본문 미표시 안내, 아래 고정 `Open in Browser`·`Copy URL`이다. [mockups.md](mockups.md#s-06-이슈-패널)
+
+| Light | Dark |
+|---|---|
+| ![S-06 이슈 패널 (light)](../../design/mockups/s-06-issue-panel-light.png) | ![S-06 이슈 패널 (dark)](../../design/mockups/s-06-issue-panel-dark.png) |
+
+원본: [`s-06-issue-panel-light.svg`](../../design/mockups/s-06-issue-panel-light.svg), [`s-06-issue-panel-dark.svg`](../../design/mockups/s-06-issue-panel-dark.svg)
 
 **v0.1 제외.** 이슈 생성·수정·코멘트, PR 상태, 본문 렌더링, GitHub Enterprise.
 
@@ -550,6 +566,16 @@ Advanced
 
 토큰이나 비밀 값을 입력받는 필드는 **없다.**
 
+**외형.** Settings 창은 네이티브 컨트롤(`Settings` 씬, `Form`의 grouped 스타일)을 쓰므로 시스템 색을 따른다([ADR-0014](../adr/0014-panel-theme-and-split-layout.md)). 앱 토큰에서 오는 것은 액센트(토글, 선택된 탭 아이콘)뿐이다.
+
+**목업 (#176).** 세 탭(General, Repositories, Advanced)을 나란히 그렸다. 시스템 색은 근삿값이다. General은 자동 fetch(꺼짐, 간격 팝업 비활성), 원격 URL 전체 표시, untracked 표시다. Repositories는 저장소 목록과 `Remove`, `Add…`다. Advanced는 git 실행 파일(`/usr/bin/git`, 확인된 버전 표시)과 상세 로그다. [mockups.md](mockups.md#s-08-설정)
+
+| Light | Dark |
+|---|---|
+| ![S-08 설정 (light)](../../design/mockups/s-08-settings-light.png) | ![S-08 설정 (dark)](../../design/mockups/s-08-settings-dark.png) |
+
+원본: [`s-08-settings-light.svg`](../../design/mockups/s-08-settings-light.svg), [`s-08-settings-dark.svg`](../../design/mockups/s-08-settings-dark.svg)
+
 ---
 
 ## S-09 파일 이력
@@ -579,6 +605,15 @@ Advanced
 |---|---|
 | 이력 없음 (untracked 파일) | `This file has no history yet` |
 | 긴 이력 | 처음 500개, 스크롤 시 추가 로드 |
+| 이력의 처음에 닿음 | 마지막 행 아래에 `Beginning of history · created in <sha> as <path>` |
+
+**목업 (#176).** `internal/http/middleware.go`의 이력. 열 머리는 `Commit | Message | Author | Date | This file`이다. 노드는 그래프와 같은 아바타 노드(원래 레인 색 링)를 한 줄로 잇는다. rename이 일어난 행에는 `renamed from internal/mw/middleware.go` 알약을 둔다. 첫 행을 고른 상태라 상세 패널은 S-03이고, 파일 목록에서 같은 파일이 선택되어 있다. [mockups.md](mockups.md#s-09-파일-이력)
+
+| Light | Dark |
+|---|---|
+| ![S-09 파일 이력 (light)](../../design/mockups/s-09-file-history-light.png) | ![S-09 파일 이력 (dark)](../../design/mockups/s-09-file-history-dark.png) |
+
+원본: [`s-09-file-history-light.svg`](../../design/mockups/s-09-file-history-light.svg), [`s-09-file-history-dark.svg`](../../design/mockups/s-09-file-history-dark.svg)
 
 ---
 

@@ -379,7 +379,15 @@ def badges(S, T, xr, cy, b, sel=False):
     return x
 
 
-def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0, 0.78)):
+def issue_filter_chip(S, T, xr, cy):
+    label = 'Open'
+    w = tw(label, 11, 500) + 22
+    S.rect(xr - w, cy - 9, w, 18, r=5, fill=T('surface.control'), stroke=T('border.separator') if T.mode == 'light' else None)
+    S.text(xr - w + 7, cy + 3.8, label, size=11, fill=T('text.secondary'), weight=500)
+    g_chevron(S, xr - 8, cy, 8, T('text.tertiary'), 'down')
+
+
+def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0, 0.78), scroll_px=0, issue_filter=False):
     x0, x1, y0, y1 = LX0, LX1, PT, PB
     panel(S, T, x0, y0, x1, y1, 'sbclip')
     S.open_group(clip='sbclip')
@@ -391,8 +399,12 @@ def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0,
     kbd(S, T, x1 - 16, y0 + 20, '⌥⌘F')
     S.clip('sbbody', x0, y0 + PH, x1 - x0, y1 - y0 - PH)
     S.open_group(clip='sbbody')
+    S.open_group(transform=f'translate(0 {-scroll_px})' if scroll_px else None)
+    sections = []  # (label, count, top, bottom) for the sticky header
     y = y0 + PH + 4
+    sec_top = y
     # WORKTREES
+    sections.append(['WORKTREES', len(WORKTREES), y])
     y = section_header(S, T, x0, x1, y, 'WORKTREES', len(WORKTREES))
     for key, branch, folder, path, lane, b, fl in WORKTREES:
         h = 46
@@ -429,6 +441,7 @@ def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0,
         y += h
     y += 6
     # LOCAL
+    sections.append(['LOCAL', 5, y])
     y = section_header(S, T, x0, x1, y, 'LOCAL', 5)
     local = [(0, 'main', 'branch', {}, 'main'), (0, 'agent/', 'folder', {'n': 1}, None), (0, 'feat/', 'folder-open', {}, None),
              (1, '42-rate-limit', 'branch', {'ahead': 2}, 'feat/42-rate-limit'), (0, 'fix/', 'folder', {'n': 1}, None)]
@@ -454,6 +467,7 @@ def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0,
         y += 28
     y += 6
     # REMOTE
+    sections.append(['REMOTE', 4, y])
     y = section_header(S, T, x0, x1, y, 'REMOTE', 4)
     cy = y + 14
     g_chevron(S, x0 + 16, cy, 9, T('text.tertiary'), 'down')
@@ -470,23 +484,39 @@ def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0,
         y += 28
     y += 6
     # STASHES
+    sections.append(['STASHES', 2, y])
     y = section_header(S, T, x0, x1, y, 'STASHES', 2)
-    for ref, msg in (('stash@{0}', 'WIP on feat/42-rate-limit'), ('stash@{1}', 'spike notes')):
+    for si, (ref, msg) in enumerate((('stash@{0}', 'WIP on feat/42-rate-limit'), ('stash@{1}', 'spike notes'))):
         cy = y + 14
+        if selected == f'st:{si}':
+            S.rect(x0 + 6, y + 1, x1 - x0 - 12, 26, r=6, fill=T('surface.selection'))
         g_tray(S, x0 + 23, cy, 13, T('text.secondary'))
         w = S.text(x0 + 35, cy + 4.3, ref, size=12, fill=T('text.primary'), mono=True)
         S.text(x0 + 35 + w + 8, cy + 4.3, fit(msg, 12.5, x1 - (x0 + 43 + w) - 14), size=12.5, fill=T('text.tertiary'))
         y += 28
     y += 6
+    sections.append(['ISSUES', 3, y])
     y = section_header(S, T, x0, x1, y, 'ISSUES', 3)
+    if issue_filter:
+        issue_filter_chip(S, T, x1 - 40, y - 15)
     for num, title, linked in (('#42', 'Rate limit per tenant', 1), ('#57', 'Token refresh race', 2), ('#61', 'Paginate audit log', None)):
         cy = y + 14
+        if selected == f'is:{num[1:]}':
+            S.rect(x0 + 6, y + 1, x1 - x0 - 12, 26, r=6, fill=T('surface.selection'))
         g_number_circle(S, x0 + 23, cy, 13, T('text.secondary'))
         w = S.text(x0 + 35, cy + 4.3, num, size=12.5, fill=T('text.secondary'), weight=500)
         S.text(x0 + 35 + w + 6, cy + 4.3, fit(title, 12.5, x1 - (x0 + 41 + w) - 34), size=12.5, fill=T('text.primary'))
         if linked is not None:
             g_tree(S, x1 - 22, cy, 12, T.lane(linked), filled=True)
         y += 28
+    S.close_group()
+    if scroll_px:
+        # sticky header of the section that the top edge is inside
+        top = y0 + PH + scroll_px
+        cur = [sec for sec in sections if sec[2] <= top][-1]
+        S.rect(x0, y0 + PH, x1 - x0, 30, fill=T('surface.panel'))
+        section_header(S, T, x0, x1, y0 + PH, cur[0], cur[1])
+        S.line(x0, y0 + PH + 30.5, x1, y0 + PH + 30.5, T('border.separator'))
     S.close_group()
     scrollbar(S, T, x1 - 8, y0 + PH + 4, y1 - 4, scroll[0], scroll[1])
     S.close_group()
@@ -629,7 +659,7 @@ def T_val(path):
 
 
 def graph_panel(S, T, wip=None, selected='wip', focus_lane=1, focus_idx=0, dim_non_ai=False, active_chip='all',
-                focus_branch='feat/42-rate-limit', hover=None, scroll=(0.0, 0.22)):
+                focus_branch='feat/42-rate-limit', hover=None, scroll=(0.0, 0.22), highlight=None):
     """wip: list of (kind, n) for the WIP summary or None. selected: 'wip' or a commit index."""
     x0, x1, y0, y1 = CX0, CX1, PT, PB
     panel(S, T, x0, y0, x1, y1, 'gpclip')
@@ -655,6 +685,10 @@ def graph_panel(S, T, wip=None, selected='wip', focus_lane=1, focus_idx=0, dim_n
         S.rect(x0, rowy(selected) - ROW / 2, 3, ROW, fill=T.lane(ln))
     if hover is not None:
         S.rect(x0, rowy(hover) - ROW / 2, x1 - x0, ROW, fill=T('surface.hover'))
+    if highlight is not None:
+        ln = C[highlight][4]
+        S.rect(x0, rowy(highlight) - ROW / 2, x1 - x0, ROW, fill=T.lane(ln), op=.08)
+        S.rect(x0 + 1.5, rowy(highlight) - ROW / 2 + .75, x1 - x0 - 3, ROW - 1.5, r=4, stroke=T.lane(ln), op=.6, dash='4 3')
     # edges
     n = len(C)
     edge_w = 3
@@ -1388,6 +1422,380 @@ def s07(mode):
     return finish(S, T)
 
 
+# ---------------------------------------------------------------- stash, issue, history
+
+def neutral_tile(S, T, cx, cy, s, glyph):
+    S.rect(cx - s / 2, cy - s / 2, s, s, r=s * .27, fill=T('text.secondary'), op=.14)
+    glyph(S, cx, cy, s * .62, T('text.secondary'))
+
+
+def chip(S, T, x, cy, label, glyph=None, mono=False):
+    w = tw(label, 11, 500, mono=mono) + 14 + (14 if glyph else 0)
+    S.rect(x, cy - 9, w, 18, r=5, fill=T('text.tertiary'), op=.16)
+    tx = x + 7
+    if glyph:
+        glyph(S, tx + 5, cy, 10, T('text.secondary'))
+        tx += 14
+    S.text(tx, cy + 3.8, label, size=11, fill=T('text.secondary'), weight=500, mono=mono)
+    return w
+
+
+def footer_buttons(S, T, x0, x1, y1, buttons):
+    h = 48
+    footer(S, T, x0, x1, y1, h)
+    x = x0 + 12
+    for label, glyph in buttons:
+        x += button(S, T, x, y1 - h / 2, label, glyph=glyph) + 8
+
+
+STASH_FILES = [('M', 'internal/ratelimit/window.go', 12, 3, False), ('M', 'internal/http/middleware.go', 5, 1, False),
+               ('A', 'docs/rate-limit-notes.md', 14, 0, True), ('M', 'go.sum', 2, 2, False)]
+
+
+def stash_detail(S, T):
+    x0, x1, y0, y1 = detail_frame(S, T)
+    panel_header(S, T, x0, y0, x1)
+    neutral_tile(S, T, x0 + 22, y0 + PH / 2, 20, g_tray)
+    S.text(x0 + 40, y0 + PH / 2 + 4.4, 'stash@{0}', size=13, fill=T('text.primary'), weight=600, mono=True)
+    S.text(x1 - 14, y0 + PH / 2 + 4.2, '1 hour ago', size=12, fill=T('text.tertiary'), anchor='end')
+    y = y0 + PH + 14
+    for ln in wrap('WIP on feat/42-rate-limit: a91f3c2 feat(ratelimit): add sliding window limiter', 13, x1 - x0 - 28, 500):
+        S.text(x0 + 14, y + 12, ln, size=13, fill=T('text.primary'), weight=500)
+        y += 19
+    y += 10
+    ch = 3 * 26 + 12
+    card(S, T, x0 + 10, x1 - 10, y, ch)
+    cx0, cx1 = x0 + 24, x1 - 22
+    yy = y + 6
+    def base_draw(x, cy):
+        w = S.text(x, cy + 4.2, 'a91f3c2', size=12, fill=T('text.link'), mono=True)
+        S.text(x + w + 8, cy + 4.3, fit('feat(ratelimit): add sliding window limiter', 12, cx1 - x - w - 8), size=12, fill=T('text.primary'))
+    yy = kv_row(S, T, cx0, cx1, yy, 'Base commit', draw=base_draw, kx=92)
+    def branch_draw(x, cy):
+        w = S.text(x, cy + 4.3, 'feat/42-rate-limit', size=12, fill=T('text.primary'))
+        S.text(x + w + 6, cy + 4.2, '(from message)', size=11.5, fill=T('text.tertiary'))
+    yy = kv_row(S, T, cx0, cx1, yy, 'Branch', draw=branch_draw, kx=92)
+    yy = kv_row(S, T, cx0, cx1, yy, 'Includes', 'index · working tree · untracked', kx=92)
+    y += ch + 10
+    h = 32 + len(STASH_FILES) * 26 + 6
+    card(S, T, x0 + 10, x1 - 10, y, h)
+    S.text(x0 + 24, y + 20.5, 'Files', size=12, fill=T('text.primary'), weight=600)
+    chip_count(S, T, x0 + 24 + tw('Files', 12, 600) + 8 + 18, y + 16, len(STASH_FILES))
+    stat(S, T, x1 - 22, y + 16, sum(f[2] for f in STASH_FILES), sum(f[3] for f in STASH_FILES))
+    S.line(x0 + 11, y + 31.5, x1 - 11, y + 31.5, T('border.separator'))
+    fy = y + 35
+    for k, pth, a, r_, from_untracked in STASH_FILES:
+        fcy = fy + 13
+        kind_badge(S, T, x0 + 20, fcy, k)
+        sw_ = stat(S, T, x1 - 22, fcy, a, r_)
+        extra = 0
+        if from_untracked:
+            g_question_circle(S, x1 - 22 - sw_ - 14, fcy, 13, T('status.untracked'))
+            extra = 22
+        path_text(S, T, x0 + 44, fcy, pth, x1 - x0 - 44 - 30 - sw_ - extra, fs=12.5)
+        fy += 26
+    y += h + 8
+    g_question_circle(S, x0 + 22, y + 10, 12, T('status.untracked'))
+    S.text(x0 + 34, y + 14, 'From the stash’s untracked-files commit', size=11.5, fill=T('text.tertiary'))
+    footer_buttons(S, T, x0, x1, y1, [('Copy Ref', g_copy)])
+    detail_end(S, T)
+
+
+def issue_detail(S, T):
+    x0, x1, y0, y1 = detail_frame(S, T)
+    panel_header(S, T, x0, y0, x1)
+    g_number_circle(S, x0 + 22, y0 + PH / 2, 15, T('text.secondary'))
+    w = S.text(x0 + 36, y0 + PH / 2 + 4.6, '#42', size=13, fill=T('text.secondary'), weight=600)
+    S.text(x0 + 36 + w + 7, y0 + PH / 2 + 4.6, fit('Rate limit per tenant', 13, x1 - (x0 + 43 + w) - 36, 600), size=13, fill=T('text.primary'), weight=600)
+    g_ellipsis(S, x1 - 20, y0 + PH / 2, 15, T('text.secondary'))
+    y = y0 + PH + 12
+    # state line
+    sw = tw('Open', 11.5, 600) + 30
+    S.rect(x0 + 14, y + 2, sw, 20, r=10, fill=T('text.tertiary'), op=.16)
+    g_number_circle(S, x0 + 27, y + 12, 11, T('text.secondary'))
+    S.text(x0 + 36, y + 16.2, 'Open', size=11.5, fill=T('text.primary'), weight=600)
+    S.text(x0 + 14 + sw + 10, y + 16.2, 'updated 3h ago · opened by Jordan Lee', size=12, fill=T('text.tertiary'))
+    y += 34
+    ch = 3 * 26 + 12
+    card(S, T, x0 + 10, x1 - 10, y, ch)
+    cx0, cx1 = x0 + 24, x1 - 22
+    yy = y + 6
+    def labels_draw(x, cy):
+        xx = x
+        for lab in ('type:feature', 'area:api', 'p1'):
+            xx += chip(S, T, xx, cy, lab) + 5
+    yy = kv_row(S, T, cx0, cx1, yy, 'Labels', draw=labels_draw)
+    def assignee_draw(x, cy):
+        avatar(S, T, x + 8, cy, 'AK', d=17)
+        S.text(x + 22, cy + 4.3, '@alexkim', size=12.5, fill=T('text.primary'))
+    yy = kv_row(S, T, cx0, cx1, yy, 'Assignees', draw=assignee_draw)
+    yy = kv_row(S, T, cx0, cx1, yy, 'Milestone', 'v0.5.0')
+    y += ch + 10
+    rows = [('wt', 'feat/42-rate-limit', 'worktree · 42-rate-limit'), ('remote', 'origin/feat/42-rate-limit', 'remote branch'),
+            ('commit', 'a91f3c2', 'feat(ratelimit): add sliding window limiter'), ('commit', '7d20e18', 'test(ratelimit): cover burst and refill cases')]
+    h = 32 + len(rows) * 28 + 6
+    card(S, T, x0 + 10, x1 - 10, y, h)
+    S.text(x0 + 24, y + 20.5, 'Linked', size=12, fill=T('text.primary'), weight=600)
+    chip_count(S, T, x0 + 24 + tw('Linked', 12, 600) + 8 + 18, y + 16, len(rows))
+    S.line(x0 + 11, y + 31.5, x1 - 11, y + 31.5, T('border.separator'))
+    ry = y + 35
+    for kind, name, sub in rows:
+        cy = ry + 14
+        if kind == 'wt':
+            tile(S, T, x0 + 30, cy, 1, 18)
+            w = S.text(x0 + 46, cy + 4.3, name, size=12.5, fill=T('text.primary'), weight=500)
+            S.text(x0 + 46 + w + 8, cy + 4.2, fit(sub, 11.5, x1 - (x0 + 54 + w) - 22), size=11.5, fill=T('text.tertiary'))
+        elif kind == 'remote':
+            g_globe(S, x0 + 30, cy, 13, T('text.secondary'))
+            w = S.text(x0 + 46, cy + 4.3, name, size=12.5, fill=T('text.primary'))
+            S.text(x0 + 46 + w + 8, cy + 4.2, fit(sub, 11.5, x1 - (x0 + 54 + w) - 22), size=11.5, fill=T('text.tertiary'))
+        else:
+            S.circle(x0 + 30, cy, 8, fill=T.avatar(av_idx('AK')))
+            S.circle(x0 + 30, cy, 8.8, stroke=T.lane(1), sw=1.8)
+            S.text(x0 + 30, cy + 2.7, 'AK', size=7.5, fill=T('avatar.initials'), weight=700, anchor='middle')
+            w = S.text(x0 + 46, cy + 4, name, size=11.5, fill=T('text.link'), mono=True)
+            S.text(x0 + 46 + w + 8, cy + 4.3, fit(sub, 12.5, x1 - (x0 + 54 + w) - 22), size=12.5, fill=T('text.primary'))
+        ry += 28
+    y += h + 12
+    g_globe(S, x0 + 22, y + 10, 12, T('text.tertiary'))
+    for i, ln in enumerate(wrap('The issue body is not shown in Overgrove. Open it in your browser to read or reply.', 11.5, x1 - x0 - 50)):
+        S.text(x0 + 34, y + 14 + i * 16, ln, size=11.5, fill=T('text.tertiary'))
+    footer_buttons(S, T, x0, x1, y1, [('Open in Browser', None), ('Copy URL', g_copy)])
+    detail_end(S, T)
+
+
+HISTORY = [
+    ('a91f3c2', 'feat(ratelimit): add sliding window limiter', 'AK', '2h', 1, 38, 4, True, None),
+    ('47b2e9a', 'fix(http): set server read and write timeouts', 'MP', '4d', 1, 12, 3, False, None),
+    ('a0f4d62', 'feat(auth): verify JWT audience claim', 'AK', '5d', 0, 9, 2, False, None),
+    ('2e6f9a3', 'feat: request id middleware', 'AK', '4w', 0, 18, 2, False, 'internal/mw/middleware.go'),
+    ('c4a8e17', 'chore: project layout', 'JL', '4w', 0, 24, 0, False, None),
+]
+
+
+def history_panel(S, T, selected=0):
+    x0, x1, y0, y1 = CX0, CX1, PT, PB
+    panel(S, T, x0, y0, x1, y1, 'hpclip')
+    S.open_group(clip='hpclip')
+    S.rect(x0, y0, x1 - x0, y1 - y0, fill=T('surface.canvas'))
+    panel_header(S, T, x0, y0, x1, h=44)
+    cy = y0 + 22
+    x = x0 + 12
+    x += back_button(S, T, x, cy)
+    x += S.text(x, cy + 4.6, 'History of', size=13, fill=T('text.secondary'), weight=500) + 8
+    mono_path(S, T, x, cy, 'internal/http/middleware.go')
+    tx = x1 - 14 - 32
+    toggle(S, T, tx, cy, on=True)
+    S.text(tx - 8, cy + 4.3, 'Follow renames', size=12, fill=T('text.primary'), anchor='end')
+    hy = y0 + 44
+    S.rect(x0, hy, x1 - x0, CH, fill=T('surface.panel-header'))
+    S.line(x0, hy + CH - .5, x1, hy + CH - .5, T('border.separator'))
+    cols = {'node': (x0, x0 + 44), 'sha': (x0 + 44, x0 + 120), 'message': (x0 + 120, x1 - 250), 'author': (x1 - 250, x1 - 148),
+            'date': (x1 - 148, x1 - 96), 'changes': (x1 - 96, x1)}
+    for k, lab in (('sha', 'Commit'), ('message', 'Message'), ('author', 'Author'), ('date', 'Date'), ('changes', 'This file')):
+        a, b = cols[k]
+        S.text(a + 12, hy + 18, lab, size=11, fill=T('text.tertiary'), weight=500)
+        if k != 'changes':
+            S.line(b - .5, hy + 8, b - .5, hy + CH - 8, T('border.strong'))
+    by0 = hy + CH
+    nx = x0 + 24
+    rowy = lambda r: by0 + r * ROW + ROW / 2
+    # selection
+    sel_lane = HISTORY[selected][4]
+    S.rect(x0, rowy(selected) - ROW / 2, x1 - x0, ROW, fill=T.lane(sel_lane), op=T_val('graph.selection-opacity'))
+    S.rect(x0, rowy(selected) - ROW / 2, 3, ROW, fill=T.lane(sel_lane))
+    # timeline
+    S.line(nx, rowy(0), nx, rowy(len(HISTORY) - 1), T('border.strong'), sw=2)
+    for i, (sha, subj, au, dt, ln, a, r_, ai, renamed) in enumerate(HISTORY):
+        y = rowy(i)
+        is_sel = i == selected
+        S.circle(nx, y, 12, fill=T('surface.canvas') if not is_sel else T('surface.canvas'))
+        S.circle(nx, y, 8.75, fill=T.avatar(av_idx(au)))
+        S.text(nx, y + 3, au, size=8.5, fill=T('avatar.initials'), weight=700, anchor='middle')
+        S.circle(nx, y, 10, stroke=T.lane(ln), sw=2.5)
+        S.text(cols['sha'][0] + 12, y + 4.2, sha, size=11.5, fill=T('text.link' if is_sel else 'text.secondary'), mono=True)
+        ma, mb = cols['message']
+        maxw = mb - ma - 24 - (36 if ai else 0)
+        if renamed:
+            subj_w = tw(subj, 13)
+            room = maxw - subj_w - 8 - 14
+            note = 'renamed from ' + fit(renamed, 11, room - tw('renamed from ', 11, 500), 500, middle=True)
+            nw = tw(note, 11, 500) + 14
+            w = S.text(ma + 12, y + 4.6, subj, size=13, fill=T('text.primary'))
+            S.rect(ma + 12 + w + 8, y - 9, nw, 18, r=5, fill=T('status.ahead'), op=.14)
+            S.text(ma + 12 + w + 15, y + 3.8, note, size=11, fill=T('text.secondary'), weight=500)
+        else:
+            w = S.text(ma + 12, y + 4.6, fit(subj, 13, maxw), size=13, fill=T('text.primary'), weight=500 if is_sel else 400)
+            if ai:
+                ai_badge(S, T, ma + 12 + w + 8, y)
+        S.text(cols['author'][0] + 12, y + 4.3, AUTHORS[au][0], size=12, fill=T('text.secondary'))
+        S.text(cols['date'][0] + 12, y + 4.3, dt, size=12, fill=T('text.secondary' if is_sel else 'text.tertiary'))
+        stat(S, T, x1 - 18, y, a, r_, fs=12)
+    # beginning of history
+    ey = rowy(len(HISTORY) - 1) + ROW / 2 + 22
+    S.line(x0 + 44, ey, x1 - 18, ey, T('border.separator'))
+    lab = 'Beginning of history · created in c4a8e17 as internal/mw/middleware.go'
+    lw = tw(lab, 11.5) + 20
+    S.rect((x0 + x1) / 2 - lw / 2, ey - 10, lw, 20, fill=T('surface.canvas'))
+    S.text((x0 + x1) / 2, ey + 4, lab, size=11.5, fill=T('text.tertiary'), anchor='middle')
+    S.close_group()
+    panel_outline(S, T, x0, y0, x1, y1)
+
+
+# ---------------------------------------------------------------- settings (native window)
+
+# The Settings window uses native controls, so it keeps macOS system colors at runtime (ADR-0014).
+# These are approximations for the mockup only; they are not design tokens.
+NATIVE = {
+    'light': dict(backdrop='#d4d8df', window='#ececec', toolbar='#e4e4e4', group='#ffffff', group_border='#dedede', sep='#e6e6e6',
+                  label='#1d1d1f', secondary='#6e6e73', tab_sel='#d6d6d6', control='#ffffff', control_border='#cfcfcf',
+                  toggle_off='#dedede', title='#4a4a4f'),
+    'dark': dict(backdrop='#07080b', window='#232325', toolbar='#2c2c2e', group='#2c2c2e', group_border='#3a3a3c', sep='#3a3a3c',
+                 label='#e8e8e6', secondary='#a1a1a6', tab_sel='#3c3c3f', control='#3a3a3c', control_border='#4a4a4c',
+                 toggle_off='#48484a', title='#c7c7cc'),
+}
+
+
+def g_gear(S, cx, cy, s, c):  # gearshape
+    import math
+    r = s / 2
+    for k in range(8):
+        a = math.pi * k / 4
+        S.line(cx + math.cos(a) * r * .55, cy + math.sin(a) * r * .55, cx + math.cos(a) * r * .95, cy + math.sin(a) * r * .95, c, sw=s * .16, cap='round')
+    S.circle(cx, cy, r * .58, stroke=c, sw=s * .13)
+    S.circle(cx, cy, r * .2, fill=c)
+
+
+def g_sliders(S, cx, cy, s, c):  # slider.horizontal.3
+    r = s / 2
+    for i, k in enumerate((-.3, .35, -.05)):
+        y = cy - r * .6 + i * r * .6
+        S.line(cx - r * .9, y, cx + r * .9, y, c, sw=s * .1, cap='round')
+        S.circle(cx + k * r * 2, y, r * .2, fill=c)
+
+
+def n_toggle(S, N, T, x, cy, on):
+    S.rect(x, cy - 10, 36, 20, r=10, fill=T('accent') if on else N['toggle_off'])
+    S.circle(x + (26 if on else 10), cy, 8.2, fill='#ffffff')
+
+
+def n_popup(S, N, x, cy, label, w, dim=False):
+    S.rect(x + .5, cy - 11, w - 1, 22, r=6, fill=N['control'], stroke=N['control_border'])
+    S.text(x + 10, cy + 4.2, label, size=12.5, fill=N['secondary'] if dim else N['label'])
+    g_updown(S, x + w - 12, cy, 11, N['secondary'])
+
+
+def n_button(S, N, x, cy, label, w=None):
+    w = w or tw(label, 12.5) + 24
+    S.rect(x + .5, cy - 11, w - 1, 22, r=6, fill=N['control'], stroke=N['control_border'])
+    S.text(x + w / 2, cy + 4.2, label, size=12.5, fill=N['label'], anchor='middle')
+    return w
+
+
+def settings_window(S, T, N, wx, wy, ww, wh, tab, cid):
+    S.add(f'<rect x="{wx}" y="{wy}" width="{ww}" height="{wh}" rx="12" fill="{N["window"]}" filter="url(#winshadow)"/>')
+    S.clip(cid, wx, wy, ww, wh, 12)
+    S.open_group(clip=cid)
+    S.rect(wx, wy, ww, wh, fill=N['window'])
+    S.rect(wx, wy, ww, 78, fill=N['toolbar'])
+    S.line(wx, wy + 78.5, wx + ww, wy + 78.5, N['sep'])
+    for i, k in enumerate(('close', 'minimize', 'zoom')):
+        S.circle(wx + 20 + i * 20, wy + 18, 6, fill=T(f'primitive.color.system-fallback.window-{k}'))
+    S.text(wx + ww / 2, wy + 22.5, tab, size=13, fill=N['title'], weight=600, anchor='middle')
+    tabs = [('General', g_gear), ('Repositories', g_folder), ('Advanced', g_sliders)]
+    tw_ = 92
+    tx = wx + ww / 2 - tw_ * len(tabs) / 2
+    for name, glyph in tabs:
+        on = name == tab
+        if on:
+            S.rect(tx + 6, wy + 34, tw_ - 12, 40, r=7, fill=N['tab_sel'])
+        glyph(S, tx + tw_ / 2, wy + 48, 17, T('accent') if on else N['secondary'])
+        S.text(tx + tw_ / 2, wy + 68, name, size=11, fill=N['label'] if on else N['secondary'], anchor='middle')
+        tx += tw_
+    return wy + 78
+
+
+def n_group(S, N, x, y, w, rows_h):
+    S.rect(x, y, w, rows_h, r=9, fill=N['group'])
+    S.rect(x + .5, y + .5, w - 1, rows_h - 1, r=8.5, stroke=N['group_border'])
+
+
+def settings_general(S, T, N, x, y, w):
+    gx, gw = x + 20, w - 40
+    y += 20
+    n_group(S, N, gx, y, gw, 44)
+    S.text(gx + 14, y + 26.5, 'Fetch automatically', size=13, fill=N['label'])
+    n_popup(S, N, gx + gw - 14 - 36 - 12 - 134, y + 22, 'Every 10 minutes', 134, dim=True)
+    n_toggle(S, N, T, gx + gw - 14 - 36, y + 22, False)
+    S.text(gx + 4, y + 62, 'Off by default. Fetch uses your git credential helper or SSH.', size=11.5, fill=N['secondary'])
+    y += 84
+    n_group(S, N, gx, y, gw, 44)
+    S.text(gx + 14, y + 26.5, 'Show full remote URLs', size=13, fill=N['label'])
+    n_toggle(S, N, T, gx + gw - 14 - 36, y + 22, False)
+    S.text(gx + 4, y + 62, 'Credentials in URLs are always masked.', size=11.5, fill=N['secondary'])
+    y += 84
+    n_group(S, N, gx, y, gw, 44)
+    S.text(gx + 14, y + 26.5, 'Show untracked files', size=13, fill=N['label'])
+    n_toggle(S, N, T, gx + gw - 14 - 36, y + 22, True)
+
+
+def settings_repositories(S, T, N, x, y, w):
+    gx, gw = x + 20, w - 40
+    y += 20
+    rows = [('api', '~/dev/api'), ('overgrove', '~/dev/overgrove')]
+    rh = 52
+    n_group(S, N, gx, y, gw, rh * len(rows))
+    for i, (name, path) in enumerate(rows):
+        ry = y + i * rh
+        if i:
+            S.line(gx + 14, ry + .5, gx + gw - 14, ry + .5, N['sep'])
+        g_folder(S, gx + 24, ry + rh / 2, 16, N['secondary'])
+        S.text(gx + 42, ry + 22, name, size=13, fill=N['label'], weight=600)
+        S.text(gx + 42, ry + 39, path, size=11.5, fill=N['secondary'], mono=True)
+        n_button(S, N, gx + gw - 14 - 76, ry + rh / 2, 'Remove', 76)
+    y += rh * len(rows) + 14
+    n_button(S, N, gx, y + 11, 'Add…', 76)
+    S.text(gx + 4, y + 50, 'Overgrove only reads folders you add here.', size=11.5, fill=N['secondary'])
+
+
+def settings_advanced(S, T, N, x, y, w):
+    gx, gw = x + 20, w - 40
+    y += 20
+    n_group(S, N, gx, y, gw, 96)
+    S.text(gx + 14, y + 26.5, 'Git executable', size=13, fill=N['label'])
+    bw = tw('Choose…', 12.5) + 24
+    n_button(S, N, gx + gw - 14 - bw, y + 22, 'Choose…', bw)
+    S.line(gx + 14, y + 44.5, gx + gw - 14, y + 44.5, N['sep'])
+    S.text(gx + 14, y + 66, '/usr/bin/git', size=12.5, fill=N['label'], mono=True)
+    g_check_circle(S, gx + 20, y + 82, 11, T('status.ok'))
+    S.text(gx + 30, y + 86, 'git 2.50.1 (Apple Git-155)', size=11.5, fill=N['secondary'])
+    S.text(gx + 4, y + 116, 'Must be an absolute path. Checked with --version when changed.', size=11.5, fill=N['secondary'])
+    y += 138
+    n_group(S, N, gx, y, gw, 44)
+    S.text(gx + 14, y + 26.5, 'Verbose logging', size=13, fill=N['label'])
+    n_toggle(S, N, T, gx + gw - 14 - 36, y + 22, False)
+    S.text(gx + 4, y + 62, 'Credentials are masked in logs too.', size=11.5, fill=N['secondary'])
+
+
+def s08(mode):
+    T = Theme(mode)
+    N = NATIVE[mode]
+    cw, chh = 1440, 560
+    S = Svg(cw, chh, 'Overgrove — S-08 settings')
+    S.defs.append('<filter id="winshadow" x="-20%" y="-20%" width="140%" height="150%">'
+                  f'<feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="{0.28 if mode == "light" else 0.6}"/></filter>')
+    S.rect(0, 0, cw, chh, fill=N['backdrop'])
+    ww, wh = 448, 470
+    gap = (cw - 3 * ww) / 4
+    for i, (tab, fn) in enumerate((('General', settings_general), ('Repositories', settings_repositories), ('Advanced', settings_advanced))):
+        wx = gap + i * (ww + gap)
+        top = settings_window(S, T, N, wx, 40, ww, wh, tab, f'set{i}')
+        fn(S, T, N, wx, top, ww)
+        S.close_group()
+        S.rect(wx + .5, 40.5, ww - 1, wh - 1, r=11.5, stroke='#00000026' if mode == 'light' else '#ffffff1f')
+    return S.render()
+
+
 # ---------------------------------------------------------------- screens
 
 WIP42 = [('staged', 2), ('unstaged', 3), ('untracked', 2)]
@@ -1484,6 +1892,45 @@ def s11(mode):
     return finish(S, T)
 
 
+def s04(mode):
+    T = Theme(mode)
+    S = window(T, 'Overgrove — S-04 stash detail')
+    toolbar(S, T)
+    sidebar(S, T, selected='st:0', scroll_px=96, scroll=(0.11, 0.89))
+    graph_panel(S, T, wip=WIP42, selected=None)
+    stash_detail(S, T)
+    grip(S, T, LX1 + G / 2)
+    grip(S, T, CX1 + G / 2)
+    statusbar(S, T)
+    return finish(S, T)
+
+
+def s06(mode):
+    T = Theme(mode)
+    S = window(T, 'Overgrove — S-06 issue panel')
+    toolbar(S, T)
+    sidebar(S, T, selected='is:42', scroll_px=96, scroll=(0.11, 0.89), issue_filter=True)
+    graph_panel(S, T, wip=WIP42, selected=None, highlight=0)
+    issue_detail(S, T)
+    grip(S, T, LX1 + G / 2)
+    grip(S, T, CX1 + G / 2)
+    statusbar(S, T)
+    return finish(S, T)
+
+
+def s09(mode):
+    T = Theme(mode)
+    S = window(T, 'Overgrove — S-09 file history')
+    toolbar(S, T)
+    sidebar(S, T, selected=None)
+    history_panel(S, T, selected=0)
+    commit_detail(S, T, 0, sel_file='internal/http/middleware.go')
+    grip(S, T, LX1 + G / 2)
+    grip(S, T, CX1 + G / 2)
+    statusbar(S, T)
+    return finish(S, T)
+
+
 SCREENS = {
     'main-window': s01,
     's02-wip-detail': s02,
@@ -1492,6 +1939,10 @@ SCREENS = {
     's10-diff-viewer': s10,
     's11-changes-vs-base': s11,
     's07-onboarding': s07,
+    's04-stash-detail': s04,
+    's06-issue-panel': s06,
+    's08-settings': s08,
+    's09-file-history': s09,
 }
 
 if __name__ == '__main__':

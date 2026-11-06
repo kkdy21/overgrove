@@ -61,5 +61,5 @@ Phase 2 디자인은 "시스템이 먼저다"를 원칙으로 삼았다([design-
 
 - [x] 토큰 교체와 검증: `design/tokens/tokens.json`, [design-tokens.md](../design/design-tokens.md) (#166)
 - [x] 아트 디렉션, 화면·상호작용 명세, 목업 갱신 (#166)
-- [ ] 토큰 생성 이슈(#35)에 Slate 토큰, AccentColor, 고대비 변형을 반영
-- [ ] 사용자 정의 분할 컨테이너(`PanelSplitView`) 구현 이슈를 연다 (메인 창 화면 이슈보다 먼저)
+- [x] 토큰 생성 이슈(#35)에 Slate 토큰, AccentColor, 고대비 변형을 반영 (완료 조건 갱신)
+- [x] 사용자 정의 분할 컨테이너(`PanelSplitView`) 구현 이슈: #174. 메인 창 레이아웃(#64)이 이것에 의존한다
