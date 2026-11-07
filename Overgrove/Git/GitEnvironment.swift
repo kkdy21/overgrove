@@ -30,6 +30,9 @@ struct GitEnvironment: Sendable, Equatable {
         // separators included, and some encodings (JOHAB, CP1361) turn message text into NUL bytes that shift fields
         // (#205). Pinning the output to UTF-8 overrides both.
         "-c", "i18n.logOutputEncoding=UTF-8",
+        // A repository's log.follow=true makes `git log -- <one path>` follow renames, so S-09's "Follow renames" off
+        // still followed (#310). `fileHistory` passes `--follow` itself when it wants it; an option beats the config.
+        "-c", "log.follow=false",
     ]
 
     /// Fixed search path for the child; the user's shell PATH is never used (SEC-T10-02).
