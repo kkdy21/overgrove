@@ -3,7 +3,8 @@ import XCTest
 
 @testable import Overgrove
 
-/// `LiveWorktreeInspector` (#67) on real fixtures: only `configList` runs, and S-05 reflects what it found.
+/// `LiveWorktreeInspector` (#67) on real fixtures. Since #240 it shows the inspection `RepositoryService` made when the
+/// list loaded (the one the worktree's status ran with) and runs no git command itself.
 final class WorktreeInspectionIntegrationTests: XCTestCase {
     private func inspector(environment: GitEnvironment, parent: [String: String]) -> LiveWorktreeInspector {
         let client = GitClient(environment: environment, parentEnvironment: parent)
@@ -14,6 +15,17 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
         Worktree(
             path: GitPath(path.path), head: nil, branch: "refs/heads/main", isMain: true, isDetached: false,
             isBare: false, lock: .unlocked, isPrunable: false, prunableReason: nil)
+    }
+
+    /// The main worktree's entry from a real load, with the inspection its status ran with.
+    private func loadedEntry(
+        _ fixture: FixtureRepo, environment: GitEnvironment
+    ) async throws -> (WorktreeListing.Entry, RepositoryOverview.Entry) {
+        let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
+        let overview = try await RepositoryService(client: client).loadOverview(of: repository(fixture))
+        let main = try XCTUnwrap(overview.entries.first { $0.worktree.isMain })
+        let entry = try XCTUnwrap(WorktreeListing(overview: overview).entries.first { $0.worktree.isMain })
+        return (entry, main)
     }
 
     private func repository(_ fixture: FixtureRepo) -> Repository {
@@ -27,11 +39,13 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
     func testSECT11_04_NormalFixtureShowsOnlyTheMaskedRemote() async throws {
         let fixture = try await makeFixture()
         let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let (entry, loaded) = try await loadedEntry(fixture, environment: environment)
         let result = await inspector(environment: environment, parent: fixture.environment)
-            .inspect(worktree(fixture.repository), of: repository(fixture))
+            .inspect(entry, of: repository(fixture))
 
         XCTAssertNil(result.failure)
         XCTAssertNotNil(result.inspection)
+        XCTAssertEqual(result.inspection, loaded.inspection, "S-05 shows the inspection the status ran with (#240)")
         XCTAssertEqual(result.gitVersion, environment.version)
         let model = WorktreeSecurityModel(result)
         XCTAssertNil(model.blockingReason)
@@ -45,12 +59,13 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
     }
 
     /// The malicious fixture's payload settings show as ⚠ with key names only, and nothing runs (canaries stay
-    /// empty: `configList` is the only command).
+    /// empty: the load ran with the neutralization, and the inspector runs no command).
     func testMaliciousFixtureShowsNeutralizedKeys() async throws {
         let fixture = try await makeFixture(malicious: true)
         let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let (entry, _) = try await loadedEntry(fixture, environment: environment)
         let result = await inspector(environment: environment, parent: fixture.environment)
-            .inspect(worktree(fixture.repository), of: repository(fixture))
+            .inspect(entry, of: repository(fixture))
 
         let model = WorktreeSecurityModel(result)
         XCTAssertTrue(model.rows.contains { $0.mark == .neutralized }, "\(model.rows)")
@@ -103,15 +118,17 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
         XCTAssertEqual(listed.last, "+3 more")
     }
 
-    /// The folder is checked again right before its configuration is read: a path that git resolves to another
-    /// worktree root (here a subfolder) is not inspected (security review of #67, T14).
-    func testFolderThatNoLongerMatchesIsNotInspected() async throws {
-        let fixture = try await makeFixture()
+    /// A worktree the load did not inspect (foreign, prunable, a probe that failed) shows why, and the inspector does
+    /// not inspect it on its own (#240).
+    func testWorktreeTheLoadDidNotInspectIsNotInspectedAgain() async throws {
+        let fixture = try await makeFixture(malicious: true)
         let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
-        let subfolder = fixture.repository.appendingPathComponent("src", isDirectory: true)
+        let entry = WorktreeListing.Entry(
+            worktree: worktree(fixture.repository), state: .notQueried(.foreignRepository), inspection: nil)
         let result = await inspector(environment: environment, parent: fixture.environment)
-            .inspect(worktree(subfolder), of: repository(fixture))
+            .inspect(entry, of: repository(fixture))
         XCTAssertNil(result.inspection)
-        XCTAssertEqual(result.failure, "This folder no longer matches the repository, so it was not inspected.")
+        XCTAssertEqual(result.failure, LiveWorktreeInspector.notInspected)
+        XCTAssertEqual(fixture.canaries(), [])
     }
 }
