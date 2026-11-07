@@ -42,7 +42,7 @@ struct IssueListModel: Equatable {
 
     /// Issues linked to a worktree or local branch first, then most recently updated first
     /// (information-architecture.md §4.2).
-    let rows: [IssueRow]
+    private(set) var rows: [IssueRow]
     /// `nil` when the list is not available (no count in the header).
     let count: Int?
     let notice: Notice?
@@ -51,6 +51,14 @@ struct IssueListModel: Equatable {
     /// Check Again is offered: every state except a loaded list.
     let canCheckAgain: Bool
     let isLoading: Bool
+
+    /// The rows whose number or title contains the sidebar filter (#74); the count stays the list's.
+    func filtered(_ query: String?) -> IssueListModel {
+        guard query != nil else { return self }
+        var copy = self
+        copy.rows = rows.filter { SidebarFilter.matches(query, $0.number, $0.title) }
+        return copy
+    }
 
     init(content: IssueListContent?, isLoading: Bool, links: IssueLinkIndex = .empty) {
         self.isLoading = isLoading

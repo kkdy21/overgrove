@@ -46,5 +46,5 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
 ## 후속 작업
 
 - [x] GraphEngine 구현과 GRA 테스트 (#59). 레인은 옆으로 옮기지 않고 빈 열을 다음 새 레인이 재사용한다. 그래서 선은 항상 곧고, 색(생성 열 mod 8)은 수명 동안 그대로다
-- [ ] 10만 커밋에서 첫 페이지 지연 측정 PERF-xx ([performance/benchmark-plan.md](../performance/benchmark-plan.md))
-- [ ] 페이지 방식 재검토: commit-graph가 없으면 `graphPage(skip:limit:)`가 페이지마다 약 400ms 든다. 프로세스 하나로 전체를 스트리밍하며 점진 렌더링하는 방식(첫 500개 약 400ms, 전체 약 560ms 실측)과 비교해 Phase 3에서 결정한다
+- [x] 10만 커밋에서 첫 페이지 지연 측정 PERF-03 ([performance/benchmark-plan.md](../performance/benchmark-plan.md)): commit-graph 있음 p95 41.7–49ms, 없음 408ms(#68, #98)
+- [x] 페이지 방식 재검토(#89 결정, 2026-11-07): v0.1은 `--skip` 페이지를 유지한다. commit-graph가 있으면 페이지 깊이와 관계없이 40–50ms, 없으면 페이지마다 약 400ms인데 비용은 skip이 아니라 date-order 정렬이다. 두 경우 모두 PB-3·PB-3b 안이다. commit-graph가 없는 저장소의 전체 스크롤을 위한 스트리밍 로더는 `GraphLoading` 뒤에 v0.2 후보로 둔다(#254)

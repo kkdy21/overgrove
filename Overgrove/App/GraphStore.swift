@@ -53,6 +53,9 @@ final class GraphStore {
     /// The focused worktree's HEAD, drawn with the accent ring.
     private(set) var head: ObjectID?
     private(set) var selected: ObjectID?
+    /// Bumped whenever the ref pills are rebuilt (refs, worktrees, or focus changed), so caches of search results
+    /// that read the pills know to rebuild (#74).
+    private(set) var decorationGeneration = 0
     /// A row to scroll into view (`⌘J`, keyboard moves); the token makes repeating the same row scroll again.
     private(set) var scrollTarget: ScrollTarget?
 
@@ -229,6 +232,7 @@ final class GraphStore {
         var known = worktrees
         if let focus, !known.contains(where: { $0.path == focus.worktree.path }) { known.append(focus.worktree) }
         pills = GraphRefDecorations.make(refs: refs, worktrees: known, focused: focus?.worktree.path)
+        decorationGeneration += 1
         if let focus, case .loaded(let state) = focus.state {
             head = state.headCommit ?? focus.worktree.head
             wip = GraphWipRow.make(worktree: focus.worktree, state: state)
