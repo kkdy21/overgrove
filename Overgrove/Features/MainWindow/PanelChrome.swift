@@ -167,24 +167,35 @@ struct DiffPlaceholder: View {
     }
 }
 
-/// Detail: the focused worktree's changes (S-02) or, later, the selected item. TODO(#67): worktree detail.
+/// Detail: the selected worktree's changes (S-02) or facts and safety (S-05), switched by the header segment.
 struct DetailPanel: View {
     let focusedWorktree: FocusedWorktree?
     var worktreeStatus: WorktreeListStatus = .idle
     var wipModel: WipDetailModel?
+    var worktreeModel: WorktreeDetailModel?
     var selectedFile: FileSelection?
     var onSelectFile: (FileSelection) -> Void = { _ in }
+    /// `nil` hides the segment (nothing selected, or a selection that is not a worktree).
+    var showsWorktreeSegment: Bool?
+    var onShowChanges: () -> Void = {}
+    var onShowWorktree: () -> Void = {}
 
     var body: some View {
         PanelSection {
             Image(systemName: "tree.fill").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
-            Text(wipModel?.title ?? focusedWorktree?.title ?? "No selection")
+            Text(wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title ?? "No selection")
                 .font(Tokens.Font.headline)
                 .foregroundStyle(Tokens.Color.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            if let isWorktree = showsWorktreeSegment {
+                Spacer(minLength: Tokens.Spacing.sm)
+                DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
+            }
         } content: {
-            if let wipModel {
+            if let worktreeModel {
+                WorktreeDetailView(model: worktreeModel)
+            } else if let wipModel {
                 WipDetailView(model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile)
             } else if worktreeStatus == .loading {
                 ProgressView().controlSize(.small)
