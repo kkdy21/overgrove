@@ -3,9 +3,9 @@ import XCTest
 
 @testable import Overgrove
 
-/// Fixture builders that fail the test instead of crashing the test host (#312). A `try!` that throws stops the whole
-/// host with `swift_unexpectedError`, and every test after it leaves no result; `scripts/lint/check-test-crashes.sh`
-/// keeps it out of the test target.
+/// Fixture builders that fail the test instead of crashing the test host (#312). A forced `try` that throws stops
+/// the whole host with `swift_unexpectedError`, and every test after it leaves no result;
+/// `scripts/lint/check-test-crashes.sh` keeps it out of the test target.
 enum TestFixtures {
     /// A patch parsed from `text`. When the parser rejects it (a parser change), the calling test fails and gets an
     /// empty listing.
