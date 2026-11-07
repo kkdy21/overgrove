@@ -115,8 +115,13 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             let revisions = fromUntracked ? ["\(oid.hex)^3"] : ["\(oid.hex)^1", oid.hex]
             return options + ["--end-of-options"] + revisions + (try Self.pathspec(path, originalPath: originalPath))
         case .graphPage(let skip, let limit):
+            // Branches, remote-tracking refs, tags, and every worktree's HEAD (#308): `--all` with `refs/*` excluded
+            // adds only the HEADs. Notes, `refs/prefetch` (`git maintenance`), `refs/original` (filter-branch),
+            // `refs/stash`, and other namespaces (`refs/pull`) are not walked: they have no ref pill and are not in the
+            // page cache key (`GraphRefSet`).
             return [
-                "log", "--exclude=refs/stash", "--all", "--date-order", "-z", Self.logFormat,
+                "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z",
+                Self.logFormat,
                 "--skip=\(max(0, skip))", "-n", String(Self.clampLimit(limit)),
             ]
         case .commitMeta(let oid):

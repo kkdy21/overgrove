@@ -92,7 +92,8 @@ final class GitCommandTests: XCTestCase {
                 "--", "new.txt",
             ],
             [
-                "log", "--exclude=refs/stash", "--all", "--date-order", "-z", ReadOnlyGitCommand.logFormat,
+                "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z",
+                ReadOnlyGitCommand.logFormat,
                 "--skip=500", "-n", "500",
             ],
             [
