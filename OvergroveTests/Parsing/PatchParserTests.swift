@@ -342,6 +342,27 @@ final class PatchParserTests: XCTestCase {
         assertFails("diff --git a/i b/i\nBinary files a/i and b/i differ\n@@ -1 +1 @@\n-a\n+b\n", "binary with hunk")
     }
 
+    /// The parser does not depend on header paths or context size, so `diff.context` and `core.quotePath` (which
+    /// #241 leaves alone) cannot break it: a raw non-ASCII header path reads the same as its quoted form, and a hunk
+    /// with ten context lines reads like one with three.
+    func testPAR_PATCH_03_IndependentOfQuotePathAndContextSize() throws {
+        let quoted = try XCTUnwrap(
+            try parse("diff --git a/x b/x\nrename from \"\\355\\225\\234.txt\"\nrename to b.txt\n").files.first)
+        var raw = Data("diff --git a/x b/x\nrename from ".utf8)
+        raw.append(contentsOf: [0xED, 0x95, 0x9C])
+        raw.append(Data(".txt\nrename to b.txt\n".utf8))
+        let unquoted = try XCTUnwrap(try PatchParser.parse(raw).files.first)
+        XCTAssertEqual(quoted.renameFrom, unquoted.renameFrom)
+        XCTAssertEqual(unquoted.renameFrom?.display, "한.txt")
+
+        let context = (1...10).map { " c\($0)" }.joined(separator: "\n")
+        let wide = try XCTUnwrap(
+            try parse("diff --git a/f b/f\n--- a/f\n+++ b/f\n@@ -1,21 +1,21 @@\n\(context)\n-a\n+b\n\(context)\n")
+                .files.first?.hunks.first)
+        XCTAssertEqual(wide.lines.count, 22)
+        XCTAssertEqual(wide.lines.last?.oldNumber, 21)
+    }
+
     // MARK: PAR-PATCH-06
 
     func testPAR_PATCH_06_Truncation() throws {

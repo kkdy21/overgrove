@@ -127,13 +127,11 @@ final class AppStateDiffTests: XCTestCase {
     /// Refusals happen before any git runs (unit level of `LiveDiffLoader`).
     func testRefusals() {
         let path = GitPath("lib")
-        XCTAssertNotNil(
-            LiveDiffLoader.refusal(FileSelection(worktree: feature, group: .unstaged, path: path), isSubmodule: true))
-        // TODO(#239): staged submodule diffs stay off too until the diff arguments are pinned.
-        XCTAssertNotNil(
-            LiveDiffLoader.refusal(FileSelection(worktree: feature, group: .staged, path: path), isSubmodule: true))
-        XCTAssertNil(
-            LiveDiffLoader.refusal(FileSelection(worktree: feature, group: .staged, path: path), isSubmodule: false))
+        // Submodules are diffed since #239 pinned `--submodule=short` and `--ignore-submodules=dirty`.
+        for group in [WorkingChangeGroup.staged, .unstaged] {
+            XCTAssertNil(
+                LiveDiffLoader.refusal(FileSelection(worktree: feature, group: group, path: path), isSubmodule: true))
+        }
         XCTAssertEqual(
             LiveDiffLoader.refusal(
                 FileSelection(worktree: feature, group: .conflicted, path: path), isSubmodule: false),

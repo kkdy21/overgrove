@@ -72,12 +72,8 @@ struct LiveDiffLoader: DiffLoading {
             return "This path is not valid UTF-8, so Overgrove cannot show its diff."
         }
         if file.group == .conflicted { return conflicted }
-        // TODO(#239): until #239 pins the diff arguments, an unstaged submodule diff can run the submodule's own
-        // clean filter, and a repository's `diff.submodule=diff` would run git inside the submodule for a staged one
-        // too. Submodule diffs stay off until then.
-        if isSubmodule {
-            return "Submodule diffs are not shown yet."
-        }
+        // Submodules are diffed since #239: `--submodule=short` overrides `diff.submodule` and
+        // `--ignore-submodules=dirty` keeps git out of the submodule's working tree (no filters run there).
         return nil
     }
 }

@@ -477,7 +477,8 @@ Resolving deltas: 100% (102/102), completed with 102 local objects.⏎
 - **커밋 OID 줄.** `diff-tree`에 커밋을 하나만 주면(루트 커밋, untracked stash 부모) 맨 앞에 그 커밋의 OID 한 줄을 찍는다. 첫 줄에서만 건너뛴다.
 - **`* Unmerged path <경로>`.** 충돌 경로에 `diff --cached`(그리고 일부 unmerged 상태)가 패치 대신 내는 한 줄. 충돌 파일 블록(`isUnmerged`)으로 받는다.
 - **`\` 줄 위치.** 내용 줄 바로 뒤에만 올 수 있다. hunk 첫 줄이거나 두 번 연속이면 실패한다. 바이너리 블록 뒤의 hunk도 실패한다.
-- **설정이 바꾼 출력.** 저장소 설정(`color.diff=always`, `diff.noprefix`, `diff.mnemonicPrefix`, `diff.submodule=log|diff`)은 `git diff` 출력 모양을 바꾼다. 이를 막는 인자는 #239가 카탈로그에 고정한다. 파서는 엄격하게 두어 ANSI 코드·`Submodule …` 줄이 오면 실패한다(잘못 읽어 보여 주지 않음). `diff.suppressBlankEmpty`가 만든 빈 줄은 개수 안에서 빈 문맥 줄로 받는다.
+- **설정이 바꾼 출력.** 저장소 설정(`color.diff=always`, `diff.noprefix`, `diff.mnemonicPrefix`, `diff.submodule=log|diff`, `diff.suppressBlankEmpty`)은 `git diff` 출력 모양을 바꾼다. 카탈로그가 `porcelainDiffOptions`(`--no-color --src-prefix=a/ --dst-prefix=b/ --submodule=short`)와 `-c diff.suppressBlankEmpty=false`로 고정한다(#239). 그래도 파서는 엄격하게 두어 ANSI 코드·`Submodule …` 줄이 오면 실패하고(잘못 읽어 보여 주지 않음), 빈 줄은 개수 안에서 빈 문맥 줄로 받는다.
+- **헤더 경로와 문맥 크기에 의존하지 않는다.** 화면 제목은 사용자가 고른 경로를 쓰고, 헤더 경로는 rename·copy 원래 경로 표시에만 쓴다. hunk 끝은 헤더의 개수로 정하므로 `diff.context`가 바꾼 문맥 줄 수(`-U`)와 상관없다. `core.quotePath=false`면 비ASCII 경로가 따옴표 없이 raw 바이트로 오는데, 따옴표를 푼 결과와 같은 바이트가 된다. 그래서 이 두 설정은 카탈로그에 고정하지 않는다(#232 결정).
 - **빈 출력.** 변경이 없으면(파일이 원래대로 돌아옴) 블록 0개.
 - **잘린 출력.** 마지막 미완성 줄을 버리고, 끝나지 않은 hunk는 받은 줄까지만 두고 `isPartial`.
 
