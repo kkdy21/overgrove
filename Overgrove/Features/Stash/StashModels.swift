@@ -41,10 +41,13 @@ struct StashDetailModel: Equatable {
     }
 
     let refName: String
+    /// For the Copy Ref tooltip: `stash@{n}` shifts when stashes change, the OID does not.
+    let oid: String
     let date: Date
     /// The full reflog subject, escaped.
     let subject: String
-    /// `9c8d7e6`, and the commit subject when the stash message names the same commit (`WIP on b: 9c8d7e6 subject`).
+    /// `9c8d7e6`, and the commit subject when the stash message names the same commit (`WIP on b: 9c8d7e6 subject`),
+    /// marked `(from message)`: it is the message's text, not read from the commit.
     let baseCommit: String?
     /// The branch read from the message, escaped; shown with `(from message)`.
     let branch: String?
@@ -56,6 +59,7 @@ struct StashDetailModel: Equatable {
 
     init(stash: Stash, state: StashDetailState) {
         refName = stash.refName
+        oid = stash.oid.hex
         date = stash.date
         subject = PathValidator.displayable(stash.subject)
         branch = stash.branch.map(PathValidator.displayable)
@@ -88,7 +92,7 @@ struct StashDetailModel: Equatable {
     static func baseCommitText(_ base: ObjectID, message: String) -> String {
         let parts = message.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
         if parts.count == 2, parts[0].count >= 7, base.hex.hasPrefix(parts[0]) {
-            return "\(base.short)  \(PathValidator.displayable(String(parts[1])))"
+            return "\(base.short)  \(PathValidator.displayable(String(parts[1])))  (from message)"
         }
         return base.short
     }

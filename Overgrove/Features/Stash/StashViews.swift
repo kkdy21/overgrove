@@ -24,11 +24,14 @@ struct StashListSection: View {
                     if isPartial {
                         SidebarNotice(symbol: "exclamationmark.triangle", text: "Some stashes could not be listed.")
                     }
-                    ForEach(rows) { row in
-                        StashRowView(row: row, isSelected: row.id == selectedID)
-                            .contentShape(Rectangle())
-                            .onTapGesture { onSelect(row.id) }
-                            .accessibilityAction { onSelect(row.id) }
+                    // Lazy: a crafted reflog can list tens of thousands of entries (security review of #71, T15).
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(rows) { row in
+                            StashRowView(row: row, isSelected: row.id == selectedID)
+                                .contentShape(Rectangle())
+                                .onTapGesture { onSelect(row.id) }
+                                .accessibilityAction { onSelect(row.id) }
+                        }
                     }
                 }
             }
@@ -87,7 +90,9 @@ struct StashDetailView: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(model.refName, forType: .string)
                 }
-                .help("Copy \(model.refName)")
+                .help(
+                    "Copy \(model.refName). It names a different stash once stashes are added or dropped; its OID is \(model.oid)."
+                )
                 Spacer()
             }
             .padding(Tokens.Spacing.sm + Tokens.Spacing.xxs)
@@ -154,7 +159,9 @@ struct StashDetailView: View {
             .tracking(Tokens.Font.sectionHeaderTracking)
             .foregroundStyle(Tokens.Color.textTertiary)
             if let rows = model.files {
-                ForEach(rows) { row in fileRow(row) }
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { row in fileRow(row) }
+                }
                 if model.hasUntrackedFiles {
                     Label("From the stash’s untracked-files commit", systemImage: "questionmark.circle")
                         .font(Tokens.Font.caption)

@@ -111,9 +111,19 @@ final class StashParserTests: XCTestCase {
     }
 
     func testPARSTASH04_InvalidParentListsFail() {
-        for parents in ["", " ", "\(sha1A)  \(sha1A)", "\(sha1A) \(sha1A) \(sha1A) \(sha1A)", "nothex", "\(sha1A) ABC"]
-        {
+        for parents in [" ", "\(sha1A)  \(sha1A)", "nothex", "\(sha1A) ABC"] {
             XCTAssertThrowsError(try StashParser.parse(data(record(parents: parents))), parents.debugDescription)
+        }
+    }
+
+    /// An entry that is not a stash commit (a root commit, or more than three parents) keeps the list loading, with
+    /// base and includes unknown (security review of #71).
+    func testPARSTASH04_NonStashEntryHasNoParents() throws {
+        for parents in ["", "\(sha1A) \(sha1A) \(sha1A) \(sha1A)"] {
+            let stash = try XCTUnwrap(try StashParser.parse(data(record(parents: parents))).stashes.first)
+            XCTAssertEqual(stash.parents, [], parents.debugDescription)
+            XCTAssertNil(stash.baseCommit)
+            XCTAssertFalse(stash.includesIndex)
         }
     }
 

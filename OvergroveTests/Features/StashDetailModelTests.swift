@@ -28,7 +28,9 @@ final class StashDetailModelTests: XCTestCase {
         let model = StashDetailModel(stash: Self.stash(), state: .loading)
         XCTAssertEqual(model.refName, "stash@{0}")
         XCTAssertEqual(model.subject, "WIP on main: 0f047e0 base2")
-        XCTAssertEqual(model.baseCommit, "0f047e0  base2", "the message names the real base, so its subject shows")
+        XCTAssertEqual(
+            model.baseCommit, "0f047e0  base2  (from message)", "the message names the real base, so its subject shows")
+        XCTAssertEqual(model.oid, Self.stash().oid.hex)
         XCTAssertEqual(model.branch, "main")
         XCTAssertEqual(model.includes, "index · working tree")
         XCTAssertNil(model.files)

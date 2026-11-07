@@ -130,6 +130,8 @@ final class AppState {
     private(set) var stashTask: Task<Void, Never>?
     private(set) var stashFileTask: Task<Void, Never>?
     private var stashGeneration = 0
+    /// The stash whose files `stashDetail` holds.
+    private var loadedStashOID: ObjectID?
     private let comparisonLoader: any ComparisonLoading
     /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
     private(set) var comparison: ComparisonSession?
@@ -239,6 +241,7 @@ final class AppState {
         stashTask?.cancel()
         stashGeneration += 1
         stashDetail = nil
+        loadedStashOID = nil
         clearStashFile()
         closeComparison()
         comparisonBases = [:]
@@ -287,7 +290,8 @@ final class AppState {
                 selection = nil
             }
             selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
-            if case .stash = selection { loadStash() }
+            // A stash's content never changes (it is addressed by OID): keep the loaded detail and the open file.
+            if case .stash(let oid) = selection, loadedStashOID != oid { loadStash() }
             // Configuration may have changed since the last inspection.
             worktreeInspections = [:]
             if case .worktreeInfo = selection { inspectSelectedWorktree() }
@@ -513,6 +517,7 @@ final class AppState {
             return
         }
         stashDetail = .loading
+        loadedStashOID = oid
         let generation = stashGeneration
         let loader = stashLoader
         let target = repository.repository

@@ -35,4 +35,26 @@ final class StashIntegrationTests: XCTestCase {
         XCTAssertEqual(tracked.files.map(\.path.display), ["src/stash-target.txt"])
         XCTAssertFalse(tracked.files[0].isFromUntracked)
     }
+
+    /// SEC-T15-09: a hand-written `refs/stash` entry that is not a stash commit (a root commit, no parents) keeps the
+    /// overview loading; that entry just has no base or includes (security review of #71).
+    func testSECT15_09_NonStashReflogEntryKeepsTheOverviewLoading() async throws {
+        let repository = try await GitTestRepository.make()
+        defer { repository.remove() }
+        try repository.write("README", "x\n")
+        try await repository.git(["add", "README"])
+        try await repository.git(["commit", "-q", "-m", "root"])
+        try await repository.git(["update-ref", "-m", "On main: fake", "--create-reflog", "refs/stash", "HEAD"])
+
+        let root = try XCTUnwrap(PathValidator.canonical(repository.root))
+        let target = Repository(
+            rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false)
+        let client = GitClient(environment: repository.environment)
+        let service = RepositoryService(client: client)
+        let listing = try await LiveRepositoryLoader(services: { (client, service) }).load(target)
+        XCTAssertEqual(listing.entries.count, 1, "the worktree list still loads")
+        XCTAssertEqual(listing.stashes.count, 1)
+        XCTAssertEqual(listing.stashes.first?.parents, [])
+        XCTAssertNil(listing.stashes.first?.baseCommit)
+    }
 }

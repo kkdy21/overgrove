@@ -141,7 +141,7 @@ stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575ab
 - `%gd`: `stash@{n}`. 표시와 정렬용이다. git 인자로는 `%H`(OID)를 쓴다. `stash@{n}`은 stash가 바뀌면 다른 항목을 가리키기 때문이다.
 - `%gs`: reflog 제목. `^(WIP on|On) (.+?): (.*)$`로 브랜치와 메시지를 뽑는다 (실패하면 원문 그대로 표시).
 - `%ct`: epoch 초. 상대 시간(`%cr`)은 쓰지 않고 앱에서 형식을 만든다.
-- `%P`: 부모 OID 1–3개를 공백 하나로 나눈다. 순서대로 기준 커밋, index 커밋, untracked 커밋(`-u`/`-a`일 때만). S-04의 `Base commit`과 `Includes`가 이것을 쓴다(#71). 개수가 범위 밖이거나 OID 형식이 아니면 실패.
+- `%P`: 부모 OID를 공백 하나로 나눈다. 진짜 stash는 2–3개(기준 커밋, index 커밋, `-u`/`-a`면 untracked 커밋). S-04의 `Base commit`과 `Includes`가 이것을 쓴다(#71). stash 커밋이 아닌 항목(손으로 `refs/stash`에 쓴 루트 커밋, 부모 넷 이상)은 부모를 `[]`로 두어 목록과 저장소 개요가 계속 뜨게 한다. OID 형식이 아니면(git으로 되돌아가는 값이므로) 실패.
 - 토큰 수가 5의 배수가 아니면 `parseFailed`다 (잘린 출력이면 마지막 묶음만 버림).
 
 | 테스트 | 사례 |
@@ -282,6 +282,8 @@ numstat 레코드만 나온다. `--include-untracked`가 있으면 untracked 부
 
 - stash 출력에도 이름 변경 numstat(`<added>\t<deleted>\t␀<old>␀<new>␀`)이 나온다. `stash show`는 `diff.renames` 기본값(켜짐)을 따른다 (확인).
 
+
+- untracked 출신 판별은 세 번째 부모(`<stash>^3`)의 `commitFiles`(`--root`)로 한다. 조작된 stash에서 `^3`이 루트 커밋이 아니면 그 부모와의 diff가 나오지만, 보이는 패치가 달라질 뿐 읽기 전용 `diff-tree`라 보안 영향은 없다(#71 리뷰).
 ### 8.3 워크트리 줄 수 — `diff [--cached] --numstat -z -M` (#230)
 
 numstat 레코드만 나온다. 형식은 §8.2와 같다(`status`는 `nil`). `parseWorktreeFiles(_:excluding:truncated:)`가 읽는다.

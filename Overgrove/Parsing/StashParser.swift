@@ -85,13 +85,16 @@ enum StashParser {
         return oid
     }
 
-    /// `%P`: one to three OIDs separated by single spaces (a stash commit always has at least the base).
+    /// `%P`: OIDs separated by single spaces; a real stash has two or three (base, index, untracked).
+    ///
+    /// An entry that is not a stash commit (a root commit written to `refs/stash` by hand, or one with more than three
+    /// parents) yields `[]`: base and includes are unknown, but the list and the whole overview still load (security
+    /// review of #71). Bytes that are not lowercase hex still fail, since these OIDs go back to git.
     private static func parentOIDs(_ token: Token, in data: Data) throws -> [ObjectID] {
+        if token.isEmpty { return [] }
         let parts = token.split(separator: 0x20, omittingEmptySubsequences: false)
-        guard (1...3).contains(parts.count) else {
-            throw ParseError(parser: name, offset: offset(of: token, in: data), reason: "invalid parent list")
-        }
-        return try parts.map { try stashOID($0, in: data) }
+        let oids = try parts.map { try stashOID($0, in: data) }
+        return oids.count <= 3 ? oids : []
     }
 
     /// `%ct`: epoch seconds, unsigned decimal.
