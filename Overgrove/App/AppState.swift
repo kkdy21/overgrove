@@ -40,6 +40,8 @@ final class AppState {
     let graph: GraphStore
     /// S-03 for the selected commit and the patch of a file picked in it (#69).
     let commitDetail: CommitDetailStore
+    /// S-09 (#70): the open file history, which covers the graph until closed.
+    let history: FileHistoryStore
     /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
     var comparison: ComparisonSession?
     /// The comparison (and its patch) in flight; tests await them.
@@ -166,6 +168,7 @@ final class AppState {
     ///   - graphLoader: Reads commit graph pages for the center panel (#68).
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
+    ///   - historyLoader: Reads a file's history for S-09.
     ///   - fetcher: Fetches the open repository's remotes. Defaults to `loader` when it can; without one, Fetch is off.
     ///   - fetchRecords: The last fetch of each repository (`UserDefaults`).
     ///   - gitChecker, ghChecker: The setup assistant's git and GitHub CLI checks (S-07); `ghChecker` also feeds the
@@ -182,6 +185,7 @@ final class AppState {
         lineCountLoader: (any LineCountLoading)? = nil,
         graphLoader: any GraphLoading = LiveGraphLoader.live,
         commitLoader: any CommitLoading = LiveCommitLoader.live,
+        historyLoader: any FileHistoryLoading = LiveFileHistoryLoader.live,
         fetcher: (any RepositoryFetching)? = nil,
         fetchRecords: FetchRecordStore = FetchRecordStore(),
         gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
@@ -191,6 +195,7 @@ final class AppState {
         self.ghChecker = ghChecker
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
+        self.history = FileHistoryStore(loader: historyLoader)
         self.layoutStore = layoutStore
         self.registry = registry
         self.registrar = registrar
@@ -254,5 +259,6 @@ final class AppState {
         issuePanel.clear()
         graph.clear()
         commitDetail.clear()
+        history.reset()
     }
 }

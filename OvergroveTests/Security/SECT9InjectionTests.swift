@@ -44,7 +44,7 @@ final class SECT9InjectionTests: XCTestCase {
             let path = GitPath(name)
             let history = try await client.run(
                 .fileHistory(path: path, limit: 100), in: repository.root, safety: inspected)
-            let commits = try LogParser.parseGraph(history.stdout).commits
+            let commits = try LogParser.parseFileHistory(history.stdout, path: path).entries.map(\.commit)
             XCTAssertEqual(commits.map(\.subject), ["change \(name)", "one"], "history of \(name)")
 
             let change = try XCTUnwrap(commits.first)
@@ -83,7 +83,7 @@ final class SECT9InjectionTests: XCTestCase {
         ]
         for name in committed {
             let history = try await client.run(.fileHistory(path: GitPath(name), limit: 500), in: repo, safety: safety)
-            let commits = try LogParser.parseGraph(history.stdout).commits
+            let commits = try LogParser.parseFileHistory(history.stdout, path: GitPath(name)).entries.map(\.commit)
             XCTAssertFalse(commits.isEmpty, "history of \(name)")
             XCTAssertLessThan(commits.count, total, "\(name) must not match every file")
 

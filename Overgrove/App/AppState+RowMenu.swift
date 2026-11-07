@@ -17,7 +17,8 @@ extension AppState {
             openTerminal: { [weak self] in self?.openTerminal(at: $0) },
             showStash: { [weak self] in self?.selectStash($0) },
             openInBrowser: { [weak self] in self?.openInBrowser($0) },
-            linkedBranchTip: { [weak self] in self?.linkedBranchTip(of: $0) })
+            linkedBranchTip: { [weak self] in self?.linkedBranchTip(of: $0) },
+            showHistory: { [weak self] in self?.showHistory(of: $1, in: $0) })
     }
 
     /// Copies `text` as it is shown (`RowActions.clipboardText`).

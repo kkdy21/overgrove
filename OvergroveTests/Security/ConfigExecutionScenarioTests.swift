@@ -414,7 +414,8 @@ final class ConfigExecutionScenarioTests: XCTestCase {
 
         let history = ReadOnlyGitCommand.fileHistory(path: GitPath("a.txt"), limit: 10)
         let result = try await scenario.app(history, in: repo)
-        XCTAssertEqual(try LogParser.parseGraph(result.stdout).commits.first?.oid.hex, oid)
+        XCTAssertEqual(
+            try LogParser.parseFileHistory(result.stdout, path: GitPath("a.txt")).entries.first?.commit.oid.hex, oid)
         assertNoCanary(after: "app file history")
 
         try await scenario.plain(try history.subcommandArguments(), in: repo)
