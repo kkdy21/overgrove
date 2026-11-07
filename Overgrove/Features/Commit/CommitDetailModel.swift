@@ -32,6 +32,8 @@ struct CommitDetailModel: Equatable {
         /// `+12 −3`, or `binary`.
         let lineChange: String
         let isSelectable: Bool
+        /// `Modified, src/a.swift, 2 lines added, 1 removed` (interaction.md §6.1).
+        var accessibilityLabel: String { WipDetailModel.fileAccessibilityLabel(stat) }
         var id: GitPath { stat.path }
     }
 

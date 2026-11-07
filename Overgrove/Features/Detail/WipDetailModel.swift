@@ -260,16 +260,44 @@ struct WipDetailModel: Equatable {
         if let lineCount { help += "\n\(lineCountDescription(lineCount))" }
         if !isSelectable { help += "\nThis path is not valid UTF-8, so Overgrove cannot show its diff." }
 
-        var label = "\(kind), \(original.map { "\($0) renamed to \(path)" } ?? path)"
-        if change.isSubmodule { label += ", submodule" }
-        label += ", \(group.title.lowercased())"
-        if let lineCount { label += ", \(lineCountDescription(lineCount))" }
+        let label = fileAccessibilityLabel(
+            leading: [group.title, kind], path: path, original: original,
+            extras: change.isSubmodule ? ["submodule"] : [], lineCount: lineCount)
 
         return WipFileRow(
             id: index, group: group, path: change.path, kindLetter: String(change.status.code), kindName: kind,
             directory: directory, fileName: fileName, isSubmodule: change.isSubmodule, lineCount: lineCount,
             isSelectable: isSelectable,
             help: help, accessibilityLabel: label)
+    }
+
+    /// VoiceOver text for a file row (interaction.md §6.1): `Staged, modified, src/a.swift, 42 lines added, 8 removed`.
+    /// The state and kind are words, a rename reads `old renamed to new`, and the first word is capitalized.
+    static func fileAccessibilityLabel(
+        leading: [String], path: String, original: String?, extras: [String] = [], lineCount: WipLineCount?
+    ) -> String {
+        var parts = leading
+        parts.append(original.map { "\($0) renamed to \(path)" } ?? path)
+        parts += extras
+        if let lineCount { parts.append(lineCountDescription(lineCount)) }
+        let text = parts.joined(separator: ", ")
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+
+    /// The same for a file of a commit, stash, or comparison (S-03, S-04, S-11), from its numstat.
+    static func fileAccessibilityLabel(_ stat: FileStat, extras: [String] = []) -> String {
+        let lineCount: WipLineCount? =
+            if stat.isBinary {
+                .binary
+            } else if let added = stat.added, let deleted = stat.deleted {
+                .lines(added: added, deleted: deleted)
+            } else {
+                nil
+            }
+        return fileAccessibilityLabel(
+            leading: stat.status.map { [kindName($0)] } ?? [], path: PathValidator.displayable(stat.path.display),
+            original: stat.originalPath.map { PathValidator.displayable($0.display) }, extras: extras,
+            lineCount: lineCount)
     }
 
     /// `40 lines added, 8 removed` for the tooltip and VoiceOver.
@@ -299,7 +327,7 @@ struct WipDetailModel: Equatable {
         return (PathValidator.displayable(directory), PathValidator.displayable("{\(from) → \(to)}"))
     }
 
-    private static func kindName(_ status: FileChange.Status) -> String {
+    static func kindName(_ status: FileChange.Status) -> String {
         switch status {
         case .modified: "modified"
         case .typeChanged: "type changed"

@@ -216,8 +216,9 @@ struct ComparisonListView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelect(ComparisonFile(path: row.path, isUntracked: isUntracked)) } }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(row.isSelectable ? .isButton : [])
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.accessibilityLabel + (isUntracked ? ", untracked" : ""))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : (row.isSelectable ? .isButton : []))
         .accessibilityAction {
             if row.isSelectable { onSelect(ComparisonFile(path: row.path, isUntracked: isUntracked)) }
         }

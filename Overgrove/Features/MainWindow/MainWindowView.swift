@@ -144,7 +144,10 @@ struct MainWindowView: View {
                 refresh: refreshAction,
                 onCompare: state.canCompare() ? { state.showComparison() } : nil,
                 onFetch: fetchAction,
-                isFetching: state.fetchStatus.isFetching
+                isFetching: state.fetchStatus.isFetching,
+                onJumpToHead: state.canJumpToHead ? { state.jumpToHead() } : nil,
+                onTerminal: state.focusedWorktreePath.map { path in { state.openTerminal(at: path) } },
+                onFinder: state.focusedWorktreePath.map { path in { state.revealWorktree(path) } }
             )
         }
         .toolbarBackground(Tokens.Color.surfaceWindow, for: .windowToolbar)

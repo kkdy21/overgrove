@@ -253,6 +253,15 @@ stateDiagram-v2
 | 상태바 | 요소별로 분리해 읽는다 | |
 
 - 사용자 지정 rotor: `Worktrees`, `Conflicted Files`, `Changes` 그룹(STAGED, UNSTAGED…).
+
+**구현 상태 (#75)**:
+- 위 표의 레이블은 모델에서 만들고 문자열을 테스트한다. 대상은 그래프 행(`GraphRowAccessibility`), WIP 행, 파일 행(S-02·S-03·S-04·S-11, `WipDetailModel.fileAccessibilityLabel`)이다. 상대 시각은 레이블에, 절대 시각은 hint에 둔다.
+- rotor 세 개를 넣었다. `Changes`는 그룹 헤더로 이동하고, 헤더는 기본 Headings rotor에도 나온다.
+- 선택 행은 `isSelected` trait를 가진다.
+- 인라인 아이콘 버튼은 `hitTarget()`(20pt)을 쓴다.
+- 대비 증가에서 컨트롤 테두리는 `Tokens.controlOutlineWidth`(1.5pt)와 `border.strong`을 쓴다.
+- 툴바의 워크트리 칩(`⌘J`), Terminal, Finder 버튼은 #73의 동작에 연결했다. Terminal은 `TerminalGuard`를 거친다.
+- 실제 VoiceOver 동작(읽는 순서, rotor 이동, 알림)은 [qa/checklist.md](../qa/checklist.md) QA-A11Y-01–11에서 사람이 확인한다(#96).
 - 새로고침이나 fetch 결과처럼 상태가 바뀌면 `AccessibilityNotification.Announcement`로 짧게 알린다. 예: `Fetch finished`, `Fetch failed: authentication`.
 
 ### 6.2 색에만 의존하지 않는다
