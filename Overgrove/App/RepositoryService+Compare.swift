@@ -46,6 +46,7 @@ extension RepositoryService {
         worktree path: GitPath,
         base: FullRefName,
         file: GitPath,
+        originalPath: GitPath? = nil,
         includeWorkingTree: Bool
     ) async -> Result<ComparisonPatch, ComparisonError> {
         let target: Target
@@ -54,7 +55,7 @@ extension RepositoryService {
         case .failure(let error): return .failure(error)
         }
         let command = ReadOnlyGitCommand.comparePatch(
-            base: target.base, path: file, includeWorkingTree: includeWorkingTree)
+            base: target.base, path: file, originalPath: originalPath, includeWorkingTree: includeWorkingTree)
         return await Self.run(target, makeContext(repository)) { folder, safety, client in
             let output = try await client.run(command, in: folder, safety: safety)
             return ComparisonPatch(patch: output.stdout, isTruncated: output.isTruncated)

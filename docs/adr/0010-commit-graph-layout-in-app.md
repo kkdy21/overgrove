@@ -14,7 +14,7 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
 
 ## 결정
 
-1. 그래프 데이터는 `git log --exclude=refs/stash --all --date-order -z --format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s`로 받는다. `--graph`는 쓰지 않는다.
+1. 그래프 데이터는 `git log --exclude=refs/stash --all --date-order -z --format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s`로 받는다. `--graph`는 쓰지 않는다. (#308에서 ref 범위를 `--branches --remotes --tags --exclude=refs/* --all`로 좁혔다: 브랜치·원격·태그·워크트리 HEAD만 따라가고 notes·prefetch·`refs/original`은 그래프에 넣지 않는다. 최신 인자는 [git-command-catalog.md](../architecture/git-command-catalog.md)가 기준이다.)
 2. `GraphEngine`(UI 무관 순수 Swift)이 커밋 순서와 부모 목록(`%P`)으로 레인을 계산한다. 결과는 행별로 다음을 담는다.
    - 노드 열
    - 지나가는 선

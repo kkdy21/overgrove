@@ -127,6 +127,8 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **fetch 중의 lazy fetch(#213 보안 검토)**: fetch도 받은 객체가 로컬에 없는 blob을 delta base로 쓰면 lazy fetch를 하며, 이때는 고정한 `--upload-pack`이 적용되지 않아 로컬 uploadpack이 실행된다(filter 설정 없이 promisor만 있는 저장소, 실측). `GIT_NO_LAZY_FETCH`를 지원하는 git은 이것으로 막혀 fetch가 안전하게 실패한다. **`lazyFetchControlVersion`(2.45.1) 미만에서는 partial clone의 fetch를 거부한다**(`configInspectionFailed`). partial clone 판정은 두 신호 중 하나다. ① git이 원격을 promisor로 다루게 하는 설정 전부: 어느 scope든 `remote.<n>.promisor`, `remote.<n>.partialclonefilter`(값 무관), `extensions.partialclone`(빈 값 포함)(`RepoSafetyContext.isPartialClone`). ② 독립 신호로, 공통 git 디렉터리의 `objects/pack`에 `.promisor` 파일이 있는 경우(`GitClient.hasPromisorPack`). ②는 이름만 읽고 링크는 따라가지 않는다. 링크, 읽을 수 없는 폴더, 폴더가 아닌 것, 스캔 상한 초과처럼 판단할 수 없으면 partial clone으로 본다. 폴더가 없을 때만 pack이 없다고 본다. 설정 목록이 git 내부를 따라가는 방식이라 빠질 수 있어서 둔 심층 방어다(#317). 기준은 원래 2.44.0이었다. 하지만 2.44.0과 2.45.0은 보안 릴리스보다 먼저 나와 fetch 중의 lazy fetch를 막지 못한다. 그래서 기준을 2.45.1로 고쳤다(#317, SEC-T5-18). 같은 이슈에서 git이 promisor로 다루는 설정 키 하나가 판정에서 빠져 있던 것도 고쳤다(①). 버전 비교라서 고쳐진 2.44.1과 백포트된 2.39.4–2.43.x도 거부하는데, 안전한 쪽으로 남긴 것이다.
   - 대가: 사용자가 직접 만든 partial clone에서 누락 객체가 필요한 조회(과거 커밋 diff, `fileHistory`)는 실패한다. partial 서브모듈이 있는 상위 저장소의 status도 실패할 수 있다(실측). 안전한 방향의 실패이고 메시지로 알린다.
   - **공통 인자 `-c protocol.ext.allow=never -c protocol.fd.allow=never`**: `ext::`와 `insteadOf` 바꿔치기, `fd::` 차단 (확인). `GIT_ALLOW_PROTOCOL`과 겹치지만 심층 방어로 유지한다.
+  - **fetch 전 원격 형태 검사(#350)**: 내장 전송(https, ssh, git, file) 형태가 아닌 원격은 fetch 전에 거부한다. `<이름>::<주소>` URL, git이 직접 처리하지 않거나 대소문자가 다른 `<scheme>://`, `remote.<n>.vcs`, `insteadOf`로 바꾼 결과가 내장 형태가 아닌 URL이 해당한다. 검사는 `RepoConfigInspector`가 하고 `GitClient.fetch`가 통과한 원격만 실행한다(`fetchableRemotes`, 기본값은 비어 있음). 상세 규칙은 [git-command-catalog.md §4](../architecture/git-command-catalog.md#4-fetchcommand).
+  - **공통 인자 `-c alias.remote-<이름>=`와 `-c help.autocorrect=0`(#350)**: 관련 저장소 설정을 무력화하는 심층 방어. 원격 형태 검사를 거치지 않고 fetch가 시작되더라도 효과가 있다(확인: git 2.36.6, Apple Git 2.54.0, Homebrew 2.54.0).
   - **공통 인자 `-c core.alternateRefsCommand=`(빈 값)**: alternates 경로 무력화. 빈 값이어도 fetch는 성공한다 (확인).
   - fetch는 `--no-recurse-submodules`로 서브모듈 원격에 연결하지 않는다.
 - **잔여 위험**:
@@ -138,7 +140,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
     - 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan … | ssh-keygen -lf -`, `ssh-keygen -F`)만 제시한다.
     - 남는 위험: `.git/hooks`는 설정 보고에 나오지 않으므로, 보고가 깨끗해도 터미널 git이 hook을 실행할 수 있다. 안내 문구가 이를 경고한다.
     - 두 번째 경로는 느린 status 안내(`SlowStatusHint`, #168)다. 저장소가 status를 일부러 느리게 만들어 안내를 띄울 수 있고, 권하는 `git status`는 index를 다시 써서 `post-index-change` hook을 실행할 수 있다. 그래서 설정 보고에 항목이 없고 **S-05의 hook 검사(`hookExecutables`)가 비어 있을 때만** 복사용 명령을 제시한다. 검사 결과가 없으면(상태바) 명령을 제시하지 않는다. 문구는 FetchFailureGuidance처럼 hook과 설정을 경고한다(SEC-T5-17). pager·editor·`!` alias는 #278부터 보고에 나온다.
-- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-17 (느린 status 안내는 설정 보고에 항목이 없고 hook 실행 파일이 없을 때만 `git status`를 제시하고, 항목·hook이 있거나 검사 결과가 없으면 명령이 없음, #168), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행), SEC-T5-18 (partial clone fetch: `lazyFetchControlVersion` 경계 2.45.0 거부·2.45.1 허용, 두 가지 pack 처리 경로와 promisor 설정 두 종류에서 앱 fetch 뒤 canary 없음, 대조군은 실행하되 저장소는 그대로. 설정이 없어도 `.promisor` pack이 있으면 거부, 판단할 수 없는 pack 폴더는 fail closed. `OVERGROVE_TEST_GIT`로 git 2.36·2.44.0·2.45.0을 주면 거부 경로를 실제 git으로 확인한다)
+- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-17 (느린 status 안내는 설정 보고에 항목이 없고 hook 실행 파일이 없을 때만 `git status`를 제시하고, 항목·hook이 있거나 검사 결과가 없으면 명령이 없음, #168), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행), SEC-T5-20 (내장 전송 형태가 아닌 원격: `<이름>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기를 앱 fetch가 git 실행 전에 거부하고 canary 없음, 대조군은 실행. `RepositoryService`는 원격별 실패로 보고, #350), SEC-T5-21 (원격 형태 검사를 우회해도 공통 인자만으로 canary 없음, 저장소가 켤 수 있는 두 가지 대체 경로 모두, 대조군은 실행, #350. 두 테스트 모두 git 2.36.6·Apple Git·Homebrew git에서 확인), SEC-T5-18 (partial clone fetch: `lazyFetchControlVersion` 경계 2.45.0 거부·2.45.1 허용, 두 가지 pack 처리 경로와 promisor 설정 두 종류에서 앱 fetch 뒤 canary 없음, 대조군은 실행하되 저장소는 그대로. 설정이 없어도 `.promisor` pack이 있으면 거부, 판단할 수 없는 pack 폴더는 fail closed. `OVERGROVE_TEST_GIT`로 git 2.36·2.44.0·2.45.0을 주면 거부 경로를 실제 git으로 확인한다)
 - **상태**: 설계 완료
 
 ### T6. 저장소 로컬 `credential.helper` 실행
@@ -307,7 +309,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - `fd::`는 `protocol.fd.allow=never`로 차단한다.
   - 출력 인코딩을 공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정한다. 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`(include 경유 포함)은 포맷된 출력 전체를 `-z` 구분자까지 다시 인코딩한다. JOHAB·CP1361은 메시지의 전각 문자(U+FF01…)를 NUL로 바꿔 필드를 밀고, 모든 검사를 통과하는 가짜 커밋 레코드를 만들 수 있다. UTF-16·UCS-4 등은 파싱을 실패시켜 그래프를 못 쓰게 만든다 (확인, E41, #205).
 - **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다. 커밋 객체의 `encoding` 헤더가 UCS-2·CP037·TCVN이면 git이 그 커밋의 모든 필드를 빈 값으로 출력해 그래프 페이지 전체가 파싱 실패한다(출력 인코딩 고정과 무관, #203 보안 검토). 필드가 밀리지는 않으므로 위조는 아니고, 가용성 문제로 남긴다.
-- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259), SEC-T15-11 (원격이 `feat/1-*` ref를 대량으로 밀어 넣어도 이슈 하나의 LINKED 항목은 종류별 상한까지만 만들고 나머지는 개수로만 셈. 커밋 제목은 앞부분만 훑고, LINKED 커밋 검색은 캐시해 페이지가 늘 때 새 페이지만 이어서 훑음, #82), SEC-T15-12 (원격 10만 개 + 반복 10만 개 + URL별 TLS·프록시 키 20만 개의 설정 목록을 선형 시간에 검사하고(로컬 Debug 약 1.5초, 기준 20초 — 이전 이차 시간 코드는 몇 분, #279) 상한대로 줄임. 드라이버 257개는 조회 중단, fetch 덮어쓰기 257개는 fetch만 막음, #262), SEC-T15-13 (ISSUES의 `Check Again`을 gh가 도는 동안 여러 번 눌러도 gh를 더 띄우지 않음, #83), SEC-T15-14 (자동 fetch는 창이 key일 때만, 진행 중인 fetch 위에 겹치지 않고, 활성화 때의 따라잡기는 간격당 한 번. 실패해도 창을 바꿀 때마다 다시 시도하지 않음, #79), SEC-T15-15 (출력 상한에 잘린 파일 이력은 `Beginning of history`가 아니라 잘렸다고 표시하고, 더 요청하지 않음. 추가 페이지 실패는 Retry를 누를 때까지 다시 실행하지 않음, #70), SEC-T15-16 (그래프 검색과 사이드바 필터는 필드마다 앞부분만 훑고(제목 1,024자, 이름·ref 256자, 커밋당 co-author·ref 32개), 새 페이지가 오면 그 페이지만 이어서 훑음. ref가 바뀌면 다시 훑음, #74), SEC-T15-17 (FSEvents 자동 새로고침: 분류는 스트림 큐에서 하고 메인 액터로는 묶은 변경만 넘기며, 한 묶음이 `FileChangeClassifier.maximumEventsPerBatch`(10,000)를 넘으면 경로를 보지 않고 rescan으로 친다. 요청은 한 번에 하나, 재실행 간격 `max(2초, 소요 × 10)`, 실패한 요청은 다시 보내지 않고, 다시 보일 때도 같은 간격을 거친다. PERF-10에서 6,000개 파일 폭주 동안 status 3회, #119)
+- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259), SEC-T15-11 (원격이 `feat/1-*` ref를 대량으로 밀어 넣어도 이슈 하나의 LINKED 항목은 종류별 상한까지만 만들고 나머지는 개수로만 셈. 커밋 제목은 앞부분만 훑고, LINKED 커밋 검색은 캐시해 페이지가 늘 때 새 페이지만 이어서 훑음, #82), SEC-T15-12 (원격 10만 개 + 반복 10만 개 + URL별 TLS·프록시 키 20만 개의 설정 목록을 선형 시간에 검사하고(로컬 Debug 약 1.5초, 기준 20초 — 이전 이차 시간 코드는 몇 분, #279) 상한대로 줄임. 원격 형태 검사(#350)는 모든 URL에 맞는 바꾸기 규칙 256개와 1KB 값으로 채운 약 10MB 목록에서도 기준 안에 끝남. 드라이버 257개는 조회 중단, fetch 덮어쓰기 257개는 fetch만 막음, #262), SEC-T15-13 (ISSUES의 `Check Again`을 gh가 도는 동안 여러 번 눌러도 gh를 더 띄우지 않음, #83), SEC-T15-14 (자동 fetch는 창이 key일 때만, 진행 중인 fetch 위에 겹치지 않고, 활성화 때의 따라잡기는 간격당 한 번. 실패해도 창을 바꿀 때마다 다시 시도하지 않음, #79), SEC-T15-15 (출력 상한에 잘린 파일 이력은 `Beginning of history`가 아니라 잘렸다고 표시하고, 더 요청하지 않음. 추가 페이지 실패는 Retry를 누를 때까지 다시 실행하지 않음, #70), SEC-T15-16 (그래프 검색과 사이드바 필터는 필드마다 앞부분만 훑고(제목 1,024자, 이름·ref 256자, 커밋당 co-author·ref 32개), 새 페이지가 오면 그 페이지만 이어서 훑음. ref가 바뀌면 다시 훑음, #74), SEC-T15-17 (FSEvents 자동 새로고침: 분류는 스트림 큐에서 하고 메인 액터로는 묶은 변경만 넘기며, 한 묶음이 `FileChangeClassifier.maximumEventsPerBatch`(10,000)를 넘으면 경로를 보지 않고 rescan으로 친다. 요청은 한 번에 하나, 재실행 간격 `max(2초, 소요 × 10)`, 실패한 요청은 다시 보내지 않고, 다시 보일 때도 같은 간격을 거친다. PERF-10에서 6,000개 파일 폭주 동안 status 3회, #119)
 - **상태**: 설계 완료
 
 ### T16. 로그를 통한 정보 유출
@@ -371,11 +373,11 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 저장하는 필드를 전용 타입(`LaunchSnapshot`)이 정한다. 워크트리 경로, 브랜치 짧은 이름, HEAD 짧은 SHA, 개수와 상태 플래그, stash 개수만 담는다. config 값, 설정 검사 결과, 원격 이름·URL, 자격 증명, 오류 문구, 작업 트리 파일 이름, 커밋 내용, 그래프는 저장하지 않는다.
   - 표시 전용이다. 스냅샷으로 그린 동안 git이나 외부 앱을 부르는 동작을 막고, `RepoSafetyContext`·설정 검사·`TerminalGuard`·fetch 판단에 쓰지 않는다. 첫 조회는 스냅샷과 관계없이 설정 검사부터 한다.
   - 파일은 신뢰하지 않는 입력으로 읽는다. 일반 파일(링크 거부), 256 KiB 이하, 고정 스키마, 숫자·행 수·문자열 길이 상한, 절대 경로만. 하나라도 어긋나면 전체를 버리고 지운다.
-  - 무효화: 형식·앱·git 버전, 저장소 ID 해시, 공통 git 디렉터리와 워크트리 git 디렉터리 파일들의 `lstat` 지문, 7일 경과. 저장소 제거·새로고침 실패·조회 차단 때 지운다.
+  - 무효화: 형식·앱 버전, git 실행 파일 경로와 `lstat`(장치·inode·크기·mtime·ctime, 버전은 진단용 기록), 저장소 ID 해시, 공통 git 디렉터리와 워크트리 git 디렉터리 파일들의 `lstat` 지문, 7일 경과. 저장소 제거·새로고침 실패·조회 차단 때 지운다.
   - `~/Library/Caches/<bundle id>/LaunchSnapshots/`, 디렉터리 `0700`·파일 `0600`, 파일 이름은 저장소 ID의 SHA-256.
-- **잔여 위험**: 워크트리 경로와 브랜치 이름은 앱이 닫힌 뒤에도 남는다. 경로는 이미 `UserDefaults`에도 있다. 같은 계정의 프로세스는 파일을 읽고 바꿀 수 있다(계정 장악은 범위 밖, §1.2). 바꿔 넣은 파일은 표시를 잠깐 속일 수 있을 뿐 명령을 실행하게 하지 못한다.
+- **잔여 위험**: 워크트리 경로와 브랜치 이름은 앱이 닫힌 뒤에도 남는다. 경로는 이미 `UserDefaults`에도 있다. 같은 계정의 프로세스는 파일을 읽고 바꿀 수 있다(계정 장악은 범위 밖, §1.2). 바꿔 넣은 파일은 표시를 잠깐 속일 수 있을 뿐 명령을 실행하게 하지 못한다. `xcode-select`로 developer dir만 바꾸고 이전 git이 남아 있으면 스냅샷이 무효화되지 않아, 첫 조회 전까지 옛 숫자가 보인다(첫 조회는 지금의 git으로 한다).
 - **검증** (구현 #109): SEC-T19-01 (적대적 개요 — 자격 증명 원격 URL, 토큰이 든 config 값, 설정 검사 finding, 파일 이름, 오류 문구 — 로 만든 스냅샷 JSON에 그 값들이 없음), SEC-T19-02 (손상·과대·링크·스키마 위반·범위 밖 숫자·65행 스냅샷은 버려지고 파일이 지워짐, 앱은 평소 조회로 계속), SEC-T19-03 (스냅샷 상태에서 Terminal·Finder·Compare·행 메뉴가 막히고, 스냅샷이 있어도 첫 조회가 설정 검사부터 실행됨), SEC-T19-04 (지문·버전·저장소 해시가 다르거나 7일이 지나면 보여 주지 않음, 저장소 제거 때 파일 삭제, 파일·디렉터리 권한)
-- **상태**: 설계 완료 (ADR-0018 Accepted, 구현 #109)
+- **상태**: 적용됨 (ADR-0018, #109)
 
 ---
 
@@ -394,6 +396,12 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 -c core.askPass=
 -c protocol.ext.allow=never
 -c protocol.fd.allow=never
+-c alias.remote-https=
+-c alias.remote-ssh=
+-c alias.remote-git=
+-c alias.remote-file=
+-c alias.remote-http=
+-c help.autocorrect=0
 -c core.alternateRefsCommand=
 -c log.showSignature=false
 -c gc.auto=0
@@ -402,6 +410,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 -c color.ui=never
 -c diff.suppressBlankEmpty=false
 -c i18n.logOutputEncoding=UTF-8
+-c log.follow=false
 ```
 
 diff 계열 서브커맨드에는 `--no-ext-diff --no-textconv`를 붙인다.

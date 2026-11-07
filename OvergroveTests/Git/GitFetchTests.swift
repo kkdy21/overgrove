@@ -71,7 +71,9 @@ final class GitFetchTests: XCTestCase {
     private func sshSafety(gated: Bool) throws -> RepoSafetyContext {
         let server = try executables.fakeSSHServer(
             git: local.environment.executable, remotes: remotes, markers: markers, gated: gated)
-        return RepoSafetyContext(inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: server.path)
+        return RepoSafetyContext(
+            inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: server.path,
+            fetchableRemotes: ["origin", "upstream"])
     }
 
     private func marker(_ host: String, _ state: String) -> URL {
@@ -222,7 +224,8 @@ final class GitFetchTests: XCTestCase {
         try await source.git(["init", "-q", "--bare", bare.path])
         try await source.git(["-C", bare.path, "remote", "add", "origin", remote.path])
         let target = Repository(rootURL: nil, commonGitDirectoryURL: bare, isBare: true)
-        let safety = RepoSafetyContext(inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
+        let safety = RepoSafetyContext(
+            inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil, fetchableRemotes: ["origin"])
 
         _ = try await GitClient(environment: local.environment).fetch(
             .fetch(remote: origin), in: target, safety: safety)

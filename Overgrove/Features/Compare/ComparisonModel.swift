@@ -39,6 +39,8 @@ struct ComparisonModel: Equatable {
         /// The file also has uncommitted changes (shown with a `WIP` pill, no colour).
         let hasUncommittedChanges: Bool
         let isSelectable: Bool
+        /// The old name of a renamed file, for its patch (#309).
+        var originalPath: GitPath?
         /// `Modified, src/a.swift, also changed in the working tree, 2 lines added, 1 removed` (interaction.md §6.1).
         var accessibilityLabel = ""
         var id: GitPath { path }
@@ -189,6 +191,7 @@ struct ComparisonModel: Equatable {
             path: stat.path, kindLetter: String((stat.status ?? .modified).code), directory: directory,
             fileName: fileName, lineChange: lineChange, hasUncommittedChanges: uncommitted.contains(stat.path),
             isSelectable: stat.path.isRepresentable && (stat.originalPath?.isRepresentable ?? true),
+            originalPath: stat.originalPath,
             accessibilityLabel: WipDetailModel.fileAccessibilityLabel(
                 stat, extras: uncommitted.contains(stat.path) ? ["also changed in the working tree"] : []))
     }

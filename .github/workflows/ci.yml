@@ -71,6 +71,9 @@ jobs:
           # #282, #288: each SEC, PAR, experiment, and PERF ID is defined once; every SEC and PERF ID mentioned is defined.
           scripts/lint/check-sec-ids.sh
           scripts/lint/check-sec-ids.test.sh
+          # #312: no try! in tests, so a failing fixture fails one test instead of crashing the test host.
+          scripts/lint/check-test-crashes.sh
+          scripts/lint/check-test-crashes.test.sh
           for f in .github/labels.json .claude/settings.json .swift-format design/tokens/tokens.json; do
             jq empty "$f"
           done

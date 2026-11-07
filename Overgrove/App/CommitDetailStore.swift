@@ -4,7 +4,9 @@ import Observation
 /// Reads one commit's detail and file patches (S-03, #69).
 protocol CommitLoading: Sendable {
     func detail(_ repository: Repository, of commit: ObjectID) async -> Result<CommitDetail, GitError>
-    func patch(_ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath) async
+    func patch(
+        _ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath, originalPath: GitPath?
+    ) async
         -> Result<PatchParser.Listing, GitError>
 }
 
@@ -19,11 +21,14 @@ struct LiveCommitLoader: CommitLoading {
         return await service.commitDetail(repository, of: commit)
     }
 
-    func patch(_ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath) async
+    func patch(
+        _ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath, originalPath: GitPath?
+    ) async
         -> Result<PatchParser.Listing, GitError>
     {
         guard let service = try? await services().1 else { return .failure(.executableNotFound(path: "git")) }
-        return await service.commitPatch(repository, of: commit, parent: parent, path: path)
+        return await service.commitPatch(
+            repository, of: commit, parent: parent, path: path, originalPath: originalPath)
     }
 }
 
@@ -92,7 +97,9 @@ final class CommitDetailStore {
             label: commit.oid.short + (commit.isMerge ? " · vs first parent" : ""),
             kindLetter: String((file.status ?? .modified).code))
         fileTask = Task { [weak self] in
-            let result = await loader.patch(repository, of: commit.oid, parent: commit.parents.first, path: file.path)
+            let result = await loader.patch(
+                repository, of: commit.oid, parent: commit.parents.first, path: file.path,
+                originalPath: file.originalPath)
             guard let self, generation == self.fileGeneration, !Task.isCancelled else { return }
             switch result {
             case .success(let patch):

@@ -70,6 +70,8 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 
 번호는 한 번 쓰면 재사용하지 않는다. 테스트를 지우면 원본 표에 "폐기"로 남긴다.
 
+**테스트 호스트를 멈추지 않는다 (#312)**: 테스트와 픽스처에 `try!`를 쓰지 않는다. 던지면 한 테스트가 실패하는 대신 테스트 호스트가 `swift_unexpectedError`로 멈추고, 그 뒤 테스트는 결과를 남기지 못한다. throwing 테스트의 `try`, `XCTUnwrap`, 또는 `XCTFail`을 부르는 `TestFixtures`(`OvergroveTests/Support/TestFixtures.swift`)를 쓴다. `scripts/lint/check-test-crashes.sh`가 CI `build-test`에서 확인한다.
+
 ---
 
 ## 4. 층별 지침
