@@ -135,7 +135,7 @@ final class GitEnvironmentTests: XCTestCase {
                 "-c", "core.alternateRefsCommand=",
                 "-c", "log.showSignature=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
                 "-c", "diff.autoRefreshIndex=false", "-c", "color.ui=never", "-c", "diff.suppressBlankEmpty=false",
-                "-c", "i18n.logOutputEncoding=UTF-8",
+                "-c", "i18n.logOutputEncoding=UTF-8", "-c", "log.follow=false",
             ]
         )
     }

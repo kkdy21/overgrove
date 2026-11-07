@@ -51,6 +51,7 @@
 | `-c color.ui=never` | 출력에 ANSI 코드가 섞이지 않게 함. 저장소 로컬 `color.diff=always`는 이 값을 이기므로 porcelain diff에는 `--no-color`를 따로 붙인다(§3, #239) | 파싱 안정성 |
 | `-c diff.suppressBlankEmpty=false` | 저장소 로컬 `diff.suppressBlankEmpty`가 patch의 빈 문맥 줄 앞 공백을 지우지 못하게 함. 이 설정은 명령줄 옵션이 없다 (확인, #239) | T3, 파싱 무결성 |
 | `-c i18n.logOutputEncoding=UTF-8` | 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`이 포맷된 출력 전체(`-z` 구분자 포함)를 다시 인코딩하지 못하게 함. JOHAB·CP1361은 메시지의 전각 문자를 NUL로 바꿔 필드를 밀고 가짜 레코드를 만든다 (확인, E41, #205) | T15, 파싱 무결성 |
+| `-c log.follow=false` | 저장소 로컬 `log.follow=true`가 경로 하나짜리 `git log`를 rename 추적으로 바꾸지 못하게 함. `fileHistory(follow: false)`가 `--follow`만 빼던 탓에 S-09의 "Follow renames"를 꺼도 rename 이전 커밋이 나왔다. 추적이 필요하면 `fileHistory`가 `--follow`를 직접 넘기고, 옵션이 설정보다 우선한다. `log.follow`는 git 2.6부터 있어 최소 지원 버전(2.36)에서 동작한다 (확인, #310) | 표시 정확성 |
 
 diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)에는 서브커맨드 인자로 `--no-ext-diff --no-textconv`를 반드시 붙인다 (T3). `git diff`는 기본으로 외부 diff 드라이버를 실행한다 (확인).
 
