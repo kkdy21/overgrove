@@ -36,7 +36,8 @@ final class IssuePanelState {
     private(set) var repository: GitHubRepository?
     /// The load in flight; tests await it.
     private(set) var task: Task<Void, Never>?
-    /// Called with the loaded issues, so a selection of an issue that is gone can fall back.
+    /// Called with the issues now listed (empty when the list is unavailable), so a selection of an issue that is gone
+    /// can fall back.
     var onLoaded: (([Issue]) -> Void)?
 
     private var isStale = true
@@ -59,6 +60,7 @@ final class IssuePanelState {
             cancel()
             self.repository = nil
             content = .noGitHubRemote
+            onLoaded?([])
             return false
         }
         guard repository != self.repository || isStale else { return false }
@@ -118,10 +120,16 @@ final class IssuePanelState {
         case .issues(let issues):
             content = .loaded(repository: repository, issues: issues)
             onLoaded?(issues)
-        case .notInstalled: content = .notInstalled
-        case .notLoggedIn: content = .notLoggedIn
+        case .notInstalled:
+            content = .notInstalled
+            onLoaded?([])
+        case .notLoggedIn:
+            content = .notLoggedIn
+            onLoaded?([])
         case .failed(let message):
             content = .failed(repository: repository, detail: PathValidator.displayable(message))
+            // No list: a selected issue cannot stay selected (#311).
+            onLoaded?([])
         case .cancelled:
             // Try again on the next `show`.
             isStale = true

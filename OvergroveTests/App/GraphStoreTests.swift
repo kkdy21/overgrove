@@ -58,6 +58,38 @@ final class FakeGraphLoader: GraphLoading, @unchecked Sendable {
     }
 }
 
+/// `FakeGraphLoader` whose answers wait until the test releases them, so tests choose which page lands first (#306).
+final class GatedGraphLoader: GraphLoading, @unchecked Sendable {
+    let pages: FakeGraphLoader
+    private let lock = NSLock()
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var isGated = false
+
+    init(count: Int) { pages = FakeGraphLoader(count: count) }
+
+    var pendingCount: Int { lock.withLock { waiting.count } }
+    func gate() { lock.withLock { isGated = true } }
+
+    /// Lets the oldest waiting call answer.
+    func releaseOldest() {
+        let next: CheckedContinuation<Void, Never>? = lock.withLock { waiting.isEmpty ? nil : waiting.removeFirst() }
+        next?.resume()
+    }
+
+    /// Lets the newest waiting call answer.
+    func releaseNewest() {
+        let next: CheckedContinuation<Void, Never>? = lock.withLock { waiting.popLast() }
+        next?.resume()
+    }
+
+    func page(_ repository: Repository, skip: Int, limit: Int) async -> Result<GraphPageSnapshot, GitError> {
+        if lock.withLock({ isGated }) {
+            await withCheckedContinuation { continuation in lock.withLock { waiting.append(continuation) } }
+        }
+        return await pages.page(repository, skip: skip, limit: limit)
+    }
+}
+
 @MainActor
 final class GraphStoreTests: XCTestCase {
     private let repository = Repository(
@@ -161,5 +193,90 @@ final class GraphStoreTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(50))
         XCTAssertEqual(store.status, .idle, "results of cleared loads are dropped")
         XCTAssertEqual(store.rows, [])
+    }
+
+    /// #306: a next-page load does not start while a refresh checks the first page; otherwise the two answers share
+    /// one generation and `receive` cannot tell them apart (commits went missing, or the graph started at row 1000).
+    func testNoNextPageWhileARefreshChecksTheFirstOne() async throws {
+        let loader = GatedGraphLoader(count: 1_500)
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+        store.rowAppeared(450)
+        try await waitUntil { store.rows.count == 1_000 }
+
+        loader.gate()
+        loader.pages.moveRefs()
+        store.refresh(focus: nil)
+        try await waitUntil { loader.pendingCount == 1 }
+        store.rowAppeared(950)  // near the end while the check is out
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(loader.pendingCount, 1, "no second request during the check")
+
+        loader.releaseOldest()
+        try await waitUntil { store.rows.count == 500 && !store.isLoadingMore }
+        XCTAssertEqual(loader.pages.skips, [0, 500, 0], "the moved history started over from the first page")
+        XCTAssertEqual(store.rows, GraphEngine.layout(FakeGraphLoader.linear(500)).rows, "no gap, no wrong start")
+    }
+
+    /// #306: the other order. A scroll page that would land before the check is not requested at all, so the check's
+    /// answer is always the first page.
+    func testTheCheckIsNeverAnsweredByAScrollPage() async throws {
+        let loader = GatedGraphLoader(count: 1_500)
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+        store.rowAppeared(450)
+        try await waitUntil { store.rows.count == 1_000 }
+
+        loader.gate()
+        loader.pages.moveRefs()
+        store.refresh(focus: nil)
+        try await waitUntil { loader.pendingCount == 1 }
+        store.rowAppeared(950)
+        try await Task.sleep(for: .milliseconds(50))
+        loader.releaseNewest()
+        loader.releaseOldest()
+        try await waitUntil { store.rows.count == 500 && !store.isLoadingMore }
+        XCTAssertEqual(store.index(of: FakeGraphLoader.oid(0)), 0, "the graph starts at the newest commit")
+        XCTAssertEqual(store.rows, GraphEngine.layout(FakeGraphLoader.linear(500)).rows)
+    }
+
+    /// #306: the end coming into view during a check that finds nothing moved still loads the next page afterwards,
+    /// since the rows already on screen will not appear again.
+    func testANextPageAskedForDuringAnUnchangedCheckLoadsAfterIt() async throws {
+        let loader = GatedGraphLoader(count: 1_500)
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+
+        loader.gate()
+        store.refresh(focus: nil)
+        try await waitUntil { loader.pendingCount == 1 }
+        store.rowAppeared(450)
+        loader.releaseOldest()
+        try await waitUntil { loader.pendingCount == 1 }  // the deferred next page
+        loader.releaseOldest()
+        try await waitUntil { store.rows.count == 1_000 && !store.isLoadingMore }
+        XCTAssertEqual(loader.pages.skips, [0, 0, 500])
+        XCTAssertEqual(store.rows, GraphEngine.layout(FakeGraphLoader.linear(1_000)).rows)
+    }
+
+    /// #306: a check answered with `.cancelled` ends the check, so the next page is appended rather than taken for
+    /// the check's answer and dropped.
+    func testACancelledCheckDoesNotSwallowTheNextPage() async throws {
+        let loader = FakeGraphLoader(count: 1_500)
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+
+        loader.failNext(.cancelled)
+        store.refresh(focus: nil)
+        try await waitUntil { loader.skips.count == 2 }
+        try await Task.sleep(for: .milliseconds(20))
+        store.rowAppeared(450)
+        try await waitUntil { loader.skips.count == 3 && !store.isLoadingMore }
+        try await waitUntil { store.rows.count == 1_000 }
+        XCTAssertEqual(store.rows, GraphEngine.layout(FakeGraphLoader.linear(1_000)).rows)
     }
 }

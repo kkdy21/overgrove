@@ -83,8 +83,11 @@ final class GraphStore {
     private var indexByOID: [ObjectID: Int] = [:]
     private var generation = 0
     private var task: Task<Void, Never>?
-    /// The pending first-page read only checks whether the history moved (`refresh`).
+    /// The pending first-page read only checks whether the history moved (`refresh`). No next page is read meanwhile:
+    /// both answers would share one generation, and `receive` could not tell them apart (#306).
     private var isChecking = false
+    /// The end came into view during the check; the next page is read once the check keeps the rows.
+    private var wantsMoreAfterCheck = false
 
     init(loader: any GraphLoading = LiveGraphLoader.live) {
         self.loader = loader
@@ -156,6 +159,7 @@ final class GraphStore {
         isComplete = false
         isLoadingMore = false
         isChecking = false
+        wantsMoreAfterCheck = false
         laneCount = 0
         selected = nil
     }
@@ -169,6 +173,10 @@ final class GraphStore {
     }
 
     private func loadMore() {
+        guard !isChecking else {
+            wantsMoreAfterCheck = true
+            return
+        }
         guard status == .loaded, !isComplete, !isLoadingMore else { return }
         isLoadingMore = true
         fetch(skip: commits.count)
@@ -185,20 +193,34 @@ final class GraphStore {
         }
     }
 
+    /// Ends a refresh check. When the rows stay, a next page asked for meanwhile is read now: the rows already on
+    /// screen will not appear again to ask for it.
+    private func finishCheck(keepingRows: Bool) {
+        guard isChecking else { return }
+        isChecking = false
+        let wantsMore = wantsMoreAfterCheck
+        wantsMoreAfterCheck = false
+        if keepingRows, wantsMore { loadMore() }
+    }
+
     private func receive(_ result: Result<GraphPageSnapshot, GitError>, skip: Int) {
         isLoadingMore = false
         switch result {
         case .failure(.cancelled):
+            finishCheck(keepingRows: true)  // a cancelled check keeps what is shown, like a failed one
             return
         case .failure where isChecking:
-            isChecking = false  // keep what is shown; the next refresh checks again
+            finishCheck(keepingRows: true)  // keep what is shown; the next refresh checks again
         case .failure(let error):
             if skip == 0 { status = .failed(PathValidator.displayable(error.message)) }
         // A later page failing keeps what is shown; scrolling to the end tries again.
         case .success(let page):
             if isChecking {
-                isChecking = false
-                guard page.refSet != refSet else { return }  // nothing moved: keep rows, selection, and scroll
+                guard page.refSet != refSet else {  // nothing moved: keep rows, selection, and scroll
+                    finishCheck(keepingRows: true)
+                    return
+                }
+                finishCheck(keepingRows: false)
                 let selection = selected
                 reset()
                 append(page)
