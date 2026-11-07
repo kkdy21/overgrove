@@ -94,7 +94,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .stashList:
             // The reflog walk `git stash list` runs internally (same bytes), but without its work-tree requirement,
             // so it also works in a bare repository (#222). `--ignore-missing`: no `refs/stash` is an empty list.
-            return ["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct", "refs/stash", "--"]
+            // `%P`: the base commit (first parent) and whether index and untracked commits exist (S-04, #71).
+            return [
+                "log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct%x00%P", "refs/stash", "--",
+            ]
         case .stashFiles(let oid):
             return [
                 "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",

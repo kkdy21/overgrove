@@ -5,13 +5,13 @@ import XCTest
 
 /// PAR-STASH-01…04 (parsing-spec.md §4).
 final class StashParserTests: XCTestCase {
-    /// Real `stash list -z --format=%gd%x00%H%x00%gs%x00%ct` output (Apple Git 2.54.0), newest first:
-    /// `On feat/x: exp: try` (`-u`), `On main: fix: a: b 한글 🌳 émoji`, `WIP on main: 00d6a88 base`.
+    /// Real `log -g -z --format=%gd%x00%H%x00%gs%x00%ct%x00%P refs/stash` output (git 2.54.0), newest first:
+    /// `On feat/x: exp: try` (`-u`, three parents), `On main: fix: a: b 한글 🌳 émoji`, `WIP on main: 0f047e0 base2`.
     /// All committed at 1793853652. A fixture that fails to decode becomes empty data, which the tests reject.
     private static let realListing =
         Data(
             base64Encoded:
-                "c3Rhc2hAezB9AGU2OWFjZmJkZGM4OTJkOTQwYjI1YjE5MmYwZGU5YTA5OTM1MDI3NDIAT24gZmVhdC94OiBleHA6IHRyeQAxNzkzODUzNjUyAHN0YXNoQHsxfQBjMDA3MzcxMThlMjc5MWJjZmVlODQwN2Q1NWIxNTY5MDBlMzJkOGU4AE9uIG1haW46IGZpeDogYTogYiDtlZzquIAg8J+MsyDDqW1vamkAMTc5Mzg1MzY1MgBzdGFzaEB7Mn0AODY5Y2FjYTE2MmVmNjBkNjJiMjA2ODQwMWEwOWM2MWFiNTIxYTBlMwBXSVAgb24gbWFpbjogMDBkNmE4OCBiYXNlADE3OTM4NTM2NTIA"
+                "c3Rhc2hAezB9ADlkYjczYzFkYjlhZjcxZTg2OTQ2MTVjYzBmZTE5YTkzZGY3YmViMzkAT24gZmVhdC94OiBleHA6IHRyeQAxNzkzODUzNjUyADBmMDQ3ZTBkZDQ4YWEwYzY5MmQ5YjAzZGJhNmQ3ZTdlYTA5YWQyMzIgNjQ1NzVhYmQyMGY3NDI4N2JkNzFmYWU0NjM1M2QxZGUwMzkxYjM1YSA4ZTQ5ZDQyZWYxYmUzMGE0M2E4MGQ2NDQ1YWUwOTY3ZGE3YzY0MDBhAHN0YXNoQHsxfQA3MTMwZDhlZjkyNGI3ODU1NTE2MmI1YjQyYTk3Y2EwOTA3MDBjZjAzAE9uIG1haW46IGZpeDogYTogYiDtlZzquIAg8J+MsyDDqW1vamkAMTc5Mzg1MzY1MgAwZjA0N2UwZGQ0OGFhMGM2OTJkOWIwM2RiYTZkN2U3ZWEwOWFkMjMyIDUyNGIyOWVjMjY1MWM4MzhlNjQxZWEwOGYwMTAwZjMzYTVmNjc2MzEAc3Rhc2hAezJ9ADYzNWEzZjJhMzkyYjAxZDlmYzY3ZmVkMmMzNWMwOGFkNDkxNzUyMTcAV0lQIG9uIG1haW46IDBmMDQ3ZTAgYmFzZTIAMTc5Mzg1MzY1MgAwZjA0N2UwZGQ0OGFhMGM2OTJkOWIwM2RiYTZkN2U3ZWEwOWFkMjMyIDUyNGIyOWVjMjY1MWM4MzhlNjQxZWEwOGYwMTAwZjMzYTVmNjc2MzEA"
         ) ?? Data()
 
     private let sha1A = String(repeating: "a", count: 40)
@@ -19,14 +19,15 @@ final class StashParserTests: XCTestCase {
 
     private func data(_ text: String) -> Data { Data(text.utf8) }
 
-    /// One record in the `%gd␀%H␀%gs␀%ct␀` layout.
+    /// One record in the `%gd␀%H␀%gs␀%ct␀%P␀` layout.
     private func record(
         _ selector: String = "stash@{0}",
         oid: String? = nil,
         subject: String = "On main: s",
-        time: String = "1793853652"
+        time: String = "1793853652",
+        parents: String? = nil
     ) -> String {
-        "\(selector)\u{0}\(oid ?? sha1A)\u{0}\(subject)\u{0}\(time)\u{0}"
+        "\(selector)\u{0}\(oid ?? sha1A)\u{0}\(subject)\u{0}\(time)\u{0}\(parents ?? sha1A + " " + sha1A)\u{0}"
     }
 
     private func assertParseFails(
@@ -57,9 +58,9 @@ final class StashParserTests: XCTestCase {
         XCTAssertEqual(
             listing.stashes.map(\.oid.hex),
             [
-                "e69acfbddc892d940b25b192f0de9a0993502742",
-                "c00737118e2791bcfee8407d55b156900e32d8e8",
-                "869caca162ef60d62b2068401a09c61ab521a0e3",
+                "9db73c1db9af71e8694615cc0fe19a93df7beb39",
+                "7130d8ef924b78555162b5b42a97ca090700cf03",
+                "635a3f2a392b01d9fc67fed2c35c08ad49175217",
             ]
         )
         XCTAssertEqual(listing.stashes.map(\.id), listing.stashes.map(\.oid))
@@ -73,9 +74,9 @@ final class StashParserTests: XCTestCase {
         XCTAssertEqual(onSubject.branch, "feat/x")
         XCTAssertEqual(onSubject.message, "exp: try")
         let wip = stashes[2]
-        XCTAssertEqual(wip.subject, "WIP on main: 00d6a88 base")
+        XCTAssertEqual(wip.subject, "WIP on main: 0f047e0 base2")
         XCTAssertEqual(wip.branch, "main")
-        XCTAssertEqual(wip.message, "00d6a88 base")
+        XCTAssertEqual(wip.message, "0f047e0 base2")
     }
 
     func testPARSTASH01_UnrecognizedSubjectIsShownVerbatim() throws {
@@ -100,6 +101,32 @@ final class StashParserTests: XCTestCase {
 
     // MARK: - PAR-STASH-02
 
+    /// `%P`: base commit first; index and untracked commits follow (S-04, #71).
+    func testPARSTASH01_ParentsGiveBaseAndIncludes() throws {
+        let stashes = try StashParser.parse(Self.realListing).stashes
+        let base = "0f047e0dd48aa0c692d9b03dba6d7e7ea09ad232"
+        XCTAssertEqual(stashes.map { $0.baseCommit?.hex }, [base, base, base])
+        XCTAssertEqual(stashes.map(\.includesIndex), [true, true, true])
+        XCTAssertEqual(stashes.map(\.includesUntracked), [true, false, false], "only the -u stash has a third parent")
+    }
+
+    func testPARSTASH04_InvalidParentListsFail() {
+        for parents in [" ", "\(sha1A)  \(sha1A)", "nothex", "\(sha1A) ABC"] {
+            XCTAssertThrowsError(try StashParser.parse(data(record(parents: parents))), parents.debugDescription)
+        }
+    }
+
+    /// An entry that is not a stash commit (a root commit, or more than three parents) keeps the list loading, with
+    /// base and includes unknown (security review of #71).
+    func testPARSTASH04_NonStashEntryHasNoParents() throws {
+        for parents in ["", "\(sha1A) \(sha1A) \(sha1A) \(sha1A)"] {
+            let stash = try XCTUnwrap(try StashParser.parse(data(record(parents: parents))).stashes.first)
+            XCTAssertEqual(stash.parents, [], parents.debugDescription)
+            XCTAssertNil(stash.baseCommit)
+            XCTAssertFalse(stash.includesIndex)
+        }
+    }
+
     func testPARSTASH02_ColonAndUnicodeInSubject() throws {
         let stash = try StashParser.parse(Self.realListing).stashes[1]
         XCTAssertEqual(stash.subject, "On main: fix: a: b 한글 🌳 émoji")
@@ -118,7 +145,7 @@ final class StashParserTests: XCTestCase {
     func testPARSTASH02_InvalidUTF8SubjectIsDisplayedLossilyWithoutBranch() throws {
         var input = Data("stash@{0}\u{0}\(sha1A)\u{0}On ".utf8)
         input.append(contentsOf: [0x66, 0xFF, 0x6F])
-        input.append(Data(": msg\u{0}1793853652\u{0}".utf8))
+        input.append(Data(": msg\u{0}1793853652\u{0}\(sha1A)\u{0}".utf8))
         let stash = try XCTUnwrap(try StashParser.parse(input).stashes.first)
         XCTAssertEqual(stash.subject, "On f\u{FFFD}o: msg")
         XCTAssertNil(stash.branch)
@@ -158,10 +185,10 @@ final class StashParserTests: XCTestCase {
     }
 
     func testPARSTASH04_ExtraFieldShiftsRecordsAndFails() {
-        // Five fields then three: the total is a multiple of four, but the second group starts with a time.
+        // Six fields then four: the total is a multiple of five, but the shifted first group has text for a time.
         let input = data(
-            "stash@{0}\u{0}\(sha1A)\u{0}On main: s\u{0}extra\u{0}1793853652\u{0}stash@{1}\u{0}\(sha1A)\u{0}x\u{0}"
-        )
+            "stash@{0}\u{0}\(sha1A)\u{0}On main: s\u{0}extra\u{0}1793853652\u{0}\(sha1A)\u{0}"
+                + "stash@{1}\u{0}\(sha1A)\u{0}x\u{0}1\u{0}")
         assertParseFails(input, reason: "invalid time")
     }
 
@@ -189,12 +216,12 @@ final class StashParserTests: XCTestCase {
     func testPARSTASH04_InvalidOIDBytesFail() {
         var input = Data("stash@{0}\u{0}".utf8)
         input.append(contentsOf: [UInt8](repeating: 0x61, count: 39) + [0xFF])
-        input.append(Data("\u{0}On main: s\u{0}1793853652\u{0}".utf8))
+        input.append(Data("\u{0}On main: s\u{0}1793853652\u{0}\(sha1A)\u{0}".utf8))
         assertParseFails(input, reason: "invalid stash OID")
     }
 
     func testPARSTASH04_InvalidTimesFail() {
-        let timeOffset = record(time: "").utf8.count - 1
+        let timeOffset = "stash@{0}\u{0}\(sha1A)\u{0}On main: s\u{0}".utf8.count
         for time in ["", "-1", "+1", "1.5", " 1", "１", "99999999999999999999", "0x10"] {
             assertParseFails(data(record(time: time)), reason: "invalid time", offset: timeOffset)
         }
