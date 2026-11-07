@@ -113,6 +113,8 @@ expect prt-board-sync 0 "$(tree prt-board-sync .github/workflows/board-sync.yml 
 expect inline-title 1 "$(tree inline-title $ci "${good_workflow/echo \"\$TITLE\"/echo \"\${{ github.event.pull_request.title }}\"}")"
 expect inline-head-ref 1 "$(tree inline-head-ref $ci "${good_workflow/echo \"\$TITLE\"/git checkout \${{ github.head_ref }}}")"
 expect inline-comment 1 "$(tree inline-comment $ci "${good_workflow/echo \"\$TITLE\"/echo \${{ github.event.comment.body }}}")"
+expect inline-workflow-run 1 "$(tree inline-workflow-run $ci "${good_workflow/echo \"\$TITLE\"/echo \${{ github.event.workflow_run.head_branch }}}")"
+expect inline-fork-name 1 "$(tree inline-fork-name $ci "${good_workflow/echo \"\$TITLE\"/echo \${{ github.event.pull_request.head.repo.full_name }}}")"
 expect if-condition 0 "$(tree if-condition $ci "${good_workflow/      - name: Title/      - if: \${{ startsWith(github.event.comment.body, '\/claim') }}
         run: true
       - name: Title}")"

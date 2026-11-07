@@ -73,6 +73,16 @@ run_hook() {
   (cd "$dir" && printf '%s' "$input" | PATH="$hook_path" bash ".githooks/$hook" >/dev/null 2>&1)
 }
 
+# fails_for <reason> <dir> <hook> [stdin]: true if the hook fails and its stderr contains <reason>.
+fails_for() {
+  local reason=$1 dir=$2 hook=$3 input=${4:-} log="$work/hook-stderr.txt" bash_path
+  bash_path=$(command -v bash)
+  if (cd "$dir" && printf '%s' "$input" | PATH="$hook_path" "$bash_path" ".githooks/$hook" >/dev/null 2>"$log"); then
+    return 1
+  fi
+  grep -q "$reason" "$log"
+}
+
 # Without gitleaks the hooks must fail closed. A PATH with git and the shell tools but no gitleaks.
 no_gitleaks="$work/no-gitleaks-bin"
 mkdir -p "$no_gitleaks"
@@ -87,10 +97,19 @@ else
   hook_path="$no_gitleaks"
   printf 'clean\n' >"$dir/clean.txt"
   git -C "$dir" add clean.txt
-  if run_hook "$dir" pre-commit; then failed "pre-commit fails without gitleaks"; else pass "pre-commit fails without gitleaks"; fi
+  # The hook must fail because gitleaks is missing, not for an unrelated reason (security review of #218).
+  if fails_for 'gitleaks is required' "$dir" pre-commit; then
+    pass "pre-commit fails without gitleaks"
+  else
+    failed "pre-commit fails without gitleaks"
+  fi
   sha=$(git -C "$dir" rev-parse HEAD)
-  if run_hook "$dir" pre-push "refs/heads/test/95-scratch $sha refs/heads/test/95-scratch 0000000000000000000000000000000000000000
-"; then failed "pre-push fails without gitleaks"; else pass "pre-push fails without gitleaks"; fi
+  if fails_for 'gitleaks is required' "$dir" pre-push "refs/heads/test/95-scratch $sha refs/heads/test/95-scratch 0000000000000000000000000000000000000000
+"; then
+    pass "pre-push fails without gitleaks"
+  else
+    failed "pre-push fails without gitleaks"
+  fi
 fi
 
 # --- With gitleaks -------------------------------------------------------------------------------------------------

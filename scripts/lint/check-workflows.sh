@@ -32,7 +32,7 @@ if [[ ${#files[@]} -eq 0 ]]; then
 fi
 
 # Expressions whose value an outside contributor controls.
-untrusted='github\.event\.(pull_request|issue|comment|review|review_comment|discussion|discussion_comment)\.(title|body)|github\.event\.(comment|review|review_comment)\.body|github\.event\.pull_request\.head\.(ref|label)|github\.head_ref|github\.event\.head_commit\.(message|author)|github\.event\.commits'
+untrusted='github\.event\.(pull_request|issue|comment|review|review_comment|discussion|discussion_comment)\.(title|body)|github\.event\.(comment|review|review_comment)\.body|github\.event\.pull_request\.head\.(ref|label)|github\.head_ref|github\.event\.head_commit\.(message|author)|github\.event\.commits|github\.event\.workflow_run\.(head_branch|display_title|head_commit)|github\.event\.pull_request\.head\.repo\.(full_name|name|owner)'
 
 for file in "${files[@]}"; do
   name="${file#"$root"/}"
