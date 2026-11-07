@@ -268,6 +268,8 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 실행 가능한 `hooks/*`가 있을 때.
 
   확인 창은 셸 프롬프트 도구가 이 폴더에서 저장소 설정으로 git을 실행할 수 있다고 알리고, 키 이름(마스킹·이스케이프, 최대 8개)을 보여 준다. 버튼은 `Open Anyway`와 `Cancel`이며 `Cancel`이 기본이다. 검사 결과가 깨끗하면 바로 연다. 사용자가 `Open Anyway`를 고르면 그 셸에서 일어나는 일은 통제하지 않는다.
+
+  **남는 위험 (#97 재검토)**: "깨끗함"은 검사기가 보고하는 키 기준이다. 앱이 실행하지 않는 키는 보고 대상이 아니라서 확인 사유가 되지 않는다. 해당하는 키는 `core.pager`·`pager.<cmd>`, `core.editor`·`sequence.editor`, `!`로 시작하는 `alias.*`다. threat가 없는 finding(`submodule.<n>.update=!cmd`, `uploadpack.packObjectsHook`)도 확인 사유에서 빠진다. 프롬프트 플러그인의 `git status`는 이 키들을 쓰지 않는다. 다만 사용자가 그 터미널에서 `git log`·`git commit`·`git submodule update`를 직접 실행하면 저장소가 정한 명령이 돈다. 이 키들을 보고하고 확인 조건을 넓히는 일은 후속으로 둔다([보안 테스트 보고 §5.2](../qa/reports/2026-11-08-security-test-pass.md)).
 - **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226), SEC-T14-06 (Diff 뷰어가 untracked FIFO와 워크트리 밖 폴더를 가리키는 심볼릭 링크 아래 파일을 미리보기하지 않음, #232), SEC-T14-07 (행 메뉴: 밖을 가리키는 링크·링크 폴더·`..`·없는 파일은 Reveal in Finder 거부, `https` 외 URL은 열지 않음, 클립보드 값의 제어·bidi 문자 이스케이프, #73), SEC-T14-08 (Open in Terminal: 깨끗한 검사는 바로 열고, 실행 finding·차단·hook·검사 없음은 확인 후에만 열며, 나열하는 키는 마스킹·이스케이프·상한 적용, #73)
 - **상태**: 설계 완료
 
@@ -544,6 +546,8 @@ PR 템플릿과 `security-reviewer` 에이전트가 쓰는 목록이다.
 | gitleaks | 전체 이력 통과 |
 | Actions 고정 | 모든 `uses:`가 SHA로 고정 |
 | 잔여 위험 | 이 문서 §2의 잔여 위험을 다시 확인하고 변경 사항을 기록 |
+
+최근 결과: [qa/reports/2026-11-08-security-test-pass.md](../qa/reports/2026-11-08-security-test-pass.md) (#97, `main` `f4259bc`, 전 항목 통과).
 
 ---
 
