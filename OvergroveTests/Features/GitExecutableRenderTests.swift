@@ -12,12 +12,12 @@ final class GitExecutableRenderTests: XCTestCase {
     private var defaults: UserDefaults!
     private var suite: String!
 
-    override func setUp() {
+    override func setUp() async throws {
         suite = "overgrove-git-render-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         defaults.removePersistentDomain(forName: suite)
     }
 
