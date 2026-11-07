@@ -166,8 +166,9 @@ final class AppState {
     /// - Parameter quietly: No alert for a missing folder (restoring at launch).
     func openRegistered(_ id: RegisteredRepository.ID, quietly: Bool = false) {
         guard let entry = registry.repository(withID: id) else { return }
-        let root = URL(fileURLWithPath: entry.rootPath, isDirectory: true)
-        guard let checked = try? PathValidator.checkRegistration(root), checked.resolved.path == entry.rootPath else {
+        let location = URL(fileURLWithPath: entry.locationPath, isDirectory: true)
+        guard let checked = try? PathValidator.checkRegistration(location), checked.resolved.path == entry.locationPath
+        else {
             if !quietly {
                 alert = AppAlert(
                     title: "Repository Not Found",

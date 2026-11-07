@@ -13,7 +13,8 @@ struct GitOutput: Sendable, Equatable {
 /// Per-repository arguments that neutralize the repository's own configuration (ADR-0009).
 ///
 /// Build it from `RepoConfigInspector`. `preInspection` exists only for the commands that run before the
-/// configuration is known (`version`, `probeRepository`, `configList`); `GitClient` refuses anything else with it.
+/// configuration is known (`version`, `probeGitDirectory`, `probeRepository`, `configList`); `GitClient` refuses anything
+/// else with it.
 struct RepoSafetyContext: Sendable, Equatable {
     let neutralization: [String]
     let fetchAuthentication: [String]

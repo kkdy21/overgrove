@@ -38,10 +38,13 @@ final class AppStateRegistrationTests: XCTestCase {
         return url
     }
 
-    /// Answers the probe as git would for a repository at `root`, whichever folder inside it is picked.
+    /// Answers the probes as git would for a repository at `root`, whichever folder inside it is picked.
     private func probe(root: URL) -> RepositoryRegistrar {
-        RepositoryRegistrar(probe: { _ in
-            Data("\(root.path)\n\(root.path)/.git\nfalse\n".utf8)
+        RepositoryRegistrar(probe: { kind, _ in
+            switch kind {
+            case .gitDirectory: Data("\(root.path)/.git\n\(root.path)/.git\nfalse\ntrue\n".utf8)
+            case .worktree: Data("\(root.path)\n\(root.path)/.git\nfalse\n".utf8)
+            }
         })
     }
 
@@ -169,6 +172,25 @@ final class AppStateRegistrationTests: XCTestCase {
         state.openRegistered(registry.repositories[0].id)
         XCTAssertNil(state.repository)
         XCTAssertEqual(state.alert?.title, "Repository Not Found")
+    }
+
+    /// #222: a bare repository is checked at its git directory, since it has no root folder.
+    func testBareRepositoryOpensFromItsGitDirectory() throws {
+        let bare = try folder("api.git")
+        let registry = RepositoryRegistry(defaults: defaults)
+        registry.add(RegisteredRepository(rootPath: nil, commonDirectoryPath: bare.path))
+        let state = AppState(layoutStore: PanelLayoutStore(defaults: defaults), registry: registry)
+
+        state.openRegistered(registry.repositories[0].id)
+        XCTAssertNil(state.alert)
+        XCTAssertNil(state.repository?.repository.rootURL)
+        XCTAssertEqual(state.repository?.repository.commonGitDirectoryURL.path, bare.path)
+
+        try FileManager.default.removeItem(at: bare)
+        let relaunched = AppState(layoutStore: PanelLayoutStore(defaults: defaults), registry: registry)
+        relaunched.openRegistered(registry.repositories[0].id)
+        XCTAssertNil(relaunched.repository)
+        XCTAssertEqual(relaunched.alert?.title, "Repository Not Found")
     }
 
     /// T14: a registered folder later replaced by a symbolic link to somewhere else is not opened.

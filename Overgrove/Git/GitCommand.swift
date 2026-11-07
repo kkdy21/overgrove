@@ -5,6 +5,9 @@
 /// (git-command-catalog.md §1). Arguments are validated types, never raw strings (T9).
 enum ReadOnlyGitCommand: Sendable, Hashable {
     case version
+    /// Registration probe that also works in a bare repository and inside a git directory (no `--show-toplevel`,
+    /// #222). Run first; `probeRepository` follows only inside a work tree.
+    case probeGitDirectory
     case probeRepository
     case configList
     case worktreeList
@@ -46,6 +49,11 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         switch self {
         case .version:
             return ["version"]
+        case .probeGitDirectory:
+            return [
+                "rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir", "--is-bare-repository",
+                "--is-inside-work-tree",
+            ]
         case .probeRepository:
             return [
                 "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir", "--is-bare-repository",
@@ -68,7 +76,9 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .aheadBehind(let local, let upstream):
             return ["rev-list", "--left-right", "--count", "--end-of-options", "\(upstream.value)...\(local.value)"]
         case .stashList:
-            return ["stash", "list", "-z", "--format=%gd%x00%H%x00%gs%x00%ct"]
+            // The reflog walk `git stash list` runs internally (same bytes), but without its work-tree requirement,
+            // so it also works in a bare repository (#222). `--ignore-missing`: no `refs/stash` is an empty list.
+            return ["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct", "refs/stash", "--"]
         case .stashFiles(let oid):
             return [
                 "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
@@ -113,7 +123,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// need the neutralization arguments from `RepoConfigInspector` first. Only these may run before inspection.
     var requiresInspection: Bool {
         switch self {
-        case .version, .probeRepository, .configList: false
+        case .version, .probeGitDirectory, .probeRepository, .configList: false
         default: true
         }
     }
@@ -121,7 +131,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     var location: Location {
         switch self {
         case .version: .neutral
-        case .probeRepository: .registeredPath
+        case .probeGitDirectory, .probeRepository: .registeredPath
         case .status, .worktreeDiff, .untrackedPreview, .fileHistory: .worktree
         default: .repository
         }
