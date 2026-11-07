@@ -43,6 +43,9 @@ struct GitEnvironment: Sendable, Equatable {
     /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
     static let allowedProtocols = "https:ssh:git:file:http"
 
+    /// The first git that honors `GIT_NO_LAZY_FETCH` (#212). Older git cannot turn off lazy fetching during fetch.
+    static let lazyFetchControlVersion = GitVersion(major: 2, minor: 44, patch: 0)
+
     /// Parent variables that are passed through unchanged. Everything else is dropped (T10).
     static let passthroughVariables = ["HOME", "USER", "LOGNAME", "TMPDIR", "SSH_AUTH_SOCK"]
 
@@ -53,9 +56,19 @@ struct GitEnvironment: Sendable, Equatable {
     /// `GIT_DIR`, `GIT_CONFIG_*`, `GIT_SSH_COMMAND`, `GIT_EXEC_PATH`, `GIT_ALLOW_PROTOCOL`, `DYLD_*`, and the user's
     /// PATH are ignored.
     ///
-    /// - Parameter trustedSSHCommand: `core.sshCommand` from a trusted scope (system, global, Apple built-in), as
-    ///   found by `RepoConfigInspector`. Repository-local values are never passed here (T5).
-    static func environment(parent: [String: String], trustedSSHCommand: String? = nil) -> [String: String] {
+    /// - Parameters:
+    ///   - trustedSSHCommand: `core.sshCommand` from a trusted scope (system, global, Apple built-in), as found by
+    ///     `RepoConfigInspector`. Repository-local values are never passed here (T5).
+    ///   - allowsTransport: `false` for queries. They never need a remote, but in a partial clone a read that needs a
+    ///     missing object makes git lazy-fetch it from the promisor remote, which runs the repository's own
+    ///     `remote.<n>.uploadpack` or credential helper (#212). An empty `GIT_ALLOW_PROTOCOL` refuses every transport
+    ///     before anything runs, on every supported git (protocol policy predates 2.36). `GitClient.run` passes
+    ///     `false`; only `GitClient.fetch` uses the transport list.
+    static func environment(
+        parent: [String: String],
+        trustedSSHCommand: String? = nil,
+        allowsTransport: Bool = true
+    ) -> [String: String] {
         var environment: [String: String] = [
             "LC_ALL": "C",
             "LANG": "C",
@@ -66,7 +79,9 @@ struct GitEnvironment: Sendable, Equatable {
             "GIT_ASKPASS": "",
             "SSH_ASKPASS": "",
             "GIT_PROXY_COMMAND": "",
-            "GIT_ALLOW_PROTOCOL": allowedProtocols,
+            "GIT_ALLOW_PROTOCOL": allowsTransport ? allowedProtocols : "",
+            // Second layer (git 2.44+, ignored before): no lazy fetch from a promisor remote, for any command (#212).
+            "GIT_NO_LAZY_FETCH": "1",
             "GIT_SSH_COMMAND": trustedSSHCommand ?? defaultSSHCommand,
             "PATH": path,
         ]
@@ -99,7 +114,7 @@ struct GitEnvironment: Sendable, Equatable {
         parentEnvironment: [String: String] = ProcessInfo.processInfo.environment,
         developerDirectory: (() async -> URL?)? = nil
     ) async throws -> GitEnvironment {
-        let environment = environment(parent: parentEnvironment)
+        let environment = environment(parent: parentEnvironment, allowsTransport: false)
         let directory: URL?
         if let developerDirectory {
             directory = await developerDirectory()

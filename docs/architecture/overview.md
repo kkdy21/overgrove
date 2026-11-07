@@ -215,6 +215,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | `accessDenied` | 인증은 됐지만 읽을 권한이 없음 (HTTP 403, #78) | "원격이 이 저장소에 대한 접근을 거부했습니다." | — |
 | `remoteNotFound` | 원격 저장소가 없거나 원격 이름이 설정되지 않음 (HTTP 404, 없는 경로, #78) | "원격 저장소를 찾을 수 없습니다." | — |
 | `networkUnavailable` | DNS·연결 실패 | "원격에 연결할 수 없습니다." | 수동 |
+| `partialCloneObjectMissing` | partial clone에 없는 객체가 조회에 필요함. 조회는 lazy fetch를 하지 않는다 (#212) | "partial clone이라 이 내용이 로컬에 없습니다. 조회 중에는 누락 객체를 내려받지 않습니다." | — |
 | `nonZeroExit(code, summary)` | 그 밖의 실패 | 마스킹한 stderr 첫 줄 요약 | 수동 |
 | `parseFailed(parser, offset)` | 파서가 형식 위반을 만남 | "git 출력을 해석하지 못했습니다. 버그로 제보해 주세요." | — |
 | `cancelled` | 사용자가 취소함 | 표시하지 않음 | — |

@@ -54,6 +54,20 @@ final class GitEnvironmentTests: XCTestCase {
             environment["GIT_ALLOW_PROTOCOL"], "https:ssh:git:file:http", "the parent's transport list is ignored")
     }
 
+    /// #212: queries never use a transport, so a promisor remote cannot make them lazy-fetch (and run the
+    /// repository's uploadpack or credential helper). An empty allow list refuses every transport on every
+    /// supported git; GIT_NO_LAZY_FETCH (git 2.44+) is a second layer for all commands.
+    func testQueriesAllowNoTransport() {
+        let query = GitEnvironment.environment(parent: hostileParent, allowsTransport: false)
+        XCTAssertEqual(query["GIT_ALLOW_PROTOCOL"], "", "an empty list allows nothing")
+        XCTAssertEqual(query["GIT_NO_LAZY_FETCH"], "1")
+        let fetch = GitEnvironment.environment(parent: hostileParent, allowsTransport: true)
+        XCTAssertEqual(fetch["GIT_ALLOW_PROTOCOL"], GitEnvironment.allowedProtocols)
+        XCTAssertEqual(fetch["GIT_NO_LAZY_FETCH"], "1")
+        XCTAssertEqual(
+            Set(query.keys), Set(fetch.keys), "the same variables; only the transport list differs")
+    }
+
     func testOnlyBuiltInTransportsAreAllowed() {
         // Snapshot of security-review.md §3.2; change both together. Remote helpers chosen by a repository
         // (`<helper>::` URLs, `remote.<n>.vcs`, `insteadOf`) are refused even with `protocol.<helper>.allow=always` (T5).

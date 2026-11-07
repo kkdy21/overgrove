@@ -67,6 +67,8 @@ enum GitError: Error, Sendable, Equatable {
     /// The remote repository does not exist, or the remote name is not configured (HTTP 404, missing path), #78.
     case remoteNotFound(detail: MaskedText)
     case networkUnavailable(detail: MaskedText)
+    /// A query needed an object a partial clone does not have. Queries never lazy-fetch it (#212).
+    case partialCloneObjectMissing(detail: MaskedText)
     case nonZeroExit(code: Int32, detail: MaskedText)
     case parseFailed(parser: String, offset: Int)
     case cancelled
@@ -110,6 +112,11 @@ enum GitError: Error, Sendable, Equatable {
             return .hostKeyVerificationFailed(changed: true, detail: detail)
         }
         if matches(["detected dubious ownership"]) { return .dubiousOwnership(detail: detail) }
+        // Before the transport refusal: on git < 2.44 a blocked lazy fetch reports `transport 'file' not allowed`
+        // too, but the cause the user needs is the missing object (#212).
+        if matches(["lazy fetching disabled", "from promisor remote"]) {
+            return .partialCloneObjectMissing(detail: detail)
+        }
         if let name = refusedTransport(in: localLines) {
             // The name comes from repository configuration: echo only a plain scheme name of at most 64 characters.
             let isEchoable = name.count <= 64 && TransportName.isSchemeName(name)
@@ -214,6 +221,9 @@ enum GitError: Error, Sendable, Equatable {
             "The remote repository was not found."
         case .networkUnavailable:
             "The remote could not be reached."
+        case .partialCloneObjectMissing:
+            "This repository is a partial clone and does not have this content locally. Overgrove does not download "
+                + "missing objects."
         case .nonZeroExit(_, let detail):
             detail.summary.isEmpty ? "git reported an error." : detail.summary
         case .parseFailed:
@@ -240,7 +250,7 @@ enum GitError: Error, Sendable, Equatable {
             .transportNotAllowed(_, let detail), .authenticationFailed(let detail),
             .sshAuthenticationFailed(let detail),
             .hostKeyVerificationFailed(_, let detail), .accessDenied(let detail), .remoteNotFound(let detail),
-            .networkUnavailable(let detail), .nonZeroExit(_, let detail):
+            .networkUnavailable(let detail), .partialCloneObjectMissing(let detail), .nonZeroExit(_, let detail):
             detail
         default:
             nil
