@@ -129,7 +129,7 @@ struct FixtureRepo: Sendable {
 
     private func runScript(_ script: URL) async throws {
         // Run the same git the app would use (ADR-0008) by putting its directory first on PATH.
-        let git = try await GitEnvironment.discover(parentEnvironment: environment).executable
+        let git = try await GitEnvironment.discoverForTesting(parentEnvironment: environment).executable
         let scriptEnvironment = environment.merging([
             "PATH": git.deletingLastPathComponent().path + ":" + GitEnvironment.path,
             "GIT_CONFIG_NOSYSTEM": "1",
