@@ -35,7 +35,7 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
             originalPaths.append(originalPath)
         }
         return .success(
-            try! PatchParser.parse(Data("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1 +1 @@\n-x\n+y\n".utf8))
+            TestFixtures.patch("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1 +1 @@\n-x\n+y\n")
         )
     }
 }

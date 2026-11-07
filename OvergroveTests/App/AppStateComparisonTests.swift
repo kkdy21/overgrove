@@ -40,7 +40,7 @@ final class StubComparisonLoader: ComparisonLoading, @unchecked Sendable {
             patches.append(file)
             originals.append(originalPath)
         }
-        return .patch(try! PatchParser.parse(Data("diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n".utf8)))
+        return .patch(TestFixtures.patch("diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n"))
     }
 }
 

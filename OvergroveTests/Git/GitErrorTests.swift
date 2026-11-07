@@ -103,8 +103,8 @@ final class GitErrorTests: XCTestCase {
         guard case .transportNotAllowed("hg", _) = try XCTUnwrap(classify(stderr)) else { return XCTFail() }
     }
 
-    /// #212: a query that needs an object a partial clone lacks. Real Apple Git 2.50.1 stderr, with
-    /// GIT_NO_LAZY_FETCH (2.44+) and with only the empty transport list (what older git reports).
+    /// #212: a query that needs an object a partial clone lacks. Real Apple Git 2.50.1 stderr, with GIT_NO_LAZY_FETCH
+    /// and with only the empty transport list. A git without the variable reports it differently (#303, below).
     func testPartialCloneObjectMissing() throws {
         let samples = [
             "warning: lazy fetching disabled; some objects may not be available\n"
@@ -117,6 +117,61 @@ final class GitErrorTests: XCTestCase {
             guard case .partialCloneObjectMissing = error else { return XCTFail("got \(error)") }
             XCTAssertTrue(error.message.contains("partial clone"), error.message)
             XCTAssertNotNil(error.detail)
+        }
+    }
+
+    /// #303: a git without GIT_NO_LAZY_FETCH tries the lazy fetch, the empty transport list refuses it, and git then
+    /// reports only that it cannot read the object. Real stderr of the app's `commitPatch` on a partial clone
+    /// (git 2.36.6, #99). Queries never use a transport, so a refusal followed by that line is a missing object.
+    func testOldGitLazyFetchRefusalIsAMissingObject() throws {
+        let oid40 = "f719efd430d52bcfc8566a43b2eb655688d38871"
+        let oid64 = "a2b9c1f0e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1"
+        let samples = [
+            "fatal: transport 'file' not allowed\nfatal: transport 'file' not allowed\nfatal: unable to read \(oid40)\n",
+            "fatal: transport 'https' not allowed\nfatal: unable to read \(oid64)\n",
+        ]
+        for sample in samples {
+            let error = try XCTUnwrap(classify(sample))
+            guard case .partialCloneObjectMissing = error else { return XCTFail("\(sample): got \(error)") }
+            XCTAssertEqual(error.detail?.text, sample)
+        }
+
+        // The same query on git with GIT_NO_LAZY_FETCH (real stderr of git 2.39.5, 2.40.4, and 2.54.0, #99).
+        let honored =
+            "warning: lazy fetching disabled; some objects may not be available\n"
+            + "fatal: could not fetch \(oid40) from promisor remote\n"
+        guard case .partialCloneObjectMissing = try XCTUnwrap(classify(honored)) else { return XCTFail() }
+    }
+
+    /// #303: a real transport refusal stays `transportNotAllowed`. Fetch stops at the refusal and reads no object.
+    func testTransportRefusalWithoutAnUnreadableObjectStaysATransportBlock() throws {
+        let oid = "f719efd430d52bcfc8566a43b2eb655688d38871"
+        let cases: [(stderr: String, transport: String?)] = [
+            // Real fetch stderr of git 2.36.6 and 2.54.0 for `ext::`, `fd::`, and `evilhelper::` remotes (#99).
+            ("fatal: transport 'ext' not allowed\n", "ext"),
+            ("fatal: transport 'fd' not allowed\n", "fd"),
+            ("fatal: transport 'evilhelper' not allowed\n", "evilhelper"),
+            // Only git's exact `unable to read <object ID>` line counts, not other messages that start the same way.
+            ("fatal: transport 'file' not allowed\nfatal: unable to read tree \(oid)\n", "file"),
+            ("fatal: transport 'file' not allowed\nfatal: unable to read \(oid.prefix(7))\n", "file"),
+            ("fatal: transport 'file' not allowed\nfatal: unable to read \(oid.uppercased())\n", "file"),
+            ("fatal: transport 'file' not allowed\nfatal: unable to read \(oid) \n", "file"),
+            ("fatal: transport 'file' not allowed\nfatal: unable to read '\(oid)'\n", "file"),
+            // A server's sideband text cannot turn a refusal into another category (#78).
+            ("fatal: transport 'file' not allowed\nremote: fatal: unable to read \(oid)\n", "file"),
+        ]
+        for (stderr, transport) in cases {
+            let error = try XCTUnwrap(classify(stderr))
+            guard case .transportNotAllowed(let name, _) = error else { return XCTFail("\(stderr): got \(error)") }
+            XCTAssertEqual(name, transport, stderr)
+        }
+    }
+
+    /// An unreadable object without a transport refusal is not a partial clone: it may be a corrupt repository.
+    func testUnreadableObjectAloneIsNotAPartialClone() {
+        let stderr = "fatal: unable to read f719efd430d52bcfc8566a43b2eb655688d38871\n"
+        guard case .nonZeroExit = classify(stderr) else {
+            return XCTFail("got \(String(describing: classify(stderr)))")
         }
     }
 
