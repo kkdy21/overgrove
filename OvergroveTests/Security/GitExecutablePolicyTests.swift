@@ -67,8 +67,9 @@ final class GitExecutablePolicyTests: XCTestCase {
         XCTAssertEqual(try GitExecutablePolicy.check(path: "/usr/bin/git", protectedDirectories: []), .useDefault)
     }
 
-    /// SEC-T10-04: a git inside a registered repository, its git directory, or a worktree is refused, whether the
-    /// entered path or the path it resolves to is inside (a lure to "use the git in this repository").
+    /// SEC-T10-04: a git whose real file is inside a registered repository, its git directory, or a worktree is
+    /// refused (a lure to "use the git in this repository"). A link outside that resolves inside counts; a link inside
+    /// that resolves outside is judged by its target, which is what runs.
     func testSECT10_04_AGitInsideARegisteredRepositoryIsRefused() throws {
         let repository = executables.directory.appendingPathComponent("repo", isDirectory: true)
         let inside = repository.appendingPathComponent("bin", isDirectory: true)
@@ -127,8 +128,8 @@ final class GitExecutablePolicyTests: XCTestCase {
 
     // MARK: - Ownership and permissions
 
-    /// SEC-T10-05: the real file and every directory above it, on the entered path too, must be owned by root or the
-    /// user and not writable by group or others.
+    /// SEC-T10-05: the real file and every directory above it must be owned by root or the user and not writable by
+    /// others or a group other than wheel and admin.
     func testSECT10_05_WritableByOthersIsRefused() throws {
         let git = try makeGit()
         let directory = git.deletingLastPathComponent()
@@ -143,7 +144,7 @@ final class GitExecutablePolicyTests: XCTestCase {
         }
     }
 
-    /// Links on the way are not judged, only the real file and its directories (ADR-0019 §2): a link in a directory
+    /// Links on the way are not judged, only the real file and its directories (ADR-0019 §1): a link in a directory
     /// others may write could be swapped, but what it points at must pass the same rules at the next discovery.
     func testALinkIsJudgedByTheRealFile() throws {
         let git = try makeGit()

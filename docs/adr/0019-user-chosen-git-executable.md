@@ -76,7 +76,7 @@ ADR-0008 §3은 git 실행 파일을 Xcode·CLT의 git으로 정하고, v0.2.0�
   - 사용자 지정 경로: 1–3의 규칙을 검사한다
   - 테스트 전용 주입
 - **규칙 검사는 앱 경로에만 적용한다.**
-  - 테스트 전용 주입(#99의 `OVERGROVE_TEST_GIT`, 지금은 `developerDirectory:`)은 경로·소유자 규칙을 우회한다. 임시 디렉터리에 빌드한 git(scratchpad, `/tmp`)을 쓸 수 있어야 하기 때문이다.
+  - 테스트 전용 주입(#99의 `OVERGROVE_TEST_GIT`, `GitEnvironment.probe(executable:)`로 바로 검사)은 경로·소유자 규칙을 우회한다. 임시 디렉터리에 빌드한 git(scratchpad, `/tmp`)을 쓸 수 있어야 하기 때문이다.
   - `git version` 확인, 최소 버전 검사, `OVERGROVE_TEST_GIT_VERSION` 대조는 그대로 유지한다.
 - 테스트 전용 주입은 앱 코드에서 쓰지 않는다. 앱의 설정 경로는 항상 사용자 지정 경로 출처를 거친다.
 
