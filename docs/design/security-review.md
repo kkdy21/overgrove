@@ -136,7 +136,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **터미널로 보내는 안내.** fetch 실패 안내(`FetchFailureGuidance`, #78)가 사용자를 터미널로 보내면, 터미널의 git은 이 문서의 대응을 하나도 적용받지 않는다. 악성 저장소가 일부러 fetch를 실패시켜(예: 처음 보는 호스트로 `hostKeyNotTrusted`) 사용자가 페이로드를 직접 실행하게 만들 수 있다(#200 보안 검토).
     - 그래서 `git` 명령은 `RepoSecurityReport`에 항목이 없을 때만 복사용으로 제시하고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다.
     - 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan … | ssh-keygen -lf -`, `ssh-keygen -F`)만 제시한다.
-    - 남는 위험: `.git/hooks`와 `pager.*`는 설정 보고에 나오지 않으므로, 보고가 깨끗해도 터미널 git이 이것들을 실행할 수 있다. 안내 문구가 이를 경고한다.
+    - 남는 위험: `.git/hooks`는 설정 보고에 나오지 않으므로, 보고가 깨끗해도 터미널 git이 hook을 실행할 수 있다. 안내 문구가 이를 경고한다. pager·editor·`!` alias는 #278부터 보고에 나온다.
 - **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행)
 - **상태**: 설계 완료
 
@@ -264,11 +264,17 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **잔여 위험**: git 자체가 따라가는 경로(예: alternates 객체 저장소)는 통제하지 않는다. 읽기 전용이라 영향이 제한적이다. Open in Terminal(#73)로 연 셸은 앱 밖이라 보안 인자가 없다. 사용자의 프롬프트 플러그인이 그 폴더에서 `git status`를 실행하면 저장소의 `core.fsmonitor`, filter, hook이 실행될 수 있다. 그래서 `TerminalGuard`가 확인 창을 띄운다. 조건은 다음과 같다.
   - 그 워크트리의 로드 시점 검사(`WorktreeListing.Entry.inspection`)가 없을 때: 검사 전, 차단, 다른 저장소, 실패를 모두 포함한다.
   - 보고서가 차단되었을 때.
-  - 실행 경로(T1–T7)에 해당하는 finding이 있을 때. `core.fsmonitor`·`core.hooksPath`처럼 앱에서는 보고만 하는 키도 포함한다. 셸의 git은 이 키를 따르기 때문이다.
+  - finding이 하나라도 있을 때(#278 전에는 T1–T7만 봤다). `core.fsmonitor`·`core.hooksPath`처럼 앱에서는 보고만 하는 키도 포함한다. 셸의 git은 이 키를 따르기 때문이다.
   - 실행 가능한 `hooks/*`가 있을 때.
 
   확인 창은 셸 프롬프트 도구가 이 폴더에서 저장소 설정으로 git을 실행할 수 있다고 알리고, 키 이름(마스킹·이스케이프, 최대 8개)을 보여 준다. 버튼은 `Open Anyway`와 `Cancel`이며 `Cancel`이 기본이다. 검사 결과가 깨끗하면 바로 연다. 사용자가 `Open Anyway`를 고르면 그 셸에서 일어나는 일은 통제하지 않는다.
-- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226), SEC-T14-06 (Diff 뷰어가 untracked FIFO와 워크트리 밖 폴더를 가리키는 심볼릭 링크 아래 파일을 미리보기하지 않음, #232), SEC-T14-07 (행 메뉴: 밖을 가리키는 링크·링크 폴더·`..`·없는 파일은 Reveal in Finder 거부, `https` 외 URL은 열지 않음, 클립보드 값의 제어·bidi 문자 이스케이프, #73), SEC-T14-08 (Open in Terminal: 깨끗한 검사는 바로 열고, 실행 finding·차단·hook·검사 없음은 확인 후에만 열며, 나열하는 키는 마스킹·이스케이프·상한 적용, #73)
+
+  **사용자가 칠 git까지 (#278)**: #97 재검토에서 앞의 조건에 빠진 곳을 찾았다. 앱이 실행하지 않는 키(`core.pager`·`pager.<cmd>`, `core.editor`·`sequence.editor`, `!`로 시작하는 `alias.*`)는 보고되지 않았고, threat가 없는 finding(`submodule.<n>.update=!cmd`, `uploadpack.packObjectsHook`, `include.path`)은 확인 사유가 아니었다. 그래서 다음 두 가지를 바꿨다.
+  - 검사기가 앞의 키들을 T14 `reported`로 보고한다. 앱의 무력화 인자는 바뀌지 않는다.
+  - `TerminalGuard`는 위협·처리 방식과 관계없이 **모든 finding**을 확인 사유로 본다. 앱이 자기 명령에서 덮어쓰거나 무시하는 설정도 셸의 git은 그대로 따르기 때문이다.
+
+  남는 위험: 검사기가 모르는 실행 경로(예: 새 git 버전의 새 키)는 확인 사유가 되지 않는다.
+- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226), SEC-T14-06 (Diff 뷰어가 untracked FIFO와 워크트리 밖 폴더를 가리키는 심볼릭 링크 아래 파일을 미리보기하지 않음, #232), SEC-T14-07 (행 메뉴: 밖을 가리키는 링크·링크 폴더·`..`·없는 파일은 Reveal in Finder 거부, `https` 외 URL은 열지 않음, 클립보드 값의 제어·bidi 문자 이스케이프, #73), SEC-T14-08 (Open in Terminal: 깨끗한 검사는 바로 열고, 실행 finding·차단·hook·검사 없음은 확인 후에만 열며, 나열하는 키는 마스킹·이스케이프·상한 적용, #73), SEC-T14-10 (pager·editor·`!` alias는 T14 `reported`로 보고하고 앱의 인자는 바꾸지 않음. 불리언 `pager.<cmd>`와 신뢰 scope는 보고하지 않음. Open in Terminal은 위협·처리와 관계없이 모든 finding을 확인 사유로 씀, #278)
 - **상태**: 설계 완료
 
 ### T15. 자원 고갈
@@ -441,7 +447,9 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^uploadpack\.packobjectshook$` | 실행 | 보고 (조회·fetch에서는 실행되지 않음, 의심 신호) | — |
 | `^safe\.directory$` | 구성 | 보고 (local scope에서는 git이 무시함, 의심 신호) | — |
 | `^i18n\.(logoutputencoding\|commitencoding)$` | 출력 | 보고 (공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정, #205) | T15 |
-| `^core\.pager$`, `^pager\..+` | 실행 | 무시 (`--no-pager`) | T10 |
+| `^core\.pager$`, `^pager\..+` (값이 git 불리언이 아님) | 실행 | 보고. 앱은 `--no-pager`·`GIT_PAGER=cat`으로 쓰지 않는다. Open in Terminal 확인 사유다(#278). `pager.<cmd>=false`/`true`는 명령이 아니라 보고하지 않는다 | T14 |
+| `^core\.editor$`, `^sequence\.editor$` | 실행 | 보고. 앱은 편집기를 띄우는 명령이 없다. Open in Terminal 확인 사유다(#278) | T14 |
+| `^alias\..+` (값이 `!`로 시작) | 실행 | 보고. 앱은 alias를 쓰지 않는다. Open in Terminal 확인 사유다(#278) | T14 |
 
 필터 드라이버 이름이 `^[A-Za-z0-9._-]{1,64}$`를 벗어나면 무력화 인자를 안전하게 만들 수 없다. 이때는 조회를 막는다 (fail closed).
 

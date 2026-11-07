@@ -205,10 +205,33 @@ final class RepoConfigInspectorTests: XCTestCase {
             let findings = inspect([entry]).report.findings
             XCTAssertEqual(findings.map(\.handling), [handling], entry.key)
         }
-        XCTAssertTrue(
-            inspect([entry(.local, "core.pager", "less"), entry(.local, "user.name", "me")]).report.findings.isEmpty)
+        XCTAssertTrue(inspect([entry(.local, "user.name", "me")]).report.findings.isEmpty)
         XCTAssertTrue(
             inspect([entry(.global, "core.fsmonitor", "x")]).report.findings.isEmpty, "trusted scopes are not reported")
+    }
+
+    /// SEC-T14-10: keys only a git typed by the user runs (pager, editor, `!` aliases) are reported, so Open in Terminal
+    /// confirms first (#278). The app never runs them, so they change none of its arguments.
+    func testSECT14_10_TerminalOnlyCommandKeysAreReported() {
+        let commands = [
+            entry(.local, "core.pager", "sh -c x"), entry(.local, "pager.log", "sh -c x"),
+            entry(.worktree, "core.editor", "x"), entry(.local, "sequence.editor", "x"),
+            entry(.local, "alias.st", "!sh -c x"),
+        ]
+        for command in commands {
+            let inspection = inspect([command])
+            XCTAssertEqual(inspection.report.findings.map(\.threat), ["T14"], command.key)
+            XCTAssertEqual(inspection.report.findings.map(\.handling), [.reported], command.key)
+            XCTAssertEqual(inspection.neutralization, [], "the app's own commands are unchanged")
+            XCTAssertFalse(inspection.report.isBlocked)
+        }
+        for harmless in [
+            entry(.local, "pager.log", "false"), entry(.local, "pager.diff", "true"), entry(.local, "pager.show", nil),
+            entry(.local, "alias.st", "status -sb"), entry(.global, "core.pager", "sh -c x"),
+            entry(.global, "alias.x", "!x"),
+        ] {
+            XCTAssertTrue(inspect([harmless]).report.findings.isEmpty, "\(harmless.key)=\(harmless.value ?? "nil")")
+        }
     }
 
     /// A repository can make fetch run any installed `git-remote-<helper>`; `GIT_ALLOW_PROTOCOL` blocks it, and the

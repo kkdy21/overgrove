@@ -194,6 +194,12 @@ enum RepoConfigInspector {
         return inspection
     }
 
+    /// git's boolean spellings: `pager.<cmd>=false` turns paging off and `true` uses the default pager; anything else is
+    /// a command.
+    private static func isBoolean(_ value: String) -> Bool {
+        ["", "true", "false", "yes", "no", "on", "off", "1", "0"].contains(value.lowercased())
+    }
+
     /// security-review.md §3.3. Returns `nil` for keys that need no attention.
     static func classify(_ entry: ConfigEntry) -> (threat: String?, handling: RepoSecurityReport.Handling)? {
         let section = entry.section
@@ -214,8 +220,16 @@ enum RepoConfigInspector {
             case "worktree": return ("T14", .warned)
             // A path that points at a FIFO or device could stall git until the timeout (review of #148).
             case "attributesfile", "excludesfile": return ("T15", .warned)
+            // Commands the app never runs, but a git typed in Open in Terminal does (#278, T14).
+            case "pager", "editor": return ("T14", .reported)
             default: return nil
             }
+        case "pager" where !isBoolean(value):
+            return ("T14", .reported)
+        case "sequence" where variable == "editor":
+            return ("T14", .reported)
+        case "alias" where value.hasPrefix("!"):
+            return ("T14", .reported)
         case "remote":
             if variable == "uploadpack" { return ("T5", .neutralized) }
             // Settings that would widen what fetch writes; the pinned fetch arguments override them (#209).
