@@ -94,7 +94,7 @@ private struct InfoCard: View {
                                     NSPasteboard.general.clearContents()
                                     NSPasteboard.general.setString(path, forType: .string)
                                 } label: {
-                                    Image(systemName: "doc.on.doc")
+                                    Image(systemName: "doc.on.doc").hitTarget()
                                 }
                                 .buttonStyle(.borderless)
                                 .help("Copy Path")
@@ -205,6 +205,7 @@ private struct SecurityRowView: View {
                             Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         }
                         .foregroundStyle(Tokens.Color.textSecondary)
+                        .hitTarget()
                     }
                     .buttonStyle(.borderless)
                     .accessibilityLabel(isExpanded ? "Hide keys" : "Show keys")

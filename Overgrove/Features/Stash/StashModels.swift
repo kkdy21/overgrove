@@ -37,6 +37,10 @@ struct StashDetailModel: Equatable {
         /// From the stash's untracked-files commit (shown with a `questionmark` symbol and a legend line).
         let isFromUntracked: Bool
         let isSelectable: Bool
+        /// `src/a.swift, 2 lines added, 1 removed, from untracked files` (interaction.md §6.1).
+        var accessibilityLabel: String {
+            WipDetailModel.fileAccessibilityLabel(file, extras: isFromUntracked ? ["from untracked files"] : [])
+        }
         var id: GitPath { file.path }
     }
 

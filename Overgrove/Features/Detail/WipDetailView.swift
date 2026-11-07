@@ -13,6 +13,7 @@ struct WipDetailView: View {
     let onSelect: (FileSelection) -> Void
 
     @FocusState private var hasFocus: Bool
+    @Namespace private var rotor
 
     var body: some View {
         ScrollView {
@@ -42,7 +43,7 @@ struct WipDetailView: View {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(path, forType: .string)
                     } label: {
-                        Image(systemName: "doc.on.doc")
+                        Image(systemName: "doc.on.doc").hitTarget()
                     }
                     .buttonStyle(.borderless)
                     .help("Copy Path")
@@ -87,7 +88,20 @@ struct WipDetailView: View {
                 ForEach(groups) { group in
                     WipGroupCard(
                         group: group, selectedPath: selectedPath(in: group.group), isListFocused: hasFocus,
-                        onSelect: { row in select(row) }, worktree: model.worktreePath)
+                        onSelect: { row in select(row) }, worktree: model.worktreePath, rotor: rotor)
+                }
+            }
+            // VoiceOver rotors (interaction.md §6.1): the change groups, and the conflicted files alone.
+            .accessibilityRotor("Changes") {
+                ForEach(groups) { group in
+                    AccessibilityRotorEntry(
+                        "\(group.group.title), \(group.countText)", id: WipRotorID.group(group.group), in: rotor)
+                }
+            }
+            .accessibilityRotor("Conflicted Files") {
+                ForEach(groups.filter { $0.group == .conflicted }.flatMap(\.rows)) { row in
+                    AccessibilityRotorEntry(
+                        Text(row.accessibilityLabel), id: WipRotorID.file(.conflicted, row.id), in: rotor)
                 }
             }
             .focusable()
@@ -149,6 +163,8 @@ struct WipGroupCard: View {
     let onSelect: (WipFileRow) -> Void
     /// The worktree the rows are in, for the file row menu (#73); `nil` hides the menu.
     var worktree: GitPath?
+    /// Where VoiceOver's Changes and Conflicted Files rotors find the header and rows.
+    var rotor: Namespace.ID?
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
@@ -172,6 +188,7 @@ struct WipGroupCard: View {
             .accessibilityElement(children: .combine)
             .accessibilityLabel(headerLabel)
             .accessibilityAddTraits(.isHeader)
+            .rotorEntry(WipRotorID.group(group.group), in: rotor)
 
             ForEach(group.rows) { row in
                 WipFileRowView(
@@ -180,6 +197,7 @@ struct WipGroupCard: View {
                 .contentShape(Rectangle())
                 .onTapGesture { onSelect(row) }
                 .accessibilityAction { onSelect(row) }
+                .rotorEntry(WipRotorID.file(group.group, row.id), in: rotor)
                 .contextMenu {
                     if let worktree {
                         FileRowMenu(worktree: worktree, path: row.path, showDiff: { onSelect(row) })
@@ -361,5 +379,19 @@ extension WorkingChangeGroup {
         case .unstaged: Tokens.Color.onStatusUnstaged
         case .untracked: Tokens.Color.onStatusUntracked
         }
+    }
+}
+
+/// Rotor entry IDs in S-02: row IDs are positions within a group, so they are paired with the group.
+enum WipRotorID: Hashable {
+    case group(WorkingChangeGroup)
+    case file(WorkingChangeGroup, Int)
+}
+
+extension View {
+    /// `accessibilityRotorEntry` when there is a namespace to put it in.
+    @ViewBuilder
+    fileprivate func rotorEntry(_ id: WipRotorID, in namespace: Namespace.ID?) -> some View {
+        if let namespace { accessibilityRotorEntry(id: id, in: namespace) } else { self }
     }
 }

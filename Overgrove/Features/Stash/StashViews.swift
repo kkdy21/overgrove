@@ -205,8 +205,11 @@ struct StashDetailView: View {
             FileRowMenu(
                 worktree: nil, path: row.file.path, showDiff: { if row.isSelectable { onSelectFile(row.file) } })
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(row.isSelectable ? .isButton : [])
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.accessibilityLabel)
+        .accessibilityAddTraits(
+            selectedFile == row.file.path ? [.isButton, .isSelected] : (row.isSelectable ? .isButton : [])
+        )
         .accessibilityAction { if row.isSelectable { onSelectFile(row.file) } }
     }
 }
