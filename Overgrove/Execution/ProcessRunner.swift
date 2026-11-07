@@ -81,12 +81,19 @@ struct ProcessRunner: Sendable {
     /// Hitting an output limit or the timeout terminates the process and still returns a result
     /// (`stdoutTruncated`/`stderrTruncated`/`timedOut`). Task cancellation terminates the process, waits until it
     /// is reaped, and throws `CancellationError`.
-    func run(_ request: ProcessRequest) async throws -> ProcessResult {
+    ///
+    /// - Parameter stderrObserver: Receives stderr as it arrives, in order, never beyond `stderrLimit` (fetch
+    ///   progress, #76). It runs on the process's private queue, so it must return quickly. The bytes are raw:
+    ///   mask them before showing or logging any text.
+    func run(
+        _ request: ProcessRequest,
+        stderrObserver: (@Sendable (Data) -> Void)? = nil
+    ) async throws -> ProcessResult {
         try Self.validate(request)
         try Task.checkCancellation()
         let child = try ChildProcess.spawn(request)
         onLaunch?(child.pid)
-        child.start()
+        child.start(stderrObserver: stderrObserver)
         return try await withTaskCancellationHandler {
             try await child.result()
         } onCancel: {
@@ -146,6 +153,7 @@ private final class ChildProcess: @unchecked Sendable {
     private var cancelled = false
     private var finished = false
     private var continuation: CheckedContinuation<ProcessResult, Error>?
+    private var stderrObserver: (@Sendable (Data) -> Void)?
     private var outcome: Result<ProcessResult, Error>?
 
     private init(pid: pid_t, stdoutFD: Int32, stderrFD: Int32, limits: ProcessLimits) {
@@ -218,8 +226,9 @@ private final class ChildProcess: @unchecked Sendable {
 
     // MARK: Entry points
 
-    func start() {
+    func start(stderrObserver: (@Sendable (Data) -> Void)?) {
         queue.async { [self] in
+            self.stderrObserver = stderrObserver
             stdoutSource = makeReader(fd: stdoutFD, isStdout: true)
             stderrSource = makeReader(fd: stderrFD, isStdout: false)
 
@@ -296,10 +305,14 @@ private final class ChildProcess: @unchecked Sendable {
             let count = read(fd, buffer, Self.readChunk)
             if count > 0 {
                 let chunk = Data(bytes: buffer, count: count)
-                let overflowed =
-                    isStdout
-                    ? Self.append(chunk, to: &stdout, limit: limit, truncated: &stdoutTruncated)
-                    : Self.append(chunk, to: &stderr, limit: limit, truncated: &stderrTruncated)
+                let overflowed: Bool
+                if isStdout {
+                    overflowed = Self.append(chunk, to: &stdout, limit: limit, truncated: &stdoutTruncated)
+                } else {
+                    let kept = stderr.count
+                    overflowed = Self.append(chunk, to: &stderr, limit: limit, truncated: &stderrTruncated)
+                    if stderr.count > kept { stderrObserver?(Data(stderr[kept...])) }
+                }
                 if overflowed { terminate() }
                 continue
             }

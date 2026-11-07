@@ -162,10 +162,13 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 
 - **Swift 6 언어 모드**와 strict concurrency(`complete`)를 켠다. 경고 없이 빌드되어야 한다.
 - 모델은 모두 `struct` + `Sendable` + `Equatable`이다. 바이트 데이터는 `Data`로 넘긴다.
-- **동시 실행 상한**: `GitClient`는 git 프로세스를 동시에 최대 4개까지만 띄운다(`GitClient.defaultConcurrency`). 워크트리 10개의 status를 병렬도별로 재 보면 4를 넘을 때 이득이 작고 디스크 경합만 커진다([performance-budget.md §4](../performance/performance-budget.md)). fetch가 이 한도를 오래 붙잡지 않도록 별도 한도를 두는 문제는 #76에서 다룬다.
+- **동시 실행 상한**: `GitClient`는 조회와 fetch에 서로 다른 슬롯을 쓴다.
+  - 조회(`run`)는 동시에 최대 4개(`GitClient.defaultConcurrency`). 워크트리 10개의 status를 병렬도별로 재 보면 4를 넘을 때 이득이 작고 디스크 경합만 커진다([performance-budget.md §4](../performance/performance-budget.md)).
+  - fetch는 앱 전체에서 동시에 최대 2개(`GitClient.defaultFetchConcurrency`). fetch는 120초까지 슬롯을 잡을 수 있으므로 조회 슬롯을 쓰지 않는다. fetch가 진행 중이어도 status 새로고침은 기다리지 않는다(#76).
 - **취소**: 저장소나 워크트리를 바꾸면 이전 Task를 취소한다. `ProcessRunner`는 `withTaskCancellationHandler`로 취소를 받으면 프로세스를 종료한다 (SIGTERM → 2초 → SIGKILL).
 - **디바운스**: 같은 워크트리의 새로고침 요청이 300ms 안에 반복되면 마지막 요청만 실행한다. 사용자가 누른 `⌘R`은 디바운스하지 않는다.
-- **fetch**는 저장소당 한 번에 하나만 실행한다. 진행 중에 다시 누르면 무시하고 진행 상태를 보여 준다.
+- **fetch**는 저장소당 한 번에 하나만 실행한다. 기준은 `Repository.id`(공통 git 디렉터리)라서 같은 저장소의 워크트리끼리도 겹치지 않는다. 원격별 fetch를 연달아 요청하면 `GitClient`가 요청 순서대로 하나씩 실행하고, 기다리는 동안에는 fetch 슬롯을 잡지 않는다. 사용자가 진행 중에 다시 누르면 화면 쪽(Store/Service)이 무시하고 진행 상태를 보여 준다.
+- **fetch 진행률**: `GitClient.fetch(progress:)`가 stderr의 `--progress` 메시지를 `FetchProgressParser`로 읽어 단계와 숫자만 담은 `FetchProgress`로 넘긴다([parsing-spec.md §11.4](parsing-spec.md)). 콜백은 백그라운드 큐에서 불리므로 UI 상태는 메인 액터로 옮겨 바꾼다. 취소는 Task 취소(⌘.)로 하고, 120초가 지나면 `GitError.timeout`이 된다.
 
 ---
 

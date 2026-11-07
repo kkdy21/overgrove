@@ -165,7 +165,10 @@ final class RemoteTransportSecurityTests: XCTestCase {
         let client = GitClient(environment: repository.environment)
         let safety = RepoSafetyContext(inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
         do {
-            _ = try await client.fetch(.fetch(remote: origin), in: repository.root, safety: safety)
+            let target = Repository(
+                rootURL: repository.root, commonGitDirectoryURL: repository.root.appendingPathComponent(".git"),
+                isBare: false)
+            _ = try await client.fetch(.fetch(remote: origin), in: target, safety: safety)
             XCTFail("fetch must fail")
         } catch let error as GitError {
             // Without the allow list git would say "unable to find remote helper" (the helper is not on the fixed

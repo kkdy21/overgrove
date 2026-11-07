@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Output of a successful (or partially successful) git command.
 struct GitOutput: Sendable, Equatable {
@@ -63,32 +64,48 @@ struct RepoSafetyContext: Sendable, Equatable {
 ///
 /// Every git process in the app goes through here: final arguments are `git [common] [neutralization]
 /// [fetch auth] <subcommand>`, the environment is the allowlist from `GitEnvironment`, and failures are classified
-/// into `GitError` from masked stderr. The number of concurrent git processes is capped (each run uses two file
-/// descriptors, and fan-out across many worktrees must not exhaust them).
+/// into `GitError` from masked stderr.
+///
+/// Concurrency (overview.md §4): queries and fetches use separate slot pools, so a fetch that holds its slot for up
+/// to 120 seconds never delays a status refresh. Each run uses two file descriptors, and fan-out across many
+/// worktrees must not exhaust them. A repository fetches one remote at a time, because worktrees share its refs.
 actor GitClient {
     static let defaultConcurrency = 4
+    /// Fetch slots for the whole app (performance-budget.md §4, recommendation 8).
+    static let defaultFetchConcurrency = 2
 
     let environment: GitEnvironment
     private let runner: ProcessRunner
     private let parentEnvironment: [String: String]
     private let neutralDirectory: URL
     private let maximumConcurrency: Int
-    private var running = 0
-    private var waiters: [(id: UUID, continuation: CheckedContinuation<Bool, Never>)] = []
-    private(set) var peakConcurrency = 0
+    private let maximumFetchConcurrency: Int
+    private let fetchLimits: ProcessLimits
+    private var pools: [SlotPool: Slots] = [:]
+    private var peaks: [SlotPool: Int] = [:]
 
+    /// The most query processes that ran at once.
+    var peakConcurrency: Int { peaks[.query] ?? 0 }
+    /// The most fetch processes that ran at once.
+    var peakFetchConcurrency: Int { peaks[.fetch] ?? 0 }
+
+    /// - Parameter fetchLimits: Timeout and output caps for `fetch`; tests shorten the timeout.
     init(
         environment: GitEnvironment,
         runner: ProcessRunner = ProcessRunner(),
         parentEnvironment: [String: String] = ProcessInfo.processInfo.environment,
         neutralDirectory: URL = FileManager.default.temporaryDirectory,
-        maximumConcurrency: Int = GitClient.defaultConcurrency
+        maximumConcurrency: Int = GitClient.defaultConcurrency,
+        maximumFetchConcurrency: Int = GitClient.defaultFetchConcurrency,
+        fetchLimits: ProcessLimits = .fetch
     ) {
         self.environment = environment
         self.runner = runner
         self.parentEnvironment = parentEnvironment
         self.neutralDirectory = neutralDirectory
         self.maximumConcurrency = max(1, maximumConcurrency)
+        self.maximumFetchConcurrency = max(1, maximumFetchConcurrency)
+        self.fetchLimits = fetchLimits
     }
 
     /// Runs a read-only command.
@@ -106,6 +123,8 @@ actor GitClient {
             for: try command.subcommandArguments(),
             neutralization: safety.neutralization
         )
+        try await acquire(.query)
+        defer { release(.query) }
         return try await execute(
             arguments: arguments,
             in: workingDirectory,
@@ -116,8 +135,20 @@ actor GitClient {
         )
     }
 
-    /// Runs `git fetch` for one remote with the fetch-only authentication arguments (git-command-catalog.md §2.3).
-    func fetch(_ command: FetchCommand, in repository: URL, safety: RepoSafetyContext) async throws -> GitOutput {
+    /// Runs `git fetch` for one remote with the fetch-only authentication arguments (git-command-catalog.md §2.3, §4).
+    ///
+    /// Fetches of the same repository (`Repository.id`, shared by its worktrees) run one at a time, in request
+    /// order; others wait. A waiting fetch holds no slot. Cancelling the task stops git (SIGTERM, then SIGKILL) and
+    /// throws `GitError.cancelled`; after `fetchLimits.timeout` (120 seconds) it throws `GitError.timeout`.
+    ///
+    /// - Parameter progress: Called with each new progress update while git runs, on a background queue. Hop to the
+    ///   main actor before touching UI state.
+    func fetch(
+        _ command: FetchCommand,
+        in repository: Repository,
+        safety: RepoSafetyContext,
+        progress: (@Sendable (FetchProgress) -> Void)? = nil
+    ) async throws -> GitOutput {
         guard safety.isInspected else {
             throw GitError.configInspectionFailed(reason: "repository configuration has not been inspected")
         }
@@ -129,14 +160,32 @@ actor GitClient {
             neutralization: safety.neutralization,
             fetchAuthentication: safety.fetchAuthentication
         )
+        // The repository first: a fetch that waits for its turn must not hold one of the shared fetch slots.
+        try await acquire(.repository(repository.id))
+        defer { release(.repository(repository.id)) }
+        try await acquire(.fetch)
+        defer { release(.fetch) }
         return try await execute(
             arguments: arguments,
-            in: repository,
+            in: repository.rootURL ?? repository.commonGitDirectoryURL,
             location: .repository,
-            limits: .fetch,
+            limits: fetchLimits,
             acceptedExitCodes: [0],
-            trustedSSHCommand: safety.trustedSSHCommand
+            trustedSSHCommand: safety.trustedSSHCommand,
+            stderrObserver: progress.map(Self.progressObserver)
         )
+    }
+
+    /// Turns raw stderr chunks into progress updates. Only phases and numbers leave the parser, never server text.
+    private static func progressObserver(
+        _ report: @escaping @Sendable (FetchProgress) -> Void
+    ) -> @Sendable (Data) -> Void {
+        let parser = OSAllocatedUnfairLock(initialState: FetchProgressParser())
+        return { chunk in
+            for update in parser.withLock({ $0.consume(chunk) }) {
+                report(update)
+            }
+        }
     }
 
     // MARK: - Execution
@@ -147,11 +196,9 @@ actor GitClient {
         location: ReadOnlyGitCommand.Location,
         limits: ProcessLimits,
         acceptedExitCodes: Set<Int32>,
-        trustedSSHCommand: String?
+        trustedSSHCommand: String?,
+        stderrObserver: (@Sendable (Data) -> Void)? = nil
     ) async throws -> GitOutput {
-        try await acquire()
-        defer { release() }
-
         let request = ProcessRequest(
             executable: environment.executable,
             arguments: arguments,
@@ -161,7 +208,7 @@ actor GitClient {
         )
         let result: ProcessResult
         do {
-            result = try await runner.run(request)
+            result = try await runner.run(request, stderrObserver: stderrObserver)
         } catch ProcessRunnerError.executableNotFound(let path) {
             throw GitError.executableNotFound(path: path)
         } catch ProcessRunnerError.spawnFailed(let code) {
@@ -199,36 +246,79 @@ actor GitClient {
         ) ?? GitError.nonZeroExit(code: result.termination.exitCode ?? -1, detail: stderr)
     }
 
-    /// Waits for a free slot. A cancelled waiter leaves the queue immediately and throws `GitError.cancelled`.
-    private func acquire() async throws {
+    // MARK: - Slots
+
+    /// A pool of slots: queries, fetches, or the single fetch slot of one repository.
+    private enum SlotPool: Hashable {
+        case query
+        case fetch
+        case repository(String)
+    }
+
+    private struct Slots {
+        var running = 0
+        var waiters: [(id: UUID, continuation: CheckedContinuation<Bool, Never>)] = []
+    }
+
+    private func capacity(of pool: SlotPool) -> Int {
+        switch pool {
+        case .query: maximumConcurrency
+        case .fetch: maximumFetchConcurrency
+        case .repository: 1
+        }
+    }
+
+    /// Waits for a free slot in `pool`, first come first served. A cancelled waiter leaves the queue immediately and
+    /// throws `GitError.cancelled`.
+    private func acquire(_ pool: SlotPool) async throws {
         if Task.isCancelled { throw GitError.cancelled }
-        if running < maximumConcurrency {
-            running += 1
-            peakConcurrency = max(peakConcurrency, running)
+        var slots = pools[pool] ?? Slots()
+        if slots.running < capacity(of: pool) {
+            slots.running += 1
+            pools[pool] = slots
+            recordPeak(of: pool)
             return
         }
         let id = UUID()
         let granted = await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
-                waiters.append((id, continuation))
+                pools[pool, default: Slots()].waiters.append((id, continuation))
             }
         } onCancel: {
-            Task { await self.cancelWaiter(id) }
+            Task { await self.cancelWaiter(id, in: pool) }
         }
         guard granted else { throw GitError.cancelled }
-        peakConcurrency = max(peakConcurrency, running)
+        recordPeak(of: pool)
     }
 
-    private func cancelWaiter(_ id: UUID) {
-        guard let index = waiters.firstIndex(where: { $0.id == id }) else { return }
-        waiters.remove(at: index).continuation.resume(returning: false)
-    }
-
-    private func release() {
-        if waiters.isEmpty {
-            running -= 1
+    private func release(_ pool: SlotPool) {
+        guard var slots = pools[pool] else { return }
+        if slots.waiters.isEmpty {
+            slots.running -= 1
         } else {
-            waiters.removeFirst().continuation.resume(returning: true)  // hand the slot over; `running` is unchanged
+            // Hand the slot over; `running` is unchanged.
+            slots.waiters.removeFirst().continuation.resume(returning: true)
         }
+        store(slots, for: pool)
+    }
+
+    private func cancelWaiter(_ id: UUID, in pool: SlotPool) {
+        guard var slots = pools[pool], let index = slots.waiters.firstIndex(where: { $0.id == id }) else { return }
+        slots.waiters.remove(at: index).continuation.resume(returning: false)
+        store(slots, for: pool)
+    }
+
+    /// Repository pools are dropped when idle, so their number stays bounded by the repositories fetching now.
+    private func store(_ slots: Slots, for pool: SlotPool) {
+        if case .repository = pool, slots.running == 0, slots.waiters.isEmpty {
+            pools[pool] = nil
+        } else {
+            pools[pool] = slots
+        }
+    }
+
+    private func recordPeak(of pool: SlotPool) {
+        guard pool == .query || pool == .fetch else { return }
+        peaks[pool] = max(peaks[pool] ?? 0, pools[pool]?.running ?? 0)
     }
 }
