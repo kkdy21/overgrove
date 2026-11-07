@@ -111,7 +111,8 @@ final class WriteProtectionTests: XCTestCase {
         let before = try gitDirectorySnapshot(repo)
 
         let queries: [(ReadOnlyGitCommand, URL?)] = [
-            (.version, nil), (.probeRepository, repo), (.configList, repo), (.worktreeList, repo), (.refs, repo),
+            (.version, nil), (.probeGitDirectory, repo), (.probeRepository, repo), (.configList, repo),
+            (.worktreeList, repo), (.refs, repo),
             (
                 .aheadBehind(
                     local: FullRefName("refs/heads/main")!, upstream: FullRefName("refs/remotes/origin/main")!), repo

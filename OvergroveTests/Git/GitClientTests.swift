@@ -7,7 +7,7 @@ private let oid = ObjectID(String(repeating: "ab", count: 20))!
 private let parent = ObjectID(String(repeating: "cd", count: 20))!
 
 private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
-    .version, .probeRepository, .configList, .worktreeList, .status, .refs,
+    .version, .probeGitDirectory, .probeRepository, .configList, .worktreeList, .status, .refs,
     .aheadBehind(local: FullRefName("refs/heads/feat/12-x")!, upstream: FullRefName("refs/remotes/origin/feat/12-x")!),
     .stashList, .stashFiles(oid), .stashPatch(oid, path: GitPath("--output=x"), fromUntracked: false),
     .stashPatch(oid, path: GitPath("new.txt"), fromUntracked: true), .graphPage(skip: 500, limit: 500),
@@ -48,6 +48,10 @@ final class GitCommandTests: XCTestCase {
         let common = GitEnvironment.commonArguments
         let expected: [[String]] = [
             ["version"],
+            [
+                "rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir", "--is-bare-repository",
+                "--is-inside-work-tree",
+            ],
             ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir", "--is-bare-repository"],
             ["config", "--list", "--show-scope", "-z", "--includes"],
             ["worktree", "list", "--porcelain", "-z"],
@@ -64,7 +68,7 @@ final class GitCommandTests: XCTestCase {
                 "rev-list", "--left-right", "--count", "--end-of-options",
                 "refs/remotes/origin/feat/12-x...refs/heads/feat/12-x",
             ],
-            ["stash", "list", "-z", "--format=%gd%x00%H%x00%gs%x00%ct"],
+            ["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct", "refs/stash", "--"],
             [
                 "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
                 "--end-of-options", oid.hex,

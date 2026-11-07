@@ -27,7 +27,7 @@ final class ConfigExecutionArgumentTests: XCTestCase {
     private static func allQueries() throws -> [ReadOnlyGitCommand] {
         let file = try XCTUnwrap(PathValidator.worktreeFile(GitPath("a.txt"), in: previewWorktree))
         return [
-            .version, .probeRepository, .configList, .worktreeList, .status, .refs,
+            .version, .probeGitDirectory, .probeRepository, .configList, .worktreeList, .status, .refs,
             .aheadBehind(local: FullRefName("refs/heads/a")!, upstream: FullRefName("refs/remotes/origin/a")!),
             .stashList, .stashFiles(oid), .stashPatch(oid, path: GitPath("a.txt"), fromUntracked: false),
             .stashPatch(oid, path: GitPath("a.txt"), fromUntracked: true), .graphPage(skip: 0, limit: 10),
