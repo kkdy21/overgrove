@@ -1,0 +1,211 @@
+import Foundation
+import XCTest
+
+@testable import Overgrove
+
+/// Runs Overgrove's git commands against the `--malicious` fixture and checks that no payload ran
+/// (docs/testing/fixtures.md §8, INT-19, security-review.md T1–T7).
+///
+/// The hardened path is exactly the app's: `GitClient` with the `RepoSafetyContext` that `RepoConfigInspector`
+/// derives from the fixture's own `config --list`. `plainRun` is the negative control: the same subcommand arguments
+/// with none of the hardening (no common `-c` arguments, no neutralization, no environment allowlist), which must
+/// make the payloads fire. Without that control a broken fixture would let every canary check pass silently.
+struct CanaryHarness {
+    /// One command to run, with the directory it runs in.
+    struct Query: Sendable, CustomStringConvertible {
+        enum Kind: Sendable {
+            case query(ReadOnlyGitCommand)
+            case fetch(FetchCommand)
+        }
+
+        let kind: Kind
+        let directory: URL
+        let label: String
+
+        var description: String { label }
+
+        /// Subcommand arguments, as the app would pass them after the common arguments.
+        func subcommandArguments() throws -> [String] {
+            switch kind {
+            case .query(let command): try command.subcommandArguments()
+            case .fetch(let command): command.subcommandArguments()
+            }
+        }
+    }
+
+    let fixture: FixtureRepo
+    let environment: GitEnvironment
+    let client: GitClient
+    let inspection: RepoConfigInspection
+    let safety: RepoSafetyContext
+
+    /// Inspects the fixture's configuration the way the app does before any other query.
+    static func make(fixture: FixtureRepo) async throws -> CanaryHarness {
+        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
+        let config = try await client.run(.configList, in: fixture.repository, safety: .preInspection)
+        let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(config.stdout))
+        guard let safety = inspection.safetyContext else {
+            throw HarnessError.inspectionBlocked(inspection.report)
+        }
+        return CanaryHarness(
+            fixture: fixture, environment: environment, client: client, inspection: inspection, safety: safety)
+    }
+
+    enum HarnessError: Error {
+        case inspectionBlocked(RepoSecurityReport)
+        case unresolved(String)
+    }
+
+    // MARK: Queries
+
+    /// One query per `ReadOnlyGitCommand` case (plus `fetch origin`), aimed at fixture data that reaches the
+    /// payloads: `.txt` files carry the textconv/filter attributes, `malicious/signed` carries a fake signature
+    /// (T7), and `origin` has an `uploadpack` override and alternates (T5).
+    func queries() async throws -> [Query] {
+        let repo = fixture.repository
+        let main = try await resolve("refs/heads/main")
+        let merge = try await resolve("main~3")  // 0cbcd45, the merge commit (fixtures.md §2.1)
+        let mergeParent = try await resolve("main~3^1")
+        let signed = try await resolve("refs/heads/malicious/signed")
+        let trackedStash = try await resolve("refs/stash@{1}")
+        let untrackedStash = try await resolve("refs/stash@{0}")
+        let trackedStashBase = try await resolve("refs/stash@{1}^1")
+        guard let untracked = PathValidator.worktreeFile(GitPath("untracked.txt"), in: repo) else {
+            throw HarnessError.unresolved("untracked.txt")
+        }
+
+        func query(_ command: ReadOnlyGitCommand, in directory: URL? = nil, _ label: String) -> Query {
+            Query(kind: .query(command), directory: directory ?? repo, label: label)
+        }
+        let queries: [Query] = [
+            query(.version, "version"),
+            query(.probeRepository, "probeRepository"),
+            query(.configList, "configList"),
+            query(.worktreeList, "worktreeList"),
+            query(.status, "status (main worktree: modified .txt files, touched filter target)"),
+            query(.status, in: fixture.worktree("wt-conflict"), "status (wt-conflict: unmerged index)"),
+            query(.refs, "refs"),
+            query(
+                .aheadBehind(local: try ref("refs/heads/main"), upstream: try ref("refs/remotes/origin/main")),
+                "aheadBehind main...origin/main"),
+            query(.stashList, "stashList"),
+            query(.stashFiles(untrackedStash), "stashFiles stash@{0}"),
+            query(
+                .stashPatch(trackedStash, path: GitPath("src/stash-target.txt"), fromUntracked: false),
+                "stashPatch stash@{1} src/stash-target.txt"),
+            query(
+                .stashPatch(untrackedStash, path: GitPath("stash-untracked.txt"), fromUntracked: true),
+                "stashPatch stash@{0} stash-untracked.txt (untracked part)"),
+            query(.graphPage(skip: 0, limit: 500), "graphPage (includes malicious/signed)"),
+            query(.commitMeta(signed), "commitMeta malicious/signed"),
+            query(.commitFiles(main, firstParent: nil), "commitFiles main"),
+            query(.commitFiles(merge, firstParent: mergeParent), "commitFiles merge commit"),
+            query(
+                .commitPatch(trackedStash, parent: trackedStashBase, path: GitPath("src/stash-target.txt")),
+                "commitPatch src/stash-target.txt"),
+            query(.worktreeDiff(path: GitPath("src/unstaged-modified.txt"), staged: false), "worktreeDiff unstaged"),
+            query(.worktreeDiff(path: GitPath("src/staged-modified.txt"), staged: true), "worktreeDiff staged"),
+            query(.untrackedPreview(untracked), "untrackedPreview untracked.txt"),
+            query(.fileHistory(path: GitPath("docs/manual.md"), limit: 100), "fileHistory docs/manual.md"),
+            Query(kind: .fetch(.fetch(remote: try remote("origin"))), directory: repo, label: "fetch origin"),
+        ]
+        return queries
+    }
+
+    /// Case names that `queries()` covers. Exhaustive on purpose: adding a `ReadOnlyGitCommand` case breaks the
+    /// build here until the harness runs it too.
+    static func caseName(_ command: ReadOnlyGitCommand) -> String {
+        switch command {
+        case .version: "version"
+        case .probeRepository: "probeRepository"
+        case .configList: "configList"
+        case .worktreeList: "worktreeList"
+        case .status: "status"
+        case .refs: "refs"
+        case .aheadBehind: "aheadBehind"
+        case .stashList: "stashList"
+        case .stashFiles: "stashFiles"
+        case .stashPatch: "stashPatch"
+        case .graphPage: "graphPage"
+        case .commitMeta: "commitMeta"
+        case .commitFiles: "commitFiles"
+        case .commitPatch: "commitPatch"
+        case .worktreeDiff: "worktreeDiff"
+        case .untrackedPreview: "untrackedPreview"
+        case .fileHistory: "fileHistory"
+        }
+    }
+
+    /// Every case name of `ReadOnlyGitCommand`; keep in sync with `caseName(_:)`.
+    static let allCaseNames: Set<String> = [
+        "version", "probeRepository", "configList", "worktreeList", "status", "refs", "aheadBehind", "stashList",
+        "stashFiles", "stashPatch", "graphPage", "commitMeta", "commitFiles", "commitPatch", "worktreeDiff",
+        "untrackedPreview", "fileHistory",
+    ]
+
+    // MARK: Running
+
+    /// Runs a query the way the app does. Throws if git fails: a failing command may stop before the code path
+    /// that would run a payload, so a failure must not count as "no canary".
+    func runHardened(_ query: Query) async throws {
+        switch query.kind {
+        case .query(let command):
+            let safety = command.requiresInspection ? safety : .preInspection
+            _ = try await client.run(command, in: query.directory, safety: safety)
+        case .fetch(let command):
+            _ = try await client.fetch(command, in: query.directory, safety: safety)
+        }
+    }
+
+    /// Negative control: the same subcommand with plain git, as a typical client runs it. Only the fixture's isolated
+    /// HOME and a fixed PATH are set, and system/global configuration is off, so the repository's own configuration
+    /// is the only thing that differs from a clean run.
+    func runPlain(_ query: Query) async throws -> ProcessResult {
+        try await ProcessRunner().run(
+            ProcessRequest(
+                executable: environment.executable,
+                arguments: try query.subcommandArguments(),
+                environment: [
+                    "HOME": fixture.home.path,
+                    "PATH": GitEnvironment.path,
+                    "GIT_CONFIG_NOSYSTEM": "1",
+                    "GIT_CONFIG_GLOBAL": "/dev/null",
+                ],
+                currentDirectory: query.directory,
+                limits: .fetch
+            )
+        )
+    }
+
+    // MARK: Helpers
+
+    /// `rev-parse --verify` with the app's hardened arguments (rev-parse itself is not an app command).
+    func resolve(_ revision: String) async throws -> ObjectID {
+        let result = try await ProcessRunner().run(
+            ProcessRequest(
+                executable: environment.executable,
+                arguments: environment.arguments(
+                    for: ["rev-parse", "--verify", "--end-of-options", revision],
+                    neutralization: safety.neutralization
+                ),
+                environment: GitEnvironment.environment(parent: fixture.environment),
+                currentDirectory: fixture.repository,
+                limits: .query
+            )
+        )
+        let hex = String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard result.succeeded, let oid = ObjectID(hex) else { throw HarnessError.unresolved(revision) }
+        return oid
+    }
+
+    private func ref(_ name: String) throws -> FullRefName {
+        guard let ref = FullRefName(name) else { throw HarnessError.unresolved(name) }
+        return ref
+    }
+
+    private func remote(_ name: String) throws -> RemoteName {
+        guard let remote = RemoteName(name) else { throw HarnessError.unresolved(name) }
+        return remote
+    }
+}
