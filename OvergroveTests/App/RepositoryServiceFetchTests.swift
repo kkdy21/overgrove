@@ -104,6 +104,33 @@ final class RepositoryServiceFetchTests: XCTestCase {
         XCTAssertEqual(run, .finished(failures: []))
     }
 
+    /// #107: an untrusted repository does not run git for a local remote at all; it is reported as turned off, with
+    /// no command to copy. Remotes that are not local still fetch. A remote that only becomes local through
+    /// configuration (`insteadOf`) is refused by the transport list and reported the same way.
+    func testUntrustedRepositorySkipsLocalRemotes() async throws {
+        try await repository.git(["remote", "add", "origin", origin.path])
+        try await repository.git(["push", "-q", "origin", "main"])
+        try await repository.git(["update-ref", "-d", "refs/remotes/origin/main"])
+        try await repository.git(["remote", "add", "mirror", "https://example.invalid/acme/api.git"])
+        try await repository.git(["config", "url.\(origin.path).insteadOf", "https://example.invalid/acme/api.git"])
+
+        let run = await service().fetch(model, untrusted: true)
+        guard case .finished(let failures, _) = run else { return XCTFail("got \(run)") }
+        XCTAssertEqual(failures.map(\.remote?.value), ["origin", "mirror"])
+        for failure in failures {
+            XCTAssertEqual(failure.reason, .blockedByConfiguration, "\(failure)")
+            XCTAssertTrue(failure.guidance.contains("untrusted"), failure.guidance)
+            XCTAssertEqual(failure.commands, [], "no command is offered for an untrusted repository")
+        }
+        let fetched = try await hasRef("refs/remotes/origin/main")
+        XCTAssertFalse(fetched)
+
+        // Trusted (the default): the same remote fetches.
+        _ = await service().fetch(model)
+        let fetchedNow = try await hasRef("refs/remotes/origin/main")
+        XCTAssertTrue(fetchedNow)
+    }
+
     func testNoRemotes() async {
         let run = await service().fetch(model)
         XCTAssertEqual(run, .finished(failures: [.noRemotes]))

@@ -226,6 +226,9 @@ final class AppState {
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
+        // The registry's untrusted flag, read when each fetch starts (#107).
+        fetch.isUntrusted = { [registry] repository in registry.repository(withID: repository.id)?.isUntrusted ?? false
+        }
         // After a fetch, re-query the worktree list, every status (ahead/behind), and the refs (overview.md §5).
         autoRefresh = AutoRefreshController(watcher: fileWatcher)
         autoFetch = AutoFetchScheduler(settings: self.settings, fetch: fetch)

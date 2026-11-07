@@ -3,8 +3,10 @@ import Observation
 
 /// Fetches a repository's remotes for the main window (#77, interaction.md §4.2).
 protocol RepositoryFetching: Sendable {
-    /// Fetches every remote. `onStart` gets the remote names once they are known.
-    func fetch(_ repository: Repository, onStart: @escaping @Sendable ([String]) -> Void) async -> FetchRun
+    /// Fetches every remote. `untrusted`: the repository is marked untrusted (#107), so remotes on this Mac are not
+    /// fetched. `onStart` gets the remote names once they are known.
+    func fetch(_ repository: Repository, untrusted: Bool, onStart: @escaping @Sendable ([String]) -> Void) async
+        -> FetchRun
 }
 
 /// One failed remote, as the Details sheet shows it (`FetchFailureGuidance`, #78). Every text is app-written except
@@ -55,6 +57,9 @@ final class FetchController {
     @ObservationIgnored var onFinished: (() -> Void)?
 
     @ObservationIgnored private let fetcher: (any RepositoryFetching)?
+    /// Whether a repository is marked untrusted, read when each fetch starts (#107). The window passes the registry's
+    /// flag; trusted without it.
+    @ObservationIgnored var isUntrusted: (Repository) -> Bool = { _ in false }
     @ObservationIgnored private let store: FetchRecordStore
     @ObservationIgnored private let now: @Sendable () -> Date
     @ObservationIgnored private var repository: Repository?
@@ -110,8 +115,9 @@ final class FetchController {
         let onStart: @Sendable ([String]) -> Void = { remotes in
             Task { @MainActor in self.started(remotes, generation: generation) }
         }
+        let untrusted = isUntrusted(repository)
         task = Task { [weak self] in
-            let run = await fetcher.fetch(repository, onStart: onStart)
+            let run = await fetcher.fetch(repository, untrusted: untrusted, onStart: onStart)
             self?.finish(run, repository: repository, generation: generation, lastFetched: lastFetched)
         }
     }
