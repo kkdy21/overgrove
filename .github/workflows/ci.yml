@@ -99,7 +99,7 @@ jobs:
             echo
             echo "### Integration suites"
             if [ -f "$log" ]; then
-              grep -E "^Test Suite '[A-Za-z]+(IntegrationTests|FixtureRepoTests|CanaryHarnessTests)' (passed|failed)" "$log" \
+              grep -E "^Test Suite '([A-Za-z]+IntegrationTests|FixtureRepoTests|CanaryHarnessTests)' (passed|failed)" "$log" \
                 | sed 's/^/- /' || echo "- none found"
             else
               echo "- no xcodebuild log"
