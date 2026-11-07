@@ -28,6 +28,16 @@ struct MainWindowView: View {
             .alert(item: $state.alert) { alert in
                 Alert(title: Text(alert.title), message: Text(alert.message))
             }
+            .alert(
+                "Open in Terminal?", isPresented: terminalConfirmationShown, presenting: state.terminalConfirmation
+            ) { _ in
+                Button("Open Anyway", action: state.confirmOpenTerminal)
+                // Cancel is the default button (`⏎`) as well as `⎋`.
+                Button("Cancel", role: .cancel) { state.terminalConfirmation = nil }
+                    .keyboardShortcut(.defaultAction)
+            } message: { confirmation in
+                Text(confirmation.message)
+            }
             .task { state.restoreLastSelected() }
             // A closed window cannot show Stop: its fetch is stopped (security review of #77, T15).
             .onDisappear { state.fetch.stop() }
@@ -44,6 +54,12 @@ struct MainWindowView: View {
             isAdding: state.isAddingRepository, add: addRepository, canRefresh: state.repository != nil,
             refresh: state.reload, canFetch: state.fetch.canFetch, isFetching: state.fetchStatus.isFetching,
             fetch: state.fetch.fetch, stopFetch: state.fetch.stop, openSetup: state.setup.present)
+    }
+
+    private var terminalConfirmationShown: Binding<Bool> {
+        Binding(
+            get: { state.terminalConfirmation != nil },
+            set: { if !$0 { state.terminalConfirmation = nil } })
     }
 
     private var navigationActions: FocusedNavigationActions {

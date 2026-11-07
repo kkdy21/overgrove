@@ -103,6 +103,8 @@ final class AppState {
     var panelFocusRequest: PanelFocusRequest?
     /// The pasteboard and Finder for row menus and copy commands (#73); tests put a recorder here.
     var rowActions: any RowActionPerforming = LiveRowActions.shared
+    /// Open in Terminal waiting for "Open Anyway" (`TerminalGuard`, #73).
+    var terminalConfirmation: TerminalConfirmation?
     /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
     /// repository by `commitPanelLayout`.
     var panelLayout: PanelLayout = .default

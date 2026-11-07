@@ -216,8 +216,12 @@ final class AppStateNavigationTests: XCTestCase {
 
         state.revealWorktree(path)
         state.openTerminal(at: path)
+        XCTAssertNotNil(state.terminalConfirmation, "a folder the listing did not inspect is confirmed first")
+        XCTAssertTrue(actions.terminals.isEmpty)
+        state.confirmOpenTerminal()
         state.revealFile(GitPath("a.txt"), in: path)
         XCTAssertNil(state.alert)
+        XCTAssertNil(state.terminalConfirmation)
         XCTAssertEqual(actions.terminals.map(\.standardizedFileURL.path), [folder.standardizedFileURL.path])
         XCTAssertEqual(actions.revealed.map(\.lastPathComponent), [folder.lastPathComponent, "a.txt"])
     }

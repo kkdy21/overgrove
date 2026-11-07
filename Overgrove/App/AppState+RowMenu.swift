@@ -59,9 +59,25 @@ extension AppState {
         rowActions.reveal(folder)
     }
 
+    /// Opens directly only when the worktree's settings were checked and hold nothing that runs code; otherwise
+    /// asks first (`TerminalGuard`).
     func openTerminal(at path: GitPath) {
         guard let folder = existingFolder(path, action: "Open in Terminal") else { return }
-        rowActions.openTerminal(at: folder)
+        let hooks =
+            repository.map { LiveWorktreeInspector.hookExecutables(in: $0.repository.commonGitDirectoryURL) } ?? []
+        let reasons = TerminalGuard.reasons(inspection: entry(at: path)?.inspection, hooks: hooks)
+        if reasons.isEmpty {
+            rowActions.openTerminal(at: folder)
+        } else {
+            terminalConfirmation = TerminalConfirmation(folder: folder, reasons: reasons)
+        }
+    }
+
+    /// "Open Anyway".
+    func confirmOpenTerminal() {
+        guard let confirmation = terminalConfirmation else { return }
+        terminalConfirmation = nil
+        rowActions.openTerminal(at: confirmation.folder)
     }
 
     func openInBrowser(_ url: URL) {
