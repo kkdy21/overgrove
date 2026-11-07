@@ -137,6 +137,9 @@ private struct SecurityCard: View {
                     symbol: "arrow.down.circle", tint: Tokens.Color.statusWarning, title: "Fetch disabled",
                     text: reason)
             }
+            if let note = model.limitNote {
+                banner(symbol: "list.bullet", tint: Tokens.Color.statusWarning, title: "Report shortened", text: note)
+            }
             ForEach(model.rows) { row in
                 SecurityRowView(row: row, isExpanded: expanded.contains(row.id)) {
                     if expanded.contains(row.id) { expanded.remove(row.id) } else { expanded.insert(row.id) }
