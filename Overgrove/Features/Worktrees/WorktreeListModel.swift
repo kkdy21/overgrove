@@ -57,6 +57,9 @@ struct WorktreeRow: Identifiable, Equatable {
     let accessibilityLabel: String
     /// The checked-out branch's short name, escaped, for Copy Branch Name (#73); `nil` when detached or unborn.
     var branchName: String?
+    /// The lane colour of the branch tip in the graph (`color.graph.lane.<n>`, #255): the tile is tinted with it.
+    /// `nil` while the tip is not in a loaded page, and for neutral tiles.
+    var laneIndex: Int?
 }
 
 /// The WORKTREES section built from a load. Pure, so it is unit tested without views.
@@ -79,12 +82,23 @@ struct WorktreeListModel: Equatable {
     /// - Parameters:
     ///   - focused: The focused worktree's path; `nil` focuses the main worktree.
     ///   - home: Replaced by `~` in displayed paths.
-    init(listing: WorktreeListing, focused: GitPath?, home: String = NSHomeDirectory()) {
+    ///   - laneIndex: The graph's lane colour for a commit, when it is loaded (`GraphStore.laneIndex(of:)`).
+    init(
+        listing: WorktreeListing, focused: GitPath?, home: String = NSHomeDirectory(),
+        laneIndex: (ObjectID) -> Int? = { _ in nil }
+    ) {
         // Two records with the same path would give two rows one identity; keep the first.
         var seen = Set<GitPath>()
         let visible = listing.entries.filter { !$0.worktree.isBare && seen.insert($0.worktree.path).inserted }
         let focusedPath = Self.focusedPath(in: listing, requested: focused)
-        rows = Self.sorted(visible).map { Self.row($0, isFocused: $0.worktree.path == focusedPath, home: home) }
+        rows = Self.sorted(visible).map { entry in
+            var row = Self.row(entry, isFocused: entry.worktree.path == focusedPath, home: home)
+            // Only a checked-out branch has a lane of its own (art-direction.md §6): detached and missing stay neutral.
+            if !row.hasNeutralTile, entry.worktree.branch != nil, let head = entry.worktree.head {
+                row.laneIndex = laneIndex(head)
+            }
+            return row
+        }
         warning = Self.warning(for: listing)
     }
 

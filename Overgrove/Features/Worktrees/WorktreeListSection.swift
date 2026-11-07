@@ -217,16 +217,19 @@ struct WorktreeRowView: View {
         }
     }
 
-    /// 22pt tile with the `tree` symbol. TODO(#68): fill with the branch's lane colour from the graph; until then
-    /// every tile is neutral. The focused worktree gets an accent dot at the top right.
+    /// 22pt tile with the `tree` symbol: the branch tip's lane colour at 18% with a lane-coloured `tree`, so the row
+    /// and its line in the graph read as one (art-direction.md §6, #255). Detached and missing worktrees, and tips
+    /// not loaded yet, stay neutral. The focused worktree gets an accent dot at the top right.
     private var tile: some View {
-        RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
-            .fill(Tokens.Color.surfaceRaised)
+        let lane = row.laneIndex.map { Tokens.Color.graphLanes[$0 % Tokens.Color.graphLanes.count] }
+        return RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+            .fill(lane.map { $0.opacity(Self.tileLaneOpacity) } ?? Tokens.Color.surfaceRaised)
             .frame(width: Self.tileSize, height: Self.tileSize)
             .overlay {
                 Image(systemName: "tree")
                     .font(Tokens.Font.caption)
-                    .foregroundStyle(row.hasNeutralTile ? Tokens.Color.textTertiary : Tokens.Color.textSecondary)
+                    .foregroundStyle(
+                        lane ?? (row.hasNeutralTile ? Tokens.Color.textTertiary : Tokens.Color.textSecondary))
             }
             .overlay(alignment: .topTrailing) {
                 if row.isFocused {
@@ -243,6 +246,8 @@ struct WorktreeRowView: View {
     /// art-direction.md §6: 22pt tile, 8pt focus dot. No size tokens for them.
     static let tileSize: CGFloat = 22
     static let focusDotSize: CGFloat = 8
+    /// art-direction.md §6: lane colour at 18%. No opacity token for it.
+    static let tileLaneOpacity = 0.18
 }
 
 /// A row badge (information-architecture.md §4.3): symbol and number together, never colour alone.
