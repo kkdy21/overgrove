@@ -29,7 +29,9 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case worktreeNumstat(staged: Bool)
     /// Diff of an untracked file against /dev/null. Only a `WorktreeFile` (checked by `PathValidator`) is accepted.
     case untrackedPreview(WorktreeFile)
-    case fileHistory(path: GitPath, limit: Int)
+    /// One page of a file's history (S-09, #70): `follow` tracks renames (`--follow`), `--numstat` gives the file's
+    /// `+n −m` and its path in each commit.
+    case fileHistory(path: GitPath, follow: Bool = true, skip: Int = 0, limit: Int)
     /// Files changed in the worktree since it branched off `base` (the merge-base, like a pull request's "Files
     /// changed", #157). With `includeWorkingTree`, uncommitted tracked changes count too; untracked files come from
     /// `status`.
@@ -141,8 +143,12 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .untrackedPreview(let file):
             return ["diff", "--no-index", "--no-ext-diff", "--no-textconv"] + Self.porcelainDiffOptions
                 + ["--", "/dev/null", file.relativePath]
-        case .fileHistory(let path, let limit):
-            return ["log", "--follow", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit))]
+        case .fileHistory(let path, let follow, let skip, let limit):
+            // `--numstat` (with the porcelain options, `--no-ext-diff`, `--no-textconv`) adds one stat per commit for
+            // the followed path; a rename prints both names (parsing-spec.md §5.3).
+            return ["log"] + (follow ? ["--follow"] : []) + [
+                "-z", Self.logFormat, "--numstat", "--no-ext-diff", "--no-textconv",
+            ] + Self.porcelainDiffOptions + ["--skip=\(max(0, skip))", "-n", String(Self.clampLimit(limit))]
                 + (try Self.pathspec(path))
         case .compareFiles(let base, let includeWorkingTree):
             // `--no-abbrev`: `git diff --raw` abbreviates object names, unlike `diff-tree`. `--ignore-submodules=dirty`
