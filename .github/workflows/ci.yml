@@ -84,6 +84,36 @@ jobs:
             CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
             | tee "$RUNNER_TEMP/xcodebuild.log"
 
+      # Integration results depend on the git version (test-strategy.md), so record the git the tests ran (the app
+      # resolves "$DEVELOPER_DIR/usr/bin/git", not the PATH git) and fail if no integration suite actually ran.
+      - name: Integration tests and git version
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/xcodebuild.log"
+          app_git=$("$DEVELOPER_DIR/usr/bin/git" --version)
+          {
+            echo "### git used by tests"
+            echo "- app git (\`\$DEVELOPER_DIR/usr/bin/git\`): ${app_git}"
+            echo "- PATH git: $(git --version)"
+            echo
+            echo "### Integration suites"
+            if [ -f "$log" ]; then
+              grep -E "^Test Suite '[A-Za-z]+(IntegrationTests|FixtureRepoTests|CanaryHarnessTests)' (passed|failed)" "$log" \
+                | sed 's/^/- /' || echo "- none found"
+            else
+              echo "- no xcodebuild log"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "app git: ${app_git}"
+          [ -f "$log" ] || exit 0  # the build step already failed; nothing more to check
+          ran=$(grep -cE "^Test Suite '[A-Za-z]+IntegrationTests' (passed|failed)" "$log" || true)
+          if [ "${ran:-0}" -eq 0 ]; then
+            echo "::error::No integration test suite ran (expected *IntegrationTests in OvergroveTests/Integration)."
+            exit 1
+          fi
+          echo "ok  ${ran} integration suite(s) ran"
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
