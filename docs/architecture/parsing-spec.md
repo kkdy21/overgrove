@@ -128,7 +128,9 @@ worktree <abs path>␀HEAD <oid>␀branch refs/heads/gone␀prunable gitdir file
 
 ---
 
-## 4. StashParser — `stash list -z --format=%gd%x00%H%x00%gs%x00%ct`
+## 4. StashParser — `log -g -z --ignore-missing --format=%gd%x00%H%x00%gs%x00%ct refs/stash --`
+
+출력은 `stash list -z --format=…`와 같다. `stash list`는 bare 저장소에서 `this operation must be run in a work tree`로 실패하므로 같은 reflog 조회를 `log -g`로 직접 실행한다(#222).
 
 **형식.** 레코드마다 필드 4개다. 필드와 레코드 끝 모두 NUL이므로, 토큰을 4개씩 묶는다.
 
@@ -269,6 +271,9 @@ raw 레코드가 모두 나온 뒤 numstat 레코드가 나온다 (확인).
   - 잘린 출력에서 numstat이 잘려 나간 파일은 버린다. 줄 수를 모르는데 `nil`로 두면 바이너리로 보이기 때문이다.
 - 루트 커밋은 `--root`가 있어야 파일 목록이 나온다 (확인).
 - 병합 커밋은 첫 부모를 명시해 두 트리를 비교한다. 기본 동작은 파일 목록을 내지 않는다 (확인).
+- 기준 브랜치 비교(`compareFiles`, #157)의 `git diff --merge-base -z --raw --numstat -M --no-abbrev`도 같은 형식이라 `parseCommitFiles`를 그대로 쓴다.
+  - `git diff --raw`는 객체 이름을 7자로 줄여 쓴다. 파서는 40·64자만 받으므로 명령에 `--no-abbrev`가 꼭 있어야 한다 (확인).
+  - 작업 트리를 포함하면 작업 트리 쪽 객체 이름이 0으로 채워진다(`0000…`, 수정·추가 파일). 객체 이름은 형식만 검사하고 모델에 담지 않으므로 그대로 받는다 (Apple Git 2.50.1 확인).
 
 ### 8.2 stash 파일 — `stash show --include-untracked --numstat -z`
 
@@ -370,6 +375,30 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | 테스트 | 사례 |
 |---|---|
 | `ProbeParserTests` | 3줄, 연결 워크트리, 공백·유니코드, 줄 수 오류, 경로 안 LF, 상대 경로, 잘못된 bare 값, 마지막 LF 없음, 제어 문자, 잘못된 UTF-8 |
+
+#### 11.2.1 Git 디렉터리 probe (#222) — `rev-parse --path-format=absolute --git-common-dir --absolute-git-dir --is-bare-repository --is-inside-work-tree`
+
+등록은 이 probe를 먼저 실행한다. `--show-toplevel`이 없으므로 bare 저장소, 그 관리 디렉터리(`worktrees/<id>`), `.git` 안에서도 종료 0이다. 워크트리 안일 때만 위 `probeRepository`를 이어서 실행한다.
+
+`GitDirectoryProbeParser` 규칙:
+- 정확히 LF로 끝나는 줄 4개만 받는다. 1·2번째 줄(공통 git 디렉터리, 이 위치의 git 디렉터리)은 `ProbeParser`와 같은 경로 규칙을 따른다. 3·4번째 줄은 `true` 또는 `false`다.
+
+실측 (Apple Git 2.50.1, git 2.54.0):
+
+| 위치 | 공통 디렉터리 | git 디렉터리 | bare | 워크트리 안 |
+|---|---|---|---|---|
+| bare 저장소 `repo.git` | `repo.git` | `repo.git` | true | false |
+| bare 안 하위 폴더 `repo.git/refs` | `repo.git` | `repo.git` | true | false |
+| bare의 관리 디렉터리 `repo.git/worktrees/a` | `repo.git` | `repo.git/worktrees/a` | true | false |
+| bare의 연결 워크트리 `a` | `repo.git` | `repo.git/worktrees/a` | **false** | true |
+| 일반 저장소 | `x/.git` | `x/.git` | false | true |
+| 일반 저장소의 `.git` | `x/.git` | `x/.git` | false | false |
+
+- bare 저장소의 연결 워크트리는 bare가 `false`다. 그래서 공통 git 디렉터리에서 이 probe를 한 번 더 실행해 bare 저장소인지 확인한다.
+
+| 테스트 | 사례 |
+|---|---|
+| `GitDirectoryProbeParserTests` | 4줄, bare, 워크트리, 줄 수 오류, 경로 안 LF, 상대 경로, 잘못된 불리언, 마지막 LF 없음, 잘못된 UTF-8 |
 
 ### 11.3 IssueRefExtractor (G8)
 

@@ -62,7 +62,8 @@ final class RepositoryServiceCacheTests: XCTestCase {
             client: client, cachedRepositories: cachedRepositories, sleep: { _ in }, now: { clock.now() })
     }
 
-    /// Subcommands run since the last `resetCalls()`, counted.
+    /// Subcommands run since the last `resetCalls()`, counted. The stash list runs as `log -g … refs/stash` (#222), so
+    /// it is counted under `log`; nothing else in an overview runs `log`.
     private func calls() -> [String: Int] {
         let log = (try? String(contentsOf: markers.appendingPathComponent("invocations.log"), encoding: .utf8)) ?? ""
         return log.split(separator: "\n").reduce(into: [:]) { $0[String($1), default: 0] += 1 }
@@ -141,7 +142,7 @@ final class RepositoryServiceCacheTests: XCTestCase {
         XCTAssertEqual(counted["worktree"], 1, "window activation re-reads the worktree list")
         XCTAssertEqual(counted["status"], 3, "main, lane/0 and lane/2 are 6 s old; lane/1 is 3 s old")
         XCTAssertNil(counted["for-each-ref"])
-        XCTAssertNil(counted["stash"])
+        XCTAssertNil(counted["log"])
         XCTAssertNil(counted["config"], "no configuration file changed")
     }
 
@@ -156,7 +157,7 @@ final class RepositoryServiceCacheTests: XCTestCase {
         XCTAssertEqual(counted["worktree"], 1)
         XCTAssertEqual(counted["status"], 4, "ahead/behind of every worktree may have moved")
         XCTAssertEqual(counted["for-each-ref"], 1)
-        XCTAssertNil(counted["stash"], "the stash count did not change")
+        XCTAssertNil(counted["log"], "the stash count did not change")
     }
 
     func testUserRefreshRequeriesEverythingIncludingInspections() async throws {
@@ -183,7 +184,7 @@ final class RepositoryServiceCacheTests: XCTestCase {
         let selected = try overview(
             await service.refresh(model, trigger: .worktreeSelected(try entry(first, lane: 0).worktree.path)))
 
-        XCTAssertEqual(calls()["stash"], 1, "# stash 1 differs from the cached list (overview.md §5)")
+        XCTAssertEqual(calls()["log"], 1, "# stash 1 differs from the cached list (overview.md §5)")
         XCTAssertEqual(selected.stashes.stashes.count, 1)
     }
 

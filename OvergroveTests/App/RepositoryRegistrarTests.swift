@@ -3,7 +3,8 @@ import XCTest
 
 @testable import Overgrove
 
-/// `RepositoryRegistrar` (#84, overview.md §3.2 and §9, T14): validate the picked folder, then run only the probe.
+/// `RepositoryRegistrar` (#84, #222, overview.md §3.2 and §9, T14): validate the picked folder, then run only the
+/// probes.
 final class RepositoryRegistrarTests: XCTestCase {
     private var cleanup: [URL] = []
 
@@ -13,16 +14,40 @@ final class RepositoryRegistrarTests: XCTestCase {
 
     /// Counts probe runs; `GitClient` does the real work.
     private actor ProbeLog {
-        private(set) var folders: [URL] = []
-        func record(_ folder: URL) { folders.append(folder) }
+        private(set) var runs: [(RegistrationProbe, URL)] = []
+        var folders: [URL] { runs.map(\.1) }
+        var kinds: [RegistrationProbe] { runs.map(\.0) }
+        func record(_ kind: RegistrationProbe, _ folder: URL) { runs.append((kind, folder)) }
     }
 
     private func registrar(environment: GitEnvironment, log: ProbeLog? = nil) -> RepositoryRegistrar {
-        RepositoryRegistrar(probe: { folder in
-            await log?.record(folder)
+        RepositoryRegistrar(probe: { kind, folder in
+            await log?.record(kind, folder)
             return try await GitClient(environment: environment)
-                .run(.probeRepository, in: folder, safety: .preInspection).stdout
+                .run(kind.command, in: folder, safety: .preInspection).stdout
         })
+    }
+
+    /// A fake probe: `gitDirectory` and `worktree` answers as git would print them.
+    private func fake(gitDirectory: String, worktree: String = "") -> RepositoryRegistrar {
+        RepositoryRegistrar(probe: { kind, _ in
+            Data((kind == .gitDirectory ? gitDirectory : worktree).utf8)
+        })
+    }
+
+    private func assertRefused(
+        _ registrar: RepositoryRegistrar,
+        _ folder: URL,
+        _ expected: RegistrationError,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) async {
+        do {
+            let registration = try await registrar.register(folder)
+            XCTFail("registered \(registration.entry.locationPath) for \(folder.path)", file: file, line: line)
+        } catch {
+            XCTAssertEqual(error, expected, folder.path, file: file, line: line)
+        }
     }
 
     /// A repository with one commit, at its real path (`/var` is a link to `/private/var` on macOS).
@@ -54,8 +79,8 @@ final class RepositoryRegistrarTests: XCTestCase {
         XCTAssertEqual(registration.entry.commonDirectoryPath, repository.root.appendingPathComponent(".git").path)
         XCTAssertFalse(registration.isThroughSymlink)
         XCTAssertNil(registration.notice)
-        let probed = await log.folders
-        XCTAssertEqual(probed.count, 1, "the probe is the only git command")
+        let kinds = await log.kinds
+        XCTAssertEqual(kinds, [.gitDirectory, .worktree], "the two probes are the only git commands")
     }
 
     func testSubfolderRegistersTheRepositoryWithANotice() async throws {
@@ -107,27 +132,21 @@ final class RepositoryRegistrarTests: XCTestCase {
         }
     }
 
-    func testBareRepositoryIsRefusedWithGuidance() async throws {
+    func testInsideAGitDirectoryIsRefusedWithGuidance() async throws {
         let repository = try await makeRepository()
-        let bare = try temporaryDirectory().appendingPathComponent("bare.git", isDirectory: true)
-        try await repository.git(["clone", "-q", "--bare", "--", repository.root.path, bare.path])
-
-        for folder in [bare, repository.root.appendingPathComponent(".git", isDirectory: true)] {
-            do {
-                _ = try await registrar(environment: repository.environment).register(folder)
-                XCTFail("expected a refusal for \(folder.lastPathComponent)")
-            } catch {
-                XCTAssertEqual(error, .bareRepository, folder.lastPathComponent)
-            }
+        let gitDirectory = repository.root.appendingPathComponent(".git", isDirectory: true)
+        for folder in [gitDirectory, gitDirectory.appendingPathComponent("refs", isDirectory: true)] {
+            await assertRefused(registrar(environment: repository.environment), folder, .insideGitDirectory)
         }
+        XCTAssertTrue(RegistrationError.insideGitDirectory.message.contains("bare repository"))
     }
 
     /// parsing-spec.md §11.2: a control character in the path is refused before git runs.
     func testControlCharactersAreRefusedBeforeTheProbe() async throws {
         let folder = try temporaryDirectory("new\nline")
         let log = ProbeLog()
-        let registrar = RepositoryRegistrar(probe: { folder in
-            await log.record(folder)
+        let registrar = RepositoryRegistrar(probe: { kind, folder in
+            await log.record(kind, folder)
             return Data()
         })
         do {
@@ -144,7 +163,7 @@ final class RepositoryRegistrarTests: XCTestCase {
         let base = try temporaryDirectory()
         let file = base.appendingPathComponent("file.txt")
         try "x".write(to: file, atomically: true, encoding: .utf8)
-        let registrar = RepositoryRegistrar(probe: { _ in
+        let registrar = RepositoryRegistrar(probe: { _, _ in
             XCTFail("the probe must not run")
             return Data()
         })
@@ -164,13 +183,20 @@ final class RepositoryRegistrarTests: XCTestCase {
 
     func testMalformedProbeOutputIsAParseFailure() async throws {
         let folder = try temporaryDirectory()
-        let registrar = RepositoryRegistrar(probe: { _ in Data("/tmp/a\n".utf8) })
-        do {
-            _ = try await registrar.register(folder)
-            XCTFail("expected a refusal")
-        } catch {
-            guard case .git(.parseFailed(let parser, _)) = error else { return XCTFail("\(error)") }
-            XCTAssertEqual(parser, "ProbeParser")
+        for (registrar, parser) in [
+            (fake(gitDirectory: "/tmp/a\n"), "GitDirectoryProbeParser"),
+            (
+                fake(gitDirectory: "\(folder.path)/.git\n\(folder.path)/.git\nfalse\ntrue\n", worktree: "/tmp/a\n"),
+                "ProbeParser"
+            ),
+        ] {
+            do {
+                _ = try await registrar.register(folder)
+                XCTFail("expected a refusal")
+            } catch {
+                guard case .git(.parseFailed(let name, _)) = error else { return XCTFail("\(error)") }
+                XCTAssertEqual(name, parser)
+            }
         }
     }
 
@@ -205,7 +231,7 @@ final class RepositoryRegistrarTests: XCTestCase {
         for folder in [picked, repository.root] {
             do {
                 let registration = try await registrar(environment: repository.environment).register(folder)
-                XCTFail("registered \(registration.entry.rootPath) for \(folder.lastPathComponent)")
+                XCTFail("registered \(registration.entry.locationPath) for \(folder.lastPathComponent)")
             } catch {
                 XCTAssertEqual(error, .inconsistentRepository, folder.lastPathComponent)
             }
@@ -233,7 +259,7 @@ final class RepositoryRegistrarTests: XCTestCase {
 
         do {
             let registration = try await registrar(environment: victim.environment).register(picked)
-            XCTFail("registered \(registration.entry.rootPath)")
+            XCTFail("registered \(registration.entry.locationPath)")
         } catch {
             XCTAssertEqual(error, .inconsistentRepository)
         }
@@ -241,23 +267,40 @@ final class RepositoryRegistrarTests: XCTestCase {
 
     func testProbeNamingFoldersThatDoNotExistIsRefused() async throws {
         let folder = try temporaryDirectory()
-        let output = "\(folder.path)\n/tmp/overgrove-missing-\(UUID().uuidString)/.git\nfalse\n"
-        do {
-            _ = try await RepositoryRegistrar(probe: { _ in Data(output.utf8) }).register(folder)
-            XCTFail("expected a refusal")
-        } catch {
-            XCTAssertEqual(error, .inconsistentRepository)
-        }
+        let missing = "/tmp/overgrove-missing-\(UUID().uuidString)"
+        await assertRefused(
+            fake(
+                gitDirectory: "\(missing)/.git\n\(missing)/.git\nfalse\ntrue\n",
+                worktree: "\(folder.path)\n\(missing)/.git\nfalse\n"),
+            folder, .inconsistentRepository)
+        await assertRefused(
+            fake(gitDirectory: "\(missing).git\n\(missing).git\ntrue\nfalse\n"), folder, .inconsistentRepository)
     }
 
-    func testBareFlagFromTheProbeIsRefused() async throws {
+    /// The two probes run one after the other; answers that disagree (the repository changed in between, or a
+    /// forged answer) are not registered.
+    func testProbesThatDisagreeAreRefused() async throws {
+        let repository = try await makeRepository()
+        let root = repository.root.path
+        await assertRefused(
+            fake(gitDirectory: "\(root)/.git\n\(root)/.git\nfalse\ntrue\n", worktree: "\(root)\n\(root)/.git\ntrue\n"),
+            repository.root, .inconsistentRepository)
+        let other = try await makeRepository().root.path
+        await assertRefused(
+            fake(
+                gitDirectory: "\(other)/.git\n\(other)/.git\nfalse\ntrue\n", worktree: "\(root)\n\(root)/.git\nfalse\n"),
+            repository.root, .inconsistentRepository)
+        // The worktree's own git directory must be the one the first probe reported.
+        await assertRefused(
+            fake(
+                gitDirectory: "\(root)/.git\n\(root)/.git/worktrees/x\nfalse\ntrue\n",
+                worktree: "\(root)\n\(root)/.git\nfalse\n"),
+            repository.root, .inconsistentRepository)
+    }
+
+    func testNotBareAndNotInAWorkTreeIsInsideAGitDirectory() async throws {
         let folder = try temporaryDirectory()
-        let output = "\(folder.path)\n\(folder.path)/.git\ntrue\n"
-        do {
-            _ = try await RepositoryRegistrar(probe: { _ in Data(output.utf8) }).register(folder)
-            XCTFail("expected a refusal")
-        } catch {
-            XCTAssertEqual(error, .bareRepository)
-        }
+        await assertRefused(
+            fake(gitDirectory: "\(folder.path)\n\(folder.path)\nfalse\nfalse\n"), folder, .insideGitDirectory)
     }
 }

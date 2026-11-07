@@ -47,6 +47,8 @@ actor RepositoryService {
     static let statusFreshness: Duration = .seconds(5)
     /// Repositories whose results stay cached; the least recently used one is dropped beyond this.
     static let defaultCachedRepositories = 8
+    /// Base comparisons kept across all repositories (#157).
+    static let cachedComparisons = 32
     /// Worktrees queried per load (#226, T15). Each one costs three git processes (probe, config, status), and the list
     /// comes from files the repository controls, so a forged list could otherwise start thousands. PB-1 targets 10.
     static let defaultMaximumQueriedWorktrees = 64
@@ -59,6 +61,9 @@ actor RepositoryService {
     private var cache: BoundedCache<String, CachedRepository>
     private var latestGeneration: [String: Int] = [:]
     private var running: [String: (generation: Int, task: Task<CachedRepository, Error>)] = [:]
+    /// Base comparisons (#157), keyed so that a moved base tip, a new HEAD, or (with the working tree) a newer status
+    /// query makes a new entry (`RepositoryService+Compare.swift`).
+    var comparisons = BoundedCache<ComparisonKey, WorktreeComparison>(capacity: RepositoryService.cachedComparisons)
 
     /// - Parameters:
     ///   - sleep: Waits out the debounce; tests pass a gate instead of real time.
@@ -91,7 +96,23 @@ actor RepositoryService {
         running[id]?.task.cancel()
         running[id] = nil
         cache.removeValue(for: id)
+        comparisons.removeAll { $0.repositoryID == id }
         await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
+    }
+
+    /// The cached overview, and when `worktree`'s status was last queried, for the comparison cache key (#157).
+    func cachedState(
+        of repository: Repository, worktree: GitPath
+    ) -> (overview: RepositoryOverview, statusQueried: ContinuousClock.Instant?)? {
+        guard let cached = cache.value(for: repository.id) else { return nil }
+        return (cached.overview, cached.statusTimes[worktree])
+    }
+
+    /// The context for loads of `repository`, with the shared inspection cache.
+    func makeContext(_ repository: Repository) -> Context {
+        Context(
+            repository: repository, client: client, inspections: inspections,
+            maximumQueriedWorktrees: maximumQueriedWorktrees, now: now())
     }
 
     // MARK: - Refresh
@@ -119,9 +140,7 @@ actor RepositoryService {
 
         let previous = cache.peek(id)
         let plan = Plan(trigger: trigger, hasCache: previous != nil)
-        let context = Context(
-            repository: repository, client: client, inspections: inspections,
-            maximumQueriedWorktrees: maximumQueriedWorktrees, now: now())
+        let context = makeContext(repository)
         let task = Task { try await Self.load(context, previous: previous, plan: plan) }
         running[id] = (generation, task)
         let result: Result<CachedRepository, GitError> = await withTaskCancellationHandler {

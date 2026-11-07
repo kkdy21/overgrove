@@ -90,6 +90,29 @@ final class RepositoryRegistryTests: XCTestCase {
         XCTAssertEqual(RepositoryRegistry(defaults: defaults).repositories, [])
     }
 
+    /// #222: a bare repository has no root. It is stored without `rootPath` and comes back the same.
+    func testBareRepositoryIsStoredWithoutARoot() throws {
+        let bare = RegisteredRepository(rootPath: nil, commonDirectoryPath: "/tmp/dev/api.git")
+        XCTAssertTrue(bare.isBare)
+        XCTAssertEqual(bare.locationPath, "/tmp/dev/api.git")
+        XCTAssertEqual(bare.name, "api.git")
+        XCTAssertEqual(bare.displayRootPath, "/tmp/dev/api.git")
+        XCTAssertNil(bare.repository.rootURL)
+        XCTAssertTrue(bare.repository.isBare)
+        XCTAssertEqual(bare.repository.id, bare.id)
+
+        let registry = RepositoryRegistry(defaults: defaults)
+        XCTAssertEqual(registry.add(bare), .added)
+        XCTAssertEqual(registry.add(bare), .alreadyRegistered)
+        let data = try XCTUnwrap(defaults.data(forKey: RepositoryRegistry.repositoriesKey))
+        let stored = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        XCTAssertEqual(Set(stored[0].keys), ["commonDirectoryPath"])
+        XCTAssertEqual(RepositoryRegistry(defaults: defaults).repositories, [bare])
+
+        XCTAssertEqual(
+            registry.add(RegisteredRepository(rootPath: nil, commonDirectoryPath: "relative.git")), .rejected)
+    }
+
     func testRepositoryModelUsesTheCommonDirectoryAsIdentity() {
         let repository = entry("api").repository
         XCTAssertEqual(repository.id, entry("api").id)

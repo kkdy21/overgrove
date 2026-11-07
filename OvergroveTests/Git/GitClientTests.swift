@@ -7,7 +7,7 @@ private let oid = ObjectID(String(repeating: "ab", count: 20))!
 private let parent = ObjectID(String(repeating: "cd", count: 20))!
 
 private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
-    .version, .probeRepository, .configList, .worktreeList, .status, .refs,
+    .version, .probeGitDirectory, .probeRepository, .configList, .worktreeList, .status, .refs,
     .aheadBehind(local: FullRefName("refs/heads/feat/12-x")!, upstream: FullRefName("refs/remotes/origin/feat/12-x")!),
     .stashList, .stashFiles(oid), .stashPatch(oid, path: GitPath("--output=x"), fromUntracked: false),
     .stashPatch(oid, path: GitPath("new.txt"), fromUntracked: true), .graphPage(skip: 500, limit: 500),
@@ -15,6 +15,11 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .commitPatch(oid, parent: parent, path: GitPath("-x")), .worktreeDiff(path: GitPath("a b.txt"), staged: true),
     .worktreeDiff(path: GitPath(":(exclude)x"), staged: false),
     .fileHistory(path: GitPath("*"), limit: 100),
+    .compareFiles(base: FullRefName("refs/remotes/origin/main")!, includeWorkingTree: false),
+    .compareFiles(base: FullRefName("refs/heads/main")!, includeWorkingTree: true),
+    .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("-x"), includeWorkingTree: false),
+    .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("a.txt"), includeWorkingTree: true),
+    .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 500),
 ]
 
 /// SEC-T9-01, SEC-T13-01 (docs/design/security-review.md) and catalog §3–§4.
@@ -43,6 +48,10 @@ final class GitCommandTests: XCTestCase {
         let common = GitEnvironment.commonArguments
         let expected: [[String]] = [
             ["version"],
+            [
+                "rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir", "--is-bare-repository",
+                "--is-inside-work-tree",
+            ],
             ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir", "--is-bare-repository"],
             ["config", "--list", "--show-scope", "-z", "--includes"],
             ["worktree", "list", "--porcelain", "-z"],
@@ -59,7 +68,7 @@ final class GitCommandTests: XCTestCase {
                 "rev-list", "--left-right", "--count", "--end-of-options",
                 "refs/remotes/origin/feat/12-x...refs/heads/feat/12-x",
             ],
-            ["stash", "list", "-z", "--format=%gd%x00%H%x00%gs%x00%ct"],
+            ["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct", "refs/stash", "--"],
             [
                 "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
                 "--end-of-options", oid.hex,
@@ -95,6 +104,29 @@ final class GitCommandTests: XCTestCase {
             ["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty", "--cached", "--", "a b.txt"],
             ["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty", "--", ":(exclude)x"],
             ["log", "--follow", "-z", ReadOnlyGitCommand.logFormat, "-n", "100", "--", "*"],
+            [
+                "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", "refs/remotes/origin/main", "HEAD",
+                "--",
+            ],
+            [
+                "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", "refs/heads/main", "--",
+            ],
+            [
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options",
+                "refs/heads/main", "HEAD", "--", "-x",
+            ],
+            [
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options",
+                "refs/heads/main", "--", "a.txt",
+            ],
+            [
+                "log", "-z", ReadOnlyGitCommand.logFormat, "-n", "500", "--end-of-options", "refs/heads/main..HEAD",
+                "--",
+            ],
         ]
         XCTAssertEqual(allReadOnlyCommands.count, expected.count)
         for (command, subcommand) in zip(allReadOnlyCommands, expected) {

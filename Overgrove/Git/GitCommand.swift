@@ -5,6 +5,9 @@
 /// (git-command-catalog.md §1). Arguments are validated types, never raw strings (T9).
 enum ReadOnlyGitCommand: Sendable, Hashable {
     case version
+    /// Registration probe that also works in a bare repository and inside a git directory (no `--show-toplevel`,
+    /// #222). Run first; `probeRepository` follows only inside a work tree.
+    case probeGitDirectory
     case probeRepository
     case configList
     case worktreeList
@@ -25,6 +28,14 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// Diff of an untracked file against /dev/null. Only a `WorktreeFile` (checked by `PathValidator`) is accepted.
     case untrackedPreview(WorktreeFile)
     case fileHistory(path: GitPath, limit: Int)
+    /// Files changed in the worktree since it branched off `base` (the merge-base, like a pull request's "Files
+    /// changed", #157). With `includeWorkingTree`, uncommitted tracked changes count too; untracked files come from
+    /// `status`.
+    case compareFiles(base: FullRefName, includeWorkingTree: Bool)
+    /// Patch of one file in the same comparison.
+    case comparePatch(base: FullRefName, path: GitPath, includeWorkingTree: Bool)
+    /// Commits on HEAD that `base` does not have (`<base>..HEAD`), newest first.
+    case commitsAhead(base: FullRefName, limit: Int)
 
     enum Location: Sendable, Equatable {
         /// An app-owned temporary directory outside any repository.
@@ -46,6 +57,11 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         switch self {
         case .version:
             return ["version"]
+        case .probeGitDirectory:
+            return [
+                "rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir", "--is-bare-repository",
+                "--is-inside-work-tree",
+            ]
         case .probeRepository:
             return [
                 "rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir", "--is-bare-repository",
@@ -68,7 +84,9 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .aheadBehind(let local, let upstream):
             return ["rev-list", "--left-right", "--count", "--end-of-options", "\(upstream.value)...\(local.value)"]
         case .stashList:
-            return ["stash", "list", "-z", "--format=%gd%x00%H%x00%gs%x00%ct"]
+            // The reflog walk `git stash list` runs internally (same bytes), but without its work-tree requirement,
+            // so it also works in a bare repository (#222). `--ignore-missing`: no `refs/stash` is an empty list.
+            return ["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct", "refs/stash", "--"]
         case .stashFiles(let oid):
             return [
                 "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
@@ -108,6 +126,26 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .fileHistory(let path, let limit):
             return ["log", "--follow", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit))]
                 + (try Self.pathspec(path))
+        case .compareFiles(let base, let includeWorkingTree):
+            // `--no-abbrev`: `git diff --raw` abbreviates object names, unlike `diff-tree`. `--ignore-submodules=dirty`
+            // (as in status): otherwise git runs `status` inside each submodule, whose own filters were never
+            // inspected (SEC-T4-05). The trailing `--` keeps a file named like the ref from being read as a path.
+            return [
+                "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", base.value,
+            ] + (includeWorkingTree ? [] : ["HEAD"]) + ["--"]
+        case .comparePatch(let base, let path, let includeWorkingTree):
+            return [
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options", base.value,
+            ]
+                + (includeWorkingTree ? [] : ["HEAD"]) + (try Self.pathspec(path))
+        case .commitsAhead(let base, let limit):
+            // `FullRefName` has no `..`, so `<base>..HEAD` is one unambiguous range.
+            return [
+                "log", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit)), "--end-of-options",
+                "\(base.value)..HEAD", "--",
+            ]
         }
     }
 
@@ -115,7 +153,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// need the neutralization arguments from `RepoConfigInspector` first. Only these may run before inspection.
     var requiresInspection: Bool {
         switch self {
-        case .version, .probeRepository, .configList: false
+        case .version, .probeGitDirectory, .probeRepository, .configList: false
         default: true
         }
     }
@@ -123,8 +161,9 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     var location: Location {
         switch self {
         case .version: .neutral
-        case .probeRepository: .registeredPath
-        case .status, .worktreeDiff, .untrackedPreview, .fileHistory: .worktree
+        case .probeGitDirectory, .probeRepository: .registeredPath
+        case .status, .worktreeDiff, .untrackedPreview, .fileHistory, .compareFiles, .comparePatch, .commitsAhead:
+            .worktree
         default: .repository
         }
     }
