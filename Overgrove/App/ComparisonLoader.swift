@@ -49,7 +49,7 @@ struct LiveComparisonLoader: ComparisonLoading {
         _ repository: Repository, worktree: GitPath, base: FullRefName, file: GitPath, originalPath: GitPath?,
         includeUncommitted: Bool
     ) async -> DiffLoadResult {
-        guard file.isRepresentable else {
+        guard file.isRepresentable, originalPath?.isRepresentable ?? true else {
             return .unavailable("This path is not valid UTF-8, so Overgrove cannot show its diff.")
         }
         guard let (_, service) = try? await services() else {
