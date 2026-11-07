@@ -189,7 +189,8 @@ final class AppState {
         case .failure(.git(.cancelled)):
             break
         case .failure(let error):
-            worktreeList = .failed(message: error.message)
+            // The message can carry masked stderr, which still keeps separators such as U+2028.
+            worktreeList = .failed(message: PathValidator.displayable(error.message))
             snapshot = nil
         }
     }

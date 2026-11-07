@@ -46,7 +46,9 @@ struct WorktreeListModel: Equatable {
     ///   - focused: The focused worktree's path; `nil` focuses the main worktree.
     ///   - home: Replaced by `~` in displayed paths.
     init(listing: WorktreeListing, focused: GitPath?, home: String = NSHomeDirectory()) {
-        let visible = listing.entries.filter { !$0.worktree.isBare }
+        // Two records with the same path would give two rows one identity; keep the first.
+        var seen = Set<GitPath>()
+        let visible = listing.entries.filter { !$0.worktree.isBare && seen.insert($0.worktree.path).inserted }
         let focusedPath = Self.focusedPath(in: listing, requested: focused)
         rows = Self.sorted(visible).map { Self.row($0, isFocused: $0.worktree.path == focusedPath, home: home) }
         warning = Self.warning(for: listing)

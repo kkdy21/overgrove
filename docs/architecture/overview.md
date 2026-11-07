@@ -85,7 +85,7 @@ flowchart TD
 |---|---|---|
 | `OvergroveApp` | `App/` | 진입점, 창 구성, 의존성 조립 |
 | `AppState` | `App/` | 창 하나의 상태: 열린 저장소, 패널 레이아웃, 저장소 추가·전환·제거, 알림 |
-| `RepositoryLoading`, `LiveRepositoryLoader` | `App/` | 연 저장소의 `configList` → `RepoConfigInspector` → 워크트리 목록(§3.2). `WorktreeListProvider`(#87의 `RepositoryService`가 맡을 자리)에 목록 조회를 넘긴다 (#65) |
+| `RepositoryLoading`, `LiveRepositoryLoader` | `App/` | 연 저장소의 `configList` → `RepoConfigInspector` → 워크트리 목록(§3.2). 목록과 워크트리별 확인·조회는 `RepositoryService`(#87)가 하고, 결과(`RepositoryOverview`)를 `WorktreeListing`으로 옮긴다 (#65) |
 | `WorktreeListing` | `App/` | 워크트리마다 status 결과(`loaded`, `missing`, `failed`, `notQueried`)와 목록 잘림 여부. 사이드바 `WorktreeListModel`(`Features/Worktrees/`)의 입력 |
 | `RepositoryRegistry` | `App/` | 등록된 저장소 목록과 마지막 선택(모든 창이 공유). `UserDefaults`에 경로만 저장 (§8) |
 | `RepositoryRegistrar` | `App/` | 고른 폴더 → `PathValidator` → probe(`GitClient`, 검사 전 허용 명령) → 등록할 저장소. 같은 공통 git 디렉터리는 한 저장소 (§9) |

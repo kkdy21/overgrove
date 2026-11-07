@@ -8,8 +8,8 @@ import XCTest
 final class WorktreeListIntegrationTests: XCTestCase {
     private func loader(_ context: IntegrationContext) -> LiveRepositoryLoader {
         let client = context.client
-        return LiveRepositoryLoader(
-            client: { client }, provider: { SequentialWorktreeListProvider(client: $0) })
+        let service = RepositoryService(client: client)
+        return LiveRepositoryLoader(services: { (client, service) })
     }
 
     private func load() async throws -> (IntegrationContext, WorktreeListing) {
@@ -85,9 +85,8 @@ final class WorktreeListIntegrationTests: XCTestCase {
         let repository = Repository(
             rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false)
         let client = GitClient(environment: main.environment)
-        let listing = try await LiveRepositoryLoader(
-            client: { client }, provider: { SequentialWorktreeListProvider(client: $0) }
-        ).load(repository)
+        let service = RepositoryService(client: client)
+        let listing = try await LiveRepositoryLoader(services: { (client, service) }).load(repository)
 
         let forged = try XCTUnwrap(
             listing.entries.first { !$0.worktree.isMain }, "git lists the forged entry")

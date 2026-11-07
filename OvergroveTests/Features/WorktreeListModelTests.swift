@@ -137,6 +137,28 @@ final class WorktreeListModelTests: XCTestCase {
         XCTAssertTrue(rows.allSatisfy { $0.badges.isEmpty })
     }
 
+    /// `RepositoryOverview` (#87) → `WorktreeListing`: prunable and a folder that vanished before `status` are both
+    /// "missing", not "Status unavailable".
+    func testOverviewMapping() {
+        let worktrees = WorktreeListing.mockup.entries.map(\.worktree)
+        let statuses: [RepositoryOverview.Status] = [
+            .loaded(Listing.state(branch: "main")), .failed(.worktreeMissing(path: "/tmp/dev/x")),
+            .failed(.timeout(seconds: 15)), .notQueried(.foreignRepository),
+            .notQueried(.inspectionBlocked("reason")), .notQueried(.prunable),
+        ]
+        let overview = RepositoryOverview(
+            entries: zip(worktrees, statuses).map { RepositoryOverview.Entry(worktree: $0, status: $1) },
+            refs: RefParser.Listing(branches: [], tags: [], isPartial: false, skippedRecords: 0),
+            stashes: StashParser.Listing(stashes: [], isPartial: false))
+        XCTAssertEqual(
+            WorktreeListing(overview: overview).entries.map(\.state),
+            [
+                .loaded(Listing.state(branch: "main")), .missing, .failed(.timeout(seconds: 15)),
+                .notQueried(.foreignRepository), .notQueried(.inspectionBlocked("reason")), .missing,
+            ])
+        XCTAssertEqual(WorktreeListing(overview: overview).entries.map(\.worktree), worktrees)
+    }
+
     func testBareEntriesAreHidden() {
         let listing = Listing(
             entries: [
