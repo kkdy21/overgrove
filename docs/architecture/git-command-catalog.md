@@ -188,7 +188,7 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 | `networkUnavailable` | `Could not resolve host`, `unable to look up`, `Connection refused`, `Connection timed out`, `Operation timed out`, `Network is unreachable` |
 | `notARepository` | `not a git repository` |
 | `dubiousOwnership` | `detected dubious ownership` |
-| `transportNotAllowed(transport)` | `transport '<이름>' not allowed` (`GIT_ALLOW_PROTOCOL` 밖의 전송, `ext`, `fd`). 이름은 `[A-Za-z][A-Za-z0-9+.-]{0,63}`일 때만 메시지에 넣는다 |
+| `transportNotAllowed(transport)` | `fatal: transport '<이름>' not allowed`로 **시작하는 줄** (`GIT_ALLOW_PROTOCOL` 밖의 전송, `ext`, `fd`). `remote:` 줄은 인정하지 않는다. 이름은 `[A-Za-z0-9][A-Za-z0-9+.-]*`이고 64자 이하일 때만 메시지에 넣는다 |
 | `configInspectionFailed` | (설정 검사 단계의 비정상 종료나 파싱 실패) |
 
 `dubiousOwnership`이면 메시지에 "앱은 `safe.directory`를 우회하지 않는다"는 안내를 붙인다.

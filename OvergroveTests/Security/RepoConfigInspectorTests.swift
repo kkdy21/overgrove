@@ -157,7 +157,9 @@ final class RepoConfigInspectorTests: XCTestCase {
     func testRemoteHelpersChosenByTheRepositoryAreReported() {
         let helperURLs = [
             "evilhelper::payload", "codecommit::us-east-1://repo", "hg::https://example.com/r", "ext::sh -c x",
-            "fd::3", "Git-Remote+x.y::z", "C::x",
+            "fd::3", "Git-Remote+x.y::z", "C::x", "1abc::x", "::x",
+            // An unknown `<scheme>://` also runs `git-remote-<scheme>` (security review of #191).
+            "evilhelper://x", "EvilHelper://x", "codecommit://repo", "s3+https://bucket/r",
         ]
         for url in helperURLs {
             let findings = inspect([entry(.local, "remote.origin.url", url)]).report.findings
@@ -168,10 +170,13 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertEqual(vcs.map(\.handling), [.reported])
         XCTAssertEqual(vcs.map(\.threat), ["T5"])
 
-        // git only treats `<scheme chars>::` at the very start as a helper (transport.c: is_urlschemechar).
+        // git only treats `<scheme chars>::` at the very start as a helper (transport.c: is_urlschemechar), and
+        // handles these schemes itself or with its own bundled helpers.
         let ordinaryURLs = [
-            "https://github.com/o/r.git", "git@github.com:o/r.git", "ssh://git@example.com/a::b", "/srv/repos/a::b",
-            "../relative::x", "file:///tmp/r", "1abc::x", "::x", "-x::y", "a b::c",
+            "https://github.com/o/r.git", "HTTPS://github.com/o/r.git", "http://example.com/r", "git://example.com/r",
+            "ssh://git@example.com/a::b", "git+ssh://example.com/r", "ssh+git://example.com/r", "ftp://example.com/r",
+            "ftps://example.com/r", "file:///tmp/r", "git@github.com:o/r.git", "example.com:a://b", "/srv/repos/a::b",
+            "../relative::x", "-x::y", "a b::c", "+x://y",
         ]
         for url in ordinaryURLs {
             XCTAssertTrue(inspect([entry(.local, "remote.origin.url", url)]).report.findings.isEmpty, url)

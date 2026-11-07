@@ -106,22 +106,23 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   | `ext::<명령>` URL + 로컬 `protocol.ext.allow=always` | 실행. `url.<base>.insteadOf`로 평범한 https URL을 `ext::`로 바꿔치기해도 실행 |
   | `fd::` URL | 기본 허용이며 fetch가 정지함 |
   | 로컬 `core.alternateRefsCommand` + `objects/info/alternates` | alternates가 있는 저장소의 fetch에서 실행 (테스트 fork 실측, [fixtures.md §8](../testing/fixtures.md)) |
-  | `<helper>::<주소>` URL, `remote.<n>.vcs`, `insteadOf`로 바꿔치기한 `<helper>::` | 사용자가 설치한 `git-remote-<helper>`(`hg`, `gcrypt`, `codecommit` 등)를 **저장소가 고른 인자로** 실행. 로컬 `protocol.<helper>.allow=always`가 있으면 명령줄 `-c protocol.allow=never`로도 막히지 않음 (이름별 키가 일반 키보다 우선, #161 실측) |
+  | `<helper>::<주소>` URL, git이 직접 처리하지 않는 `<scheme>://` URL, `remote.<n>.vcs`, `insteadOf`로 바꿔치기한 URL | 사용자가 설치한 `git-remote-<helper>`(`hg`, `gcrypt`, `codecommit` 등)를 **저장소가 고른 인자로** 실행. 로컬 `protocol.<helper>.allow=always`가 있으면 명령줄 `-c protocol.allow=never`로도 막히지 않음 (이름별 키가 일반 키보다 우선, #161 실측) |
 
 - **시나리오**: 사용자가 Fetch를 누르면 원격 설정에 숨긴 명령이 실행된다.
 - **대응**:
   - **환경 변수 `GIT_SSH_COMMAND`**: 신뢰 scope의 `core.sshCommand`, 없으면 `ssh -o BatchMode=yes`. 환경 변수가 로컬 설정보다 우선한다 (확인). 빈 `-c core.sshCommand=`는 ssh 자체를 망가뜨려서 쓰지 않는다 (확인).
   - **환경 변수 `GIT_PROXY_COMMAND=`(빈 값)**: 로컬 `core.gitProxy` 무력화 (확인).
   - **`fetch --upload-pack=git-upload-pack`**: 로컬 uploadpack 무력화 (확인).
-  - **환경 변수 `GIT_ALLOW_PROTOCOL=https:ssh:git:file:http`**: 내장 전송만 허용한다. `protocol.allow=never`에 목록의 전송만 `always`로 둔 것처럼 동작하고, 저장소의 `protocol.<이름>.allow=always`를 포함한 모든 설정보다 우선한다. 저장소가 고른 원격 helper(`<helper>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기)는 `transport '<이름>' not allowed`로 실행 전에 거부된다 (확인, E34–E37). 거부는 `GitError.transportNotAllowed`로 분류해 이유를 보여 준다.
+  - **환경 변수 `GIT_ALLOW_PROTOCOL=https:ssh:git:file:http`**: 내장 전송만 허용한다. `protocol.allow=never`에 목록의 전송만 `always`로 둔 것처럼 동작하고, 저장소의 `protocol.<이름>.allow=always`를 포함한 모든 설정보다 우선한다. 저장소가 고른 원격 helper(`<helper>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기)는 `transport '<이름>' not allowed`로 실행 전에 거부된다 (확인, E34–E38). 거부는 `GitError.transportNotAllowed`로 분류해 이유를 보여 준다.
   - **공통 인자 `-c protocol.ext.allow=never -c protocol.fd.allow=never`**: `ext::`와 `insteadOf` 바꿔치기, `fd::` 차단 (확인). `GIT_ALLOW_PROTOCOL`과 겹치지만 심층 방어로 유지한다.
   - **공통 인자 `-c core.alternateRefsCommand=`(빈 값)**: alternates 경로 무력화. 빈 값이어도 fetch는 성공한다 (확인).
   - fetch는 `--no-recurse-submodules`로 서브모듈 원격에 연결하지 않는다.
 - **잔여 위험**:
   - 로컬 경로 원격(`file://` 또는 경로)을 fetch하면, **상대 저장소**에서 `git-upload-pack`이 실행되면서 그 저장소의 설정을 읽는다. 상대 저장소의 설정은 검사하지 않는다. v0.2.0의 "신뢰하지 않음 모드"(#107)에서는 `GIT_ALLOW_PROTOCOL` 목록에서 `file`을 빼는 방식으로 막을 수 있다 (`transport 'file' not allowed`, 확인).
+  - `ftp://`·`ftps://` 원격도 목록에 없어 fetch할 수 없다. git 내장 전송이지만 거의 쓰이지 않아 감수한다.
   - 커스텀 원격 helper(`codecommit::` 등)를 쓰는 원격은 v0.1에서 fetch할 수 없다. 허용이 필요해지면 저장소 설정이 아니라 앱 설정(사용자 선택)으로만 연다 (v0.1 범위 밖).
   - 사용자가 global에 정의한 `core.gitProxy`는 v0.1에서 무시된다 (빈 `GIT_PROXY_COMMAND`). `git://` 프로토콜은 드물어서 감수한다.
-- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로·https 원격은 계속 허용)
+- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL)
 - **상태**: 설계 완료
 
 ### T6. 저장소 로컬 `credential.helper` 실행
@@ -366,7 +367,7 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^diff\.external$`, `^diff\..+\.(textconv\|command)$` | 실행 | 보고 (`--no-ext-diff --no-textconv`) | T3 |
 | `^gpg\.(.+\.)?program$`, `^log\.showsignature$` | 실행 | 보고 (공통 인자, 서명 포맷 금지) | T7 |
 | `^protocol\.(.+\.)?allow$` | 전송 | 보고 (`GIT_ALLOW_PROTOCOL`이 모든 값보다 우선, `ext`·`fd`는 공통 인자로도 never) | T5 |
-| `^remote\..+\.url$` (값이 `<helper>::`로 시작: `^[A-Za-z][A-Za-z0-9+.-]*::`, `ext::`·`fd::` 포함) | 전송 | 보고 (`GIT_ALLOW_PROTOCOL`로 차단됨, #161) | T5 |
+| `^remote\..+\.url$` (값이 `<helper>::`로 시작: `^([A-Za-z0-9][A-Za-z0-9+.-]*)?::`, `ext::`·`fd::` 포함. 또는 `<scheme>://`인데 scheme이 `http`·`https`·`ftp`·`ftps`·`git`·`ssh`·`git+ssh`·`ssh+git`·`file`이 아님, 대소문자 무시) | 전송 | 보고 (`GIT_ALLOW_PROTOCOL`로 차단됨, #161, `TransportName`) | T5 |
 | `^remote\..+\.vcs$` | 전송 | 보고 (원격 helper 지정, `GIT_ALLOW_PROTOCOL`로 차단됨, #161) | T5 |
 | `^url\..+\.(insteadof\|pushinsteadof)$` | 전송 | 보고 | T5 |
 | `^http\.(.+\.)?(sslcainfo\|sslcapath\|sslcert\|sslkey)$` | 전송 보안 | 경고 + **fetch 차단** (조회는 허용) | T11 |
@@ -432,6 +433,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E35 | E34 + 로컬 `protocol.evilhelper.allow=always` | 환경 변수가 설정보다 우선해 차단. 명령줄 `-c protocol.allow=never`만으로는 실행됨 (이름별 키가 일반 키보다 우선) |
 | E36 | https 원격 + `url.evilhelper::x.insteadOf`, 또는 `remote.origin.vcs=evilhelper` | 실행됨. `GIT_ALLOW_PROTOCOL`이면 차단 |
 | E37 | `GIT_ALLOW_PROTOCOL` 적용 후 로컬 경로·https·`git+ssh`·scp 형식 원격 | 정상 동작. 목록에서 `file`을 빼면 로컬 경로는 `transport 'file' not allowed`. `https::<url>`은 내장 https로 처리됨 |
+| E38 | `1abc::x`, `::x`(빈 이름), `evilhelper://x`, `EvilHelper://x` | 모두 `git-remote-<이름>`이 실행됨(대소문자를 구분하지 않는 볼륨에서는 `EvilHelper`도 `git-remote-evilhelper`를 찾음). `GIT_ALLOW_PROTOCOL`이면 모두 차단. `ftp://`·`ftps://`는 git 내장(curl)이지만 목록에 없어 `transport 'ftp' not allowed` (#191 보안 검토) |
 
 릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41.
 

@@ -84,13 +84,10 @@ enum GitError: Error, Sendable, Equatable {
         func matches(_ patterns: [String]) -> Bool { patterns.contains { haystack.contains($0) } }
 
         if matches(["detected dubious ownership"]) { return .dubiousOwnership(detail: detail) }
-        // git's own refusal (`fatal: transport '<name>' not allowed`), not a `remote:` line the server printed.
-        if let refusal = detail.text.range(of: "fatal: transport '", options: .caseInsensitive),
-            let end = detail.text.range(
-                of: "' not allowed", options: .caseInsensitive, range: refusal.upperBound..<detail.text.endIndex)
-        {
-            let name = String(detail.text[refusal.upperBound..<end.lowerBound])
-            return .transportNotAllowed(transport: isSchemeName(name) ? name : nil, detail: detail)
+        if let name = refusedTransport(in: detail.text) {
+            // The name comes from repository configuration: echo only a plain scheme name of at most 64 characters.
+            let isEchoable = name.count <= 64 && TransportName.isSchemeName(name)
+            return .transportNotAllowed(transport: isEchoable ? String(name) : nil, detail: detail)
         }
         if matches([
             "authentication failed", "could not read username", "could not read password",
@@ -111,14 +108,20 @@ enum GitError: Error, Sendable, Equatable {
         return .nonZeroExit(code: code, detail: detail)
     }
 
-    /// `[A-Za-z][A-Za-z0-9+.-]{0,63}`: the characters git accepts in a transport or remote-helper name. Anything else
-    /// is not echoed in a message, because the name comes from repository configuration.
-    private static func isSchemeName(_ name: String) -> Bool {
-        let utf8 = Array(name.utf8)
-        guard let first = utf8.first, utf8.count <= 64, first.isASCIILetter else { return false }
-        return utf8.allSatisfy {
-            $0.isASCIILetter || (0x30...0x39).contains($0) || $0 == 0x2B || $0 == 0x2D || $0 == 0x2E
+    /// The name in git's own refusal line, `fatal: transport '<name>' not allowed` (possibly empty).
+    ///
+    /// Only a whole line that starts with `fatal:` counts, so a server cannot fake a refusal, and hide the real error,
+    /// with a `remote:` progress line.
+    private static func refusedTransport(in text: String) -> Substring? {
+        let prefix = "fatal: transport '"
+        let suffix = "' not allowed"
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            guard line.hasPrefix(prefix), line.hasSuffix(suffix), line.count >= prefix.count + suffix.count else {
+                continue
+            }
+            return line.dropFirst(prefix.count).dropLast(suffix.count)
         }
+        return nil
     }
 
     /// Maps a parser failure.
@@ -205,8 +208,4 @@ enum GitError: Error, Sendable, Equatable {
 
     /// Warning rather than failure: partial results may still be shown.
     var isWarning: Bool { self == .outputTruncated }
-}
-
-extension UInt8 {
-    fileprivate var isASCIILetter: Bool { (0x41...0x5A).contains(self) || (0x61...0x7A).contains(self) }
 }

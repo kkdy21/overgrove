@@ -3,7 +3,7 @@ import XCTest
 
 @testable import Overgrove
 
-/// SEC-T5-08…13: remote helpers chosen by repository configuration (#161, security-review.md T5).
+/// SEC-T5-08…15: remote helpers chosen by repository configuration (#161, security-review.md T5).
 ///
 /// A canary `git-remote-evilhelper` stands in for a helper the user installed (`git-remote-hg`, `-gcrypt`,
 /// `-codecommit`, …). Each case first runs the app's fetch **without** `GIT_ALLOW_PROTOCOL` to prove the helper is
@@ -126,6 +126,12 @@ final class RemoteTransportSecurityTests: XCTestCase {
         try await assertHelperRunsOnlyWithoutAllowList(extraArguments: ["-c", "protocol.allow=never"])
     }
 
+    func testSECT5_15_UnknownSchemeURLDoesNotRun() async throws {
+        // `<scheme>://` with a scheme git does not handle itself also runs `git-remote-<scheme>`.
+        try await repository.git(["remote", "add", "origin", "\(helper)://payload"])
+        try await assertHelperRunsOnlyWithoutAllowList()
+    }
+
     // MARK: - Still allowed (rows 6 and 8)
 
     func testSECT5_13_LocalPathRemoteStillFetches() async throws {
@@ -142,7 +148,7 @@ final class RemoteTransportSecurityTests: XCTestCase {
         XCTAssertTrue(names.contains("refs/remotes/origin/main"), "\(names)")
     }
 
-    func testSECT5_13_HTTPSIsNotRefusedAsATransport() async throws {
+    func testSECT5_14_HTTPSIsNotRefusedAsATransport() async throws {
         // Port 1 refuses the connection, so this needs no network: the failure must come from curl, not the policy.
         try await repository.git(["remote", "add", "origin", "https://127.0.0.1:1/example.git"])
         let result = try await fetch(allowList: true)

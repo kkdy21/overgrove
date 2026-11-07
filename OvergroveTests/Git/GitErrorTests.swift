@@ -56,7 +56,7 @@ final class GitErrorTests: XCTestCase {
 
     /// `GIT_ALLOW_PROTOCOL` and `protocol.<name>.allow=never` refusals (#161, T5). Real Apple Git 2.54.0 stderr.
     func testBlockedTransports() throws {
-        for name in ["ext", "fd", "evilhelper", "codecommit", "file", "Git-Remote+x.y"] {
+        for name in ["ext", "fd", "evilhelper", "codecommit", "file", "ftp", "Git-Remote+x.y", "1abc"] {
             let error = try XCTUnwrap(classify("fatal: transport '\(name)' not allowed\n"))
             guard case .transportNotAllowed(let transport, _) = error else { return XCTFail("\(name): got \(error)") }
             XCTAssertEqual(transport, name)
@@ -72,7 +72,8 @@ final class GitErrorTests: XCTestCase {
         let hostile = [
             "fatal: transport 'a b' not allowed", "fatal: transport '' not allowed",
             "fatal: transport '\(String(repeating: "x", count: 65))' not allowed",
-            "fatal: transport 'evil\u{1B}[31mred' not allowed", "fatal: transport '1abc' not allowed",
+            "fatal: transport 'evil\u{1B}[31mred' not allowed", "fatal: transport '+x' not allowed",
+            "fatal: transport 'évil' not allowed",
         ]
         for sample in hostile {
             let error = try XCTUnwrap(classify(sample))
@@ -85,6 +86,14 @@ final class GitErrorTests: XCTestCase {
     func testServerTextCannotPoseAsATransportBlock() {
         let spoofed = "remote: transport 'evil' not allowed\nfatal: unable to access 'https://example.com/r/': x\n"
         guard case .nonZeroExit = classify(spoofed) else { return XCTFail("only git's own fatal line counts") }
+        // A sideband line that copies git's wording must not hide the real failure (security review of #191).
+        let sideband = "remote: fatal: transport 'evil' not allowed\nfatal: Authentication failed for 'https://x/'\n"
+        guard case .authenticationFailed = classify(sideband) else { return XCTFail("the real error must win") }
+    }
+
+    func testRefusalIsFoundAmongOtherLines() throws {
+        let stderr = "warning: redirecting to https://example.com/r.git/\nfatal: transport 'hg' not allowed\n"
+        guard case .transportNotAllowed("hg", _) = try XCTUnwrap(classify(stderr)) else { return XCTFail() }
     }
 
     func testRemoteHelperFailureIsNotATransportBlock() {
