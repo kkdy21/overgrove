@@ -81,12 +81,14 @@ enum MainSelection: Equatable {
     case stash(ObjectID)
     /// A commit picked in the graph (S-03, #69).
     case commit(ObjectID)
+    /// An issue (S-06, #81), by number.
+    case issue(Int)
 
-    /// The worktree either segment shows; `nil` for a stash or a commit.
+    /// The worktree either segment shows; `nil` for a stash, a commit, or an issue.
     var worktreePath: GitPath? {
         switch self {
         case .wip(let path), .worktreeInfo(let path): path
-        case .stash, .commit: nil
+        case .stash, .commit, .issue: nil
         }
     }
 }
@@ -124,6 +126,8 @@ final class AppState {
     private let inspector: any WorktreeInspecting
     private let diffLoader: any DiffLoading
     private let stashLoader: any StashLoading
+    /// The sidebar's ISSUES and S-06 (#81). gh problems stay inside it (ADR-0004 §4).
+    let issuePanel: IssuePanelState
     /// S-04 (#71): the selected stash's files, and the file whose patch the center shows.
     private(set) var stashDetail: StashDetailState?
     private(set) var selectedStashFile: FileStat?
@@ -213,6 +217,7 @@ final class AppState {
     ///   - inspector: Reads one worktree's configuration for S-05.
     ///   - diffLoader: Loads a picked file's patch for S-10.
     ///   - stashLoader: Reads a stash's files and patches for S-04.
+    ///   - issueLoader: Reads the open issues through gh for S-06.
     ///   - comparisonLoader: Compares a worktree with its base branch for S-11.
     ///   - graphLoader: Reads commit graph pages for the center panel (#68).
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
@@ -223,6 +228,7 @@ final class AppState {
         inspector: any WorktreeInspecting = LiveWorktreeInspector.live,
         diffLoader: any DiffLoading = LiveDiffLoader.live,
         stashLoader: any StashLoading = LiveStashLoader.live,
+        issueLoader: any IssueLoading = LiveIssueLoader.live,
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
         lineCountLoader: (any LineCountLoading)? = nil,
         graphLoader: any GraphLoading = LiveGraphLoader.live,
@@ -237,8 +243,10 @@ final class AppState {
         self.inspector = inspector
         self.diffLoader = diffLoader
         self.stashLoader = stashLoader
+        issuePanel = IssuePanelState(loader: issueLoader)
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
+        issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
     }
 
     /// The registered repositories, in the order they were added.
@@ -281,6 +289,7 @@ final class AppState {
         inspectionGeneration += 1
         fetchStatus = .never
         searchText = ""
+        issuePanel.clear()
         graph.clear()
         commitDetail.clear()
     }
@@ -291,6 +300,7 @@ final class AppState {
     /// When the repository is not shown yet, its cached listing (no git) is painted first (PB-2). A newer request
     /// cancels this one, and its result is dropped.
     func reload() {
+        issuePanel.markStale()
         refresh(.user)
     }
 
@@ -340,7 +350,7 @@ final class AppState {
     private func showCached(_ listing: WorktreeListing, generation: Int) {
         guard generation == loadGeneration, !Task.isCancelled else { return }
         if case .loaded = worktreeList { return }
-        apply(listing)
+        apply(listing, isVerified: false)
     }
 
     private func finishLoad(_ result: Result<WorktreeListing?, RepositoryLoadError>, generation: Int) {
@@ -351,7 +361,7 @@ final class AppState {
             hasVerifiedListing = true
             supersededRetries = 0
             needsFullLoad = false
-            apply(listing)
+            apply(listing, isVerified: true)
         case .success(nil), .failure(.git(.cancelled)):
             // Superseded (another window asked for the same repository) or debounced away. A verified listing stays;
             // a cached paint is not kept as if it were current (security review of #243).
@@ -383,7 +393,8 @@ final class AppState {
         }
     }
 
-    private func apply(_ listing: WorktreeListing) {
+    /// - Parameter isVerified: The listing came from this load's inspection, not from the cache painted before it.
+    private func apply(_ listing: WorktreeListing, isVerified: Bool) {
         worktreeList = .loaded(listing)
         branchListModel = Self.branchModel(listing)
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
@@ -399,6 +410,9 @@ final class AppState {
         worktreeInspections = [:]
         inspectionGeneration += 1
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
+        // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
+        // a failed refresh; security review of #81).
+        if isVerified { issuePanel.show(listing.githubRepository) }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
         updateGraph(listing)
         // Keep the picked file only while it is still listed in the same group.
@@ -423,7 +437,7 @@ final class AppState {
         /// Shows `listing` as if it had just loaded (previews and render tests; no git).
         func showForPreview(_ listing: WorktreeListing) {
             hasVerifiedListing = true
-            apply(listing)
+            apply(listing, isVerified: false)
         }
     #endif
 
@@ -589,6 +603,39 @@ final class AppState {
         return BranchListModel(
             refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
             remoteNames: listing.remoteNames)
+    }
+
+    // MARK: Issues (#81)
+
+    /// The sidebar's ISSUES section.
+    var issueListModel: IssueListModel {
+        IssueListModel(content: issuePanel.content, isLoading: issuePanel.isLoading)
+    }
+
+    var selectedIssueNumber: Int? {
+        if case .issue(let number) = selection { return number }
+        return nil
+    }
+
+    /// S-06 for the selected issue, `nil` unless an issue is selected.
+    var issueDetailModel: IssueDetailModel? {
+        guard let number = selectedIssueNumber, let issue = issuePanel.issues.first(where: { $0.number == number })
+        else { return nil }
+        return IssueDetailModel(issue, repository: issuePanel.repository)
+    }
+
+    /// Selecting an issue shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
+    func selectIssue(_ number: Int) {
+        guard issuePanel.issues.contains(where: { $0.number == number }) else { return }
+        selectedFile = nil
+        closeComparison()
+        selection = .issue(number)
+    }
+
+    /// An issue that is no longer open falls back to the focused worktree.
+    private func issuesDidLoad(_ issues: [Issue]) {
+        guard let number = selectedIssueNumber, !issues.contains(where: { $0.number == number }) else { return }
+        selection = focusedWorktreePath.map(MainSelection.wip)
     }
 
     // MARK: Stashes (#71)

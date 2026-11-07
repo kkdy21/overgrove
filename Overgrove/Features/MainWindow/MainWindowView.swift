@@ -43,7 +43,9 @@ struct MainWindowView: View {
                     onSelectWorktree: state.selectWorktree, branchModel: state.branchListModel,
                     stashRows: state.stashes.map(StashRow.init),
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
-                    onSelectStash: state.selectStash, canCompareWorktree: { state.canCompare($0) },
+                    onSelectStash: state.selectStash, issueModel: state.issueListModel,
+                    selectedIssue: state.selectedIssueNumber, onSelectIssue: state.selectIssue,
+                    canCompareWorktree: { state.canCompare($0) },
                     onCompareWorktree: { state.showComparison(of: $0) })
             } center: {
                 GraphPanel(
@@ -59,7 +61,7 @@ struct MainWindowView: View {
                         switch $0 {
                         case .worktreeInfo: true
                         case .wip: false
-                        case .stash, .commit: nil
+                        case .stash, .commit, .issue: nil
                         }
                     },
                     commitModel: state.commitDetailModel, commitLane: state.selectedCommitLane,
@@ -67,7 +69,7 @@ struct MainWindowView: View {
                     onSelectCommitFile: state.selectCommitFile, onSelectParent: state.selectCommit,
                     onShowAllCommitFiles: state.showAllCommitFiles,
                     stashModel: state.stashDetailModel, selectedStashFile: state.selectedStashFile?.path,
-                    onSelectStashFile: state.selectStashFile,
+                    onSelectStashFile: state.selectStashFile, issueModel: state.issueDetailModel,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
                     comparisonList: comparisonList,
                     onCompare: state.canCompare() ? { state.showComparison() } : nil)
