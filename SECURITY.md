@@ -24,9 +24,12 @@ Overgrove is distributed **as source only** (no signed or notarized binaries).
 
 | Version | Supported |
 |---|---|
-| `main` (latest commit) | ✅ |
-| Latest tagged release (`v0.x`) | ✅ |
-| Older tags | ❌ — please update to the latest release |
+| `main` (latest commit) | ✅ Fixes land here first |
+| Latest tagged release (`v0.x`) | ✅ Once v0.1.0 is tagged; there is no release yet |
+| Older tags, other forks and builds | ❌ Please update to `main` or the latest release |
+
+Fixes are not backported to older tags. A security fix is released as a new patch tag and listed in the
+[changelog](CHANGELOG.md) and the advisory.
 
 ## What Overgrove does to protect you
 
@@ -54,8 +57,30 @@ browsing an untrusted repository does not run that code. In short:
   Git remote authentication is delegated to your existing credential helper or SSH setup.
 - No telemetry. Network access is limited to `git fetch` and `gh`.
 
-The full threat model (threats T1–T18), mitigations, and the tests that verify them live in
-[`docs/design/security-review.md`](docs/design/security-review.md).
+### Threat model at a glance
+
+| | Threat | How Overgrove handles it |
+|---|---|---|
+| T1–T4 | Repository config that runs programs: fsmonitor, hooks, external diff and textconv, clean/smudge filters | Forced off on every command; filters neutralized per driver |
+| T5 | Transport commands: `core.sshCommand`, `core.gitProxy`, `uploadpack`, `ext::`, custom remote helpers | Trusted-scope SSH command or `BatchMode`, fixed `--upload-pack`, built-in transports only, no transport at all for queries |
+| T6 | A repository's own `credential.helper` | Reset, then only your system/global helpers are put back (fetch only) |
+| T7 | Signature programs (`gpg.program`) | Signature formats never used, `log.showSignature=false` |
+| T8 | Automatic `gc`/maintenance during fetch | Turned off |
+| T9 | Argument injection through refs and paths | Argument arrays, values after `--`, validated refs and object IDs |
+| T10 | Inherited environment variables | Rebuilt from an allowlist |
+| T11 | Credential exposure: URLs, repository-chosen proxies and certificates | Masked output; repository TLS and proxy settings cannot redirect fetch |
+| T12 | Hanging on prompts | Prompts disabled; timeouts |
+| T13 | Write commands | No code path exists; only read-only queries and fetch are typed |
+| T14 | Paths and symlinks escaping the worktree | Paths validated before any file is read |
+| T15 | Resource exhaustion from huge output | Timeouts, output limits, bounded parsing and views |
+| T16 | Leaks through logs | No secrets in logs; masked stderr |
+| T17 | Supply chain | No third-party dependencies; Actions pinned to commit SHAs |
+| T18 | Secrets and personal paths in commits | gitleaks in hooks and CI, push protection |
+
+The full threat model, every mitigation, and the tests that verify them live in
+[`docs/design/security-review.md`](docs/design/security-review.md). The latest security test pass covered all 88
+security tests on `main` with no failures and no skipped tests:
+[2026-11-08 report](docs/qa/reports/2026-11-08-security-test-pass.md) ([#97](https://github.com/kkdy21/overgrove/issues/97), in Korean).
 
 ## Known limitations
 
@@ -63,6 +88,12 @@ The full threat model (threats T1–T18), mitigations, and the tests that verify
   above instead. Treat it like any other developer tool that runs `git`.
 - Git itself can have vulnerabilities. Keep the `git` binary that Overgrove uses up to date.
 - `git fetch` contacts the remotes configured in the repository. Do not fetch from repositories whose remotes you do not trust.
+- **Terminal is not protected.** *Open in Terminal* and the commands Overgrove offers to copy run plain `git`, which
+  does run a repository's hooks, pager, and other settings. Overgrove asks before opening Terminal in a repository
+  with risky settings and offers `git` commands only when the configuration report is clean, but what you run there is
+  outside its protection.
+- Self-hosted and corporate Git setups (tokens, SSH, private CAs, proxies) are covered in
+  [docs/guides/self-hosted-git.md](docs/guides/self-hosted-git.md).
 
 ## Scope
 
