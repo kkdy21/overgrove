@@ -91,6 +91,8 @@ struct SidebarPanel: View {
     var worktreeModel: WorktreeListModel?
     var selectedWorktree: GitPath?
     var onSelectWorktree: (GitPath) -> Void = { _ in }
+    var canCompareWorktree: (GitPath) -> Bool = { _ in false }
+    var onCompareWorktree: (GitPath) -> Void = { _ in }
 
     var body: some View {
         PanelSection {
@@ -102,7 +104,8 @@ struct SidebarPanel: View {
                 ScrollView {
                     WorktreeListSection(
                         status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
-                        onSelect: onSelectWorktree)
+                        onSelect: onSelectWorktree, canCompare: canCompareWorktree,
+                        onCompare: onCompareWorktree)
                 }
             } else {
                 PanelEmptyState(
@@ -120,8 +123,13 @@ struct GraphPanel: View {
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
 
+    /// S-11 covers the graph while a comparison is open (#158).
+    var comparison: ComparisonCenterView?
+
     var body: some View {
-        if let diff {
+        if let comparison {
+            comparison
+        } else if let diff {
             DiffViewerView(title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph)
         } else {
             graph
@@ -153,6 +161,10 @@ struct DetailPanel: View {
     var showsWorktreeSegment: Bool?
     var onShowChanges: () -> Void = {}
     var onShowWorktree: () -> Void = {}
+    /// S-11's lists while a comparison is open (#158).
+    var comparisonList: ComparisonListView?
+    /// S-05's `Compare with Base…` (#158); `nil` disables it.
+    var onCompare: (() -> Void)?
 
     var body: some View {
         PanelSection {
@@ -167,8 +179,10 @@ struct DetailPanel: View {
                 DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
             }
         } content: {
-            if let worktreeModel {
-                WorktreeDetailView(model: worktreeModel)
+            if let comparisonList {
+                comparisonList
+            } else if let worktreeModel {
+                WorktreeDetailView(model: worktreeModel, onCompare: onCompare)
             } else if let wipModel {
                 WipDetailView(model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile)
             } else if worktreeStatus == .loading {

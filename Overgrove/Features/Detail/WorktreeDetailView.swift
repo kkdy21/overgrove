@@ -4,14 +4,19 @@ import SwiftUI
 /// S-05, the `Worktree` segment: an info card and the SECURITY card (screens.md S-05, security-review.md §6).
 ///
 /// There is no Fetch button here: fetch is per repository and lives in the toolbar. Nothing here changes the
-/// repository (ADR-0011). TODO(#158): the base-branch comparison card pinned at the bottom.
+/// repository (ADR-0011).
 struct WorktreeDetailView: View {
     let model: WorktreeDetailModel
+    /// `Compare with Base…` (`⌘⇧B`, S-11); `nil` disables it.
+    var onCompare: (() -> Void)?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
                 InfoCard(model: model)
+                Button("Compare with Base…") { onCompare?() }
+                    .disabled(onCompare == nil)
+                    .help("See what this worktree changed compared with its base branch (⌘⇧B)")
                 if let security = model.security {
                     SecurityCard(model: security)
                 } else if let reason = model.securityUnavailable {
