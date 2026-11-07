@@ -621,6 +621,37 @@ final class AppState {
         return Set(issueLinks.links(number).branches.map(\.target))
     }
 
+    /// The newest commits whose subject names `number`. Cached and extended page by page, so a render does not rescan
+    /// every loaded commit (security review of #82, T15).
+    @ObservationIgnored private var commitLinkCache: CommitLinkCache?
+
+    private struct CommitLinkCache {
+        let number: Int
+        let repository: String?
+        let first: ObjectID?
+        var scanned: Int
+        var found: [CommitLink]
+    }
+
+    private func linkedCommits(_ number: Int, repository: String?) -> [CommitLink] {
+        let commits = graph.commits
+        var entry = CommitLinkCache(
+            number: number, repository: repository, first: commits.first?.oid, scanned: 0, found: [])
+        if let cached = commitLinkCache, cached.number == number, cached.repository == repository,
+            cached.first == commits.first?.oid, cached.scanned <= commits.count
+        {
+            entry = cached
+        }
+        if entry.found.count < CommitLink.limit, entry.scanned < commits.count {
+            entry.found += CommitLink.latest(
+                CommitLink.limit - entry.found.count, linkedTo: number, in: commits[entry.scanned...],
+                repository: repository)
+            entry.scanned = commits.count
+        }
+        commitLinkCache = entry
+        return entry.found
+    }
+
     /// A LINKED branch tip or commit: selected in the graph; the issue stays in the detail panel.
     func selectLinkedCommit(_ oid: ObjectID) {
         graph.select(oid)
@@ -638,7 +669,7 @@ final class AppState {
         let repository = issuePanel.repository
         return IssueDetailModel(
             issue, repository: repository, links: issueLinks.links(number),
-            commits: CommitLink.latest(linkedTo: number, in: graph.commits, repository: repository?.slug))
+            commits: linkedCommits(number, repository: repository?.slug))
     }
 
     /// Selecting an issue shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).

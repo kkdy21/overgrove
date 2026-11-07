@@ -58,6 +58,49 @@ final class IssueLinkTests: XCTestCase {
         XCTAssertFalse(index.links(5).branches[0].title.unicodeScalars.contains("\u{202E}"))
     }
 
+    /// SEC-T15-10: a remote that pushes thousands of `feat/1-*` refs keeps LINKED (and the graph outline) small.
+    func testLinksPerIssueAreLimited() {
+        let many =
+            (0..<500).map { Self.branch("refs/remotes/origin/feat/1-\($0)", .remote(remote: "origin")) }
+            + (0..<30).map { Self.branch("refs/heads/feat/1-\($0)") }
+        let links = IssueLinkIndex(listing: Self.listing(many)).links(1)
+        let limit = IssueLinkIndex.limitPerKind
+        XCTAssertEqual(links.branches.filter { !$0.isRemote }.count, limit)
+        XCTAssertEqual(links.branches.filter(\.isRemote).count, limit)
+        XCTAssertEqual(links.hiddenCount, 530 - 2 * limit)
+        XCTAssertEqual(IssueLinkIndex(listing: Self.listing(many)).kind(1), .branch)
+        let detail = IssueDetailModel(IssueModelsTests.issue(1), repository: nil, links: links)
+        XCTAssertEqual(detail.hiddenLinkCount, 510)
+    }
+
+    /// A configured remote named like an issue branch (`x/99-y`) is cut off before the branch rule runs.
+    func testConfiguredRemoteNamesAreCutExactly() {
+        var listing = Self.listing([Self.branch("refs/remotes/x/99-y/main", .remote(remote: "x"))])
+        listing.remoteNames = ["x/99-y"]
+        XCTAssertTrue(IssueLinkIndex(listing: listing).links(99).branches.isEmpty)
+        listing.remoteNames = []
+        XCTAssertEqual(IssueLinkIndex(listing: listing).links(99).branches.count, 1, "unconfigured: first segment only")
+    }
+
+    func testWorktreeTitlesAreEscaped() {
+        var listing = WorktreeListing.mockup
+        listing.refs = nil
+        let entry = WorktreeListing.entry("/tmp/dev/api-wt/x", branch: "feat/8-\u{202E}x", state: .missing)
+        listing = WorktreeListing(entries: listing.entries + [entry], isPartial: false)
+        let title = IssueLinkIndex(listing: listing).links(8).worktrees.first?.title ?? ""
+        XCTAssertFalse(title.unicodeScalars.contains("\u{202E}"))
+        XCTAssertFalse(title.isEmpty)
+    }
+
+    /// Only the start of a subject is scanned (git does not cut subjects).
+    func testLongSubjectsAreScannedOnlyAtTheStart() {
+        let padding = String(repeating: "x ", count: CommitLink.subjectScanLimit)
+        XCTAssertEqual(CommitLink.issueNumbers(in: "#4 " + padding, repository: nil), [4])
+        XCTAssertEqual(CommitLink.issueNumbers(in: padding + " #4", repository: nil), [])
+        let slice = [Self.commit(0, "#4 a"), Self.commit(1, "#4 b")][1...]
+        XCTAssertEqual(CommitLink.latest(linkedTo: 4, in: slice, repository: nil).map(\.subject), ["#4 b"])
+    }
+
     func testLatestCommitsReferenceTheIssue() {
         let commits = [
             Self.commit(0, "fix: keep (#12)"), Self.commit(1, "feat: C#12 support"), Self.commit(2, "team/app#12 x"),

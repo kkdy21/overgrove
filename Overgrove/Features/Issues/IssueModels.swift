@@ -107,6 +107,8 @@ struct IssueDetailModel: Equatable {
     let linkedWorktrees: [IssueLinkIndex.WorktreeLink]
     let linkedBranches: [IssueLinkIndex.BranchLink]
     let linkedCommits: [CommitLink]
+    /// Linked worktrees and branches past `IssueLinkIndex.limitPerKind` (`and N more`).
+    let hiddenLinkCount: Int
 
     init(
         _ issue: Issue, repository: GitHubRepository?, links: IssueLinkIndex.Links = .init(),
@@ -115,6 +117,7 @@ struct IssueDetailModel: Equatable {
         linkedWorktrees = links.worktrees
         linkedBranches = links.branches
         linkedCommits = commits
+        hiddenLinkCount = links.hiddenCount
         number = "#\(issue.number)"
         title = PathValidator.displayable(issue.title)
         self.repository = repository?.slug

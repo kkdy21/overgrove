@@ -186,7 +186,9 @@ struct IssueDetailView: View {
                 .font(Tokens.Font.sectionHeader)
                 .tracking(Tokens.Font.sectionHeaderTracking)
                 .foregroundStyle(Tokens.Color.textTertiary)
-            if model.linkedWorktrees.isEmpty && model.linkedBranches.isEmpty && model.linkedCommits.isEmpty {
+            if model.linkedWorktrees.isEmpty && model.linkedBranches.isEmpty && model.linkedCommits.isEmpty
+                && model.hiddenLinkCount == 0
+            {
                 Text("No branch, worktree, or loaded commit mentions this issue.")
                     .font(Tokens.Font.callout)
                     .foregroundStyle(Tokens.Color.textTertiary)
@@ -199,6 +201,11 @@ struct IssueDetailView: View {
                 linkRow(symbol: link.isRemote ? "network" : "arrow.triangle.branch", text: link.title, note: nil) {
                     onSelectCommit(link.target)
                 }
+            }
+            if model.hiddenLinkCount > 0 {
+                Text("and \(model.hiddenLinkCount) more branches or worktrees")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
             }
             ForEach(model.linkedCommits) { link in
                 linkRow(symbol: "smallcircle.filled.circle", text: link.subject, note: nil, sha: link.shortSHA) {

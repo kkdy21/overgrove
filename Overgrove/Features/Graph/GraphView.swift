@@ -95,8 +95,8 @@ struct GraphCommitRowView: View {
 
     /// Issue pills after the subject: only numbers in the fetched list (#82). Unknown `#n` stay plain subject text;
     /// most of them are pull request numbers from squash merges (`(#251)`), not issues.
-    private var linkedIssues: [Int] {
-        IssueRefExtractor.issueNumbers(inSubject: commit.subject, repository: issues.repository)
+    private func linkedIssues() -> [Int] {
+        CommitLink.issueNumbers(in: commit.subject, repository: issues.repository)
             .filter(issues.isKnown).prefix(2).map { $0 }
     }
 
@@ -104,6 +104,8 @@ struct GraphCommitRowView: View {
 
     var body: some View {
         let text = GraphCommitText(commit, now: now)
+        // Once per body: it scans the subject.
+        let linkedIssues = linkedIssues()
         HStack(spacing: 0) {
             GraphRefsCell(pills: pills, laneColor: lane, laneIndex: row.colorIndex)
                 .frame(width: Tokens.Size.columnRefsIdeal, alignment: .trailing)
@@ -136,12 +138,12 @@ struct GraphCommitRowView: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText(text))
+        .accessibilityLabel(accessibilityText(text, linkedIssues: linkedIssues))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .issueBadgeAction(linkedIssues.first)
     }
 
-    private func accessibilityText(_ text: GraphCommitText) -> String {
+    private func accessibilityText(_ text: GraphCommitText, linkedIssues: [Int]) -> String {
         var parts: [String] = [text.subject]
         if text.isAIAssisted { parts.append("AI-assisted") }
         parts.append("by \(text.author)")
