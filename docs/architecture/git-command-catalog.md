@@ -194,16 +194,27 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 `LC_ALL=C` 기준이다. 대소문자를 구분하지 않고 부분 일치로 찾는다. 검사는 마스킹한 stderr에 한다.
 
+- **`remote:`로 시작하는 줄은 보지 않는다(#78).** HTTP 전송에서 서버가 쓴 글은 `remote:` 줄로 온다. 서버가 분류를 고르거나, 다른 분류로 실제 오류를 가리지 못하게 하려는 것이다. 로컬 git과 ssh가 쓴 줄만 본다.
+- ssh 전송에서는 서버의 stderr가 접두사 없이 그대로 온다. 그래서 악성 ssh 서버는 분류를 고를 수 있다. 다만 화면 문구는 모두 앱이 쓴 것이고(`FetchFailureGuidance`), 서버가 쓴 글은 마스킹한 Details에만 나온다. 이 위험은 받아들인다.
+- 아래 표의 순서대로 검사한다. 더 구체적인 원인이 이긴다. 바뀐 호스트 키 경고는 맨 먼저 본다. 로컬 ssh만 찍는 배너라서, ssh가 경고 뒤에도 연결을 이어 가게 설정된 경우 서버가 다른 분류 문구를 써서 경고를 가리지 못하게 하려는 것이다(#200 보안 검토).
+
 | 분류 (GitError) | 패턴 |
 |---|---|
-| `authenticationFailed` | `Authentication failed`, `could not read Username`, `could not read Password`, `terminal prompts disabled`, `Permission denied (publickey`, `Host key verification failed`, `Invalid username or password` |
-| `networkUnavailable` | `Could not resolve host`, `unable to look up`, `Connection refused`, `Connection timed out`, `Operation timed out`, `Network is unreachable` |
-| `notARepository` | `not a git repository` |
+| `hostKeyVerificationFailed(changed: true)` | `REMOTE HOST IDENTIFICATION HAS CHANGED` (OpenSSH 경고 배너) |
 | `dubiousOwnership` | `detected dubious ownership` |
 | `transportNotAllowed(transport)` | `fatal: transport '<이름>' not allowed`로 **시작하는 줄** (`GIT_ALLOW_PROTOCOL` 밖의 전송, `ext`, `fd`). `remote:` 줄은 인정하지 않는다. 이름은 `[A-Za-z0-9][A-Za-z0-9+.-]*`이고 64자 이하일 때만 메시지에 넣는다 |
+| `hostKeyVerificationFailed(changed: false)` | `Host key verification failed` |
+| `sshAuthenticationFailed` | `Permission denied (` + OpenSSH 방식 이름(`publickey`, `password`, `keyboard-interactive`, `hostbased`, `gssapi`). 방식 목록이 없는 로컬 파일 오류(`Permission denied`)는 해당하지 않는다 |
+| `authenticationFailed` | `Authentication failed`, `could not read Username`, `could not read Password`, `terminal prompts disabled`, `Invalid username or password`, `returned error: 401` |
+| `accessDenied` | `returned error: 403` |
+| `remoteNotFound` | `returned error: 404`, `does not appear to be a git repository`, `fatal: repository '…' not found` 줄 |
+| `networkUnavailable` | `Could not resolve host`(ssh의 `Could not resolve hostname` 포함), `unable to look up`, `Connection refused`, `Connection timed out`, `Operation timed out`, `Network is unreachable`, `No route to host`, `Failed to connect to`, `Couldn't connect to server`, `Connection reset by peer` |
+| `notARepository` | `not a git repository` |
 | `configInspectionFailed` | (설정 검사 단계의 비정상 종료나 파싱 실패) |
 
 `dubiousOwnership`이면 메시지에 "앱은 `safe.directory`를 우회하지 않는다"는 안내를 붙인다.
+
+예시 문자열은 Apple Git 2.54.0에서 로컬 HTTP 서버(401/403/404/500), 없는 로컬 경로, 닫힌 로컬 포트로 채집했다(`GitErrorTests`). DNS 실패와 경로 없음 문구는 네트워크가 필요해 OpenSSH 문구를 그대로 썼다.
 
 ---
 

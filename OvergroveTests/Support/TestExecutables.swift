@@ -145,6 +145,17 @@ struct TestExecutables {
         return try script("with-stdin-\(UUID().uuidString)", "exec \"$@\" < '\(file.path)'")
     }
 
+    /// A stand-in for a trusted `core.sshCommand` that fails the way OpenSSH does: it writes `stderr` and exits 255,
+    /// so git adds its own `fatal:` lines on top (#78). The `-G` probe fails too, as for a non-OpenSSH command.
+    func failingSSH(stderr: String) throws -> URL {
+        let message = directory.appendingPathComponent("ssh-stderr-\(UUID().uuidString)")
+        try stderr.write(to: message, atomically: true, encoding: .utf8)
+        return try script(
+            "failing-ssh-\(UUID().uuidString)",
+            "[ \"$1\" = \"-G\" ] && exit 1\ncat '\(message.path)' >&2\nexit 255"
+        )
+    }
+
     private func script(_ name: String, _ body: String, in folder: URL? = nil) throws -> URL {
         let url = (folder ?? directory).appendingPathComponent(name)
         try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
