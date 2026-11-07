@@ -336,6 +336,9 @@ worktrees/wt-no-upstream   staged=0 unstaged=0 untracked=0 conflicted=0
 - 픽스처 생성은 `OvergroveTests/Support/FixtureRepo.swift`가 맡는다. 이곳은 CLAUDE.md가 허용한 테스트용 프로세스 실행 예외 위치다. 스크립트를 실행하고 마지막 줄의 경로를 받는다 (`--quiet`).
 - 테스트 클래스마다 한 번 만들고(`override class func setUp`), 끝나면 지운다. 상태를 바꾸는 테스트(fetch, SEC 테스트)는 테스트마다 새로 만든다. 생성은 약 2초다.
 - 경로는 `FileManager.default.temporaryDirectory` 아래 고유 디렉터리를 쓴다. 병렬 테스트끼리 디렉터리를 공유하지 않는다.
+  - 고유 디렉터리(`overgrove-fixture-<UUID>/`) 안에 격리된 빈 HOME(`home/`)과 스크립트 출력(`fixture/`)을 둔다. 스크립트는 부모 환경을 상속하지 않고 `HOME=home/`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=home/.gitconfig`로 실행한다. git은 앱과 같은 것(`GitEnvironment.discover()`)을 `PATH` 맨 앞에 둔다.
+  - 픽스처에 대해 `GitClient`를 쓸 때는 `parentEnvironment: fixture.environment`를 넘겨 실행 환경의 HOME이 섞이지 않게 한다.
+  - `XCTestCase.makeFixture(malicious:)`는 정리를 teardown 블록으로 등록하므로 테스트가 실패하거나 throw해도 지워진다. 생성이 실패하면 `FixtureRepo.make`가 디렉터리를 지우고 오류를 던진다.
 - 기대값은 이 문서의 표를 코드 상수로 옮긴다. SHA는 고정이므로 `e4bd61e` 같은 값을 직접 비교해도 된다. 단, git 버전에 따라 stash 커밋 메시지 형식이 달라질 수 있으므로 stash SHA는 비교하지 않는다.
 - 픽스처 스크립트를 바꾸면 이 문서의 표와 테스트 상수를 같은 PR에서 고친다.
 
