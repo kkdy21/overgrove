@@ -400,6 +400,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 -c color.ui=never
 -c diff.suppressBlankEmpty=false
 -c i18n.logOutputEncoding=UTF-8
+-c log.follow=false
 ```
 
 diff 계열 서브커맨드에는 `--no-ext-diff --no-textconv`를 붙인다.
