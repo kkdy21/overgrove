@@ -1,135 +1,6 @@
 import Foundation
 import Observation
 
-/// The repository open in the main window, with what the toolbar shows about it.
-struct RepositoryContext: Equatable, Sendable {
-    let repository: Repository
-    /// Remote owner for the repository switcher (`api` + `acme`); `nil` without a recognized GitHub remote.
-    let owner: String?
-
-    /// Directory name, as the repository switcher shows it (screens.md S-01).
-    var name: String { repository.displayName }
-}
-
-/// The focused worktree as the toolbar chip and status bar show it.
-struct FocusedWorktree: Equatable, Sendable {
-    /// Short branch name; `nil` when HEAD is detached.
-    let branch: String?
-    let headShortSHA: String?
-    let ahead: Int
-    let behind: Int
-    let hasUpstream: Bool
-
-    /// `feat/42-rate-limit`, or `detached @ b2e8a44` (screens.md S-01).
-    var title: String {
-        if let branch { return branch }
-        return "detached @ \(headShortSHA ?? "unknown")"
-    }
-
-    /// `↑2` when the branch is ahead of its upstream; nothing otherwise.
-    var aheadBadge: String? {
-        hasUpstream && ahead > 0 ? "↑\(ahead)" : nil
-    }
-
-    var accessibilityLabel: String {
-        var label = "Focused worktree \(title)"
-        if aheadBadge != nil { label += ", \(ahead) ahead" }
-        return label
-    }
-}
-
-/// Repository data the shell displays. Filled by the data loaders (#65 worktree list and status); `nil` until then.
-struct RepositorySnapshot: Equatable, Sendable {
-    let focusedWorktree: FocusedWorktree?
-    let worktreeCount: Int
-    let prunableCount: Int
-}
-
-/// Fetch state for the status bar (interaction.md §4.2). Driven by `FetchController` (#77).
-enum FetchStatus: Equatable, Sendable {
-    case never
-    /// The last fetch Overgrove ran succeeded at this time (`FetchRecord`).
-    case idle(lastFetched: Date)
-    /// Overgrove has no record; `FETCH_HEAD`'s modification time stands in, marked as an estimate (overview.md §8).
-    case estimated(lastFetched: Date)
-    /// `remotes` is empty until the remotes to fetch are known.
-    case fetching(remotes: [String], since: Date, lastFetched: Date?)
-    /// The last attempt failed; `lastFetched` is the last success, if any.
-    case failed(lastFetched: Date?)
-    /// The user stopped the fetch (interaction.md §4.2, `Fetch cancelled`).
-    case cancelled(lastFetched: Date?)
-
-    /// The last known successful (or estimated) fetch.
-    var lastFetched: Date? {
-        switch self {
-        case .never: nil
-        case .idle(let date), .estimated(let date): date
-        case .fetching(_, _, let date), .failed(let date), .cancelled(let date): date
-        }
-    }
-
-    var isFetching: Bool {
-        if case .fetching = self { return true }
-        return false
-    }
-}
-
-/// A message for the window's alert: a refused folder, a missing one, or a note about what was registered.
-struct AppAlert: Equatable, Identifiable {
-    let id = UUID()
-    let title: String
-    let message: String
-
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.title == rhs.title && lhs.message == rhs.message }
-}
-
-/// What the sidebar's worktree list shows (#65).
-enum WorktreeListStatus: Equatable {
-    case idle
-    case loading
-    case loaded(WorktreeListing)
-    case failed(message: String)
-}
-
-/// The detail panel's subject (interaction.md §1). #65 selects worktrees; commits, stashes, and issues come with
-/// their screens.
-enum MainSelection: Equatable {
-    /// The worktree's uncommitted changes (S-02, #66): the `Changes` segment.
-    case wip(GitPath)
-    /// The worktree's facts and safety (S-05, #67): the `Worktree` segment.
-    case worktreeInfo(GitPath)
-    /// A stash's contents (S-04, #71), by OID: `stash@{n}` shifts when stashes change.
-    case stash(ObjectID)
-    /// A commit picked in the graph (S-03, #69).
-    case commit(ObjectID)
-    /// An issue (S-06, #81), by number.
-    case issue(Int)
-
-    /// The worktree either segment shows; `nil` for a stash, a commit, or an issue.
-    var worktreePath: GitPath? {
-        switch self {
-        case .wip(let path), .worktreeInfo(let path): path
-        case .stash, .commit, .issue: nil
-        }
-    }
-}
-
-/// The groups of the WIP detail (S-02), in display order.
-enum WorkingChangeGroup: String, CaseIterable, Sendable {
-    case conflicted
-    case staged
-    case unstaged
-    case untracked
-}
-
-/// A file picked in the detail panel: the secondary selection that drives the diff viewer (interaction.md §1,
-/// S-10, #69). `group` tells a staged diff from an unstaged one for the same `MM` path.
-struct FileSelection: Equatable, Sendable {
-    let worktree: GitPath
-    let group: WorkingChangeGroup
-    let path: GitPath
-}
-
 /// The state of one main window, which later screens plug into (#64, docs/README.md §2.2 `App/`). Each window
 /// owns one (`MainWindowScene`), so windows show different repositories independently.
 ///
@@ -139,86 +10,86 @@ struct FileSelection: Equatable, Sendable {
 @MainActor
 @Observable
 final class AppState {
-    private let layoutStore: PanelLayoutStore
-    private let registry: RepositoryRegistry
-    private let registrar: RepositoryRegistrar
-    private let loader: any RepositoryLoading
-    private let lineCountLoader: (any LineCountLoading)?
-    private let inspector: any WorktreeInspecting
-    private let diffLoader: any DiffLoading
-    private let stashLoader: any StashLoading
-    private let ghChecker: any GHAuthChecking
+    let layoutStore: PanelLayoutStore
+    let registry: RepositoryRegistry
+    let registrar: RepositoryRegistrar
+    let loader: any RepositoryLoading
+    let lineCountLoader: (any LineCountLoading)?
+    let inspector: any WorktreeInspecting
+    let diffLoader: any DiffLoading
+    let stashLoader: any StashLoading
+    let ghChecker: any GHAuthChecking
     /// The sidebar's ISSUES and S-06 (#81). gh problems stay inside it (ADR-0004 §4).
     let issuePanel: IssuePanelState
     /// The setup assistant (S-07, #85): git and GitHub CLI checks, first run and Help › Setup Assistant….
     let setup: SetupAssistantState
     /// S-04 (#71): the selected stash's files, and the file whose patch the center shows.
-    private(set) var stashDetail: StashDetailState?
-    private(set) var selectedStashFile: FileStat?
-    private(set) var stashFileDiff: DiffLoadState?
+    var stashDetail: StashDetailState?
+    var selectedStashFile: FileStat?
+    var stashFileDiff: DiffLoadState?
     /// The stash loads in flight; tests await them.
-    private(set) var stashTask: Task<Void, Never>?
-    private(set) var stashFileTask: Task<Void, Never>?
-    private var stashGeneration = 0
+    var stashTask: Task<Void, Never>?
+    var stashFileTask: Task<Void, Never>?
+    var stashGeneration = 0
     /// The stash whose files `stashDetail` holds.
-    private var loadedStashOID: ObjectID?
-    private let comparisonLoader: any ComparisonLoading
+    var loadedStashOID: ObjectID?
+    let comparisonLoader: any ComparisonLoading
     /// The commit graph of the open repository (S-01 center, #68).
     let graph: GraphStore
     /// S-03 for the selected commit and the patch of a file picked in it (#69).
     let commitDetail: CommitDetailStore
     /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
-    private(set) var comparison: ComparisonSession?
+    var comparison: ComparisonSession?
     /// The comparison (and its patch) in flight; tests await them.
-    private(set) var comparisonTask: Task<Void, Never>?
-    private(set) var comparisonPatchTask: Task<Void, Never>?
-    private var comparisonGeneration = 0
+    var comparisonTask: Task<Void, Never>?
+    var comparisonPatchTask: Task<Void, Never>?
+    var comparisonGeneration = 0
     /// The base the user picked per worktree, for the session (screens.md S-11: remembered per worktree).
-    private var comparisonBases: [GitPath: FullRefName] = [:]
+    var comparisonBases: [GitPath: FullRefName] = [:]
 
-    private(set) var repository: RepositoryContext?
+    var repository: RepositoryContext?
     /// The toolbar chip and status bar fields, derived from the worktree list and the focused worktree.
     var snapshot: RepositorySnapshot?
     /// The open repository's worktrees and their status.
-    private(set) var worktreeList: WorktreeListStatus = .idle
+    var worktreeList: WorktreeListStatus = .idle
     /// The focused worktree (information-architecture.md §2.2). `nil` focuses the main worktree.
-    private(set) var focusedWorktreePath: GitPath?
-    private(set) var selection: MainSelection?
+    var focusedWorktreePath: GitPath?
+    var selection: MainSelection?
     /// The file picked in the detail panel; the diff viewer (S-10, #232) shows it. Cleared when the focus moves.
     /// Every change starts (or, for `nil`, cancels) loading its diff.
-    private(set) var selectedFile: FileSelection? {
+    var selectedFile: FileSelection? {
         didSet {
             if selectedFile != oldValue { loadDiff() }
         }
     }
     /// The selected file's diff, `nil` without a selected file.
-    private(set) var diffState: DiffLoadState?
+    var diffState: DiffLoadState?
     /// The diff load in flight; tests await it.
-    private(set) var diffTask: Task<Void, Never>?
-    private var diffGeneration = 0
+    var diffTask: Task<Void, Never>?
+    var diffGeneration = 0
     /// S-05 inspections by worktree, read when the `Worktree` segment opens; cleared on every reload.
-    private(set) var worktreeInspections: [GitPath: WorktreeInspection] = [:]
+    var worktreeInspections: [GitPath: WorktreeInspection] = [:]
     /// The S-05 inspection in flight; tests await it.
-    private(set) var inspectionTask: Task<Void, Never>?
+    var inspectionTask: Task<Void, Never>?
     /// The load in flight; tests await it.
-    private(set) var loadTask: Task<Void, Never>?
+    var loadTask: Task<Void, Never>?
     /// What the load in flight was started for; `nil` when none runs.
-    private var runningTrigger: RepositoryService.Trigger?
+    var runningTrigger: RepositoryService.Trigger?
     /// Dropping a removed repository's cache; tests await it.
-    private(set) var forgetTask: Task<Void, Never>?
+    var forgetTask: Task<Void, Never>?
     /// The selected worktree's line counts (#230), for the status they were requested with.
-    private var lineCounts: LineCountRequest?
+    var lineCounts: LineCountRequest?
     /// The line count query in flight; tests await it.
-    private(set) var lineCountTask: Task<Void, Never>?
+    var lineCountTask: Task<Void, Never>?
     /// Bumped on every open and close, so a load that finishes after the user moved on is dropped.
-    private var loadGeneration = 0
+    var loadGeneration = 0
     /// Whether this open has shown a service-verified result, not only the cached paint (security review of #243).
-    private var hasVerifiedListing = false
+    var hasVerifiedListing = false
     /// `.user` retries after superseded loads, and whether they ran out (the next activation loads everything).
-    private var supersededRetries = 0
-    private var needsFullLoad = false
+    var supersededRetries = 0
+    var needsFullLoad = false
     /// Bumped when S-05 inspections are dropped; unlike `loadGeneration`, background refreshes keep it.
-    private var inspectionGeneration = 0
+    var inspectionGeneration = 0
     /// Fetch / Stop, the status bar's fetch field, and the last fetch of each repository (#77).
     let fetch: FetchController
     /// The status bar's fetch field.
@@ -227,12 +98,12 @@ final class AppState {
     var isRefreshing: Bool { runningTrigger != nil }
     /// The status bar's gh field (#83): checked whenever the issues load (a GitHub remote) and on Check Again; `nil`
     /// until checked or when the check failed.
-    private(set) var ghStatus: GHAuthStatus?
+    var ghStatus: GHAuthStatus?
     /// The gh check in flight; tests await it.
-    private(set) var ghCheckTask: Task<Void, Never>?
-    private var ghCheckGeneration = 0
+    var ghCheckTask: Task<Void, Never>?
+    var ghCheckGeneration = 0
     /// A gh login check is running.
-    private(set) var isCheckingGitHub = false
+    var isCheckingGitHub = false
     /// TODO(#74): drives graph search.
     var searchText = ""
     /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
@@ -241,7 +112,36 @@ final class AppState {
     /// Shown as the window's alert; cleared when dismissed.
     var alert: AppAlert?
     /// True while a picked folder is being checked.
-    private(set) var isAddingRepository = false
+    var isAddingRepository = false
+
+    /// Line counts requested for one worktree's status, and what came back.
+    struct LineCountRequest {
+        let path: GitPath
+        let state: WorkingState
+        var result: WipDetailModel.LineCounts
+
+        func matches(_ path: GitPath, _ state: WorkingState) -> Bool { self.path == path && self.state == state }
+    }
+
+    /// Sidebar LOCAL and REMOTE, built once per load (sorting thousands of refs on every render would stall clicks;
+    /// security review of #72). `nil` until the list loads with refs.
+    var branchListModel: BranchListModel?
+
+    /// The sidebar's ISSUES section.
+    /// Worktrees and branches named for issues (#82), built once per listing.
+    var issueLinks: IssueLinkIndex = .empty
+
+    /// The newest commits whose subject names `number`. Cached and extended page by page, so a render does not rescan
+    /// every loaded commit (security review of #82, T15).
+    @ObservationIgnored var commitLinkCache: CommitLinkCache?
+
+    struct CommitLinkCache {
+        let number: Int
+        let repository: String?
+        let first: ObjectID?
+        var scanned: Int
+        var found: [CommitLink]
+    }
 
     /// - Parameters:
     ///   - layoutStore: Shared by every window; remembers each repository's panel layout.
@@ -306,7 +206,7 @@ final class AppState {
         clearRepositoryData()
     }
 
-    private func clearRepositoryData() {
+    func clearRepositoryData() {
         loadTask?.cancel()
         loadTask = nil
         runningTrigger = nil
@@ -340,840 +240,5 @@ final class AppState {
         issuePanel.clear()
         graph.clear()
         commitDetail.clear()
-    }
-
-    // MARK: Worktrees (#65)
-
-    /// Inspects the open repository and loads everything again (`.user`: opening a repository, ⌘R; overview.md §3.2).
-    /// When the repository is not shown yet, its cached listing (no git) is painted first (PB-2). A newer request
-    /// cancels this one, and its result is dropped.
-    func reload() {
-        issuePanel.markStale()
-        refresh(.user)
-    }
-
-    // MARK: GitHub CLI state (#83)
-
-    /// Reads gh's login state for the status bar. Git features never wait for it (ADR-0004 §4).
-    func checkGitHub() {
-        ghCheckTask?.cancel()
-        ghCheckGeneration += 1
-        let generation = ghCheckGeneration
-        let checker = ghChecker
-        isCheckingGitHub = true
-        ghCheckTask = Task { [weak self] in
-            let status = await checker.authStatus()
-            guard let self, generation == self.ghCheckGeneration, !Task.isCancelled else { return }
-            self.ghStatus = status
-            self.isCheckingGitHub = false
-        }
-    }
-
-    /// The ISSUES section's Check Again: gh's state and the issues again. Without a GitHub remote, the repository
-    /// reloads so its remotes are read again.
-    func checkIssuesAgain() {
-        // Pressing it again while gh is still running does not start more gh processes (security review of #83).
-        guard repository != nil, !issuePanel.isLoading, !isCheckingGitHub else { return }
-        if issuePanel.retry() {
-            checkGitHub()
-        } else {
-            reload()
-        }
-    }
-
-    /// The window became key (interaction.md §4): `.automatic` (debounced), once loaded and while no load runs.
-    func windowDidBecomeActive() {
-        guard repository != nil, runningTrigger == nil else { return }
-        // The first load was superseded every time (another window): load everything.
-        if needsFullLoad { return refresh(.user) }
-        guard hasVerifiedListing, case .loaded = worktreeList else { return }
-        refresh(.automatic)
-    }
-
-    /// Superseded first loads retried before falling back to Loading.
-    static let maximumSupersededRetries = 2
-
-    /// Starts a refresh for `trigger` (overview.md §5 decides what it re-queries). A full refresh in flight is not
-    /// replaced by a narrower one: it already brings everything.
-    private func refresh(_ trigger: RepositoryService.Trigger) {
-        guard let repository else { return }
-        if trigger != .user, runningTrigger == .user { return }
-        loadTask?.cancel()
-        loadGeneration += 1
-        let generation = loadGeneration
-        runningTrigger = trigger
-        let isShown: Bool = if case .loaded = worktreeList { true } else { false }
-        if !isShown {
-            worktreeList = .loading
-            branchListModel = nil
-        }
-        let loader = loader
-        let target = repository.repository
-        loadTask = Task { [weak self] in
-            if !isShown, let cached = await loader.cachedListing(target) {
-                self?.showCached(cached, generation: generation)
-            }
-            let result: Result<WorktreeListing?, RepositoryLoadError>
-            do throws(RepositoryLoadError) {
-                result = .success(try await loader.load(target, trigger: trigger))
-            } catch {
-                result = .failure(error)
-            }
-            self?.finishLoad(result, generation: generation)
-        }
-    }
-
-    /// Paints a cached listing while the refresh that follows it runs.
-    private func showCached(_ listing: WorktreeListing, generation: Int) {
-        guard generation == loadGeneration, !Task.isCancelled else { return }
-        if case .loaded = worktreeList { return }
-        apply(listing, isVerified: false)
-    }
-
-    private func finishLoad(_ result: Result<WorktreeListing?, RepositoryLoadError>, generation: Int) {
-        guard generation == loadGeneration, !Task.isCancelled else { return }
-        runningTrigger = nil
-        switch result {
-        case .success(let listing?):
-            hasVerifiedListing = true
-            supersededRetries = 0
-            needsFullLoad = false
-            apply(listing, isVerified: true)
-        case .success(nil), .failure(.git(.cancelled)):
-            // Superseded (another window asked for the same repository) or debounced away. A verified listing stays;
-            // a cached paint is not kept as if it were current (security review of #243).
-            guard !hasVerifiedListing else { break }
-            if supersededRetries < Self.maximumSupersededRetries {
-                supersededRetries += 1
-                refresh(.user)
-            } else {
-                worktreeList = .loading
-                branchListModel = nil
-                snapshot = nil
-                needsFullLoad = true
-            }
-        case .failure(let error):
-            // The message can carry masked stderr, which still keeps separators such as U+2028.
-            worktreeList = .failed(message: PathValidator.displayable(error.message))
-            branchListModel = nil
-            snapshot = nil
-        }
-    }
-
-    /// First load reads the graph; later loads keep it unless the history moved (GraphStore.refresh).
-    private func updateGraph(_ listing: WorktreeListing) {
-        let focus = listing.entries.first { $0.worktree.path == focusedWorktreePath }
-        if graph.status == .idle, let repository {
-            graph.load(repository.repository, focus: focus)
-        } else {
-            graph.refresh(focus: focus)
-        }
-    }
-
-    /// - Parameter isVerified: The listing came from this load's inspection, not from the cache painted before it.
-    private func apply(_ listing: WorktreeListing, isVerified: Bool) {
-        worktreeList = .loaded(listing)
-        branchListModel = Self.branchModel(listing)
-        issueLinks = IssueLinkIndex(listing: listing)
-        focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
-        if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
-        // A stash that is gone (dropped or applied elsewhere) falls back to the focused worktree.
-        if case .stash(let oid) = selection, !listing.stashes.contains(where: { $0.oid == oid }) {
-            selection = nil
-        }
-        selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
-        // A stash's content never changes (it is addressed by OID): keep the loaded detail and the open file.
-        if case .stash(let oid) = selection, loadedStashOID != oid { loadStash() }
-        // Configuration may have changed since the last inspection.
-        worktreeInspections = [:]
-        inspectionGeneration += 1
-        if case .worktreeInfo = selection { inspectSelectedWorktree() }
-        // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
-        // a failed refresh; security review of #81).
-        // gh's login state is read alongside, for the status bar (#83); a repository without a GitHub remote runs no gh.
-        if isVerified, issuePanel.show(listing.githubRepository) { checkGitHub() }
-        snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
-        updateGraph(listing)
-        // Keep the picked file only while it is still listed in the same group.
-        // Same rule as `selectFile`: the row must still exist and still be selectable.
-        if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true {
-            selectedFile = nil
-        } else if selectedFile != nil {
-            // Same file, new content: load its diff again.
-            loadDiff()
-        }
-        // The load may have re-queried the status even if it reads the same (an edit inside a modified file).
-        requestLineCounts(refresh: true)
-    }
-
-    /// The sidebar row model, `nil` until the list has loaded.
-    var worktreeListModel: WorktreeListModel? {
-        guard case .loaded(let listing) = worktreeList else { return nil }
-        return WorktreeListModel(listing: listing, focused: focusedWorktreePath)
-    }
-
-    #if DEBUG
-        /// Shows `listing` as if it had just loaded (previews and render tests; no git).
-        func showForPreview(_ listing: WorktreeListing) {
-            hasVerifiedListing = true
-            apply(listing, isVerified: false)
-        }
-
-        /// Sets the status bar's gh field without running gh (previews and render tests).
-        func showGHStatusForPreview(_ status: GHAuthStatus?) {
-            ghStatus = status
-        }
-    #endif
-
-    /// Selecting a worktree row focuses that worktree and shows its changes (interaction.md §1.3). What is shown
-    /// comes from the listing in memory (the service's cached overview) at once (PB-2); that worktree's status is
-    /// then refreshed in the background (`.worktreeSelected`, overview.md §5).
-    func selectWorktree(_ path: GitPath) {
-        guard case .loaded(let listing) = worktreeList, listing.entries.contains(where: { $0.worktree.path == path })
-        else { return }
-        graph.select(nil)
-        commitDetail.clearFile()
-        if focusedWorktreePath != path {
-            selectedFile = nil
-            // S-11 belongs to one worktree.
-            if comparison?.worktree != path { closeComparison() }
-        }
-        focusedWorktreePath = path
-        snapshot = WorktreeListModel.snapshot(listing: listing, focused: path)
-        graph.setFocus(listing.entries.first { $0.worktree.path == path })
-        // The segment the user chose stays when they move to another worktree; `Changes` is the default.
-        if case .worktreeInfo = selection {
-            selection = .worktreeInfo(path)
-            inspectSelectedWorktree()
-        } else {
-            selection = .wip(path)
-            requestLineCounts()
-        }
-        refresh(.worktreeSelected(path))
-    }
-
-    // MARK: Worktree detail (#67)
-
-    /// The `Changes | Worktree` segment.
-    func showChanges() {
-        guard let path = selection?.worktreePath else { return }
-        selection = .wip(path)
-        requestLineCounts()
-    }
-
-    func showWorktreeDetail() {
-        guard let path = selection?.worktreePath else { return }
-        selection = .worktreeInfo(path)
-        inspectSelectedWorktree()
-    }
-
-    /// S-05 for the selected worktree, `nil` unless its `Worktree` segment is shown.
-    var worktreeDetailModel: WorktreeDetailModel? {
-        guard case .worktreeInfo(let path) = selection, let entry = entry(at: path) else { return nil }
-        return WorktreeDetailModel(
-            entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date())
-    }
-
-    private func entry(at path: GitPath) -> WorktreeListing.Entry? {
-        guard case .loaded(let listing) = worktreeList else { return nil }
-        return listing.entries.first { $0.worktree.path == path }
-    }
-
-    /// Reads the shown worktree's configuration once per load, only for worktrees `RepositoryService` verified.
-    private func inspectSelectedWorktree() {
-        guard case .worktreeInfo(let path) = selection, worktreeInspections[path] == nil,
-            let entry = entry(at: path), WorktreeDetailModel.shouldInspect(entry), let repository
-        else { return }
-        let generation = inspectionGeneration
-        let inspector = inspector
-        let target = repository.repository
-        inspectionTask?.cancel()
-        inspectionTask = Task { [weak self] in
-            let result = await inspector.inspect(entry, of: target)
-            guard let self, generation == self.inspectionGeneration, !Task.isCancelled else { return }
-            self.worktreeInspections[path] = result
-        }
-    }
-
-    // MARK: WIP detail (#66)
-
-    /// S-02 for the selected worktree, `nil` unless a loaded worktree's WIP is selected.
-    var wipDetailModel: WipDetailModel? {
-        guard let entry = selectedWipEntry else { return nil }
-        let counts: WipDetailModel.LineCounts
-        if let lineCounts, case .loaded(let state) = entry.state, lineCounts.matches(entry.worktree.path, state) {
-            counts = lineCounts.result
-        } else {
-            counts = .pending
-        }
-        return WipDetailModel(entry: entry, lineCounts: counts)
-    }
-
-    private var selectedWipEntry: WorktreeListing.Entry? {
-        guard case .wip(let path) = selection, case .loaded(let listing) = worktreeList else { return nil }
-        return listing.entries.first { $0.worktree.path == path }
-    }
-
-    /// Line counts requested for one worktree's status, and what came back.
-    private struct LineCountRequest {
-        let path: GitPath
-        let state: WorkingState
-        var result: WipDetailModel.LineCounts
-
-        func matches(_ path: GitPath, _ state: WorkingState) -> Bool { self.path == path && self.state == state }
-    }
-
-    /// Queries the selected worktree's line counts unless the shown status already has them (#230). Only the
-    /// selected worktree is queried, and only once its status has loaded; the service answers from its cache until
-    /// that status is queried again.
-    /// - Parameter refresh: Ask even when the status reads the same: after a load, the service knows whether it
-    ///   re-queried that status (and runs no git if not). The current counts stay shown until the answer.
-    private func requestLineCounts(refresh: Bool = false) {
-        guard let lineCountLoader, let repository, let entry = selectedWipEntry, case .loaded(let state) = entry.state
-        else { return }
-        let path = entry.worktree.path
-        let isSameStatus = lineCounts?.matches(path, state) ?? false
-        if isSameStatus && !refresh { return }
-        lineCountTask?.cancel()
-        if !isSameStatus { lineCounts = LineCountRequest(path: path, state: state, result: .pending) }
-        guard !state.staged.isEmpty || !state.unstaged.isEmpty else {
-            lineCounts = LineCountRequest(
-                path: path, state: state,
-                result: .loaded(WorkingLineCounts(staged: [], unstaged: [], isPartial: false)))
-            return
-        }
-        let loader = lineCountLoader
-        let target = repository.repository
-        lineCountTask = Task { [weak self] in
-            let result: WipDetailModel.LineCounts
-            do throws(RepositoryLoadError) {
-                // `nil`: the service has no loaded status for it (e.g. evicted); show no counts rather than an error.
-                guard let counts = try await loader.lineCounts(target, worktree: path) else { return }
-                result = .loaded(counts)
-            } catch {
-                if error == .git(.cancelled) { return }
-                result = .failed
-            }
-            self?.finishLineCounts(result, path: path, state: state)
-        }
-    }
-
-    private func finishLineCounts(_ result: WipDetailModel.LineCounts, path: GitPath, state: WorkingState) {
-        guard !Task.isCancelled, let lineCounts, lineCounts.matches(path, state) else { return }
-        self.lineCounts?.result = result
-    }
-
-    /// Picks a file in the WIP detail. Paths git cannot take back (not UTF-8) are not selectable.
-    func selectFile(_ file: FileSelection) {
-        guard let row = wipDetailModel?.row(for: file), row.isSelectable else { return }
-        selectedFile = file
-    }
-
-    /// Back to the graph (`⎋`, interaction.md §3).
-    func clearSelectedFile() {
-        selectedFile = nil
-        clearStashFile()
-        commitDetail.clearFile()
-    }
-
-    // MARK: Branches (#72)
-
-    /// Sidebar LOCAL and REMOTE, built once per load (sorting thousands of refs on every render would stall clicks;
-    /// security review of #72). `nil` until the list loads with refs.
-    private(set) var branchListModel: BranchListModel?
-
-    private static func branchModel(_ listing: WorktreeListing) -> BranchListModel? {
-        guard let refs = listing.refs else { return nil }
-        return BranchListModel(
-            refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
-            remoteNames: listing.remoteNames)
-    }
-
-    // MARK: Issues (#81)
-
-    /// The sidebar's ISSUES section.
-    /// Worktrees and branches named for issues (#82), built once per listing.
-    private(set) var issueLinks: IssueLinkIndex = .empty
-
-    var issueListModel: IssueListModel {
-        IssueListModel(content: issuePanel.content, isLoading: issuePanel.isLoading, links: issueLinks)
-    }
-
-    /// What `#n` badges need (#82): the fetched numbers are links, the rest grey.
-    var issueBadgeContext: IssueBadgeContext {
-        IssueBadgeContext(
-            known: issuePanel.knownNumbers, repository: issuePanel.repository?.slug, titles: issuePanel.titles,
-            select: { [weak self] in self?.selectIssue($0) })
-    }
-
-    /// The selected issue's linked branch tips, outlined in the graph without selecting them
-    /// (information-architecture.md §3.2).
-    var highlightedCommits: Set<ObjectID> {
-        guard let number = selectedIssueNumber else { return [] }
-        return Set(issueLinks.links(number).branches.map(\.target))
-    }
-
-    /// The newest commits whose subject names `number`. Cached and extended page by page, so a render does not rescan
-    /// every loaded commit (security review of #82, T15).
-    @ObservationIgnored private var commitLinkCache: CommitLinkCache?
-
-    private struct CommitLinkCache {
-        let number: Int
-        let repository: String?
-        let first: ObjectID?
-        var scanned: Int
-        var found: [CommitLink]
-    }
-
-    private func linkedCommits(_ number: Int, repository: String?) -> [CommitLink] {
-        let commits = graph.commits
-        var entry = CommitLinkCache(
-            number: number, repository: repository, first: commits.first?.oid, scanned: 0, found: [])
-        if let cached = commitLinkCache, cached.number == number, cached.repository == repository,
-            cached.first == commits.first?.oid, cached.scanned <= commits.count
-        {
-            entry = cached
-        }
-        if entry.found.count < CommitLink.limit, entry.scanned < commits.count {
-            entry.found += CommitLink.latest(
-                CommitLink.limit - entry.found.count, linkedTo: number, in: commits[entry.scanned...],
-                repository: repository)
-            entry.scanned = commits.count
-        }
-        commitLinkCache = entry
-        return entry.found
-    }
-
-    /// A LINKED branch tip or commit: selected in the graph and shown in S-03.
-    func selectLinkedCommit(_ oid: ObjectID) {
-        // A loaded commit opens S-03 (#69); a tip beyond the loaded pages is only highlighted.
-        if graph.index(of: oid) != nil {
-            selectCommit(oid)
-        } else {
-            graph.select(oid)
-        }
-    }
-
-    var selectedIssueNumber: Int? {
-        if case .issue(let number) = selection { return number }
-        return nil
-    }
-
-    /// S-06 for the selected issue, `nil` unless an issue is selected.
-    var issueDetailModel: IssueDetailModel? {
-        guard let number = selectedIssueNumber, let issue = issuePanel.issues.first(where: { $0.number == number })
-        else { return nil }
-        let repository = issuePanel.repository
-        return IssueDetailModel(
-            issue, repository: repository, links: issueLinks.links(number),
-            commits: linkedCommits(number, repository: repository?.slug))
-    }
-
-    /// Selecting an issue shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
-    func selectIssue(_ number: Int) {
-        guard issuePanel.issues.contains(where: { $0.number == number }) else { return }
-        selectedFile = nil
-        closeComparison()
-        selection = .issue(number)
-    }
-
-    /// An issue that is no longer open falls back to the focused worktree.
-    private func issuesDidLoad(_ issues: [Issue]) {
-        guard let number = selectedIssueNumber, !issues.contains(where: { $0.number == number }) else { return }
-        selection = focusedWorktreePath.map(MainSelection.wip)
-    }
-
-    // MARK: Stashes (#71)
-
-    /// The repository's stashes, newest first; empty until the list loads.
-    var stashes: [Stash] {
-        if case .loaded(let listing) = worktreeList { return listing.stashes }
-        return []
-    }
-
-    var isStashListPartial: Bool {
-        if case .loaded(let listing) = worktreeList { return listing.isStashListPartial }
-        return false
-    }
-
-    var selectedStashOID: ObjectID? {
-        if case .stash(let oid) = selection { return oid }
-        return nil
-    }
-
-    /// S-04 for the selected stash, `nil` unless a stash is selected.
-    var stashDetailModel: StashDetailModel? {
-        guard let oid = selectedStashOID, let stash = stashes.first(where: { $0.oid == oid }) else { return nil }
-        return StashDetailModel(stash: stash, state: stashDetail ?? .loading)
-    }
-
-    /// Marks a commit as the detail panel's subject (`AppState+Commit.swift`, which cannot write `selection`).
-    func setCommitSelection(_ oid: ObjectID) {
-        selection = .commit(oid)
-    }
-
-    /// Selecting a stash shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
-    func selectStash(_ oid: ObjectID) {
-        guard stashes.contains(where: { $0.oid == oid }) else { return }
-        selectedFile = nil
-        closeComparison()
-        graph.select(nil)
-        selection = .stash(oid)
-        loadStash()
-    }
-
-    private func loadStash() {
-        stashTask?.cancel()
-        stashFileTask?.cancel()
-        stashGeneration += 1
-        selectedStashFile = nil
-        stashFileDiff = nil
-        guard let oid = selectedStashOID, let stash = stashes.first(where: { $0.oid == oid }), let repository
-        else {
-            stashDetail = nil
-            return
-        }
-        stashDetail = .loading
-        loadedStashOID = oid
-        let generation = stashGeneration
-        let loader = stashLoader
-        let target = repository.repository
-        let worktree = focusedWorktreePath.flatMap { entry(at: $0)?.worktree }
-        stashTask = Task { [weak self] in
-            let result = await loader.files(of: stash, in: target, worktree: worktree)
-            guard let self, generation == self.stashGeneration, !Task.isCancelled else { return }
-            switch result {
-            case .files(let detail): self.stashDetail = .loaded(detail)
-            case .unavailable(let reason): self.stashDetail = .unavailable(reason)
-            }
-        }
-    }
-
-    /// Picks a file in S-04; the center shows its patch (S-10).
-    func selectStashFile(_ file: FileStat) {
-        guard let oid = selectedStashOID, let stash = stashes.first(where: { $0.oid == oid }),
-            case .loaded(let detail) = stashDetail, detail.files.contains(file), file.path.isRepresentable,
-            let repository
-        else { return }
-        stashFileTask?.cancel()
-        selectedStashFile = file
-        stashFileDiff = .loading
-        let generation = stashGeneration
-        let loader = stashLoader
-        let target = repository.repository
-        let worktree = focusedWorktreePath.flatMap { entry(at: $0)?.worktree }
-        let source = DiffDocument.Source(label: stash.refName, kindLetter: file.isFromUntracked ? "?" : "")
-        stashFileTask = Task { [weak self] in
-            let result = await loader.patch(of: stash, file: file, in: target, worktree: worktree)
-            guard let self, generation == self.stashGeneration, !Task.isCancelled, self.selectedStashFile == file
-            else { return }
-            switch result {
-            case .patch(let patch):
-                self.stashFileDiff = .loaded(DiffDocument(listing: patch, path: file.path, source: source))
-            case .unavailable(let reason):
-                self.stashFileDiff = .unavailable(reason)
-            }
-        }
-    }
-
-    /// Back to the graph from a stash file's diff (`⎋`).
-    func clearStashFile() {
-        stashFileTask?.cancel()
-        selectedStashFile = nil
-        stashFileDiff = nil
-    }
-
-    // MARK: Compare with base (#158)
-
-    /// S-11's rows, `nil` without an open comparison.
-    var comparisonModel: ComparisonModel? {
-        guard let comparison else { return nil }
-        let state: WorkingState? =
-            if case .loaded(let state) = entry(at: comparison.worktree)?.state { state } else { nil }
-        return ComparisonModel(session: comparison, workingState: state)
-    }
-
-    /// Whether `path` (default: the focused worktree) can be compared: its status loaded (#157 needs it).
-    func canCompare(_ path: GitPath? = nil) -> Bool {
-        guard let path = path ?? focusedWorktreePath, case .loaded = entry(at: path)?.state else { return false }
-        return true
-    }
-
-    /// Opens S-11 for `path` (default: the focused worktree): `⌘⇧B`, the worktree row menu, S-05's button.
-    func showComparison(of path: GitPath? = nil) {
-        guard let path = path ?? focusedWorktreePath, canCompare(path) else { return }
-        if focusedWorktreePath != path { selectWorktree(path) }
-        selectedFile = nil
-        comparison = ComparisonSession(worktree: path, base: comparisonBases[path])
-        runComparison()
-    }
-
-    /// Back to the graph (`‹ Graph`, `⎋`).
-    func closeComparison() {
-        comparisonTask?.cancel()
-        comparisonPatchTask?.cancel()
-        comparisonTask = nil
-        comparisonPatchTask = nil
-        comparisonGeneration += 1
-        comparison = nil
-    }
-
-    func chooseComparisonBase(_ base: FullRefName) {
-        // Only a branch the repository listed (#157 checks again).
-        guard let worktree = comparison?.worktree, comparison?.bases.contains(base) == true else { return }
-        comparisonBases[worktree] = base
-        comparison?.base = base
-        runComparison()
-    }
-
-    func setIncludeUncommitted(_ include: Bool) {
-        guard comparison != nil, comparison?.includeUncommitted != include else { return }
-        comparison?.includeUncommitted = include
-        runComparison()
-    }
-
-    func showAllComparisonFiles() {
-        comparison?.showsAllFiles = true
-    }
-
-    private func runComparison() {
-        guard let session = comparison, let repository else { return }
-        comparisonTask?.cancel()
-        comparisonPatchTask?.cancel()
-        comparisonGeneration += 1
-        let generation = comparisonGeneration
-        comparison?.result = .loading
-        comparison?.selectedFile = nil
-        comparison?.patch = nil
-        let loader = comparisonLoader
-        let target = repository.repository
-        comparisonTask = Task { [weak self] in
-            let bases = await loader.bases(of: target)
-            let base = session.base ?? bases.preferred
-            let result: Result<WorktreeComparison, ComparisonError> =
-                if let base {
-                    await loader.compare(
-                        target, worktree: session.worktree, base: base, includeUncommitted: session.includeUncommitted)
-                } else {
-                    .failure(.noBaseBranch)
-                }
-            guard let self, generation == self.comparisonGeneration, !Task.isCancelled else { return }
-            self.comparison?.bases = bases.all
-            switch result {
-            case .success(let comparison):
-                self.comparison?.base = comparison.base
-                self.comparison?.result = .loaded(comparison)
-            case .failure(let error):
-                self.comparison?.base = base
-                self.comparison?.result = .failed(error)
-            }
-        }
-    }
-
-    /// Picks a file in S-11: committed (and uncommitted) changes come from the comparison patch, untracked files from
-    /// the same preview as S-02.
-    func selectComparisonFile(_ file: ComparisonFile) {
-        guard let session = comparison, case .loaded(let result) = session.result, let repository,
-            // Untracked selections come only from the listed untracked files, and tracked ones from FILES CHANGED.
-            let row = (file.isUntracked ? comparisonModel?.untracked : comparisonModel?.files)?
-                .first(where: { $0.path == file.path }),
-            row.isSelectable, let entry = entry(at: session.worktree)
-        else { return }
-        comparisonPatchTask?.cancel()
-        comparison?.selectedFile = file
-        comparison?.patch = .loading
-        let generation = comparisonGeneration
-        let loader = comparisonLoader
-        let diffLoader = diffLoader
-        let target = repository.repository
-        let label =
-            file.isUntracked
-            ? "Untracked" : (row.hasUncommittedChanges ? "Committed + uncommitted" : "Committed")
-        let source = DiffDocument.Source(label: label, kindLetter: row.kindLetter)
-        comparisonPatchTask = Task { [weak self] in
-            let loaded: DiffLoadResult
-            if file.isUntracked {
-                loaded = await diffLoader.load(
-                    FileSelection(worktree: session.worktree, group: .untracked, path: file.path),
-                    worktree: entry.worktree, of: target, isSubmodule: false)
-            } else {
-                loaded = await loader.patch(
-                    target, worktree: session.worktree, base: result.base, file: file.path,
-                    includeUncommitted: result.includesWorkingTree)
-            }
-            guard let self, generation == self.comparisonGeneration, !Task.isCancelled,
-                self.comparison?.selectedFile == file
-            else { return }
-            switch loaded {
-            case .patch(let patch):
-                self.comparison?.patch = .loaded(DiffDocument(listing: patch, path: file.path, source: source))
-            case .unavailable(let reason):
-                self.comparison?.patch = .unavailable(reason)
-            }
-        }
-    }
-
-    // MARK: Diff viewer (#232)
-
-    /// What the center area shows for the selected file: its title, `Staged · M`, and the load state.
-    var diffViewer: (title: String, source: String, state: DiffLoadState)? {
-        if let commitFile = commitFileDiff { return commitFile }
-        if case .stash(let oid) = selection, let file = selectedStashFile, let state = stashFileDiff,
-            let stash = stashes.first(where: { $0.oid == oid })
-        {
-            let source = stash.refName + (file.isFromUntracked ? " · untracked" : "")
-            return (PathValidator.displayable(file.path.display), source, state)
-        }
-        guard let file = selectedFile, let state = diffState else { return nil }
-        let letter = wipDetailModel?.row(for: file)?.kindLetter
-        let source = file.group.title + (letter.map { " · \($0)" } ?? "")
-        let title: String
-        if case .loaded(let document) = state {
-            title = document.title
-        } else {
-            title = PathValidator.displayable(file.path.display)
-        }
-        return (title, source, state)
-    }
-
-    private func loadDiff() {
-        diffTask?.cancel()
-        diffGeneration += 1
-        guard let file = selectedFile, case .loaded(let listing) = worktreeList,
-            let entry = listing.entries.first(where: { $0.worktree.path == file.worktree }), let repository
-        else {
-            diffState = nil
-            diffTask = nil
-            return
-        }
-        let generation = diffGeneration
-        let row = wipDetailModel?.row(for: file)
-        // Fail closed: without its row the file cannot be shown to be an ordinary file.
-        let isSubmodule = row?.isSubmodule ?? true
-        let source = DiffDocument.Source(label: file.group.title, kindLetter: row?.kindLetter ?? "")
-        let loader = diffLoader
-        let target = repository.repository
-        // A different file shows a spinner, not the previous file's diff under the new name; a reload of the same
-        // file keeps the old diff on screen until the new one arrives.
-        if case .loaded(let document) = diffState, document.title == PathValidator.displayable(file.path.display) {
-        } else {
-            diffState = .loading
-        }
-        diffTask = Task { [weak self] in
-            let result = await loader.load(file, worktree: entry.worktree, of: target, isSubmodule: isSubmodule)
-            guard let self, generation == self.diffGeneration, !Task.isCancelled else { return }
-            switch result {
-            case .patch(let patch):
-                self.diffState = .loaded(DiffDocument(listing: patch, path: file.path, source: source))
-            case .unavailable(let reason):
-                self.diffState = .unavailable(reason)
-            }
-        }
-    }
-
-    /// A finished layout change (drag released, toggle, keyboard step). Saved for the open repository; without one
-    /// it stays in memory only.
-    func commitPanelLayout(_ layout: PanelLayout) {
-        panelLayout = layout
-        if let repository {
-            layoutStore.save(layout, for: repository.repository.id)
-        }
-    }
-
-    // MARK: Registration (#84)
-
-    /// Registers a folder picked in `NSOpenPanel` and opens it. A worktree of a repository that is already registered
-    /// opens that repository instead of adding it twice.
-    func addRepository(at folder: URL) async {
-        guard !isAddingRepository else { return }
-        isAddingRepository = true
-        defer { isAddingRepository = false }
-        do {
-            let registration = try await registrar.register(folder)
-            switch registry.add(registration.entry) {
-            case .added:
-                openRegistered(registration.entry.id)
-                if let notice = registration.notice {
-                    alert = AppAlert(title: "Repository Added", message: notice)
-                }
-            case .alreadyRegistered:
-                guard let existing = registry.repository(withID: registration.entry.id) else { return }
-                openRegistered(existing.id)
-                alert = AppAlert(
-                    title: "Repository Already Added",
-                    message: "“\(existing.name)” is already in Overgrove, at \(existing.displayRootPath).")
-            case .rejected:
-                // The registrar's checks make this unreachable; refuse rather than store a malformed path.
-                alert = AppAlert(
-                    title: "Couldn’t Add Repository",
-                    message: RegistrationError.invalidPath(.controlCharacters).message)
-            }
-        } catch {
-            if error != .git(.cancelled) {
-                alert = AppAlert(title: "Couldn’t Add Repository", message: error.message)
-            }
-        }
-    }
-
-    /// Opens a registered repository. Its folder must still be where it was registered, not replaced by a symbolic
-    /// link to somewhere else (T14); otherwise it stays closed and the alert says so.
-    ///
-    /// This is defense in depth only; it runs no git. The repository can still change before git runs, so the
-    /// data loaders (#65) inspect it with `RepoConfigInspector` every time it is opened.
-    /// - Parameter quietly: No alert for a missing folder (restoring at launch).
-    func openRegistered(_ id: RegisteredRepository.ID, quietly: Bool = false) {
-        guard let entry = registry.repository(withID: id) else { return }
-        let location = URL(fileURLWithPath: entry.locationPath, isDirectory: true)
-        guard let checked = try? PathValidator.checkRegistration(location), checked.resolved.path == entry.locationPath
-        else {
-            if !quietly {
-                alert = AppAlert(
-                    title: "Repository Not Found",
-                    message:
-                        "The folder of “\(entry.name)” is missing or was replaced (\(entry.displayRootPath)). Restore "
-                        + "it, or remove the repository from Overgrove.")
-            }
-            return
-        }
-        // The owner needs GitHub remote detection, which is not built yet; the switcher shows the name alone.
-        open(RepositoryContext(repository: entry.repository, owner: nil))
-        registry.lastSelected = id
-        reload()
-    }
-
-    /// Opens the repository shown last, once, when the window has none.
-    func restoreLastSelected() {
-        // First run: nothing registered yet, so the setup assistant opens (S-07).
-        if repository == nil, registry.repositories.isEmpty { return setup.present() }
-        guard repository == nil, let id = registry.lastSelected else { return }
-        openRegistered(id, quietly: true)
-    }
-
-    /// Removes a repository from Overgrove; its folder is not touched. Closes it if this window shows it.
-    func removeRepository(_ id: RegisteredRepository.ID) {
-        let removed = registry.repository(withID: id)?.repository
-        registry.remove(id)
-        if repository?.repository.id == id { close() }
-        // Its cached results, inspections, and fetch record go too (`RepositoryService.forget`, overview.md §5, §8).
-        if let removed {
-            fetch.forget(removed.id)
-            let loader = loader
-            forgetTask = Task { [weak self] in
-                // Added again in the meantime: its new load must not be cancelled (security review of #243).
-                guard self?.registry.repository(withID: id) == nil else { return }
-                await loader.forget(removed)
-            }
-        }
-    }
-
-    private func close() {
-        repository = nil
-        panelLayout = .default
-        clearRepositoryData()
-    }
-
-    /// The toolbar's sidebar button and the View menu.
-    func togglePanel(_ side: PanelLayout.Side) {
-        commitPanelLayout(panelLayout.toggling(side))
     }
 }

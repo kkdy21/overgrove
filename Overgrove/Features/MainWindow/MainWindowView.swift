@@ -220,7 +220,7 @@ struct MainWindowView: View {
             state.showForPreview(.mockup)
             state.selectWorktree(GitPath("/tmp/dev/api-wt/42-rate-limit"))
             state.fetch.showForPreview(.idle(lastFetched: Date().addingTimeInterval(-120)))
-            state.showGHStatusForPreview(.loggedIn(login: "mina-dev"))
+            state.ghStatus = .loggedIn(login: "mina-dev")
             return state
         }
     }
