@@ -10,6 +10,28 @@ struct WorktreeRow: Identifiable, Equatable {
         case ahead(Int)
         case behind(Int)
         case locked
+
+        /// The SF Symbol drawn before the count (iconography.md §5.2); `nil` for ahead and behind, whose arrow is
+        /// part of `text`. Colour is never the only cue (interaction.md §6.2).
+        var symbol: String? {
+            switch self {
+            case .conflicts: "exclamationmark.triangle.fill"
+            case .prunable: "questionmark.folder"
+            case .changed: "pencil"
+            case .locked: "lock.fill"
+            case .ahead, .behind: nil
+            }
+        }
+
+        /// The count, capped at `999+`; ahead and behind carry their direction (`↑2`, `↓3`).
+        var text: String? {
+            switch self {
+            case .conflicts(let count), .changed(let count): WorktreeListModel.badgeText(count)
+            case .ahead(let count): "↑" + WorktreeListModel.badgeText(count)
+            case .behind(let count): "↓" + WorktreeListModel.badgeText(count)
+            case .prunable, .locked: nil
+            }
+        }
     }
 
     let id: GitPath
