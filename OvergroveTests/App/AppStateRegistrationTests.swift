@@ -48,7 +48,8 @@ final class AppStateRegistrationTests: XCTestCase {
     private func makeState(registrar: RepositoryRegistrar) -> (AppState, RepositoryRegistry) {
         let registry = RepositoryRegistry(defaults: defaults)
         let state = AppState(
-            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, registrar: registrar)
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, registrar: registrar,
+            loader: StubRepositoryLoader())
         return (state, registry)
     }
 
@@ -116,7 +117,8 @@ final class AppStateRegistrationTests: XCTestCase {
         let registry = RepositoryRegistry(defaults: defaults)
         registry.add(RegisteredRepository(rootPath: api.path, commonDirectoryPath: api.path + "/.git"))
         registry.add(RegisteredRepository(rootPath: web.path, commonDirectoryPath: web.path + "/.git"))
-        let state = AppState(layoutStore: PanelLayoutStore(defaults: defaults), registry: registry)
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: StubRepositoryLoader())
         let apiID = registry.repositories[0].id
         let webID = registry.repositories[1].id
 
@@ -146,7 +148,8 @@ final class AppStateRegistrationTests: XCTestCase {
         registry.lastSelected = registry.repositories[1].id
 
         let relaunched = AppState(
-            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults))
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: StubRepositoryLoader())
         relaunched.restoreLastSelected()
         XCTAssertEqual(relaunched.repository?.name, "web")
 
@@ -160,7 +163,8 @@ final class AppStateRegistrationTests: XCTestCase {
         let registry = RepositoryRegistry(defaults: defaults)
         registry.add(RegisteredRepository(rootPath: gone.path, commonDirectoryPath: gone.path + "/.git"))
         registry.lastSelected = registry.repositories[0].id
-        let state = AppState(layoutStore: PanelLayoutStore(defaults: defaults), registry: registry)
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: StubRepositoryLoader())
 
         state.restoreLastSelected()
         XCTAssertNil(state.repository)
@@ -179,7 +183,8 @@ final class AppStateRegistrationTests: XCTestCase {
         registry.add(RegisteredRepository(rootPath: api.path, commonDirectoryPath: api.path + "/.git"))
         try FileManager.default.removeItem(at: api)
         try FileManager.default.createSymbolicLink(at: api, withDestinationURL: elsewhere)
-        let state = AppState(layoutStore: PanelLayoutStore(defaults: defaults), registry: registry)
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: StubRepositoryLoader())
 
         state.openRegistered(registry.repositories[0].id)
         XCTAssertNil(state.repository)
