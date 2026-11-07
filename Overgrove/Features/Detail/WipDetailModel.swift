@@ -1,5 +1,23 @@
 import Foundation
 
+/// Added and deleted lines of one file in the WIP detail, or a binary file (screens.md S-02, #230).
+enum WipLineCount: Equatable {
+    case lines(added: Int, deleted: Int)
+    case binary
+}
+
+/// Added and deleted lines summed over files (a group, or the whole detail).
+struct WipLineTotals: Equatable {
+    let added: Int
+    let deleted: Int
+
+    /// The added share of the ratio bar, 0…1; `nil` when nothing was added or deleted.
+    var addedFraction: Double? {
+        let total = added + deleted
+        return total > 0 ? Double(added) / Double(total) : nil
+    }
+}
+
 /// One file in the WIP detail (screens.md S-02).
 struct WipFileRow: Identifiable, Equatable {
     /// Position in its group; rows are rebuilt from each load, so identity is per load.
@@ -15,6 +33,8 @@ struct WipFileRow: Identifiable, Equatable {
     /// The file name, or `{old → new}` for a rename or copy. Escaped. Drawn in `text.primary` Medium.
     let fileName: String
     let isSubmodule: Bool
+    /// `nil` while counts load, for untracked, conflicted and submodule rows, and for files past a cut output.
+    let lineCount: WipLineCount?
     /// False for paths that are not valid UTF-8: shown, but they cannot be passed back to git, so they cannot be
     /// selected for a diff (parsing-spec.md §1.3).
     let isSelectable: Bool
@@ -32,6 +52,8 @@ struct WipGroupModel: Identifiable, Equatable {
     let countText: String
     /// `Showing first 5,000 files · 120 more` when the group is over the display limit.
     let limitNote: String?
+    /// Staged and unstaged only, once every file's counts are known (screens.md S-02: untracked has no total).
+    let lineTotals: WipLineTotals?
 
     var id: WorkingChangeGroup { group }
 }
@@ -48,6 +70,13 @@ struct WipDetailModel: Equatable {
         case unavailable(String)
     }
 
+    /// The line counts that go with the shown status (#230): queried after the status, so they can lag behind it.
+    enum LineCounts: Equatable {
+        case pending
+        case loaded(WorkingLineCounts)
+        case failed
+    }
+
     /// Branch name or `detached @ a1b2c3d`. Escaped.
     let title: String
     let worktreePath: GitPath
@@ -62,12 +91,21 @@ struct WipDetailModel: Equatable {
     let content: Content
     /// A non-blocking note when status output was cut or had unknown records (parsing-spec.md §1.5, §1.6).
     let warning: String?
+    /// Summed over the staged and unstaged groups (an `MM` file counts in both), once every count is known.
+    let lineTotals: WipLineTotals?
+    /// `Line counts unavailable` when the numstat query failed.
+    let lineCountNote: String?
 
     /// Untracked files shown before `Showing first … files`. Provisional: #91 settles the value from PB-5
     /// measurements (scope-mvp.md §4 "잠정 5,000개", performance-budget.md).
     static let untrackedDisplayLimit = 5_000
 
-    init(entry: WorktreeListing.Entry, home: String = NSHomeDirectory(), untrackedLimit: Int = untrackedDisplayLimit) {
+    init(
+        entry: WorktreeListing.Entry,
+        lineCounts: LineCounts = .pending,
+        home: String = NSHomeDirectory(),
+        untrackedLimit: Int = untrackedDisplayLimit
+    ) {
         let worktree = entry.worktree
         title = PathValidator.displayable(
             worktree.branchShortName ?? "detached @ \(worktree.head?.short ?? "unknown")")
@@ -77,7 +115,7 @@ struct WipDetailModel: Equatable {
         copyablePath = worktree.path.isRepresentable && PathValidator.displayable(full) == full ? full : nil
         switch entry.state {
         case .loaded(let state):
-            let groups = Self.groups(state, untrackedLimit: untrackedLimit)
+            let groups = Self.groups(state, lineCounts: lineCounts, untrackedLimit: untrackedLimit)
             changedFileCount =
                 Set((state.staged + state.unstaged + state.untracked + state.conflicted).map(\.path))
                 .count
@@ -85,18 +123,31 @@ struct WipDetailModel: Equatable {
             warning =
                 state.isPartial || state.skippedRecords > 0
                 ? "Some changes could not be read, so this list may be incomplete." : nil
+            let counted = groups.filter { $0.group == .staged || $0.group == .unstaged }
+            let totals = counted.compactMap(\.lineTotals)
+            lineTotals =
+                !counted.isEmpty && totals.count == counted.count
+                ? WipLineTotals(added: totals.map(\.added).reduce(0, +), deleted: totals.map(\.deleted).reduce(0, +))
+                : nil
+            lineCountNote = lineCounts == .failed && !counted.isEmpty ? "Line counts unavailable" : nil
         case .missing:
             changedFileCount = 0
             content = .missing
             warning = nil
+            lineTotals = nil
+            lineCountNote = nil
         case .failed(let error):
             changedFileCount = 0
             content = .unavailable(PathValidator.displayable(error.message))
             warning = nil
+            lineTotals = nil
+            lineCountNote = nil
         case .notQueried(let reason):
             changedFileCount = 0
             content = .unavailable(Self.message(for: reason))
             warning = nil
+            lineTotals = nil
+            lineCountNote = nil
         }
     }
 
@@ -116,7 +167,9 @@ struct WipDetailModel: Equatable {
 
     /// screens.md S-02: CONFLICTED → STAGED → UNSTAGED → UNTRACKED; empty groups are hidden. Files keep git's order
     /// (by path). A file changed in both index and worktree (`MM`) is in both STAGED and UNSTAGED.
-    private static func groups(_ state: WorkingState, untrackedLimit: Int) -> [WipGroupModel] {
+    private static func groups(
+        _ state: WorkingState, lineCounts: LineCounts, untrackedLimit: Int
+    ) -> [WipGroupModel] {
         let lists: [(WorkingChangeGroup, [FileChange])] = [
             (.conflicted, state.conflicted), (.staged, state.staged), (.unstaged, state.unstaged),
             (.untracked, state.untracked),
@@ -126,17 +179,67 @@ struct WipDetailModel: Equatable {
             let limit = group == .untracked ? untrackedLimit : Int.max
             let shown = changes.prefix(limit)
             let isOver = changes.count > shown.count
+            let stats = Self.stats(for: group, in: lineCounts)
+            let rows = shown.enumerated().map { index, change in
+                row(change, index: index, group: group, lineCount: lineCount(change, stats))
+            }
             return WipGroupModel(
                 group: group,
-                rows: shown.enumerated().map { row($1, index: $0, group: group) },
+                rows: rows,
                 totalCount: changes.count,
                 countText: isOver ? "\(formatted(limit))+" : formatted(changes.count),
                 limitNote: isOver
-                    ? "Showing first \(formatted(limit)) files · \(formatted(changes.count - limit)) more" : nil)
+                    ? "Showing first \(formatted(limit)) files · \(formatted(changes.count - limit)) more" : nil,
+                lineTotals: totals(rows, lineCounts: lineCounts, hasStats: stats != nil))
         }
     }
 
-    private static func row(_ change: FileChange, index: Int, group: WorkingChangeGroup) -> WipFileRow {
+    // MARK: Line counts (#230)
+
+    /// The numstat of the group's side; untracked and conflicted files have none (parsing-spec.md §8.3).
+    private static func stats(for group: WorkingChangeGroup, in lineCounts: LineCounts) -> [GitPath: FileStat]? {
+        guard case .loaded(let counts) = lineCounts else { return nil }
+        switch group {
+        case .staged: return counts.staged
+        case .unstaged: return counts.unstaged
+        case .conflicted, .untracked: return nil
+        }
+    }
+
+    /// A submodule's numstat counts `Subproject commit` lines, not file lines, so it is not shown.
+    private static func lineCount(_ change: FileChange, _ stats: [GitPath: FileStat]?) -> WipLineCount? {
+        guard !change.isSubmodule, let stat = stats?[change.path] else { return nil }
+        guard let added = stat.added, let deleted = stat.deleted else { return .binary }
+        return .lines(added: added, deleted: deleted)
+    }
+
+    /// The group total, only when every row (submodules aside) has its count: a partial sum would read as complete.
+    private static func totals(_ rows: [WipFileRow], lineCounts: LineCounts, hasStats: Bool) -> WipLineTotals? {
+        guard hasStats, case .loaded(let counts) = lineCounts, !counts.isPartial else { return nil }
+        var added = 0
+        var deleted = 0
+        for row in rows where !row.isSubmodule {
+            switch row.lineCount {
+            case .lines(let rowAdded, let rowDeleted):
+                added += rowAdded
+                deleted += rowDeleted
+            case .binary:
+                continue
+            case nil:
+                return nil  // the status lists a file the numstat did not: they were taken at different times
+            }
+        }
+        return WipLineTotals(added: added, deleted: deleted)
+    }
+
+    /// `+40 −8`; a zero side is left out (`+12`, `−2`), and nothing when both are zero (screens.md S-02).
+    static func lineCountText(added: Int, deleted: Int) -> (added: String?, deleted: String?) {
+        (added > 0 ? "+\(formatted(added))" : nil, deleted > 0 ? "\u{2212}\(formatted(deleted))" : nil)
+    }
+
+    private static func row(
+        _ change: FileChange, index: Int, group: WorkingChangeGroup, lineCount: WipLineCount?
+    ) -> WipFileRow {
         let (directory, fileName) = displayParts(change)
         let kind = kindName(change.status)
         let original = change.originalPath.map { PathValidator.displayable($0.display) }
@@ -146,16 +249,29 @@ struct WipDetailModel: Equatable {
         var help = original.map { "\($0) → \(path)" } ?? path
         help += "\n\(group.title): \(kind)"
         if change.isSubmodule { help += " (submodule)" }
+        if let lineCount { help += "\n\(lineCountDescription(lineCount))" }
         if !isSelectable { help += "\nThis path is not valid UTF-8, so Overgrove cannot show its diff." }
 
         var label = "\(kind), \(original.map { "\($0) renamed to \(path)" } ?? path)"
         if change.isSubmodule { label += ", submodule" }
         label += ", \(group.title.lowercased())"
+        if let lineCount { label += ", \(lineCountDescription(lineCount))" }
 
         return WipFileRow(
             id: index, group: group, path: change.path, kindLetter: String(change.status.code), kindName: kind,
-            directory: directory, fileName: fileName, isSubmodule: change.isSubmodule, isSelectable: isSelectable,
+            directory: directory, fileName: fileName, isSubmodule: change.isSubmodule, lineCount: lineCount,
+            isSelectable: isSelectable,
             help: help, accessibilityLabel: label)
+    }
+
+    /// `40 lines added, 8 removed` for the tooltip and VoiceOver.
+    static func lineCountDescription(_ lineCount: WipLineCount) -> String {
+        switch lineCount {
+        case .binary:
+            return "binary file"
+        case .lines(let added, let deleted):
+            return "\(formatted(added)) \(added == 1 ? "line" : "lines") added, \(formatted(deleted)) removed"
+        }
     }
 
     /// `internal/log/` + `logger.go`; a rename shares its common directory once: `internal/log/` +

@@ -26,10 +26,21 @@ final class WipDetailRenderTests: XCTestCase {
             untracked: [change("notes/agent-plan.md", .untracked)],
             conflicted: [change("internal/http/middleware.go", .conflicted(.bothModified))],
             isPartial: false, skippedRecords: 0)
+        func stat(_ path: String, _ added: Int?, _ deleted: Int?) -> FileStat {
+            FileStat(path: GitPath(path), added: added, deleted: deleted)
+        }
+        // Line counts (#230), as in the S-02 mockup.
+        let counts = WorkingLineCounts(
+            staged: [
+                stat("internal/log/logger.go", 40, 8), stat("internal/log/requestid.go", 12, 0),
+                stat("internal/log/encoder.go", 2, 4),
+            ],
+            unstaged: [stat("internal/log/logger.go", 9, 1), stat("cmd/api/main.go", 2, 2)],
+            isPartial: false)
         return WipDetailModel(
             entry: WorktreeListing.entry(
                 "/tmp/dev/api-wt/agent-logging", branch: "agent/refactor-logging", state: .loaded(state)),
-            home: "/tmp/dev")
+            lineCounts: .loaded(counts), home: "/tmp/dev")
     }
 
     private func render(_ view: some View, appearance: NSAppearance) throws -> NSBitmapImageRep {
@@ -54,6 +65,7 @@ final class WipDetailRenderTests: XCTestCase {
     func testRendersInLightAndDark() throws {
         let model = model
         XCTAssertEqual(model.groups.map(\.group), [.conflicted, .staged, .unstaged, .untracked])
+        XCTAssertEqual(model.lineTotals, WipLineTotals(added: 65, deleted: 15))
         let view = WipDetailView(
             model: model,
             selectedFile: FileSelection(

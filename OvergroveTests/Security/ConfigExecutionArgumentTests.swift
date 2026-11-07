@@ -35,6 +35,7 @@ final class ConfigExecutionArgumentTests: XCTestCase {
             .commitPatch(oid, parent: parent, path: GitPath("a.txt")),
             .commitPatch(oid, parent: nil, path: GitPath("a.txt")),
             .worktreeDiff(path: GitPath("a.txt"), staged: false), .worktreeDiff(path: GitPath("a.txt"), staged: true),
+            .worktreeNumstat(staged: false), .worktreeNumstat(staged: true),
             .untrackedPreview(file), .fileHistory(path: GitPath("a.txt"), limit: 10),
         ]
     }
@@ -128,7 +129,8 @@ final class ConfigExecutionArgumentTests: XCTestCase {
                 }
             }
         }
-        XCTAssertGreaterThanOrEqual(diffCases, 9, "stashFiles, stashPatch×2, commitFiles×2, commitPatch×2, diff×2…")
+        XCTAssertGreaterThanOrEqual(
+            diffCases, 11, "stashFiles, stashPatch×2, commitFiles×2, commitPatch×2, diff×2, numstat×2…")
     }
 
     /// SEC-T7-02: no source file uses a signature format (`%G?`, `%GS`, `%GK`, `%GF`, `%GP`, `%GT`, …), which runs

@@ -99,7 +99,7 @@ OvergroveTests/
 
 `Repository`, `Worktree`, `WorkingState`, `FileChange`, `UpstreamStatus`, `Stash`, `StashDetail`, `CommitNode`, `CommitDetail`, `FileHistoryEntry`, `Branch`, `Issue`, `GHAuthStatus`, `FetchRecord`, `GitPath`(raw 바이트 + 표시 문자열), `ConfigEntry`, `RepoSecurityReport`
 
-보조 타입: `ObjectID`(SHA-1·SHA-256 검증), `ConflictKind`(unmerged XY 7종), `FileStat`(커밋·stash 파일 통계), `Tag`, `GitVersion`(최소 2.36 판정), `GitHubRepository`(`--repo`용 검증된 `OWNER/NAME`, `Overgrove/GitHub/`), `FetchProgress`(fetch 진행 단계와 숫자), `AIAgentRule`(co-author 트레일러로 AI 작성 커밋 판정, #160). 정의는 `Overgrove/Models/`에 있다. 파서 실패는 `Overgrove/Parsing/ParseError`로 내고, `GitError`가 `parseFailed`로 감싼다.
+보조 타입: `ObjectID`(SHA-1·SHA-256 검증), `ConflictKind`(unmerged XY 7종), `FileStat`(커밋·stash 파일 통계), `WorkingLineCounts`(WIP 상세의 staged·unstaged 파일별 줄 수, #230), `Tag`, `GitVersion`(최소 2.36 판정), `GitHubRepository`(`--repo`용 검증된 `OWNER/NAME`, `Overgrove/GitHub/`), `FetchProgress`(fetch 진행 단계와 숫자), `AIAgentRule`(co-author 트레일러로 AI 작성 커밋 판정, #160). 정의는 `Overgrove/Models/`에 있다. 파서 실패는 `Overgrove/Parsing/ParseError`로 내고, `GitError`가 `parseFailed`로 감싼다.
 
 ### 2.4 위협 ID (상세: design/security-review.md)
 

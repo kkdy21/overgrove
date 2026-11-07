@@ -121,6 +121,10 @@ struct CanaryHarness {
                 "commitPatch src/stash-target.txt"),
             query(.worktreeDiff(path: GitPath("src/unstaged-modified.txt"), staged: false), "worktreeDiff unstaged"),
             query(.worktreeDiff(path: GitPath("src/staged-modified.txt"), staged: true), "worktreeDiff staged"),
+            query(.worktreeNumstat(staged: false), "worktreeNumstat unstaged"),
+            query(.worktreeNumstat(staged: true), "worktreeNumstat staged"),
+            query(
+                .worktreeNumstat(staged: false), in: fixture.worktree("wt-conflict"), "worktreeNumstat (wt-conflict)"),
             query(.untrackedPreview(untracked), "untrackedPreview untracked.txt"),
             query(.fileHistory(path: GitPath("docs/manual.md"), limit: 100), "fileHistory docs/manual.md"),
             Query(kind: .fetch(.fetch(remote: try remote("origin"))), directory: repo, label: "fetch origin"),
@@ -133,7 +137,8 @@ struct CanaryHarness {
     /// runs that command.
     enum CaseName: String, CaseIterable {
         case version, probeRepository, configList, worktreeList, status, refs, aheadBehind, stashList, stashFiles
-        case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, untrackedPreview, fileHistory
+        case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, worktreeNumstat
+        case untrackedPreview, fileHistory
     }
 
     static func caseName(_ command: ReadOnlyGitCommand) -> CaseName {
@@ -153,6 +158,7 @@ struct CanaryHarness {
         case .commitFiles: .commitFiles
         case .commitPatch: .commitPatch
         case .worktreeDiff: .worktreeDiff
+        case .worktreeNumstat: .worktreeNumstat
         case .untrackedPreview: .untrackedPreview
         case .fileHistory: .fileHistory
         }

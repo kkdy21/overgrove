@@ -27,30 +27,14 @@ extension RepositoryService {
     ///    have `config.worktree`), and `status` runs with that worktree's safety context.
     /// The probe and the inspection use the commands allowed before inspection.
     static func status(of worktree: Worktree, at folder: URL, _ context: Context) async -> RepositoryOverview.Status {
-        guard belongs(folder, isMain: worktree.isMain, to: context.repository) else {
-            return .notQueried(.foreignRepository)
-        }
         do {
-            let output: GitOutput
-            do {
-                output = try await context.client.run(.probeRepository, in: folder, safety: .preInspection)
-            } catch GitError.launchFailed(errno: ENOENT) {
-                // The probe may run before a folder is known to be a repository, so GitClient reports a missing folder
-                // as a launch failure. Here it is a worktree that vanished after the list was read.
-                return .failed(.worktreeMissing(path: folder.path))
+            switch try await prepare(worktree, at: folder, context) {
+            case .skipped(let status):
+                return status
+            case .ready(let safety):
+                let status = try await context.client.run(.status, in: folder, safety: safety)
+                return .loaded(try StatusParser.parse(status.stdout, truncated: status.isTruncated))
             }
-            guard let probe = try? ProbeParser.parse(output.stdout),
-                isSameDirectory(probe.topLevel, folder),
-                isSameDirectory(probe.commonDirectory, context.repository.commonGitDirectoryURL)
-            else { return .notQueried(.foreignRepository) }
-
-            let inspection = try await inspect(folder, probe: probe, context)
-            guard let safety = inspection.safetyContext else {
-                return .notQueried(.inspectionBlocked(inspection.report.blockingReason ?? ""))
-            }
-
-            let status = try await context.client.run(.status, in: folder, safety: safety)
-            return .loaded(try StatusParser.parse(status.stdout, truncated: status.isTruncated))
         } catch let error as GitError {
             return .failed(error)
         } catch let error as ParseError {
@@ -58,6 +42,40 @@ extension RepositoryService {
         } catch {
             return .failed(.cancelled)
         }
+    }
+
+    /// The outcome of the checks before a query runs in a worktree folder.
+    enum Preparation: Sendable {
+        /// Queries may run in the folder with this safety context.
+        case ready(RepoSafetyContext)
+        /// The worktree is not queried; this is what its row shows.
+        case skipped(RepositoryOverview.Status)
+    }
+
+    /// Steps 1–3 of `status(of:at:_:)`, shared by every query that runs in a worktree folder (status, and the WIP
+    /// line counts of #230). The probe is never cached, so each query re-proves the folder belongs here.
+    static func prepare(_ worktree: Worktree, at folder: URL, _ context: Context) async throws -> Preparation {
+        guard belongs(folder, isMain: worktree.isMain, to: context.repository) else {
+            return .skipped(.notQueried(.foreignRepository))
+        }
+        let output: GitOutput
+        do {
+            output = try await context.client.run(.probeRepository, in: folder, safety: .preInspection)
+        } catch GitError.launchFailed(errno: ENOENT) {
+            // The probe may run before a folder is known to be a repository, so GitClient reports a missing folder
+            // as a launch failure. Here it is a worktree that vanished after the list was read.
+            return .skipped(.failed(.worktreeMissing(path: folder.path)))
+        }
+        guard let probe = try? ProbeParser.parse(output.stdout),
+            isSameDirectory(probe.topLevel, folder),
+            isSameDirectory(probe.commonDirectory, context.repository.commonGitDirectoryURL)
+        else { return .skipped(.notQueried(.foreignRepository)) }
+
+        let inspection = try await inspect(folder, probe: probe, context)
+        guard let safety = inspection.safetyContext else {
+            return .skipped(.notQueried(.inspectionBlocked(inspection.report.blockingReason ?? "")))
+        }
+        return .ready(safety)
     }
 
     /// The configuration inspection for `directory`, from the cache while none of the files git reads for it has

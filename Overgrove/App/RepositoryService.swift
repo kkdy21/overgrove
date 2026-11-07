@@ -59,6 +59,8 @@ actor RepositoryService {
     private var cache: BoundedCache<String, CachedRepository>
     private var latestGeneration: [String: Int] = [:]
     private var running: [String: (generation: Int, task: Task<CachedRepository, Error>)] = [:]
+    /// WIP line counts per repository and worktree, with the status query time they belong to (#230).
+    private var lineCountCache: [String: [GitPath: CachedLineCounts]] = [:]
 
     /// - Parameters:
     ///   - sleep: Waits out the debounce; tests pass a gate instead of real time.
@@ -91,6 +93,7 @@ actor RepositoryService {
         running[id]?.task.cancel()
         running[id] = nil
         cache.removeValue(for: id)
+        lineCountCache[id] = nil
         await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
     }
 
@@ -145,10 +148,55 @@ actor RepositoryService {
             return nil
         case .failure:
             cache.removeValue(for: id)  // e.g. the configuration now blocks queries: stop serving the old result
+            lineCountCache[id] = nil
         case .success(let loaded):
             cache.insert(loaded, for: id)
+            pruneLineCounts()
         }
         return Refresh(generation: generation, result: result.map(\.overview))
+    }
+
+    // MARK: - Line counts (#230)
+
+    private struct CachedLineCounts: Sendable {
+        let statusTime: ContinuousClock.Instant
+        let counts: WorkingLineCounts
+    }
+
+    /// Per-file line counts of a listed worktree's uncommitted changes (screens.md S-02), for its WIP detail.
+    ///
+    /// Runs only for a worktree whose status is cached as loaded, so it follows the same admission as the load (#226).
+    /// The result is cached until that worktree's status is queried again (overview.md §5: the same invalidation as
+    /// status); until then, asking again runs no git. Returns `nil` when there is no loaded status to go with, or the
+    /// worktree is no longer queried.
+    func lineCounts(of repository: Repository, worktree path: GitPath) async throws -> WorkingLineCounts? {
+        let id = repository.id
+        guard let cached = cache.peek(id), let statusTime = cached.statusTimes[path],
+            let entry = cached.overview.entries.first(where: { $0.worktree.path == path }),
+            case .loaded(let state) = entry.status
+        else { return nil }
+        if let hit = lineCountCache[id]?[path], hit.statusTime == statusTime { return hit.counts }
+
+        let context = Context(
+            repository: repository, client: client, inspections: inspections,
+            maximumQueriedWorktrees: maximumQueriedWorktrees, now: now())
+        let counts = try await Self.queryLineCounts(of: entry.worktree, state: state, context)
+        // Store only if the status is still the one the counts were taken for (a refresh may have run meanwhile).
+        if let counts, cache.peek(id)?.statusTimes[path] == statusTime {
+            lineCountCache[id, default: [:]][path] = CachedLineCounts(statusTime: statusTime, counts: counts)
+        }
+        return counts
+    }
+
+    /// Keeps only counts whose status is still the cached one, for repositories still cached.
+    private func pruneLineCounts() {
+        var pruned: [String: [GitPath: CachedLineCounts]] = [:]
+        for (id, perWorktree) in lineCountCache {
+            guard let times = cache.peek(id)?.statusTimes else { continue }
+            let kept = perWorktree.filter { path, value in times[path] == value.statusTime }
+            if !kept.isEmpty { pruned[id] = kept }
+        }
+        lineCountCache = pruned
     }
 
     // MARK: - Loading

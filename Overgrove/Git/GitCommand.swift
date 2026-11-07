@@ -22,6 +22,8 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case commitFiles(ObjectID, firstParent: ObjectID?)
     case commitPatch(ObjectID, parent: ObjectID?, path: GitPath)
     case worktreeDiff(path: GitPath, staged: Bool)
+    /// Per-file line counts of the whole worktree, staged or unstaged (S-02, #230). No pathspec.
+    case worktreeNumstat(staged: Bool)
     /// Diff of an untracked file against /dev/null. Only a `WorktreeFile` (checked by `PathValidator`) is accepted.
     case untrackedPreview(WorktreeFile)
     case fileHistory(path: GitPath, limit: Int)
@@ -101,6 +103,11 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .worktreeDiff(let path, let staged):
             return ["diff", "--no-ext-diff", "--no-textconv", "-M"] + (staged ? ["--cached"] : [])
                 + (try Self.pathspec(path))
+        case .worktreeNumstat(let staged):
+            // `--ignore-submodules=dirty` (as in status): without it git diff runs `git status` inside every
+            // submodule, whose configuration was never inspected (#230).
+            return ["diff", "--no-ext-diff", "--no-textconv", "--numstat", "-z", "-M", "--ignore-submodules=dirty"]
+                + (staged ? ["--cached"] : [])
         case .untrackedPreview(let file):
             return ["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", file.relativePath]
         case .fileHistory(let path, let limit):
@@ -122,7 +129,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         switch self {
         case .version: .neutral
         case .probeRepository: .registeredPath
-        case .status, .worktreeDiff, .untrackedPreview, .fileHistory: .worktree
+        case .status, .worktreeDiff, .worktreeNumstat, .untrackedPreview, .fileHistory: .worktree
         default: .repository
         }
     }
