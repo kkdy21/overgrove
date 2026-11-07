@@ -30,13 +30,14 @@ struct MainWindowView: View {
                 if active == .key { state.windowDidBecomeActive() }
             }
             .modifier(FetchFeedback(state: state, showsDetails: $showsFetchDetails))
+            .modifier(SetupAssistantPresentation(state: state, setup: state.setup, addRepository: addRepository))
     }
 
     private var focusedActions: FocusedRepositoryActions {
         FocusedRepositoryActions(
             isAdding: state.isAddingRepository, add: addRepository, canRefresh: state.repository != nil,
             refresh: state.reload, canFetch: state.fetch.canFetch, isFetching: state.fetchStatus.isFetching,
-            fetch: state.fetch.fetch, stopFetch: state.fetch.stop)
+            fetch: state.fetch.fetch, stopFetch: state.fetch.stop, openSetup: state.setup.present)
     }
 
     private var window: some View {
@@ -238,5 +239,26 @@ private struct FetchFeedback: ViewModifier {
                     AccessibilityNotification.Announcement(text).post()
                 }
             }
+    }
+}
+
+/// The setup assistant sheet (S-07, #85): first run, and Help › Setup Assistant….
+private struct SetupAssistantPresentation: ViewModifier {
+    let state: AppState
+    @Bindable var setup: SetupAssistantState
+    let addRepository: () -> Void
+
+    func body(content: Content) -> some View {
+        content.sheet(isPresented: $setup.isPresented) {
+            SetupAssistantView(
+                setup: setup, repositoryPath: repositoryPath, isAddingRepository: state.isAddingRepository,
+                onChooseFolder: addRepository)
+        }
+    }
+
+    /// `~/dev/api` of the open repository (`displayRootPath` is already escaped).
+    private var repositoryPath: String? {
+        guard let id = state.repository?.repository.id else { return nil }
+        return state.registeredRepositories.first { $0.id == id }?.displayRootPath
     }
 }
