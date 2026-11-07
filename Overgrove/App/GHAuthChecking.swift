@@ -1,4 +1,3 @@
-// STAND-IN(#85): copied verbatim from the open PR for #85 (shared gh guidance). Replace with #85's file when it merges.
 /// Reads whether GitHub CLI is installed and logged in (`gh auth status`, ADR-0004), for the setup assistant (S-07,
 /// #85) and the status bar's gh field (#83).
 protocol GHAuthChecking: Sendable {

@@ -1,7 +1,6 @@
 import AppKit
 import SwiftUI
 
-// STAND-IN(#85): copied verbatim from the open PR for #85 (shared gh guidance). Replace with #85's file when it merges.
 /// GitHub CLI's state with what to do (`GHStatusGuidance`), shared by the setup assistant (S-07) and the issues
 /// panel (#83): the state line, the advice, a command to copy, and Check Again. Copying is not a repository write and
 /// Overgrove never runs the command (ADR-0011, ADR-0004 §4).

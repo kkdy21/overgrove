@@ -1,4 +1,3 @@
-// STAND-IN(#85): copied verbatim from the open PR for #85 (shared gh guidance). Replace with #85's file when it merges.
 /// What the app says about GitHub CLI's state, shared by the setup assistant (S-07, #85) and the issues panel (#83).
 ///
 /// Every text is written here. The command is for the user to copy into Terminal; Overgrove never runs `gh auth
