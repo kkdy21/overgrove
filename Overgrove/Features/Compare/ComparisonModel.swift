@@ -97,8 +97,10 @@ struct ComparisonModel: Equatable {
             untracked = []
         case .failed(let error):
             switch error {
-            case .noBaseBranch, .baseNotFound: state = .failed(message: error.message, canChooseBase: true)
-            default: state = .failed(message: error.message, canChooseBase: false)
+            // The message can carry masked stderr, which still keeps separators such as U+2028.
+            case .noBaseBranch, .baseNotFound:
+                state = .failed(message: PathValidator.displayable(error.message), canChooseBase: true)
+            default: state = .failed(message: PathValidator.displayable(error.message), canChooseBase: false)
             }
             summary = nil
             commits = []

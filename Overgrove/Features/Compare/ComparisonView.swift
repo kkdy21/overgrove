@@ -151,7 +151,7 @@ struct ComparisonListView: View {
                     Text(commit.subject).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
                         .lineLimit(1).truncationMode(.tail)
                 }
-                .help("\(commit.subject)\n\(commit.author)")
+                .help(commit.subject + "\n" + commit.author)
                 .accessibilityElement(children: .combine)
             }
         }

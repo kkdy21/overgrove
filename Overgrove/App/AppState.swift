@@ -479,7 +479,8 @@ final class AppState {
     }
 
     func chooseComparisonBase(_ base: FullRefName) {
-        guard let worktree = comparison?.worktree else { return }
+        // Only a branch the repository listed (#157 checks again).
+        guard let worktree = comparison?.worktree, comparison?.bases.contains(base) == true else { return }
         comparisonBases[worktree] = base
         comparison?.base = base
         runComparison()
@@ -533,8 +534,9 @@ final class AppState {
     /// the same preview as S-02.
     func selectComparisonFile(_ file: ComparisonFile) {
         guard let session = comparison, case .loaded(let result) = session.result, let repository,
-            let row = (comparisonModel?.files ?? []).first(where: { $0.path == file.path })
-                ?? (comparisonModel?.untracked ?? []).first(where: { $0.path == file.path }),
+            // Untracked selections come only from the listed untracked files, and tracked ones from FILES CHANGED.
+            let row = (file.isUntracked ? comparisonModel?.untracked : comparisonModel?.files)?
+                .first(where: { $0.path == file.path }),
             row.isSelectable, let entry = entry(at: session.worktree)
         else { return }
         comparisonPatchTask?.cancel()

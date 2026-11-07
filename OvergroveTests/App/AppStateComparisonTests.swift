@@ -140,6 +140,34 @@ final class AppStateComparisonTests: XCTestCase {
         XCTAssertEqual(state.comparison?.selectedFile?.path, GitPath("new0.swift"), "unlisted files are ignored")
     }
 
+    func testUnlistedBaseIsIgnoredAndSelectionsStayInTheirSection() async {
+        let loader = StubComparisonLoader()
+        let state = await loadedState(loader)
+        state.showComparison()
+        await state.comparisonTask?.value
+        state.chooseComparisonBase(FullRefName("refs/heads/not-listed")!)
+        XCTAssertEqual(loader.compareRequests.count, 1, "only listed branches can be chosen")
+        // A tracked path cannot be picked as untracked, and the other way round.
+        state.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: true))
+        state.selectComparisonFile(ComparisonFile(path: GitPath("new0.swift"), isUntracked: false))
+        XCTAssertNil(state.comparison?.selectedFile)
+    }
+
+    /// A comparison that finishes after the base changed is dropped.
+    func testLateResultIsDropped() async {
+        let loader = StubComparisonLoader()
+        let state = await loadedState(loader)
+        state.showComparison()
+        state.chooseComparisonBase(develop)  // ignored until the base list has loaded
+        await state.comparisonTask?.value
+        state.chooseComparisonBase(develop)
+        state.setIncludeUncommitted(false)
+        await state.comparisonTask?.value
+        XCTAssertEqual(state.comparison?.base, develop)
+        guard case .loaded(let comparison) = state.comparison?.result else { return XCTFail("not loaded") }
+        XCTAssertFalse(comparison.includesWorkingTree, "the latest request wins")
+    }
+
     func testFailureAndClosing() async {
         let loader = StubComparisonLoader()
         loader.result = .failure(.noBaseBranch)

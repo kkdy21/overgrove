@@ -140,6 +140,27 @@ final class ComparisonModelTests: XCTestCase {
             ComparisonModel(session: session, workingState: nil).state, .loading("Comparing with base branch…"))
     }
 
+    /// Ref names, authors, paths, rename sources, and error text from the repository are escaped.
+    func testRepositoryTextIsEscaped() {
+        let tricky = FullRefName("refs/heads/x\u{202E}y")!
+        XCTAssertEqual(ComparisonModel.shortName(tricky), "x\\u{202E}y")
+        var commit = Self.commit("b", "s")
+        commit = CommitNode(
+            oid: commit.oid, parents: [], authorName: "Kim\u{2028}Fake", authorEmail: "", authorDate: commit.authorDate,
+            subject: "s", coAuthors: [])
+        let comparison = Self.comparison(
+            files: [Self.stat("d\u{202E}/new.go", .renamed(score: 90), 1, 1, from: "d\u{202E}/old\n.go")],
+            commits: [commit])
+        let model = model(.loaded(comparison))
+        XCTAssertEqual(model.commits.first?.author, "Kim\\u{2028}Fake")
+        XCTAssertEqual(model.files.first?.directory, "d\\u{202E}/")
+        XCTAssertEqual(model.files.first?.fileName, "{old\\u{A}.go → new.go}")
+        let failed = self.model(
+            .failed(.git(.nonZeroExit(code: 128, detail: MaskedText(masking: "fatal: x\u{2028}y")))))
+        guard case .failed(let message, _) = failed.state else { return XCTFail("not failed") }
+        XCTAssertFalse(message.unicodeScalars.contains { $0.value == 0x2028 }, message)
+    }
+
     func testUnrepresentablePathIsNotSelectable() {
         let path = GitPath(raw: Data([0x61, 0xFF]))
         let comparison = Self.comparison(files: [
