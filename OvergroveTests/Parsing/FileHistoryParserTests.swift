@@ -71,6 +71,14 @@ final class FileHistoryParserTests: XCTestCase {
         XCTAssertEqual(try LogParser.parseFileHistory(rename, path: path, truncated: true).entries, [])
     }
 
+    /// PAR-LOG-12: an extra NUL inside a subject (a `hash-object --literally` commit) shifts the fields; the parse fails
+    /// instead of attaching one commit's stat to another.
+    func testPAR_LOG_12_ExtraNULFailsClosed() {
+        let oid = String(repeating: "a", count: 40)
+        let data = Data("\(oid)\0\0t\0t@example.com\01793853652\0befo\0re\0\0\n1\t0\tf\0".utf8)
+        XCTAssertThrowsError(try LogParser.parseFileHistory(data, path: path))
+    }
+
     /// Paths are raw bytes: a non-UTF-8 name survives and is flagged as not representable.
     func testRawPathBytes() throws {
         let oid = String(repeating: "a", count: 40)

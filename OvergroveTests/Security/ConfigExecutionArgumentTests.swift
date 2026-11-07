@@ -108,8 +108,14 @@ final class ConfigExecutionArgumentTests: XCTestCase {
     }
 
     /// SEC-T3-02: every case that can produce a diff disables external diff drivers and textconv, and the log-based
-    /// cases never ask for a patch. A log case may ask for `--numstat` (file history, #70) only with both flags; it then
-    /// counts as a diff case.
+    /// cases never ask for a patch. A log case that asks for any diff output (`--numstat` for file history, #70, or a
+    /// future `--raw`, `--name-status`, …) counts as a diff case and needs both flags.
+    /// `git log` options that compute a diff without printing a patch.
+    static let logDiffOutputOptions: Set<String> = [
+        "--numstat", "--shortstat", "--dirstat", "--raw", "--name-only", "--name-status", "--summary",
+        "--compact-summary", "--word-diff", "-W", "--function-context", "--check",
+    ]
+
     func testSECT3_02_EveryDiffCaseDisablesExternalDiffAndTextconv() throws {
         // Every subcommand is classified, so a new one (`show`, `diff-index`, …) fails here until it is reviewed.
         let known: Set<String> = [
@@ -122,7 +128,7 @@ final class ConfigExecutionArgumentTests: XCTestCase {
             XCTAssertTrue(known.contains(arguments.first ?? ""), "\(command): unreviewed subcommand")
             let isDiff =
                 ["diff", "diff-tree"].contains(arguments.first) || arguments.starts(with: ["stash", "show"])
-                || (arguments.first == "log" && arguments.contains("--numstat"))
+                || (arguments.first == "log" && !Self.logDiffOutputOptions.isDisjoint(with: arguments))
             if isDiff {
                 diffCases += 1
                 XCTAssertTrue(arguments.contains("--no-ext-diff"), "\(command)")

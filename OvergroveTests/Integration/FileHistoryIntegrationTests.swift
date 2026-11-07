@@ -56,7 +56,11 @@ final class FileHistoryIntegrationTests: XCTestCase {
         for path in ["src/unstaged-modified.txt", "README.md"] {
             let file = FileHistoryTarget(
                 repository: target.repository, worktree: target.worktree, head: nil, path: GitPath(path))
-            _ = await loader.page(file, skip: 0, limit: 50)
+            // git must really have run: a refused inspection or a vanished folder would also leave no canary.
+            guard case .page(let page) = await loader.page(file, skip: 0, limit: 50) else {
+                return XCTFail("no history for \(path)")
+            }
+            XCTAssertFalse(page.entries.isEmpty, path)
         }
         XCTAssertEqual(fixture.canaries(), [])
     }

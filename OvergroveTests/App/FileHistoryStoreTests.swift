@@ -120,6 +120,47 @@ final class FileHistoryStoreTests: XCTestCase {
         XCTAssertEqual(loader.requests.count, 4, "another repository's cache is gone")
     }
 
+    /// SEC-T15-14: a history cut by the output limit ends as cut, not as the beginning of the history.
+    func testCutAtTheLimitIsNotTheBeginning() async {
+        let loader = StubFileHistoryLoader([Self.page(0..<9, partial: true), Self.page(0..<0, partial: true)])
+        let store = FileHistoryStore(loader: loader)
+        store.open(Self.target())
+        await store.task?.value
+        XCTAssertFalse(store.isComplete)
+        store.rowAppeared(8)
+        await store.task?.value
+        XCTAssertTrue(store.isCutAtLimit)
+        XCTAssertEqual(
+            FileHistoryText.beginning(store.entries, isComplete: store.isComplete, isCutAtLimit: store.isCutAtLimit),
+            FileHistoryText.cutAtLimit)
+        store.rowAppeared(8)
+        XCTAssertEqual(loader.requests.count, 2, "no further request once cut")
+    }
+
+    /// A failed further page waits for Retry instead of running git again on every scroll; HEAD moving between pages
+    /// does not list a commit twice.
+    func testLoadMoreFailureAndDuplicates() async {
+        let first = (0..<FileHistoryStore.pageSize).map { Self.entry($0) }
+        let loader = StubFileHistoryLoader([
+            .page(LogParser.FileHistoryPage(entries: first, isPartial: false)), .unavailable("git timed out"),
+            .page(LogParser.FileHistoryPage(entries: [first[499], Self.entry(900)], isPartial: false)),
+        ])
+        let store = FileHistoryStore(loader: loader)
+        store.open(Self.target())
+        await store.task?.value
+        store.rowAppeared(FileHistoryStore.pageSize - 1)
+        await store.task?.value
+        XCTAssertEqual(store.loadMoreError, "git timed out")
+        XCTAssertEqual(store.status, .loaded, "the rows stay")
+        store.rowAppeared(FileHistoryStore.pageSize - 1)
+        XCTAssertEqual(loader.requests.count, 2, "no automatic retry")
+        store.retryLoadMore()
+        await store.task?.value
+        XCTAssertNil(store.loadMoreError)
+        XCTAssertEqual(store.entries.count, FileHistoryStore.pageSize + 1)
+        XCTAssertEqual(Set(store.entries.map(\.id)).count, store.entries.count)
+    }
+
     func testFailuresAndCutPages() async {
         let failing = FileHistoryStore(
             loader: StubFileHistoryLoader([.unavailable("The worktree folder could not be found.")]))

@@ -37,8 +37,12 @@ enum FileHistoryText {
 
     static let empty = "This file has no history yet"
 
+    /// Shown instead of the beginning when the output limit cut the history.
+    static let cutAtLimit = "History cut at the size limit · older commits are not shown"
+
     /// `Beginning of history · created in a274c55 as Parser.swift`, once the oldest commit is loaded.
-    static func beginning(_ entries: [FileHistoryEntry], isComplete: Bool) -> String? {
+    static func beginning(_ entries: [FileHistoryEntry], isComplete: Bool, isCutAtLimit: Bool = false) -> String? {
+        if isCutAtLimit { return entries.isEmpty ? nil : cutAtLimit }
         guard isComplete, let first = entries.last else { return nil }
         return "Beginning of history · created in \(first.commit.oid.short) as "
             + PathValidator.displayable(first.path.display)

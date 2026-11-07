@@ -88,7 +88,20 @@ struct FileHistoryView: View {
                     }
                     if store.isLoadingMore {
                         ProgressView().controlSize(.small).frame(height: GraphGeometry.rowHeight)
-                    } else if let beginning = FileHistoryText.beginning(store.entries, isComplete: store.isComplete) {
+                    } else if let error = store.loadMoreError {
+                        HStack(spacing: Tokens.Spacing.sm) {
+                            Text("Could not load more: \(error)")
+                                .font(Tokens.Font.caption)
+                                .foregroundStyle(Tokens.Color.textSecondary)
+                                .lineLimit(2)
+                            Button("Retry", action: store.retryLoadMore).controlSize(.small)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, Tokens.Spacing.md)
+                        .padding(.vertical, Tokens.Spacing.sm)
+                    } else if let beginning = FileHistoryText.beginning(
+                        store.entries, isComplete: store.isComplete, isCutAtLimit: store.isCutAtLimit)
+                    {
                         Text(beginning)
                             .font(Tokens.Font.caption)
                             .foregroundStyle(Tokens.Color.textTertiary)

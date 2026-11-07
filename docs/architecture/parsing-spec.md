@@ -212,6 +212,7 @@ stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575ab
 | PAR-LOG-09 | co-author 트레일러: 없음, 여러 개(대소문자 섞임), 사람+AI, 접힌 값, 본문 중간 줄 |
 | PAR-LOG-10 | 파일 이력(§5.3): numstat, rename(이전·새 경로), 바이너리, 커밋마다의 경로 |
 | PAR-LOG-11 | 파일 이력의 잘린 출력과 잘못된 numstat |
+| PAR-LOG-12 | 파일 이력에서 제목 안의 여분 NUL → 실패(재동기화하지 않음) |
 
 ---
 

@@ -42,6 +42,9 @@ struct LiveFileHistoryLoader: FileHistoryLoading {
 
     static let live = LiveFileHistoryLoader(client: { try await LiveGitClient.shared.client() })
 
+    /// `ReadOnlyGitCommand`'s limit for `-n`: a history this long is shown cut.
+    static let maximumCommits = 100_000
+
     /// Asks git for `skip + limit` commits and drops the first `skip`: `--skip` with `--follow` skips the wrong commits.
     /// Reading from the newest commit each time also keeps every commit's path right across renames.
     func page(_ target: FileHistoryTarget, skip: Int, limit: Int) async -> FileHistoryLoadResult {
@@ -63,12 +66,16 @@ struct LiveFileHistoryLoader: FileHistoryLoading {
                     "Overgrove stopped querying this worktree for safety. "
                         + PathValidator.displayable(inspection.report.blockingReason ?? ""))
             }
+            // Past the command's limit the history is cut, not finished (security review of #70, T15).
+            let requested = min(skip + limit, Self.maximumCommits)
             let output = try await client.run(
-                .fileHistory(path: target.path, follow: target.follow, limit: skip + limit), in: directory,
+                .fileHistory(path: target.path, follow: target.follow, limit: requested), in: directory,
                 safety: safety)
             let all = try LogParser.parseFileHistory(output.stdout, path: target.path, truncated: output.isTruncated)
+            let isCapped = skip + limit > Self.maximumCommits && all.entries.count == requested
             return .page(
-                LogParser.FileHistoryPage(entries: Array(all.entries.dropFirst(skip)), isPartial: all.isPartial))
+                LogParser.FileHistoryPage(
+                    entries: Array(all.entries.dropFirst(skip)), isPartial: all.isPartial || isCapped))
         } catch GitError.cancelled {
             return .cancelled
         } catch let error as GitError {

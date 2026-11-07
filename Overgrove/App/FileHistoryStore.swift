@@ -23,7 +23,11 @@ final class FileHistoryStore {
     private(set) var status: Status = .loading
     /// git returned fewer than a page: this is the first commit of the file.
     private(set) var isComplete = false
+    /// The output limit cut the history: older commits exist but cannot be listed (not the beginning).
+    private(set) var isCutAtLimit = false
     private(set) var isLoadingMore = false
+    /// A further page failed; it is not asked again until Retry (no new git on every scroll).
+    private(set) var loadMoreError: String?
     private(set) var selected: ObjectID?
     /// The load in flight; tests await it.
     private(set) var task: Task<Void, Never>?
@@ -35,6 +39,7 @@ final class FileHistoryStore {
     private struct Snapshot: Sendable {
         let entries: [FileHistoryEntry]
         let isComplete: Bool
+        let isCutAtLimit: Bool
     }
 
     init(loader: any FileHistoryLoading) {
@@ -48,14 +53,17 @@ final class FileHistoryStore {
         cancel()
         self.target = target
         selected = nil
+        loadMoreError = nil
         if let snapshot = cache.value(for: target.key) {
             entries = snapshot.entries
             isComplete = snapshot.isComplete
+            isCutAtLimit = snapshot.isCutAtLimit
             status = .loaded
             return
         }
         entries = []
         isComplete = false
+        isCutAtLimit = false
         status = .loading
         fetch(skip: 0)
     }
@@ -73,9 +81,17 @@ final class FileHistoryStore {
 
     /// A row came into view; near the end, the next page loads.
     func rowAppeared(_ index: Int) {
-        guard status == .loaded, !isComplete, !isLoadingMore, index >= entries.count - Self.prefetchDistance else {
-            return
-        }
+        guard status == .loaded, !isComplete, !isLoadingMore, loadMoreError == nil,
+            index >= entries.count - Self.prefetchDistance
+        else { return }
+        isLoadingMore = true
+        fetch(skip: entries.count)
+    }
+
+    /// Retry after a further page failed.
+    func retryLoadMore() {
+        guard loadMoreError != nil, !isLoadingMore else { return }
+        loadMoreError = nil
         isLoadingMore = true
         fetch(skip: entries.count)
     }
@@ -87,6 +103,8 @@ final class FileHistoryStore {
         selected = nil
         status = .loading
         isComplete = false
+        isCutAtLimit = false
+        loadMoreError = nil
     }
 
     /// Another repository opened: nothing cached belongs to it.
@@ -117,14 +135,22 @@ final class FileHistoryStore {
         isLoadingMore = false
         switch result {
         case .page(let page):
-            entries += page.entries
+            // HEAD can move between pages (git reads the current HEAD); a commit already listed is not listed twice.
+            let shown = Set(entries.map(\.id))
+            entries += page.entries.filter { !shown.contains($0.id) }
             // A cut page is not the end: the next one continues after what was kept. One that kept nothing cannot
-            // advance, so it ends the list rather than asking again.
-            isComplete = page.isPartial ? page.entries.isEmpty : page.entries.count < Self.pageSize
+            // advance: the list stops there, marked as cut at the limit, not as the beginning of the history.
+            if page.isPartial {
+                isCutAtLimit = page.entries.isEmpty
+                isComplete = isCutAtLimit
+            } else {
+                isComplete = page.entries.count < Self.pageSize
+            }
             status = .loaded
-            cache.insert(Snapshot(entries: entries, isComplete: isComplete), for: target.key)
+            cache.insert(
+                Snapshot(entries: entries, isComplete: isComplete, isCutAtLimit: isCutAtLimit), for: target.key)
         case .unavailable(let reason):
-            if entries.isEmpty { status = .failed(reason) }
+            if entries.isEmpty { status = .failed(reason) } else { loadMoreError = reason }
         case .cancelled:
             break
         }
