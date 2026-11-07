@@ -130,7 +130,7 @@ docs/README.md §2.8에는 없는 항목이다. 승인되면 공통 규약에 �
 2. **status 병렬도는 min(코어, 8)로 둔다**(#87에서 4에서 바꿈). 워크트리 10개 status를 병렬도별로 쟀다 (p50).
    - 1: 269ms, 2: 203ms, 4: 163ms, 6: 151ms, 10: 128ms (p95 167ms)
    - 4를 넘으면 이득이 작고 디스크 경합만 커진다. 기본값은 4로 하고, 설정이나 코어 수에 따라 바꿀 수 있게 한다.
-   - → #87: `RepositoryService`로 PB-1 묶음 전체(worktree list + status 10개 + refs + stash)를 재면 한도 4와 8의 차이가 잡음 안이고, 기본값 8에서 p95 약 140–155ms다(M1 8코어, [results/2026-11-07-pb1-parallel-worktree-queries.md](results/2026-11-07-pb1-parallel-worktree-queries.md)). 기본값을 min(코어, 8), 최소 2로 정했다. 코어가 적은 장비에서는 코어 수를 넘지 않는다.
+   - → #87: `RepositoryService`로 PB-1 묶음 전체(worktree list + 워크트리별 확인·status 10개 + refs + stash)를 재면, 기본값 8에서 p95 약 135–150ms이고 한도 4보다 p50이 약 18% 빠르다(M1 8코어, [results/2026-11-07-pb1-parallel-worktree-queries.md](results/2026-11-07-pb1-parallel-worktree-queries.md)). 기본값을 min(코어, 8), 최소 2로 정했다. 코어가 적은 장비에서는 코어 수를 넘지 않는다. 한도 8 이상에서 보이던 1초 지연은 `ProcessRunner`의 종료 확인 수정으로 없앴다(같은 문서).
 3. **저장소를 열 때 `rev-list --count --all`을 부르지 않는다.** commit-graph가 없으면 394ms가 든다. 총 커밋 수가 필요하면 그래프 스트리밍이 끝난 뒤 센다.
 4. **ahead/behind는 status 헤더에서 얻는다.** `--branch`의 `# branch.ab`를 쓰면 `rev-list --left-right --count`를 따로 부르지 않아도 된다. 워크트리 10개 기준으로 89–169ms를 아낀다.
 5. **그래프는 스트리밍 한 번으로 받는다** (PB-3 제안 2).

@@ -128,6 +128,8 @@ private final class ChildProcess: @unchecked Sendable {
     private static let drainWindow: Duration = .milliseconds(500)
     /// Fallback in case the exit event is missed (e.g. the child exits before the source is registered).
     private static let exitPollInterval: Duration = .seconds(1)
+    /// After both pipes close, the exit is checked this often until seen (#87).
+    private static let closedPipesPollInterval: Duration = .milliseconds(10)
     private static let readChunk = 64 * 1024
 
     let pid: pid_t
@@ -320,9 +322,28 @@ private final class ChildProcess: @unchecked Sendable {
             if count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) { return }
             // EOF or a read error: this pipe is done.
             closeReader(isStdout: isStdout, abandoned: false)
+            // The child usually closes its pipes by exiting. Do not rely on the exit event alone: with many processes
+            // running it is sometimes missed, and the run then waited for the 1 s fallback poll (#87, measured as ~1 s
+            // outliers at 8 concurrent queries). Look now, and if the child has not exited yet (it closes its pipes
+            // just before it exits), keep looking quickly. checkExit never blocks or reaps.
+            checkExit()
+            if stdoutSource == nil && stderrSource == nil && exitStatus == nil && waitError == nil {
+                startClosedPipesExitPoll()
+            }
             tryFinish()
             return
         }
+    }
+
+    /// Both pipes are closed but the exit has not been seen: check every `closedPipesPollInterval` until it is. The
+    /// child is about to exit, so this runs for a moment only; the timeout still applies.
+    private func startClosedPipesExitPoll() {
+        let poll = DispatchSource.makeTimerSource(queue: queue)
+        let interval = Self.dispatchInterval(Self.closedPipesPollInterval)
+        poll.schedule(deadline: .now() + interval, repeating: interval)
+        poll.setEventHandler { [self] in checkExit() }
+        sources.append(poll)
+        poll.resume()
     }
 
     private func closeReader(isStdout: Bool, abandoned: Bool) {
