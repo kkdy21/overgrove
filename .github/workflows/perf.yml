@@ -1,0 +1,76 @@
+# Opt-in performance run (benchmark-plan.md §5, §7, #90). Not a required check: runner timing varies, so budgets
+# are reported, not enforced (OVERGROVE_PERF_REPORT_ONLY). The PERF tables land in the job summary.
+# Run it from the Actions tab (any branch of this repository) or let the weekly schedule run it on main.
+name: perf
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  perf:
+    name: perf
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      XCODE_MAJOR: "26"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          xcode=$(ls -d /Applications/Xcode_${XCODE_MAJOR}*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$xcode" ]; then
+            echo "::error::No Xcode ${XCODE_MAJOR}.x on this runner image."; exit 1
+          fi
+          echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
+          echo "Selected $xcode"
+
+      - name: Build the bench repository
+        run: scripts/make-bench-repo.sh --commit-graph "$RUNNER_TEMP/bench"
+
+      - name: PERF tests
+        env:
+          TEST_RUNNER_OVERGROVE_BENCH_REPO: ${{ runner.temp }}/bench
+          TEST_RUNNER_OVERGROVE_PERF: "1"
+          TEST_RUNNER_OVERGROVE_PERF_REPORT_ONLY: "1"
+          TEST_RUNNER_OVERGROVE_PERF_REPORT_DIR: ${{ runner.temp }}/perf-report
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project Overgrove.xcodeproj \
+            -scheme Overgrove \
+            -destination 'platform=macOS' \
+            -only-testing:OvergroveTests/RepositoryOverviewBenchmarkTests \
+            -only-testing:OvergroveTests/GraphBenchmarkTests \
+            -only-testing:OvergroveTests/GraphEnginePerformanceTests \
+            -only-testing:OvergroveTests/DiffViewerBenchmarkTests \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
+            | tee "$RUNNER_TEMP/perf.log"
+
+      - name: Summary
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          {
+            echo "## PERF (CI runner, report only)"
+            echo
+            echo "- runner: $(sysctl -n machdep.cpu.brand_string), $(sysctl -n hw.ncpu) cores"
+            echo "- app git: $("$DEVELOPER_DIR/usr/bin/git" --version)"
+            echo "- Compare only within one run; budgets are judged on the reference machine (benchmark-plan.md §5)."
+            echo
+            for f in "$RUNNER_TEMP"/perf-report/PERF-*.md; do
+              [ -f "$f" ] && { cat "$f"; echo; }
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
