@@ -21,11 +21,9 @@
 
 ---
 
-> **Status: pre-alpha, not usable yet.** The foundation that runs `git` safely is implemented and tested: process
-> execution, hardened git invocation, repository config inspection, credential masking, and path validation. Parsers
-> are in progress, and the app window is still a placeholder. The screen mockups below are the current design
-> ([#166](https://github.com/kkdy21/overgrove/issues/166)). Follow the [roadmap](docs/roadmap.md)
-> and the [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1).
+> **Status: pre-alpha, build from source.** The v0.1 features below run against real repositories, but there is no
+> release yet: expect rough edges, and nothing is signed or notarized. Follow the [roadmap](docs/roadmap.md) and the
+> [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1).
 
 ## Why
 
@@ -66,25 +64,29 @@ It is probably not for you yet if:
 
 ## Screenshots
 
-> **Design mockups — the app is in development.** These images are drawn from the design tokens with sample data;
-> they are not screenshots of a running build. More screens are in [docs/design/mockups.md](docs/design/mockups.md).
+The main window, rendered from the app with sample data (a made-up API service with feature, fix, and review
+worktrees). The toolbar above it holds the repository and focused-worktree switchers, Fetch, Refresh, Compare,
+Terminal, Finder, and search. The design mockups for every screen are in [docs/design/mockups.md](docs/design/mockups.md).
 
 | Light | Dark |
 |---|---|
-| ![Overgrove main window mockup, light appearance](design/mockups/main-window-light.png) | ![Overgrove main window mockup, dark appearance](design/mockups/main-window-dark.png) |
+| ![Overgrove main window, light appearance: worktrees, branches, stashes, and issues in the sidebar, the commit graph with a WIP row, and the focused worktree's staged, unstaged, and untracked files](design/screenshots/main-window-light.png) | ![Overgrove main window, dark appearance](design/screenshots/main-window-dark.png) |
 
-## Planned features (v0.1.0)
+## Features (v0.1)
 
-- **Worktrees:** every worktree with its branch, HEAD, path, and locked or prunable state
-- **Working state per worktree:** staged, unstaged, untracked, and conflicted files
+- **Worktrees:** every worktree with its branch, path, and locked, prunable, or missing state, plus change and
+  ahead/behind badges
+- **Working state per worktree:** staged, unstaged, untracked, and conflicted files, with line counts and a diff viewer
 - **Changes against the base branch:** a PR-style view of what a worktree changed since it branched off `main`
   (commits ahead, changed files, untracked files), so you can review an agent's work before opening the pull request
-- **Stashes:** the repository's stash list with a per-stash change summary
-- **Ahead/behind:** compared with each branch's upstream after `git fetch`, with the last fetch time
-- **Commit graph:** author, date, and message, with a *WIP* row on top for uncommitted changes; commits co-authored by
-  an AI agent (`Co-authored-by` trailer) are marked
-- **Commit details and file history**
-- **GitHub issues (optional):** listed through your existing `gh` login and linked to branches by issue number
+- **Commit graph:** branches, tags, and worktrees on their commits, a *WIP* row for the focused worktree, and an *AI*
+  mark on commits with an AI agent's `Co-authored-by` trailer. Search by message, author, SHA, ref, or `#issue`
+- **Commit details and file history:** a commit's message and files, and a file's history across renames
+- **Branches and stashes:** local and remote branches with upstream status, and each stash's files
+- **Fetch:** the only network operation, with the last fetch time and optional automatic fetch (off by default)
+- **GitHub issues (optional):** open issues through your existing `gh` login, linked to branches, worktrees, and
+  commits by issue number
+- **Keyboard and accessibility:** shortcuts for every panel, VoiceOver labels, and light and dark appearances
 
 **Read-only by design.** The only operation that touches a remote is `git fetch`. Push, pull, merge, reset, and staging
 are intentionally left out: Overgrove sits next to your terminal or AI agents, which do the writing
@@ -92,8 +94,9 @@ are intentionally left out: Overgrove sits next to your terminal or AI agents, w
 
 ## Security
 
-Opening an untrusted repository in a Git client can run code that the repository configures. Overgrove takes a
-defensive approach:
+Opening an untrusted repository in a Git client can run code that the repository configures: hooks, filters,
+fsmonitor, diff drivers, credential helpers, SSH commands, and more. Overgrove is built to open repositories you do
+not trust without running any of that:
 
 - `git` is invoked with argument arrays, never through a shell
 - dangerous repository settings (fsmonitor, hooks, filters, external diff, credential helpers, custom SSH commands, …)
@@ -103,16 +106,29 @@ defensive approach:
 - every command has a timeout and an output limit
 - credentials in remote URLs are masked
 - tokens are never stored: GitHub access goes through `gh`
+- each worktree's configuration is inspected, and anything risky is shown in its **Worktree** panel
 
-Read [SECURITY.md](SECURITY.md) for details and for how to report a vulnerability privately.
+Things to keep in mind:
+
+- **Terminal is not protected.** *Open in Terminal* and commands you copy from Overgrove run with plain `git`, which
+  does run a repository's hooks and settings. Overgrove asks before opening Terminal in a repository with risky
+  settings and offers `git` commands only when the configuration report is clean. Use Terminal only in repositories
+  you trust.
+- **Fetch contacts the remote** with your credentials. A repository cannot change where those credentials go
+  (proxies, certificates, helpers), but it does choose the remote URL.
+- Self-hosted or corporate servers may need a one-time setup for tokens, SSH host keys, private CAs, or proxies:
+  see [Self-hosted and corporate Git servers](docs/guides/self-hosted-git.md).
+
+Read [SECURITY.md](SECURITY.md) for details and for how to report a vulnerability privately. The threat model is in
+the [security review](docs/design/security-review.md).
 
 ## Requirements
 
-- macOS 14 Sonoma or later
-- Xcode 26 or later to build from source
+- macOS 14 Sonoma or later (Apple silicon or Intel)
+- Xcode 26 or later to build from source (Swift 6)
 - Git 2.36 or later. Overgrove runs Apple's `git` from the developer directory selected with `xcode-select` (Xcode or
-  the Command Line Tools)
-- Optional: [GitHub CLI](https://cli.github.com/) (`gh`), logged in, for the issues panel
+  the Command Line Tools). The setup assistant checks it on first launch
+- Optional: [GitHub CLI](https://cli.github.com/) (`gh`), logged in with `gh auth login`, for the issues panel
 
 ## Build from source
 
@@ -122,8 +138,19 @@ Overgrove is distributed **as source only**. No signed or notarized binaries are
 git clone https://github.com/kkdy21/overgrove.git
 cd overgrove
 ./scripts/bootstrap.sh     # installs the Git hooks and checks your toolchain
-open Overgrove.xcodeproj   # ⌘U runs the tests; ⌘R opens a placeholder window for now
+open Overgrove.xcodeproj   # then ⌘R to build and run, ⌘U to run the tests
 ```
+
+From the command line:
+
+```sh
+xcodebuild -project Overgrove.xcodeproj -scheme Overgrove -configuration Release build
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
+```
+
+On first launch, the setup assistant checks `git` and `gh` and asks you to add a repository (⌘O). The README
+screenshots come from `ReadmeScreenshotTests`: run it with `TEST_RUNNER_OVERGROVE_README_SCREENSHOT_DIR` set to a
+folder to render them again.
 
 ## How we work
 
