@@ -34,9 +34,14 @@ M=$on_main
 # #301: `main` elsewhere in a compound command is not a push to main.
 check "push then pr create --base main"     0 "$B" 'git push -u origin feat/1-x && gh pr create --base main --title x'
 check "push; pr create --base main"         0 "$B" 'git push origin feat/1-x; gh pr create --base main'
-check "push | grep main"                    0 "$B" 'git push origin feat/1-x 2>&1 | grep -v main'
-check "push || echo main"                   0 "$B" 'git push origin feat/1-x || echo main'
 check "push, newline, base main"            0 "$B" $'git push origin feat/1-x\ngh pr create --base main'
+check "push then pr create --base=main"     0 "$B" 'git push origin feat/1-x && gh pr create --base=main'
+check "push then pr create -B main"         0 "$B" 'git push origin feat/1-x && gh pr create -B main --draft'
+check "push then pr edit --base main"       0 "$B" 'git push origin feat/1-x && gh pr edit 5 --base main'
+check "push then quoted base main"          0 "$B" 'git push origin feat/1-x && gh pr create --base "main" --title x'
+# Conservative on purpose: a bare `main` anywhere else next to a push still blocks (security review of #301).
+check "push | grep main (conservative)"     2 "$B" 'git push origin feat/1-x 2>&1 | grep -v main'
+check "push || echo main (conservative)"    2 "$B" 'git push origin feat/1-x || echo main'
 check "plain push of the branch"            0 "$B" 'git push -q -u origin feat/1-x'
 check "branch named like main-ish"          0 "$B" 'git push origin feat/maintenance'
 
@@ -54,6 +59,21 @@ check "push main in command substitution"   2 "$B" 'echo $(git push origin main)
 check "push main in backticks"              2 "$B" 'echo `git push origin main`'
 check "push main with -c option"            2 "$B" 'git -c core.x=y push origin HEAD:main'
 check "force-with-lease to main in subst"   2 "$B" 'x=$(git push --force-with-lease origin main)'
+# Bypasses found in the security review of #301's first version (splitting the command): all must block.
+check "continued line, force"               2 "$B" $'git push \\\n  --force origin feat/1-x'
+check "continued line, main"                2 "$B" $'git push origin \\\n  main'
+check "quoted ; before main"                2 "$B" "git push -o 'a;b' origin main"
+check "quoted | before main"                2 "$B" 'git push --push-option="x|y" origin main'
+check "quoted && before -f"                 2 "$B" "git push origin feat/1-x -o 'a&&' -f"
+check "quoted || before --force"            2 "$B" 'git push -o "a||b" --force origin feat/1-x'
+check "quoted newline before main"          2 "$B" $'git push -o "a\n" origin main'
+check "absolute path to git, main"          2 "$B" '/usr/bin/git push origin main'
+check "absolute path to git, force"         2 "$B" '/opt/homebrew/bin/git push --force origin feat/1-x'
+check "absolute path, bare push on main"    2 "$M" '/usr/bin/git push'
+check "xargs main"                          2 "$B" 'echo main | xargs git push origin'
+check "xargs force"                         2 "$B" 'echo --force | xargs git push origin feat/1-x'
+check "base main does not hide a push"      2 "$B" 'gh pr create --base main; git push origin main'
+check "pr create then push main"            2 "$B" 'gh pr create --base main && git push origin HEAD:main'
 check "bare push on main"                   2 "$M" 'git push'
 check "push origin only on main"            2 "$M" 'git push origin'
 check "bare push on main after cd"          2 "$M" 'echo hi && git push -u'

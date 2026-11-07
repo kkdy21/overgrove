@@ -18,27 +18,26 @@ has 'git[[:space:]]+config[^;&|]*core\.hooksPath' && block "Do not change core.h
 has '(^|[[:space:];&|])(GIT_)?OVERGROVE_ALLOW_MAIN_(COMMIT|PUSH)=' && block "Main-branch overrides are for the maintainer only, not for Claude."
 
 # 2) Force pushes and pushes to main.
-# Checked per command: the command line is split on `&&`, `||`, `;`, `|`, and newlines, and only the segments that run
-# `git push` (with any global options, `-C <dir>` and `-c <key=value>` included) are inspected, so `--base main` in a
-# following `gh pr create` is not mistaken for a push to main (#301). Splitting inside quotes only makes more segments,
-# and every one of them that holds `git push` is still checked.
-push_re='(^|[^[:alnum:]_./-])git([[:space:]]+(-[Cc][[:space:]]+[^[:space:]]+|-[^[:space:]]+))*[[:space:]]+push([[:space:]]|$)'
-if has "$push_re"; then
-  while IFS= read -r seg; do
-    seg_has() { printf '%s' "$seg" | grep -Eq -- "$1"; }
-    seg_has "$push_re" || continue
-    seg_has '[[:space:]](--force|-f)([[:space:]]|$)' && block "Force push is not allowed. Use a new commit (we squash-merge anyway)."
-    seg_has '--force-with-lease' && seg_has '(^|[[:space:]:/+"'\''])main(["'\'']?)([[:space:])`]|$)' && block "Force push to main is not allowed."
-    # `main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main` as a push target, also inside `$(…)` or backticks.
-    seg_has '([[:space:]:]|refs/heads/)[+]?["'\'']?main["'\'']?([[:space:])`]|$)' && block "Direct push to main is not allowed. Push your branch and open a PR."
-    if [[ -n "$cwd" ]]; then
-      cur=$(git -C "$cwd" symbolic-ref --short -q HEAD 2>/dev/null || true)
-      # On main, a push must name both a remote and a refspec; a bare `git push` or `git push origin` pushes main.
-      if [[ "$cur" == "main" ]] && ! seg_has 'push[[:space:]]+([^[:space:]]+[[:space:]]+)*[^-[:space:]][^[:space:]]*[[:space:]]+[^-[:space:]]'; then
-        block "You are on main; a bare 'git push' would push main. Switch to your issue branch."
-      fi
+# The whole command line is checked, so line continuations, quoted separators, and `xargs` cannot hide a target. Only
+# the base branch of `gh pr create`/`gh pr edit` (`--base main`, `--base=main`, `-B main`) is taken out first: it names
+# the pull request's target, not a push (#301). The replacement stops at `;`, `&`, `|`, and the end of the line, so a
+# push elsewhere in the command is still seen.
+scan=$(printf '%s' "$cmd" | sed -E -e ':a' \
+  -e 's/(gh[[:space:]]+pr[[:space:]]+(create|edit)[^;&|]*[[:space:]])(--base[[:space:]=]+|-B[[:space:]]+)["'\'']?main["'\'']?([[:space:]]|$)/\1--base=PR-BASE\4/' \
+  -e 'ta')
+scan_has() { printf '%s' "$scan" | grep -Eq -- "$1"; }
+# `git push`, also with global options (`-C <dir>`, `-c <key=value>`), a path to git, or inside `$(…)` or backticks.
+if scan_has 'git([[:space:]]+(-[Cc][[:space:]]+[^[:space:]]+|-[^[:space:]]+))*[[:space:]]+push'; then
+  scan_has '[[:space:]](--force|-f)([[:space:])`]|$)' && block "Force push is not allowed. Use a new commit (we squash-merge anyway)."
+  scan_has '--force-with-lease' && scan_has '(^|[[:space:]:/+"'\''])main["'\'']?([[:space:])`]|$)' && block "Force push to main is not allowed."
+  # `main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main` as a push target.
+  scan_has '([[:space:]:]|refs/heads/)[+]?["'\'']?main["'\'']?([[:space:])`]|$)' && block "Direct push to main is not allowed. Push your branch and open a PR."
+  if [[ -n "$cwd" ]]; then
+    cur=$(git -C "$cwd" symbolic-ref --short -q HEAD 2>/dev/null || true)
+    if [[ "$cur" == "main" ]] && ! scan_has 'git[^;&|]*push[^;&|]*[[:space:]][^-[:space:]][^[:space:]]*[[:space:]]+[^-[:space:]]'; then
+      block "You are on main; a bare 'git push' would push main. Switch to your issue branch."
     fi
-  done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||;|\|/, "\n"); print }')
+  fi
 fi
 
 # 3) Commits on main.

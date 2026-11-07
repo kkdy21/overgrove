@@ -38,7 +38,7 @@ hook은 **실수를 막는 장치이지 보안 경계가 아니다.** 같은 규
 
 - hook 우회: `--no-verify`, `git commit -n`, `core.hooksPath` 변경, `OVERGROVE_ALLOW_MAIN_*` 사용
 - 강제 푸시, `main` 대상 푸시(`main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main`), `main`에서의 인자 없는 `git push`
-  - 푸시 판정은 명령줄을 `&&`, `||`, `;`, `|`, 줄바꿈으로 나눈 뒤 `git push`(`git -C <dir> push`, `$(…)` 안 포함)가 있는 조각에만 적용한다. 그래서 `git push … && gh pr create --base main`의 `--base main`은 막지 않는다(#301)
+  - 푸시 판정은 명령줄 전체에 적용한다. 줄 이음(`\`), 따옴표 안의 구분자, `xargs`로 대상을 숨길 수 없게 하기 위해서다. 다만 먼저 `gh pr create`·`gh pr edit`의 `--base main`·`--base=main`·`-B main`을 빼고 본다. 이것은 PR의 기준 브랜치이지 푸시 대상이 아니다(#301). `git -C <dir> push`, git 절대 경로, `$(…)` 안의 푸시도 잡는다. 푸시와 함께 다른 곳에 `main`이 있으면(`… | grep main`) 일부러 막는다
 - `main` 브랜치에서의 `git commit`
 - `gh repo delete/archive/rename`, 공개 범위 변경, `gh secret/variable`, `gh auth token/logout/refresh`, `gh api`를 통한 DELETE와 룰셋 변경
 - 외부 PR 로컬 체크아웃(`gh pr checkout`), `core.hooksPath=/dev/null` 없이 PR ref를 가져오는 `git fetch ... pull/<n>/head` (PR이 넣은 hook 실행 방지)
