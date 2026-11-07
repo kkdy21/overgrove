@@ -3,21 +3,38 @@ import Foundation
 /// The text S-05's `Copy Report` puts on the clipboard (#110, security-review.md T11, SEC-T11-06).
 ///
 /// Someone pastes it into an issue or a chat, so it holds only what helps review the protections: key names, the
-/// verdict of each SECURITY row, and how other settings are handled. It never holds configuration values, remote
-/// URLs, file system paths, or error text (which can quote any of those). Subsections that can be a URL or a path
+/// verdict of each SECURITY row, and how other settings are handled, plus fixed facts (main or linked worktree, the
+/// inspection time, git and Overgrove versions). It never holds configuration values, remote URLs, hosts, file system
+/// paths, branch names, or error text (which can quote any of those). Subsections that can be a URL or a path
 /// (`credential.<url>.helper`, `includeif.<condition>.path`) are replaced, not masked, and the finished text is
 /// masked, escaped, and has the home folder shortened as a last guard.
 enum SecurityReport {
+    /// What `Copy Report` needs; the text is built only when the button is pressed (security review of #110).
+    struct Source: Equatable {
+        let inspection: WorktreeInspection
+        let isMainWorktree: Bool
+        let appVersion: String?
+        var home = NSHomeDirectory()
+    }
+
     static let footer = "Values, paths, and remote URLs are not included. Credentials are masked."
     /// Details listed per row; the rest are counted.
     static let maximumDetails = 50
 
+    static func text(_ source: Source) -> String {
+        text(
+            isMainWorktree: source.isMainWorktree, inspection: source.inspection, appVersion: source.appVersion,
+            home: source.home)
+    }
+
+    /// - Parameter isMainWorktree: Named as `main worktree` or `linked worktree`; the branch name is free text a
+    ///   repository or its owner chose, so it is not copied.
     static func text(
-        worktreeTitle: String, inspection: WorktreeInspection, appVersion: String?,
-        home: String = NSHomeDirectory()
+        isMainWorktree: Bool, inspection: WorktreeInspection, appVersion: String?, home: String = NSHomeDirectory()
     ) -> String {
-        let model = WorktreeSecurityModel(inspection)
-        var lines = ["Overgrove security report", "Worktree: \(worktreeTitle)"]
+        // Full remote URLs never matter here: the report names remotes only.
+        let model = WorktreeSecurityModel(inspection, showsFullRemoteURLs: false)
+        var lines = ["Overgrove security report", "Worktree: \(isMainWorktree ? "main worktree" : "linked worktree")"]
         var inspected = ["Inspected: \(timestamp(model.inspectedAt))", "local and worktree scopes"]
         if let version = model.gitVersion { inspected.append(version) }
         lines.append(inspected.joined(separator: " · "))
@@ -35,9 +52,10 @@ enum SecurityReport {
         lines += model.rows.map(line)
         if !model.others.isEmpty {
             lines += ["", "Other repository settings"]
-            lines += model.others.map { finding in
+            lines += model.others.prefix(maximumDetails).map { finding in
                 "- \(finding.reportKey): \(finding.handling)" + (finding.threat.map { " (\($0))" } ?? "")
             }
+            if model.others.count > maximumDetails { lines.append("- +\(model.others.count - maximumDetails) more") }
         }
         lines += ["", footer]
         return lines.map { guarded($0, home: home) }.joined(separator: "\n")
@@ -64,10 +82,14 @@ enum SecurityReport {
 
     /// ISO 8601 in UTC: the reader's time zone is not the copier's business, and the copier's is not the reader's.
     private static func timestamp(_ date: Date) -> String {
+        iso.string(from: date)
+    }
+
+    nonisolated(unsafe) private static let iso: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = TimeZone(identifier: "UTC")
-        return formatter.string(from: date)
-    }
+        return formatter
+    }()
 
     /// The last guard on every line: credentials masked, control and bidi characters escaped, home shortened to `~`.
     static func guarded(_ line: String, home: String) -> String {
@@ -118,12 +140,17 @@ enum SecurityReport {
         }
     }
 
-    /// Letters, digits, `.`, `_`, `-`, at most 64, not starting with punctuation: no `/`, `:`, `@`, or spaces.
+    /// Starts with a letter; then letters, digits, `_`, `-`; at most 64. No `.`, so a host (`git.internal.corp`) or
+    /// an address (`10.0.0.7`) used as a remote or driver name is not copied, and no `/`, `:`, `@`, or spaces.
     static func isPlainName(_ text: String) -> Bool {
-        guard let first = text.unicodeScalars.first, text.unicodeScalars.count <= 64, isAlphanumeric(first) else {
+        guard let first = text.unicodeScalars.first, text.unicodeScalars.count <= 64, isLetter(first) else {
             return false
         }
-        return text.unicodeScalars.allSatisfy { isAlphanumeric($0) || $0 == "." || $0 == "_" || $0 == "-" }
+        return text.unicodeScalars.allSatisfy { isAlphanumeric($0) || $0 == "_" || $0 == "-" }
+    }
+
+    private static func isLetter(_ scalar: Unicode.Scalar) -> Bool {
+        ("a"..."z").contains(scalar) || ("A"..."Z").contains(scalar)
     }
 
     /// Git lowercases section and variable names and allows letters, digits, and `-`.

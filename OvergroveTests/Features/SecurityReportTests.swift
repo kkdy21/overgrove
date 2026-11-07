@@ -32,11 +32,11 @@ final class SecurityReportTests: XCTestCase {
     }
 
     private func report(
-        _ entries: [ConfigEntry], title: String = "feat/42-rate-limit", failure: String? = nil, hooks: [String] = [],
+        _ entries: [ConfigEntry], failure: String? = nil, hooks: [String] = [],
         common: [String] = GitEnvironment.commonArguments
     ) -> String {
         SecurityReport.text(
-            worktreeTitle: title, inspection: inspection(entries, failure: failure, hooks: hooks, common: common),
+            isMainWorktree: false, inspection: inspection(entries, failure: failure, hooks: hooks, common: common),
             appVersion: "0.1.0", home: home)
     }
 
@@ -57,6 +57,14 @@ final class SecurityReportTests: XCTestCase {
             entry("core", nil, "pager", "less \(secret)"),
             entry("diff", "secret", "textconv", "\(home)/bin/dump"),
             entry("gpg", nil, "program", "\(home)/bin/gpg-\(secret)", scope: .worktree),
+            // Remote and driver names that are a host or an address (security review of #110).
+            entry("remote", "git.example.com", "url", "https://kim:\(token)@git.example.com/x.git"),
+            entry("remote", "10.0.0.7", "uploadpack", "pack"),
+            entry("http", nil, "sslcert", "\(home)/certs/client.pem"),
+            entry("alias", nil, "deploy", "!\(home)/bin/deploy --token \(secret)"),
+            entry("submodule", "libs/secret-project", "update", "!\(home)/bin/update"),
+            entry("diff", nil, "orderfile", "\(home)/order.txt"),
+            entry("core", nil, "worktree", "\(home)/elsewhere", scope: .worktree),
         ]
     }
 
@@ -70,7 +78,8 @@ final class SecurityReportTests: XCTestCase {
         for leak in [
             secret, token, "kim", "git.example.com", "internal.example.com", "proxy.example.com", "10.0.0.7", home,
             "report-test-user", "secret-project", "id_deploy", ".gitconfig-work", "https:", "http:", "ssh:", "://",
-            "@", "evil-pack", "less ", "acme/api",
+            "@", "evil-pack", "less ", "acme/api", "client.pem", "certs", "deploy --token", "libs/",
+            "order.txt", "elsewhere",
         ] {
             XCTAssertFalse(text.contains(leak), "the report must not contain \(leak):\n\(text)")
         }
@@ -78,7 +87,9 @@ final class SecurityReportTests: XCTestCase {
             "filter.lfs.process", "core.sshcommand", "core.hookspath", "remote.origin.uploadpack",
             "credential.<url>.helper", "http.<url>.sslverify", "url.<url>.insteadof", "includeif.<condition>.path",
             "diff.secret.textconv", "gpg.program (worktree)", "core.pager", "hooks/pre-commit", "+3 more",
-            "origin (credentials in URL)",
+            "origin (credentials in URL)", "<remote> (credentials in URL)", "remote.<name>.uploadpack",
+            "submodule.<name>.update", "alias.deploy", "diff.orderfile", "core.worktree (worktree)",
+            "Fetch disabled: This repository sets its own TLS certificate files",
         ] {
             XCTAssertTrue(text.contains(expected), "missing \(expected):\n\(text)")
         }
@@ -88,7 +99,7 @@ final class SecurityReportTests: XCTestCase {
         let text = report([entry("filter", "lfs", "process")])
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         XCTAssertEqual(lines.first, "Overgrove security report")
-        XCTAssertTrue(lines.contains("Worktree: feat/42-rate-limit"))
+        XCTAssertTrue(lines.contains("Worktree: linked worktree"))
         XCTAssertTrue(lines.contains("Inspected: 2027-01-15T08:00:00Z · local and worktree scopes · git 2.50.1"))
         XCTAssertTrue(lines.contains("Overgrove: 0.1.0"))
         XCTAssertTrue(lines.contains("✓ Hooks disabled"))
@@ -105,6 +116,7 @@ final class SecurityReportTests: XCTestCase {
         let blocked = report([entry("filter", "bad=name", "clean")])
         XCTAssertTrue(blocked.contains("\nQueries stopped: "), blocked)
         XCTAssertTrue(blocked.contains("filter.<name>.clean"), "the refused driver name is not quoted")
+        XCTAssertFalse(blocked.contains("bad=name"))
 
         // A failure message can carry a path or a remote's text: only the fact that it failed is copied.
         let failed = report([], failure: "fatal: unable to read \(home)/repo/.git/config.worktree (\(token))")
@@ -119,10 +131,8 @@ final class SecurityReportTests: XCTestCase {
         XCTAssertTrue(text.contains("- core.pager: already blocked (T14)"))
     }
 
-    func testFreeTextIsMaskedEscapedAndHomeIsShortened() {
-        let text = report([], title: "fix/\(token)\u{202E}x")
-        XCTAssertFalse(text.contains(token), "credentials in a branch name are masked")
-        XCTAssertFalse(text.unicodeScalars.contains("\u{202E}"), "bidi controls are escaped")
+    func testLastGuardMasksEscapesAndShortensHome() {
+        XCTAssertEqual(SecurityReport.guarded("x\u{202E}y", home: home), PathValidator.displayable("x\u{202E}y"))
         XCTAssertEqual(SecurityReport.guarded("see \(home)/dev and \(home)", home: home), "see ~/dev and ~")
         XCTAssertEqual(SecurityReport.guarded("https://a:b@host", home: home), "https://***@host")
     }
@@ -132,6 +142,9 @@ final class SecurityReportTests: XCTestCase {
         XCTAssertEqual(SecurityReport.keyName(entry("filter", "lfs", "smudge")), "filter.lfs.smudge")
         XCTAssertEqual(SecurityReport.keyName(entry("filter", "my driver/x", "clean")), "filter.<name>.clean")
         XCTAssertEqual(SecurityReport.keyName(entry("remote", "o@host", "url")), "remote.<name>.url")
+        XCTAssertEqual(SecurityReport.keyName(entry("remote", "git.corp.example", "url")), "remote.<name>.url")
+        XCTAssertEqual(SecurityReport.keyName(entry("remote", "10.0.0.7", "url")), "remote.<name>.url")
+        XCTAssertEqual(SecurityReport.keyName(entry("remote", "upstream", "url")), "remote.upstream.url")
         XCTAssertEqual(
             SecurityReport.keyName(entry("includeif", "onbranch:main", "path")), "includeif.<condition>.path")
         XCTAssertEqual(SecurityReport.keyName(entry("http", "plain", "sslverify")), "http.<url>.sslverify")
@@ -149,18 +162,24 @@ final class SecurityReportTests: XCTestCase {
     func testDetailModelOffersTheReportWithTheSecuritySection() throws {
         let worktree = Worktree(
             path: GitPath("\(home)/dev/api"), head: ObjectID(String(repeating: "a", count: 40)),
-            branch: "refs/heads/main", isMain: true, isDetached: false, isBare: false, lock: .unlocked,
+            branch: "refs/heads/kim-at-git-internal-corp", isMain: true, isDetached: false, isBare: false,
+            lock: .unlocked,
             isPrunable: false, prunableReason: nil)
         let state = WorkingState(
             headCommit: nil, head: .branch("main"), upstream: .none, stashCount: 0, staged: [], unstaged: [],
             untracked: [], conflicted: [], isPartial: false, skippedRecords: 0)
-        let loaded = WorktreeDetailModel(
-            entry: WorktreeListing.Entry(worktree: worktree, state: .loaded(state)),
-            inspection: inspection(hostileEntries), fetchStatus: .never, now: now, home: home, appVersion: "0.1.0")
-        let text = try XCTUnwrap(loaded.securityReport)
-        XCTAssertTrue(text.hasPrefix("Overgrove security report\nWorktree: main\n"))
-        XCTAssertFalse(text.contains(home), "the worktree path stays out of the report")
-        XCTAssertFalse(text.contains("/dev/api"))
+        for full in [false, true] {
+            let loaded = WorktreeDetailModel(
+                entry: WorktreeListing.Entry(worktree: worktree, state: .loaded(state)),
+                inspection: inspection(hostileEntries), fetchStatus: .never, now: now, home: home,
+                showsFullRemoteURLs: full, appVersion: "0.1.0")
+            let text = SecurityReport.text(try XCTUnwrap(loaded.securityReport))
+            XCTAssertTrue(text.hasPrefix("Overgrove security report\nWorktree: main worktree\n"))
+            XCTAssertFalse(text.contains(home), "the worktree path stays out of the report")
+            XCTAssertFalse(text.contains("/dev/api"))
+            XCTAssertFalse(text.contains("kim-at-git-internal-corp"), "branch names are not copied")
+            XCTAssertFalse(text.contains("git.example.com"), "full remote URLs setting: still no hosts")
+        }
 
         let missing = WorktreeDetailModel(
             entry: WorktreeListing.Entry(worktree: worktree, state: .missing), inspection: inspection([]),
@@ -177,5 +196,10 @@ final class SecurityReportTests: XCTestCase {
         let text = report(filters)
         let line = text.split(separator: "\n").first { $0.hasPrefix("⚠ Filters neutralized") } ?? ""
         XCTAssertTrue(line.hasSuffix("+30 more"), String(line))
+
+        let pagers = (0..<70).map { entry("pager", "cmd\($0)", "x", "less") }
+        let others = report(pagers).split(separator: "\n").filter { $0.hasPrefix("- ") }
+        XCTAssertEqual(others.count, SecurityReport.maximumDetails + 1)
+        XCTAssertEqual(others.last, "- +20 more")
     }
 }

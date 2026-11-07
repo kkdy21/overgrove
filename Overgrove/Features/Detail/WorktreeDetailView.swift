@@ -115,7 +115,7 @@ private struct InfoCard: View {
 private struct SecurityCard: View {
     let model: WorktreeSecurityModel
     /// `Copy Report` (#110); `nil` hides the button.
-    var report: String?
+    var report: SecurityReport.Source?
     @State private var expanded: Set<String> = []
     @Environment(\.rowMenu) private var actions
 
@@ -132,7 +132,7 @@ private struct SecurityCard: View {
                 if let report {
                     Button {
                         // Line breaks kept; every other control character escaped (`RowActions.clipboardText`).
-                        actions.copyMessage(report)
+                        actions.copyMessage(SecurityReport.text(report))
                     } label: {
                         Image(systemName: "doc.on.doc")
                     }

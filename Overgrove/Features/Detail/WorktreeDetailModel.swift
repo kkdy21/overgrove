@@ -22,8 +22,9 @@ struct WorktreeDetailModel: Equatable {
     let security: WorktreeSecurityModel?
     /// Why there is no security section, when there is none and none is coming.
     let securityUnavailable: String?
-    /// `Copy Report` (#110): the SECURITY section as text, with key names and verdicts only (`SecurityReport`).
-    let securityReport: String?
+    /// `Copy Report` (#110): what the SECURITY section's text is built from, when the button is pressed
+    /// (`SecurityReport`). `nil` without a SECURITY section.
+    let securityReport: SecurityReport.Source?
     /// Its last status was slow: why, and the command that refreshes the index (copy only, #168).
     let slowStatus: SlowStatusHint?
 
@@ -94,8 +95,8 @@ struct WorktreeDetailModel: Equatable {
                 "Overgrove does not query this worktree entry, so its configuration is not inspected."
         }
         if security != nil, let inspection {
-            securityReport = SecurityReport.text(
-                worktreeTitle: title, inspection: inspection, appVersion: appVersion, home: home)
+            securityReport = SecurityReport.Source(
+                inspection: inspection, isMainWorktree: worktree.isMain, appVersion: appVersion, home: home)
         } else {
             securityReport = nil
         }
