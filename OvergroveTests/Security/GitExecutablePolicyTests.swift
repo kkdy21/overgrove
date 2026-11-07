@@ -310,6 +310,19 @@ final class GitExecutableResolveTests: XCTestCase {
         XCTAssertTrue(lookup.used)
     }
 
+    /// The real installs on this Mac resolve when chosen: the developer directory's git and Homebrew git if present.
+    func testInstalledGitsResolveWhenChosen() async throws {
+        let app = try await GitEnvironment.discover()
+        let chosen = try await GitEnvironment.resolve(chosenPath: app.executable.path, protectedDirectories: [])
+        XCTAssertEqual(chosen.version, app.version)
+
+        let homebrew = "/opt/homebrew/bin/git"
+        try XCTSkipUnless(FileManager.default.isExecutableFile(atPath: homebrew), "no Homebrew git")
+        let brew = try await GitEnvironment.resolve(chosenPath: homebrew, protectedDirectories: [])
+        XCTAssertTrue(brew.executable.path.hasPrefix("/opt/homebrew/Cellar/"), brew.executable.path)
+        XCTAssertTrue(brew.version.isSupported)
+    }
+
     /// Linked worktrees count as protected without running git: their paths come from
     /// `<common dir>/worktrees/*/gitdir`.
     func testLinkedWorktreesAreProtectedFromTheirGitdirFiles() throws {

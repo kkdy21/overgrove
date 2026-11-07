@@ -42,7 +42,7 @@ final class GitExecutableSettingsModelTests: XCTestCase {
     }
 
     private nonisolated static let current = GitVersion(major: 2, minor: 54, patch: 0)
-    private nonisolated static let old = GitVersion(major: 2, minor: 44, patch: 0)
+    private nonisolated static let old = GitVersion(major: 2, minor: 40, patch: 0)
 
     func testTheDefaultIsShownWithItsRealPathVersionAndSignature() async {
         let settings = AppSettings(defaults: defaults)
@@ -76,7 +76,7 @@ final class GitExecutableSettingsModelTests: XCTestCase {
         guard case .ready(let report) = model.state else { return XCTFail("got \(model.state)") }
         XCTAssertEqual(report.entered, "/opt/homebrew/bin/git")
         XCTAssertFalse(report.isAppleSigned)
-        XCTAssertFalse(report.canFetchPartialClones, "2.44.0 is below lazyFetchControlVersion")
+        XCTAssertFalse(report.canFetchPartialClones, "2.40.0 is below lazyFetchControlVersion")
         XCTAssertNil(model.choiceError)
     }
 

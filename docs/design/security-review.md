@@ -23,7 +23,7 @@ Overgrove는 **사용자가 고른 로컬 저장소에 대해 시스템 `git`을
 | macOS, `/usr/bin/git`(Apple 서명), 사용자가 설치한 `gh` | 저장소 안의 모든 것: 작업 트리 파일, `.gitattributes`, `.gitmodules` |
 | git의 `system`, `global`, `unknown`(Apple 내장), `command` scope 설정 | `.git/config`(`local`), `config.worktree`(`worktree`), 그 설정이 include한 파일 |
 | 사용자가 `NSOpenPanel`로 고른 경로 | `.git/info/attributes`, `.git/hooks/*`, 서브모듈의 `.git/modules/*/config` |
-| 설정에서 사용자가 고른 git 실행 파일 중 [ADR-0019](../adr/0019-user-chosen-git-executable.md)의 경로·소유자·권한·버전 규칙을 통과한 것 (v0.2.0, #106) | 등록된 저장소 안에 있거나, root·현재 사용자가 아닌 소유자 또는 group·other 쓰기 권한이 있는 경로의 실행 파일 |
+| 설정에서 사용자가 고른 git 실행 파일 중 [ADR-0019](../adr/0019-user-chosen-git-executable.md)의 경로·소유자·권한·버전 규칙을 통과한 것 (v0.2.0, #106) | 등록된 저장소 안에 있거나, root·현재 사용자가 아닌 소유자, other 쓰기, `admin`·`wheel`이 아닌 group 쓰기 권한이 있는 경로의 실행 파일 |
 | | 원격 서버 응답, 원격 저장소 내용 |
 
 global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경우는 이 앱의 위협 모델 밖이다. 그 상태라면 이미 계정이 장악된 것이다.
@@ -195,9 +195,9 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **설명**: 앱을 터미널에서 실행하면 `GIT_DIR`, `GIT_CONFIG_PARAMETERS`, `GIT_SSH_COMMAND`, `GIT_EXTERNAL_DIFF`, `GIT_EXEC_PATH`, `DYLD_*` 같은 변수가 상속되어 git 동작이 바뀐다.
 - **시나리오**: 다른 도구가 설정한 `GIT_DIR` 때문에 엉뚱한 저장소를 조회한다. `GIT_EXTERNAL_DIFF`가 의도치 않은 프로그램을 실행한다.
 - **대응**: 환경 변수를 allowlist로 새로 만든다 (§3.2). 부모 환경은 `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK`만 전달한다. PATH는 고정값이다. 페이저는 `--no-pager`와 `GIT_PAGER=cat`으로 이중 차단한다. gh는 별도 allowlist(`HOME`, `USER`, `TMPDIR`와 고정값, [카탈로그 §5](../architecture/git-command-catalog.md))를 쓴다. `GH_TOKEN`, `GITHUB_TOKEN`, `GH_HOST`, `GH_REPO`, `GH_CONFIG_DIR`, 브라우저·편집기 변수는 gh에 전달하지 않는다.
-  - **사용자가 고른 git 실행 파일(v0.2.0, #106)**: [ADR-0019](../adr/0019-user-chosen-git-executable.md)를 따른다. 절대 경로이고, 링크를 푼 실제 파일이 일반 실행 파일이어야 한다. 등록된 저장소 안의 경로는 거부한다. 실제 파일과 상위 디렉터리(입력 경로 쪽 포함)는 root 또는 현재 사용자 소유이고 group·other 쓰기 권한이 없어야 한다. 버전은 2.36 이상이어야 한다. 고를 때와 git을 찾을 때마다 다시 검사하고, 실패하면 기본 git으로 바꾸지 않고 조회를 멈춘다(fail closed). 코드 서명은 요구하지 않고 표시만 한다.
+  - **사용자가 고른 git 실행 파일(v0.2.0, #106)**: [ADR-0019](../adr/0019-user-chosen-git-executable.md)를 따른다. 절대 경로이고, 링크를 푼 실제 파일이 일반 실행 파일이어야 한다. 등록된 저장소 안의 경로는 거부한다. 실제 파일과 상위 디렉터리(입력 경로 쪽 포함)는 root 또는 현재 사용자 소유여야 한다. other 쓰기는 항상, group 쓰기는 그룹이 `admin`·`wheel`이 아니면 거부한다(macOS의 `/Applications`와 Homebrew `Cellar`는 `admin` 그룹 쓰기다). 버전은 2.36 이상이어야 한다. 고를 때와 git을 찾을 때마다 다시 검사하고, 실패하면 기본 git으로 바꾸지 않고 조회를 멈춘다(fail closed). 코드 서명은 요구하지 않고 표시만 한다.
 - **잔여 위험**: 사용자의 셸 설정에 의존하던 git 동작(예: 셸에서만 설정한 `GIT_SSH_COMMAND`)은 앱에서 동작하지 않는다. 의도된 동작이고 문서화한다. `HOME`은 부모 값을 그대로 쓰므로, 앱 실행 환경을 바꿀 수 있는 같은 사용자는 git·gh가 읽는 전역 설정(`~/.gitconfig`, `~/.config/gh`)과 gh 계정 선택을 바꿀 수 있다. 이 권한은 원래 신뢰 경계 밖이다. gh 실행 파일은 경로를 탐색한 뒤 `posix_spawn`이 다시 해석하므로(TOCTOU), 그 사이에 `/opt/homebrew/bin`에 쓸 수 있는 사용자는 실행 파일을 바꿀 수 있다. 위협 모델은 사용자가 설치한 gh를 신뢰하므로(§1) 받아들인다. 사용자가 고른 git의 검사와 실행 사이 바꿔치기(TOCTOU)는 소유자·권한 규칙상 root나 그 사용자만 할 수 있어 신뢰 경계 밖이다(ADR-0019).
-- **검증**: SEC-T10-01 (테스트 프로세스 환경에 위험 변수를 넣어도 자식 프로세스 환경에 없음), SEC-T10-02 (PATH 고정), SEC-T10-03 (gh 자식 환경이 카탈로그 §5 allowlist와 정확히 같음. 토큰·호스트·설정 디렉터리 변수 없음, 텔레메트리 끔)
+- **검증**: SEC-T10-01 (테스트 프로세스 환경에 위험 변수를 넣어도 자식 프로세스 환경에 없음), SEC-T10-02 (PATH 고정), SEC-T10-03 (gh 자식 환경이 카탈로그 §5 allowlist와 정확히 같음. 토큰·호스트·설정 디렉터리 변수 없음, 텔레메트리 끔), SEC-T10-04 (사용자가 고른 git: 등록된 저장소·git 디렉터리·워크트리 안의 경로는 입력 경로든 실제 경로든 거부, ADR-0019), SEC-T10-05 (사용자가 고른 git: 실제 파일과 입력·실제 경로의 상위 디렉터리가 root·사용자 소유가 아니거나 other 쓰기, `admin`·`wheel` 아닌 group 쓰기면 거부. `/tmp` 포함), SEC-T10-06 (저장된 선택이 규칙·최소 버전을 통과하지 못하면 git 탐색이 이유와 함께 실패하고 기본 git을 쓰지 않음, fail closed)
 - **상태**: 설계 완료
 
 ### T11. 자격 증명 노출

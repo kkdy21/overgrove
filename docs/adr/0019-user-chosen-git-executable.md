@@ -1,6 +1,6 @@
 # ADR-0019: 사용자가 고른 git 실행 파일을 믿는 조건
 
-> 상태: Accepted · 날짜: 2026-11-08 · 관련: #338, #106, #99, #317, ADR-0008, [design/security-review.md](../design/security-review.md) §1.2·T10, [design/screens.md](../design/screens.md) S-08
+> 상태: Accepted · 날짜: 2026-11-08 · 개정: 2026-11-08 #106 구현 중 group 쓰기 규칙 정정 · 관련: #338, #106, #99, #317, ADR-0008, [design/security-review.md](../design/security-review.md) §1.2·T10, [design/screens.md](../design/screens.md) S-08
 
 ## 맥락
 
@@ -28,7 +28,10 @@ ADR-0008 §3은 git 실행 파일을 Xcode·CLT의 git으로 정하고, v0.2.0�
 
 ### 2. 소유자와 권한
 
-- 실제 파일과 그 상위 디렉터리 전부는 **root 또는 현재 사용자 소유**여야 하고, **group·other 쓰기 권한이 없어야** 한다. ssh `StrictModes`와 같은 생각이다.
+- 실제 파일과 그 상위 디렉터리 전부는 **root 또는 현재 사용자 소유**여야 하고, **root·소유자가 아닌 계정이 쓸 수 없어야** 한다. ssh `StrictModes`와 같은 생각이다.
+  - **other 쓰기는 항상 거부한다.**
+  - **group 쓰기는 그룹이 `admin`(gid 80) 또는 `wheel`(gid 0)일 때만 허용한다.** `admin` 구성원은 sudo로 root가 될 수 있는 계정이라, 이 그룹의 쓰기 권한은 root 소유와 같은 신뢰 수준이다. macOS는 `/Applications`를 `root:admin` 0775로 두고, Homebrew의 `Cellar`는 `<사용자>:admin` 0775다. 이 예외가 없으면 Xcode와 Homebrew의 git이 모두 거부된다(#106 구현 중 실측).
+  - `staff`(gid 20) 같은 일반 그룹의 쓰기는 거부한다.
   - 입력 경로 쪽 상위 디렉터리에도 같은 규칙을 적용한다. 링크를 바꿔치기할 수 있는 디렉터리를 막기 위해서다.
   - sticky 비트가 있는 공용 쓰기 디렉터리(`/tmp` 등)도 거부한다.
 - **코드 서명은 요구하지 않는다.** Homebrew git은 ad-hoc 서명이라 서명 유무로 구분이 안 된다.
@@ -97,6 +100,6 @@ ADR-0008 §3은 git 실행 파일을 Xcode·CLT의 git으로 정하고, v0.2.0�
 
 ## 후속 작업
 
-- [ ] #106: 규칙 구현, S-08 Advanced 탭의 git 실행 파일 행(실제 경로, 버전, 서명 정보, partial clone 안내, `Use Default`), 검증 테스트(SEC-T10 항목 추가)
+- [x] #106: 규칙 구현(`GitExecutablePolicy`, `GitEnvironment.resolve`), S-08 Advanced 탭의 git 실행 파일 행, Setup Assistant의 `Use Default`, 검증 테스트 SEC-T10-04~06
 - [x] [security-review.md](../design/security-review.md) §1.2 신뢰 경계와 T10 대응·잔여 위험에 이 결정을 반영
-- [ ] ADR-0008 후속 작업 "v0.2.0: 사용자 지정 git 경로 설정"은 #106이 머지되면 완료로 표시
+- [x] ADR-0008 후속 작업 "v0.2.0: 사용자 지정 git 경로 설정"을 완료로 표시 (#106)
