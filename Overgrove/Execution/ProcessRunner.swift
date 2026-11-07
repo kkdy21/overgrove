@@ -417,6 +417,7 @@ private final class ChildProcess: @unchecked Sendable {
             return
         }
         finished = true
+        stderrObserver = nil  // drop the caller's closure and whatever it captured
         for source in sources { source.cancel() }
         sources.removeAll()
         timeoutTimer = nil

@@ -82,18 +82,26 @@ final class GitFetchTests: XCTestCase {
         FileManager.default.createFile(atPath: marker(host, "release").path, contents: nil)
     }
 
-    /// Polls for a file the fake server creates. A deterministic signal: the server writes it only once git has
-    /// connected.
-    private func waitFor(_ url: URL, timeout: Duration = .seconds(20)) async throws {
+    /// Polls until `condition` holds; throws after `timeout`. Used for signals the code under test produces
+    /// asynchronously (a marker the fake server writes once git connected, progress delivered on its own queue).
+    private func waitUntil(
+        _ what: String,
+        timeout: Duration = .seconds(20),
+        _ condition: () -> Bool
+    ) async throws {
         let deadline = ContinuousClock.now + timeout
-        while !FileManager.default.fileExists(atPath: url.path) {
+        while !condition() {
             guard ContinuousClock.now < deadline else {
                 throw NSError(
                     domain: "GitFetchTests", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "timed out waiting for \(url.lastPathComponent)"])
+                    userInfo: [NSLocalizedDescriptionKey: "timed out waiting for \(what)"])
             }
             try await Task.sleep(for: .milliseconds(20))
         }
+    }
+
+    private func waitFor(_ url: URL) async throws {
+        try await waitUntil(url.lastPathComponent) { FileManager.default.fileExists(atPath: url.path) }
     }
 
     private func remoteRefs(_ test: GitTestRepository) async throws -> [String] {
@@ -147,9 +155,12 @@ final class GitFetchTests: XCTestCase {
             progress: { log.append($0) })
 
         // Which phases appear depends on pack size and speed (a small pack may skip "Receiving objects"), so check
-        // what every fetch reports: the remote counts objects, and phases only move forward.
+        // what every fetch reports: the remote counts objects, and phases only move forward. Updates are delivered on
+        // their own queue and may land just after fetch returns.
+        try await waitUntil("counting to finish: \(output.stderr.text)") {
+            log.updates.contains { $0.phase == .counting && $0.isDone }
+        }
         let updates = log.updates
-        XCTAssertFalse(updates.isEmpty, output.stderr.text)
         let counted = updates.last { $0.phase == .counting }
         XCTAssertEqual(counted?.isDone, true, "\(updates)")
         XCTAssertEqual(counted?.completed, counted?.total)
@@ -203,6 +214,22 @@ final class GitFetchTests: XCTestCase {
         _ = try await client.fetch(.fetch(remote: origin), in: target, safety: safety)
         let refs = try await remoteRefs(local)
         XCTAssertTrue(refs.contains("refs/remotes/origin/main"), "\(refs)")
+    }
+
+    func testFetchesIntoABareRepository() async throws {
+        let remote = try await makeBareRemote("plain")
+        let bare = executables.directory.appendingPathComponent("mirror.git", isDirectory: true)
+        try await source.git(["init", "-q", "--bare", bare.path])
+        try await source.git(["-C", bare.path, "remote", "add", "origin", remote.path])
+        let target = Repository(rootURL: nil, commonGitDirectoryURL: bare, isBare: true)
+        let safety = RepoSafetyContext(inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
+
+        _ = try await GitClient(environment: local.environment).fetch(
+            .fetch(remote: origin), in: target, safety: safety)
+        let refs = try await source.git(["-C", bare.path, "for-each-ref", "--format=%(refname)", "refs/remotes/origin"])
+        // git 2.48+ also creates refs/remotes/origin/HEAD, so check for the branch only.
+        let names = String(decoding: refs.stdout, as: UTF8.self).split(separator: "\n")
+        XCTAssertTrue(names.contains("refs/remotes/origin/main"), "runs in the git dir: \(names)")
     }
 
     // MARK: - Concurrency
@@ -259,6 +286,38 @@ final class GitFetchTests: XCTestCase {
         try await waitFor(marker("beta", "started"))
         release("beta")
         _ = try await second.value
+    }
+
+    func testCancellingAQueuedFetchFreesItsPlace() async throws {
+        // The cancel can race the hand-off in `release`; either way no slot or repository lock may leak.
+        try await makeBareRemote("alpha")
+        try await makeBareRemote("beta")
+        try await local.git(["remote", "add", "origin", "ssh://alpha/x"])
+        try await local.git(["remote", "add", "upstream", "ssh://beta/x"])
+        let client = GitClient(environment: local.environment, maximumFetchConcurrency: 1)
+        let target = repository(local)
+        let safety = try sshSafety(gated: true)
+        let remote = origin
+        let upstream = RemoteName("upstream")!
+
+        let running = Task { try await client.fetch(.fetch(remote: remote), in: target, safety: safety) }
+        try await waitFor(marker("alpha", "started"))
+        let queued = Task { try await client.fetch(.fetch(remote: upstream), in: target, safety: safety) }
+        queued.cancel()
+        do {
+            _ = try await queued.value
+            XCTFail("a cancelled queued fetch must not run")
+        } catch let error as GitError {
+            XCTAssertEqual(error, .cancelled)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker("beta", "started").path), "it never connected")
+
+        let next = Task { try await client.fetch(.fetch(remote: upstream), in: target, safety: safety) }
+        release("alpha")
+        _ = try await running.value
+        try await waitFor(marker("beta", "started"))
+        release("beta")
+        _ = try await next.value
     }
 
     func testFetchSlotsAreCappedAcrossRepositories() async throws {

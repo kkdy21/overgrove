@@ -141,8 +141,9 @@ actor GitClient {
     /// order; others wait. A waiting fetch holds no slot. Cancelling the task stops git (SIGTERM, then SIGKILL) and
     /// throws `GitError.cancelled`; after `fetchLimits.timeout` (120 seconds) it throws `GitError.timeout`.
     ///
-    /// - Parameter progress: Called with each new progress update while git runs, on a background queue. Hop to the
-    ///   main actor before touching UI state.
+    /// - Parameter progress: Called with each new progress update, in order, on a serial background queue. Hop to
+    ///   the main actor before touching UI state. A few updates may still arrive after cancellation or after this
+    ///   method returns, and a server can forge them: use them for display only, never to judge success.
     func fetch(
         _ command: FetchCommand,
         in repository: Repository,
@@ -177,13 +178,20 @@ actor GitClient {
     }
 
     /// Turns raw stderr chunks into progress updates. Only phases and numbers leave the parser, never server text.
+    ///
+    /// The caller's closure runs on its own serial queue, not on the process queue: that queue also drains the pipes
+    /// and fires the timeout and cancellation, so a slow or blocked callback must not be able to stall them
+    /// (security review of #197).
     private static func progressObserver(
         _ report: @escaping @Sendable (FetchProgress) -> Void
     ) -> @Sendable (Data) -> Void {
         let parser = OSAllocatedUnfairLock(initialState: FetchProgressParser())
+        let delivery = DispatchQueue(label: "overgrove.fetch.progress")
         return { chunk in
-            for update in parser.withLock({ $0.consume(chunk) }) {
-                report(update)
+            let updates = parser.withLock { $0.consume(chunk) }
+            guard !updates.isEmpty else { return }
+            delivery.async {
+                for update in updates { report(update) }
             }
         }
     }
