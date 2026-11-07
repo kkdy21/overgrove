@@ -60,7 +60,7 @@ private struct FetchFailureSection: View {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(command, forType: .string)
                     } label: {
-                        Image(systemName: "doc.on.doc")
+                        Image(systemName: "doc.on.doc").hitTarget()
                     }
                     .buttonStyle(.borderless)
                     .help("Copy Command")

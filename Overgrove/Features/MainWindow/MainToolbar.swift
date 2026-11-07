@@ -21,6 +21,11 @@ struct MainToolbar: ToolbarContent {
     /// Fetch (`⌘⇧R`), or Stop while fetching (`⌘.`, same place; interaction.md §4.2). `nil` disables the button.
     var onFetch: (() -> Void)?
     var isFetching = false
+    /// Jump to HEAD (`⌘J`) from the worktree chip; `nil` disables it.
+    var onJumpToHead: (() -> Void)?
+    /// Open in Terminal / Reveal in Finder for the focused worktree (#73's row actions); `nil` disables them.
+    var onTerminal: (() -> Void)?
+    var onFinder: (() -> Void)?
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
@@ -41,7 +46,7 @@ struct MainToolbar: ToolbarContent {
                 .foregroundStyle(Tokens.Color.textTertiary)
                 .accessibilityHidden(true)
 
-            WorktreeChip(worktree: focusedWorktree)
+            WorktreeChip(worktree: focusedWorktree, onJumpToHead: onJumpToHead)
         }
 
         ToolbarItemGroup(placement: .principal) {
@@ -63,10 +68,21 @@ struct MainToolbar: ToolbarContent {
                     } else {
                         ToolbarActionButton(
                             title: action.title, symbol: action.symbol, help: action.help,
-                            action: action == .refresh ? refresh : nil)
+                            action: self.action(for: action))
                     }
                 }
             }
+        }
+    }
+}
+
+extension MainToolbar {
+    fileprivate func action(for action: ToolbarAction) -> (() -> Void)? {
+        switch action {
+        case .refresh: refresh
+        case .terminal: onTerminal
+        case .finder: onFinder
+        case .fetch, .compare: nil
         }
     }
 }
@@ -119,7 +135,6 @@ enum ToolbarAction: CaseIterable, Hashable {
         case .fetch: "Fetch all remotes (⌘⇧R)"
         case .refresh: "Refresh local data (⌘R)"
         case .compare: "Compare with base branch (⌘⇧B)"
-        // TODO(#73): Open in Terminal / Reveal in Finder for the focused worktree (interaction.md §5 rules).
         case .terminal: "Open the focused worktree in Terminal"
         case .finder: "Reveal the focused worktree in Finder"
         }
@@ -154,14 +169,18 @@ struct ToolbarActionButton: View {
     static let minimumWidth: CGFloat = 48
 }
 
-/// `[◆ feat/42-rate-limit ↑2 ⌘J]`: the focused worktree. Pressing it scrolls the graph to its HEAD.
-/// TODO(#68): scroll the graph to HEAD (⌘J); TODO(#65): lane-color tint from the worktree's branch.
+/// `[◆ feat/42-rate-limit ↑2 ⌘J]`: the focused worktree. Pressing it scrolls the graph to its HEAD (`⌘J`).
+/// TODO(#65): lane-color tint from the worktree's branch.
 struct WorktreeChip: View {
     let worktree: FocusedWorktree?
+    var onJumpToHead: (() -> Void)?
+
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         if let worktree {
             Button {
+                onJumpToHead?()
             } label: {
                 HStack(spacing: Tokens.Spacing.xs) {
                     Image(systemName: "tree.fill")
@@ -175,12 +194,16 @@ struct WorktreeChip: View {
                 .padding(.vertical, Tokens.Spacing.xxs)
                 // Neutral until #65 supplies the branch's lane color (14% fill, 45% border, art-direction §3.4).
                 .background(Tokens.Color.surfaceControl, in: Capsule())
-                .overlay(Capsule().strokeBorder(Tokens.Color.borderSeparator, lineWidth: 1))
+                .overlay(
+                    Capsule().strokeBorder(
+                        contrast == .increased ? Tokens.Color.borderStrong : Tokens.Color.borderSeparator,
+                        lineWidth: Tokens.controlOutlineWidth(contrast)))
             }
             .buttonStyle(.borderless)
-            .disabled(true)
+            .disabled(onJumpToHead == nil)
             .help("Jump to HEAD (⌘J)")
             .accessibilityLabel(worktree.accessibilityLabel)
+            .accessibilityHint("Jump to HEAD")
         }
     }
 }
