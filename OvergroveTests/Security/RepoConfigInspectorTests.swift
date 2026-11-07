@@ -430,6 +430,13 @@ final class RepoConfigInspectorFixtureTests: XCTestCase {
         let environment = try await GitEnvironment.discover()
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let worktree = fixture.repository
+        // Make the `*.md` files stat-dirty so every status re-reads them through `filter.fixtureproc.process`. A fresh
+        // fixture is only sometimes racily clean, which made the control below flaky (#273).
+        let later = Date().addingTimeInterval(5)
+        for name in ["README.md", "docs/manual.md"] {
+            try FileManager.default.setAttributes(
+                [.modificationDate: later], ofItemAtPath: worktree.appendingPathComponent(name).path)
+        }
 
         // Inspect the repository's own configuration.
         let config = try await client.run(.configList, in: worktree, safety: .preInspection)
@@ -443,10 +450,35 @@ final class RepoConfigInspectorFixtureTests: XCTestCase {
         _ = try await client.run(.status, in: worktree, safety: safety)
         XCTAssertEqual(fixture.canaries(), [], "no repository-configured program may run")
 
-        // Control: the common arguments alone do not stop the clean filter (T4), proving the test is meaningful.
+        // Control: without its own neutralization, the clean filter (T4) runs, proving the test is meaningful. Only
+        // the `fixture` driver's clean and process overrides are dropped (an empty `process=` would still take over
+        // from `clean`). The fixture's `filter.fixtureproc.process` exits before answering git's handshake,
+        // so leaving it on makes status die with "the remote end hung up unexpectedly" whenever an `*.md` file is
+        // re-read (#273: GIT_TRACE_PACKET shows `git> git-filter-client`, `version=2`, then EOF).
         let unneutralized = RepoSafetyContext(
-            inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
+            inspectedNeutralization: Self.dropping(
+                ["filter.fixture.clean=", "filter.fixture.process="], from: inspection.neutralization),
+            fetchAuthentication: [], trustedSSHCommand: nil)
         _ = try await client.run(.status, in: worktree, safety: unneutralized)
         XCTAssertTrue(fixture.canaries().contains("T4-filter-clean"), "canaries: \(fixture.canaries())")
+        XCTAssertFalse(fixture.canaries().contains("T4-filter-process"), "only the clean filter is left on")
+    }
+
+    /// `neutralization` without the `-c <key>` pairs.
+    private static func dropping(_ keys: Set<String>, from neutralization: [String]) -> [String] {
+        var result: [String] = []
+        var index = neutralization.startIndex
+        while index < neutralization.endIndex {
+            if neutralization[index] == "-c", index + 1 < neutralization.endIndex,
+                keys.contains(neutralization[index + 1])
+            {
+                index += 2
+                continue
+            }
+            result.append(neutralization[index])
+            index += 1
+        }
+        XCTAssertEqual(result.count, neutralization.count - 2 * keys.count, "\(keys) were in the neutralization")
+        return result
     }
 }
