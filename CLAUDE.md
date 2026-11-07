@@ -66,7 +66,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 
 - **git 호출은 반드시 `GitClient`를 거친다.**
   - 명령이 필요하면 `ReadOnlyGitCommand`에 case를 추가하고, 카탈로그와 스냅샷 테스트(SEC-T9-01)를 함께 고친다.
-  - `GitClient.run`에는 `RepoConfigInspector.inspect(...).safetyContext`로 만든 `RepoSafetyContext`를 넘긴다. 검사 전에는 `version`, `probeRepository`, `configList`만 실행된다.
+  - `GitClient.run`에는 `RepoConfigInspector.inspect(...).safetyContext`로 만든 `RepoSafetyContext`를 넘긴다. 검사 전에는 `version`, `probeGitDirectory`, `probeRepository`, `configList`만 실행된다.
 - **gh 호출**은 GHClient(#80) 이후 그것을 거친다. 그 전에는 gh를 직접 실행하지 않는다.
 - **파서**는 `Data`를 받아 실패 시 `ParseError`를 던진다. 화면에는 `GitError`(`message`, `detail`)만 쓴다.
 - **stderr와 원격 URL**은 `MaskedText` 또는 `CredentialMasker`를 거친 값만 화면·로그에 쓴다.
