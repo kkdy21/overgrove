@@ -330,8 +330,9 @@ final class AdversarialParserTests: XCTestCase {
             )
             assertFails("StashParser", try StashParser.parse(data("stash@{0}\u{0}\(value)\u{0}On m: s\u{0}1\u{0}")))
             assertFails(
-                "LogParser", try LogParser.parseGraph(data("\(value)\u{0}\u{0}t\u{0}t\u{0}1\u{0}s\u{0}")), value)
-            assertFails("LogParser", try LogParser.parseGraph(data("\(oid)\u{0}\(value)\u{0}t\u{0}t\u{0}1\u{0}s\u{0}")))
+                "LogParser", try LogParser.parseGraph(data("\(value)\u{0}\u{0}t\u{0}t\u{0}1\u{0}s\u{0}\u{0}")), value)
+            assertFails(
+                "LogParser", try LogParser.parseGraph(data("\(oid)\u{0}\(value)\u{0}t\u{0}t\u{0}1\u{0}s\u{0}\u{0}")))
             assertFails(
                 "NumstatParser",
                 try NumstatParser.parseCommitFiles(data(":100644 100644 \(value) \(oid) M\u{0}p\u{0}1\t0\tp\u{0}")),
@@ -348,11 +349,12 @@ final class AdversarialParserTests: XCTestCase {
     /// of shifting fields onto the next record, even when the token count still divides evenly.
     func test_PAR_LOG_08_extraNULNeverShiftsFields() {
         let record = { (subject: String) in
-            "\(self.oid)\u{0}\u{0}t\u{0}t@example.com\u{0}1793853652\u{0}\(subject)\u{0}"
+            "\(self.oid)\u{0}\u{0}t\u{0}t@example.com\u{0}1793853652\u{0}\(subject)\u{0}\u{0}"
         }
         let oneExtra = record("before\u{0}after") + record("next")
-        let sixExtra = record("a\u{0}b\u{0}c\u{0}d\u{0}e\u{0}f\u{0}g") + record("next")
-        for input in [oneExtra, sixExtra] {
+        // Seven extra NULs keep the token count a multiple of the seven graph fields.
+        let sevenExtra = record("a\u{0}b\u{0}c\u{0}d\u{0}e\u{0}f\u{0}g\u{0}h") + record("next")
+        for input in [oneExtra, sevenExtra] {
             for truncated in [false, true] {
                 assertFails("LogParser", try LogParser.parseGraph(data(input), truncated: truncated))
             }
