@@ -49,7 +49,12 @@
 | Dependabot alerts, security updates | 켬 |
 | Dependabot version updates | GitHub Actions만, 주 1회(`.github/dependabot.yml`) |
 | Private vulnerability reporting | 켬 |
-| CodeQL | advanced setup(`.github/workflows/codeql.yml`), 지금은 `actions` 언어만 |
+| CodeQL | advanced setup(`.github/workflows/codeql.yml`). `actions`는 모든 PR·main·주간에 돈다. `swift`는 main 푸시·주간·수동 실행만 돈다(#34). 필수 검사가 아니다(아래) |
+
+**CodeQL Swift를 필수 검사로 두지 않는 이유 (#34)**:
+- Swift 분석은 macOS 러너에서 추적 빌드(`xcodebuild clean build`, build-mode `manual`)를 해야 한다. macOS 분은 Ubuntu의 약 10배로 계산되고, `build-test`와 같은 크기의 빌드가 PR마다 하나 더 생긴다.
+- 그래서 PR에서는 돌리지 않는다. main에 들어간 뒤와 주 1회 분석하고, 결과는 Security › Code scanning에 쌓인다.
+- 경고는 메인테이너가 확인해 이슈로 옮긴다. 필요하면 브랜치에서 `gh workflow run codeql.yml --ref <branch>`로 미리 돌릴 수 있다.
 
 ### Actions
 
