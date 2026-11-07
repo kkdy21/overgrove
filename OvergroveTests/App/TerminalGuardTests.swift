@@ -34,6 +34,15 @@ final class TerminalGuardTests: XCTestCase {
                 }, isPartial: false))
     }
 
+    /// #107: an untrusted repository always asks first, even when its settings are clean.
+    func testUntrustedRepositoryAlwaysAsks() {
+        let reasons = TerminalGuard.reasons(inspection: inspection([]), hooks: [], isUntrusted: true)
+        XCTAssertEqual(reasons, ["This repository is marked untrusted."])
+        XCTAssertEqual(
+            TerminalGuard.reasons(inspection: inspection([]), hooks: ["hooks/pre-commit"], isUntrusted: true),
+            ["This repository is marked untrusted.", "hooks/pre-commit"])
+    }
+
     func testReasons() {
         XCTAssertEqual(TerminalGuard.reasons(inspection: inspection([]), hooks: []), [], "clean: open directly")
         XCTAssertEqual(
@@ -139,5 +148,45 @@ final class TerminalGuardTests: XCTestCase {
         XCTAssertEqual(state.terminalConfirmation?.reasons, ["The repository’s settings could not be checked."])
         state.confirmOpenTerminal()
         XCTAssertEqual(actions.terminals.map(\.lastPathComponent), ["clean", "unchecked"])
+    }
+
+    /// #107: once the open repository is marked untrusted (S-05 toggle), even a clean worktree asks first; marked
+    /// trusted again, it opens directly.
+    func testUntrustedRepositoryAsksBeforeOpeningEvenWhenClean() async throws {
+        let actions = RecordingRowActions()
+        let clean = base.appendingPathComponent("clean").path
+        let mock = WorktreeListing.entry(
+            clean, branch: "main", isMain: true, state: .loaded(WorktreeListing.state(branch: "main")))
+        let listing = WorktreeListing(
+            entries: [WorktreeListing.Entry(worktree: mock.worktree, state: mock.state, inspection: inspection([]))],
+            isPartial: false)
+        let registry = RepositoryRegistry(defaults: defaults)
+        registry.add(RegisteredRepository(rootPath: clean, commonDirectoryPath: clean + "/.git"))
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry,
+            loader: StubRepositoryLoader(result: .success(listing)), graphLoader: SampleGraphLoader(),
+            commitLoader: StubCommitLoader())
+        state.rowActions = actions
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: URL(fileURLWithPath: clean), commonGitDirectoryURL: URL(fileURLWithPath: clean + "/.git"),
+                    isBare: false), owner: nil))
+        state.reload()
+        await state.loadTask?.value
+
+        XCTAssertFalse(state.isRepositoryUntrusted)
+        state.setRepositoryUntrusted(true)
+        XCTAssertTrue(state.isRepositoryUntrusted)
+        XCTAssertEqual(registry.repositories.first?.isUntrusted, true, "stored in the registry")
+        state.openTerminal(at: GitPath(clean))
+        XCTAssertEqual(state.terminalConfirmation?.reasons, [TerminalGuard.untrustedReason])
+        XCTAssertEqual(actions.terminals.count, 0)
+        state.terminalConfirmation = nil
+
+        state.setRepositoryUntrusted(false)
+        state.openTerminal(at: GitPath(clean))
+        XCTAssertNil(state.terminalConfirmation)
+        XCTAssertEqual(actions.terminals.count, 1)
     }
 }

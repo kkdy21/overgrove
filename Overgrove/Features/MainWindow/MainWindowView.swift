@@ -129,7 +129,8 @@ struct MainWindowView: View {
                     onSelectLinkedWorktree: state.selectWorktree, onSelectLinkedCommit: state.selectLinkedCommit,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
                     comparisonList: comparisonList,
-                    onCompare: state.canCompare() ? { state.showComparison() } : nil)
+                    onCompare: state.canCompare() ? { state.showComparison() } : nil,
+                    onSetUntrusted: { state.setRepositoryUntrusted($0) })
             }
             statusBar
         }

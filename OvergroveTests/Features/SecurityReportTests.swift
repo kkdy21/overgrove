@@ -95,6 +95,24 @@ final class SecurityReportTests: XCTestCase {
         }
     }
 
+    /// #107: the report states the untrusted mode and counts remotes on this Mac, without names, paths, or URLs.
+    func testReportStatesUntrustedModeAndCountsLocalRemotes() {
+        let entries = [
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "origin", variable: "url", value: "/srv/git/api.git"),
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "github", variable: "url",
+                value: "https://github.com/acme/api.git"),
+        ]
+        let trusted = report(entries)
+        XCTAssertTrue(trusted.contains("Untrusted: no"), trusted)
+        XCTAssertTrue(trusted.contains("Remotes on this Mac: 1"), trusted)
+        XCTAssertFalse(trusted.contains("/srv/git"), trusted)
+        let untrusted = SecurityReport.text(
+            isMainWorktree: false, inspection: inspection(entries), appVersion: "0.1.0", home: home, isUntrusted: true)
+        XCTAssertTrue(untrusted.contains("Untrusted: yes"), untrusted)
+    }
+
     func testReportFollowsTheSecurityCard() {
         let text = report([entry("filter", "lfs", "process")])
         let lines = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)

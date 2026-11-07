@@ -66,7 +66,8 @@ extension AppState {
         guard let folder = existingFolder(path, action: "Open in Terminal") else { return }
         let hooks =
             repository.map { LiveWorktreeInspector.hookExecutables(in: $0.repository.commonGitDirectoryURL) } ?? []
-        let reasons = TerminalGuard.reasons(inspection: entry(at: path)?.inspection, hooks: hooks)
+        let reasons = TerminalGuard.reasons(
+            inspection: entry(at: path)?.inspection, hooks: hooks, isUntrusted: isRepositoryUntrusted)
         if reasons.isEmpty {
             rowActions.openTerminal(at: folder)
         } else {

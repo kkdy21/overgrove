@@ -30,7 +30,7 @@ struct WorktreeDetailModel: Equatable {
 
     init(
         entry: WorktreeListing.Entry, inspection: WorktreeInspection?, fetchStatus: FetchStatus, now: Date,
-        home: String = NSHomeDirectory(), showsFullRemoteURLs: Bool = false,
+        home: String = NSHomeDirectory(), showsFullRemoteURLs: Bool = false, isUntrusted: Bool = false,
         appVersion: String? = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     ) {
         let worktree = entry.worktree
@@ -78,7 +78,9 @@ struct WorktreeDetailModel: Equatable {
         slowStatus = entry.slowStatusHint(hookExecutables: inspection?.hookExecutables)
         switch entry.state {
         case .loaded, .notQueried(.inspectionBlocked):
-            security = inspection.map { WorktreeSecurityModel($0, showsFullRemoteURLs: showsFullRemoteURLs) }
+            security = inspection.map {
+                WorktreeSecurityModel($0, showsFullRemoteURLs: showsFullRemoteURLs, isUntrusted: isUntrusted)
+            }
             securityUnavailable = nil
         case .missing:
             security = nil
@@ -96,7 +98,8 @@ struct WorktreeDetailModel: Equatable {
         }
         if security != nil, let inspection {
             securityReport = SecurityReport.Source(
-                inspection: inspection, isMainWorktree: worktree.isMain, appVersion: appVersion, home: home)
+                inspection: inspection, isMainWorktree: worktree.isMain, appVersion: appVersion, home: home,
+                isUntrusted: isUntrusted)
         } else {
             securityReport = nil
         }
@@ -211,9 +214,40 @@ struct WorktreeSecurityModel: Equatable {
     let limitNote: String?
     let rows: [Row]
     let others: [OtherFinding]
+    /// The repository is marked untrusted (#107).
+    let isUntrusted: Bool
+    /// Remotes on this Mac (a local path or `file://`), by name only: masked and escaped, never their URLs (#107).
+    let localRemotes: [String]
+    /// Trusted with remotes on this Mac: what fetching them does and how to stop it (#107).
+    let localRemoteWarning: String?
+    /// Untrusted: what the mode does (#107).
+    let untrustedNote: String?
 
-    /// - Parameter showsFullRemoteURLs: Settings › Show full remote URLs (#86); host and path otherwise.
-    init(_ result: WorktreeInspection, showsFullRemoteURLs: Bool = false) {
+    /// Remote names listed in the warning; the rest are counted.
+    static let maximumListedRemotes = 5
+    static let untrustedText =
+        "Untrusted: Overgrove does not fetch remotes on this Mac, and Open in Terminal asks before opening."
+
+    /// - Parameters:
+    ///   - showsFullRemoteURLs: Settings › Show full remote URLs (#86); host and path otherwise.
+    ///   - isUntrusted: The repository is marked untrusted (#107).
+    init(_ result: WorktreeInspection, showsFullRemoteURLs: Bool = false, isUntrusted: Bool = false) {
+        self.isUntrusted = isUntrusted
+        let local = (result.inspection?.remotes ?? []).filter { RemoteLocation.isLocal($0.url) }
+            .map { PathValidator.displayable(CredentialMasker.mask($0.name.value)) }
+        localRemotes = local
+        untrustedNote = isUntrusted ? Self.untrustedText : nil
+        if !isUntrusted, !local.isEmpty {
+            var names = local.prefix(Self.maximumListedRemotes).joined(separator: ", ")
+            if local.count > Self.maximumListedRemotes {
+                names += " and \(local.count - Self.maximumListedRemotes) more"
+            }
+            localRemoteWarning =
+                "Fetching \(names) runs git in another repository on this Mac, with that repository’s own settings, "
+                + "which Overgrove does not check. Mark this repository untrusted to stop fetching remotes on this Mac."
+        } else {
+            localRemoteWarning = nil
+        }
         inspectedAt = result.inspectedAt
         gitVersion = result.gitVersion.map { "git \($0)" }
         let inspection = result.inspection

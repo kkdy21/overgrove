@@ -219,7 +219,19 @@ extension AppState {
         guard case .worktreeInfo(let path) = selection, let entry = entry(at: path) else { return nil }
         return WorktreeDetailModel(
             entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date(),
-            showsFullRemoteURLs: settings.showsFullRemoteURLs)
+            showsFullRemoteURLs: settings.showsFullRemoteURLs, isUntrusted: isRepositoryUntrusted)
+    }
+
+    /// The open repository is marked untrusted (#107, the registry's flag).
+    var isRepositoryUntrusted: Bool {
+        repository.flatMap { registry.repository(withID: $0.repository.id)?.isUntrusted } ?? false
+    }
+
+    /// The S-05 toggle: marks the open repository untrusted, or trusted again (#107). Takes effect from the next
+    /// fetch; a fetch already running finishes as it started.
+    func setRepositoryUntrusted(_ isUntrusted: Bool) {
+        guard let repository else { return }
+        registry.setUntrusted(isUntrusted, for: repository.repository.id)
     }
 
     /// Sidebar REMOTE group tooltips (#86): remote name → its URL as the Show full remote URLs setting says. Built
