@@ -165,6 +165,31 @@ struct TestExecutables {
         return try script("canary-\(name)-\(UUID().uuidString)", ": > '\(marker)'\n\(printed)exit 0")
     }
 
+    /// A stand-in for the git executable that forwards to `git`, appends each invocation's subcommand to
+    /// `<markers>/invocations.log`, and holds every `status` call until `<markers>/release` exists (at most 30 s). Each
+    /// held call first creates `<markers>/started-<pid>`, so a test can count how many run at once (#87).
+    func gatedGit(forwardingTo git: URL, markers: URL) throws -> URL {
+        try FileManager.default.createDirectory(at: markers, withIntermediateDirectories: true)
+        let body = """
+            for arg in "$@"; do
+              case "$arg" in
+                -c|--no-pager|--no-optional-locks|--literal-pathspecs) ;;
+                *=*) ;;
+                -*) ;;
+                *) subcommand="$arg"; break ;;
+              esac
+            done
+            echo "${subcommand:-}" >> '\(markers.path)/invocations.log'
+            if [ "${subcommand:-}" = "status" ]; then
+              : > '\(markers.path)'/started-$$
+              i=0
+              while [ ! -e '\(markers.path)/release' ] && [ $i -lt 600 ]; do sleep 0.05; i=$((i+1)); done
+            fi
+            exec '\(git.path)' "$@"
+            """
+        return try script("gated-git-\(UUID().uuidString)", body)
+    }
+
     private func script(_ name: String, _ body: String, in folder: URL? = nil) throws -> URL {
         let url = (folder ?? directory).appendingPathComponent(name)
         try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)

@@ -127,15 +127,16 @@ docs/README.md §2.8에는 없는 항목이다. 승인되면 공통 규약에 �
    - PB-1 한 번에 git을 15–25회 부르므로 120–200ms가 shim에 쓰인다. 예: ahead/behind 10회 순차 169ms → 89ms.
    - 권고: 앱 시작 시 실제 실행 파일 경로를 한 번 확정해 캐시한다. 예: `xcrun --find git` → `/Library/Developer/CommandLineTools/usr/bin/git`. 그 뒤로는 그 경로를 직접 실행한다.
    - 경로 검증 규칙(절대 경로, 소유자, 실행 권한)은 ADR-0008에서 정한다.
-2. **status 병렬도는 4로 둔다.** 워크트리 10개 status를 병렬도별로 쟀다 (p50).
+2. **status 병렬도는 min(코어, 8)로 둔다**(#87에서 4에서 바꿈). 워크트리 10개 status를 병렬도별로 쟀다 (p50).
    - 1: 269ms, 2: 203ms, 4: 163ms, 6: 151ms, 10: 128ms (p95 167ms)
    - 4를 넘으면 이득이 작고 디스크 경합만 커진다. 기본값은 4로 하고, 설정이나 코어 수에 따라 바꿀 수 있게 한다.
+   - → #87: `RepositoryService`로 PB-1 묶음 전체(worktree list + 워크트리별 확인·status 10개 + refs + stash)를 재면, 기본값 8에서 p95 약 135–150ms이고 한도 4보다 p50이 약 18% 빠르다(M1 8코어, [results/2026-11-07-pb1-parallel-worktree-queries.md](results/2026-11-07-pb1-parallel-worktree-queries.md)). 기본값을 min(코어, 8), 최소 2로 정했다. 코어가 적은 장비에서는 코어 수를 넘지 않는다. 한도 8 이상에서 보이던 1초 지연은 `ProcessRunner`의 종료 확인 수정으로 없앴다(같은 문서).
 3. **저장소를 열 때 `rev-list --count --all`을 부르지 않는다.** commit-graph가 없으면 394ms가 든다. 총 커밋 수가 필요하면 그래프 스트리밍이 끝난 뒤 센다.
 4. **ahead/behind는 status 헤더에서 얻는다.** `--branch`의 `# branch.ab`를 쓰면 `rev-list --left-right --count`를 따로 부르지 않아도 된다. 워크트리 10개 기준으로 89–169ms를 아낀다.
 5. **그래프는 스트리밍 한 번으로 받는다** (PB-3 제안 2).
 6. **파일 이력은 follow 없는 조회를 먼저 보여준다.** `--follow`는 비싸다 (392–675ms). 먼저 `log -- <path>` 결과(25–153ms)를 보여주고, 이름 변경 이전 이력은 follow 결과가 오면 덧붙이는 방식을 S-09 설계에서 검토한다.
 7. **로컬 브랜치 ahead/behind는 `for-each-ref` 한 번으로 얻는다** (2026-11-06 측정). `%(upstream:track,nobracket)`을 붙여도 1ms 안팎만 늘어난다. 브랜치마다 `rev-list`를 실행하면 13개에 95ms가 들고 그동안 동시 실행 슬롯을 차지한다(#54).
-8. **fetch는 조회와 다른 동시 실행 한도를 쓴다.** fetch는 최대 120초 동안 슬롯을 잡을 수 있다. 조회와 같은 한도(4)를 쓰면 원격이 여러 개이거나 자동 fetch가 겹칠 때 status 새로고침이 줄을 선다. → 적용됨(#76): 조회 4개와 별도로 fetch는 앱 전체 2개(`GitClient.defaultFetchConcurrency`)이고, 저장소당 하나씩 실행한다. fetch 진행 중에도 조회가 바로 실행되는지는 `GitFetchTests.testQueriesDoNotWaitForAFetch`가 확인한다.
+8. **fetch는 조회와 다른 동시 실행 한도를 쓴다.** fetch는 최대 120초 동안 슬롯을 잡을 수 있다. 조회와 같은 한도를 쓰면 원격이 여러 개이거나 자동 fetch가 겹칠 때 status 새로고침이 줄을 선다. → 적용됨(#76): 조회 한도(#87부터 min(코어, 8))와 별도로 fetch는 앱 전체 2개(`GitClient.defaultFetchConcurrency`)이고, 저장소당 하나씩 실행한다. fetch 진행 중에도 조회가 바로 실행되는지는 `GitFetchTests.testQueriesDoNotWaitForAFetch`가 확인한다.
 9. **자동 새로고침을 넣는다면 재실행 간격에 상한을 둔다.** 창이 화면에 보일 때만 감시하고, 워크트리별로 디바운스하고, 워크트리별로 한 번에 하나만 실행하며, 마지막 소요 시간에 비례해 간격을 늘린다(예: max(2초, 소요 시간 × 10)). index가 오래된 10만 개 저장소(5.2초)에서도 한 코어의 약 10%로 묶인다(#163).
 
 ---
