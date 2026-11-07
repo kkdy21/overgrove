@@ -32,8 +32,12 @@ struct RepositoryOverview: Sendable, Equatable {
 
     /// In `worktree list` order: the main worktree first.
     let entries: [Entry]
+    /// `worktree list` output was cut at the size limit; the last record was dropped (parsing-spec.md §1.5).
+    let isWorktreeListPartial: Bool
     let refs: RefParser.Listing
     let stashes: StashParser.Listing
+    /// The repository's own configuration inspection (main worktree): security report, remotes, fetch blocking.
+    let inspection: RepoConfigInspection
 
     /// What the toolbar and status bar show (`AppState.snapshot`). The focused worktree is the one at `path`, or the
     /// main worktree when `path` is `nil` or not listed.
