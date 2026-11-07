@@ -133,6 +133,8 @@ final class AppState {
     /// The stash whose files `stashDetail` holds.
     private var loadedStashOID: ObjectID?
     private let comparisonLoader: any ComparisonLoading
+    /// The commit graph of the open repository (S-01 center, #68).
+    let graph: GraphStore
     /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
     private(set) var comparison: ComparisonSession?
     /// The comparison (and its patch) in flight; tests await them.
@@ -208,6 +210,7 @@ final class AppState {
     ///   - diffLoader: Loads a picked file's patch for S-10.
     ///   - stashLoader: Reads a stash's files and patches for S-04.
     ///   - comparisonLoader: Compares a worktree with its base branch for S-11.
+    ///   - graphLoader: Reads commit graph pages for the center panel (#68).
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
     init(
@@ -217,8 +220,10 @@ final class AppState {
         diffLoader: any DiffLoading = LiveDiffLoader.live,
         stashLoader: any StashLoading = LiveStashLoader.live,
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
-        lineCountLoader: (any LineCountLoading)? = nil
+        lineCountLoader: (any LineCountLoading)? = nil,
+        graphLoader: any GraphLoading = LiveGraphLoader.live
     ) {
+        self.graph = GraphStore(loader: graphLoader)
         self.layoutStore = layoutStore
         self.registry = registry
         self.registrar = registrar
@@ -270,6 +275,7 @@ final class AppState {
         inspectionGeneration += 1
         fetchStatus = .never
         searchText = ""
+        graph.clear()
     }
 
     // MARK: Worktrees (#65)
@@ -360,6 +366,16 @@ final class AppState {
         }
     }
 
+    /// First load reads the graph; later loads keep it unless the history moved (GraphStore.refresh).
+    private func updateGraph(_ listing: WorktreeListing) {
+        let focus = listing.entries.first { $0.worktree.path == focusedWorktreePath }
+        if graph.status == .idle, let repository {
+            graph.load(repository.repository, focus: focus)
+        } else {
+            graph.refresh(focus: focus)
+        }
+    }
+
     private func apply(_ listing: WorktreeListing) {
         worktreeList = .loaded(listing)
         branchListModel = Self.branchModel(listing)
@@ -377,6 +393,7 @@ final class AppState {
         inspectionGeneration += 1
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
+        updateGraph(listing)
         // Keep the picked file only while it is still listed in the same group.
         // Same rule as `selectFile`: the row must still exist and still be selectable.
         if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true {
@@ -416,6 +433,7 @@ final class AppState {
         }
         focusedWorktreePath = path
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: path)
+        graph.setFocus(listing.entries.first { $0.worktree.path == path })
         // The segment the user chose stays when they move to another worktree; `Changes` is the default.
         if case .worktreeInfo = selection {
             selection = .worktreeInfo(path)

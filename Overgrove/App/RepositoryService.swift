@@ -51,6 +51,8 @@ actor RepositoryService {
     static let cachedComparisons = 32
     /// Commit details kept across all repositories (#69). Commits never change, so only the bound evicts them.
     static let cachedCommitDetails = 200
+    /// Graph pages kept across all repositories (#68): 40 pages of 500 commits.
+    static let cachedGraphPages = 40
     /// Worktrees queried per load (#226, T15). Each one costs three git processes (probe, config, status), and the list
     /// comes from files the repository controls, so a forged list could otherwise start thousands. PB-1 targets 10.
     static let defaultMaximumQueriedWorktrees = 64
@@ -70,6 +72,8 @@ actor RepositoryService {
     var comparisons = BoundedCache<ComparisonKey, WorktreeComparison>(capacity: RepositoryService.cachedComparisons)
     /// Commit details (#69), by repository and object ID (`RepositoryService+Commit.swift`).
     var commitDetails = BoundedCache<CommitKey, CommitDetail>(capacity: RepositoryService.cachedCommitDetails)
+    /// Graph pages (#68), keyed by the ref set they were read with (`RepositoryService+Graph.swift`).
+    var graphPages = BoundedCache<GraphPageKey, LogParser.GraphPage>(capacity: RepositoryService.cachedGraphPages)
 
     /// - Parameters:
     ///   - sleep: Waits out the debounce; tests pass a gate instead of real time.
@@ -105,6 +109,7 @@ actor RepositoryService {
         lineCountCache[id] = nil
         comparisons.removeAll { $0.repositoryID == id }
         commitDetails.removeAll { $0.repositoryID == id }
+        graphPages.removeAll { $0.repositoryID == id }
         await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
     }
 
@@ -142,6 +147,8 @@ actor RepositoryService {
         }
         if trigger == .user {
             await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
+            // ⌘R also re-reads the graph: refs outside the listed namespaces (notes, pull refs) can move unseen.
+            graphPages.removeAll { $0.repositoryID == id }
         }
         // A newer request arrived while this one waited.
         guard latestGeneration[id] == generation, !Task.isCancelled else { return nil }

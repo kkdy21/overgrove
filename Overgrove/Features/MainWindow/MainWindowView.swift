@@ -47,7 +47,7 @@ struct MainWindowView: View {
                     onCompareWorktree: { state.showComparison(of: $0) })
             } center: {
                 GraphPanel(
-                    hasRepository: state.repository != nil, diff: state.diffViewer,
+                    hasRepository: state.repository != nil, graphStore: state.graph, diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
             } detail: {
                 DetailPanel(
