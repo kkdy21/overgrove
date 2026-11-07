@@ -61,6 +61,14 @@ final class ContrastOutlineTests: XCTestCase {
                 IssueNumberBadge(number: 42)
                 AIBadge()
             }
+            HStack(spacing: Tokens.Spacing.xs) {
+                GraphFilterChip(isSelected: true, accessibilityLabel: "All authors", action: {}) { Text("All") }
+                GraphFilterChip(isSelected: false, accessibilityLabel: "Alex Kim, 8 commits", action: {}) {
+                    GraphChipAvatar(initials: "AK", avatarIndex: 2)
+                    Text("Alex Kim")
+                    Text("8")
+                }
+            }
             HStack(spacing: Tokens.Spacing.sm) {
                 ForEach(Array(Self.pills.enumerated()), id: \.offset) { index, pill in
                     GraphRefPillView(pill: pill, laneColor: Tokens.Color.graphLanes[index + 1], laneIndex: index + 1)
@@ -72,7 +80,7 @@ final class ContrastOutlineTests: XCTestCase {
         for (mode, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             for contrast in [ColorSchemeContrast.standard, .increased] {
                 let png = try render(
-                    gallery, size: CGSize(width: 360, height: 170), contrast: contrast, appearance: appearance,
+                    gallery, size: CGSize(width: 360, height: 210), contrast: contrast, appearance: appearance,
                     asPNG: true)
                 if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"] {
                     let name = "contrast-controls-\(mode)-\(contrast == .increased ? "increased" : "standard").png"
@@ -80,9 +88,9 @@ final class ContrastOutlineTests: XCTestCase {
                 }
             }
             XCTAssertNotEqual(
-                try render(gallery, size: CGSize(width: 360, height: 170), contrast: .standard, appearance: appearance),
+                try render(gallery, size: CGSize(width: 360, height: 210), contrast: .standard, appearance: appearance),
                 try render(
-                    gallery, size: CGSize(width: 360, height: 170), contrast: .increased, appearance: appearance),
+                    gallery, size: CGSize(width: 360, height: 210), contrast: .increased, appearance: appearance),
                 "\(mode): Increase Contrast changes the outlines")
         }
     }
