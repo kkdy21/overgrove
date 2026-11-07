@@ -58,6 +58,8 @@ jobs:
           echo "ok  shell syntax"
           scripts/lint/check-forbidden-apis.sh
           echo "ok  forbidden-API check"
+          scripts/lint/check-no-dependencies.sh
+          scripts/lint/check-no-dependencies.test.sh
           for f in .github/labels.json .claude/settings.json .swift-format design/tokens/tokens.json; do
             jq empty "$f"
           done
