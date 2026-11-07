@@ -56,14 +56,16 @@ extension AppState {
     }
 
     func revealWorktree(_ path: GitPath) {
-        guard let folder = existingFolder(path, action: "Reveal in Finder") else { return }
+        // Never from a launch snapshot's rows (ADR-0018 §5): its paths are not this load's.
+        guard !worktreeList.isSnapshot, let folder = existingFolder(path, action: "Reveal in Finder") else { return }
         rowActions.reveal(folder)
     }
 
     /// Opens directly only when the worktree's settings were checked and hold nothing that runs code; otherwise
     /// asks first (`TerminalGuard`).
     func openTerminal(at path: GitPath) {
-        guard let folder = existingFolder(path, action: "Open in Terminal") else { return }
+        // Never from a launch snapshot's rows (ADR-0018 §5): its paths are not this load's.
+        guard !worktreeList.isSnapshot, let folder = existingFolder(path, action: "Open in Terminal") else { return }
         let hooks =
             repository.map { LiveWorktreeInspector.hookExecutables(in: $0.repository.commonGitDirectoryURL) } ?? []
         let reasons = TerminalGuard.reasons(inspection: entry(at: path)?.inspection, hooks: hooks)
