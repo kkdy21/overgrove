@@ -224,10 +224,11 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **컴파일 타임 allowlist**: `ReadOnlyGitCommand`와 `FetchCommand` case만 존재한다. 쓰기 명령은 타입이 없다 ([카탈로그 §7](../architecture/git-command-catalog.md)).
   - **프로세스 생성 위치 제한**: `Overgrove/Execution/` 밖에서 `Process`를 만들면 안 된다. `scripts/lint/check-forbidden-apis.sh`가 pre-commit hook, Claude Code hook, CI에서 검사한다.
   - **index 쓰기 방지**: `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`으로 조회 중 `index.lock`을 잡지 않는다. `git diff`는 이 설정을 무시하고 stat만 바뀐 경로의 index를 새로 고쳐 쓰므로, 공통 인자 `-c diff.autoRefreshIndex=false`로 막는다 (확인, #208). 이 인자는 diff 계열이 아닌 명령에는 영향이 없어 공통 인자에 둔다.
-  - **허용된 쓰기**: fetch가 만드는 쓰기(원격 추적 ref, `FETCH_HEAD`, 객체)와 `--prune`의 원격 추적 ref 삭제뿐이다.
-- **잔여 위험**: 낮음. 단, 다음은 #94의 리뷰에서 확인했고 별도 이슈로 고친다. (같은 리뷰에서 찾은 `git diff`의 index 쓰기는 #208에서 고쳤다.)
-  - **저장소 로컬 설정이 fetch의 쓰기 범위를 넓힌다** (#209). 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`(HEAD가 detached일 때)는 로컬 브랜치를 지우거나 되돌리고, 로컬 `fetch.pruneTags=true`는 로컬 태그를 지운다(Apple Git 2.50.1 실측). 아래 "허용된 쓰기"는 이 이슈가 고쳐질 때까지 기본 설정에서만 성립한다.
-- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. stat만 바뀐 파일의 worktree diff도 불변이고, `diff.autoRefreshIndex=false`를 빼면 다시 쓰는 대조군 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인)
+  - **허용된 쓰기**: fetch가 만드는 쓰기(`refs/remotes/<원격>/*`, `FETCH_HEAD`, 객체)와 `--prune`의 원격 추적 ref 삭제뿐이다.
+  - **fetch 범위 고정(#209)**: 저장소 설정이 이 범위를 넓히지 못하게 fetch 인자에 고정한다. refspec `+refs/heads/*:refs/remotes/<원격>/*`와 `--refmap=`, `--no-tags`, `-c fetch.pruneTags=false -c remote.<원격>.pruneTags=false -c fetch.bundleURI=`를 쓴다([카탈로그 §4](../architecture/git-command-catalog.md)). 고정하기 전에는 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`(detached HEAD)가 로컬 브랜치를 지우고 `main`을 되돌렸다. 로컬 `fetch.pruneTags`는 로컬 태그를 지웠다(#206 보안 검토, E40).
+- **잔여 위험**: 낮음. #94의 테스트와 리뷰에서 찾은 두 결함, `git diff`의 index 쓰기(#208)와 저장소 설정에 의한 fetch 범위 확대(#209)는 고쳤다.
+  - `--no-tags` 때문에 원격에만 있는 새 태그는 v0.1에서 가져오지 않는다(의도된 동작, #209).
+- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. stat만 바뀐 파일의 worktree diff도 불변이고, `diff.autoRefreshIndex=false`를 빼면 다시 쓰는 대조군 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인), SEC-T13-04 (로컬 `remote.<n>.fetch`·`fetch.pruneTags`·`remote.<n>.pruneTags`·`tagOpt`·`fetch.bundleURI`를 심은 저장소에서 앱 fetch 뒤 `refs/remotes/` 밖의 모든 ref와 HEAD 불변, 대조군(고정 전 인자)에서는 브랜치·태그 삭제, `main` 이동, `refs/bundles/*` 생성)
 - **상태**: 설계 완료 (정적 검사 스크립트는 저장소 셋업에서 적용)
 
 ### T14. 파일 시스템 범위 이탈, 심볼릭 링크 탈출
@@ -375,6 +376,10 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^protocol\.(.+\.)?allow$` | 전송 | 보고 (`GIT_ALLOW_PROTOCOL`이 모든 값보다 우선, `ext`·`fd`는 공통 인자로도 never) | T5 |
 | `^remote\..+\.url$` (값이 `<helper>::`로 시작: `^([A-Za-z0-9][A-Za-z0-9+.-]*)?::`, `ext::`·`fd::` 포함. 또는 `<scheme>://`인데 scheme이 `http`·`https`·`ftp`·`ftps`·`git`·`ssh`·`git+ssh`·`ssh+git`·`file`이 아님, 대소문자 무시) | 전송 | 보고 (`GIT_ALLOW_PROTOCOL`로 차단됨, #161, `TransportName`) | T5 |
 | `^remote\..+\.vcs$` | 전송 | 보고 (원격 helper 지정, `GIT_ALLOW_PROTOCOL`로 차단됨, #161) | T5 |
+| `^remote\.<n>\.fetch$` (대상이 `refs/remotes/<n>/` 밖. 대상 없는 refspec과 `^` negative refspec 제외) | 쓰기 | **무력화**: fetch는 명령줄 refspec + `--refmap=`만 쓴다 (#209) | T13 |
+| `^fetch\.prunetags$`, `^remote\..+\.prunetags$`, `^remote\..+\.tagopt$` | 쓰기 | **무력화**: `-c …pruneTags=false`, `--no-tags` (#209) | T13 |
+| `^fetch\.bundleuri$` | 쓰기·전송 | **무력화**: `-c fetch.bundleURI=` (임의 URI에서 bundle을 받아 `refs/bundles/*`를 쓰는 것을 막음, #210 보안 검토) | T13 |
+| `^remote\..+\.mirror$` | 쓰기 | 보고 (fetch는 명령줄 refspec만 쓰므로 영향 없음, #209) | T13 |
 | `^url\..+\.(insteadof\|pushinsteadof)$` | 전송 | 보고 | T5 |
 | `^http\.(.+\.)?(sslcainfo\|sslcapath\|sslcert\|sslkey)$` | 전송 보안 | 경고 + **fetch 차단** (조회는 허용) | T11 |
 | `http`·`credential`·`filter` 키의 subsection에 `=` | 구성 | **조회 차단**: git이 `-c`를 첫 `=`에서 잘라 다른 키를 주입할 수 있다 (#150 리뷰) | T9 |
@@ -441,6 +446,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E37 | `GIT_ALLOW_PROTOCOL` 적용 후 로컬 경로·https·`git+ssh`·scp 형식 원격 | 정상 동작. 목록에서 `file`을 빼면 로컬 경로는 `transport 'file' not allowed`. `https::<url>`은 내장 https로 처리됨 |
 | E38 | `1abc::x`, `::x`(빈 이름), `evilhelper://x`, `EvilHelper://x` | 모두 `git-remote-<이름>`이 실행됨(대소문자를 구분하지 않는 볼륨에서는 `EvilHelper`도 `git-remote-evilhelper`를 찾음). `GIT_ALLOW_PROTOCOL`이면 모두 차단. `ftp://`·`ftps://`는 git 내장(curl)이지만 목록에 없어 `transport 'ftp' not allowed` (#191 보안 검토) |
 | E39 | 로컬 `trailer.<key>.{cmd,command}`, `trailer.where/ifexists/ifmissing`, `include.path`로 넣은 `trailer.*.command` + 그래프 포맷 `%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)` | 실행 안 됨(pretty 형식은 트레일러를 읽기만 함). 같은 설정에서 `interpret-trailers --trailer`는 실행됨. `trailer.<x>.key`·`trailer.separators`·`core.commentChar`는 어떤 줄이 co-author인지만 바꾼다 (#160 보안 검토) |
+| E40 | 로컬 `remote.origin.fetch=+refs/heads/*:refs/heads/*` + detached HEAD, 로컬 `fetch.pruneTags=true`·`remote.origin.pruneTags=true`·`tagOpt=--tags`로 앱 fetch 인자 실행 (Apple Git 2.54.0, #209) | 고정 전: 로컬 전용 브랜치 2개 삭제, `main` 강제 이동, 로컬 태그 삭제. 명령줄 refspec + `--refmap=` + `pruneTags=false`: 로컬 브랜치·태그 불변. `--no-tags`가 없으면 원격 태그 `r1`이 `refs/tags/`에 새로 생김(기존 태그는 그대로). 로컬 `fetch.bundleURI`(평범한 bundle 파일)는 `refs/bundles/heads/*`를 쓰고, `-c fetch.bundleURI=`면 쓰지 않음 |
 
 릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41.
 
