@@ -269,7 +269,7 @@ struct WorktreeSecurityModel: Equatable {
         let filterKeys = keys { $0.section == "filter" }
         var rows = [
             row(
-                "Hooks disabled", unknown: notInspected || !hooksGuarded || inspection?.hasUnneutralizedHooks == true,
+                "Hooks disabled", unknown: notInspected || !hooksGuarded || !Self.configHooksNeutralized(inspection),
                 details: (
                     hookKeys.shown + result.hookExecutables,
                     hookKeys.report + SecurityReport.hookLines(result.hookExecutables)
@@ -310,6 +310,17 @@ struct WorktreeSecurityModel: Equatable {
             OtherFinding(
                 key: PathValidator.displayable(Self.keyName($0.entry)), handling: Self.handlingText($0.handling),
                 threat: $0.threat, reportKey: SecurityReport.keyName($0.entry))
+        }
+    }
+
+    /// Every config-defined hook the repository names has its `hook.<name>.enabled=false` among the arguments that
+    /// run, compared as bytes (#354), so a regression in the neutralization shows as ✕.
+    static func configHooksNeutralized(_ inspection: RepoConfigInspection?) -> Bool {
+        guard let inspection, !inspection.hasUnneutralizedHooks else { return inspection == nil }
+        let arguments = Set(inspection.neutralization.map { Array($0.utf8) })
+        return inspection.report.findings.allSatisfy { finding in
+            guard finding.entry.section == "hook", let name = finding.entry.subsection else { return true }
+            return arguments.contains(Array("hook.\(name).enabled=false".utf8))
         }
     }
 

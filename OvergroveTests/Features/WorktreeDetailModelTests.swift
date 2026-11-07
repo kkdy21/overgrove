@@ -103,12 +103,25 @@ final class WorktreeDetailModelTests: XCTestCase {
         XCTAssertEqual(row.details, ["hooks/pre-commit", "hooks/post-checkout"])
     }
 
-    /// #354: a config-defined hook that cannot be neutralized shows ✕ on the hooks row and disables fetch.
+    /// #354: a config-defined hook that cannot be neutralized shows ✕ on the hooks row and stops queries.
     func testUnneutralizableConfigHookShowsUnknown() throws {
         let model = security([entry(.local, "hook.a=b.command")])
         XCTAssertEqual(try row("Hooks disabled", in: model).mark, .unknown)
-        XCTAssertNotNil(model.fetchBlockingReason)
-        XCTAssertNil(model.blockingReason, "queries still run")
+        XCTAssertNotNil(model.blockingReason)
+    }
+
+    /// #354: the hooks row checks the arguments that really run: a repository hook without its
+    /// `hook.<name>.enabled=false` (here dropped on purpose) shows ✕.
+    func testConfigHookWithoutItsArgumentShowsUnknown() throws {
+        let inspected = RepoConfigInspector.inspect(
+            ConfigParser.Listing(entries: [entry(.local, "hook.lint.command")], isPartial: false))
+        XCTAssertTrue(WorktreeSecurityModel.configHooksNeutralized(inspected))
+        let regressed = RepoConfigInspection(
+            report: inspected.report, neutralization: [], fetchAuthentication: inspected.fetchAuthentication,
+            trustedSSHCommand: inspected.trustedSSHCommand, remotes: inspected.remotes,
+            fetchBlockingReason: inspected.fetchBlockingReason, isCacheable: inspected.isCacheable,
+            isPartialClone: inspected.isPartialClone)
+        XCTAssertFalse(WorktreeSecurityModel.configHooksNeutralized(regressed))
     }
 
     /// The ✓ conditions come from the real arguments: dropping one shows ✕.

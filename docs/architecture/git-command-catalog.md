@@ -71,8 +71,8 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 -c hook.<이름>.enabled=false
 ```
 
-- `core.hooksPath=/dev/null`은 hooks 디렉터리만 막으므로 따로 끈다. 2.54 미만 git은 이 키를 무시한다.
-- 이름에 `=`(git이 `-c`를 첫 `=`에서 자른다), 제어 문자, 손실 디코딩이 있거나 256바이트를 넘으면, 또는 이름이 256개를 넘으면 무력화 인자를 만들 수 없다. 이때는 fetch를 막는다(`fetchBlockingReason`). 앱의 조회는 hook을 일으키지 않는다(security-review.md SEC-T2-04).
+- 이름은 바이트로 구분한다. 2.54 미만 git은 이 키를 무시한다.
+- 이름에 `=`(git이 `-c`를 첫 `=`에서 자른다), 제어 문자, 손실 디코딩이 있거나 256바이트를 넘으면, 또는 이름이 256개를 넘으면 무력화 인자를 만들 수 없다. 이때는 `configInspectionFailed`로 조회를 막는다(fail closed).
 
 ### 2.3 fetch 전용 인증 인자
 

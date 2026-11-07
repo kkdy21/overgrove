@@ -34,6 +34,8 @@ final class ConfigHookSecurityTests: XCTestCase {
     func testRepositoryHooksAreNeutralizedByName() {
         let inspection = inspect([
             entry(.local, "lint", "command"), entry(.local, "lint", "event", "reference-transaction"),
+            // Canonically equivalent but different bytes: git runs both, so both are turned off.
+            entry(.local, "\u{E9}", "command"), entry(.local, "e\u{301}", "command"),
             entry(.worktree, "a.b c", "event", "post-checkout"),
             entry(.local, "UPPER", "enabled", "true"),
             // A repository can attach a trusted global hook to another event: the name is turned off too.
@@ -41,16 +43,17 @@ final class ConfigHookSecurityTests: XCTestCase {
             // The user's own hooks are trusted.
             entry(.global, "mine", "command"), entry(.system, "theirs", "command"),
         ])
+        // Compared as bytes: `[String]` equality would treat the two spellings of é as one.
         XCTAssertEqual(
-            hookArguments(inspection),
+            hookArguments(inspection).map { Array($0.utf8) },
             [
-                "hook.lint.enabled=false", "hook.a.b c.enabled=false", "hook.UPPER.enabled=false",
-                "hook.shared.enabled=false",
-            ])
+                "hook.lint.enabled=false", "hook.\u{E9}.enabled=false", "hook.e\u{301}.enabled=false",
+                "hook.a.b c.enabled=false", "hook.UPPER.enabled=false", "hook.shared.enabled=false",
+            ].map { Array($0.utf8) })
         XCTAssertNil(inspection.fetchBlockingReason)
         XCTAssertFalse(inspection.hasUnneutralizedHooks)
         let findings = inspection.report.findings
-        XCTAssertEqual(findings.count, 5)
+        XCTAssertEqual(findings.count, 7)
         XCTAssertTrue(findings.allSatisfy { $0.threat == "T2" && $0.handling == .neutralized })
         XCTAssertNotNil(inspection.safetyContext)
     }
@@ -63,16 +66,16 @@ final class ConfigHookSecurityTests: XCTestCase {
     }
 
     /// SEC-T2-05: a hook name that cannot be spliced into `-c hook.<name>.enabled=false`, or more hooks than
-    /// `maximumNeutralizedHooks`, disables fetch (fail closed). Queries go on: they run no hook (SEC-T2-04).
-    func testSECT2_05_UnneutralizableHooksDisableFetch() {
+    /// `maximumNeutralizedHooks`, stops queries and fetch (fail closed), as for filter drivers.
+    func testSECT2_05_UnneutralizableHooksStopEverything() {
         for name in [
             "a=b", "tab\there", "bell\u{7}", "del\u{7F}", "c1\u{85}", "lossy\u{FFFD}", "",
             String(repeating: "n", count: 257),
         ] {
             let inspection = inspect([entry(.local, name, "command")])
             XCTAssertTrue(inspection.hasUnneutralizedHooks, name.debugDescription)
-            XCTAssertNotNil(inspection.fetchBlockingReason, name.debugDescription)
-            XCTAssertFalse(inspection.report.isBlocked, "queries still run")
+            XCTAssertTrue(inspection.report.isBlocked, name.debugDescription)
+            XCTAssertNil(inspection.safetyContext, "nothing runs")
             XCTAssertNil(hookArguments(inspection).first { $0.contains(name) && !name.isEmpty })
         }
 
@@ -80,11 +83,11 @@ final class ConfigHookSecurityTests: XCTestCase {
         let inspection = inspect(many)
         XCTAssertEqual(hookArguments(inspection).count, RepoConfigInspector.maximumNeutralizedHooks)
         XCTAssertTrue(inspection.hasUnneutralizedHooks)
-        XCTAssertNotNil(inspection.safetyContext?.fetchBlockingReason)
+        XCTAssertNil(inspection.safetyContext)
 
         let atLimit = inspect(Array(many.dropLast()))
         XCTAssertFalse(atLimit.hasUnneutralizedHooks)
-        XCTAssertNil(atLimit.fetchBlockingReason)
+        XCTAssertNotNil(atLimit.safetyContext)
     }
 
     func testNeutralizableHookNames() {
@@ -134,8 +137,8 @@ final class ConfigHookSecurityTests: XCTestCase {
     }
 
     /// SEC-T2-04 (measurement): no query the app runs triggers a config-defined hook, even without the hook
-    /// neutralization. So a hook Overgrove cannot neutralize disables fetch only (SEC-T2-05). The fixture's hook
-    /// listens on every event git documents.
+    /// neutralization: for queries the neutralization is defense in depth. The fixture's hook listens on every event
+    /// git documents.
     func testSECT2_04_QueriesRunNoConfigDefinedHookEvenUnneutralized() async throws {
         let harness = try await harness()
         let unneutralized = harness.withNeutralization(Self.droppingHookArguments)
@@ -146,5 +149,62 @@ final class ConfigHookSecurityTests: XCTestCase {
             try await unneutralized.runHardened(query)
             snapshot = harness.fixture.assertNoNewCanaries(since: snapshot, after: query.label)
         }
+    }
+
+    /// SEC-T2-06: hook names of many shapes, written into the configuration file as bytes (as a hostile repository
+    /// would, past `git config`'s own Unicode handling), are all turned off: punctuation, surrounding spaces,
+    /// non-ASCII, a canonically equivalent pair, and one the repository itself marks `enabled = true`.
+    func testSECT2_06_EveryNameShapeIsNeutralized() async throws {
+        let source = try await GitTestRepository.make()
+        defer { source.remove() }
+        try await source.git(["commit", "-q", "--allow-empty", "-m", "one"])
+        let local = try await GitTestRepository.make()
+        defer { local.remove() }
+        try await local.git(["remote", "add", "origin", source.root.path])
+        let canary = local.root.deletingLastPathComponent()
+            .appendingPathComponent("overgrove-hook-names-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: canary, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: canary) }
+
+        let names = [
+            "plain", "a.b", "with space", " lead", "trail ", "\u{FC}n\u{EF}", "\u{E9}", "e\u{301}", "q'uote", "bang!",
+            #"back\slash"#, #"dq""#, "hash#", "semi;", "bidi\u{202E}x", "UPPER", "a/b:c", "enabled-true",
+        ]
+        var config = ""
+        for (index, name) in names.enumerated() {
+            // Inside a quoted subsection only `\` and `"` need escaping.
+            let quoted = name.replacingOccurrences(of: #"\"#, with: #"\\"#).replacingOccurrences(
+                of: #"""#, with: #"\""#)
+            config += "[hook \"\(quoted)\"]\n\tcommand = : > '\(canary.path)/h\(index)'\n"
+            config += "\tevent = reference-transaction\n"
+            if name == "enabled-true" { config += "\tenabled = true\n" }
+        }
+        let file = try FileHandle(forWritingTo: local.root.appendingPathComponent(".git/config"))
+        try file.seekToEnd()
+        try file.write(contentsOf: Data(config.utf8))
+        try file.close()
+
+        let listing = try await GitClient(environment: local.environment)
+            .run(.configList, in: local.root, safety: .preInspection)
+        let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout))
+        let safety = try XCTUnwrap(inspection.safetyContext, "\(inspection.report)")
+        XCTAssertEqual(hookArguments(inspection).count, names.count)
+        let repository = Repository(
+            rootURL: local.root, commonGitDirectoryURL: local.root.appendingPathComponent(".git"), isBare: false)
+        let client = GitClient(environment: local.environment)
+        _ = try await client.fetch(.fetch(remote: RemoteName("origin")!), in: repository, safety: safety)
+        let fetched = try await local.git(["for-each-ref", "refs/remotes/origin"])
+        XCTAssertFalse(fetched.stdout.isEmpty, "the fetch updated refs, so the event happened")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: canary.path), [])
+
+        guard local.environment.version >= GitVersion.configDefinedHooks else { return }
+        try await local.git(["update-ref", "-d", "refs/remotes/origin/main"])
+        let control = RepoSafetyContext(
+            inspectedNeutralization: Self.droppingHookArguments(safety.neutralization),
+            fetchAuthentication: safety.fetchAuthentication, trustedSSHCommand: safety.trustedSSHCommand)
+        _ = try await client.fetch(.fetch(remote: RemoteName("origin")!), in: repository, safety: control)
+        XCTAssertEqual(
+            Set(try FileManager.default.contentsOfDirectory(atPath: canary.path)),
+            Set(names.indices.map { "h\($0)" }), "control: every hook runs without its argument")
     }
 }

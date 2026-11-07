@@ -28,8 +28,8 @@ struct RepoConfigInspection: Sendable, Equatable {
     let isPartialClone: Bool
     /// Remotes past `RepoConfigInspector.maximumRemotes`, counted but not listed (#262).
     var omittedRemotes = 0
-    /// A repository-controlled config-defined hook could not be neutralized (its name, or too many), so fetch is
-    /// disabled (#354).
+    /// A repository-controlled config-defined hook could not be neutralized (its name, or too many), so queries and
+    /// fetch stop (#354).
     var hasUnneutralizedHooks = false
 
     /// Arguments for `GitClient`. `nil` when the report blocks queries (fail closed).
@@ -54,7 +54,7 @@ enum RepoConfigInspector {
     /// - Filter drivers beyond this cannot all be neutralized: each adds eight arguments to every git command, and the
     ///   command line would outgrow the argument limit. Queries stop (fail closed).
     static let maximumNeutralizedDrivers = 256
-    /// Config-defined hooks (`hook.<name>.*`, git 2.54+) beyond this are not neutralized and fetch is disabled
+    /// Config-defined hooks (`hook.<name>.*`, git 2.54+) beyond this cannot all be neutralized, so queries stop
     /// (#354). Each adds two arguments to every git command.
     static let maximumNeutralizedHooks = 256
     /// Fetch-only overrides (`http.<url>.sslVerify`, `http.<url>.proxy`) beyond this disable fetch; queries go on.
@@ -78,7 +78,9 @@ enum RepoConfigInspector {
         var seenProxies = Set<String>()
         var hasUntrustedHelper = false
         var neutralizedHooks: [String] = []
-        var seenHooks = Set<String>()
+        // Bytes, as git compares subsections: `String` equality would merge canonically equivalent names (NFC and
+        // NFD), and git runs both (#354).
+        var seenHooks = Set<[UInt8]>()
         var hasUnneutralizedHooks = false
         var fetchBlockingReason: String?
 
@@ -107,11 +109,11 @@ enum RepoConfigInspector {
                     neutralizedDrivers.append(driver)
                 }
             case ("hook", _):
-                // A config-defined hook (git 2.54+) runs on its events whatever `core.hooksPath` says (#354).
+                // A config-defined hook (git 2.54+, #354).
                 guard let name = entry.subsection else { continue }
                 if !ConfigParser.isNeutralizableHookName(name) {
                     hasUnneutralizedHooks = true
-                } else if seenHooks.insert(name).inserted {
+                } else if seenHooks.insert(Array(name.utf8)).inserted {
                     if neutralizedHooks.count < maximumNeutralizedHooks {
                         neutralizedHooks.append(name)
                     } else {
@@ -142,8 +144,7 @@ enum RepoConfigInspector {
                 "This repository sets TLS or proxy options for too many URLs to override; fetching is disabled."
         }
         if hasUnneutralizedHooks {
-            fetchBlockingReason =
-                "This repository defines hooks in its settings that Overgrove cannot turn off; fetching is disabled."
+            blockingReason = "This repository defines hooks in its settings that Overgrove cannot turn off."
         }
         let neutralization =
             neutralizedDrivers.flatMap { driver in

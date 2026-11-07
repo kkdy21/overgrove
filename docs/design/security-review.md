@@ -59,10 +59,10 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **시나리오**: 악성 저장소에 `.git/hooks/reference-transaction` 실행 파일이 있다. 사용자가 Fetch 버튼을 누르면 실행된다.
 - **대응**:
   - 공통 인자 `-c core.hooksPath=/dev/null`. 훅 디렉터리가 존재하지 않는 경로가 되어 실행되지 않는다 (확인). 로컬 `core.hooksPath`보다 명령줄이 우선한다.
-  - **설정형 hook(#354)**: git 2.54부터 설정(`hook.<이름>.command`, `.event`)으로도 hook을 정의할 수 있고(릴리스 노트), `core.hooksPath`로는 막히지 않는다. `RepoConfigInspector`가 신뢰하지 않는 scope(`local`, `worktree`)의 `hook.<이름>.*` 키를 찾으면 이름마다 `-c hook.<이름>.enabled=false`를 모든 명령에 붙인다(T2 `neutralized`). 저장소가 신뢰 scope에 정의된 hook 이름에 이벤트만 더해도 그 이름 전체를 끈다. 이름에 `=`·제어 문자·손실 디코딩이 있거나 256바이트를 넘거나, 이름이 `maximumNeutralizedHooks`(256)개를 넘으면 무력화 인자를 만들 수 없으므로 fetch를 막는다(fail closed). 앱의 조회는 hook을 일으키지 않으므로(SEC-T2-04 실측) 조회는 계속한다. 이름 형태(`.`, 공백, 비ASCII, 대문자, `/`, `:`)별로 무력화가 듣는 것을 git 2.54.0에서 확인했다. 2.54 미만 git은 이 키들을 무시한다.
+  - **설정형 hook(#354)**: git 2.54부터 설정(`hook.<이름>.command`, `.event`)으로도 hook을 정의할 수 있다(릴리스 노트). `RepoConfigInspector`가 신뢰하지 않는 scope(`local`, `worktree`)의 `hook.<이름>.*` 키를 찾으면 이름마다 `-c hook.<이름>.enabled=false`를 모든 명령에 붙인다(T2 `neutralized`). 이름은 git처럼 바이트로 구분한다(정준 동치인 이름도 서로 다른 hook이다). 저장소가 신뢰 scope에 정의된 hook 이름에 이벤트만 더해도 그 이름 전체를 끈다. 이름에 `=`·제어 문자·손실 디코딩이 있거나 256바이트를 넘거나, 이름이 `maximumNeutralizedHooks`(256)개를 넘으면 무력화 인자를 만들 수 없으므로 조회와 fetch를 모두 막는다(fail closed, filter 드라이버와 같다). 2.54 미만 git은 이 키들을 무시한다.
   - 사용자 전역(`global`, `system`) hook은 신뢰 범위라 건드리지 않는다.
 - **잔여 위험**: 없음 (확인된 범위). 새 git 버전이 다른 형태의 hook 설정을 더하면 검사기가 모를 수 있다.
-- **검증**: SEC-T2-01 (훅이 든 픽스처 fetch → canary 없음), SEC-T2-02 (인자 스냅샷), SEC-T2-03 (설정형 hook: 악성 픽스처의 모든 이벤트에 건 hook이 앱 fetch에서 실행되지 않음, hook 무력화만 뺀 대조군은 git 2.54 이상에서 실행, #354), SEC-T2-04 (실측: 앱의 모든 조회는 hook 무력화 없이도 설정형 hook을 일으키지 않음, #354), SEC-T2-05 (무력화할 수 없는 hook 이름·상한 초과는 fetch만 막고 조회는 계속, #354). git 2.36.6, Apple Git 2.54.0, Homebrew 2.54.0에서 확인
+- **검증**: SEC-T2-01 (훅이 든 픽스처 fetch → canary 없음), SEC-T2-02 (인자 스냅샷), SEC-T2-03 (설정형 hook: 악성 픽스처의 모든 이벤트에 건 hook이 앱 fetch에서 실행되지 않음, 대조군 포함, #354), SEC-T2-04 (실측: 앱의 모든 조회는 설정형 hook을 일으키지 않음, #354), SEC-T2-05 (무력화할 수 없는 hook 이름·상한 초과는 조회와 fetch를 막음, #354), SEC-T2-06 (여러 이름 형태 — 문장부호, 앞뒤 공백, 비ASCII, 정준 동치 쌍, 저장소의 `enabled = true` — 모두 앱 fetch에서 실행되지 않음, #354). git 2.36.6, Apple Git 2.54.0, Homebrew 2.54.0에서 확인
 - **상태**: 설계 완료
 
 ### T3. 외부 diff, textconv 실행
@@ -435,7 +435,7 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | 정규식 | 범주 | 처리 | 위협 |
 |---|---|---|---|
 | `^filter\.(.+)\.(clean\|smudge\|process\|required)$` | 실행 | **무력화**: 드라이버별 `-c` 4종 (모든 명령) | T4 |
-| `^hook\.(.+)\..+$` (설정형 hook, git 2.54+) | 실행 | **무력화**: 이름별 `-c hook.<이름>.enabled=false` (모든 명령). 이름을 쓸 수 없거나 256개를 넘으면 **fetch 차단**. 이름 없는 `hook.<키>`는 보고만 (#354) | T2 |
+| `^hook\.(.+)\..+$` (설정형 hook, git 2.54+) | 실행 | **무력화**: 이름별 `-c hook.<이름>.enabled=false` (모든 명령). 이름을 쓸 수 없거나 256개를 넘으면 **조회 차단**. 이름 없는 `hook.<키>`는 보고만 (#354) | T2 |
 | `^credential\.helper$`, `^credential\..+\.helper$` | 실행 | **무력화**: 초기화 + 신뢰 항목 재삽입 (fetch) | T6 |
 | `^core\.sshcommand$` | 실행 | **무력화**: `GIT_SSH_COMMAND` (항상) | T5 |
 | `^core\.gitproxy$` | 실행 | **무력화**: 빈 `GIT_PROXY_COMMAND` (항상) | T5 |
