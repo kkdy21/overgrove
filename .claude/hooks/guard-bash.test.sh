@@ -74,6 +74,13 @@ check "xargs main"                          2 "$B" 'echo main | xargs git push o
 check "xargs force"                         2 "$B" 'echo --force | xargs git push origin feat/1-x'
 check "base main does not hide a push"      2 "$B" 'gh pr create --base main; git push origin main'
 check "pr create then push main"            2 "$B" 'gh pr create --base main && git push origin HEAD:main'
+# The base-branch exemption cannot hide a refspec (re-review of #301): `-o` takes the next word as its value.
+check "strip: -o --base main in subshell"   2 "$B" 'gh pr create $(git push origin -o --base main )'
+check "strip: -o -B main in quoted subst"   2 "$B" 'gh pr create --title "$(git push -o -B main origin x)"'
+check "strip: gh pr create as -o value"     2 "$B" 'git push origin -o "gh pr create" -o --base main'
+check "strip: gh pr edit as -o value"       2 "$B" "git push -o 'gh pr edit' -o -B main origin feat/1-x"
+check "strip: backtick subst"               2 "$B" 'gh pr create `git push origin -o --base main `'
+check "title with parentheses, base main"   0 "$B" 'git push origin feat/1-x && gh pr create --title "fix(ui): x" --base main'
 check "bare push on main"                   2 "$M" 'git push'
 check "push origin only on main"            2 "$M" 'git push origin'
 check "bare push on main after cd"          2 "$M" 'echo hi && git push -u'

@@ -20,10 +20,11 @@ has '(^|[[:space:];&|])(GIT_)?OVERGROVE_ALLOW_MAIN_(COMMIT|PUSH)=' && block "Mai
 # 2) Force pushes and pushes to main.
 # The whole command line is checked, so line continuations, quoted separators, and `xargs` cannot hide a target. Only
 # the base branch of `gh pr create`/`gh pr edit` (`--base main`, `--base=main`, `-B main`) is taken out first: it names
-# the pull request's target, not a push (#301). The replacement stops at `;`, `&`, `|`, and the end of the line, so a
-# push elsewhere in the command is still seen.
+# the pull request's target, not a push (#301). Only where `gh pr create|edit` starts a command (line start or after
+# `;`, `&`, `|`), so `gh pr create` quoted inside a `git push -o` value does not count; and the span stops at `;`, `&`,
+# `|`, `$`, a backtick, and the end of the line, so a `-o --base main` inside `$(git push …)` is never taken out.
 scan=$(printf '%s' "$cmd" | sed -E -e ':a' \
-  -e 's/(gh[[:space:]]+pr[[:space:]]+(create|edit)[^;&|]*[[:space:]])(--base[[:space:]=]+|-B[[:space:]]+)["'\'']?main["'\'']?([[:space:]]|$)/\1--base=PR-BASE\4/' \
+  -e 's/(^|[;&|][[:space:]]*)(gh[[:space:]]+pr[[:space:]]+(create|edit)[^;&|$`]*[[:space:]])(--base[[:space:]=]+|-B[[:space:]]+)["'\'']?main["'\'']?([[:space:]]|$)/\1\2--base=PR-BASE\5/' \
   -e 'ta')
 scan_has() { printf '%s' "$scan" | grep -Eq -- "$1"; }
 # `git push`, also with global options (`-C <dir>`, `-c <key=value>`), a path to git, or inside `$(…)` or backticks.
