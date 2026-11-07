@@ -18,17 +18,14 @@ struct WorktreeInspection: Sendable, Equatable {
     let realPath: String?
 }
 
-/// Reads a worktree's configuration for S-05. Only `configList`, a command allowed before inspection, runs.
+/// Builds what S-05 shows about a worktree's safety.
 protocol WorktreeInspecting: Sendable {
-    func inspect(_ worktree: Worktree, of repository: Repository) async -> WorktreeInspection
+    func inspect(_ entry: WorktreeListing.Entry, of repository: Repository) async -> WorktreeInspection
 }
 
-/// The app's inspector. Call it only for worktrees `RepositoryService` already verified belong to the repository
-/// (`.loaded` or `.notQueried(.inspectionBlocked)`). It runs in the worktree's canonical path and checks it belongs
-/// again (probe) before reading the configuration.
-///
-/// TODO(#240): read the inspection RepositoryService already made for this worktree (`RepositoryOverview.Entry`)
-/// instead of running `configList` again.
+/// The app's inspector (#67). The configuration part is the inspection `RepositoryService` made for this worktree
+/// when it loaded (`WorktreeListing.Entry.inspection`, #240): the same one its status ran with, so S-05 shows exactly
+/// what protects the queries, and no git command runs here. Only file system facts are read now (hooks, real path).
 struct LiveWorktreeInspector: WorktreeInspecting {
     let client: @Sendable () async throws -> GitClient
     var now: @Sendable () -> Date = { Date() }
@@ -38,7 +35,10 @@ struct LiveWorktreeInspector: WorktreeInspecting {
     /// Hook names listed at most; a forged repository could hold many files.
     static let maximumHookNames = 20
 
-    func inspect(_ worktree: Worktree, of repository: Repository) async -> WorktreeInspection {
+    static let notInspected = "This worktree's configuration was not inspected when the list loaded."
+
+    func inspect(_ entry: WorktreeListing.Entry, of repository: Repository) async -> WorktreeInspection {
+        let worktree = entry.worktree
         let diffArguments =
             (try? ReadOnlyGitCommand.worktreeDiff(path: GitPath("file"), staged: false)
                 .subcommandArguments()) ?? []
@@ -54,28 +54,15 @@ struct LiveWorktreeInspector: WorktreeInspecting {
                 hookExecutables: hooks, realPath: realPath)
         }
 
-        guard worktree.path.isRepresentable, let directory = real else {
-            return result(nil, failure: "The worktree folder could not be found.", version: nil)
+        // The version comes from discovery, done once per app run (no command runs for it here).
+        let version = try? await self.client().environment.version
+        guard worktree.path.isRepresentable, real != nil else {
+            return result(nil, failure: "The worktree folder could not be found.", version: version)
         }
-        let client: GitClient
-        do {
-            client = try await self.client()
-        } catch {
-            return result(nil, failure: GitError.executableNotFound(path: "git").message, version: nil)
+        guard let inspection = entry.inspection else {
+            return result(nil, failure: Self.notInspected, version: version)
         }
-        let version = client.environment.version
-        do {
-            guard let inspection = try await Self.verifiedInspection(at: directory, of: repository, client: client)
-            else {
-                return result(nil, failure: Self.noLongerMatches, version: version)
-            }
-            return result(inspection, failure: nil, version: version)
-        } catch let error as GitError {
-            return result(nil, failure: PathValidator.displayable(error.message), version: version)
-        } catch {
-            return result(
-                nil, failure: GitError.parseFailed(parser: "ConfigParser", offset: 0).message, version: version)
-        }
+        return result(inspection, failure: nil, version: version)
     }
 
     static let noLongerMatches = "This folder no longer matches the repository, so it was not inspected."
@@ -83,7 +70,8 @@ struct LiveWorktreeInspector: WorktreeInspecting {
     /// Checks that the worktree at `directory` (canonical) still belongs to `repository`, then reads and inspects its
     /// configuration. `nil` when it no longer belongs. Only commands allowed before inspection run (`probeRepository`,
     /// `configList`). The folder was verified when the list loaded, but links can change since, so the check is
-    /// repeated right before every use (security review of #67, T14). Used by S-05 and the diff viewer (#232).
+    /// repeated right before every use (security review of #67, T14). Used by the diff viewer (#232), which runs
+    /// commands with the result; S-05 only shows the load's inspection.
     static func verifiedInspection(
         at directory: URL, of repository: Repository, client: GitClient
     ) async throws -> RepoConfigInspection? {

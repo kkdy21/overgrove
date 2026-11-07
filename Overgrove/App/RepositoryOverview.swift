@@ -7,6 +7,16 @@ struct RepositoryOverview: Sendable, Equatable {
     struct Entry: Sendable, Equatable {
         let worktree: Worktree
         let status: Status
+        /// This worktree's own configuration inspection (its `config.worktree` included), the one its status ran with
+        /// (#240). Set for `.loaded` and `.notQueried(.inspectionBlocked)`; `nil` when the worktree was never
+        /// inspected (prunable, foreign, a probe that failed, …). S-05 shows it instead of inspecting again.
+        let inspection: RepoConfigInspection?
+
+        init(worktree: Worktree, status: Status, inspection: RepoConfigInspection? = nil) {
+            self.worktree = worktree
+            self.status = status
+            self.inspection = inspection
+        }
     }
 
     enum Status: Sendable, Equatable {

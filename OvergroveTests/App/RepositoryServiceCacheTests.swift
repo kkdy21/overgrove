@@ -352,6 +352,45 @@ final class RepositoryServiceCacheTests: XCTestCase {
         }
     }
 
+    // MARK: - Per-worktree inspection on entries (#240)
+
+    func testEntriesCarryTheInspectionTheirStatusRanWith() async throws {
+        try await repository.git(["config", "extensions.worktreeConfig", "true"])
+        try await repository.git(["-C", worktree(1).path, "config", "--worktree", "filter.wt.clean", "/nonexistent"])
+        try await repository.git(["-C", worktree(2).path, "config", "--worktree", "filter.a=b.clean", "x"])
+        let service = try makeService()
+
+        let overview = try overview(await service.refresh(model, trigger: .user))
+
+        let lane1 = try entry(overview, lane: 1)
+        XCTAssertTrue(lane1.inspection?.neutralization.contains("filter.wt.clean=") ?? false, "its own config.worktree")
+        let main = try XCTUnwrap(overview.entries.first { $0.worktree.isMain })
+        XCTAssertNotNil(main.inspection)
+        XCTAssertFalse(main.inspection?.neutralization.contains("filter.wt.clean=") ?? true)
+        XCTAssertFalse(overview.inspection.neutralization.contains("filter.wt.clean="), "not the repository's own")
+
+        let lane2 = try entry(overview, lane: 2)
+        guard case .notQueried(.inspectionBlocked) = lane2.status else { return XCTFail("\(lane2.status)") }
+        XCTAssertEqual(lane2.inspection?.report.isBlocked, true, "a blocked worktree carries why")
+    }
+
+    func testCachedEntriesKeepTheirInspectionAndUninspectedOnesHaveNone() async throws {
+        try await repository.git(["config", "extensions.worktreeConfig", "true"])
+        try await repository.git(["-C", worktree(1).path, "config", "--worktree", "filter.wt.clean", "/nonexistent"])
+        let service = try makeService()
+        let first = try overview(await service.refresh(model, trigger: .user))
+        try FileManager.default.removeItem(at: worktree(2))
+
+        let selected = try overview(
+            await service.refresh(model, trigger: .worktreeSelected(try entry(first, lane: 0).worktree.path)))
+        XCTAssertEqual(try entry(selected, lane: 1).inspection, try entry(first, lane: 1).inspection)
+
+        let reloaded = try overview(await service.refresh(model, trigger: .user))
+        let pruned = try entry(reloaded, lane: 2)
+        XCTAssertEqual(pruned.status, .notQueried(.prunable))
+        XCTAssertNil(pruned.inspection, "a worktree that was never inspected has no inspection")
+    }
+
     // MARK: - Memory bounds
 
     func testForgetDropsCachedResultsAndInspections() async throws {
