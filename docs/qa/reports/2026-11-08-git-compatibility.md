@@ -11,7 +11,7 @@ Phase 2의 보안 실험은 모두 Apple Git 2.50.1에서 했다. 최소 지원 
 - 2.36.6에서 처음 실행했을 때 7개 테스트가 실패했다. 원인은 다음과 같다.
   - 5개: 옛 git에 없는 기능에 기대는 테스트 대조군과 픽스처 → 이 PR에서 고쳤다(§4.1).
   - 2개: 앱 동작 차이 1건. partial clone에서 쿼리가 막혔을 때 **오류 분류가 틀린다**(보안은 유지). → #303으로 분리했다(§4.2).
-- 고친 뒤 다시 돌린 결과는 §3에 있다. 2.36.6에서 남은 실패는 #303의 SEC-T5-16 두 개뿐이다.
+- 고친 뒤 다시 돌린 결과는 §3에 있다. 2.36.6에서 남은 실패는 #303의 SEC-T5-16 두 개뿐이었고, #303에서 고쳤다(§4.2).
 - `fetch.bundleURI`를 읽기 시작한 버전은 문서에 2.42로 적혀 있었다. 실측해 보니 **2.40**이어서 카탈로그와 주석을 고쳤다(E46).
 
 ## 2. 환경과 방법
@@ -111,8 +111,8 @@ XCTSkip은 방어 assertion이 모두 실행된 뒤에 던진다. assertion이 �
 ### 4.2 앱 동작 차이: partial clone 쿼리의 오류 분류 (#303)
 
 - **상황**: partial clone(`--filter=blob:none`)에서 없는 blob이 필요한 쿼리(`commitPatch` 등)를 실행한다.
-- **2.44 이상**: `GIT_NO_LAZY_FETCH=1`이 lazy fetch를 끈다.
-- **2.36–2.43**: 이 환경 변수를 무시한다. 대신 쿼리 환경의 빈 `GIT_ALLOW_PROTOCOL`이 lazy fetch를 막는다. **저장소의 uploadpack canary는 실행되지 않았다.** 보안 동작은 같다(SEC-T5-16의 "빈 transport 목록만으로도 막힌다"는 설계 그대로).
+- **`GIT_NO_LAZY_FETCH`가 있는 git**: `GIT_NO_LAZY_FETCH=1`이 lazy fetch를 끈다. 이 변수는 2024년 5월 보안 릴리스에서 2.44.1과 백포트(2.39.4, 2.40.2, 2.41.1, 2.42.2, 2.43.4)로 들어왔다. 실측한 2.39.5·2.40.4가 여기에 속한다. 처음에는 "2.44 이상"으로 적었는데 틀린 내용이라 #303에서 정정했다. fetch 경로의 버전 기준은 #317에서 따로 다뤘다.
+- **변수가 없는 git(예: 2.36.6, 2.44.0)**: 이 환경 변수를 무시한다. 대신 쿼리 환경의 빈 `GIT_ALLOW_PROTOCOL`이 lazy fetch를 막는다. **저장소의 uploadpack canary는 실행되지 않았다.** 보안 동작은 같다(SEC-T5-16의 "빈 transport 목록만으로도 막힌다"는 설계 그대로).
 - **차이**: 2.36.6의 stderr는 아래뿐이다.
   ```
   fatal: transport 'file' not allowed
@@ -122,8 +122,9 @@ XCTSkip은 방어 assertion이 모두 실행된 뒤에 던진다. assertion이 �
   `GitError.classify`가 이것을 `partialCloneObjectMissing`이 아니라 `transportNotAllowed`로 분류한다. 사용자는 "이 원격의 transport는 fetch하지 않는다"는 엉뚱한 안내를 보게 된다.
   - `LazyFetchSecurityTests`의 SEC-T5-16 두 테스트가 이 이유로 2.36.6에서 실패한다: `testSECT5_16_QueriesNeverRunTheRepositoryUploadPack`, `testSECT5_16_EmptyTransportListAloneBlocksLazyFetch`
   - canary 검사는 실패하지 않았다. 실패한 것은 오류 종류 검사다.
-- 2.39.5와 2.40.4에서는 이 두 테스트가 통과한다. 그 버전의 stderr는 올바르게 분류된다.
+- 2.39.5와 2.40.4에서는 이 두 테스트가 통과한다. 이 버전들은 변수가 있어서 2.54.0과 같은 stderr(`warning: lazy fetching disabled …` + `fatal: could not fetch <oid> from promisor remote`)를 낸다.
 - 앱 동작과 보안 분류를 바꾸는 일이라 #303으로 분리했다. CI는 2.54 계열 git을 쓰므로 영향이 없다.
+- **해결(#303)**: 전송 거부 줄과 정확한 `fatal: unable to read <object ID>` 줄이 함께 있으면 `partialCloneObjectMissing`으로 분류한다. 실제 2.36.6, 2.39.5, 2.40.4, 2.54.0 stderr를 `GitErrorTests` 픽스처로 넣었다. `OVERGROVE_TEST_GIT`로 실제 git 2.36.6을 지정하면 SEC-T5-16 두 테스트가 통과한다.
 
 ## 5. 후속
 

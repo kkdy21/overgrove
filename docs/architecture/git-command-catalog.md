@@ -256,7 +256,7 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 |---|---|
 | `hostKeyVerificationFailed(changed: true)` | `REMOTE HOST IDENTIFICATION HAS CHANGED` (OpenSSH 경고 배너) |
 | `dubiousOwnership` | `detected dubious ownership` |
-| `partialCloneObjectMissing` | `lazy fetching disabled`, `from promisor remote`. 전송 거부보다 먼저 본다: git 2.44 미만에서는 막힌 lazy fetch가 `transport 'file' not allowed`도 함께 낸다 (#212) |
+| `partialCloneObjectMissing` | `lazy fetching disabled`, `from promisor remote`. 또는 git 자신의 전송 거부 줄(`fatal: transport '<이름>' not allowed`)과 정확한 `fatal: unable to read <40·64자리 object ID>` 줄이 함께 있을 때. 전송 거부보다 먼저 본다: 막힌 lazy fetch는 `transport 'file' not allowed`도 함께 내고, `GIT_NO_LAZY_FETCH`가 없는 git(예: 2.36)은 그 뒤에 `unable to read <oid>`만 낸다. 조회는 전송을 쓰지 않고 거부된 fetch는 객체를 읽지 않으므로, 이 조합은 누락 객체다 (#212, #303) |
 | `transportNotAllowed(transport)` | `fatal: transport '<이름>' not allowed`로 **시작하는 줄** (`GIT_ALLOW_PROTOCOL` 밖의 전송, `ext`, `fd`). `remote:` 줄은 인정하지 않는다. 이름은 `[A-Za-z0-9][A-Za-z0-9+.-]*`이고 64자 이하일 때만 메시지에 넣는다 |
 | `hostKeyVerificationFailed(changed: false)` | `Host key verification failed` |
 | `sshAuthenticationFailed` | `Permission denied (` + OpenSSH 방식 이름(`publickey`, `password`, `keyboard-interactive`, `hostbased`, `gssapi`). 방식 목록이 없는 로컬 파일 오류(`Permission denied`)는 해당하지 않는다 |
