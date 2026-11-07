@@ -23,7 +23,10 @@ struct MainWindowView: View {
             } detail: {
                 DetailPanel(
                     focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
-                    wipModel: state.wipDetailModel, selectedFile: state.selectedFile, onSelectFile: state.selectFile)
+                    wipModel: state.wipDetailModel, worktreeModel: state.worktreeDetailModel,
+                    selectedFile: state.selectedFile, onSelectFile: state.selectFile,
+                    showsWorktreeSegment: state.selection.map { if case .worktreeInfo = $0 { true } else { false } },
+                    onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail)
             }
             // Relative fetch times ("2 min ago") stay current without a model change.
             TimelineView(.periodic(from: .now, by: statusRefreshInterval)) { context in
