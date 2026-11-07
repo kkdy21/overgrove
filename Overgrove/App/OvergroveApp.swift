@@ -10,5 +10,9 @@ struct OvergroveApp: App {
         WindowGroup("Overgrove") {
             PlaceholderView()
         }
+        .commands {
+            // View › Show/Hide Sidebar (⌃⌘S) and Show/Hide Detail (⌥⌘0) for the panel split container (#174).
+            PanelCommands()
+        }
     }
 }
