@@ -168,7 +168,13 @@ struct CanaryHarness {
             let safety = command.requiresInspection ? safety : .preInspection
             _ = try await client.run(command, in: query.directory, safety: safety)
         case .fetch(let command):
-            _ = try await client.fetch(command, in: query.directory, safety: safety)
+            // The fixture's main worktree: fetch serializes per repository (#76).
+            let repository = Repository(
+                rootURL: query.directory,
+                commonGitDirectoryURL: query.directory.appendingPathComponent(".git", isDirectory: true),
+                isBare: false
+            )
+            _ = try await client.fetch(command, in: repository, safety: safety)
         }
     }
 
