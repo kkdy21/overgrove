@@ -120,7 +120,7 @@ final class FileHistoryStoreTests: XCTestCase {
         XCTAssertEqual(loader.requests.count, 4, "another repository's cache is gone")
     }
 
-    /// SEC-T15-14: a history cut by the output limit ends as cut, not as the beginning of the history.
+    /// SEC-T15-15: a history cut by the output limit ends as cut, not as the beginning of the history.
     func testCutAtTheLimitIsNotTheBeginning() async {
         let loader = StubFileHistoryLoader([Self.page(0..<9, partial: true), Self.page(0..<0, partial: true)])
         let store = FileHistoryStore(loader: loader)

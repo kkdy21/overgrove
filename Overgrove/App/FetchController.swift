@@ -48,6 +48,9 @@ final class FetchController {
     private(set) var remoteLimit: FetchRemoteLimit?
     /// The fetch in flight; tests await it.
     private(set) var task: Task<Void, Never>?
+    /// The current or last fetch was started by auto fetch (#79): it ends quietly, with the result in the status bar
+    /// only (interaction.md §4.2).
+    private(set) var isAutomaticRun = false
     /// Called on the main actor after a fetch ends, finished or stopped.
     @ObservationIgnored var onFinished: (() -> Void)?
 
@@ -83,7 +86,19 @@ final class FetchController {
 
     /// Starts fetching every remote, unless a fetch already runs (it keeps showing; interaction.md §4.2).
     func fetch() {
+        // Pressed while an auto fetch runs: it keeps running, but now ends like one the user asked for.
+        if status.isFetching { isAutomaticRun = false }
+        start(automatic: false)
+    }
+
+    /// Auto fetch (#79): the same fetch, marked so it ends without an announcement.
+    func fetchAutomatically() {
+        start(automatic: true)
+    }
+
+    private func start(automatic: Bool) {
         guard let fetcher, let repository, !status.isFetching else { return }
+        isAutomaticRun = automatic
         generation += 1
         let generation = generation
         let lastFetched = status.lastFetched
