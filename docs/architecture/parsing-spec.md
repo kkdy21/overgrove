@@ -47,7 +47,9 @@ worktree <abs path>␀HEAD <oid>␀branch refs/heads/gone␀prunable gitdir file
 | `prunable[ <reason>]` | 정리 필요 (경로 없음 등) | `prunable: reason?` |
 
 - `-z` 덕분에 경로와 잠금 이유에 개행이 있어도 안전하다. `-z`는 git 2.36에서 들어왔고, 그 전에는 c-quote 문제가 있었다 (릴리스 노트 확인).
-- unborn 브랜치 워크트리는 `HEAD`가 없거나 0으로 채워진 OID일 수 있다. 실험으로 확인하지 못한 항목이라 PAR-WT-09 테스트로 확정한다.
+- unborn 브랜치 워크트리(빈 저장소의 메인, `--orphan` 워크트리)는 `HEAD`가 0으로 채워진 OID이고 `branch`는 그대로 나온다. 파서는 이를 `head = nil`로 바꾼다 (Apple Git 2.54.0 확인, PAR-WT-09).
+- bare 메인 저장소 레코드에는 `HEAD`와 `branch`가 없고 `bare`만 있다 (확인, PAR-WT-05).
+- 잘린 출력이면 마지막 레코드는 종료 NUL이 남아 있어도 버린다(§1.5). 잘리지 않았는데 마지막 레코드가 끝나지 않았으면 실패한다.
 
 | 테스트 | 사례 |
 |---|---|

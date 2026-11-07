@@ -434,7 +434,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | `fetch --no-auto-maintenance` 도입 버전 | 2.29 전후로 추정 | 쓰지 않음 (config로 대체) |
 | 실제 HTTPS fetch에서 `sslVerify` 덮어쓰기 효과 | `--get-urlmatch` 결과로 추정 | 자체 서명 인증서 로컬 서버 통합 테스트 (선택) |
 | `ssh -o BatchMode=yes`가 호스트 키 확인 프롬프트를 막는지 | ssh 문서상 그렇다고 추정 | 수동 QA |
-| unborn 브랜치 워크트리의 `worktree list` 출력 | `HEAD` 0 OID로 추정 | PAR-WT-09 |
+| unborn 브랜치 워크트리의 `worktree list` 출력 | **확인됨**: `HEAD` 0 OID + `branch` (Apple Git 2.54.0) | PAR-WT-09 (실제 git 테스트 포함) |
 | 서브모듈 내부 `filter`가 상위 status에서 실행되는 조건 | 재귀하면 실행 가능하다고 추정 (fsmonitor는 확인) | SEC-T4-05 (재귀를 막으므로 결과와 무관하게 안전) |
 
 ---
