@@ -189,13 +189,15 @@ stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc�
 
 ---
 
-## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)`
+## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)`
 
-**형식.** 레코드는 LF로 끝나고, 필드 7개는 NUL로 나눈다. refname에는 제어 문자가 들어갈 수 없으므로(`check-ref-format` 규칙) LF 구분이 안전하다.
+**형식.** 레코드는 LF로 끝나고, 필드 8개는 NUL로 나눈다. refname에는 제어 문자가 들어갈 수 없으므로(`check-ref-format` 규칙) LF 구분이 안전하다. 예시는 Apple Git 2.54.0, `LC_ALL=C` 출력이다.
 
 ```
-refs/heads/main␀837976f6…␀␀refs/remotes/origin/main␀*␀1793853652␀
-refs/tags/v1␀e4850abd…␀eee6163d…␀␀ ␀…␀
+refs/heads/both␀2880404c…␀␀refs/remotes/origin/both␀ ␀1793853652␀␀ahead 1, behind 2
+refs/heads/main␀9692941d…␀␀refs/remotes/origin/main␀*␀1793853652␀␀
+refs/remotes/origin/HEAD␀9692941d…␀␀␀ ␀1793853652␀refs/remotes/origin/main␀
+refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀
 ```
 
 | 필드 | 규칙 |
@@ -207,6 +209,13 @@ refs/tags/v1␀e4850abd…␀eee6163d…␀␀ ␀…␀
 | `%(HEAD)` | `*`(메인 워크트리가 체크아웃한 브랜치) 또는 공백 |
 | `%(committerdate:unix)` | epoch 초. 태그는 비어 있을 수 있음 |
 | `%(symref)` | `refs/remotes/origin/HEAD` 같은 심볼릭 ref의 대상 |
+| `%(upstream:track,nobracket)` | 빈 값, `ahead N`, `behind M`, `ahead N, behind M`, `gone` 다섯 가지(#54, Apple Git 2.54.0 확인). 빈 값은 `%(upstream)`이 있으면 "같음", 없으면 "upstream 없음"이다. upstream 없이 값이 있으면 형식 위반이다 |
+
+- refname, `%(upstream)`, `%(symref)`는 git 인자로 되돌아갈 수 있으므로 손실 디코딩하지 않는다. git은 이런 이름을 허용하므로 형식 위반이 아니라 내용 문제로 다룬다. refname이나 `%(upstream)`이 올바른 UTF-8이 아니거나 `FullRefName` 검증(`-`로 시작하는 구성 요소, `..`, `.lock` 등)을 통과하지 못하면 그 레코드만 건너뛰고 `skippedRecords`를 올린다(UI는 비차단 경고). upstream이 있는 브랜치를 "upstream 없음"으로 보이지 않기 위해서다. `%(symref)`가 그렇다면 `symbolicTarget`만 비운다. 다른 필드의 형식 위반은 이 레코드에서도 전체 실패다.
+- `%(HEAD)`는 `*` 또는 공백 한 글자, 날짜는 부호 없는 10진수 또는 빈 값, 카운트는 부호 없는 10진수만 허용한다.
+- 원격 이름은 `refs/remotes/` 뒤 첫 구성 요소로 정한다. 원격 이름에 `/`가 들어간 경우는 `configList`의 원격 목록과 맞춰 보정한다.
+- 잘린 출력은 LF로 끝나지 않은 마지막 레코드만 버리고 `isPartial`을 표시한다.
+- 결과 모델: `Branch.upstreamStatus`(`UpstreamStatus`)가 ahead/behind를 담는다. upstream 이름은 전체 ref 이름이다. 사이드바 LOCAL의 `↑n ↓n`은 이 값을 쓰고, 브랜치마다 `rev-list`를 실행하지 않는다(#167 S5).
 
 연결 워크트리에서 체크아웃한 브랜치는 `WorktreeParser` 결과의 `branch`와 맞춰 표시한다.
 
@@ -217,12 +226,15 @@ refs/tags/v1␀e4850abd…␀eee6163d…␀␀ ␀…␀
 | PAR-REF-03 | `origin/HEAD` symref |
 | PAR-REF-04 | 슬래시·유니코드 브랜치명 |
 | PAR-REF-05 | upstream 없음 |
+| PAR-REF-06 | `%(upstream:track,nobracket)` 다섯 경우, 형식 위반 → 실패 |
 
 ---
 
 ## 7. RevListParser — `rev-list --left-right --count A...B`
 
 출력은 `<left>\t<right>\n` 한 줄이다. `<upstream>...<local>` 순서로 부르므로 left가 behind, right가 ahead다 (확인: `0\t1` ↔ `branch.ab +1 -0`).
+
+한 줄이 아니거나, 탭이 없거나, 부호 없는 10진수가 아니면 실패한다. 출력이 몇 바이트뿐이라 잘린 결과는 믿을 수 없으므로 잘림도 실패로 다룬다. 사이드바 LOCAL은 §6의 track 필드를 쓰므로, 이 파서는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에 쓴다.
 
 | 테스트 | 사례 |
 |---|---|
