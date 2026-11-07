@@ -83,8 +83,16 @@ final class AutoRefreshIntegrationTests: XCTestCase {
         let context = try await IntegrationContext.make(fixture: try await makeFixture())
         let service = try service(context)
         let first = try overview(await service.refresh(context.repository, trigger: .user))
+        let statusesPerLoad = calls().filter { $0 == "status" }.count
         let release = markers.appendingPathComponent("release")
         try FileManager.default.removeItem(at: release)
+        resetCalls()
+        // The first load left a `started-<pid>` marker per status. Only a marker made after this point shows that the
+        // user load below is running; a stale one let the file-change refresh go first and block at the gate until
+        // git's 15 s status timeout under CI load (#335).
+        for name in try FileManager.default.contentsOfDirectory(atPath: markers.path) where name.hasPrefix("started-") {
+            try FileManager.default.removeItem(at: markers.appendingPathComponent(name))
+        }
 
         let repository = context.repository
         let user = Task { await service.refresh(repository, trigger: .user) }
@@ -101,6 +109,9 @@ final class AutoRefreshIntegrationTests: XCTestCase {
 
         FileManager.default.createFile(atPath: release.path, contents: nil)
         _ = try overview(await user.value)
+        XCTAssertEqual(
+            calls().filter { $0 == "status" }.count, statusesPerLoad,
+            "only the user load queried: the file-change refresh started no git status")
     }
 
     /// No feedback loop: a full load and a `.filesChanged` refresh of every worktree write nothing the watcher acts
