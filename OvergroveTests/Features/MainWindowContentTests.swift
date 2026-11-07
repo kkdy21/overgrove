@@ -67,6 +67,26 @@ final class MainWindowContentTests: XCTestCase {
         XCTAssertEqual(text(items(fetch: .failed(lastFetched: nil)), .fetch), "Fetch failed")
     }
 
+    /// #77: the estimate from `FETCH_HEAD`, a stop, the moment before the remotes are known, the Details link, and
+    /// `Refreshing…` (interaction.md §4, §4.2).
+    func testFetchStatesAddedForFetchAndRefresh() {
+        XCTAssertEqual(
+            text(items(fetch: .estimated(lastFetched: now.addingTimeInterval(-3 * 3600))), .fetch),
+            "Fetched 3 h ago (estimated)")
+        XCTAssertEqual(text(items(fetch: .cancelled(lastFetched: nil)), .fetch), "Fetch cancelled")
+        XCTAssertEqual(
+            text(items(fetch: .fetching(remotes: [], since: now, lastFetched: nil)), .fetch), "Fetching… 0 s")
+        let failed = StatusBarItem.items(
+            snapshot: nil, fetchStatus: .failed(lastFetched: nil), ghStatus: nil, now: now, hasFetchDetails: true)
+        XCTAssertEqual(text(failed, .fetch), "Fetch failed — Details")
+
+        let refreshing = StatusBarItem.items(
+            snapshot: nil, fetchStatus: .never, ghStatus: nil, now: now, isRefreshing: true)
+        XCTAssertEqual(refreshing.map(\.kind), [.readOnly, .fetch, .refreshing])
+        XCTAssertEqual(text(refreshing, .refreshing), "Refreshing…")
+        XCTAssertNil(text(items(fetch: .never), .refreshing))
+    }
+
     func testAheadBehindOnlyWithAnUpstream() {
         let noUpstream = RepositorySnapshot(
             focusedWorktree: FocusedWorktree(

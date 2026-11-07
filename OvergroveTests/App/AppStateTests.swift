@@ -70,7 +70,7 @@ final class AppStateTests: XCTestCase {
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults))
         state.open(context("api"))
         state.snapshot = RepositorySnapshot(focusedWorktree: nil, worktreeCount: 6, prunableCount: 1)
-        state.fetchStatus = .idle(lastFetched: Date())
+        state.fetch.showForPreview(.idle(lastFetched: Date()))
         state.searchText = "fix"
 
         state.open(context("web"))
