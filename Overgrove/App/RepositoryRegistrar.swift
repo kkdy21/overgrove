@@ -3,8 +3,12 @@ import Foundation
 /// Why a folder could not be added.
 enum RegistrationError: Error, Equatable, Sendable {
     case invalidPath(PathValidator.Failure)
-    /// Bare repositories have no worktree to probe (the probe's `--show-toplevel` fails in them).
+    /// Bare repositories, and the inside of a `.git` directory, have no worktree to probe (the probe's
+    /// `--show-toplevel` fails there).
     case bareRepository
+    /// The probe's worktree and shared git directory do not match the folder on disk: `core.worktree` pointing
+    /// elsewhere, or a `.git` file pointing into another repository (T14).
+    case inconsistentRepository
     case git(GitError)
 
     var message: String {
@@ -16,7 +20,10 @@ enum RegistrationError: Error, Equatable, Sendable {
         case .invalidPath(.controlCharacters):
             "The folder's path contains control characters (such as a line break), so Overgrove will not add it."
         case .bareRepository:
-            "This is a bare repository. Add one of its worktrees instead."
+            "This folder is a bare repository or the inside of a .git folder. Choose a worktree folder instead."
+        case .inconsistentRepository:
+            "This repository's Git settings point outside the folder you chose (for example core.worktree, or a .git "
+                + "file that points into another repository), so Overgrove will not add it."
         case .git(let error):
             error.message
         }
@@ -36,7 +43,7 @@ struct RepositoryRegistration: Equatable, Sendable {
     var notice: String? {
         guard PathValidator.lexicallyNormalized(chosenPath) != entry.rootPath else { return nil }
         let reason = isThroughSymlink ? "The folder you chose is a symbolic link. " : ""
-        return reason + "Overgrove added the repository at \(entry.rootPath)."
+        return reason + "Overgrove added the repository at \(entry.displayRootPath)."
     }
 }
 
@@ -80,14 +87,40 @@ struct RepositoryRegistrar: Sendable {
         }
         guard !result.isBare else { throw .bareRepository }
 
-        // The main worktree is the parent of a `.git` common directory. A separate git directory
-        // (`--separate-git-dir`) does not reveal it, so the probed worktree stands in.
         let common = result.commonDirectory
-        let root = common.lastPathComponent == ".git" ? common.deletingLastPathComponent() : result.topLevel
+        let root = try Self.mainWorktree(probe: result, chosen: checked.resolved)
         return RepositoryRegistration(
             entry: RegisteredRepository(rootPath: root.path, commonDirectoryPath: common.path),
             chosenPath: chosen.path,
             isThroughSymlink: checked.isThroughSymlink)
+    }
+
+    /// The folder to register, after checking the probe against the disk (security review of #84, T14).
+    ///
+    /// git's answers follow repository files (`core.worktree`, `.git` files, `commondir`), so they are not trusted
+    /// on their own. The picked folder must lie inside the reported worktree, and that worktree's `.git` must lead
+    /// to the reported shared git directory, either directly (main worktree, `--separate-git-dir`) or as a linked
+    /// worktree whose administrative entry points back to it. A linked worktree registers its main worktree when
+    /// that is the parent of a `.git` directory leading to the same place; otherwise the linked worktree stands in.
+    private static func mainWorktree(probe: RepositoryProbe, chosen: URL) throws(RegistrationError) -> URL {
+        let topLevel = probe.topLevel
+        let common = probe.commonDirectory
+        guard PathValidator.canonical(topLevel)?.path == topLevel.path,
+            PathValidator.canonical(common)?.path == common.path,
+            case .inside = PathValidator.containment(of: chosen, in: topLevel)
+        else { throw .inconsistentRepository }
+
+        if PathValidator.gitDirectory(of: topLevel)?.path == common.path {
+            return topLevel
+        }
+        guard case .linked = PathValidator.checkLinkedWorktree(root: topLevel, commonGitDirectory: common) else {
+            throw .inconsistentRepository
+        }
+        let parent = common.deletingLastPathComponent()
+        if common.lastPathComponent == ".git", PathValidator.gitDirectory(of: parent)?.path == common.path {
+            return parent
+        }
+        return topLevel
     }
 
     /// git says "this operation must be run in a work tree" for `--show-toplevel` in a bare repository or inside

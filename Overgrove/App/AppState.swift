@@ -133,15 +133,23 @@ final class AppState {
         defer { isAddingRepository = false }
         do {
             let registration = try await registrar.register(folder)
-            let isNew = registry.add(registration.entry)
-            let entry = registry.repository(withID: registration.entry.id) ?? registration.entry
-            openRegistered(entry.id)
-            if !isNew {
+            switch registry.add(registration.entry) {
+            case .added:
+                openRegistered(registration.entry.id)
+                if let notice = registration.notice {
+                    alert = AppAlert(title: "Repository Added", message: notice)
+                }
+            case .alreadyRegistered:
+                guard let existing = registry.repository(withID: registration.entry.id) else { return }
+                openRegistered(existing.id)
                 alert = AppAlert(
                     title: "Repository Already Added",
-                    message: "“\(entry.name)” is already in Overgrove, at \(entry.rootPath).")
-            } else if let notice = registration.notice {
-                alert = AppAlert(title: "Repository Added", message: notice)
+                    message: "“\(existing.name)” is already in Overgrove, at \(existing.displayRootPath).")
+            case .rejected:
+                // The registrar's checks make this unreachable; refuse rather than store a malformed path.
+                alert = AppAlert(
+                    title: "Couldn’t Add Repository",
+                    message: RegistrationError.invalidPath(.controlCharacters).message)
             }
         } catch {
             if error != .git(.cancelled) {
@@ -152,6 +160,9 @@ final class AppState {
 
     /// Opens a registered repository. Its folder must still be where it was registered, not replaced by a symbolic
     /// link to somewhere else (T14); otherwise it stays closed and the alert says so.
+    ///
+    /// This is defense in depth only; it runs no git. The repository can still change before git runs, so the
+    /// data loaders (#65) inspect it with `RepoConfigInspector` every time it is opened.
     /// - Parameter quietly: No alert for a missing folder (restoring at launch).
     func openRegistered(_ id: RegisteredRepository.ID, quietly: Bool = false) {
         guard let entry = registry.repository(withID: id) else { return }
@@ -160,7 +171,8 @@ final class AppState {
             if !quietly {
                 alert = AppAlert(
                     title: "Repository Not Found",
-                    message: "The folder of “\(entry.name)” is missing or was replaced (\(entry.rootPath)). Restore "
+                    message:
+                        "The folder of “\(entry.name)” is missing or was replaced (\(entry.displayRootPath)). Restore "
                         + "it, or remove the repository from Overgrove.")
             }
             return

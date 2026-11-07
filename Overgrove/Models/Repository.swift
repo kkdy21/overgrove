@@ -10,7 +10,8 @@ struct Repository: Sendable, Hashable, Identifiable {
 
     var id: String { commonGitDirectoryURL.standardizedFileURL.path }
 
+    /// The folder name, with format and separator characters escaped (`PathValidator.displayable`).
     var displayName: String {
-        (rootURL ?? commonGitDirectoryURL).lastPathComponent
+        PathValidator.displayable((rootURL ?? commonGitDirectoryURL).lastPathComponent)
     }
 }

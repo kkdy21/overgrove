@@ -31,11 +31,14 @@ final class RepositoryRegistryTests: XCTestCase {
 
     func testAddKeepsOrderAndDedupesByCommonDirectory() {
         let registry = RepositoryRegistry(defaults: defaults)
-        XCTAssertTrue(registry.add(entry("api")))
-        XCTAssertTrue(registry.add(entry("web")))
+        XCTAssertEqual(registry.add(entry("api")), .added)
+        XCTAssertEqual(registry.add(entry("web")), .added)
         // The same repository again (e.g. picked through a linked worktree): not added twice.
-        XCTAssertFalse(
-            registry.add(RegisteredRepository(rootPath: "/tmp/dev/api", commonDirectoryPath: "/tmp/dev/api/.git")))
+        XCTAssertEqual(
+            registry.add(RegisteredRepository(rootPath: "/tmp/dev/api", commonDirectoryPath: "/tmp/dev/api/.git")),
+            .alreadyRegistered)
+        XCTAssertEqual(
+            registry.add(RegisteredRepository(rootPath: "relative", commonDirectoryPath: "/tmp/x/.git")), .rejected)
         XCTAssertEqual(registry.repositories.map(\.name), ["api", "web"])
     }
 

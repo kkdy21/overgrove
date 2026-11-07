@@ -174,13 +174,80 @@ final class RepositoryRegistrarTests: XCTestCase {
         }
     }
 
-    /// A separate git directory does not reveal the main worktree; the probed worktree stands in for it.
-    func testSeparateGitDirectoryUsesTheTopLevel() async throws {
+    /// `--separate-git-dir`: the worktree's `.git` file leads to the shared directory, so the worktree is the root.
+    func testSeparateGitDirectoryRegistersTheWorktree() async throws {
+        let repository = try await makeRepository()
+        let base = try temporaryDirectory()
+        let worktree = base.appendingPathComponent("work", isDirectory: true)
+        let meta = base.appendingPathComponent("meta", isDirectory: true)
+        try await repository.git(["init", "-q", "--separate-git-dir", meta.path, "--", worktree.path])
+
+        let registration = try await registrar(environment: repository.environment).register(worktree)
+        XCTAssertEqual(registration.entry.rootPath, worktree.path)
+        XCTAssertEqual(registration.entry.commonDirectoryPath, meta.path)
+    }
+
+    /// SEC-T14-04 (security review of #84): `core.worktree` makes the probe report a worktree outside the picked
+    /// folder. Registering it would run later commands somewhere the shared directory does not describe.
+    func testSECT14_04_coreWorktreePointingElsewhereIsRefused() async throws {
+        let repository = try await makeRepository()
+        let base = try temporaryDirectory()
+        let picked = base.appendingPathComponent("picked", isDirectory: true)
+        let meta = picked.appendingPathComponent("meta", isDirectory: true)
+        let elsewhere = base.appendingPathComponent("elsewhere", isDirectory: true)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        try await repository.git(["init", "-q", "--separate-git-dir", meta.path, "--", picked.path])
+        try await GitTestRepository(root: picked, environment: repository.environment)
+            .git(["config", "core.worktree", elsewhere.path])
+        // The plain-repository form too: `core.worktree` in an ordinary `.git` directory.
+        try await repository.git(["config", "core.worktree", elsewhere.path])
+
+        for folder in [picked, repository.root] {
+            do {
+                let registration = try await registrar(environment: repository.environment).register(folder)
+                XCTFail("registered \(registration.entry.rootPath) for \(folder.lastPathComponent)")
+            } catch {
+                XCTAssertEqual(error, .inconsistentRepository, folder.lastPathComponent)
+            }
+        }
+    }
+
+    /// SEC-T14-04: a `.git` file whose administrative directory claims another repository's shared directory
+    /// (`commondir`) must not register the picked folder as that repository.
+    func testSECT14_04_forgedCommonDirectoryIsRefused() async throws {
+        let victim = try await makeRepository()
+        let picked = try temporaryDirectory().appendingPathComponent("picked", isDirectory: true)
+        let admin = picked.appendingPathComponent("admin", isDirectory: true)
+        try FileManager.default.createDirectory(at: admin, withIntermediateDirectories: true)
+        try "gitdir: \(admin.path)\n".write(
+            to: picked.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
+        try "ref: refs/heads/main\n".write(
+            to: admin.appendingPathComponent("HEAD"), atomically: true, encoding: .utf8)
+        try "\(victim.root.path)/.git\n".write(
+            to: admin.appendingPathComponent("commondir"), atomically: true, encoding: .utf8)
+
+        // git itself believes the forgery (that is what makes it dangerous).
+        let raw = try await GitClient(environment: victim.environment)
+            .run(.probeRepository, in: picked, safety: .preInspection).stdout
+        XCTAssertEqual(try ProbeParser.parse(raw).commonDirectory.path, victim.root.appendingPathComponent(".git").path)
+
+        do {
+            let registration = try await registrar(environment: victim.environment).register(picked)
+            XCTFail("registered \(registration.entry.rootPath)")
+        } catch {
+            XCTAssertEqual(error, .inconsistentRepository)
+        }
+    }
+
+    func testProbeNamingFoldersThatDoNotExistIsRefused() async throws {
         let folder = try temporaryDirectory()
-        let output = "\(folder.path)\n/tmp/elsewhere/repo-git\nfalse\n"
-        let registration = try await RepositoryRegistrar(probe: { _ in Data(output.utf8) }).register(folder)
-        XCTAssertEqual(registration.entry.rootPath, folder.path)
-        XCTAssertEqual(registration.entry.commonDirectoryPath, "/tmp/elsewhere/repo-git")
+        let output = "\(folder.path)\n/tmp/overgrove-missing-\(UUID().uuidString)/.git\nfalse\n"
+        do {
+            _ = try await RepositoryRegistrar(probe: { _ in Data(output.utf8) }).register(folder)
+            XCTFail("expected a refusal")
+        } catch {
+            XCTAssertEqual(error, .inconsistentRepository)
+        }
     }
 
     func testBareFlagFromTheProbeIsRefused() async throws {

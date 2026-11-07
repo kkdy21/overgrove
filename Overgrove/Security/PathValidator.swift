@@ -114,6 +114,34 @@ enum PathValidator {
         return .linked(name: name)
     }
 
+    /// The real git directory a worktree's `.git` entry leads to: the directory itself, or the target of a
+    /// `gitdir:` file (`--separate-git-dir`, linked worktrees). `nil` if missing or malformed.
+    static func gitDirectory(of root: URL) -> URL? {
+        let gitEntry = root.appendingPathComponent(".git")
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: gitEntry.path, isDirectory: &isDirectory) else { return nil }
+        if isDirectory.boolValue { return canonical(gitEntry) }
+        guard let contents = readSmallFile(gitEntry), contents.hasPrefix("gitdir: ") else { return nil }
+        let target = String(contents.dropFirst("gitdir: ".count)).trimmingCharacters(in: .newlines)
+        guard !target.isEmpty, !target.contains("\n") else { return nil }
+        return canonical(target.hasPrefix("/") ? URL(fileURLWithPath: target) : root.appendingPathComponent(target))
+    }
+
+    /// A path or name made safe to show: format characters (bidi overrides such as U+202E), line and paragraph
+    /// separators, and controls become visible `\u{…}` escapes, so a folder name cannot disguise a path.
+    static func displayable(_ text: String) -> String {
+        var result = ""
+        for scalar in text.unicodeScalars {
+            switch scalar.properties.generalCategory {
+            case .format, .lineSeparator, .paragraphSeparator, .control:
+                result += "\\u{\(String(scalar.value, radix: 16, uppercase: true))}"
+            default:
+                result.unicodeScalars.append(scalar)
+            }
+        }
+        return result
+    }
+
     /// Validates a worktree-relative path for reading file content (untracked previews, T14).
     ///
     /// Rejects absolute paths, `..` components, lossy paths, files whose real location is outside the worktree,

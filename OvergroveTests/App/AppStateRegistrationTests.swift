@@ -30,10 +30,18 @@ final class AppStateRegistrationTests: XCTestCase {
         return url
     }
 
+    /// A folder with a `.git` directory, enough for the registrar's file-system cross-check.
+    private func repositoryFolder(_ name: String) throws -> URL {
+        let url = try folder(name)
+        try FileManager.default.createDirectory(
+            at: url.appendingPathComponent(".git"), withIntermediateDirectories: true)
+        return url
+    }
+
     /// Answers the probe as git would for a repository at `root`, whichever folder inside it is picked.
     private func probe(root: URL) -> RepositoryRegistrar {
-        RepositoryRegistrar(probe: { folder in
-            Data("\(folder.path)\n\(root.path)/.git\nfalse\n".utf8)
+        RepositoryRegistrar(probe: { _ in
+            Data("\(root.path)\n\(root.path)/.git\nfalse\n".utf8)
         })
     }
 
@@ -45,7 +53,7 @@ final class AppStateRegistrationTests: XCTestCase {
     }
 
     func testAddRegistersOpensAndRemembersTheRepository() async throws {
-        let api = try folder("api")
+        let api = try repositoryFolder("api")
         let (state, registry) = makeState(registrar: probe(root: api))
         await state.addRepository(at: api)
 
@@ -58,15 +66,16 @@ final class AppStateRegistrationTests: XCTestCase {
     }
 
     func testAddingTheSameRepositoryAgainOpensItWithoutDuplicating() async throws {
-        let api = try folder("api")
-        let worktree = try folder("api-wt")
+        let api = try repositoryFolder("api")
+        let subfolder = try folder("api/src")
         let (state, _) = makeState(registrar: probe(root: api))
         await state.addRepository(at: api)
-        await state.addRepository(at: worktree)
+        await state.addRepository(at: subfolder)
 
         XCTAssertEqual(state.registeredRepositories.count, 1)
         XCTAssertEqual(state.repository?.name, "api")
         XCTAssertEqual(state.alert?.title, "Repository Already Added")
+        XCTAssertEqual(state.alert?.message, "“api” is already in Overgrove, at \(api.path).")
     }
 
     func testRefusalShowsAnAlertAndRegistersNothing() async throws {
@@ -81,16 +90,24 @@ final class AppStateRegistrationTests: XCTestCase {
     }
 
     func testNoticeWhenTheRegisteredPathDiffersFromThePickedOne() async throws {
-        let api = try folder("api")
+        let api = try repositoryFolder("api")
         let subfolder = try folder("api/src")
-        let (state, _) = makeState(
-            registrar: RepositoryRegistrar(probe: { _ in
-                Data("\(api.path)\n\(api.path)/.git\nfalse\n".utf8)
-            }))
+        let (state, _) = makeState(registrar: probe(root: api))
         await state.addRepository(at: subfolder)
 
         XCTAssertEqual(state.alert?.title, "Repository Added")
         XCTAssertEqual(state.alert?.message, "Overgrove added the repository at \(api.path).")
+    }
+
+    /// L-3 of the #84 security review: a bidi override in a folder name is shown escaped, not obeyed.
+    func testNamesWithFormatCharactersAreShownEscaped() async throws {
+        let tricky = try repositoryFolder("evil\u{202E}txt.app")
+        let (state, _) = makeState(registrar: probe(root: tricky))
+        await state.addRepository(at: tricky)
+
+        XCTAssertEqual(state.repository?.name, "evil\\u{202E}txt.app")
+        XCTAssertEqual(state.registeredRepositories.first?.name, "evil\\u{202E}txt.app")
+        XCTAssertEqual(state.registeredRepositories.first?.rootPath, tricky.path, "the stored path is unchanged")
     }
 
     func testSwitchingAndRemoving() async throws {

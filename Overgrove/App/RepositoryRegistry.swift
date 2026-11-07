@@ -9,7 +9,10 @@ struct RegisteredRepository: Codable, Equatable, Hashable, Identifiable, Sendabl
     let commonDirectoryPath: String
 
     var id: String { repository.id }
-    var name: String { (rootPath as NSString).lastPathComponent }
+    /// The folder name, safe to show (`PathValidator.displayable`).
+    var name: String { PathValidator.displayable((rootPath as NSString).lastPathComponent) }
+    /// The root path, safe to show.
+    var displayRootPath: String { PathValidator.displayable(rootPath) }
 
     var repository: Repository {
         Repository(
@@ -51,14 +54,22 @@ final class RepositoryRegistry {
         repositories.first { $0.id == id }
     }
 
+    enum AddResult: Equatable {
+        case added
+        /// A repository with the same shared git directory is already registered.
+        case alreadyRegistered
+        /// Not an absolute path, or contains control characters.
+        case rejected
+    }
+
     /// Adds `entry` unless a repository with the same shared git directory is already registered.
-    /// - Returns: `false` if it was already registered.
     @discardableResult
-    func add(_ entry: RegisteredRepository) -> Bool {
-        guard entry.isWellFormed, repository(withID: entry.id) == nil else { return false }
+    func add(_ entry: RegisteredRepository) -> AddResult {
+        guard entry.isWellFormed else { return .rejected }
+        guard repository(withID: entry.id) == nil else { return .alreadyRegistered }
         repositories = repositories + [entry]
         save()
-        return true
+        return .added
     }
 
     /// Forgets a repository. Its folder is not touched.

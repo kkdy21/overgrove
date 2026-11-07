@@ -17,7 +17,9 @@ struct RepositoryMenuModel: Equatable {
     let removeTitle: String?
 
     init(repositories: [RegisteredRepository], openID: RegisteredRepository.ID?) {
-        items = repositories.map { Item(id: $0.id, name: $0.name, path: $0.rootPath, isOpen: $0.id == openID) }
+        items = repositories.map {
+            Item(id: $0.id, name: $0.name, path: $0.displayRootPath, isOpen: $0.id == openID)
+        }
         removeTitle = repositories.first { $0.id == openID }.map { "Remove “\($0.name)” from Overgrove" }
     }
 }
@@ -135,6 +137,9 @@ enum RepositoryPicker {
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.canCreateDirectories = false
+        // A Finder alias is returned as itself instead of silently swapped for its target, so registration sees
+        // the picked path and warns about the difference (SEC-T14-01).
+        panel.resolvesAliases = false
         panel.prompt = "Add"
         panel.message = "Choose a Git repository or one of its worktrees."
         return panel
