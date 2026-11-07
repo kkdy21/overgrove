@@ -87,6 +87,18 @@ final class MainWindowContentTests: XCTestCase {
         XCTAssertNil(text(items(fetch: .never), .refreshing))
     }
 
+    /// #259: a Fetch that skipped remotes says how many it took.
+    func testFetchRemoteLimit() {
+        let limit = FetchRemoteLimit(fetched: 16, total: 40)
+        let done = StatusBarItem.items(
+            snapshot: nil, fetchStatus: .idle(lastFetched: now), ghStatus: nil, now: now, fetchRemoteLimit: limit)
+        XCTAssertEqual(text(done, .fetch), "Fetched just now · 16 of 40 remotes")
+        let running = StatusBarItem.items(
+            snapshot: nil, fetchStatus: .fetching(remotes: [], since: now, lastFetched: nil), ghStatus: nil, now: now,
+            fetchRemoteLimit: limit)
+        XCTAssertEqual(text(running, .fetch), "Fetching… 0 s", "not while a new fetch runs")
+    }
+
     func testAheadBehindOnlyWithAnUpstream() {
         let noUpstream = RepositorySnapshot(
             focusedWorktree: FocusedWorktree(

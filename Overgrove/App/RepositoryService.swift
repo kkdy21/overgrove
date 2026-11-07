@@ -56,9 +56,16 @@ actor RepositoryService {
     /// Worktrees queried per load (#226, T15). Each one costs three git processes (probe, config, status), and the list
     /// comes from files the repository controls, so a forged list could otherwise start thousands. PB-1 targets 10.
     static let defaultMaximumQueriedWorktrees = 64
+    /// Remotes fetched per Fetch (#259, T15). The list comes from the repository's configuration, and each remote may
+    /// take up to 120 seconds one after another, so a list of thousands would never finish. Repositories usually have
+    /// one to three remotes (origin, upstream, a few forks); 16 leaves room for fork-heavy review setups while bounding
+    /// one Fetch to about 32 minutes in the worst case (and Stop always works).
+    static let defaultMaximumFetchedRemotes = 16
 
     private let client: GitClient
     private let maximumQueriedWorktrees: Int
+    /// Remotes one Fetch fetches (#259); read by `fetch(_:onStart:)`.
+    let maximumFetchedRemotes: Int
     private let sleep: @Sendable (Duration) async throws -> Void
     private let now: @Sendable () -> ContinuousClock.Instant
     private let inspections = RepoConfigInspectionCache()
@@ -82,12 +89,14 @@ actor RepositoryService {
         client: GitClient,
         cachedRepositories: Int = RepositoryService.defaultCachedRepositories,
         maximumQueriedWorktrees: Int = RepositoryService.defaultMaximumQueriedWorktrees,
+        maximumFetchedRemotes: Int = RepositoryService.defaultMaximumFetchedRemotes,
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         now: @escaping @Sendable () -> ContinuousClock.Instant = { ContinuousClock.now }
     ) {
         self.client = client
         self.cache = BoundedCache(capacity: cachedRepositories)
         self.maximumQueriedWorktrees = maximumQueriedWorktrees
+        self.maximumFetchedRemotes = max(1, maximumFetchedRemotes)
         self.sleep = sleep
         self.now = now
     }
