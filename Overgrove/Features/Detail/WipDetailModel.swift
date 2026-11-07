@@ -53,6 +53,10 @@ struct WipDetailModel: Equatable {
     let worktreePath: GitPath
     /// `~/dev/api`, escaped.
     let displayPath: String
+    /// The full path for Copy Path, or `nil` when copying it would not give what the screen shows: a path that is
+    /// not UTF-8 (lossy), or one with control or format characters (a pasted line feed could run a shell command;
+    /// security review of #66).
+    let copyablePath: String?
     /// Distinct changed paths across the groups (`7 changed files`).
     let changedFileCount: Int
     let content: Content
@@ -69,6 +73,8 @@ struct WipDetailModel: Equatable {
             worktree.branchShortName ?? "detached @ \(worktree.head?.short ?? "unknown")")
         worktreePath = worktree.path
         displayPath = PathValidator.displayable(Self.abbreviated(worktree.path.display, home: home))
+        let full = worktree.path.display
+        copyablePath = worktree.path.isRepresentable && PathValidator.displayable(full) == full ? full : nil
         switch entry.state {
         case .loaded(let state):
             let groups = Self.groups(state, untrackedLimit: untrackedLimit)

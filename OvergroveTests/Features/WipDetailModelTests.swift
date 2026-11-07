@@ -147,6 +147,47 @@ final class WipDetailModelTests: XCTestCase {
         }
     }
 
+    /// The title, the worktree path, and a rename's original path are escaped too (security review of #66).
+    func testHeaderAndRenameSourceAreEscaped() {
+        let model = WipDetailModel(
+            entry: WorktreeListing.entry(
+                "/tmp/dev/evil\n\u{202E}wt", branch: "feat/x\u{2028}y", isMain: true,
+                state: .loaded(state(staged: [change("new.txt", .renamed(score: 90), from: "old\u{202E}.txt")]))),
+            home: "/tmp/dev")
+        XCTAssertEqual(model.title, "feat/x\\u{2028}y")
+        XCTAssertEqual(model.displayPath, "~/evil\\u{A}\\u{202E}wt")
+        let row = model.groups[0].rows[0]
+        XCTAssertEqual(row.fileName, "{old\\u{202E}.txt → new.txt}")
+        XCTAssertTrue(row.help.hasPrefix("old\\u{202E}.txt → new.txt"), row.help)
+        XCTAssertTrue(row.accessibilityLabel.contains("old\\u{202E}.txt renamed to new.txt"))
+    }
+
+    /// Copy Path is offered only when the copied text is exactly what the screen shows: a pasted line feed could run
+    /// a shell command, and a lossy path points somewhere else (security review of #66).
+    func testCopyPathOnlyForPlainPaths() {
+        func copyable(_ path: GitPath) -> String? {
+            WipDetailModel(
+                entry: WorktreeListing.Entry(
+                    worktree: Worktree(
+                        path: path, head: nil, branch: "refs/heads/main", isMain: true, isDetached: false,
+                        isBare: false, lock: .unlocked, isPrunable: false, prunableReason: nil),
+                    state: .loaded(state())),
+                home: "/tmp/dev"
+            ).copyablePath
+        }
+        XCTAssertEqual(copyable(GitPath("/tmp/dev/my repo 🌳")), "/tmp/dev/my repo 🌳")
+        XCTAssertNil(copyable(GitPath("/tmp/x\nrm -rf ~\n")))
+        XCTAssertNil(copyable(GitPath("/tmp/evil\u{202E}gpj")))
+        XCTAssertNil(copyable(GitPath(raw: Data([0x2F, 0x74, 0xFF]))))
+    }
+
+    /// A rename whose original path is not UTF-8 is not selectable either.
+    func testRenameFromAnUnrepresentablePathIsNotSelectable() {
+        let rename = FileChange(
+            path: GitPath("new.txt"), originalPath: GitPath(raw: Data([0x6F, 0xFF])), status: .renamed(score: 100))
+        XCTAssertFalse(model(state(staged: [rename])).groups[0].rows[0].isSelectable)
+    }
+
     func testHeader() {
         let model = model(state(staged: [change("a", .added)]))
         XCTAssertEqual(model.title, "main")

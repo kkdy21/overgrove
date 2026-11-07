@@ -206,7 +206,8 @@ final class AppState {
             selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
             snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
             // Keep the picked file only while it is still listed in the same group.
-            if let file = selectedFile, wipDetailModel?.row(for: file) == nil { selectedFile = nil }
+            // Same rule as `selectFile`: the row must still exist and still be selectable.
+            if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true { selectedFile = nil }
         case .failure(.git(.cancelled)):
             break
         case .failure(let error):

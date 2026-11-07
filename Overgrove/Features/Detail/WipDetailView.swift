@@ -16,7 +16,9 @@ struct WipDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
+            // Lazy: thousands of rows (untracked up to the display limit, the other groups unbounded) are built only
+            // as they scroll into view (security review of #66, T15).
+            LazyVStack(alignment: .leading, spacing: Tokens.Spacing.md) {
                 summary
                 if let warning = model.warning {
                     SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
@@ -34,16 +36,18 @@ struct WipDetailView: View {
                 Text(model.displayPath)
                     .lineLimit(1)
                     .truncationMode(.head)
-                Button {
-                    // Copying to the clipboard is not a repository write (ADR-0011).
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(model.worktreePath.display, forType: .string)
-                } label: {
-                    Image(systemName: "doc.on.doc")
+                if let path = model.copyablePath {
+                    Button {
+                        // Copying to the clipboard is not a repository write (ADR-0011).
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(path, forType: .string)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Copy Path")
+                    .accessibilityLabel("Copy path")
                 }
-                .buttonStyle(.borderless)
-                .help("Copy Path")
-                .accessibilityLabel("Copy path")
             }
             .font(Tokens.Font.callout)
             .foregroundStyle(Tokens.Color.textSecondary)
@@ -63,7 +67,7 @@ struct WipDetailView: View {
     private var content: some View {
         switch model.content {
         case .changes(let groups):
-            VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
+            LazyVStack(alignment: .leading, spacing: Tokens.Spacing.md) {
                 ForEach(groups) { group in
                     WipGroupCard(
                         group: group, selectedPath: selectedPath(in: group.group), isListFocused: hasFocus,
@@ -128,7 +132,7 @@ struct WipGroupCard: View {
     let onSelect: (WipFileRow) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        LazyVStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Tokens.Spacing.xs) {
                 Image(systemName: group.group.symbol)
                     .foregroundStyle(group.group.tint)
