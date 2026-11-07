@@ -1,6 +1,6 @@
 # 아이콘과 심볼 (Iconography)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), 심볼 추가 (#166) · 관련: [`design/icon/`](../../design/icon/), [art-direction.md](art-direction.md), [design-tokens.md](design-tokens.md), [interaction.md §6](interaction.md#6-접근성), [screens.md](screens.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 심볼 추가 (#166), Icon Composer 대체 확인 (#39) · 관련: [`design/icon/`](../../design/icon/), [art-direction.md](art-direction.md), [design-tokens.md](design-tokens.md), [interaction.md §6](interaction.md#6-접근성), [screens.md](screens.md)
 
 ---
 
@@ -161,12 +161,15 @@ SVG는 사람이 읽을 수 있는 형태로 유지한다. 작은 생성 스크�
 
 - 최신 Xcode는 레이어로 구성한 `.icon` 파일(Icon Composer)을 지원한다. 이 형식을 쓰면 최신 macOS에서 시스템이 유리 재질 효과와 다크·틴트 변형을 입힌다.
 - 레이어 원본은 `app-icon-background.svg`와 `app-icon-foreground.svg`다. 전경 레이어는 그림자 없이 둔다. 시스템이 깊이 효과를 더하기 때문이다.
-- **Phase 3에서 확인할 것**
-  1. `.icon` 파일과 `AppIcon.appiconset`을 함께 두었을 때 macOS 14~15에서 PNG 세트가 쓰이는지 (최소 지원 OS 유지)
-  2. 다크·틴트 모양에서 크림색 가지 선과 수관의 대비가 유지되는지
-  3. 레이어를 SVG 그대로 넣을 수 있는지, PNG로 바꿔야 하는지
-
-  확인 결과는 이 절에 적고, 구성이 복잡해지면 ADR로 남긴다.
+- **확인 결과 (#39, 2026-11-08, Xcode 27.2 `actool` 27.2, macOS 26)**
+  - 방법: 스크래치 디렉터리에서 `AppIcon.appiconset`(커밋한 PNG 세트)과 레이어 두 장으로 만든 `AppIcon.icon`을 `xcrun actool --platform macosx --minimum-deployment-target 14.0 --app-icon AppIcon`으로 컴파일했다. 세 경우(둘 다, `.icon`만, PNG 세트만)의 산출물 `AppIcon.icns`, `Assets.car`(`assetutil --info`), 부분 Info.plist를 비교했다. 이 Mac은 macOS 26이라 macOS 14 화면은 직접 보지 못했다. 산출물로 판단하고, 실기기 확인은 수동 QA(#96)에 맡긴다.
+  1. **둘을 함께 두면 PNG 세트는 쓰이지 않는다.** `actool`이 경고 없이 `.icon`을 평면 이미지로 렌더링해 `AppIcon.icns`와 `Assets.car`의 일반 아이콘 이미지(7장)를 만든다. 이 결과는 `.icon`만 둔 경우와 바이트 단위로 같다. PNG 세트의 이름을 바꿔도(`AppIconLegacy`) 같다. Info.plist에는 `CFBundleIconFile`과 `CFBundleIconName`이 모두 `AppIcon`으로 들어가므로, macOS 14~15는 이 평면 렌더링을 보여 준다. 그 모양은 `icon.json`의 반투명·크기 설정에 따라 우리 PNG 디자인과 달라진다(시험한 설정에서는 전경이 작고 흐려졌다).
+  2. 다크·틴트 모양: `Assets.car`에 Aqua·DarkAqua·Tintable 레이어 묶음이 생기는 것까지 확인했다. 실제 대비는 macOS 26 실기기에서 `.icon`을 도입할 때 본다.
+  3. 레이어는 SVG 그대로 들어간다(`Assets.car`에 Vector로 저장).
+- **결정: v0.1은 PNG 세트만 쓴다. `.icon`은 넣지 않는다.**
+  - `.icon`을 넣으면 최소 지원 OS(macOS 14, ADR-0003)의 아이콘이 우리가 검토한 PNG 디자인이 아니라 `actool`의 평면 렌더링으로 바뀐다. `actool` 27.2에서는 운영체제별로 PNG와 `.icon`을 나눠 쓰는 방법을 찾지 못했다(이름을 달리해도 PNG 세트는 쓰이지 않는다).
+  - 다시 검토하는 조건: 최소 지원 OS가 macOS 26 이상이 될 때, 또는 Icon Composer로 만든 `.icon`의 평면 렌더링(macOS 14~15에서 보일 모양)을 앱 아이콘으로 승인할 때. 그때는 PNG 세트를 빼고 `.icon` 하나로 바꾼다. README·문서용 `preview.png`와 `mark.svg`는 그대로 둔다.
+  - 레이어 원본(`app-icon-background.svg`, `app-icon-foreground.svg`)은 그때를 위해 유지한다.
 
 ### 6.3 README와 문서
 
