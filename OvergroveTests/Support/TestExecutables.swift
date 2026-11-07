@@ -70,8 +70,19 @@ struct TestExecutables {
         return root
     }
 
-    private func script(_ name: String, _ body: String) throws -> URL {
-        let url = directory.appendingPathComponent(name)
+    /// A directory holding `git-remote-<name>`, a stand-in for a remote helper the user installed (e.g. in
+    /// `/opt/homebrew/bin`). When git runs it, it creates `<canary>/<name>-ran` and exits 1 (#161, T5).
+    func canaryRemoteHelper(named name: String, canary: URL) throws -> URL {
+        let bin = directory.appendingPathComponent("helper-bin-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: canary, withIntermediateDirectories: true)
+        let marker = canary.appendingPathComponent("\(name)-ran").path
+        _ = try script("git-remote-\(name)", ": > '\(marker)'\nexit 1", in: bin)
+        return bin
+    }
+
+    private func script(_ name: String, _ body: String, in folder: URL? = nil) throws -> URL {
+        let url = (folder ?? directory).appendingPathComponent(name)
         try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
         return url
