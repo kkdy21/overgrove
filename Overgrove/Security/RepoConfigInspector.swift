@@ -26,6 +26,8 @@ struct RepoConfigInspection: Sendable, Equatable {
     let isCacheable: Bool
     /// A promisor remote or `extensions.partialclone` exists in any scope (#212).
     let isPartialClone: Bool
+    /// Remotes past `RepoConfigInspector.maximumRemotes`, counted but not listed (#262).
+    var omittedRemotes = 0
 
     /// Arguments for `GitClient`. `nil` when the report blocks queries (fail closed).
     var safetyContext: RepoSafetyContext? {
@@ -44,12 +46,30 @@ struct RepoConfigInspection: Sendable, Equatable {
 /// git run programs (ADR-0009). Only `local` and `worktree` scopes are untrusted; anything that cannot be handled
 /// safely blocks queries (fail closed).
 enum RepoConfigInspector {
+    /// Bounds on what one inspection keeps (#262, T15). A repository decides its `config --list` output up to the
+    /// 10 MB stdout cap, so every step here is linear in the listing, and these caps bound what is kept and passed on:
+    /// - Filter drivers beyond this cannot all be neutralized: each adds eight arguments to every git command, and the
+    ///   command line would outgrow the argument limit. Queries stop (fail closed).
+    static let maximumNeutralizedDrivers = 256
+    /// Fetch-only overrides (`http.<url>.sslVerify`, `http.<url>.proxy`) beyond this disable fetch; queries go on.
+    static let maximumFetchOverrides = 256
+    /// Remotes listed (configuration order). Fetch uses fewer still (`maximumFetchedRemotes`, #259); the rest are
+    /// counted in `omittedRemotes`. Remotes never affect neutralization, so this is not fail closed.
+    static let maximumRemotes = 1_000
+    /// Findings kept for the report (S-05); the rest are counted in `omittedFindings`.
+    static let maximumFindings = 1_000
+
     static func inspect(_ listing: ConfigParser.Listing) -> RepoConfigInspection {
         var findings: [RepoSecurityReport.Finding] = []
+        var omittedFindings = 0
         var blockingReason: String?
+        // Arrays keep first-seen order (it becomes argument order); the sets make each check O(1) (#262).
         var neutralizedDrivers: [String] = []
+        var seenDrivers = Set<String>()
         var restoreTLS: [String] = []
+        var seenTLS = Set<String>()
         var resetProxies: [String] = []
+        var seenProxies = Set<String>()
         var hasUntrustedHelper = false
         var fetchBlockingReason: String?
 
@@ -63,23 +83,27 @@ enum RepoConfigInspector {
                 blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
             }
             guard let (threat, handling) = classify(entry) else { continue }
-            findings.append(RepoSecurityReport.Finding(entry: entry, threat: threat, handling: handling))
+            if findings.count < maximumFindings {
+                findings.append(RepoSecurityReport.Finding(entry: entry, threat: threat, handling: handling))
+            } else {
+                omittedFindings += 1
+            }
 
             switch (entry.section, entry.variable) {
             case ("filter", _):
                 guard let driver = entry.subsection else { continue }
                 if !ConfigParser.isNeutralizableDriverName(driver) {
                     blockingReason = "A filter driver name contains characters that cannot be neutralized safely."
-                } else if !neutralizedDrivers.contains(driver) {
+                } else if seenDrivers.insert(driver).inserted {
                     neutralizedDrivers.append(driver)
                 }
             case ("credential", "helper"):
                 hasUntrustedHelper = true
             case ("http", "sslverify"):
                 // Always force true: git accepts many spellings of false (0k, 0x0, -0, …), so never guess.
-                if !restoreTLS.contains(entry.key) { restoreTLS.append(entry.key) }
+                if seenTLS.insert(entry.key).inserted { restoreTLS.append(entry.key) }
             case ("http", "proxy"):
-                if !resetProxies.contains(entry.key) { resetProxies.append(entry.key) }
+                if seenProxies.insert(entry.key).inserted { resetProxies.append(entry.key) }
             case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"):
                 fetchBlockingReason = "This repository sets its own TLS certificate files; fetching is disabled."
             default:
@@ -87,6 +111,15 @@ enum RepoConfigInspector {
             }
         }
 
+        if neutralizedDrivers.count > maximumNeutralizedDrivers {
+            blockingReason =
+                "This repository defines \(neutralizedDrivers.count) filter drivers, more than Overgrove can "
+                + "neutralize (\(maximumNeutralizedDrivers))."
+        }
+        if restoreTLS.count + resetProxies.count > maximumFetchOverrides {
+            fetchBlockingReason =
+                "This repository sets TLS or proxy options for too many URLs to override; fetching is disabled."
+        }
         let neutralization = neutralizedDrivers.flatMap { driver in
             [
                 "-c", "filter.\(driver).clean=", "-c", "filter.\(driver).smudge=", "-c", "filter.\(driver).process=",
@@ -106,10 +139,15 @@ enum RepoConfigInspector {
         }
         fetchAuthentication += restoreTLS.flatMap { ["-c", "\($0)=true"] }
         // A repository-local proxy could receive credentials released by a trusted helper (review of #150).
-        // Re-assert the trusted value for the same key, or an empty value (no proxy).
+        // Re-assert the trusted value for the same key, or an empty value (no proxy). One pass collects the last
+        // trusted value per proxy key, instead of a scan of the whole listing per key.
+        var trustedProxies: [String: String] = [:]
+        for entry in listing.entries
+        where !entry.scope.isRepositoryControlled && seenProxies.contains(entry.key) {
+            trustedProxies[entry.key] = entry.value ?? ""
+        }
         for key in resetProxies {
-            let trusted = listing.entries.last { !$0.scope.isRepositoryControlled && $0.key == key }?.value ?? ""
-            fetchAuthentication += ["-c", "\(key)=\(trusted)"]
+            fetchAuthentication += ["-c", "\(key)=\(trustedProxies[key] ?? "")"]
         }
 
         let trustedSSHCommand =
@@ -118,10 +156,16 @@ enum RepoConfigInspector {
             }?.value
 
         var remotes: [RepoConfigInspection.Remote] = []
+        var seenRemotes = Set<String>()
+        var omittedRemotes = 0
         for entry in listing.entries where entry.section == "remote" && entry.variable == "url" {
             guard let subsection = entry.subsection, let name = RemoteName(subsection), let url = entry.value,
-                !remotes.contains(where: { $0.name == name })
+                seenRemotes.insert(name.value).inserted
             else { continue }
+            guard remotes.count < maximumRemotes else {
+                omittedRemotes += 1
+                continue
+            }
             remotes.append(.init(name: name, url: url, displayURL: CredentialMasker.mask(url)))
         }
 
@@ -135,8 +179,9 @@ enum RepoConfigInspector {
                 && $0.variable.lowercased() == "path"
         }
 
-        return RepoConfigInspection(
-            report: RepoSecurityReport(findings: findings, blockingReason: blockingReason),
+        var inspection = RepoConfigInspection(
+            report: RepoSecurityReport(
+                findings: findings, blockingReason: blockingReason, omittedFindings: omittedFindings),
             neutralization: neutralization,
             fetchAuthentication: fetchAuthentication,
             trustedSSHCommand: trustedSSHCommand,
@@ -145,6 +190,8 @@ enum RepoConfigInspector {
             isCacheable: !dependsOnHEAD && !readsUnstampedFiles,
             isPartialClone: listing.entries.contains(where: isPartialCloneSetting)
         )
+        inspection.omittedRemotes = omittedRemotes
+        return inspection
     }
 
     /// security-review.md §3.3. Returns `nil` for keys that need no attention.
