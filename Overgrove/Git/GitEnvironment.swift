@@ -16,6 +16,13 @@ struct GitEnvironment: Sendable, Equatable {
         "-c", "core.askPass=",
         "-c", "protocol.ext.allow=never",
         "-c", "protocol.fd.allow=never",
+        // Related repository settings are neutralized (#350, T5).
+        "-c", "alias.remote-https=",
+        "-c", "alias.remote-ssh=",
+        "-c", "alias.remote-git=",
+        "-c", "alias.remote-file=",
+        "-c", "alias.remote-http=",
+        "-c", "help.autocorrect=0",
         "-c", "core.alternateRefsCommand=",
         "-c", "log.showSignature=false",
         "-c", "gc.auto=0",
@@ -30,7 +37,15 @@ struct GitEnvironment: Sendable, Equatable {
         // separators included, and some encodings (JOHAB, CP1361) turn message text into NUL bytes that shift fields
         // (#205). Pinning the output to UTF-8 overrides both.
         "-c", "i18n.logOutputEncoding=UTF-8",
+        // A repository's log.follow=true makes `git log -- <one path>` follow renames, so S-09's "Follow renames" off
+        // still followed (#310). `fileHistory` passes `--follow` itself when it wants it; an option beats the config.
+        "-c", "log.follow=false",
     ]
+
+    /// The neutralizing arguments of #350: one per allowed transport, and one more. Part of `commonArguments`; a test
+    /// keeps the two in step.
+    static let remoteHelperArguments: [String] =
+        allowedProtocols.split(separator: ":").flatMap { ["-c", "alias.remote-\($0)="] } + ["-c", "help.autocorrect=0"]
 
     /// Fixed search path for the child; the user's shell PATH is never used (SEC-T10-02).
     static let path = "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin"

@@ -34,7 +34,9 @@ final class ComparisonIntegrationTests: XCTestCase {
 
         let file = try XCTUnwrap(model.files.first)
         let patch = await loader.patch(
-            context.repository, worktree: worktree, base: comparison.base, file: file.path, includeUncommitted: true)
+            context.repository, worktree: worktree, base: comparison.base, file: file.path,
+            originalPath: file.originalPath,
+            includeUncommitted: true)
         guard case .patch(let listing) = patch else { return XCTFail("\(patch)") }
         XCTAssertEqual(listing.files.count, 1)
         XCTAssertFalse(

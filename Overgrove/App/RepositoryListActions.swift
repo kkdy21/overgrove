@@ -16,6 +16,8 @@ struct RepositoryListActions {
     let registrar: RepositoryRegistrar
     let fetchRecords: FetchRecordStore
     let loader: any RepositoryLoading
+    /// The relaunch sidebars (ADR-0018); a removed repository's goes too.
+    var launchSnapshots: LaunchSnapshotStore?
 
     /// Checks a picked folder the way a window does (#84) and registers it.
     func add(_ folder: URL) async -> AddOutcome {
@@ -40,6 +42,7 @@ struct RepositoryListActions {
         guard let removed = registry.repository(withID: id)?.repository else { return }
         registry.remove(id)
         fetchRecords.remove(removed.id)
+        launchSnapshots?.delete(for: removed)
         let loader = loader
         let registry = registry
         Task {

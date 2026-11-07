@@ -78,6 +78,7 @@ final class WipDetailModelTests: XCTestCase {
         let row = model(state(staged: [change("src/new.txt", .renamed(score: 100), from: "src/old.txt")])).groups[0]
             .rows[0]
         XCTAssertEqual(row.accessibilityLabel, "Staged, renamed, src/old.txt renamed to src/new.txt")
+        XCTAssertEqual(row.originalPath, GitPath("src/old.txt"), "the diff needs both names (#309)")
         XCTAssertTrue(row.help.hasPrefix("src/old.txt → src/new.txt"))
     }
 
