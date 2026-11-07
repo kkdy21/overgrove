@@ -46,8 +46,10 @@ struct GitEnvironment: Sendable, Equatable {
     /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
     static let allowedProtocols = "https:ssh:git:file:http"
 
-    /// The first git that honors `GIT_NO_LAZY_FETCH` (#212). Older git cannot turn off lazy fetching during fetch.
-    static let lazyFetchControlVersion = GitVersion(major: 2, minor: 44, patch: 0)
+    /// The first git on the newest line that honors `GIT_NO_LAZY_FETCH` (#212, #317). The variable came with the
+    /// May 2024 security releases: 2.44.1 (2.44.0 predates it) and the backports 2.39.4, 2.40.2, 2.41.1, 2.42.2, and
+    /// 2.43.4. Comparing versions refuses those backports too, which errs on the safe side.
+    static let lazyFetchControlVersion = GitVersion(major: 2, minor: 44, patch: 1)
 
     /// Parent variables that are passed through unchanged. Everything else is dropped (T10).
     static let passthroughVariables = ["HOME", "USER", "LOGNAME", "TMPDIR", "SSH_AUTH_SOCK"]
@@ -83,7 +85,8 @@ struct GitEnvironment: Sendable, Equatable {
             "SSH_ASKPASS": "",
             "GIT_PROXY_COMMAND": "",
             "GIT_ALLOW_PROTOCOL": allowsTransport ? allowedProtocols : "",
-            // Second layer (git 2.44+, ignored before): no lazy fetch from a promisor remote, for any command (#212).
+            // Second layer (git 2.44.1+ and the 2024 backports, ignored by older git): no lazy fetch from a promisor
+            // remote, for any command (#212, #317).
             "GIT_NO_LAZY_FETCH": "1",
             "GIT_SSH_COMMAND": trustedSSHCommand ?? defaultSSHCommand,
             "PATH": path,

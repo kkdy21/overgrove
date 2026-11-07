@@ -166,8 +166,8 @@ actor GitClient {
             throw GitError.configInspectionFailed(reason: "repository configuration has not been inspected")
         }
         // During fetch, a lazy fetch (e.g. for a missing delta base) runs the repository's own uploadpack, which the
-        // pinned --upload-pack does not cover. Only git 2.44+ can turn it off (GIT_NO_LAZY_FETCH); fetch keeps its
-        // transports, so on older git a partial clone fails closed (security review of #213).
+        // pinned --upload-pack does not cover. Only GIT_NO_LAZY_FETCH turns it off (lazyFetchControlVersion); fetch keeps
+        // its transports, so on older git a partial clone fails closed (security review of #213, SEC-T5-17).
         if safety.isPartialClone && environment.version < GitEnvironment.lazyFetchControlVersion {
             throw GitError.configInspectionFailed(
                 reason: "This repository is a partial clone. Fetching it safely needs git "

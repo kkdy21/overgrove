@@ -114,7 +114,7 @@ Overgrove는 상태바(`Fetch failed — Details`)에 이유를 보여 준다. D
 | Fetch timed out after … s | 느린 연결이나 아주 큰 저장소 | 신뢰하는 저장소에서 터미널로 한 번 fetch |
 | The repository for … was not found | 잘못된 URL, 또는 볼 수 없는 비공개 저장소 | 신뢰하는 저장소에서 `git --no-pager remote -v`로 URL 확인 |
 | Overgrove does not fetch … | `ftp://`, `ftps://`, 커스텀 원격 helper | [한계](#한계) |
-| Fetching … is turned off for this repository | 저장소 자체 설정에 CA·클라이언트 인증서 등이 있음, 또는 Git 2.44 미만의 partial clone | [사설 인증 기관(CA)](#사설-인증-기관ca), [한계](#한계) |
+| Fetching … is turned off for this repository | 저장소 자체 설정에 CA·클라이언트 인증서 등이 있음, 또는 Git 2.44.1 미만의 partial clone | [사설 인증 기관(CA)](#사설-인증-기관ca), [한계](#한계) |
 
 ## 한계
 
@@ -122,6 +122,6 @@ Overgrove는 상태바(`Fetch failed — Details`)에 이유를 보여 준다. D
 - **`ftp://`·`ftps://`**는 Git 내장이지만 거의 쓰이지 않아 허용 목록에 없다.
 - **`core.gitProxy`를 거치는 `git://`**는 지원하지 않는다.
 - **이슈**(사이드바 ISSUES와 이슈 패널)는 v0.1에서 github.com만 지원한다. GitHub Enterprise 호스트는 계획되어 있다([#117](https://github.com/kkdy21/overgrove/issues/117)). GitHub Enterprise 서버에서의 Fetch는 다른 Git 서버와 똑같이 된다.
-- **partial clone**(`--filter`)은 Git 2.44 이상에서만 fetch할 수 있다. 아직 받지 않은 객체가 필요한 화면은 그 객체를 받는 대신 오류를 보여 준다.
+- **partial clone**(`--filter`)은 Git 2.44.1 이상에서만 fetch할 수 있다. 아직 받지 않은 객체가 필요한 화면은 그 객체를 받는 대신 오류를 보여 준다.
 
 규칙의 근거는 [보안 검토](../design/security-review.md)(T5, T6, T11, T12)에 있다.
