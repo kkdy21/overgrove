@@ -270,6 +270,91 @@ final class RepoConfigInspectorTests: XCTestCase {
         let miss = await cache.inspection(for: "repo", fingerprint: RepoConfigInspectionCache.Fingerprint.make([file]))
         XCTAssertNil(miss)
     }
+
+    // MARK: - Result cache hardening (#88)
+
+    /// A repository-controlled include can point at a file the fingerprint does not stamp (even a tracked file in the
+    /// worktree, which a checkout changes), so the inspection is never cached (fail closed). Trusted includes only
+    /// bring trusted values.
+    func testRepositoryControlledIncludesMakeTheInspectionUncacheable() {
+        XCTAssertFalse(inspect([entry(.local, "include.path", "../shared.cfg")]).isCacheable)
+        XCTAssertFalse(inspect([entry(.worktree, "includeif.gitdir:~/x/.path", "x.cfg")]).isCacheable)
+        XCTAssertFalse(inspect([entry(.local, "INCLUDE.PATH", "x.cfg")]).isCacheable, "keys are lowercased by git")
+        XCTAssertTrue(inspect([entry(.global, "include.path", "~/.gitconfig-work")]).isCacheable)
+        XCTAssertTrue(inspect([entry(.global, "includeif.gitdir:~/work/.path", "~/.gitconfig-work")]).isCacheable)
+    }
+
+    private func temporaryFile(_ contents: String) throws -> URL {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("overgrove-fp-\(UUID().uuidString)")
+        try contents.write(to: file, atomically: false, encoding: .utf8)
+        return file
+    }
+
+    private func fileStatus(_ file: URL) throws -> stat {
+        var info = stat()
+        guard stat(file.path, &info) == 0 else { throw POSIXError(.ENOENT) }
+        return info
+    }
+
+    /// The modification time can be set back (`touch -m`, archive extraction); the status change time cannot.
+    func testFingerprintSeesARewriteThatRestoresSizeAndModificationTime() async throws {
+        let file = try temporaryFile("[core]\n")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let original = try fileStatus(file)
+        let before = RepoConfigInspectionCache.Fingerprint.make([file])
+
+        try await Task.sleep(for: .milliseconds(20))  // a later status change time
+        let handle = try FileHandle(forWritingTo: file)
+        try handle.write(contentsOf: Data("[evil]\n".utf8))  // same size
+        try handle.close()
+        let times = [original.st_atimespec, original.st_mtimespec]
+        XCTAssertEqual(utimensat(AT_FDCWD, file.path, times, 0), 0)
+
+        let restored = try fileStatus(file)
+        XCTAssertEqual(restored.st_size, original.st_size, "control: same size")
+        XCTAssertEqual(restored.st_mtimespec.tv_sec, original.st_mtimespec.tv_sec, "control: same modification time")
+        XCTAssertEqual(restored.st_mtimespec.tv_nsec, original.st_mtimespec.tv_nsec, "control: same modification time")
+        XCTAssertNotEqual(RepoConfigInspectionCache.Fingerprint.make([file]), before)
+    }
+
+    func testFingerprintSeesAFileReplacedByAnother() throws {
+        let file = try temporaryFile("[core]\n")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let before = RepoConfigInspectionCache.Fingerprint.make([file])
+        let replacement = try temporaryFile("[core]\n")
+        let attributes = try FileManager.default.attributesOfItem(atPath: file.path)
+        try FileManager.default.setAttributes(
+            [.modificationDate: try XCTUnwrap(attributes[.modificationDate] as? Date)], ofItemAtPath: replacement.path)
+        XCTAssertEqual(rename(replacement.path, file.path), 0)
+
+        XCTAssertNotEqual(RepoConfigInspectionCache.Fingerprint.make([file]), before, "another inode")
+    }
+
+    func testFingerprintRecordsMissingFiles() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent("overgrove-fp-\(UUID().uuidString)")
+        let absent = RepoConfigInspectionCache.Fingerprint.make([file])
+        XCTAssertEqual(RepoConfigInspectionCache.Fingerprint.make([file]), absent)
+        try "".write(to: file, atomically: false, encoding: .utf8)
+        defer { try? FileManager.default.removeItem(at: file) }
+        XCTAssertNotEqual(RepoConfigInspectionCache.Fingerprint.make([file]), absent, "creating a file invalidates")
+    }
+
+    func testInspectionCacheIsBoundedAndForgetsARepositoryAtOnce() async {
+        let cache = RepoConfigInspectionCache(capacity: 2)
+        let inspection = inspect([])
+        let fingerprint = RepoConfigInspectionCache.Fingerprint.make([])
+        await cache.store(inspection, for: "r1\u{0}/a", fingerprint: fingerprint)
+        await cache.store(inspection, for: "r1\u{0}/b", fingerprint: fingerprint)
+        await cache.store(inspection, for: "r2\u{0}/a", fingerprint: fingerprint)
+        let evicted = await cache.inspection(for: "r1\u{0}/a", fingerprint: fingerprint)
+        XCTAssertNil(evicted, "the least recently used entry is evicted")
+
+        await cache.invalidate(keysWithPrefix: "r1\u{0}")
+        let forgotten = await cache.inspection(for: "r1\u{0}/b", fingerprint: fingerprint)
+        let kept = await cache.inspection(for: "r2\u{0}/a", fingerprint: fingerprint)
+        XCTAssertNil(forgotten)
+        XCTAssertEqual(kept, inspection)
+    }
 }
 
 /// End to end against the malicious fixture (docs/testing/fixtures.md §8): SEC-T4-01/02/03.

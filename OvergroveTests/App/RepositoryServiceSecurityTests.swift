@@ -51,15 +51,8 @@ final class RepositoryServiceSecurityTests: XCTestCase {
         let gated = try executables.gatedGit(forwardingTo: repository.environment.executable, markers: markers)
         FileManager.default.createFile(atPath: markers.appendingPathComponent("release").path, contents: nil)
         let client = GitClient(environment: GitEnvironment(executable: gated, version: repository.environment.version))
-        let safety = try await inspectedSafety(in: repository.root)
         return try await RepositoryService(client: client, maximumQueriedWorktrees: maximumQueriedWorktrees)
-            .loadOverview(of: model, safety: safety)
-    }
-
-    private func inspectedSafety(in folder: URL) async throws -> RepoSafetyContext {
-        let listing = try await GitClient(environment: repository.environment)
-            .run(.configList, in: folder, safety: .preInspection)
-        return try XCTUnwrap(RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
+            .loadOverview(of: model)
     }
 
     private func statusCalls() -> Int {
