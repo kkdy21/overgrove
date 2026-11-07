@@ -18,12 +18,12 @@ final class AppStateSearchTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    private func loadedState() async throws -> (AppState, [CommitNode]) {
-        let commits = FakeGraphLoader.linear(12)
+    private func loadedState(count: Int = 12) async throws -> (AppState, [CommitNode]) {
+        let commits = FakeGraphLoader.linear(count)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
             loader: StubRepositoryLoader(result: .success(.mockup)),
-            graphLoader: FakeGraphLoader(count: 12), commitLoader: StubCommitLoader())
+            graphLoader: FakeGraphLoader(count: count), commitLoader: StubCommitLoader())
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(
@@ -78,6 +78,28 @@ final class AppStateSearchTests: XCTestCase {
         state.searchText = "commit"
         XCTAssertEqual(state.graphSearch?.matches.count, 12)
         XCTAssertNotEqual(state.searchCache?.result, first)
+    }
+
+    /// SEC-T15-16: a new page adds only its own commits to the search; new refs or focus rebuild it.
+    func testNewPagesExtendTheSearch() async throws {
+        let (state, _) = try await loadedState(count: GraphStore.pageSize + 100)
+        state.searchText = "commit"
+        XCTAssertEqual(state.graphSearch?.scannedCount, GraphStore.pageSize)
+        state.graph.rowAppeared(GraphStore.pageSize - 1)
+        let deadline = ContinuousClock.now + .seconds(5)
+        while state.graph.commits.count < GraphStore.pageSize + 100, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let extended = try XCTUnwrap(state.graphSearch)
+        XCTAssertEqual(extended.scannedCount, 100, "only the new page")
+        XCTAssertEqual(extended.matches.count, GraphStore.pageSize + 100)
+        XCTAssertEqual(
+            extended.summary,
+            "\((GraphStore.pageSize + 100).formatted()) matches in all \((GraphStore.pageSize + 100).formatted()) commits"
+        )
+
+        state.graph.setFocus(nil)
+        XCTAssertEqual(state.graphSearch?.scannedCount, GraphStore.pageSize + 100, "new ref pills: searched again")
     }
 
     func testSidebarFilterRequestAndReset() async throws {

@@ -65,6 +65,21 @@ final class GraphSearchTests: XCTestCase {
         XCTAssertEqual(partial.step(from: commits[1].oid, forward: true), ids[0], "not a match: starts over")
     }
 
+    /// SEC-T15-16: only the start of each field is searched (git does not cut subjects, names, or ref names).
+    func testScansOnlyTheStartOfEachField() throws {
+        let long = String(repeating: "x", count: 50_000)
+        let commits = [
+            commit(0, "needle " + long), commit(1, long + " needle"), commit(2, "s", author: long + "needle"),
+        ]
+        let pills = [commits[2].oid: [pill(long + "needle")]]
+        let result = GraphSearchResult(
+            query: try XCTUnwrap(GraphSearchQuery("needle")), commits: commits, pills: pills, issueRepository: nil,
+            isComplete: true)
+        XCTAssertEqual(result.matches, [commits[0].oid])
+        XCTAssertFalse(SidebarFilter.matches("needle", long + "needle"))
+        XCTAssertTrue(SidebarFilter.matches("needle", "needle" + long))
+    }
+
     func testSidebarFilter() {
         XCTAssertNil(SidebarFilter.query("  "))
         XCTAssertTrue(SidebarFilter.matches(nil, "anything"))

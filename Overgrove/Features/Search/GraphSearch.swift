@@ -37,13 +37,21 @@ struct GraphSearchQuery: Equatable, Sendable {
             // `#12` means the issue, not any text with `12` in it.
             if text.hasPrefix("#") { return false }
         }
-        return contains(commit.subject) || contains(commit.authorName) || contains(commit.authorEmail)
-            || commit.coAuthors.contains(where: contains)
-            || pills.contains { contains($0.title) || contains($0.tooltip) }
+        return contains(commit.subject, upTo: Self.subjectScanLimit) || contains(commit.authorName)
+            || contains(commit.authorEmail) || commit.coAuthors.prefix(Self.listScanLimit).contains { contains($0) }
+            || pills.prefix(Self.listScanLimit).contains { contains($0.title) || contains($0.tooltip) }
     }
 
-    private func contains(_ field: String) -> Bool {
-        field.range(of: text, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+    /// Only the start of each field is searched, as for issue references (`CommitLink.subjectScanLimit`): git does
+    /// not cut subjects or names, and a match past what a row shows is not one anybody sees (security review of #74,
+    /// T15).
+    static let subjectScanLimit = CommitLink.subjectScanLimit
+    static let fieldScanLimit = 256
+    /// Co-authors and ref pills looked at per commit.
+    static let listScanLimit = 32
+
+    private func contains(_ field: String, upTo limit: Int = fieldScanLimit) -> Bool {
+        field.prefix(limit).range(of: text, options: [.caseInsensitive, .diacriticInsensitive]) != nil
     }
 
     private static func isHex(_ byte: UInt8) -> Bool {
@@ -60,16 +68,40 @@ struct GraphSearchResult: Equatable {
     /// Every commit is loaded, so no older match can be missing.
     let isComplete: Bool
 
+    /// Commits looked at to build this result: all of them, or only a new page (`extended`).
+    let scannedCount: Int
+
     init(
         query: GraphSearchQuery, commits: [CommitNode], pills: [ObjectID: [GraphRefPill]], issueRepository: String?,
         isComplete: Bool
     ) {
+        self.init(
+            query: query, previous: [], newCommits: commits[...], pills: pills, issueRepository: issueRepository,
+            searchedCount: commits.count, isComplete: isComplete)
+    }
+
+    private init(
+        query: GraphSearchQuery, previous: [ObjectID], newCommits: ArraySlice<CommitNode>,
+        pills: [ObjectID: [GraphRefPill]], issueRepository: String?, searchedCount: Int, isComplete: Bool
+    ) {
         self.query = query
-        matches = commits.filter { query.matches($0, pills: pills[$0.oid] ?? [], issueRepository: issueRepository) }
+        matches =
+            previous
+            + newCommits.filter { query.matches($0, pills: pills[$0.oid] ?? [], issueRepository: issueRepository) }
             .map(\.oid)
         matchSet = Set(matches)
-        searchedCount = commits.count
+        self.searchedCount = searchedCount
+        scannedCount = newCommits.count
         self.isComplete = isComplete
+    }
+
+    /// The same search after more pages loaded: only the new commits are looked at (security review of #74, T15).
+    func extended(
+        with commits: [CommitNode], pills: [ObjectID: [GraphRefPill]], issueRepository: String?, isComplete: Bool
+    ) -> GraphSearchResult {
+        GraphSearchResult(
+            query: query, previous: matches, newCommits: commits[min(searchedCount, commits.count)...], pills: pills,
+            issueRepository: issueRepository, searchedCount: commits.count, isComplete: isComplete)
     }
 
     /// `3 matches in 1,500 loaded commits · older commits are searched as they load` (the loaded-page notice).
@@ -104,7 +136,12 @@ enum SidebarFilter {
 
     static func matches(_ query: String?, _ fields: String?...) -> Bool {
         guard let query else { return true }
-        return fields.contains { $0?.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
+        // The start of each name only (T15): names are not cut by git, and rows show one line.
+        return fields.contains {
+            $0?.prefix(GraphSearchQuery.fieldScanLimit).range(
+                of: query, options: [.caseInsensitive, .diacriticInsensitive])
+                != nil
+        }
     }
 
     /// Branch rows that match, with the folders that hold them (opened, so matches show). Folder counts are the
