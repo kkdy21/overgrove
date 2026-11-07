@@ -8,6 +8,10 @@ import XCTest
 ///
 /// The remote is a loopback HTTP server that answers every request with 401 (`LocalHTTPAuthServer`), so git really
 /// reaches the point where it looks for credentials. No network.
+///
+/// On the app path, trusted credential helpers stay active (Apple's `osxkeychain` from the Xcode gitconfig), so
+/// "no helper" means "no stored credential": the server's random port matches no keychain entry. A machine whose
+/// system or global config sets an interactive helper could show UI here.
 final class SECT12PromptTests: XCTestCase {
     private var executables: TestExecutables!
     private var server: LocalHTTPAuthServer!
@@ -16,6 +20,12 @@ final class SECT12PromptTests: XCTestCase {
 
     /// Far below the 120 s fetch timeout: a prompt that waited would hit the timeout instead.
     private let fast: Duration = .seconds(15)
+    /// Shorter than the app's 120 s, so a regression fails in seconds instead of minutes (security review of #204).
+    private var fetchLimits: ProcessLimits {
+        var limits = ProcessLimits.fetch
+        limits.timeout = .seconds(20)
+        return limits
+    }
 
     override func setUp() async throws {
         executables = try TestExecutables()
@@ -46,7 +56,8 @@ final class SECT12PromptTests: XCTestCase {
             environment: repository.environment,
             parentEnvironment: [
                 "HOME": executables.directory.path, "TMPDIR": FileManager.default.temporaryDirectory.path,
-            ]
+            ],
+            fetchLimits: fetchLimits
         )
         let listing = try await client.run(.configList, in: repository.root, safety: .preInspection)
         let safety = try XCTUnwrap(RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
@@ -92,7 +103,9 @@ final class SECT12PromptTests: XCTestCase {
         for url in [server.url(), server.url(userInfo: "alice")] {
             _ = try await repository.git(["remote", "remove", "origin"], allowFailure: true)
             try await repository.git(["remote", "add", "origin", url])
+            let requestsBefore = server.requestCount
             let (error, elapsed) = try await appFetch()
+            XCTAssertGreaterThan(server.requestCount, requestsBefore, "\(url): git reached the server")
             guard case .authenticationFailed = error else { return XCTFail("\(url): got \(error)") }
             XCTAssertLessThan(elapsed, fast, url)
             let guidance = try XCTUnwrap(

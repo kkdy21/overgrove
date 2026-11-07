@@ -15,7 +15,7 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
     /// The bound loopback port.
     let port: UInt16
 
-    /// Requests answered so far.
+    /// Complete requests (headers received) answered so far.
     var requestCount: Int { lock.withLock { requests } }
 
     /// `http://127.0.0.1:<port>/<path>`.
@@ -23,7 +23,8 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
         "http://\(userInfo.map { "\($0)@" } ?? "")127.0.0.1:\(port)/\(path)"
     }
 
-    static func start() async throws -> LocalHTTPAuthServer {
+    /// Starts listening on a free loopback port. Throws if the listener is not ready within `timeout`.
+    static func start(timeout: Duration = .seconds(10)) async throws -> LocalHTTPAuthServer {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         let listener = try NWListener(using: parameters)
@@ -34,8 +35,13 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
             listener.stateUpdateHandler = { state in
                 switch state {
                 case .ready:
-                    if let port = listener.port?.rawValue { resume(.success(port)) }
-                case .failed(let error):
+                    if let port = listener.port?.rawValue {
+                        resume(.success(port))
+                    } else {
+                        resume(.failure(URLError(.cannotFindHost)))
+                    }
+                case .failed(let error), .waiting(let error):
+                    // `.waiting` means the listener cannot bind now; a test should fail, not wait.
                     resume(.failure(error))
                 case .cancelled:
                     resume(.failure(CancellationError()))
@@ -45,6 +51,9 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
             }
             listener.newConnectionHandler = { $0.cancel() }  // replaced below once the server exists
             listener.start(queue: queue)
+            queue.asyncAfter(deadline: .now() + .seconds(Int(timeout.components.seconds))) {
+                resume(.failure(URLError(.timedOut)))
+            }
         }
         let server = LocalHTTPAuthServer(listener: listener, port: port)
         listener.newConnectionHandler = { [server] connection in server.serve(connection) }
@@ -93,7 +102,8 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
                 receiveHeaders(on: connection, buffered: request)
                 return
             }
-            lock.withLock { requests += 1 }
+            // Count only complete requests: a connection closed before its headers is not a request.
+            if headersEnded { lock.withLock { requests += 1 } }
             let response = """
                 HTTP/1.1 401 Unauthorized\r
                 WWW-Authenticate: Basic realm="overgrove-test"\r

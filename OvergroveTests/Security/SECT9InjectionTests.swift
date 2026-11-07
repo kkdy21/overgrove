@@ -29,9 +29,12 @@ final class SECT9InjectionTests: XCTestCase {
         }
         try await repository.git(["add", "--all"])
         try await repository.git(["commit", "-q", "-m", "one"])
-        for name in hostile {
+        // Every commit also changes `a.txt`, so a name read as a glob or as `:(exclude)` magic would match a second
+        // file and show up as a second diff header (security review of #204).
+        for (index, name) in hostile.enumerated() {
             try repository.write(name, "v2 \(name)\n")
-            try await repository.git(["add", "--", name])
+            try repository.write("a.txt", "a v\(index + 2)\n")
+            try await repository.git(["add", "--", name, "a.txt"])
             try await repository.git(["commit", "-q", "-m", "change \(name)"])
         }
         let before = try FileManager.default.contentsOfDirectory(atPath: repository.root.path).sorted()
@@ -48,14 +51,15 @@ final class SECT9InjectionTests: XCTestCase {
             let patch = try await client.run(
                 .commitPatch(change.oid, parent: change.parents.first, path: path), in: repository.root,
                 safety: inspected)
-            XCTAssertEqual(diffHeaders(patch).count, 1, "commit patch of \(name)")
+            XCTAssertEqual(diffHeaders(patch), ["diff --git a/\(name) b/\(name)"], "commit patch of \(name)")
 
             try repository.write(name, "v3 \(name)\n")
+            try repository.write("a.txt", "a dirty\n")
             let diff = try await client.run(
                 .worktreeDiff(path: path, staged: false), in: repository.root, safety: inspected)
-            XCTAssertEqual(diffHeaders(diff).count, 1, "working tree diff of \(name)")
+            XCTAssertEqual(diffHeaders(diff), ["diff --git a/\(name) b/\(name)"], "working tree diff of \(name)")
             XCTAssertTrue(String(decoding: diff.stdout, as: UTF8.self).contains("+v3 \(name)"), name)
-            try await repository.git(["checkout", "-q", "--", name])
+            try await repository.git(["checkout", "-q", "--", name, "a.txt"])
         }
         let after = try FileManager.default.contentsOfDirectory(atPath: repository.root.path).sorted()
         XCTAssertEqual(after, before, "--output=x and friends must not create files")

@@ -6,7 +6,14 @@ import XCTest
 /// T10 inherited environment on the app's real path (security-review.md §2 T10, #93): `GitClient` built with a hostile
 /// parent environment still queries the right repository and runs nothing from that environment.
 ///
-/// The allowlist itself is unit-tested in `GitEnvironmentTests` (SEC-T10-01/02) and `GHClientTests` (SEC-T10-03).
+/// That each variable is absent from the child is unit-tested in `GitEnvironmentTests` (SEC-T10-01/02, `/usr/bin/env`)
+/// and `GHClientTests` (SEC-T10-03). This test runs the real commands instead: it fails if the parent environment is
+/// passed through, through `GIT_DIR`/`GIT_WORK_TREE` (wrong repository), `GIT_TRACE` (trace file), and
+/// `GIT_SSH_COMMAND` (ssh fetch). Some other variables here could not act even if inherited, because the arguments
+/// already block them (e.g. `GIT_EXTERNAL_DIFF` against `--no-ext-diff`); they stay as defense-in-depth canaries.
+///
+/// The ssh fetches go to a closed local port. OpenSSH reads `~/.ssh/config` from the account's home directory, not
+/// `$HOME`, so an unusual user ssh configuration (for example a `ProxyCommand` for every host) could change the error.
 final class SECT10EnvironmentTests: XCTestCase {
     private var executables: TestExecutables!
     private var target: GitTestRepository!
