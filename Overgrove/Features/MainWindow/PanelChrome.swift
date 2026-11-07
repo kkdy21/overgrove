@@ -84,18 +84,26 @@ struct PlaceholderField: View {
 
 // MARK: - The three panels of S-01
 
-/// Sidebar: filter header, then WORKTREES / LOCAL / REMOTE / STASHES / ISSUES. TODO(#65): worktree list.
+/// Sidebar: filter header, then WORKTREES / LOCAL / REMOTE / STASHES / ISSUES.
 struct SidebarPanel: View {
     let hasRepository: Bool
+    var worktreeStatus: WorktreeListStatus = .idle
+    var worktreeModel: WorktreeListModel?
+    var selectedWorktree: GitPath?
+    var onSelectWorktree: (GitPath) -> Void = { _ in }
 
     var body: some View {
         PanelSection {
+            // TODO(#74): filter the sidebar.
             PlaceholderField(symbol: "magnifyingglass", prompt: "Filter", shortcut: "⌥⌘F")
         } content: {
             if hasRepository {
-                PanelEmptyState(
-                    symbol: "tree", title: "Worktrees",
-                    message: "Worktrees, branches, stashes, and issues appear here.")
+                // TODO(#72): LOCAL and REMOTE; TODO(#71): STASHES; TODO(#81): ISSUES.
+                ScrollView {
+                    WorktreeListSection(
+                        status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
+                        onSelect: onSelectWorktree)
+                }
             } else {
                 PanelEmptyState(
                     symbol: "folder", title: "No repository open",

@@ -241,5 +241,15 @@ final class WriteProtectionTests: XCTestCase {
                 + "let runner = ProcessRunner()\nlet request: ProcessRequest? = nil",
             as: "Overgrove/Features/Example.swift")
         XCTAssertEqual(harmless.termination, .exited(code: 0), String(decoding: harmless.stderr, as: UTF8.self))
+
+        // Comment lines are prose (#223); code with a trailing comment, or indented code, is still checked.
+        let comments = try await check(
+            "// MARK: - " + "Pro" + "cess cap\n    /// " + "Pro" + "cess creation lives in Execution.\nlet x = 1",
+            as: "Overgrove/Features/Example.swift")
+        XCTAssertEqual(comments.termination, .exited(code: 0), String(decoding: comments.stderr, as: UTF8.self))
+        for snippet in ["let child = " + "Pro" + "cess() // note", "    let child = " + "Pro" + "cess()"] {
+            let result = try await check(snippet, as: "Overgrove/Features/Example.swift")
+            XCTAssertEqual(result.termination, .exited(code: 1), "not rejected: \(snippet)")
+        }
     }
 }
