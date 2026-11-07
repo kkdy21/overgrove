@@ -305,6 +305,23 @@ final class RepositoryServiceCacheTests: XCTestCase {
         XCTAssertEqual(canaries(canary), [], "the included driver is neutralized")
     }
 
+    /// Belonging to the repository (#226) is checked on every query, never cached: a worktree whose `.git` starts
+    /// borrowing another worktree's entry after it was cached is refused.
+    func testWorktreeThatStopsBelongingIsRefusedDespiteTheCache() async throws {
+        let service = try makeService()
+        let first = try overview(await service.refresh(model, trigger: .user))
+        let borrowed = repository.root.appendingPathComponent(".git/worktrees/wt-0").path
+        try "gitdir: \(borrowed)\n".write(
+            to: worktree(1).appendingPathComponent(".git"), atomically: true, encoding: .utf8)
+        resetCalls()
+
+        let selected = try overview(
+            await service.refresh(model, trigger: .worktreeSelected(try entry(first, lane: 1).worktree.path)))
+
+        XCTAssertEqual(try entry(selected, lane: 1).status, .notQueried(.foreignRepository))
+        XCTAssertNil(calls()["status"], "no git status in a folder that no longer belongs")
+    }
+
     func testFailedRefreshStopsServingTheOldResult() async throws {
         let service = try makeService()
         _ = try overview(await service.refresh(model, trigger: .user))

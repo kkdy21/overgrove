@@ -13,6 +13,8 @@ import Foundation
 /// - **Cache** (overview.md §5): the last result per repository stays in memory (`cachedOverview(of:)`, no git), and
 ///   each trigger re-queries only what its row of the cache table invalidates. Configuration inspections are cached
 ///   per worktree until a configuration file changes (`RepoConfigInspectionCache`).
+/// - **Untrusted worktree list** (#226): every listed worktree must prove it belongs to the repository before git runs
+///   in it, duplicates are listed once, and at most `maximumQueriedWorktrees` are queried.
 ///
 /// The Store owns what is shown; the service keeps the cache and the generation bookkeeping.
 actor RepositoryService {
@@ -45,8 +47,12 @@ actor RepositoryService {
     static let statusFreshness: Duration = .seconds(5)
     /// Repositories whose results stay cached; the least recently used one is dropped beyond this.
     static let defaultCachedRepositories = 8
+    /// Worktrees queried per load (#226, T15). Each one costs three git processes (probe, config, status), and the list
+    /// comes from files the repository controls, so a forged list could otherwise start thousands. PB-1 targets 10.
+    static let defaultMaximumQueriedWorktrees = 64
 
     private let client: GitClient
+    private let maximumQueriedWorktrees: Int
     private let sleep: @Sendable (Duration) async throws -> Void
     private let now: @Sendable () -> ContinuousClock.Instant
     private let inspections = RepoConfigInspectionCache()
@@ -60,11 +66,13 @@ actor RepositoryService {
     init(
         client: GitClient,
         cachedRepositories: Int = RepositoryService.defaultCachedRepositories,
+        maximumQueriedWorktrees: Int = RepositoryService.defaultMaximumQueriedWorktrees,
         sleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
         now: @escaping @Sendable () -> ContinuousClock.Instant = { ContinuousClock.now }
     ) {
         self.client = client
         self.cache = BoundedCache(capacity: cachedRepositories)
+        self.maximumQueriedWorktrees = maximumQueriedWorktrees
         self.sleep = sleep
         self.now = now
     }
@@ -111,7 +119,9 @@ actor RepositoryService {
 
         let previous = cache.peek(id)
         let plan = Plan(trigger: trigger, hasCache: previous != nil)
-        let context = Context(repository: repository, client: client, inspections: inspections, now: now())
+        let context = Context(
+            repository: repository, client: client, inspections: inspections,
+            maximumQueriedWorktrees: maximumQueriedWorktrees, now: now())
         let task = Task { try await Self.load(context, previous: previous, plan: plan) }
         running[id] = (generation, task)
         let result: Result<CachedRepository, GitError> = await withTaskCancellationHandler {
@@ -145,7 +155,9 @@ actor RepositoryService {
 
     /// One full load without the result cache or refresh coordination (overview.md §3.2 steps 3–5, PB-1).
     func loadOverview(of repository: Repository) async throws -> RepositoryOverview {
-        let context = Context(repository: repository, client: client, inspections: nil, now: now())
+        let context = Context(
+            repository: repository, client: client, inspections: nil, maximumQueriedWorktrees: maximumQueriedWorktrees,
+            now: now())
         return try await Self.load(context, previous: nil, plan: Plan(trigger: .user, hasCache: false)).overview
     }
 
@@ -160,6 +172,7 @@ actor RepositoryService {
         let client: GitClient
         /// `nil` for an uncached load.
         let inspections: RepoConfigInspectionCache?
+        let maximumQueriedWorktrees: Int
         let now: ContinuousClock.Instant
     }
 
@@ -212,15 +225,22 @@ actor RepositoryService {
             throw GitError.configInspectionFailed(reason: inspection.report.blockingReason ?? "")
         }
 
-        let (worktrees, isListPartial) = try await worktreeList(context, safety: safety, previous: previous, plan: plan)
-        let stale = worktrees.filter { skipReason($0) == nil && needsStatus($0, plan, previous, at: context.now) }
+        let (listed, isListPartial) = try await worktreeList(context, safety: safety, previous: previous, plan: plan)
+        let worktrees = uniquePaths(listed)
+        let admissions = admit(worktrees, limit: context.maximumQueriedWorktrees)
+        let stale: [(Worktree, URL)] = zip(worktrees, admissions).compactMap { worktree, admission in
+            guard case .query(let folder) = admission, needsStatus(worktree, plan, previous, at: context.now) else {
+                return nil
+            }
+            return (worktree, folder)
+        }
 
         var fresh: [GitPath: RepositoryOverview.Status] = [:]
         var refs: RefParser.Listing?
         var stashes: StashParser.Listing?
         try await withThrowingTaskGroup(of: Part.self) { group in
-            for worktree in stale {
-                group.addTask { .status(worktree.path, await Self.status(of: worktree, context)) }
+            for (worktree, folder) in stale {
+                group.addTask { .status(worktree.path, await Self.status(of: worktree, at: folder, context)) }
             }
             if plan.refs || previous == nil {
                 group.addTask { .refs(try await Self.refs(context, directory: directory, safety: safety)) }
@@ -256,7 +276,8 @@ actor RepositoryService {
         // A cancelled refresh ends here, instead of reporting every worktree as failed.
         guard !Task.isCancelled, let finalRefs, let finalStashes else { throw GitError.cancelled }
         return assemble(
-            worktrees, isListPartial: isListPartial, fresh: fresh, previous: previous, at: context.now,
+            zip(worktrees, admissions).map { ($0, $1) }, isListPartial: isListPartial, fresh: fresh,
+            previous: previous, at: context.now,
             refs: finalRefs, stashes: finalStashes, inspection: inspection)
     }
 
@@ -328,7 +349,7 @@ actor RepositoryService {
     }
 
     private static func assemble(
-        _ worktrees: [Worktree],
+        _ worktrees: [(Worktree, Admission)],
         isListPartial: Bool,
         fresh: [GitPath: RepositoryOverview.Status],
         previous: CachedRepository?,
@@ -340,10 +361,10 @@ actor RepositoryService {
         let cached = Dictionary(
             (previous?.overview.entries ?? []).map { ($0.worktree.path, $0.status) }, uniquingKeysWith: { $1 })
         var times: [GitPath: ContinuousClock.Instant] = [:]
-        let entries = worktrees.map { worktree in
+        let entries = worktrees.map { worktree, admission in
             let path = worktree.path
-            if let reason = skipReason(worktree) {
-                return RepositoryOverview.Entry(worktree: worktree, status: .notQueried(reason))
+            if case .skip(let status) = admission {
+                return RepositoryOverview.Entry(worktree: worktree, status: status)
             }
             if let status = fresh[path] {
                 times[path] = now
@@ -372,10 +393,38 @@ actor RepositoryService {
         return try StashParser.parse(output.stdout, truncated: output.isTruncated)
     }
 
+    private enum Admission: Sendable {
+        /// Query the worktree in this folder: its path resolved once, so every command sees the same folder.
+        case query(URL)
+        case skip(RepositoryOverview.Status)
+    }
+
     private static func skipReason(_ worktree: Worktree) -> RepositoryOverview.Reason? {
         if worktree.isPrunable { return .prunable }
         if worktree.isBare { return .bare }
         if !worktree.path.isRepresentable { return .unrepresentablePath }
         return nil
+    }
+
+    /// The list without repeated paths: forged records can repeat one, and a path is the entry's identity (#226).
+    private static func uniquePaths(_ worktrees: [Worktree]) -> [Worktree] {
+        var seen: Set<GitPath> = []
+        return worktrees.filter { seen.insert($0.path).inserted }
+    }
+
+    /// Which worktrees may be queried (#226): each folder once (after `realpath(3)`), and at most `limit` of them.
+    private static func admit(_ worktrees: [Worktree], limit: Int) -> [Admission] {
+        var folders: Set<String> = []
+        return worktrees.map { worktree in
+            if let reason = skipReason(worktree) { return .skip(.notQueried(reason)) }
+            let listed = URL(fileURLWithPath: worktree.path.display, isDirectory: true)
+            guard let folder = PathValidator.canonical(listed) else {
+                return .skip(.failed(.worktreeMissing(path: listed.path)))
+            }
+            guard !folders.contains(folder.path) else { return .skip(.notQueried(.duplicate)) }
+            guard folders.count < limit else { return .skip(.notQueried(.limit)) }
+            folders.insert(folder.path)
+            return .query(folder)
+        }
     }
 }

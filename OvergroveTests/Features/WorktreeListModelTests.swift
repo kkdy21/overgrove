@@ -124,13 +124,18 @@ final class WorktreeListModelTests: XCTestCase {
                 Listing.entry("/tmp/dev/a", branch: "a", state: .failed(.timeout(seconds: 10))),
                 Listing.entry("/tmp/dev/b", branch: "b", state: .notQueried(.foreignRepository)),
                 Listing.entry("/tmp/dev/c", branch: "c", state: .notQueried(.inspectionBlocked("core.fsmonitor"))),
+                Listing.entry("/tmp/dev/d", branch: "d", state: .notQueried(.duplicate)),
+                Listing.entry("/tmp/dev/e", branch: "e", state: .notQueried(.limit)),
             ],
             isPartial: false)
         let rows = model(listing).rows
-        XCTAssertEqual(rows.map(\.title), ["main", "a", "b", "c"], "the main worktree stays first")
+        XCTAssertEqual(rows.map(\.title), ["main", "a", "b", "c", "d", "e"], "the main worktree stays first")
         XCTAssertEqual(
             rows.map(\.subtitle),
-            ["path missing", "Status unavailable", "Not part of this repository", "Blocked for safety"])
+            [
+                "path missing", "Status unavailable", "Not part of this repository", "Blocked for safety",
+                "Same folder as another entry", "Not loaded",
+            ])
         XCTAssertTrue(rows.allSatisfy(\.isSubtitleWarning))
         XCTAssertTrue(rows[1].help.contains("git did not respond within 10 seconds"), rows[1].help)
         XCTAssertTrue(rows[3].help.contains("core.fsmonitor"))

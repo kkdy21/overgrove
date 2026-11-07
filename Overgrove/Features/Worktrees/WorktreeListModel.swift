@@ -168,6 +168,17 @@ struct WorktreeListModel: Equatable {
             return ("Blocked for safety", PathValidator.displayable(reason))
         case .notQueried(.unrepresentablePath):
             return ("Path cannot be read", "The path is not valid UTF-8, so Overgrove cannot pass it to git.")
+        case .notQueried(.duplicate):
+            return (
+                "Same folder as another entry",
+                "Another worktree entry leads to this folder, so its status is shown there."
+            )
+        case .notQueried(.limit):
+            return (
+                "Not loaded",
+                "This repository lists more than \(RepositoryService.defaultMaximumQueriedWorktrees) worktrees. "
+                    + "Overgrove loads the status of the first \(RepositoryService.defaultMaximumQueriedWorktrees)."
+            )
         case .notQueried(.bare):
             return (nil, nil)
         }

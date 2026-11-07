@@ -1,34 +1,55 @@
 import Foundation
 
-/// Per-worktree checks before `status` runs (security review of #221) and the cached configuration inspection (#88).
+/// Per-worktree checks before `status` runs (security reviews of #221 and #226) and the cached configuration
+/// inspection (#88).
 extension RepositoryService {
+    /// Whether `folder` is really this repository's worktree, by the registration rules (SEC-T14-04): the main
+    /// worktree's `.git` leads to the shared git directory; a linked worktree's `.git` leads to an entry under
+    /// `<common>/worktrees/` whose back-pointer names this folder. Checked on the file system before git runs there.
+    static func belongs(_ folder: URL, isMain: Bool, to repository: Repository) -> Bool {
+        let common = repository.commonGitDirectoryURL
+        if isMain {
+            guard let gitDirectory = PathValidator.gitDirectory(of: folder) else { return false }
+            return isSameDirectory(gitDirectory, common)
+        }
+        if case .linked = PathValidator.checkLinkedWorktree(root: folder, commonGitDirectory: common) { return true }
+        return false
+    }
+
     /// One worktree's status. Errors stay with that worktree, except cancellation, which ends the whole load.
     ///
     /// Worktree paths come from files the repository controls (`.git/worktrees/<id>/gitdir`), so each one is treated
-    /// as untrusted: it must belong to this repository (same git common directory, probed every time), and its own
-    /// configuration is inspected (a linked worktree can have `config.worktree`) before `status` runs with that
-    /// worktree's safety context. Both checks use the commands allowed before inspection.
-    static func status(of worktree: Worktree, _ context: Context) async -> RepositoryOverview.Status {
-        let directory = URL(fileURLWithPath: worktree.path.display, isDirectory: true)
+    /// as untrusted. Before `status` runs in `folder` (the listed path, resolved once):
+    /// 1. its `.git` must lead to this repository the way registration requires (`belongs`);
+    /// 2. git must agree: the probe (never cached) reports this folder as the worktree root (not a parent, and not a
+    ///    `core.worktree` elsewhere) and this repository's git common directory;
+    /// 3. its own configuration is inspected, from the cache while its files are unchanged (a linked worktree can
+    ///    have `config.worktree`), and `status` runs with that worktree's safety context.
+    /// The probe and the inspection use the commands allowed before inspection.
+    static func status(of worktree: Worktree, at folder: URL, _ context: Context) async -> RepositoryOverview.Status {
+        guard belongs(folder, isMain: worktree.isMain, to: context.repository) else {
+            return .notQueried(.foreignRepository)
+        }
         do {
             let output: GitOutput
             do {
-                output = try await context.client.run(.probeRepository, in: directory, safety: .preInspection)
+                output = try await context.client.run(.probeRepository, in: folder, safety: .preInspection)
             } catch GitError.launchFailed(errno: ENOENT) {
-                // The probe runs in a folder that may not be a repository yet, so GitClient reports a missing folder
+                // The probe may run before a folder is known to be a repository, so GitClient reports a missing folder
                 // as a launch failure. Here it is a worktree that vanished after the list was read.
-                return .failed(.worktreeMissing(path: directory.path))
+                return .failed(.worktreeMissing(path: folder.path))
             }
             guard let probe = try? ProbeParser.parse(output.stdout),
+                isSameDirectory(probe.topLevel, folder),
                 isSameDirectory(probe.commonDirectory, context.repository.commonGitDirectoryURL)
             else { return .notQueried(.foreignRepository) }
 
-            let inspection = try await inspect(directory, probe: probe, context)
+            let inspection = try await inspect(folder, probe: probe, context)
             guard let safety = inspection.safetyContext else {
                 return .notQueried(.inspectionBlocked(inspection.report.blockingReason ?? ""))
             }
 
-            let status = try await context.client.run(.status, in: directory, safety: safety)
+            let status = try await context.client.run(.status, in: folder, safety: safety)
             return .loaded(try StatusParser.parse(status.stdout, truncated: status.isTruncated))
         } catch let error as GitError {
             return .failed(error)
