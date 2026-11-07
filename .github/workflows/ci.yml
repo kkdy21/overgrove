@@ -102,6 +102,11 @@ jobs:
           fi
           echo "ok  design tokens"
 
+      # iconography.md §6.1 / #38: the committed AppIcon PNGs match a fresh WebKit render of design/icon/*.svg
+      # (pixel tolerance, since anti-aliasing may differ slightly between machines).
+      - name: App icon is up to date
+        run: scripts/render-app-icon.sh --check
+
       - name: Build and test
         run: |
           set -o pipefail
