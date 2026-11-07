@@ -115,6 +115,7 @@ final class AppState {
     private let registry: RepositoryRegistry
     private let registrar: RepositoryRegistrar
     private let loader: any RepositoryLoading
+    private let lineCountLoader: (any LineCountLoading)?
     private let inspector: any WorktreeInspecting
     private let diffLoader: any DiffLoading
 
@@ -144,6 +145,10 @@ final class AppState {
     private(set) var inspectionTask: Task<Void, Never>?
     /// The load in flight; tests await it.
     private(set) var loadTask: Task<Void, Never>?
+    /// The selected worktree's line counts (#230), for the status they were requested with.
+    private var lineCounts: LineCountRequest?
+    /// The line count query in flight; tests await it.
+    private(set) var lineCountTask: Task<Void, Never>?
     /// Bumped on every open and close, so a load that finishes after the user moved on is dropped.
     private var loadGeneration = 0
     /// TODO(#77): set by the fetch feature.
@@ -167,11 +172,14 @@ final class AppState {
     ///   - loader: Inspects an opened repository and loads its worktrees.
     ///   - inspector: Reads one worktree's configuration for S-05.
     ///   - diffLoader: Loads a picked file's patch for S-10.
+    ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
+    ///     it can (the live loader can); without one, the detail shows no line counts.
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
         inspector: any WorktreeInspecting = LiveWorktreeInspector.live,
-        diffLoader: any DiffLoading = LiveDiffLoader.live
+        diffLoader: any DiffLoading = LiveDiffLoader.live,
+        lineCountLoader: (any LineCountLoading)? = nil
     ) {
         self.layoutStore = layoutStore
         self.registry = registry
@@ -179,6 +187,7 @@ final class AppState {
         self.loader = loader
         self.inspector = inspector
         self.diffLoader = diffLoader
+        self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
     }
 
     /// The registered repositories, in the order they were added.
@@ -200,6 +209,9 @@ final class AppState {
         focusedWorktreePath = nil
         selection = nil
         selectedFile = nil
+        lineCountTask?.cancel()
+        lineCountTask = nil
+        lineCounts = nil
         inspectionTask?.cancel()
         inspectionTask = nil
         worktreeInspections = [:]
@@ -250,6 +262,8 @@ final class AppState {
                 // Same file, new content: load its diff again.
                 loadDiff()
             }
+            // The load may have re-queried the status even if it reads the same (an edit inside a modified file).
+            requestLineCounts(refresh: true)
         case .failure(.git(.cancelled)):
             break
         case .failure(let error):
@@ -285,6 +299,7 @@ final class AppState {
             inspectSelectedWorktree()
         } else {
             selection = .wip(path)
+            requestLineCounts()
         }
     }
 
@@ -294,6 +309,7 @@ final class AppState {
     func showChanges() {
         guard let path = selection?.worktreePath else { return }
         selection = .wip(path)
+        requestLineCounts()
     }
 
     func showWorktreeDetail() {
@@ -334,10 +350,68 @@ final class AppState {
 
     /// S-02 for the selected worktree, `nil` unless a loaded worktree's WIP is selected.
     var wipDetailModel: WipDetailModel? {
-        guard case .wip(let path) = selection, case .loaded(let listing) = worktreeList,
-            let entry = listing.entries.first(where: { $0.worktree.path == path })
-        else { return nil }
-        return WipDetailModel(entry: entry)
+        guard let entry = selectedWipEntry else { return nil }
+        let counts: WipDetailModel.LineCounts
+        if let lineCounts, case .loaded(let state) = entry.state, lineCounts.matches(entry.worktree.path, state) {
+            counts = lineCounts.result
+        } else {
+            counts = .pending
+        }
+        return WipDetailModel(entry: entry, lineCounts: counts)
+    }
+
+    private var selectedWipEntry: WorktreeListing.Entry? {
+        guard case .wip(let path) = selection, case .loaded(let listing) = worktreeList else { return nil }
+        return listing.entries.first { $0.worktree.path == path }
+    }
+
+    /// Line counts requested for one worktree's status, and what came back.
+    private struct LineCountRequest {
+        let path: GitPath
+        let state: WorkingState
+        var result: WipDetailModel.LineCounts
+
+        func matches(_ path: GitPath, _ state: WorkingState) -> Bool { self.path == path && self.state == state }
+    }
+
+    /// Queries the selected worktree's line counts unless the shown status already has them (#230). Only the
+    /// selected worktree is queried, and only once its status has loaded; the service answers from its cache until
+    /// that status is queried again.
+    /// - Parameter refresh: Ask even when the status reads the same: after a load, the service knows whether it
+    ///   re-queried that status (and runs no git if not). The current counts stay shown until the answer.
+    private func requestLineCounts(refresh: Bool = false) {
+        guard let lineCountLoader, let repository, let entry = selectedWipEntry, case .loaded(let state) = entry.state
+        else { return }
+        let path = entry.worktree.path
+        let isSameStatus = lineCounts?.matches(path, state) ?? false
+        if isSameStatus && !refresh { return }
+        lineCountTask?.cancel()
+        if !isSameStatus { lineCounts = LineCountRequest(path: path, state: state, result: .pending) }
+        guard !state.staged.isEmpty || !state.unstaged.isEmpty else {
+            lineCounts = LineCountRequest(
+                path: path, state: state,
+                result: .loaded(WorkingLineCounts(staged: [], unstaged: [], isPartial: false)))
+            return
+        }
+        let loader = lineCountLoader
+        let target = repository.repository
+        lineCountTask = Task { [weak self] in
+            let result: WipDetailModel.LineCounts
+            do throws(RepositoryLoadError) {
+                // `nil`: the service has no loaded status for it (e.g. evicted); show no counts rather than an error.
+                guard let counts = try await loader.lineCounts(target, worktree: path) else { return }
+                result = .loaded(counts)
+            } catch {
+                if error == .git(.cancelled) { return }
+                result = .failed
+            }
+            self?.finishLineCounts(result, path: path, state: state)
+        }
+    }
+
+    private func finishLineCounts(_ result: WipDetailModel.LineCounts, path: GitPath, state: WorkingState) {
+        guard !Task.isCancelled, let lineCounts, lineCounts.matches(path, state) else { return }
+        self.lineCounts?.result = result
     }
 
     /// Picks a file in the WIP detail. Paths git cannot take back (not UTF-8) are not selectable.
