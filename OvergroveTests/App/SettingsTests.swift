@@ -71,6 +71,31 @@ final class RemoteURLDisplayTests: XCTestCase {
         XCTAssertEqual(RemoteURLDisplay.text(masked, full: true), masked)
     }
 
+    /// Security review of #86: the short form never names a host git would not use.
+    func testCraftedURLsAreNotShortenedToAnotherHost() {
+        // git reads this as scp-style SSH to evil.example; the short form must say so.
+        XCTAssertEqual(
+            RemoteURLDisplay.short("git@evil.example:x/https://github.com/acme/api"),
+            "evil.example/x/https://github.com/acme/api")
+        // A local path that contains `://` is a path.
+        XCTAssertEqual(RemoteURLDisplay.short("/tmp/https://github.com/acme/api"), "/tmp/https://github.com/acme/api")
+        // Remote helpers are shown whole.
+        let helper = "ext::sh -c x https://***@github.com/acme/api"
+        XCTAssertEqual(RemoteURLDisplay.short(helper), helper)
+        XCTAssertEqual(RemoteURLDisplay.short("persistent-https::https://github.com/a/b"), "persistent-https::https://github.com/a/b")
+        // Not a scheme before `://`.
+        XCTAssertEqual(RemoteURLDisplay.short("1http://github.com/a"), "1http://github.com/a")
+        XCTAssertEqual(RemoteURLDisplay.short("ht tp://github.com/a"), "ht tp://github.com/a")
+    }
+
+    func testAuthorityEdgeCases() {
+        XCTAssertEqual(RemoteURLDisplay.short("https://[::1]:8080/x.git"), "[::1]/x")
+        XCTAssertEqual(RemoteURLDisplay.short("https://[::1/x"), "https://[::1/x", "malformed: shown whole")
+        XCTAssertEqual(RemoteURLDisplay.short("https://***@***@example.com/r"), "example.com/r", "last @ wins")
+        let long = "https://example.com/" + String(repeating: "a/", count: 50_000)
+        XCTAssertTrue(RemoteURLDisplay.short(long).hasPrefix("example.com/a/a"))
+    }
+
     func testControlCharactersAreEscaped() {
         let text = RemoteURLDisplay.text("https://example.com/a\u{202E}b\n", full: true)
         XCTAssertFalse(text.contains("\u{202E}"))

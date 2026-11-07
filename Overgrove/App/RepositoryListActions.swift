@@ -41,6 +41,11 @@ struct RepositoryListActions {
         registry.remove(id)
         fetchRecords.remove(removed.id)
         let loader = loader
-        Task { await loader.forget(removed) }
+        let registry = registry
+        Task {
+            // Added again in the meantime: its new load must not be cancelled (as in a window, #243).
+            guard registry.repository(withID: id) == nil else { return }
+            await loader.forget(removed)
+        }
     }
 }
