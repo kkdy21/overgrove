@@ -236,22 +236,23 @@ final class RemoteFormSecurityTests: XCTestCase {
         (try? FileManager.default.contentsOfDirectory(atPath: canary.path))?.sorted() ?? []
     }
 
-    /// The app's fetch arguments without the neutralizing common arguments (the control run).
-    private func runWithoutNeutralization() async throws -> ProcessResult {
+    /// The app's fetch arguments without the neutralizing common arguments in `dropping` (all of them: the control
+    /// run).
+    private func runWithoutNeutralization(
+        dropping: [String] = GitEnvironment.remoteHelperArguments
+    ) async throws -> ProcessResult {
         let full = repository.environment.arguments(for: FetchCommand.fetch(remote: origin).subcommandArguments())
         var arguments: [String] = []
         var index = 0
         while index < full.count {
-            if full[index] == "-c", index + 1 < full.count,
-                GitEnvironment.remoteHelperArguments.contains(full[index + 1])
-            {
+            if full[index] == "-c", index + 1 < full.count, dropping.contains(full[index + 1]) {
                 index += 2
                 continue
             }
             arguments.append(full[index])
             index += 1
         }
-        XCTAssertEqual(full.count - arguments.count, GitEnvironment.remoteHelperArguments.count)
+        XCTAssertEqual(full.count - arguments.count, dropping.filter { $0 != "-c" }.count * 2)
         return try await ProcessRunner().run(
             ProcessRequest(
                 executable: repository.environment.executable, arguments: arguments,
@@ -363,6 +364,14 @@ final class RemoteFormSecurityTests: XCTestCase {
             XCTFail("fetch must fail")
         } catch is GitError {}
         XCTAssertEqual(canaryNames, [])
+
+        // Each layer stops it on its own: only the correction setting, then only the per-transport ones.
+        let correction = ["help.autocorrect=0"]
+        let perTransport = GitEnvironment.remoteHelperArguments.filter { $0 != "-c" && !correction.contains($0) }
+        _ = try await runWithoutNeutralization(dropping: perTransport)
+        XCTAssertEqual(canaryNames, [], "the correction setting alone")
+        _ = try await runWithoutNeutralization(dropping: correction)
+        XCTAssertEqual(canaryNames, [], "the per-transport settings alone")
     }
 
     func testNeutralizingArgumentsCoverEveryAllowedTransport() {
