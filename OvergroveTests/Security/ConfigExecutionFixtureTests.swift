@@ -136,7 +136,8 @@ final class ConfigExecutionFixtureTests: XCTestCase {
         let trace = harness.fixture.container.appendingPathComponent("trace-app.txt")
         let fetch = FetchCommand.fetch(remote: try XCTUnwrap(RemoteName("origin")))
         var environment = GitEnvironment.environment(
-            parent: harness.fixture.environment, trustedSSHCommand: harness.safety.trustedSSHCommand)
+            parent: harness.fixture.environment, trustedSSHCommand: harness.safety.trustedSSHCommand,
+            allowsTransport: true)
         environment["GIT_TRACE"] = trace.path
         let result = try await ProcessRunner().run(
             ProcessRequest(

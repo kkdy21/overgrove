@@ -28,7 +28,9 @@ struct GitTestRepository {
             ProcessRequest(
                 executable: environment.executable,
                 arguments: environment.arguments(for: subcommand, neutralization: identity),
-                environment: GitEnvironment.environment(parent: ProcessInfo.processInfo.environment),
+                // Setup pushes and clones between local repositories, so it needs the transport list (#215).
+                environment: GitEnvironment.environment(
+                    parent: ProcessInfo.processInfo.environment, allowsTransport: true),
                 currentDirectory: root,
                 limits: .query
             )

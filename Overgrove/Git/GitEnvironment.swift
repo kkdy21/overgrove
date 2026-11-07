@@ -62,12 +62,12 @@ struct GitEnvironment: Sendable, Equatable {
     ///   - allowsTransport: `false` for queries. They never need a remote, but in a partial clone a read that needs a
     ///     missing object makes git lazy-fetch it from the promisor remote, which runs the repository's own
     ///     `remote.<n>.uploadpack` or credential helper (#212). An empty `GIT_ALLOW_PROTOCOL` refuses every transport
-    ///     before anything runs, on every supported git (protocol policy predates 2.36). `GitClient.run` passes
-    ///     `false`; only `GitClient.fetch` uses the transport list.
+    ///     before anything runs, on every supported git (protocol policy predates 2.36). The default is `false`, so a
+    ///     caller that forgets to choose gets no network (#215); only `GitClient.fetch` passes `true`.
     static func environment(
         parent: [String: String],
         trustedSSHCommand: String? = nil,
-        allowsTransport: Bool = true
+        allowsTransport: Bool = false
     ) -> [String: String] {
         var environment: [String: String] = [
             "LC_ALL": "C",
