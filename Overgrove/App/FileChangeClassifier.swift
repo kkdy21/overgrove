@@ -54,7 +54,7 @@ struct FileChangeClassifier: Equatable, Sendable {
     }
 
     /// A batch larger than this is treated as a rescan: the work per batch stays bounded however many files a tool
-    /// rewrites at once (T15, SEC-T15-15).
+    /// rewrites at once (T15, SEC-T15-16).
     static let maximumEventsPerBatch = 10_000
 
     let commonDirectory: String
