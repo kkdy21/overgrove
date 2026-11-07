@@ -107,6 +107,28 @@ struct TestExecutables {
         return bin
     }
 
+    /// A stand-in for a trusted `core.sshCommand` that serves `ssh://<host>/…` from `<remotes>/<host>.git` with the
+    /// real `git upload-pack`, so fetch tests need no network (#76).
+    ///
+    /// It creates `<markers>/<host>.started` when git connects. With `gated`, it then waits for
+    /// `<markers>/<host>.release` (at most 30 seconds) before serving, which keeps a fetch running for as long as a
+    /// test needs. git first probes the command with `-G` to detect OpenSSH; failing that probe makes git use the
+    /// plain `<host> <command>` form.
+    func fakeSSHServer(git: URL, remotes: URL, markers: URL, gated: Bool) throws -> URL {
+        try FileManager.default.createDirectory(at: markers, withIntermediateDirectories: true)
+        let wait =
+            gated
+            ? "i=0\nwhile [ ! -e '\(markers.path)'/\"$host\".release ] && [ $i -lt 600 ]; do sleep 0.05; i=$((i+1)); done\n"
+            : ""
+        let body = """
+            [ "$1" = "-G" ] && exit 1
+            host="$1"
+            : > '\(markers.path)'/"$host".started
+            \(wait)exec '\(git.path)' upload-pack '\(remotes.path)'/"$host".git
+            """
+        return try script("fake-ssh-\(UUID().uuidString)", body)
+    }
+
     private func script(_ name: String, _ body: String, in folder: URL? = nil) throws -> URL {
         let url = (folder ?? directory).appendingPathComponent(name)
         try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)

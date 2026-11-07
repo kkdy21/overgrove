@@ -294,7 +294,9 @@ final class FetchBlockingTests: XCTestCase {
         )
         do {
             _ = try await client.fetch(
-                .fetch(remote: RemoteName("origin")!), in: URL(fileURLWithPath: "/tmp"), safety: safety)
+                .fetch(remote: RemoteName("origin")!),
+                in: Repository(rootURL: nil, commonGitDirectoryURL: URL(fileURLWithPath: "/tmp"), isBare: true),
+                safety: safety)
             XCTFail("expected configInspectionFailed")
         } catch let error as GitError {
             XCTAssertEqual(error, .configInspectionFailed(reason: "local CA"))
