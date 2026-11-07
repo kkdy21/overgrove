@@ -1,6 +1,6 @@
 # ADR-0010: 커밋 그래프 레인은 앱에서 계산한다
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 날짜: 2026-11-05 · 관련: G6, G9, PB-3, PB-4, [architecture/parsing-spec.md](../architecture/parsing-spec.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05; 결정 3 갱신 2026-11-08, #254) · 날짜: 2026-11-05 · 관련: G6, G9, PB-3, PB-3b, PB-4, [architecture/parsing-spec.md](../architecture/parsing-spec.md)
 
 ## 맥락
 
@@ -23,7 +23,12 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
 3. **페이지 단위로 불러온다.**
    - 첫 페이지 500개(`-n 500`)를 먼저 그린다.
    - 다음 페이지는 같은 명령에 `--skip=<n> -n 500`을 붙여 읽는다. ref 집합이 같으면 순서가 결정적이므로, 엔진이 열린 레인 상태를 유지한 채 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다.
-   - 10만 커밋의 뒤쪽 페이지에서 `--skip` 재탐색 비용이 PB-4를 넘으면, 한 프로세스의 출력을 페이지 단위로 소비하는 스트리밍 읽기로 바꾼다. Phase 3 측정 뒤에 이 ADR을 갱신한다.
+   - **commit-graph 파일이 없으면 한 프로세스를 스트리밍한다(#254, 2026-11-08).** `--date-order`는 commit-graph 없이는 첫 줄을 내기 전에 전체 이력을 정렬하므로, `--skip` 페이지마다 그 비용(bench 약 430ms)을 다시 냈다.
+     - `graphStream`(`--skip` 없는 같은 명령, `-n 100000`) 하나를 ref 집합마다 띄운다. stdout을 받는 대로 레코드 단위로 파싱하고(`GraphStreamParser`, 7개 NUL = 1 레코드), 페이지는 그 결과에서 내준다. 정렬은 한 번만 한다.
+     - 상한은 stdout 64MB·타임아웃 120초·취소다(`ProcessLimits.stream`). 스트림이 커밋 상한(10만)·출력 상한·타임아웃·실패로 일찍 멈추면, 그 뒤 페이지는 `--skip`으로 읽는다.
+     - commit-graph 유무는 공통 git 디렉터리의 `objects/info/commit-graph` 또는 `commit-graphs/commit-graph-chain` 파일로 판정한다. 파일이 있으면 지금처럼 `--skip` 페이지(약 50ms)를 쓴다.
+     - 화면(`GraphStore`)과 `GraphLoading` 인터페이스는 그대로다. ⌘R과 저장소 정리는 스트림을 멈추고 버린다.
+     - 스트림은 앱 전체에서 한 번에 하나만 돈다(조회 슬롯과 따로, `GitClient`의 stream 슬롯). 그래서 오래 걸리는 스트림이 status·diff 조회를 막지 않는다. 끝난 스트림의 커밋은 저장소 2개까지만 들고 있는다(PB-6).
 4. 레인 색은 **레인이 처음 생길 때의 열 인덱스 mod 8**로 정하고, 그 레인이 끝날 때까지 바꾸지 않는다. 색은 디자인 토큰 `graph.lane.0`~`graph.lane.7`이다 ([design/design-tokens.md](../design/design-tokens.md)). 페이지를 이어 읽어도 기존 레인의 색은 유지된다.
 5. v0.1은 stash 노드를 그래프에 그리지 않는다. stash는 사이드바와 S-04에서만 보여 준다.
 6. WIP 행은 GraphEngine 밖에서, 선택한 워크트리의 HEAD 위에 가상 행으로 얹는다.
@@ -48,3 +53,4 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
 - [x] GraphEngine 구현과 GRA 테스트 (#59). 레인은 옆으로 옮기지 않고 빈 열을 다음 새 레인이 재사용한다. 그래서 선은 항상 곧고, 색(생성 열 mod 8)은 수명 동안 그대로다
 - [x] 10만 커밋에서 첫 페이지 지연 측정 PERF-03 ([performance/benchmark-plan.md](../performance/benchmark-plan.md)): commit-graph 있음 p95 41.7–49ms, 없음 408ms(#68, #98)
 - [x] 페이지 방식 재검토(#89 결정, 2026-11-07): v0.1은 `--skip` 페이지를 유지한다. commit-graph가 있으면 페이지 깊이와 관계없이 40–50ms, 없으면 페이지마다 약 400ms인데 비용은 skip이 아니라 date-order 정렬이다. 두 경우 모두 PB-3·PB-3b 안이다. commit-graph가 없는 저장소의 전체 스크롤을 위한 스트리밍 로더는 `GraphLoading` 뒤에 v0.2 후보로 둔다(#254)
+- [x] 스트리밍 로더(#254, 2026-11-08): 결정 3에 반영했다. commit-graph 없는 bench(커밋 100,024개)에서 앱 경로 첫 페이지 p50 474ms(부하 장비 p95 750ms, PB-3b 1.0초 안), 이후 페이지는 p50 0.13ms이고, 전체 이력을 페이지 단위로 읽는 데 1.8초가 걸린다(`--skip`이면 약 201×450ms). commit-graph 있는 경로는 페이지당 약 54ms로 그대로다([측정](../performance/results/2026-11-08-pb3b-graph-streaming.md))

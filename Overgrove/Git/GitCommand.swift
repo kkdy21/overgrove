@@ -20,6 +20,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// untracked part (`stash -u`) come from the third parent (`^3`). `git stash show` accepts no pathspec.
     case stashPatch(ObjectID, path: GitPath, fromUntracked: Bool)
     case graphPage(skip: Int, limit: Int)
+    /// The newest `limit` commits of the same history in one process, read as it streams (`GitClient.stream`, #254).
+    /// Without a commit-graph file `--date-order` sorts the whole history before the first line, so every `--skip`
+    /// page paid that again (~400 ms each on the bench repository); one stream pays it once.
+    case graphStream(limit: Int)
     case commitMeta(ObjectID)
     /// `firstParent` is set for merge commits, which are compared with their first parent.
     case commitFiles(ObjectID, firstParent: ObjectID?)
@@ -117,6 +121,11 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
                 "log", "--exclude=refs/stash", "--all", "--date-order", "-z", Self.logFormat,
                 "--skip=\(max(0, skip))", "-n", String(Self.clampLimit(limit)),
             ]
+        case .graphStream(let limit):
+            return [
+                "log", "--exclude=refs/stash", "--all", "--date-order", "-z", Self.logFormat,
+                "-n", String(Self.clampLimit(limit)),
+            ]
         case .commitMeta(let oid):
             return [
                 "log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B",
@@ -206,7 +215,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         return arguments
     }
 
-    private static func clampLimit(_ limit: Int) -> Int { min(max(limit, 1), 100_000) }
+    /// The most commits one command reads (`-n`); the streamed graph's ceiling too.
+    static let maximumLimit = 100_000
+
+    private static func clampLimit(_ limit: Int) -> Int { min(max(limit, 1), maximumLimit) }
 }
 
 /// The only command that touches a remote (git-command-catalog.md §4). It writes `refs/remotes/<remote>/*` only.

@@ -376,4 +376,30 @@ final class FetchBlockingTests: XCTestCase {
             XCTAssertEqual(error, .configInspectionFailed(reason: "local CA"))
         }
     }
+
+    /// Security review of #254 (T15): a stream runs in its own slot, so with every query slot free a long stream never
+    /// holds back a query, even when the query pool has a single slot.
+    func testAStreamDoesNotHoldAQuerySlot() async throws {
+        let executables = try TestExecutables()
+        defer { executables.remove() }
+        let go = executables.directory.appendingPathComponent("go-\(UUID().uuidString)")
+        let git = try executables.streamingGit(go: go)
+        let client = GitClient(
+            environment: GitEnvironment(executable: git, version: GitVersion(major: 2, minor: 50, patch: 1)),
+            maximumConcurrency: 1)
+        let safety = RepoSafetyContext(inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
+        let received = Flag()
+        let directory = executables.directory
+        let stream = Task {
+            try await client.stream(.graphStream(limit: 10), in: directory, safety: safety) { _ in received.set() }
+        }
+        let started = await eventually(timeout: .seconds(5)) { received.isSet }
+        XCTAssertTrue(started, "the stream is running")
+
+        let version = try await client.run(.version, in: nil, safety: .preInspection)
+        XCTAssertEqual(String(decoding: version.stdout, as: UTF8.self), "git version 2.50.1\n", "the query ran")
+
+        FileManager.default.createFile(atPath: go.path, contents: nil)
+        _ = try await stream.value
+    }
 }

@@ -84,6 +84,8 @@ actor RepositoryService {
     var commitDetails = BoundedCache<CommitKey, CommitDetail>(capacity: RepositoryService.cachedCommitDetails)
     /// Graph pages (#68), keyed by the ref set they were read with (`RepositoryService+Graph.swift`).
     var graphPages = BoundedCache<GraphPageKey, LogParser.GraphPage>(capacity: RepositoryService.cachedGraphPages)
+    /// Streamed histories for repositories without a commit-graph file (#254), newest last; one per repository.
+    var graphStreams: [(repositoryID: String, refSet: GraphRefSet, stream: GraphStream)] = []
 
     /// - Parameters:
     ///   - sleep: Waits out the debounce; tests pass a gate instead of real time.
@@ -122,6 +124,7 @@ actor RepositoryService {
         comparisons.removeAll { $0.repositoryID == id }
         commitDetails.removeAll { $0.repositoryID == id }
         graphPages.removeAll { $0.repositoryID == id }
+        dropGraphStream(of: id)
         await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
     }
 
@@ -164,6 +167,7 @@ actor RepositoryService {
             await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
             // ⌘R also re-reads the graph: refs outside the listed namespaces (notes, pull refs) can move unseen.
             graphPages.removeAll { $0.repositoryID == id }
+            dropGraphStream(of: id)
         }
         // A newer request arrived while this one waited.
         guard latestGeneration[id] == generation, !Task.isCancelled else { return nil }

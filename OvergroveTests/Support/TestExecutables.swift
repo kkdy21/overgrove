@@ -22,6 +22,30 @@ struct TestExecutables {
         try script("exit-\(code)", "echo out\necho err >&2\nexit \(code)")
     }
 
+    /// Prints `first`, waits until `go` exists, then prints `second` and exits: stdout must reach an observer while
+    /// the process still runs (#254).
+    func streamingUntil(go: URL) throws -> URL {
+        try script(
+            "streaming-\(UUID().uuidString)",
+            "printf 'first\\n'\nwhile [ ! -e '\(go.path)' ]; do sleep 0.02; done\nprintf 'second\\n'\nexit 0")
+    }
+
+    /// A git stand-in for `GitClient` tests (#254): `log` prints one line and waits until `go` exists, so a stream stays
+    /// running; anything else answers like `git version` at once.
+    func streamingGit(go: URL) throws -> URL {
+        try script(
+            "streaming-git-\(UUID().uuidString)",
+            """
+            for arg in "$@"; do [ "$arg" = "log" ] && is_log=1; done
+            if [ -n "${is_log:-}" ]; then
+              printf 'first\\n'
+              while [ ! -e '\(go.path)' ]; do sleep 0.02; done
+              exit 0
+            fi
+            echo "git version 2.50.1"
+            """)
+    }
+
     /// Ignores SIGTERM, then floods stdout. Termination is triggered by the output limit only after the trap is
     /// installed, so the test does not race the shell's startup.
     func ignoringSIGTERMThenFlooding() throws -> URL {

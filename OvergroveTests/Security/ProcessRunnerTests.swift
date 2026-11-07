@@ -80,6 +80,58 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertEqual(chunks.data.count, 1024)
     }
 
+    /// #254: with a stdout observer, output reaches it while the process runs and is not kept in the result.
+    func testStdoutObserverStreamsWhileTheProcessRuns() async throws {
+        let go = executables.directory.appendingPathComponent("go-\(UUID().uuidString)")
+        let script = try executables.streamingUntil(go: go)
+        let chunks = Chunks()
+        let streaming = request(script.path)
+        let run = Task { try await ProcessRunner().run(streaming, stdoutObserver: { chunks.append($0) }) }
+        let streamed = await eventually(timeout: .seconds(5)) {
+            String(decoding: chunks.data, as: UTF8.self) == "first\n"
+        }
+        XCTAssertTrue(streamed, "the first line arrives before the process may finish")
+        FileManager.default.createFile(atPath: go.path, contents: nil)
+        let result = try await run.value
+        XCTAssertEqual(String(decoding: chunks.data, as: UTF8.self), "first\nsecond\n")
+        XCTAssertEqual(result.stdout, Data(), "observed stdout is not kept")
+        XCTAssertEqual(result.termination, .exited(code: 0))
+        XCTAssertFalse(result.stdoutTruncated)
+    }
+
+    /// SEC-T15-18: the stdout limit counts observed bytes: the observer never sees more, and the producer is stopped.
+    func testSECT15_18_StdoutObserverStopsAtTheLimit() async throws {
+        let limits = ProcessLimits(timeout: .seconds(10), stdoutLimit: 64 * 1024, stderrLimit: 1024)
+        let chunks = Chunks()
+        let clock = ContinuousClock()
+        let start = clock.now
+        let result = try await ProcessRunner().run(
+            request("/usr/bin/yes", limits: limits), stdoutObserver: { chunks.append($0) })
+        XCTAssertTrue(result.stdoutTruncated)
+        XCTAssertEqual(chunks.data.count, 64 * 1024)
+        XCTAssertEqual(result.stdout, Data())
+        XCTAssertLessThan(clock.now - start, .seconds(5), "the producer must be stopped once the limit is hit")
+    }
+
+    /// #254: cancelling a streaming run terminates the process like any other run.
+    func testCancellingAStreamingRunTerminatesTheProcess() async throws {
+        let go = executables.directory.appendingPathComponent("never-\(UUID().uuidString)")
+        let script = try executables.streamingUntil(go: go)
+        let chunks = Chunks()
+        let recorder = PIDRecorder()
+        let runner = ProcessRunner(onLaunch: { recorder.record($0) })
+        let streaming = request(script.path)
+        let run = Task { try await runner.run(streaming, stdoutObserver: { chunks.append($0) }) }
+        _ = await eventually(timeout: .seconds(5)) { !chunks.data.isEmpty }
+        run.cancel()
+        do {
+            _ = try await run.value
+            XCTFail("expected cancellation")
+        } catch is CancellationError {}
+        let pid = try XCTUnwrap(recorder.pid)
+        XCTAssertFalse(processExists(pid), "the streaming process is reaped after cancellation")
+    }
+
     func testArgumentsArePassedVerbatimWithoutAShell() async throws {
         let tricky = ["a b", "$(touch /tmp/should-not-exist)", "; rm -rf ~", "--", "-n", "ü\u{0301}"]
         let result = try await ProcessRunner().run(request("/usr/bin/printf", ["%s\\n"] + tricky))
