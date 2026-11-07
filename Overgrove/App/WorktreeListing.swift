@@ -53,6 +53,8 @@ struct WorktreeListing: Sendable, Equatable {
     /// The configured remote names (from the repository's inspection), to split `refs/remotes/<remote>/<branch>`
     /// when a remote name contains `/`.
     var remoteNames: [String] = []
+    /// The github.com repository whose issues the sidebar shows (#81), from the inspected remotes; `nil` without one.
+    var githubRepository: GitHubRepository?
 
     /// Some listed worktrees were not queried because of the per-load limit (#226); the sidebar says so (#243).
     var isQueryLimited: Bool {
@@ -69,7 +71,9 @@ extension WorktreeListing {
             },
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
-            remoteNames: overview.inspection.remotes.map(\.name.value))
+            remoteNames: overview.inspection.remotes.map(\.name.value),
+            githubRepository: GitHubRemote.repository(
+                remotes: overview.inspection.remotes.map { (name: $0.name.value, url: $0.url) }))
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {

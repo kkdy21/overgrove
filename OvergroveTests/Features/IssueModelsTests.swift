@@ -1,0 +1,99 @@
+import XCTest
+
+@testable import Overgrove
+
+/// The ISSUES section and S-06 models (#81).
+final class IssueModelsTests: XCTestCase {
+    static let repository = GitHubRepository(owner: "team", name: "app")!
+
+    static func issue(
+        _ number: Int, _ title: String = "Title", updated: TimeInterval = 0, labels: [String] = [],
+        assignees: [String] = [], url: String? = nil, state: Issue.State = .open
+    ) -> Issue {
+        Issue(
+            number: number, title: title, state: state, labels: labels.map { Issue.Label(name: $0, color: "ff0000") },
+            assignees: assignees, updatedAt: Date(timeIntervalSince1970: 1_800_000_000 + updated),
+            url: URL(string: url ?? "https://github.com/team/app/issues/\(number)")!)
+    }
+
+    func testRowsAreMostRecentlyUpdatedFirst() {
+        let model = IssueListModel(
+            content: .loaded(
+                repository: Self.repository,
+                issues: [Self.issue(1, updated: 10), Self.issue(3, updated: 30), Self.issue(2, updated: 30)]),
+            isLoading: false)
+        XCTAssertEqual(model.rows.map(\.number), ["#3", "#2", "#1"])
+        XCTAssertEqual(model.count, 3)
+        XCTAssertNil(model.notice)
+    }
+
+    func testShowsUpToTheTwoHundredIssuesGhReturns() {
+        let issues = (1...200).map { Self.issue($0, updated: TimeInterval($0)) }
+        let model = IssueListModel(content: .loaded(repository: Self.repository, issues: issues), isLoading: false)
+        XCTAssertEqual(model.rows.count, 200)
+        XCTAssertEqual(model.rows.first?.id, 200)
+        XCTAssertTrue(GHCommand.issueList(repo: Self.repository).arguments.contains("200"))
+    }
+
+    func testStatesShowOneNoticeAndNoCount() {
+        let cases: [(IssueListContent, String)] = [
+            (.loaded(repository: Self.repository, issues: []), "No open issues"),
+            (.noGitHubRemote, "No GitHub remote"),
+            (.notInstalled, "GitHub CLI not installed"),
+            (.notLoggedIn, "Not logged in to GitHub"),
+            (.failed(repository: Self.repository, detail: "HTTP 404"), "Cannot read issues for team/app"),
+        ]
+        for (content, text) in cases {
+            let model = IssueListModel(content: content, isLoading: false)
+            XCTAssertEqual(model.notice?.text, text)
+            XCTAssertTrue(model.rows.isEmpty)
+        }
+        XCTAssertEqual(
+            IssueListModel(content: .failed(repository: Self.repository, detail: "HTTP 404"), isLoading: false)
+                .notice?.detail, "HTTP 404")
+        XCTAssertNil(IssueListModel(content: .notInstalled, isLoading: false).count)
+        XCTAssertTrue(IssueListModel(content: nil, isLoading: true).isLoading)
+    }
+
+    /// Titles, labels, and logins come from GitHub: control and bidi characters are escaped (T15).
+    func testRepositoryStringsAreEscaped() {
+        let issue = Self.issue(
+            7, "Fix\u{202E}gnp.exe\nnext", labels: ["bug\u{200B}"], assignees: ["oct\u{2028}cat"])
+        let row = IssueRow(issue)
+        XCTAssertFalse(row.title.unicodeScalars.contains { $0 == "\u{202E}" || $0 == "\n" })
+        let detail = IssueDetailModel(issue)
+        XCTAssertEqual(detail.title, row.title)
+        XCTAssertEqual(detail.labels, [PathValidator.displayable("bug\u{200B}")])
+        XCTAssertFalse(detail.labels[0].unicodeScalars.contains("\u{200B}"))
+        XCTAssertFalse(detail.assignees[0].unicodeScalars.contains("\u{2028}"))
+        XCTAssertTrue(detail.assignees[0].hasPrefix("@"))
+    }
+
+    func testDetailShowsStateLabelsAndAssignees() {
+        let detail = IssueDetailModel(
+            Self.issue(12, "Worktree list", labels: ["type:feature", "area:ui"], assignees: ["octocat", "mina"]))
+        XCTAssertEqual(detail.number, "#12")
+        XCTAssertEqual(detail.stateText, "Open")
+        XCTAssertEqual(detail.stateSymbol, "number.circle")
+        XCTAssertEqual(detail.labels, ["type:feature", "area:ui"])
+        XCTAssertEqual(detail.assignees, ["@octocat", "@mina"])
+        XCTAssertEqual(detail.browserURL?.absoluteString, "https://github.com/team/app/issues/12")
+        XCTAssertEqual(IssueDetailModel(Self.issue(1, state: .closed)).stateSymbol, "checkmark.seal")
+    }
+
+    /// Open in Browser only opens a github.com issue page for that number (screens.md S-06).
+    func testBrowserURLIsOnlyAGitHubIssuePage() {
+        // A renamed or transferred repository redirects: another valid OWNER/NAME is fine.
+        XCTAssertNotNil(IssueDetailModel.browserURL(for: Self.issue(5, url: "https://github.com/new/name/issues/5")))
+        for url in [
+            "https://github.com/team/app/issues/6", "https://github.com/team/app/pull/5",
+            "https://github.com/team/app/issues/5/x", "https://github.com/team/app/issues/5?x=1",
+            "https://github.com/team/app/issues/5#top", "https://user@github.com/team/app/issues/5",
+            "https://github.com:8443/team/app/issues/5", "https://github.com/-team/app/issues/5",
+            "https://github.com/team/../issues/5", "https://github.com/team/app/issues/05",
+            "https://github.com//app/issues/5", "https://github.com/team/a%2Fb/issues/5",
+        ] {
+            XCTAssertNil(IssueDetailModel.browserURL(for: Self.issue(5, url: url)), url)
+        }
+    }
+}
