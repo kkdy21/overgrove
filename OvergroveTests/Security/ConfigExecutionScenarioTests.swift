@@ -241,6 +241,36 @@ final class ConfigExecutionScenarioTests: XCTestCase {
         assertFired("T4-sub", "status recursing into the submodule")
     }
 
+    /// SEC-T4-05, base comparison (#157): comparing the working tree diffs into submodules as well, and git would run
+    /// `status` inside one to see whether it is dirty, with the submodule's own (never inspected) filter. The compare
+    /// commands carry `--ignore-submodules=dirty` like status; without it the submodule's filter runs.
+    func testSECT4_05_SubmoduleFilterDoesNotRunFromTheBaseComparison() async throws {
+        let (superproject, submodule) = try await superprojectWithSubmodule()
+        try await scenario.plain(["branch", "base"], in: superproject, requireSuccess: true)
+        try await scenario.plain(
+            [
+                "--git-dir", submodule.path, "config", "filter.evil.clean",
+                try scenario.payload("T4-sub-cmp", tail: "cat"),
+            ],
+            in: superproject, requireSuccess: true)
+        try writeAttributes("*.dat filter=evil", gitDirectory: submodule)
+        let base = FullRefName("refs/heads/base")!
+        let commands: [ReadOnlyGitCommand] = [
+            .compareFiles(base: base, includeWorkingTree: true),
+            .comparePatch(base: base, path: GitPath("sub"), includeWorkingTree: true),
+        ]
+        for command in commands {
+            try touch(superproject.appendingPathComponent("sub/a.dat"))
+            _ = try await scenario.app(command, in: superproject)
+            assertNoCanary(after: "app \(command)")
+        }
+
+        try touch(superproject.appendingPathComponent("sub/a.dat"))
+        let unprotected = try commands[0].subcommandArguments().filter { $0 != "--ignore-submodules=dirty" }
+        _ = try await scenario.appArguments(unprotected, in: superproject)
+        assertFired("T4-sub-cmp", "app comparison arguments without --ignore-submodules=dirty")
+    }
+
     // MARK: T6 (credential fill with the app's fetch arguments stands in for HTTP authentication)
     //
     // Like the app, the app-path runs read system configuration, so a system helper (Apple's `osxkeychain`) also runs

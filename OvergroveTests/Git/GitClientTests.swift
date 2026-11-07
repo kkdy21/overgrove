@@ -15,6 +15,11 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .commitPatch(oid, parent: parent, path: GitPath("-x")), .worktreeDiff(path: GitPath("a b.txt"), staged: true),
     .worktreeDiff(path: GitPath(":(exclude)x"), staged: false),
     .fileHistory(path: GitPath("*"), limit: 100),
+    .compareFiles(base: FullRefName("refs/remotes/origin/main")!, includeWorkingTree: false),
+    .compareFiles(base: FullRefName("refs/heads/main")!, includeWorkingTree: true),
+    .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("-x"), includeWorkingTree: false),
+    .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("a.txt"), includeWorkingTree: true),
+    .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 500),
 ]
 
 /// SEC-T9-01, SEC-T13-01 (docs/design/security-review.md) and catalog §3–§4.
@@ -95,6 +100,29 @@ final class GitCommandTests: XCTestCase {
             ["diff", "--no-ext-diff", "--no-textconv", "-M", "--cached", "--", "a b.txt"],
             ["diff", "--no-ext-diff", "--no-textconv", "-M", "--", ":(exclude)x"],
             ["log", "--follow", "-z", ReadOnlyGitCommand.logFormat, "-n", "100", "--", "*"],
+            [
+                "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", "refs/remotes/origin/main", "HEAD",
+                "--",
+            ],
+            [
+                "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", "refs/heads/main", "--",
+            ],
+            [
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options",
+                "refs/heads/main", "HEAD", "--", "-x",
+            ],
+            [
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options",
+                "refs/heads/main", "--", "a.txt",
+            ],
+            [
+                "log", "-z", ReadOnlyGitCommand.logFormat, "-n", "500", "--end-of-options", "refs/heads/main..HEAD",
+                "--",
+            ],
         ]
         XCTAssertEqual(allReadOnlyCommands.count, expected.count)
         for (command, subcommand) in zip(allReadOnlyCommands, expected) {

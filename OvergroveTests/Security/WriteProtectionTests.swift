@@ -125,6 +125,14 @@ final class WriteProtectionTests: XCTestCase {
             (.worktreeDiff(path: GitPath("src/unstaged-modified.txt"), staged: false), repo),
             (.worktreeDiff(path: GitPath("docs/manual.md"), staged: false), repo),
             (.untrackedPreview(untracked), repo), (.fileHistory(path: GitPath("docs/manual.md"), limit: 100), repo),
+            (.compareFiles(base: FullRefName("refs/remotes/origin/main")!, includeWorkingTree: true), repo),
+            (.compareFiles(base: FullRefName("refs/remotes/origin/main")!, includeWorkingTree: false), repo),
+            (
+                .comparePatch(
+                    base: FullRefName("refs/remotes/origin/main")!, path: GitPath("docs/manual.md"),
+                    includeWorkingTree: true), repo
+            ),
+            (.commitsAhead(base: FullRefName("refs/remotes/origin/main")!, limit: 100), repo),
             (.status, fixture.worktree("wt-behind")),
             (.worktreeDiff(path: GitPath("docs/guide.md"), staged: false), fixture.worktree("wt-behind")),
             (.fileHistory(path: GitPath("docs/manual.md"), limit: 10), fixture.worktree("wt-behind")),
@@ -167,6 +175,38 @@ final class WriteProtectionTests: XCTestCase {
         let index = try XCTUnwrap(indexes["repo"])
         XCTAssertNotEqual(
             try IndexState(index), before["repo"], "control: without the setting git diff rewrites the index")
+    }
+
+    /// SEC-T13-02, merge-base comparison (#157): comparing the working tree with a base branch diffs stat-dirty files
+    /// too. With the common arguments the index stays untouched; control: without `diff.autoRefreshIndex=false` the
+    /// same comparison rewrites it (confirmed with Apple Git 2.50.1).
+    func testSECT13_02_MergeBaseComparisonOfAStatDirtyWorkingTreeKeepsTheIndex() async throws {
+        let (context, indexes, before) = try await staleStatFixture()
+        let base = FullRefName("refs/remotes/origin/main")!
+        let files = ReadOnlyGitCommand.compareFiles(base: base, includeWorkingTree: true)
+        let patch = ReadOnlyGitCommand.comparePatch(
+            base: base, path: GitPath("docs/manual.md"), includeWorkingTree: true)
+        for command in [files, patch] {
+            _ = try await context.run(command)
+            _ = try await context.run(command, in: context.fixture.worktree("wt-behind"))
+        }
+        try assertUnchanged(indexes, since: before, after: "merge-base comparison of a stat-dirty working tree")
+
+        let commonWithoutSetting = Self.removingSetting(
+            "diff.autoRefreshIndex=false", from: GitEnvironment.commonArguments)
+        let control = try await ProcessRunner().run(
+            ProcessRequest(
+                executable: context.environment.executable,
+                arguments: commonWithoutSetting + context.safety.neutralization + (try files.subcommandArguments()),
+                environment: GitEnvironment.environment(parent: context.fixture.environment),
+                currentDirectory: context.fixture.repository,
+                limits: .query
+            )
+        )
+        XCTAssertEqual(control.termination, .exited(code: 0))
+        XCTAssertNotEqual(
+            try IndexState(try XCTUnwrap(indexes["repo"])), before["repo"],
+            "control: without the setting the comparison rewrites the index")
     }
 
     /// `arguments` without one `-c <setting>` pair.

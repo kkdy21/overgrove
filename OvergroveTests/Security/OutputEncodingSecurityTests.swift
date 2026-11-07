@@ -74,6 +74,18 @@ final class OutputEncodingSecurityTests: XCTestCase {
         XCTAssertEqual(stashes.map(\.message), ["s！t"])
     }
 
+    /// The commits of a base comparison (#157) use the graph format too. Control: plain git shifts the fields.
+    func testSECT15_06_ComparisonCommitsKeepTheirFields() async throws {
+        try await repository.git(["branch", "basepoint", "HEAD~2"])
+        try await setEncoding("i18n.commitEncoding", "JOHAB")
+        let command = ReadOnlyGitCommand.commitsAhead(base: FullRefName("refs/heads/basepoint")!, limit: 10)
+
+        let commits = try LogParser.parseGraph(try await app(command)).commits
+        XCTAssertEqual(commits.map(\.subject), ["add f", hostileSubject])
+        let plainOutput = try await plain(command)
+        XCTAssertThrowsError(try LogParser.parseGraph(plainOutput), "control: the fields shift")
+    }
+
     /// Negative control: without Overgrove's arguments the same repository does shift the fields.
     func testSECT15_06_control_PlainGitShiftsFields() async throws {
         try await setEncoding("i18n.commitEncoding", "JOHAB")

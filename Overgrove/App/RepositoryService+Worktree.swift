@@ -16,19 +16,26 @@ extension RepositoryService {
         return false
     }
 
-    /// One worktree's status. Errors stay with that worktree, except cancellation, which ends the whole load.
+    /// Whether git may run in a listed worktree, and with which safety context.
+    enum Preparation: Sendable {
+        case ready(folder: URL, safety: RepoSafetyContext)
+        /// The status to report instead of running anything in the worktree.
+        case refused(RepositoryOverview.Status)
+    }
+
+    /// The checks before any command reads a worktree (`status`, the base comparison of #157).
     ///
     /// Worktree paths come from files the repository controls (`.git/worktrees/<id>/gitdir`), so each one is treated
-    /// as untrusted. Before `status` runs in `folder` (the listed path, resolved once):
+    /// as untrusted. In `folder` (the listed path, resolved once):
     /// 1. its `.git` must lead to this repository the way registration requires (`belongs`);
     /// 2. git must agree: the probe (never cached) reports this folder as the worktree root (not a parent, and not a
     ///    `core.worktree` elsewhere) and this repository's git common directory;
     /// 3. its own configuration is inspected, from the cache while its files are unchanged (a linked worktree can
-    ///    have `config.worktree`), and `status` runs with that worktree's safety context.
+    ///    have `config.worktree`); commands then run with that worktree's safety context.
     /// The probe and the inspection use the commands allowed before inspection.
-    static func status(of worktree: Worktree, at folder: URL, _ context: Context) async -> RepositoryOverview.Status {
+    static func prepare(_ worktree: Worktree, at folder: URL, _ context: Context) async -> Preparation {
         guard belongs(folder, isMain: worktree.isMain, to: context.repository) else {
-            return .notQueried(.foreignRepository)
+            return .refused(.notQueried(.foreignRepository))
         }
         do {
             let output: GitOutput
@@ -37,26 +44,43 @@ extension RepositoryService {
             } catch GitError.launchFailed(errno: ENOENT) {
                 // The probe may run before a folder is known to be a repository, so GitClient reports a missing folder
                 // as a launch failure. Here it is a worktree that vanished after the list was read.
-                return .failed(.worktreeMissing(path: folder.path))
+                return .refused(.failed(.worktreeMissing(path: folder.path)))
             }
             guard let probe = try? ProbeParser.parse(output.stdout),
                 isSameDirectory(probe.topLevel, folder),
                 isSameDirectory(probe.commonDirectory, context.repository.commonGitDirectoryURL)
-            else { return .notQueried(.foreignRepository) }
+            else { return .refused(.notQueried(.foreignRepository)) }
 
             let inspection = try await inspect(folder, probe: probe, context)
             guard let safety = inspection.safetyContext else {
-                return .notQueried(.inspectionBlocked(inspection.report.blockingReason ?? ""))
+                return .refused(.notQueried(.inspectionBlocked(inspection.report.blockingReason ?? "")))
             }
-
-            let status = try await context.client.run(.status, in: folder, safety: safety)
-            return .loaded(try StatusParser.parse(status.stdout, truncated: status.isTruncated))
-        } catch let error as GitError {
-            return .failed(error)
-        } catch let error as ParseError {
-            return .failed(GitError(error))
+            return .ready(folder: folder, safety: safety)
         } catch {
-            return .failed(.cancelled)
+            return .refused(failure(error))
+        }
+    }
+
+    /// One worktree's status. Errors stay with that worktree, except cancellation, which ends the whole load.
+    static func status(of worktree: Worktree, at folder: URL, _ context: Context) async -> RepositoryOverview.Status {
+        switch await prepare(worktree, at: folder, context) {
+        case .refused(let status):
+            return status
+        case .ready(let folder, let safety):
+            do {
+                let status = try await context.client.run(.status, in: folder, safety: safety)
+                return .loaded(try StatusParser.parse(status.stdout, truncated: status.isTruncated))
+            } catch {
+                return failure(error)
+            }
+        }
+    }
+
+    private static func failure(_ error: Error) -> RepositoryOverview.Status {
+        switch error {
+        case let error as GitError: .failed(error)
+        case let error as ParseError: .failed(GitError(error))
+        default: .failed(.cancelled)
         }
     }
 
