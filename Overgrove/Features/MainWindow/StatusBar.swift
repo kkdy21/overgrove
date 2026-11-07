@@ -133,15 +133,21 @@ struct StatusBar: View {
                     .frame(width: Self.separatorDiameter, height: Self.separatorDiameter)
                     .accessibilityHidden(true)
             }
-            Label {
+            // Leading fields put the icon first; the trailing gh status puts it last (`gh: @login ✓`, §3.5).
+            HStack(spacing: Tokens.Spacing.xs) {
+                if !item.isTrailing { icon(item) }
                 Text(item.text)
-            } icon: {
-                if let symbol = item.symbol {
-                    Image(systemName: symbol).foregroundStyle(color(for: item.tone))
-                }
+                if item.isTrailing { icon(item) }
             }
-            .labelStyle(.titleAndIcon)
             .foregroundStyle(item.tone == .warning ? color(for: .warning) : Tokens.Color.textSecondary)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    @ViewBuilder
+    private func icon(_ item: StatusBarItem) -> some View {
+        if let symbol = item.symbol {
+            Image(systemName: symbol).foregroundStyle(color(for: item.tone)).accessibilityHidden(true)
         }
     }
 

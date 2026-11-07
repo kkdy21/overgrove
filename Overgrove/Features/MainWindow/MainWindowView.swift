@@ -18,14 +18,15 @@ struct MainWindowView: View {
                 DetailPanel(focusedWorktree: state.snapshot?.focusedWorktree)
             }
             // Relative fetch times ("2 min ago") stay current without a model change.
-            TimelineView(.periodic(from: .now, by: Self.statusRefreshInterval)) { context in
+            TimelineView(.periodic(from: .now, by: statusRefreshInterval)) { context in
                 StatusBar(
                     items: StatusBarItem.items(
                         snapshot: state.snapshot, fetchStatus: state.fetchStatus, ghStatus: state.ghStatus,
                         now: context.date))
             }
         }
-        .background(Tokens.Color.surfaceWindow)
+        // Under the toolbar too, so the title bar area is `surface.window` like the status bar (art-direction §3).
+        .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
         .toolbar {
             MainToolbar(
                 repository: state.repository,
@@ -49,8 +50,11 @@ struct MainWindowView: View {
         }
     }
 
-    /// How often relative times in the status bar are recomputed.
-    static let statusRefreshInterval: TimeInterval = 30
+    /// Relative times ("2 min ago") update every 30 s; the running fetch timer ("12 s") every second.
+    private var statusRefreshInterval: TimeInterval {
+        if case .fetching = state.fetchStatus { return 1 }
+        return 30
+    }
 }
 
 // MARK: - Previews

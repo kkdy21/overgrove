@@ -7,7 +7,7 @@ import SwiftUI
 /// splitters. `PanelLayout` does all the width math; this view only draws it and turns pointer, keyboard, and
 /// VoiceOver input into layout changes.
 ///
-/// - `layout` is the live value (it changes on every drag frame).
+/// - `layout` is written when a change finishes; drag frames are kept in this view's own state.
 /// - `onCommit` runs once per finished change (drag released, double-click, keyboard step, collapse toggle). Save
 ///   the layout there (`PanelLayoutStore`), not on every frame.
 ///
@@ -176,7 +176,8 @@ private struct PanelBox<Content: View>: View {
             }
             .clipShape(shape)
             .overlay(shape.strokeBorder(Tokens.Color.borderPanel, lineWidth: 1))
-            .shadow(color: Tokens.Color.surfacePanelShadow, radius: 0, x: 0, y: 1)
+            // Drawn from the shape only: `.shadow` on the panel would shadow every glyph inside it.
+            .background { shape.fill(Tokens.Color.surfacePanelShadow).offset(y: 1) }
     }
 }
 
@@ -201,8 +202,8 @@ private struct PanelDivider: View {
     /// True while the drag gesture runs; SwiftUI resets it on end *and* on cancel, unlike `onEnded`.
     @GestureState private var isGestureActive = false
 
-    /// interaction.md §2.1: the hovered or dragged gutter gets the accent at 10%. No token yet (tokens.json describes
-    /// `surface.hover` for it); kept here so the value has one home.
+    /// interaction.md §2.1: the hovered or dragged gutter gets the accent at 10%. No opacity token; tokens.json describes it in
+    /// `splitter-grip-active`; kept here so the value has one home.
     static let gutterHighlightOpacity = 0.10
 
     private var isActive: Bool { isHovering || isDragging }

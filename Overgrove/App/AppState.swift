@@ -53,7 +53,8 @@ enum FetchStatus: Equatable, Sendable {
     case failed(lastFetched: Date?)
 }
 
-/// App-level state the main window and later screens plug into (#64, docs/README.md §2.2 `App/`).
+/// The state of one main window, which later screens plug into (#64, docs/README.md §2.2 `App/`). Each window
+/// owns one (`MainWindowScene`), so windows show different repositories independently.
 ///
 /// It owns the open repository and its per-repository panel layout. Data slots (`snapshot`, `fetchStatus`,
 /// `ghStatus`, `searchText`) are set by the features that produce them; the shell only displays them and shows empty
@@ -72,7 +73,8 @@ final class AppState {
     var ghStatus: GHAuthStatus?
     /// TODO(#74): drives graph search.
     var searchText = ""
-    /// The live panel layout (changes on every drag frame); saved per repository by `commitPanelLayout`.
+    /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
+    /// repository by `commitPanelLayout`.
     var panelLayout: PanelLayout = .default
 
     init(layoutStore: PanelLayoutStore = PanelLayoutStore()) {

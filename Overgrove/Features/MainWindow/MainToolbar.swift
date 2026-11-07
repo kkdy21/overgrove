@@ -20,6 +20,10 @@ struct MainToolbar: ToolbarContent {
             .help(isSidebarCollapsed ? "Show Sidebar (⌃⌘S)" : "Hide Sidebar (⌃⌘S)")
 
             RepositorySwitcher(repository: repository)
+            // Outside the menu: macOS reduces a menu label to its first text, which would drop the owner.
+            if let owner = repository?.owner {
+                Text(owner).foregroundStyle(Tokens.Color.textSecondary)
+            }
 
             Image(systemName: "chevron.right")
                 .foregroundStyle(Tokens.Color.textTertiary)
@@ -31,7 +35,7 @@ struct MainToolbar: ToolbarContent {
         ToolbarItemGroup(placement: .principal) {
             ForEach(ToolbarAction.Group.allCases, id: \.self) { group in
                 if group != ToolbarAction.Group.allCases.first {
-                    Divider()
+                    ToolbarGroupSeparator()
                 }
                 ForEach(ToolbarAction.allCases.filter { $0.group == group }, id: \.self) { action in
                     ToolbarActionButton(title: action.title, symbol: action.symbol, help: action.help)
@@ -142,14 +146,12 @@ struct RepositorySwitcher: View {
             HStack(spacing: Tokens.Spacing.xs) {
                 Image(systemName: "folder")
                 Text(repository?.name ?? "No Repository").font(Tokens.Font.bodyEmphasized)
-                if let owner = repository?.owner {
-                    Text(owner).foregroundStyle(Tokens.Color.textSecondary)
-                }
             }
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .accessibilityLabel(repository.map { "Repository \($0.name)" } ?? "No repository")
+        .accessibilityLabel(
+            repository.map { "Repository \($0.name)" + ($0.owner.map { " by \($0)" } ?? "") } ?? "No repository")
     }
 }
 
@@ -171,6 +173,10 @@ struct WorktreeChip: View {
                     Text("⌘J").font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textTertiary)
                 }
                 .padding(.horizontal, Tokens.Spacing.sm)
+                .padding(.vertical, Tokens.Spacing.xxs)
+                // Neutral until #65 supplies the branch's lane color (14% fill, 45% border, art-direction §3.4).
+                .background(Tokens.Color.surfaceControl, in: Capsule())
+                .overlay(Capsule().strokeBorder(Tokens.Color.borderSeparator, lineWidth: 1))
             }
             .buttonStyle(.borderless)
             .disabled(true)
@@ -178,4 +184,17 @@ struct WorktreeChip: View {
             .accessibilityLabel(worktree.accessibilityLabel)
         }
     }
+}
+
+/// The `│` between toolbar action groups (art-direction §3.4). `Divider` draws a horizontal dash in a toolbar.
+struct ToolbarGroupSeparator: View {
+    var body: some View {
+        Rectangle()
+            .fill(Tokens.Color.borderSeparator)
+            .frame(width: 1, height: Self.height)
+            .accessibilityHidden(true)
+    }
+
+    /// About the height of an icon-over-label button; no token.
+    static let height: CGFloat = 28
 }

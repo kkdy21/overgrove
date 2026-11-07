@@ -87,6 +87,27 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(store.layout(for: context("api").repository.id).isSidebarCollapsed)
     }
 
+    /// Each window owns an `AppState` over the one shared layout store (`MainWindowScene`): windows show different
+    /// repositories independently, and a layout saved in one is restored when another window opens that repository.
+    func testWindowsAreIndependentButShareRememberedLayouts() {
+        let store = PanelLayoutStore(defaults: defaults)
+        let first = AppState(layoutStore: store)
+        let second = AppState(layoutStore: store)
+        first.open(context("api"))
+        second.open(context("web"))
+        first.togglePanel(.sidebar)
+        second.searchText = "fix"
+
+        XCTAssertTrue(first.panelLayout.isSidebarCollapsed)
+        XCTAssertFalse(second.panelLayout.isSidebarCollapsed, "toggling in one window leaves the other alone")
+        XCTAssertEqual(first.searchText, "")
+        XCTAssertEqual(first.repository?.name, "api")
+        XCTAssertEqual(second.repository?.name, "web")
+
+        second.open(context("api"))
+        XCTAssertTrue(second.panelLayout.isSidebarCollapsed, "the layout is remembered per repository")
+    }
+
     func testRepositoryContextNamesComeFromTheFolder() {
         XCTAssertEqual(context("api").name, "api")
         XCTAssertEqual(context("api").owner, "acme")
