@@ -6,13 +6,22 @@ struct IssueRow: Identifiable, Equatable {
     let number: String
     /// Escaped.
     let title: String
+    /// A linked worktree (`tree`) or local branch (`arrow.triangle.branch`), #82.
+    let linkKind: IssueLinkIndex.Kind?
     let accessibilityLabel: String
 
-    init(_ issue: Issue) {
+    init(_ issue: Issue, linkKind: IssueLinkIndex.Kind? = nil) {
         id = issue.number
         number = "#\(issue.number)"
         title = PathValidator.displayable(issue.title)
-        accessibilityLabel = "Issue \(issue.number), \(title)"
+        self.linkKind = linkKind
+        let link: String? =
+            switch linkKind {
+            case .worktree: "linked worktree"
+            case .branch: "linked branch"
+            case nil: nil
+            }
+        accessibilityLabel = (["Issue \(issue.number)", title] + [link].compactMap { $0 }).joined(separator: ", ")
     }
 }
 
@@ -25,14 +34,15 @@ struct IssueListModel: Equatable {
         let detail: String?
     }
 
-    /// Most recently updated first. TODO(#82): issues linked to a local branch or worktree come first.
+    /// Issues linked to a worktree or local branch first, then most recently updated first
+    /// (information-architecture.md §4.2).
     let rows: [IssueRow]
     /// `nil` when the list is not available (no count in the header).
     let count: Int?
     let notice: Notice?
     let isLoading: Bool
 
-    init(content: IssueListContent?, isLoading: Bool) {
+    init(content: IssueListContent?, isLoading: Bool, links: IssueLinkIndex = .empty) {
         self.isLoading = isLoading
         switch content {
         case nil:
@@ -40,7 +50,12 @@ struct IssueListModel: Equatable {
             count = nil
             notice = nil
         case .loaded(_, let issues):
-            rows = issues.sorted { ($0.updatedAt, $0.number) > ($1.updatedAt, $1.number) }.map(IssueRow.init)
+            rows = issues.map { (issue: $0, kind: links.kind($0.number)) }
+                .sorted { lhs, rhs in
+                    if (lhs.kind != nil) != (rhs.kind != nil) { return lhs.kind != nil }
+                    return (lhs.issue.updatedAt, lhs.issue.number) > (rhs.issue.updatedAt, rhs.issue.number)
+                }
+                .map { IssueRow($0.issue, linkKind: $0.kind) }
             count = issues.count
             notice = issues.isEmpty ? Notice(symbol: "checkmark.circle", text: "No open issues", detail: nil) : nil
         // TODO(#83): guidance for these states (copyable `gh auth login`, Check again, S-07).
@@ -88,8 +103,21 @@ struct IssueDetailModel: Equatable {
     let browserURL: URL?
     /// What Copy URL puts on the clipboard.
     let urlText: String
+    /// LINKED (#82): worktrees and branches named for the issue, and the latest commits that reference it.
+    let linkedWorktrees: [IssueLinkIndex.WorktreeLink]
+    let linkedBranches: [IssueLinkIndex.BranchLink]
+    let linkedCommits: [CommitLink]
+    /// Linked worktrees and branches past `IssueLinkIndex.limitPerKind` (`and N more`).
+    let hiddenLinkCount: Int
 
-    init(_ issue: Issue, repository: GitHubRepository?) {
+    init(
+        _ issue: Issue, repository: GitHubRepository?, links: IssueLinkIndex.Links = .init(),
+        commits: [CommitLink] = []
+    ) {
+        linkedWorktrees = links.worktrees
+        linkedBranches = links.branches
+        linkedCommits = commits
+        hiddenLinkCount = links.hiddenCount
         number = "#\(issue.number)"
         title = PathValidator.displayable(issue.title)
         self.repository = repository?.slug

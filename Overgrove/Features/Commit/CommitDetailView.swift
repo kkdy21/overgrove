@@ -134,8 +134,12 @@ struct CommitDetailView: View {
                 if !model.issues.isEmpty {
                     GridRow {
                         label(model.issues.count > 1 ? "Issues" : "Issue")
-                        Text(model.issues.map { "#\($0)" }.joined(separator: " "))
-                            .font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textLink)
+                        // Linked badges and gh titles for numbers in the fetched list; grey `#n` otherwise (#82).
+                        VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
+                            ForEach(model.issues, id: \.self) { number in
+                                CommitIssueLine(number: number)
+                            }
+                        }
                     }
                 }
             }
@@ -218,5 +222,21 @@ struct CommitDetailView: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(row.isSelectable ? .isButton : [])
         .accessibilityAction { if row.isSelectable { onSelectFile(row.stat) } }
+    }
+}
+
+/// One S-03 Issues line: the `#n` badge and, when gh listed the issue, its title.
+private struct CommitIssueLine: View {
+    let number: Int
+    @Environment(\.issueBadges) private var issues
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.xs) {
+            IssueNumberBadge(number: number)
+            if let title = issues.titles[number] {
+                Text(title).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
+                    .lineLimit(1).truncationMode(.tail).help(title)
+            }
+        }
     }
 }

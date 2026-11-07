@@ -68,7 +68,7 @@ struct CommitDetailModel: Equatable {
 
     init(
         commit: CommitNode, detail: CommitDetailStore.Detail?, pills: [GraphRefPill], showsAllFiles: Bool,
-        rule: AIAgentRule = .builtIn, timeZone: TimeZone = .current
+        rule: AIAgentRule = .builtIn, timeZone: TimeZone = .current, issueRepository: String? = nil
     ) {
         title = PathValidator.displayable(commit.subject)
         shortSHA = commit.oid.short
@@ -115,7 +115,8 @@ struct CommitDetailModel: Equatable {
             isPartial = false
         }
         body = Self.bodyLines(message)
-        var numbers = IssueRefExtractor.issueNumbers(inSubject: commit.subject, repository: nil)
+        // `owner/repo#n` counts for the repository the issues are read from (#82).
+        var numbers = CommitLink.issueNumbers(in: commit.subject, repository: issueRepository)
         for number in IssueRefExtractor.issueNumbers(inTrailers: message) where !numbers.contains(number) {
             numbers.append(number)
         }
