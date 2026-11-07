@@ -127,4 +127,6 @@ struct FileSelection: Equatable, Sendable {
     let worktree: GitPath
     let group: WorkingChangeGroup
     let path: GitPath
+    /// The old name when the file was renamed, so its diff pairs both names (#309).
+    var originalPath: GitPath?
 }

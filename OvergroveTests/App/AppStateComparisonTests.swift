@@ -8,6 +8,7 @@ final class StubComparisonLoader: ComparisonLoading, @unchecked Sendable {
     private let lock = NSLock()
     private var compares: [(GitPath, FullRefName?, Bool)] = []
     private var patches: [GitPath] = []
+    private var originals: [GitPath?] = []
     var bases = ComparisonBases(
         all: [FullRefName("refs/heads/main")!, FullRefName("refs/remotes/origin/develop")!],
         preferred: FullRefName("refs/heads/main"))
@@ -15,6 +16,7 @@ final class StubComparisonLoader: ComparisonLoading, @unchecked Sendable {
 
     var compareRequests: [(GitPath, FullRefName?, Bool)] { lock.withLock { compares } }
     var patchRequests: [GitPath] { lock.withLock { patches } }
+    var originalPathRequests: [GitPath?] { lock.withLock { originals } }
 
     func bases(of repository: Repository) async -> ComparisonBases { bases }
 
@@ -31,9 +33,13 @@ final class StubComparisonLoader: ComparisonLoading, @unchecked Sendable {
     }
 
     func patch(
-        _ repository: Repository, worktree: GitPath, base: FullRefName, file: GitPath, includeUncommitted: Bool
+        _ repository: Repository, worktree: GitPath, base: FullRefName, file: GitPath, originalPath: GitPath?,
+        includeUncommitted: Bool
     ) async -> DiffLoadResult {
-        lock.withLock { patches.append(file) }
+        lock.withLock {
+            patches.append(file)
+            originals.append(originalPath)
+        }
         return .patch(try! PatchParser.parse(Data("diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n".utf8)))
     }
 }
@@ -138,6 +144,24 @@ final class AppStateComparisonTests: XCTestCase {
 
         state.selectComparisonFile(ComparisonFile(path: GitPath("not-listed"), isUntracked: false))
         XCTAssertEqual(state.comparison?.selectedFile?.path, GitPath("new0.swift"), "unlisted files are ignored")
+    }
+
+    /// #309: a renamed file's patch is asked for with its old name.
+    func testRenamedFilePassesItsOldName() async {
+        let loader = StubComparisonLoader()
+        loader.result = .success(
+            ComparisonModelTests.comparison(files: [
+                FileStat(
+                    path: GitPath("new.swift"), originalPath: GitPath("old.swift"), status: .renamed(score: 95),
+                    added: 1, deleted: 0)
+            ]))
+        let state = await loadedState(loader)
+        state.showComparison()
+        await state.comparisonTask?.value
+        state.selectComparisonFile(ComparisonFile(path: GitPath("new.swift"), isUntracked: false))
+        await state.comparisonPatchTask?.value
+        XCTAssertEqual(loader.patchRequests, [GitPath("new.swift")])
+        XCTAssertEqual(loader.originalPathRequests, [GitPath("old.swift")])
     }
 
     func testUnlistedBaseIsIgnoredAndSelectionsStayInTheirSection() async {

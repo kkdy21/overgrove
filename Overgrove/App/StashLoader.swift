@@ -47,7 +47,9 @@ struct LiveStashLoader: StashLoading {
         return await run(repository, worktree: worktree, unavailable: DiffLoadResult.unavailable) {
             client, folder, safety in
             let output = try await client.run(
-                .stashPatch(stash.oid, path: file.path, fromUntracked: file.isFromUntracked), in: folder,
+                .stashPatch(
+                    stash.oid, path: file.path, originalPath: file.originalPath, fromUntracked: file.isFromUntracked),
+                in: folder,
                 safety: safety)
             return .patch(try PatchParser.parse(output.stdout, truncated: output.isTruncated))
         }

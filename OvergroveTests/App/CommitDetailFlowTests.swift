@@ -8,10 +8,12 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
     private let lock = NSLock()
     private var details: [ObjectID] = []
     private var patches: [GitPath] = []
+    private var originalPaths: [GitPath?] = []
     var failure: GitError?
 
     var detailRequests: [ObjectID] { lock.withLock { details } }
     var patchRequests: [GitPath] { lock.withLock { patches } }
+    var originalPathRequests: [GitPath?] { lock.withLock { originalPaths } }
 
     func detail(_ repository: Repository, of commit: ObjectID) async -> Result<CommitDetail, GitError> {
         lock.withLock { details.append(commit) }
@@ -25,10 +27,13 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
                 isPartial: false))
     }
 
-    func patch(_ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath) async
-        -> Result<PatchParser.Listing, GitError>
-    {
-        lock.withLock { patches.append(path) }
+    func patch(
+        _ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath, originalPath: GitPath?
+    ) async -> Result<PatchParser.Listing, GitError> {
+        lock.withLock {
+            patches.append(path)
+            originalPaths.append(originalPath)
+        }
         return .success(
             try! PatchParser.parse(Data("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1 +1 @@\n-x\n+y\n".utf8))
         )
@@ -88,6 +93,21 @@ final class CommitDetailFlowTests: XCTestCase {
         XCTAssertEqual(document.source.label, "4444444 · vs first parent", "a merge diffs against its first parent")
         store.clearFile()
         XCTAssertNil(store.fileDiff)
+    }
+
+    /// #309: a renamed file's patch is asked for with its old name, so git pairs them instead of showing an add.
+    func testRenamedFilePassesItsOldName() async {
+        let loader = StubCommitLoader()
+        let store = CommitDetailStore(loader: loader)
+        store.show(SampleGraphLoader.commits[1], in: repository)
+        await store.task?.value
+        store.selectFile(
+            FileStat(
+                path: GitPath("new.go"), originalPath: GitPath("old.go"), status: .renamed(score: 90), added: 1,
+                deleted: 0))
+        await store.fileTask?.value
+        XCTAssertEqual(loader.patchRequests, [GitPath("new.go")])
+        XCTAssertEqual(loader.originalPathRequests, [GitPath("old.go")])
     }
 
     private func loadedState(_ loader: StubCommitLoader) async throws -> AppState {

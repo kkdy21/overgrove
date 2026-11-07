@@ -22,6 +22,14 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("-x"), includeWorkingTree: false),
     .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("a.txt"), includeWorkingTree: true),
     .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 500),
+    // Renames pass both names (#309).
+    .stashPatch(oid, path: GitPath("new.txt"), originalPath: GitPath("-old.txt"), fromUntracked: false),
+    .commitPatch(oid, parent: parent, path: GitPath("new.txt"), originalPath: GitPath("old.txt")),
+    .commitPatch(oid, parent: parent, path: GitPath("same.txt"), originalPath: GitPath("same.txt")),
+    .worktreeDiff(path: GitPath("new.txt"), originalPath: GitPath("old.txt"), staged: true),
+    .comparePatch(
+        base: FullRefName("refs/heads/main")!, path: GitPath("new.txt"), originalPath: GitPath("old.txt"),
+        includeWorkingTree: true),
 ]
 
 /// SEC-T9-01, SEC-T13-01 (docs/design/security-review.md) and catalog §3–§4.
@@ -155,6 +163,27 @@ final class GitCommandTests: XCTestCase {
                 "log", "-z", ReadOnlyGitCommand.logFormat, "-n", "500", "--end-of-options", "refs/heads/main..HEAD",
                 "--",
             ],
+            [
+                "diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--end-of-options", "\(oid.hex)^1", oid.hex,
+                "--", "-old.txt", "new.txt",
+            ],
+            [
+                "diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", parent.hex,
+                oid.hex, "--", "old.txt", "new.txt",
+            ],
+            [
+                "diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", parent.hex,
+                oid.hex, "--", "same.txt",
+            ],
+            [
+                "diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty", "--no-color",
+                "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--cached", "--", "old.txt", "new.txt",
+            ],
+            [
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--no-color",
+                "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--merge-base", "--end-of-options",
+                "refs/heads/main", "--", "old.txt", "new.txt",
+            ],
         ]
         XCTAssertEqual(allReadOnlyCommands.count, expected.count)
         for (command, subcommand) in zip(allReadOnlyCommands, expected) {
@@ -189,6 +218,7 @@ final class GitCommandTests: XCTestCase {
     func testLossyPathsAreRejected() {
         let lossy = GitPath(raw: Data([0x61, 0xFF]))
         for command in [
+            ReadOnlyGitCommand.commitPatch(oid, parent: nil, path: GitPath("new.txt"), originalPath: lossy),
             ReadOnlyGitCommand.fileHistory(path: lossy, limit: 10),
             .worktreeDiff(path: lossy, staged: false),
         ] {
@@ -270,6 +300,63 @@ final class GitClientIntegrationTests: XCTestCase {
             safety: inspected
         )
         XCTAssertTrue(String(decoding: untracked.stdout, as: UTF8.self).contains("+fresh"))
+    }
+
+    /// #309: a renamed file's patch pairs both names. With the new name alone, `-M` cannot see the old file and git
+    /// shows the rename as a whole new file.
+    func testRenamePatchesPairBothNames() async throws {
+        let body = (1...20).map { "line \($0)\n" }.joined()
+        try repository.write("old.txt", body)
+        try await repository.git(["add", "old.txt"])
+        try await repository.git(["commit", "-q", "-m", "base"])
+        try await repository.git(["branch", "base"])
+        try await repository.git(["mv", "old.txt", "new.txt"])
+        try repository.write("new.txt", body + "line 21\n")
+        try await repository.git(["add", "new.txt"])
+        let old = GitPath("old.txt")
+        let new = GitPath("new.txt")
+        func assertRename(_ output: GitOutput, _ what: String) {
+            let text = String(decoding: output.stdout, as: UTF8.self)
+            XCTAssertTrue(text.contains("rename from old.txt\nrename to new.txt"), "\(what): \(text)")
+            XCTAssertFalse(text.contains("new file mode"), "\(what): \(text)")
+            XCTAssertTrue(text.contains("+line 21"), "\(what): \(text)")
+        }
+
+        assertRename(
+            try await client.run(
+                .worktreeDiff(path: new, originalPath: old, staged: true), in: repository.root, safety: inspected),
+            "staged")
+        let alone = try await client.run(.worktreeDiff(path: new, staged: true), in: repository.root, safety: inspected)
+        XCTAssertTrue(String(decoding: alone.stdout, as: UTF8.self).contains("new file mode"), "the bug without it")
+
+        assertRename(
+            try await client.run(
+                .comparePatch(
+                    base: FullRefName("refs/heads/base")!, path: new, originalPath: old,
+                    includeWorkingTree: true), in: repository.root, safety: inspected),
+            "compare")
+
+        try await repository.git(["stash", "push", "-q", "-m", "wip"])
+        let stash = try await resolve("stash@{0}")
+        assertRename(
+            try await client.run(
+                .stashPatch(stash, path: new, originalPath: old, fromUntracked: false), in: repository.root,
+                safety: inspected),
+            "stash")
+
+        try await repository.git(["stash", "pop", "-q", "--index"])
+        try await repository.git(["commit", "-q", "-m", "rename"])
+        let head = try await resolve("HEAD")
+        let base = try await resolve("HEAD^")
+        assertRename(
+            try await client.run(
+                .commitPatch(head, parent: base, path: new, originalPath: old), in: repository.root, safety: inspected),
+            "commit")
+    }
+
+    private func resolve(_ revision: String) async throws -> ObjectID {
+        let output = try await repository.git(["rev-parse", revision])
+        return try XCTUnwrap(ObjectID(String(decoding: output.stdout, as: UTF8.self).trimmingCharacters(in: .newlines)))
     }
 
     func testNotARepositoryIsClassified() async throws {

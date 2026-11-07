@@ -43,7 +43,8 @@ struct LiveDiffLoader: DiffLoading {
             let command: ReadOnlyGitCommand
             switch file.group {
             case .staged, .unstaged:
-                command = .worktreeDiff(path: file.path, staged: file.group == .staged)
+                command = .worktreeDiff(
+                    path: file.path, originalPath: file.originalPath, staged: file.group == .staged)
             case .untracked:
                 // Only a regular file or symbolic link really inside the worktree (T14); a FIFO would stall git.
                 guard let preview = PathValidator.worktreeFile(file.path, in: directory) else {

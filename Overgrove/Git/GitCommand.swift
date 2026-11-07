@@ -18,13 +18,15 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case stashFiles(ObjectID)
     /// Patch of one file in a stash. Tracked changes are diffed against the stash's base (`^1`); files from the
     /// untracked part (`stash -u`) come from the third parent (`^3`). `git stash show` accepts no pathspec.
-    case stashPatch(ObjectID, path: GitPath, fromUntracked: Bool)
+    /// Patch cases take the old name of a renamed file too (`originalPath`), so `-M` can pair it: with the new name
+    /// alone, git shows a rename as a whole new file (#309).
+    case stashPatch(ObjectID, path: GitPath, originalPath: GitPath? = nil, fromUntracked: Bool)
     case graphPage(skip: Int, limit: Int)
     case commitMeta(ObjectID)
     /// `firstParent` is set for merge commits, which are compared with their first parent.
     case commitFiles(ObjectID, firstParent: ObjectID?)
-    case commitPatch(ObjectID, parent: ObjectID?, path: GitPath)
-    case worktreeDiff(path: GitPath, staged: Bool)
+    case commitPatch(ObjectID, parent: ObjectID?, path: GitPath, originalPath: GitPath? = nil)
+    case worktreeDiff(path: GitPath, originalPath: GitPath? = nil, staged: Bool)
     /// Per-file line counts of the whole worktree, staged or unstaged (S-02, #230). No pathspec.
     case worktreeNumstat(staged: Bool)
     /// Diff of an untracked file against /dev/null. Only a `WorktreeFile` (checked by `PathValidator`) is accepted.
@@ -38,7 +40,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// `status`.
     case compareFiles(base: FullRefName, includeWorkingTree: Bool)
     /// Patch of one file in the same comparison.
-    case comparePatch(base: FullRefName, path: GitPath, includeWorkingTree: Bool)
+    case comparePatch(base: FullRefName, path: GitPath, originalPath: GitPath? = nil, includeWorkingTree: Bool)
     /// Commits on HEAD that `base` does not have (`<base>..HEAD`), newest first.
     case commitsAhead(base: FullRefName, limit: Int)
 
@@ -106,12 +108,12 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
                 "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
                 "--end-of-options", oid.hex,
             ]
-        case .stashPatch(let oid, let path, let fromUntracked):
+        case .stashPatch(let oid, let path, let originalPath, let fromUntracked):
             // Options (including --root) must come before --end-of-options, revisions after it.
             let options =
                 ["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv"] + (fromUntracked ? ["--root"] : [])
             let revisions = fromUntracked ? ["\(oid.hex)^3"] : ["\(oid.hex)^1", oid.hex]
-            return options + ["--end-of-options"] + revisions + (try Self.pathspec(path))
+            return options + ["--end-of-options"] + revisions + (try Self.pathspec(path, originalPath: originalPath))
         case .graphPage(let skip, let limit):
             return [
                 "log", "--exclude=refs/stash", "--all", "--date-order", "-z", Self.logFormat,
@@ -127,14 +129,15 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
                 "diff-tree", "-r", "-z", "--raw", "--numstat", "-M", "--no-ext-diff", "--no-textconv",
                 "--no-commit-id", "--root", "--end-of-options",
             ] + (firstParent.map { [$0.hex] } ?? []) + [oid.hex]
-        case .commitPatch(let oid, let parent, let path):
+        case .commitPatch(let oid, let parent, let path, let originalPath):
             return ["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options"]
-                + (parent.map { [$0.hex] } ?? []) + [oid.hex] + (try Self.pathspec(path))
-        case .worktreeDiff(let path, let staged):
+                + (parent.map { [$0.hex] } ?? []) + [oid.hex] + (try Self.pathspec(path, originalPath: originalPath))
+        case .worktreeDiff(let path, let originalPath, let staged):
             // `--ignore-submodules=dirty` (as in status): for a submodule path git would otherwise run `status` inside
             // the submodule, with the submodule's own filters, which were never inspected (#239, SEC-T4-05).
             return ["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty"]
-                + Self.porcelainDiffOptions + (staged ? ["--cached"] : []) + (try Self.pathspec(path))
+                + Self.porcelainDiffOptions + (staged ? ["--cached"] : [])
+                + (try Self.pathspec(path, originalPath: originalPath))
         case .worktreeNumstat(let staged):
             // `--ignore-submodules=dirty` (as in status): without it git diff runs `git status` inside every
             // submodule, whose configuration was never inspected (#230). The porcelain options do not change numstat
@@ -160,10 +163,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
                 "--ignore-submodules=dirty",
             ] + Self.porcelainDiffOptions + ["--merge-base", "--end-of-options", base.value]
                 + (includeWorkingTree ? [] : ["HEAD"]) + ["--"]
-        case .comparePatch(let base, let path, let includeWorkingTree):
+        case .comparePatch(let base, let path, let originalPath, let includeWorkingTree):
             return ["diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty"]
                 + Self.porcelainDiffOptions + ["--merge-base", "--end-of-options", base.value]
-                + (includeWorkingTree ? [] : ["HEAD"]) + (try Self.pathspec(path))
+                + (includeWorkingTree ? [] : ["HEAD"]) + (try Self.pathspec(path, originalPath: originalPath))
         case .commitsAhead(let base, let limit):
             // `FullRefName` has no `..`, so `<base>..HEAD` is one unambiguous range.
             return [
@@ -204,6 +207,13 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     private static func pathspec(_ path: GitPath) throws -> [String] {
         guard let arguments = path.pathspecArguments else { throw unrepresentable }
         return arguments
+    }
+
+    /// `["--", old, new]` for a rename, so `-M` finds the pair; `["--", path]` otherwise.
+    private static func pathspec(_ path: GitPath, originalPath: GitPath?) throws -> [String] {
+        let arguments = try pathspec(path)
+        guard let originalPath, originalPath != path else { return arguments }
+        return ["--"] + Array(try pathspec(originalPath).dropFirst()) + Array(arguments.dropFirst())
     }
 
     private static func clampLimit(_ limit: Int) -> Int { min(max(limit, 1), 100_000) }

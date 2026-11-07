@@ -27,9 +27,14 @@ final class DiffViewerIntegrationTests: XCTestCase {
                 isBare: false, lock: .unlocked, isPrunable: false, prunableReason: nil))
     }
 
-    private func load(_ context: Context, _ group: WorkingChangeGroup, _ path: String) async -> DiffLoadResult {
+    private func load(
+        _ context: Context, _ group: WorkingChangeGroup, _ path: String, originalPath: String? = nil
+    ) async -> DiffLoadResult {
         await context.loader.load(
-            FileSelection(worktree: context.main.path, group: group, path: GitPath(path)), worktree: context.main,
+            FileSelection(
+                worktree: context.main.path, group: group, path: GitPath(path),
+                originalPath: originalPath.map(GitPath.init)),
+            worktree: context.main,
             of: context.repository, isSubmodule: false)
     }
 
@@ -60,9 +65,15 @@ final class DiffViewerIntegrationTests: XCTestCase {
             return XCTFail()
         }
         XCTAssertTrue(deleted.files.first?.isDeletedFile == true)
-        // One pathspec: git shows the new path as added (rename detection needs both paths).
-        guard case .patch(let renamed) = await load(context, .staged, "src/new-name.txt") else { return XCTFail() }
+        // Both names reach git, so it pairs them as a rename instead of a new file (#309).
+        guard
+            case .patch(let renamed) = await load(
+                context, .staged, "src/new-name.txt", originalPath: "src/old-name.txt")
+        else { return XCTFail() }
         XCTAssertEqual(renamed.files.count, 1)
+        XCTAssertEqual(renamed.files.first?.renameFrom, GitPath("src/old-name.txt"))
+        XCTAssertEqual(renamed.files.first?.renameTo, GitPath("src/new-name.txt"))
+        XCTAssertFalse(renamed.files.first?.isNewFile == true)
     }
 
     /// Special names reach git as one argument after `--` and come back escaped.
