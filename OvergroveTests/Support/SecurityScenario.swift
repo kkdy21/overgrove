@@ -24,7 +24,7 @@ struct SecurityScenario {
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: canary, withIntermediateDirectories: true)
         let parent = ["HOME": home.path, "TMPDIR": executables.directory.path]
-        let environment = try await GitEnvironment.discover(parentEnvironment: parent)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: parent)
         return SecurityScenario(executables: executables, environment: environment, home: home, canary: canary)
     }
 

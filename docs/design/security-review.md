@@ -520,14 +520,17 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E41 | 로컬 `i18n.commitEncoding=JOHAB`(또는 `i18n.logOutputEncoding=JOHAB`) + 제목에 `！`가 든 커밋 + 그래프·커밋 상세·stash 목록 `-z` 포맷 | 일반 실행은 NUL이 늘어 필드가 밀림(그래프 6→8, 상세 2→4, stash 4→5). `-c i18n.logOutputEncoding=UTF-8`이면 정상. UTF-16 설정도 막힘. `for-each-ref`는 영향 없음 (Apple Git 2.54.0, #205) |
 | E42 | `clone --filter=blob:none`으로 만든 partial 저장소 + 로컬 `remote.origin.uploadpack` canary에서 `diff-tree -p` (Apple Git 2.50.1, #212) | fetch 목록 환경: canary 실행(lazy fetch). `GIT_NO_LAZY_FETCH=1`: 차단. `GIT_ALLOW_PROTOCOL=`(빈 값)·`=none`: `transport 'file' not allowed`로 차단. `-c remote.origin.promisor=false`·`-c remote.origin.uploadpack=git-upload-pack`: 여전히 실행. 앱의 fetch는 filter 설정이 있는 partial 저장소에서는 lazy fetch를 하지 않음. filter 없이 promisor만 있고 새 객체가 누락 blob을 delta base로 쓰면 fetch도 lazy fetch하며, `GIT_NO_LAZY_FETCH` 없이는 로컬 uploadpack이 실행됨(#213 보안 검토) |
 | E43 | 메인 저장소의 `.git/worktrees/forged/gitdir`가 clean filter canary를 둔 다른 저장소를 가리킴 / 연결 워크트리의 `config.worktree`에 filter 드라이버 (Apple Git 2.50.1, #221) | 메인 저장소의 `RepoSafetyContext`로 그 경로의 status를 실행하면 두 경우 모두 canary 실행. 경로별 `probeRepository` 확인(공통 git 디렉터리 비교)과 워크트리별 `configList` 검사를 거치면 실행 안 됨 |
+| E44 | git 호환성 매트릭스: git 2.36.6(kernel.org tarball 소스 빌드), Apple Git 2.54.0 (Apple Git-157), Homebrew git 2.54.0으로 INT·SEC를 포함한 전체 테스트 실행. 보조로 2.39.5·2.40.4 (#99, [보고서](../qa/reports/2026-11-08-git-compatibility.md)) | 어느 버전에서도 canary가 실행되지 않음. 차이는 옛 git에 없는 기능(아래 도입 버전)뿐이고, 테스트의 대조군·픽스처만 영향을 받음. 앱 동작 차이는 E45의 오류 분류 하나 |
+| E45 | E42의 partial 저장소 + 로컬 `remote.origin.uploadpack` canary에서 blob이 필요한 쿼리(`diff-tree -p` 등)를 앱 환경으로 실행 (git 2.36.6·2.39.5·2.40.4, #99) | 2.36–2.43은 `GIT_NO_LAZY_FETCH`를 무시하지만(실측 2.36.6·2.39.5·2.40.4, 2.41–2.43은 `GIT_NO_LAZY_FETCH` 도입 버전 2.44 기준 추정) 빈 `GIT_ALLOW_PROTOCOL`이 lazy fetch를 막아 canary 실행 안 됨. 2.36.6의 stderr는 `fatal: transport 'file' not allowed`(2회) + `fatal: unable to read <oid>`뿐이라 `GitError`가 `partialCloneObjectMissing`이 아니라 `transportNotAllowed`로 분류함(잘못된 안내 문구, #303). 2.39.5·2.40.4는 올바르게 분류됨 |
+| E46 | 로컬 `fetch.bundleURI`(평범한 bundle 파일) + `-c fetch.bundleURI=` 없이 fetch (E40의 대조군, git 2.39.5·2.40.4, #99) | 2.39.5는 키를 무시해 `refs/bundles/*`를 쓰지 않음. 2.40.4부터 씀. 앱의 `-c fetch.bundleURI=`는 두 경우 모두 무해 |
 
-릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41.
+릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41. 호환성 매트릭스(#99)에서 테스트에 영향을 준 것은 `fetch.bundleURI` 2.40(E46에서 실측), `worktree add --orphan` 2.42, `GIT_NO_LAZY_FETCH` 2.44, `diff.srcPrefix`·`diff.dstPrefix` 2.45, fetch가 `refs/remotes/<원격>/HEAD`를 자동으로 만드는 동작 2.48이다.
 
 ### 4.2 확인하지 못한 것 (추정)
 
 | 항목 | 현재 판단 | 확정 방법 |
 |---|---|---|
-| 위 동작이 최소 버전 git 2.36에서도 같은지 | 같다고 추정 (관련 옵션이 모두 2.36 이전에 도입됨) | CI 호환성 매트릭스 (Phase 4 이슈) |
+| 위 동작이 최소 버전 git 2.36에서도 같은지 | **확인됨** (#99, E44–E46): 보안 동작은 같다. 2.36에서 다른 것은 partial clone 쿼리의 오류 분류(#303)뿐이다 | 로컬 매트릭스 실행. CI 매트릭스는 #292 |
 | `fetch --no-auto-maintenance` 도입 버전 | 2.29 전후로 추정 | 쓰지 않음 (config로 대체) |
 | 실제 HTTPS fetch에서 `sslVerify` 덮어쓰기 효과 | `--get-urlmatch` 결과로 추정 | 자체 서명 인증서 로컬 서버 통합 테스트 (선택) |
 | `ssh -o BatchMode=yes`가 호스트 키 확인 프롬프트를 막는지 | ssh 문서상 그렇다고 추정 | 수동 QA |
