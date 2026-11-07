@@ -50,7 +50,7 @@ scripts/make-fixture-repo.sh --force <dir>       # 비어 있지 않은 <dir>을
 
 ## 2. 이력과 참조
 
-### 2.1 커밋 그래프 (main 기준, `--exclude=refs/stash --all` 21개)
+### 2.1 커밋 그래프 (main 기준, 브랜치·원격·태그·워크트리 HEAD 21개, #308)
 
 ```
 * e4bd61e feat: local-only change on main              (main, origin/main 보다 1개 앞)

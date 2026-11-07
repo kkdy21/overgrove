@@ -48,7 +48,7 @@ final class HistoryIntegrationTests: XCTestCase {
         let stashes = try StashParser.parse(try await context.run(.stashList)).stashes
 
         // INT-07
-        XCTAssertEqual(graph.count, 21, "--exclude=refs/stash --all")
+        XCTAssertEqual(graph.count, 21, "branches, remotes, tags, worktree HEADs; no stash")
         XCTAssertTrue(Set(graph.map(\.oid)).isDisjoint(with: stashes.map(\.oid)), "no stash commits in the graph")
         XCTAssertEqual(graph.filter(\.isMerge).map(\.oid.short), ["0cbcd45"])
         let merge = try context.commit("0cbcd45", in: graph)
