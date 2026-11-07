@@ -37,8 +37,8 @@ final class TerminalGuardTests: XCTestCase {
     func testReasons() {
         XCTAssertEqual(TerminalGuard.reasons(inspection: inspection([]), hooks: []), [], "clean: open directly")
         XCTAssertEqual(
-            TerminalGuard.reasons(inspection: inspection([("core", nil, "editor", "vim")]), hooks: []), [],
-            "a setting that runs nothing does not ask")
+            TerminalGuard.reasons(inspection: inspection([("user", nil, "name", "me")]), hooks: []), [],
+            "a setting the inspector does not report does not ask")
         XCTAssertEqual(
             TerminalGuard.reasons(inspection: nil, hooks: []), ["The repository’s settings could not be checked."])
         XCTAssertEqual(
@@ -56,6 +56,23 @@ final class TerminalGuardTests: XCTestCase {
                 "A filter driver name contains characters that cannot be neutralized safely.", "core.fsmonitor",
                 "filter.lfs\\u{202E}.clean",
             ], "a blocked report says why first; keys once, escaped")
+    }
+
+    /// SEC-T14-10: every finding is a reason, whatever its threat or handling: the shell's git honours them all
+    /// (#278).
+    func testEveryFindingIsAReason() {
+        let cases: [(String, String?, String, String?)] = [
+            ("core", nil, "pager", "x"), ("pager", nil, "log", "x"), ("core", nil, "editor", "x"),
+            ("sequence", nil, "editor", "x"), ("alias", nil, "st", "!x"), ("submodule", "lib", "update", "!x"),
+            ("uploadpack", nil, "packobjectshook", "x"), ("include", nil, "path", "x"),
+            ("core", nil, "attributesfile", "/tmp/fifo"), ("http", nil, "sslverify", "false"),
+        ]
+        for (section, subsection, variable, value) in cases {
+            let key = [section, subsection, variable].compactMap { $0 }.joined(separator: ".")
+            XCTAssertEqual(
+                TerminalGuard.reasons(inspection: inspection([(section, subsection, variable, value)]), hooks: []),
+                [key], key)
+        }
     }
 
     func testListedKeysAreMaskedAndCapped() {
