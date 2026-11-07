@@ -23,6 +23,9 @@ struct GitEnvironment: Sendable, Equatable {
         // `git diff` refreshes and rewrites the index for stat-dirty paths despite --no-optional-locks (#208).
         "-c", "diff.autoRefreshIndex=false",
         "-c", "color.ui=never",
+        // A repository's diff.suppressBlankEmpty drops the leading space of empty context lines in patches; it has
+        // no command-line option (#239).
+        "-c", "diff.suppressBlankEmpty=false",
         // A repository's i18n.logOutputEncoding or i18n.commitEncoding re-encodes the whole formatted output, `-z`
         // separators included, and some encodings (JOHAB, CP1361) turn message text into NUL bytes that shift fields
         // (#205). Pinning the output to UTF-8 overrides both.

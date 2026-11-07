@@ -241,6 +241,31 @@ final class ConfigExecutionScenarioTests: XCTestCase {
         assertFired("T4-sub", "status recursing into the submodule")
     }
 
+    /// SEC-T4-05, worktree diff (#239): the unstaged diff of a submodule path makes git run `status` inside the
+    /// submodule, with the submodule's own (never inspected) filter. `worktreeDiff` carries `--ignore-submodules=dirty`
+    /// like status. The staged diff never looks inside; control: without the flag the unstaged diff runs the filter.
+    func testSECT4_05_SubmoduleFilterDoesNotRunFromTheWorktreeDiff() async throws {
+        let (superproject, submodule) = try await superprojectWithSubmodule()
+        try await scenario.plain(
+            [
+                "--git-dir", submodule.path, "config", "filter.evil.clean",
+                try scenario.payload("T4-sub-diff", tail: "cat"),
+            ],
+            in: superproject, requireSuccess: true)
+        try writeAttributes("*.dat filter=evil", gitDirectory: submodule)
+        for staged in [false, true] {
+            try touch(superproject.appendingPathComponent("sub/a.dat"))
+            _ = try await scenario.app(.worktreeDiff(path: GitPath("sub"), staged: staged), in: superproject)
+            assertNoCanary(after: "app worktreeDiff sub (staged: \(staged))")
+        }
+
+        try touch(superproject.appendingPathComponent("sub/a.dat"))
+        let unprotected = try ReadOnlyGitCommand.worktreeDiff(path: GitPath("sub"), staged: false)
+            .subcommandArguments().filter { $0 != "--ignore-submodules=dirty" }
+        _ = try await scenario.appArguments(unprotected, in: superproject)
+        assertFired("T4-sub-diff", "app worktreeDiff arguments without --ignore-submodules=dirty")
+    }
+
     /// SEC-T4-05, worktree numstat (#230): the WIP line counts run `git diff` over the whole superproject. Without
     /// `--ignore-submodules=dirty`, git diff runs `git status` inside each submodule, where the submodule's own
     /// filter (never inspected) runs. The flag is the only layer, as for status.
