@@ -265,6 +265,13 @@ struct WorktreeListModel: Equatable {
     private static func warning(for listing: WorktreeListing) -> String? {
         var notes: [String] = []
         if listing.isPartial { notes.append("Some worktrees could not be listed because git's output was too large.") }
+        if listing.isQueryLimited {
+            let limit = RepositoryService.defaultMaximumQueriedWorktrees
+            // Same wording as the detail of a worktree past the limit (WipDetailModel).
+            notes.append(
+                "This repository lists more than \(limit) worktrees. Overgrove loads the changes of the first "
+                    + "\(limit).")
+        }
         let incomplete = listing.entries.contains {
             if case .loaded(let state) = $0.state { return state.isPartial || state.skippedRecords > 0 }
             return false

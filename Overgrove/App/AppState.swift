@@ -133,6 +133,10 @@ final class AppState {
     private(set) var inspectionTask: Task<Void, Never>?
     /// The load in flight; tests await it.
     private(set) var loadTask: Task<Void, Never>?
+    /// What the load in flight was started for; `nil` when none runs.
+    private var runningTrigger: RepositoryService.Trigger?
+    /// Dropping a removed repository's cache; tests await it.
+    private(set) var forgetTask: Task<Void, Never>?
     /// Bumped on every open and close, so a load that finishes after the user moved on is dropped.
     private var loadGeneration = 0
     /// TODO(#77): set by the fetch feature.
@@ -180,6 +184,7 @@ final class AppState {
     private func clearRepositoryData() {
         loadTask?.cancel()
         loadTask = nil
+        runningTrigger = nil
         loadGeneration += 1
         snapshot = nil
         worktreeList = .idle
@@ -195,20 +200,40 @@ final class AppState {
 
     // MARK: Worktrees (#65)
 
-    /// Inspects the open repository and loads its worktrees (overview.md §3.2). A newer open, close, or reload
+    /// Inspects the open repository and loads everything again (`.user`: opening a repository, ⌘R; overview.md §3.2).
+    /// When the repository is not shown yet, its cached listing (no git) is painted first (PB-2). A newer request
     /// cancels this one, and its result is dropped.
     func reload() {
+        refresh(.user)
+    }
+
+    /// The window became key (interaction.md §4): re-query what is stale (`.automatic`, debounced by the service).
+    /// Skipped until the repository has loaded, and while another load runs.
+    func windowDidBecomeActive() {
+        guard case .loaded = worktreeList, runningTrigger == nil else { return }
+        refresh(.automatic)
+    }
+
+    /// Starts a refresh for `trigger` (overview.md §5 decides what it re-queries). A full refresh in flight is not
+    /// replaced by a narrower one: it already brings everything.
+    private func refresh(_ trigger: RepositoryService.Trigger) {
         guard let repository else { return }
+        if trigger != .user, runningTrigger == .user { return }
         loadTask?.cancel()
         loadGeneration += 1
         let generation = loadGeneration
-        if case .loaded = worktreeList {} else { worktreeList = .loading }
+        runningTrigger = trigger
+        let isShown: Bool = if case .loaded = worktreeList { true } else { false }
+        if !isShown { worktreeList = .loading }
         let loader = loader
         let target = repository.repository
         loadTask = Task { [weak self] in
-            let result: Result<WorktreeListing, RepositoryLoadError>
+            if !isShown, let cached = await loader.cachedListing(target) {
+                self?.showCached(cached, generation: generation)
+            }
+            let result: Result<WorktreeListing?, RepositoryLoadError>
             do throws(RepositoryLoadError) {
-                result = .success(try await loader.load(target))
+                result = .success(try await loader.load(target, trigger: trigger))
             } catch {
                 result = .failure(error)
             }
@@ -216,28 +241,40 @@ final class AppState {
         }
     }
 
-    private func finishLoad(_ result: Result<WorktreeListing, RepositoryLoadError>, generation: Int) {
+    /// Paints a cached listing while the refresh that follows it runs.
+    private func showCached(_ listing: WorktreeListing, generation: Int) {
         guard generation == loadGeneration, !Task.isCancelled else { return }
+        if case .loaded = worktreeList { return }
+        apply(listing)
+    }
+
+    private func finishLoad(_ result: Result<WorktreeListing?, RepositoryLoadError>, generation: Int) {
+        guard generation == loadGeneration, !Task.isCancelled else { return }
+        runningTrigger = nil
         switch result {
-        case .success(let listing):
-            worktreeList = .loaded(listing)
-            focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
-            if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
-            selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
-            // Configuration may have changed since the last inspection.
-            worktreeInspections = [:]
-            if case .worktreeInfo = selection { inspectSelectedWorktree() }
-            snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
-            // Keep the picked file only while it is still listed in the same group.
-            // Same rule as `selectFile`: the row must still exist and still be selectable.
-            if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true { selectedFile = nil }
-        case .failure(.git(.cancelled)):
-            break
+        case .success(let listing?):
+            apply(listing)
+        case .success(nil), .failure(.git(.cancelled)):
+            break  // superseded or debounced away: keep what is shown
         case .failure(let error):
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
             snapshot = nil
         }
+    }
+
+    private func apply(_ listing: WorktreeListing) {
+        worktreeList = .loaded(listing)
+        focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
+        if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
+        selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
+        // Configuration may have changed since the last inspection.
+        worktreeInspections = [:]
+        if case .worktreeInfo = selection { inspectSelectedWorktree() }
+        snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
+        // Keep the picked file only while it is still listed in the same group.
+        // Same rule as `selectFile`: the row must still exist and still be selectable.
+        if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true { selectedFile = nil }
     }
 
     /// The sidebar row model, `nil` until the list has loaded.
@@ -249,11 +286,13 @@ final class AppState {
     #if DEBUG
         /// Shows `listing` as if it had just loaded (previews and render tests; no git).
         func showForPreview(_ listing: WorktreeListing) {
-            finishLoad(.success(listing), generation: loadGeneration)
+            apply(listing)
         }
     #endif
 
-    /// Selecting a worktree row focuses that worktree and shows its changes (interaction.md §1.3).
+    /// Selecting a worktree row focuses that worktree and shows its changes (interaction.md §1.3). What is shown
+    /// comes from the listing in memory (the service's cached overview) at once (PB-2); that worktree's status is
+    /// then refreshed in the background (`.worktreeSelected`, overview.md §5).
     func selectWorktree(_ path: GitPath) {
         guard case .loaded(let listing) = worktreeList, listing.entries.contains(where: { $0.worktree.path == path })
         else { return }
@@ -267,6 +306,7 @@ final class AppState {
         } else {
             selection = .wip(path)
         }
+        refresh(.worktreeSelected(path))
     }
 
     // MARK: Worktree detail (#67)
@@ -410,8 +450,14 @@ final class AppState {
 
     /// Removes a repository from Overgrove; its folder is not touched. Closes it if this window shows it.
     func removeRepository(_ id: RegisteredRepository.ID) {
+        let removed = registry.repository(withID: id)?.repository
         registry.remove(id)
         if repository?.repository.id == id { close() }
+        // Its cached results and inspections go too (`RepositoryService.forget`, overview.md §5).
+        if let removed {
+            let loader = loader
+            forgetTask = Task { await loader.forget(removed) }
+        }
     }
 
     private func close() {

@@ -36,6 +36,11 @@ struct WorktreeListing: Sendable, Equatable {
     let entries: [Entry]
     /// `worktree list` was cut at the size limit and its last record dropped (parsing-spec.md §1.5).
     let isPartial: Bool
+
+    /// Some listed worktrees were not queried because of the per-load limit (#226); the sidebar says so (#243).
+    var isQueryLimited: Bool {
+        entries.contains { $0.state == .notQueried(.limit) }
+    }
 }
 
 extension WorktreeListing {
@@ -79,9 +84,35 @@ enum RepositoryLoadError: Error, Equatable, Sendable {
     }
 }
 
-/// Opens a repository's data: inspect its configuration, then load the worktree list (overview.md §3.2).
+/// Opens a repository's data: inspect its configuration, then load the worktree list (overview.md §3.2), with the
+/// result cache and refresh triggers of `RepositoryService` (overview.md §4–§5, #88, #243).
 protocol RepositoryLoading: Sendable {
+    /// A full load (`.user`). Superseded or cancelled loads throw `.git(.cancelled)`.
     func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing
+    /// A refresh for `trigger`. `nil` when a newer request superseded it or it was debounced away; the caller keeps
+    /// what it shows.
+    func load(
+        _ repository: Repository, trigger: RepositoryService.Trigger
+    ) async throws(RepositoryLoadError) -> WorktreeListing?
+    /// The last delivered listing, from memory only (no git), for painting before a refresh (PB-2).
+    func cachedListing(_ repository: Repository) async -> WorktreeListing?
+    /// Drops everything cached about `repository` (removed from Overgrove).
+    func forget(_ repository: Repository) async
+}
+
+extension RepositoryLoading {
+    /// A loader without a cache can only load everything: `.user` is a full load, and the narrower triggers have
+    /// nothing to refresh (`nil`, keep what is shown).
+    func load(
+        _ repository: Repository, trigger: RepositoryService.Trigger
+    ) async throws(RepositoryLoadError) -> WorktreeListing? {
+        guard trigger == .user else { return nil }
+        return try await load(repository)
+    }
+
+    func cachedListing(_ repository: Repository) async -> WorktreeListing? { nil }
+
+    func forget(_ repository: Repository) async {}
 }
 
 /// The app's loader: `RepositoryService` (#87, #88) inspects the repository's configuration (cached until a
@@ -93,13 +124,20 @@ struct LiveRepositoryLoader: RepositoryLoading {
     static let live = LiveRepositoryLoader(services: { try await LiveGitClient.shared.services() })
 
     func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing {
+        // Opening a repository and ⌘R are user requests: no debounce (interaction.md).
+        guard let listing = try await load(repository, trigger: .user) else {
+            // Superseded by a newer request for the same repository, or cancelled.
+            throw .git(.cancelled)
+        }
+        return listing
+    }
+
+    func load(
+        _ repository: Repository, trigger: RepositoryService.Trigger
+    ) async throws(RepositoryLoadError) -> WorktreeListing? {
         do {
             let (_, service) = try await services()
-            // Opening or selecting a repository is a user request: no debounce (interaction.md).
-            guard let refresh = await service.refresh(repository, trigger: .user) else {
-                // Superseded by a newer request for the same repository, or cancelled.
-                throw GitError.cancelled
-            }
+            guard let refresh = await service.refresh(repository, trigger: trigger) else { return nil }
             switch refresh.result {
             case .success(let overview):
                 return WorktreeListing(overview: overview)
@@ -117,5 +155,16 @@ struct LiveRepositoryLoader: RepositoryLoading {
         } catch {
             throw .git(.launchFailed(errno: -1))
         }
+    }
+
+    func cachedListing(_ repository: Repository) async -> WorktreeListing? {
+        // Without a git executable there is no service and so no cache.
+        guard let (_, service) = try? await services() else { return nil }
+        return await service.cachedOverview(of: repository).map(WorktreeListing.init(overview:))
+    }
+
+    func forget(_ repository: Repository) async {
+        guard let (_, service) = try? await services() else { return }
+        await service.forget(repository)
     }
 }

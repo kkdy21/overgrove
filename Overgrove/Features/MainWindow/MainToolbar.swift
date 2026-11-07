@@ -14,6 +14,8 @@ struct MainToolbar: ToolbarContent {
     let focusedWorktree: FocusedWorktree?
     let isSidebarCollapsed: Bool
     let toggleSidebar: () -> Void
+    /// ⌘R; `nil` (disabled) without a repository.
+    var refresh: (() -> Void)?
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
@@ -43,7 +45,9 @@ struct MainToolbar: ToolbarContent {
                     ToolbarGroupSeparator()
                 }
                 ForEach(ToolbarAction.allCases.filter { $0.group == group }, id: \.self) { action in
-                    ToolbarActionButton(title: action.title, symbol: action.symbol, help: action.help)
+                    ToolbarActionButton(
+                        title: action.title, symbol: action.symbol, help: action.help,
+                        action: action == .refresh ? refresh : nil)
                 }
             }
         }
@@ -97,7 +101,6 @@ enum ToolbarAction: CaseIterable, Hashable {
         switch self {
         // TODO(#77): fetch all remotes; becomes Stop while running.
         case .fetch: "Fetch all remotes (⌘⇧R)"
-        // TODO(#65): reload local git data, no network.
         case .refresh: "Refresh local data (⌘R)"
         // TODO(#158): compare the focused worktree with its base branch.
         case .compare: "Compare with base branch (⌘⇧B)"
