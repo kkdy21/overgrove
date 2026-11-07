@@ -92,7 +92,12 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - global 설정에 정의된 필터(예: 사용자가 설치한 Git LFS)는 신뢰 범위라 그대로 실행된다. 의도된 동작이다.
   - 로컬에 정의된 LFS 필터를 무력화하면 LFS 파일이 변경으로 보일 수 있다.
 - **워크트리 경로는 믿지 않는다(#87, #221 보안 검토)**: `worktree list`의 경로는 저장소가 쓰는 `.git/worktrees/<id>/gitdir`에서 온다. 위조된 항목이 따로 둔 다른 저장소를 가리키면, 그 경로에서 실행한 status가 검사하지 않은 그 저장소의 filter를 실행한다(대조군으로 확인, E43). 연결 워크트리의 `config.worktree`도 메인 워크트리 검사에 나오지 않는다. 그래서 `RepositoryService`는 워크트리마다 status 전에 두 가지를 한다. `probeRepository`로 공통 git 디렉터리가 같은지 확인하고(다르면 조회하지 않음), 그 워크트리에서 `configList`를 검사해 그 워크트리의 무력화 인자로 status를 실행한다.
-- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨)
+- **검사 결과를 캐시해도 낡은 결과를 쓰지 않는다(#88)**: `RepositoryService`는 워크트리마다 설정 검사 결과를 캐시한다(`RepoConfigInspectionCache`). 낡은 검사 결과로 status를 실행하면 그 뒤에 추가된 filter 드라이버가 무력화되지 않는다(대조군으로 확인). 그래서 다음 규칙을 둔다.
+  - 지문은 그 폴더에서 git이 읽는 설정 파일 전부를 `stat(2)`으로 찍는다: 공통 `config`, 두 `config.worktree`, `commondir`, `.git`. 장치·inode·크기·mtime·**ctime**을 비교한다. mtime은 되돌릴 수 있지만(`touch -m`, 압축 해제) ctime은 사용자 공간에서 되돌릴 수 없다.
+  - 지문은 `config --list` 실행 **전에** 찍는다.
+  - 저장소가 제어하는 `include.path`·`includeIf.*.path`가 있으면 캐시하지 않는다. 포함된 파일은 지문에 없고, 작업 트리의 추적 파일일 수도 있기 때문이다(fail closed).
+  - ⌘R은 그 저장소의 검사 캐시를 모두 버린다. 검사가 막히면 그 저장소의 결과 캐시도 버린다.
+- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceCacheTests.testChangedWorktreeConfigurationIsInspectedAgain`·`testChangedSharedConfigurationIsInspectedAgain`·`testRepositoryLocalIncludeIsNeverServedFromTheCache` (캐시 후 설정이 바뀌면 다시 검사해 새 드라이버가 실행되지 않음. 대조군은 낡은 검사 결과로 실행됨, #88), `RepoConfigInspectorTests.testFingerprintSeesARewriteThatRestoresSizeAndModificationTime` (크기·mtime을 되돌려도 지문이 바뀜), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨)
 - **상태**: 설계 완료
 
 ### T5. 전송 계층 명령 실행
