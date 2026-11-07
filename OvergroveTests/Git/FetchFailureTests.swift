@@ -45,9 +45,12 @@ final class FetchFailureTests: XCTestCase {
             _ = try await GitClient(environment: local.environment).fetch(
                 .fetch(remote: origin), in: repository, safety: safety)
         } catch let error as GitError {
-            let host = FetchFailureGuidance.host(fromRemoteURL: url)
+            // The local repository's own configuration is clean: no findings.
+            let report = RepoSecurityReport(findings: [], blockingReason: nil)
+            let endpoint = FetchFailureGuidance.Endpoint(remoteURL: url)
             let guidance = try XCTUnwrap(
-                FetchFailureGuidance(error: error, remote: origin, host: host), file: file, line: line)
+                FetchFailureGuidance(error: error, remote: origin, endpoint: endpoint, report: report), file: file,
+                line: line)
             return (error, guidance)
         }
         XCTFail("the fetch was expected to fail", file: file, line: line)
@@ -58,7 +61,7 @@ final class FetchFailureTests: XCTestCase {
         let (error, guidance) = try await failedFetch(url: local.root.appendingPathComponent("missing.git").path)
         guard case .remoteNotFound = error else { return XCTFail("got \(error)") }
         XCTAssertEqual(guidance.reason, .remoteNotFound)
-        XCTAssertEqual(guidance.commands, ["git remote -v"])
+        XCTAssertEqual(guidance.commands, ["git --no-pager remote -v"])
     }
 
     func testSECT11_02_ClosedPortWithCredentialsIsNetworkAndMasked() async throws {

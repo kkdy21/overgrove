@@ -122,6 +122,10 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - `ftp://`·`ftps://` 원격도 목록에 없어 fetch할 수 없다. git 내장 전송이지만 거의 쓰이지 않아 감수한다.
   - 커스텀 원격 helper(`codecommit::` 등)를 쓰는 원격은 v0.1에서 fetch할 수 없다. 허용이 필요해지면 저장소 설정이 아니라 앱 설정(사용자 선택)으로만 연다 (v0.1 범위 밖).
   - 사용자가 global에 정의한 `core.gitProxy`는 v0.1에서 무시된다 (빈 `GIT_PROXY_COMMAND`). `git://` 프로토콜은 드물어서 감수한다.
+  - **터미널로 보내는 안내.** fetch 실패 안내(`FetchFailureGuidance`, #78)가 사용자를 터미널로 보내면, 터미널의 git은 이 문서의 대응을 하나도 적용받지 않는다. 악성 저장소가 일부러 fetch를 실패시켜(예: 처음 보는 호스트로 `hostKeyNotTrusted`) 사용자가 페이로드를 직접 실행하게 만들 수 있다(#200 보안 검토).
+    - 그래서 `git` 명령은 `RepoSecurityReport`에 항목이 없을 때만 복사용으로 제시하고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다.
+    - 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan … | ssh-keygen -lf -`, `ssh-keygen -F`)만 제시한다.
+    - 남는 위험: `.git/hooks`와 `pager.*`는 설정 보고에 나오지 않으므로, 보고가 깨끗해도 터미널 git이 이것들을 실행할 수 있다. 안내 문구가 이를 경고한다.
 - **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL)
 - **상태**: 설계 완료
 

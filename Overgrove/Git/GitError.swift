@@ -104,14 +104,16 @@ enum GitError: Error, Sendable, Equatable {
         let haystack = localLines.joined(separator: "\n").lowercased()
         func matches(_ patterns: [String]) -> Bool { patterns.contains { haystack.contains($0) } }
 
+        // First: only the local ssh client prints this banner. If ssh was configured to carry on anyway, the server
+        // could follow it with text that mimics another category; the warning must not be hidden behind it.
+        if matches(["remote host identification has changed"]) {
+            return .hostKeyVerificationFailed(changed: true, detail: detail)
+        }
         if matches(["detected dubious ownership"]) { return .dubiousOwnership(detail: detail) }
         if let name = refusedTransport(in: localLines) {
             // The name comes from repository configuration: echo only a plain scheme name of at most 64 characters.
             let isEchoable = name.count <= 64 && TransportName.isSchemeName(name)
             return .transportNotAllowed(transport: isEchoable ? String(name) : nil, detail: detail)
-        }
-        if matches(["remote host identification has changed"]) {
-            return .hostKeyVerificationFailed(changed: true, detail: detail)
         }
         if matches(["host key verification failed"]) {
             return .hostKeyVerificationFailed(changed: false, detail: detail)
