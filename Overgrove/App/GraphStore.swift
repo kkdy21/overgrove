@@ -53,6 +53,17 @@ final class GraphStore {
     /// The focused worktree's HEAD, drawn with the accent ring.
     private(set) var head: ObjectID?
     private(set) var selected: ObjectID?
+    /// A row to scroll into view (`⌘J`, keyboard moves); the token makes repeating the same row scroll again.
+    private(set) var scrollTarget: ScrollTarget?
+
+    struct ScrollTarget: Equatable {
+        let oid: ObjectID
+        let token: UUID
+    }
+
+    func scroll(to oid: ObjectID) {
+        scrollTarget = ScrollTarget(oid: oid, token: UUID())
+    }
     private(set) var isLoadingMore = false
     /// No more commits: the last page was short, or output was cut (pages after it would not line up).
     private(set) var isComplete = false

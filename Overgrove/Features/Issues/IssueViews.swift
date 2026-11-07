@@ -11,6 +11,8 @@ struct IssueListSection: View {
     var onCheckAgain: () -> Void = {}
 
     @State private var isExpanded = true
+    @FocusState private var hasFocus: Bool
+    @Environment(\.panelFocusRequest) private var focusRequest
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -33,10 +35,38 @@ struct IssueListSection: View {
                             .contentShape(Rectangle())
                             .onTapGesture { onSelect(row.id) }
                             .accessibilityAction { onSelect(row.id) }
+                            .contextMenu { IssueRowMenu(row: row) }
                     }
+                }
+                .focusable(!model.rows.isEmpty)
+                .focused($hasFocus)
+                .focusEffectDisabled()
+                .onKeyPress(keys: [.upArrow, .downArrow]) { press in
+                    move(down: press.key == .downArrow, toEnd: press.modifiers.contains(.command))
                 }
             }
         }
+        // `⌘4` opens the section and moves keyboard focus to it (interaction.md §3.1).
+        .onChange(of: focusRequest) { _, request in
+            guard request?.panel == .issues else { return }
+            isExpanded = true
+            hasFocus = true
+        }
+    }
+
+    private func move(down: Bool, toEnd: Bool) -> KeyPress.Result {
+        let ids = model.rows.map(\.id)
+        guard !ids.isEmpty else { return .ignored }
+        let target: Int
+        if toEnd {
+            target = down ? ids[ids.count - 1] : ids[0]
+        } else if let current = selectedNumber, let index = ids.firstIndex(of: current) {
+            target = ids[min(max(index + (down ? 1 : -1), 0), ids.count - 1)]
+        } else {
+            target = ids[0]
+        }
+        if target != selectedNumber { onSelect(target) }
+        return .handled
     }
 }
 
@@ -347,5 +377,22 @@ private struct FlowLayout: Layout {
             widest = max(widest, x - spacing)
         }
         return (origins, sizes, widest, y + rowHeight)
+    }
+}
+
+/// An issue row's menu (interaction.md §5): Open in Browser opens only a github.com issue page over https.
+private struct IssueRowMenu: View {
+    let row: IssueRow
+
+    @Environment(\.rowMenu) private var actions
+
+    var body: some View {
+        Button("Open in Browser") { if let url = row.browserURL { actions.openInBrowser(url) } }
+            .disabled(row.browserURL == nil)
+        Button("Show Linked Branch") { if let tip = actions.linkedBranchTip(row.id) { actions.showCommit(tip) } }
+            .disabled(actions.linkedBranchTip(row.id) == nil)
+        Divider()
+        Button("Copy URL") { actions.copy(row.urlText) }
+        Button("Copy Number") { actions.copy(row.number) }
     }
 }

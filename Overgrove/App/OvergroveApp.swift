@@ -19,6 +19,7 @@ struct OvergroveApp: App {
             PanelCommands()
             // File › Add Repository… (⌘O) (#84).
             RepositoryCommands()
+            NavigationCommands()
         }
         // S-08 (⌘,), #86.
         Settings {
