@@ -91,8 +91,8 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **잔여 위험**:
   - global 설정에 정의된 필터(예: 사용자가 설치한 Git LFS)는 신뢰 범위라 그대로 실행된다. 의도된 동작이다.
   - 로컬에 정의된 LFS 필터를 무력화하면 LFS 파일이 변경으로 보일 수 있다.
-- **워크트리 경로는 믿지 않는다(#87, #221 보안 검토)**: `worktree list`의 경로는 저장소가 쓰는 `.git/worktrees/<id>/gitdir`에서 온다. 위조된 항목이 따로 둔 다른 저장소를 가리키면, 그 경로에서 실행한 status가 검사하지 않은 그 저장소의 filter를 실행한다(대조군으로 확인, E43). 연결 워크트리의 `config.worktree`도 메인 워크트리 검사에 나오지 않는다. 그래서 `RepositoryService`는 워크트리마다 status 전에 두 가지를 한다. `probeRepository`로 공통 git 디렉터리가 같은지 확인하고(다르면 조회하지 않음), 그 워크트리에서 `configList`를 검사해 그 워크트리의 무력화 인자로 status를 실행한다.
-- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨)
+- **워크트리 경로는 믿지 않는다(#87, #221 보안 검토)**: `worktree list`의 경로는 저장소가 쓰는 `.git/worktrees/<id>/gitdir`에서 온다. 위조된 항목이 따로 둔 다른 저장소를 가리키면, 그 경로에서 실행한 status가 검사하지 않은 그 저장소의 filter를 실행한다(대조군으로 확인, E43). 연결 워크트리의 `config.worktree`도 메인 워크트리 검사에 나오지 않는다. 그래서 `RepositoryService`는 워크트리마다 그 워크트리가 이 저장소의 것인지 확인한 뒤에만 git을 실행하고(T14, #226), 그 워크트리에서 `configList`를 검사해 그 워크트리의 무력화 인자로 status를 실행한다. `config.worktree`가 조회를 막으면 그 워크트리만 `.inspectionBlocked`가 되고 status는 실행하지 않는다.
+- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨), SEC-T4-07 (연결 워크트리의 `config.worktree`가 조회를 막으면 그 워크트리만 `.inspectionBlocked`이고 status가 실행되지 않음. 워크트리 전용 드라이버는 `testLinkedWorktreeOwnConfigurationIsInspected`, #226)
 - **상태**: 설계 완료
 
 ### T5. 전송 계층 명령 실행
@@ -248,8 +248,14 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - untracked 미리보기는 해석한 실제 경로가 워크트리 안일 때만 실행한다. 심볼릭 링크는 링크 대상 문자열만 보여 준다.
   - 로컬 `core.worktree`는 경고로 보고한다.
   - 연결 워크트리는 그 안의 `.git` 파일이 이 저장소의 `worktrees/<name>`을 가리키는지 확인한다.
+  - **`worktree list`가 나열한 경로도 등록과 같은 기준으로 검증한다(#226)**. 목록은 저장소가 쓰는 `.git/worktrees/<id>/gitdir`에서 오므로, 공통 git 디렉터리가 같다는 것(#221)만으로는 부족하다. 다음 세 위조가 그 검사를 통과했다.
+    - 메인 워크트리의 하위 폴더를 가리키는 항목: 같은 작업 트리를 두 번째 행으로 조회한다.
+    - `.git`이 정상 연결 워크트리의 `worktrees/<id>`를 빌려 쓰는 폴더: 그 워크트리의 index·HEAD로 엉뚱한 폴더를 그 브랜치 이름으로 보여 준다.
+    - 연결 워크트리 `config.worktree`의 `core.worktree`: 등록하지 않은 폴더(예: 홈)를 status가 훑는다.
+
+    그래서 나열된 경로를 `realpath(3)`로 한 번 정규화해 세 명령(probe, config, status)에 같은 폴더를 쓰고, git을 실행하기 전에 파일 시스템으로 확인한다. 메인 워크트리는 `.git`이 공통 디렉터리로 이어져야 하고, 연결 워크트리는 `checkLinkedWorktree`가 `.linked`여야 한다(back-pointer 일치). 그다음 probe가 그 폴더를 워크트리 루트로, 이 저장소의 공통 디렉터리를 보고해야 한다. 하나라도 어긋나면 `.notQueried(.foreignRepository)`다.
 - **잔여 위험**: git 자체가 따라가는 경로(예: alternates 객체 저장소)는 통제하지 않는다. 읽기 전용이라 영향이 제한적이다.
-- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84)
+- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226)
 - **상태**: 설계 완료
 
 ### T15. 자원 고갈
@@ -259,12 +265,13 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 타임아웃: 기본 15초, fetch 120초. SIGTERM 뒤 2초가 지나면 SIGKILL.
   - stdout 상한 10MB(fetch 1MB), stderr 상한 64KB(fetch 256KB). 넘으면 읽기를 멈추고 `truncated` 결과를 돌려준다.
   - 동시 git 프로세스 수를 `min(코어 수, 8)`로 제한한다.
+  - 한 번의 조회에서 status를 실행하는 워크트리는 최대 64개다(`RepositoryService.defaultMaximumQueriedWorktrees`, #226). 워크트리 목록은 저장소가 쓰는 파일에서 오고 10MB까지 읽으므로, 위조 레코드 수천 개가 각각 프로세스 3개(probe, config, status, 각 최대 15초)와 `WorkingState`를 만들 수 있었다. 64는 PB-1 기준(워크트리 10개)의 6배 남짓이다. 나머지는 목록에만 두고 `.notQueried(.limit)`로 표시하며, 화면은 `RepositoryOverview.isQueryLimited`로 알린다. 같은 경로는 한 번만 나열하고, 다른 경로가 같은 폴더로 이어지면(심볼릭 링크) 한 번만 조회한다(`.notQueried(.duplicate)`).
   - 그래프는 페이지 단위로 불러온다.
   - 파서는 잘린 입력을 안전하게 처리한다.
   - `fd::`는 `protocol.fd.allow=never`로 차단한다.
   - 출력 인코딩을 공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정한다. 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`(include 경유 포함)은 포맷된 출력 전체를 `-z` 구분자까지 다시 인코딩한다. JOHAB·CP1361은 메시지의 전각 문자(U+FF01…)를 NUL로 바꿔 필드를 밀고, 모든 검사를 통과하는 가짜 커밋 레코드를 만들 수 있다. UTF-16·UCS-4 등은 파싱을 실패시켜 그래프를 못 쓰게 만든다 (확인, E41, #205).
 - **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다. 커밋 객체의 `encoding` 헤더가 UCS-2·CP037·TCVN이면 git이 그 커밋의 모든 필드를 빈 값으로 출력해 그래프 페이지 전체가 파싱 실패한다(출력 인코딩 고정과 무관, #203 보안 검토). 필드가 밀리지는 않으므로 위조는 아니고, 가용성 문제로 남긴다.
-- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록 필드가 밀리지 않음. 대조군은 밀림)
+- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226)
 - **상태**: 설계 완료
 
 ### T16. 로그를 통한 정보 유출
