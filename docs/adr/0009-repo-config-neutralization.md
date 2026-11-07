@@ -70,5 +70,5 @@ HANDOFF의 대응(`-c core.fsmonitor=false -c core.hooksPath=/dev/null`, `--no-e
   - **동작**: fetch 전체가 아니라 `file` 전송만 막는다. 신뢰하지 않음 저장소의 fetch는 `GIT_ALLOW_PROTOCOL=https:ssh:git:http`로 돈다. 로컬 경로·`file://` 원격은 git을 실행하지 않고 "이 저장소는 신뢰하지 않음이라 이 Mac의 원격은 fetch하지 않는다"로 안내하고, 복사용 명령은 주지 않는다. `insteadOf`로 로컬 경로가 되는 원격은 git이 전송 단계에서 거부하고(`transport 'file' not allowed`), 같은 안내를 보여 준다. 네트워크 원격의 upload-pack은 서버에서 돌기 때문에 계속 fetch한다.
   - **Open in Terminal**: 신뢰하지 않음 저장소는 설정이 깨끗해도 항상 확인을 거친 뒤 연다(#73 가드 재사용).
   - **기본값**: 신뢰함(지금 동작). 신뢰함이면서 이 Mac에 있는 원격이 있으면, S-05 보안 카드가 원격 이름(마스킹·이스케이프)과 함께 경고하고 "Treat as untrusted"를 권한다.
-  - **저장**: `RegisteredRepository.isUntrusted`. #107 이전 항목은 키가 없어 신뢰함으로 읽는다. 키가 있지만 불리언이 아니면 신뢰하지 않음으로 읽는다(저장값은 신뢰하지 않는다).
-  - **UI**: S-05 보안 카드의 토글·경고·상태 줄, Settings › Repositories 행의 토글. Copy Report에 `Untrusted: yes/no`와 `Remotes on this Mac: n`(이름·경로·URL 없음)을 넣는다.
+  - **저장**: `RegisteredRepository.isUntrusted`. #107 이전 항목은 키가 없어 신뢰함으로 읽는다. 키가 있지만 불리언이 아니면 신뢰하지 않음으로 읽는다(저장값은 신뢰하지 않는다). 경로를 읽을 수 없는 손상된 항목은 그 항목만 버리고(다음 저장 때 지워진다) 나머지 항목과 플래그는 유지한다. 그 저장소를 다시 등록하면 신뢰함으로 시작한다.
+  - **UI**: S-05 보안 카드의 토글·경고·상태 줄, Settings › Repositories 행의 토글. 어느 쪽에서 신뢰하지 않음으로 바꾸든 열린 저장소의 진행 중인 fetch는 멈춘다(fetch는 시작할 때 플래그를 읽는다). Copy Report에 `Untrusted: yes/no`와 `Remotes on this Mac: n`(이름·경로·URL 없음)을 넣는다.

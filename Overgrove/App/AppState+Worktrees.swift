@@ -227,14 +227,27 @@ extension AppState {
         repository.flatMap { registry.repository(withID: $0.repository.id)?.isUntrusted } ?? false
     }
 
-    /// The S-05 toggle: marks the open repository untrusted, or trusted again (#107). Takes effect from the next
-    /// fetch; a fetch already running finishes as it started.
+    /// The S-05 toggle: marks the open repository untrusted, or trusted again (#107). A fetch already running stops
+    /// when the repository becomes untrusted (`observeUntrustedFlag`).
     func setRepositoryUntrusted(_ isUntrusted: Bool) {
         guard let repository else { return }
         registry.setUntrusted(isUntrusted, for: repository.repository.id)
-        // A fetch reads the flag when it starts; one already running stops, so no later remote is fetched as trusted
-        // (security review of #107).
-        if isUntrusted && fetch.status.isFetching { fetch.stop() }
+    }
+
+    /// A fetch reads the untrusted flag when it starts. When the open repository becomes untrusted while one runs,
+    /// from S-05, Settings, or another window, it stops, so no later remote is fetched as trusted (security review of
+    /// #107). Re-registers after every change, as `withObservationTracking` reports one change at a time.
+    func observeUntrustedFlag() {
+        withObservationTracking {
+            _ = isRepositoryUntrusted
+        } onChange: { [weak self] in
+            // Called before the change is stored: read the new value on the next turn.
+            Task { @MainActor in
+                guard let self else { return }
+                if self.isRepositoryUntrusted && self.fetch.status.isFetching { self.fetch.stop() }
+                self.observeUntrustedFlag()
+            }
+        }
     }
 
     /// Sidebar REMOTE group tooltips (#86): remote name → its URL as the Show full remote URLs setting says. Built

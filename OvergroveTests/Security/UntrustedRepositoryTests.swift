@@ -48,13 +48,14 @@ final class UntrustedRepositoryTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let stored = #"""
             [{"rootPath":"/tmp/dev/api","commonDirectoryPath":"/tmp/dev/api/.git","isUntrusted":true},
-             {"rootPath":42},
-             {"rootPath":"/tmp/dev/web","commonDirectoryPath":"/tmp/dev/web/.git"}]
+             {"rootPath":42}, "x", null, {"rootPath":"/tmp/dev/lost","isUntrusted":true},
+             {"rootPath":"/tmp/dev/web","commonDirectoryPath":"/tmp/dev/web/.git"},
+             {"rootPath":"/tmp/dev/doc","commonDirectoryPath":"/tmp/dev/doc/.git","isUntrusted":null}]
             """#
         defaults.set(Data(stored.utf8), forKey: RepositoryRegistry.repositoriesKey)
         let entries = RepositoryRegistry(defaults: defaults).repositories
-        XCTAssertEqual(entries.map(\.rootPath), ["/tmp/dev/api", "/tmp/dev/web"])
-        XCTAssertEqual(entries.map(\.isUntrusted), [true, false])
+        XCTAssertEqual(entries.map(\.rootPath), ["/tmp/dev/api", "/tmp/dev/web", "/tmp/dev/doc"])
+        XCTAssertEqual(entries.map(\.isUntrusted), [true, false, true], "a null flag is unreadable: untrusted")
     }
 
     // MARK: - Local remotes

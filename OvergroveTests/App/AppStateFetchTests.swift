@@ -59,21 +59,40 @@ final class AppStateFetchTests: XCTestCase {
         await state.loadTask?.value
     }
 
-    /// #107: marking the open repository untrusted (S-05) stops a fetch that started while it was trusted, so no
-    /// later remote is fetched as trusted. Marking it trusted leaves a fetch running.
-    func testMarkingUntrustedStopsARunningFetch() async {
-        let loader = TriggerRecordingLoader()
+    /// #107: the open repository becoming untrusted stops a fetch that started while it was trusted, so no later
+    /// remote is fetched as trusted, whether S-05 or Settings (the registry directly) changed it. Becoming trusted
+    /// leaves a fetch running.
+    func testBecomingUntrustedStopsARunningFetch() async throws {
+        let root = try XCTUnwrap(PathValidator.canonical(FileManager.default.temporaryDirectory))
+            .appendingPathComponent("overgrove-untrusted-fetch-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let registry = RepositoryRegistry(defaults: defaults)
+        registry.add(RegisteredRepository(rootPath: root.path, commonDirectoryPath: root.path + "/.git"))
+        let entry = try XCTUnwrap(registry.repositories.first)
         let fetcher = GatedFetcher()
-        let state = await loadedState(loader, fetcher: fetcher, records: FetchRecordStore(defaults: defaults))
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: TriggerRecordingLoader(),
+            fetcher: fetcher, fetchRecords: FetchRecordStore(defaults: defaults))
+        state.openRegistered(entry.id)
 
-        state.fetch.fetch()
-        await fetcher.waitForFetches(1)
-        state.setRepositoryUntrusted(false)
-        XCTAssertEqual(state.fetch.task?.isCancelled, false)
-        state.setRepositoryUntrusted(true)
-        XCTAssertEqual(state.fetch.task?.isCancelled, true)
-        fetcher.release(0, with: .cancelled)
-        await state.fetch.task?.value
+        for (index, viaSettings) in [false, true].enumerated() {
+            state.fetch.fetch()
+            await fetcher.waitForFetches(index + 1)
+            state.setRepositoryUntrusted(false)
+            await Task.yield()
+            XCTAssertEqual(state.fetch.task?.isCancelled, false)
+            if viaSettings {
+                registry.setUntrusted(true, for: entry.id)
+            } else {
+                state.setRepositoryUntrusted(true)
+            }
+            for _ in 0..<100 where state.fetch.task?.isCancelled != true { await Task.yield() }
+            XCTAssertEqual(state.fetch.task?.isCancelled, true, viaSettings ? "Settings" : "S-05")
+            fetcher.release(index, with: .cancelled)
+            await state.fetch.task?.value
+            registry.setUntrusted(false, for: entry.id)
+        }
     }
 
     func testRemovingARepositoryForgetsItsFetchRecord() async throws {
