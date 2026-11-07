@@ -34,7 +34,7 @@
 | 인자 | 목적 | 위협 |
 |---|---|---|
 | `--no-pager` | 페이저 실행 방지 | T10 |
-| `--no-optional-locks` | 조회 중 `index.lock`을 잡지 않음, index 갱신 쓰기 방지 | T13 |
+| `--no-optional-locks` | 조회 중 `index.lock`을 잡지 않음, index 갱신 쓰기 방지. `git diff`의 자동 refresh는 막지 못한다(`diff.autoRefreshIndex` 행 참고) | T13 |
 | `--literal-pathspecs` | `:(exclude)`, glob 등 pathspec 매직을 끔 | T9 |
 | `-c core.fsmonitor=false` | fsmonitor 훅 실행 방지. 서브프로세스(서브모듈)에도 전파됨 (확인) | T1 |
 | `-c core.hooksPath=/dev/null` | 모든 훅 실행 방지 (fetch의 `reference-transaction` 포함, 확인) | T2 |

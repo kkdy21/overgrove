@@ -98,7 +98,7 @@ final class WriteProtectionTests: XCTestCase {
     }
 
     /// T13 beyond status: every other query, in the main worktree and in a linked one, leaves every file under
-    /// `.git` unchanged (not just the index). The stat-dirty worktree diff is the known gap below and is excluded.
+    /// `.git` unchanged (not just the index), including the worktree diff of a stat-dirty file (#208).
     func testOtherQueriesChangeNothingUnderGit() async throws {
         let (context, _, _) = try await staleStatFixture()
         let fixture = context.fixture
@@ -123,6 +123,7 @@ final class WriteProtectionTests: XCTestCase {
             (.commitPatch(merge.oid, parent: merge.parents.first, path: GitPath("README.md")), repo),
             (.worktreeDiff(path: GitPath("src/staged-modified.txt"), staged: true), repo),
             (.worktreeDiff(path: GitPath("src/unstaged-modified.txt"), staged: false), repo),
+            (.worktreeDiff(path: GitPath("docs/manual.md"), staged: false), repo),
             (.untrackedPreview(untracked), repo), (.fileHistory(path: GitPath("docs/manual.md"), limit: 100), repo),
             (.status, fixture.worktree("wt-behind")),
             (.worktreeDiff(path: GitPath("docs/guide.md"), staged: false), fixture.worktree("wt-behind")),
@@ -145,6 +146,9 @@ final class WriteProtectionTests: XCTestCase {
         let diff = ReadOnlyGitCommand.worktreeDiff(path: GitPath("docs/manual.md"), staged: false)
         let output = try await context.run(diff)
         XCTAssertEqual(output, Data(), "unchanged content diffs empty")
+        // The same in a linked worktree (its index is `.git/worktrees/wt-behind/index`).
+        let linked = try await context.run(diff, in: context.fixture.worktree("wt-behind"))
+        XCTAssertEqual(linked, Data(), "unchanged content diffs empty in wt-behind")
         try assertUnchanged(indexes, since: before, after: "worktreeDiff of a stat-dirty file")
 
         let commonWithoutSetting = Self.removingSetting(
