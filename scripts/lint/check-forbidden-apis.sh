@@ -11,8 +11,11 @@
 set -euo pipefail
 
 ALLOWED_PREFIXES=("Overgrove/Execution/" "OvergroveTests/Support/")
-# Process( / NSTask / posix_spawn / popen( / bare system( (not `.system(` like Font.system) / explicit shells
-PATTERN='(^|[^A-Za-z0-9_])(Process[[:space:]]*\(|NSTask|posix_spawn|popen[[:space:]]*\()|(^|[^A-Za-z0-9_.])system[[:space:]]*\(|/bin/(ba|z|da)?sh([^A-Za-z]|$)'
+# - the `Process` type in any form (`Process(`, `Process.run`, `: Process`), NSTask, NSUserUnixTask, posix_spawn, popen(
+# - bare system( / exec*( / fork( / vfork( (not `.system(` like Font.system)
+# - any explicit shell under /bin (sh, bash, zsh, dash, ksh, csh, tcsh, fish, ...)
+# `ProcessInfo`, `ProcessRunner`, `ProcessRequest`, ... are other identifiers and do not match.
+PATTERN='(^|[^A-Za-z0-9_])(Process([^A-Za-z0-9_]|$)|NSTask|NSUserUnixTask|posix_spawn|popen[[:space:]]*\()|(^|[^A-Za-z0-9_.])(system|exec[lv]p?e?|fork|vfork)[[:space:]]*\(|/bin/[a-z]*sh([^A-Za-z]|$)'
 
 is_allowed() {
   local path="${1#./}"
@@ -39,7 +42,14 @@ if [[ $# -gt 0 ]]; then
   files=("$@")
 else
   files=()
-  while IFS= read -r -d '' f; do files+=("$f"); done < <(git ls-files -z -- '*.swift')
+  # A failing `git ls-files` must not look like "no files, nothing to report" (review of #206).
+  list=$(mktemp)
+  trap 'rm -f "$list"' EXIT
+  if ! git ls-files -z -- '*.swift' > "$list"; then
+    echo "check-forbidden-apis: git ls-files failed; cannot list Swift files" >&2
+    exit 2
+  fi
+  while IFS= read -r -d '' f; do files+=("$f"); done < "$list"
 fi
 
 [[ ${#files[@]} -eq 0 ]] && exit 0   # bash 3.2 + set -u: empty arrays are "unbound"
