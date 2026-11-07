@@ -16,6 +16,8 @@ struct DiffViewerView: View {
     let sourceLabel: String
     let state: DiffLoadState
     let onBack: () -> Void
+    /// S-11 shows the patch under its own header, which already has `‹ Graph`.
+    var showsBackButton = true
 
     /// screens.md S-10: the choice is remembered.
     @AppStorage("diffViewMode") private var isSplit = false
@@ -37,12 +39,14 @@ struct DiffViewerView: View {
 
     private var header: some View {
         PanelHeader {
-            Button(action: onBack) {
-                Label("Graph", systemImage: "chevron.left")
+            if showsBackButton {
+                Button(action: onBack) {
+                    Label("Graph", systemImage: "chevron.left")
+                }
+                .buttonStyle(.borderless)
+                .keyboardShortcut(.cancelAction)
+                .help("Back to the graph (⎋)")
             }
-            .buttonStyle(.borderless)
-            .keyboardShortcut(.cancelAction)
-            .help("Back to the graph (⎋)")
             Text(title)
                 .font(Tokens.Font.headline)
                 .foregroundStyle(Tokens.Color.textPrimary)
