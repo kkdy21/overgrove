@@ -109,6 +109,16 @@ final class FetchRefScopeSecurityTests: XCTestCase {
         XCTAssertNotEqual(
             control.first { $0.hasPrefix("refs/heads/main ") }, before.first { $0.hasPrefix("refs/heads/main ") },
             "control: main force-moved")
+        // An older git ignores fetch.bundleURI, so only the bundle part of the control needs a newer one (#99).
+        let version = local.environment.version
+        guard version >= Self.fetchBundleURIVersion else {
+            throw XCTSkip(
+                "app fetch checked; the fetch.bundleURI control needs git \(Self.fetchBundleURIVersion)+ (found \(version))"
+            )
+        }
         XCTAssertTrue(control.contains { $0.hasPrefix("refs/bundles/") }, "control: the bundle URI wrote refs/bundles")
     }
+
+    /// The first git whose fetch reads `fetch.bundleURI` (checked with the git compatibility matrix, #99).
+    private static let fetchBundleURIVersion = GitVersion(major: 2, minor: 40, patch: 0)
 }
