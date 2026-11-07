@@ -148,9 +148,14 @@ SVG는 사람이 읽을 수 있는 형태로 유지한다. 작은 생성 스크�
 | 256pt @1x / @2x | 256 / 512 | `app-icon.svg` |
 | 512pt @1x / @2x | 512 / 1024 | `app-icon.svg` |
 
-- PNG는 `scripts/render-app-icon.sh`(Phase 3에서 작성)로 만든다. 이 스크립트는 `rsvg-convert`를 쓰고, 결과 PNG는 **커밋한다.**
-- 따라서 소스에서 빌드하는 사람은 별도 도구가 필요 없다. `rsvg-convert`는 아이콘을 바꾸는 사람만 필요한 선택 도구이고 앱이나 빌드의 의존성이 아니다 (ADR-0006).
+- PNG는 `scripts/render-app-icon.sh`로 만들고 **커밋한다**(#38). 소스에서 빌드하는 사람은 별도 도구가 필요 없다. `Config/Overgrove.xcconfig`의 `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon`이 이 세트를 앱 아이콘으로 쓴다.
+- **렌더러: WebKit**(macOS 기본 포함, 추가 도구 없음, ADR-0006). `scripts/icon/render-app-icon.swift`가 화면 밖 `WKWebView`의 HTML canvas에 SVG를 슬롯 픽셀 크기로 그리고 PNG로 읽어 낸다.
+  - AppKit의 `NSImage` SVG 지원은 `feGaussianBlur`를 무시한다. 그래서 그림자가 흐려지지 않고 딱딱하게 남는다(1024px에서 `rsvg-convert` 대비 채널 최대 차이 175). 따라서 쓰지 않는다.
+  - WebKit은 같은 비교에서 1024px 평균 0.88, 최대 30이다. 64px 이하에서는 가장자리 몇 픽셀이 더 다르지만 눈으로는 구분되지 않는다(2026-11-07 확인, macOS 26).
+- **재현성**: 같은 기계에서는 다시 렌더링해도 바이트 단위로 같다(확인). 기계마다(GPU, macOS 버전) 안티에일리어싱이 조금 다를 수 있으므로, `scripts/render-app-icon.sh --check`는 디코딩한 픽셀을 비교한다. 슬롯마다 평균 채널 차이 1.0 이하, 최대 64 이하이면 최신으로 본다. CI(`build-test`의 "App icon is up to date")가 이 검사를 실행하고, `Contents.json`과 `Mark.imageset/mark.svg`(아래)는 바이트 단위로 확인한다.
+- **대체 경로**: `scripts/render-app-icon.sh --rsvg`는 `rsvg-convert`(Homebrew `librsvg`, 선택)로 `build/appicon-rsvg/`에 같은 세트를 만든다. 비교와 검토용일 뿐 커밋하지 않는다. 커밋하는 세트는 항상 WebKit 결과여야 `--check`가 추가 도구 없이 재현할 수 있다. WebKit을 쓸 수 없는 환경이면(예: GUI 세션 없는 원격 셸) GUI 세션에서 실행한다.
 - 렌더링 결과는 sRGB, 8-bit RGBA다. 그림자는 `app-icon.svg`에 이미 들어 있으므로 따로 넣지 않는다.
+- **마크 에셋**: `mark.svg`는 필터 없이 마스크만 쓰므로 AppKit이 그대로 그린다(확인). `Assets.xcassets/Mark.imageset`에 벡터 그대로(`preserves-vector-representation`) 두고 온보딩(S-07)이 쓴다. 원본의 복사본이며, 렌더 스크립트가 함께 갱신하고 `--check`가 같은지 확인한다.
 
 ### 6.2 Icon Composer (`.icon`)
 
