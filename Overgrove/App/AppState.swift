@@ -96,6 +96,8 @@ final class AppState {
     var inspectionGeneration = 0
     /// Fetch / Stop, the status bar's fetch field, and the last fetch of each repository (#77).
     let fetch: FetchController
+    /// Auto refresh while the window is visible (#119).
+    let autoRefresh: AutoRefreshController
     /// Auto fetch for this window (#79); off unless Settings turns it on.
     let autoFetch: AutoFetchScheduler
     /// The status bar's fetch field.
@@ -180,6 +182,7 @@ final class AppState {
     ///   - gitChecker, ghChecker: The setup assistant's git and GitHub CLI checks (S-07); `ghChecker` also feeds the
     ///     status bar's gh field (#83).
     ///   - settings: App preferences (S-08); shared by every window. A fresh one from `UserDefaults` if `nil`.
+    ///   - fileWatcher: File events for auto refresh (#119); FSEvents by default.
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
@@ -196,7 +199,8 @@ final class AppState {
         fetchRecords: FetchRecordStore = FetchRecordStore(),
         gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
         ghChecker: any GHAuthChecking = LiveGHAuthChecker.live,
-        settings: AppSettings? = nil
+        settings: AppSettings? = nil,
+        fileWatcher: any FileEventWatching = LiveFileEventWatcher.live
     ) {
         self.ghChecker = ghChecker
         self.graph = GraphStore(loader: graphLoader)
@@ -216,9 +220,11 @@ final class AppState {
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
         // After a fetch, re-query the worktree list, every status (ahead/behind), and the refs (overview.md §5).
+        autoRefresh = AutoRefreshController(watcher: fileWatcher)
         autoFetch = AutoFetchScheduler(settings: self.settings, fetch: fetch)
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
+        autoRefresh.request = { [weak self] change in self?.requestAutoRefresh(change) ?? false }
     }
 
     /// The registered repositories, in the order they were added.
@@ -232,6 +238,7 @@ final class AppState {
     }
 
     func clearRepositoryData() {
+        autoRefresh.update(nil)
         loadTask?.cancel()
         loadTask = nil
         runningTrigger = nil
