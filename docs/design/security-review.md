@@ -225,8 +225,10 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **프로세스 생성 위치 제한**: `Overgrove/Execution/` 밖에서 `Process`를 만들면 안 된다. `scripts/lint/check-forbidden-apis.sh`가 pre-commit hook, Claude Code hook, CI에서 검사한다.
   - **index 쓰기 방지**: `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`으로 조회 중 `index.lock`을 잡지 않는다.
   - **허용된 쓰기**: fetch가 만드는 쓰기(원격 추적 ref, `FETCH_HEAD`, 객체)와 `--prune`의 원격 추적 ref 삭제뿐이다.
-- **잔여 위험**: 낮음. 단, **`worktreeDiff`(`git diff`)는 내용은 같고 stat만 바뀐 파일을 diff할 때 index를 새로 고쳐 쓴다.** `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 무시한다 (#94 실측, Apple Git 2.50.1). 잠깐 `index.lock`을 잡으므로 같은 순간 사용자의 git 쓰기 명령과 겹칠 수 있다. plumbing `git diff-files -p`는 같은 patch를 내면서 index를 쓰지 않는다(실측). 명령 교체는 결정 대기이고, 테스트(`WriteProtectionTests`)가 이 차이를 expected failure로 추적한다.
-- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변), SEC-T13-03 (금지 API 정적 검사)
+- **잔여 위험**: 낮음. 단, 다음 두 가지는 #94의 테스트와 리뷰에서 확인했고 별도 이슈로 고친다.
+  - **`worktreeDiff`(`git diff`)는 내용은 같고 stat만 바뀐 파일을 diff할 때 index를 새로 고쳐 쓴다** (#208). `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 무시한다(Apple Git 2.50.1 실측). 잠깐 `index.lock`을 잡으므로 같은 순간 사용자의 git 쓰기 명령과 겹칠 수 있다. `-c diff.autoRefreshIndex=false`로 막힌다(실측). `WriteProtectionTests`가 expected failure로 추적한다.
+  - **저장소 로컬 설정이 fetch의 쓰기 범위를 넓힌다** (#209). 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`(HEAD가 detached일 때)는 로컬 브랜치를 지우거나 되돌리고, 로컬 `fetch.pruneTags=true`는 로컬 태그를 지운다(Apple Git 2.50.1 실측). 아래 "허용된 쓰기"는 이 이슈가 고쳐질 때까지 기본 설정에서만 성립한다.
+- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인)
 - **상태**: 설계 완료 (정적 검사 스크립트는 저장소 셋업에서 적용)
 
 ### T14. 파일 시스템 범위 이탈, 심볼릭 링크 탈출
@@ -242,7 +244,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 로컬 `core.worktree`는 경고로 보고한다.
   - 연결 워크트리는 그 안의 `.git` 파일이 이 저장소의 `worktrees/<name>`을 가리키는지 확인한다.
 - **잔여 위험**: git 자체가 따라가는 경로(예: alternates 객체 저장소)는 통제하지 않는다. 읽기 전용이라 영향이 제한적이다.
-- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크 미리보기 거부), SEC-T14-03 (로컬 `core.worktree` 보고)
+- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고)
 - **상태**: 설계 완료
 
 ### T15. 자원 고갈

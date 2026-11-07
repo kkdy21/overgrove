@@ -4,8 +4,8 @@ import XCTest
 @testable import Overgrove
 
 /// T14 (security-review.md §2): the repository cannot widen what Overgrove reads. SEC-T14-01 (registration through a
-/// symbolic link is flagged) and SEC-T14-02 (preview refuses a link out of the worktree, and `..` escapes) are in
-/// `PathValidatorTests`.
+/// symbolic link is flagged) is in `PathValidatorTests`; SEC-T14-02 has unit tests there (`containment`, `..`) and
+/// the app-path test below.
 final class FileSystemScopeTests: XCTestCase {
     private var executables: TestExecutables!
     private var scenario: SecurityScenario!
@@ -27,6 +27,32 @@ final class FileSystemScopeTests: XCTestCase {
         try await scenario.plain(["add", "x.txt"], in: repo, requireSuccess: true)
         try await scenario.plain(["commit", "-q", "-m", "initial"], in: repo, requireSuccess: true)
         return repo
+    }
+
+    /// SEC-T14-02 on the app's path: an untracked symbolic link pointing at a secret outside the worktree is
+    /// previewed as its link text only, never the secret's content; a link inside a directory that itself escapes
+    /// the worktree is refused before git runs.
+    func testSECT14_02_PreviewShowsLinkTextNotTheTarget() async throws {
+        let repo = try await repository()
+        let outside = executables.directory.appendingPathComponent("outside", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        let secret = outside.appendingPathComponent("id_ed25519")
+        let secretContent = "SEC-T14-02-PRIVATE-\(UUID().uuidString)"
+        try secretContent.write(to: secret, atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: repo.appendingPathComponent("innocent.txt"), withDestinationURL: secret)
+
+        let file = try XCTUnwrap(PathValidator.worktreeFile(GitPath("innocent.txt"), in: repo))
+        let output = try await scenario.app(.untrackedPreview(file), in: repo)
+        let patch = String(decoding: output.stdout, as: UTF8.self)
+        XCTAssertFalse(patch.contains(secretContent), "the preview must not show the link target's content")
+        XCTAssertTrue(patch.contains(secret.path), "the preview shows the link text")
+        XCTAssertTrue(patch.contains("new file mode 120000"), "git reports it as a symbolic link")
+
+        // A directory that is itself a link out of the worktree: the file under it is refused.
+        try FileManager.default.createSymbolicLink(
+            at: repo.appendingPathComponent("escape"), withDestinationURL: outside)
+        XCTAssertNil(PathValidator.worktreeFile(GitPath("escape/id_ed25519"), in: repo))
     }
 
     private func worktreeFindings(_ inspection: RepoConfigInspection) -> [RepoSecurityReport.Finding] {
@@ -53,8 +79,8 @@ final class FileSystemScopeTests: XCTestCase {
         XCTAssertNotNil(inspection.safetyContext)
     }
 
-    /// SEC-T14-03, `includeIf`/`include` route: a `core.worktree` set in an included file is still reported, as a
-    /// local entry (`config --list --includes`, fixtures.md §8.3).
+    /// SEC-T14-03, `include.path` route: a `core.worktree` set in an included file is still reported, as a local
+    /// entry (`config --list --includes`, fixtures.md §8.3).
     func testSECT14_03_IncludedCoreWorktreeIsReported() async throws {
         let repo = try await repository()
         let included = executables.directory.appendingPathComponent("included.config")
