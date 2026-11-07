@@ -83,6 +83,18 @@ final class FixtureRepoTests: XCTestCase {
         fixture.remove()  // idempotent
     }
 
+    /// #234: only a setup push or fetch that lost its local receiving process is retried.
+    func testOnlyAHungUpLocalTransportIsRetried() {
+        let container = URL(fileURLWithPath: "/nonexistent")
+        func failure(_ stderr: String, timedOut: Bool = false) -> FixtureRepo.Failure {
+            .scriptFailed(termination: .exited(code: 128), timedOut: timedOut, stderr: stderr, container: container)
+        }
+        XCTAssertTrue(failure("fatal: the remote end hung up unexpectedly\n").isTransientSetupFailure)
+        XCTAssertFalse(failure("fatal: the remote end hung up unexpectedly\n", timedOut: true).isTransientSetupFailure)
+        XCTAssertFalse(failure("fatal: not a git repository\n").isTransientSetupFailure)
+        XCTAssertFalse(FixtureRepo.Failure.unexpectedOutput("x", container: container).isTransientSetupFailure)
+    }
+
     func testFailedScriptThrowsAndLeavesNothingBehind() async throws {
         try XCTSkipIf(keepsFixtures, "OVERGROVE_KEEP_FIXTURES=1 keeps fixtures on purpose")
         let missing = FixtureRepo.script.deletingLastPathComponent().appendingPathComponent("no-such-script.sh")
