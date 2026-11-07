@@ -20,6 +20,8 @@ struct RowMenuActions {
     var showStash: @MainActor (ObjectID) -> Void = { _ in }
     var openInBrowser: @MainActor (URL) -> Void = { _ in }
     var linkedBranchTip: @MainActor (Int) -> ObjectID? = { _ in nil }
+    /// S-09 for `path` in `worktree` (the focused worktree when `nil`), #70.
+    var showHistory: @MainActor (_ worktree: GitPath?, _ path: GitPath) -> Void = { _, _ in }
 }
 
 private struct RowMenuActionsKey: EnvironmentKey {
@@ -33,7 +35,7 @@ extension EnvironmentValues {
     }
 }
 
-/// The file row menu of S-02, S-03, and S-04 (interaction.md §5). Show History waits for S-09.
+/// The file row menu of S-02, S-03, and S-04 (interaction.md §5). Show History opens S-09 (#70).
 struct FileRowMenu: View {
     /// The worktree the path is in; `nil` for commit and stash files, which are looked up in the focused worktree.
     let worktree: GitPath?
@@ -44,6 +46,9 @@ struct FileRowMenu: View {
 
     var body: some View {
         Button("Show Diff", action: showDiff)
+        // A path that is not valid UTF-8 cannot be named in git's pathspec losslessly (#70).
+        Button("Show History") { actions.showHistory(worktree, path) }
+            .disabled(!path.isRepresentable)
         Divider()
         Button("Copy Path") { actions.copy(path.display) }
         Button("Copy Full Path") { if let full = actions.fullPath(worktree, path) { actions.copy(full) } }

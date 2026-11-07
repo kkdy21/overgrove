@@ -128,6 +128,10 @@ struct CanaryHarness {
                 .worktreeNumstat(staged: false), in: fixture.worktree("wt-conflict"), "worktreeNumstat (wt-conflict)"),
             query(.untrackedPreview(untracked), "untrackedPreview untracked.txt"),
             query(.fileHistory(path: GitPath("docs/manual.md"), limit: 100), "fileHistory docs/manual.md"),
+            // A `*.txt` file carries the fixture's textconv driver; `log --numstat` reads its blobs (#70).
+            query(
+                .fileHistory(path: GitPath("src/unstaged-modified.txt"), limit: 100),
+                "fileHistory src/unstaged-modified.txt"),
             // The merge-base comparison (#157) reads the working tree, so the touched filter targets are re-hashed.
             query(
                 .compareFiles(base: try ref("refs/remotes/origin/main"), includeWorkingTree: true),
