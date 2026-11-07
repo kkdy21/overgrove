@@ -204,6 +204,9 @@ enum RepoConfigInspector {
             return (nil, .reported)
         case "safe" where variable == "directory":
             return (nil, .reported)
+        // Re-encoded output could shift `-z` fields; the common `i18n.logOutputEncoding=UTF-8` overrides both (#205).
+        case "i18n" where variable == "logoutputencoding" || variable == "commitencoding":
+            return ("T15", .reported)
         default:
             return nil
         }
