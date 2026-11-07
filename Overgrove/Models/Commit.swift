@@ -9,6 +9,27 @@ struct CommitNode: Sendable, Hashable, Identifiable {
     let authorEmail: String
     let authorDate: Date
     let subject: String
+    /// `Co-authored-by` trailer values as git printed them (`Name <email>`), in message order. Display only: a
+    /// repository can write anything here.
+    let coAuthors: [String]
+
+    init(
+        oid: ObjectID,
+        parents: [ObjectID],
+        authorName: String,
+        authorEmail: String,
+        authorDate: Date,
+        subject: String,
+        coAuthors: [String] = []
+    ) {
+        self.oid = oid
+        self.parents = parents
+        self.authorName = authorName
+        self.authorEmail = authorEmail
+        self.authorDate = authorDate
+        self.subject = subject
+        self.coAuthors = coAuthors
+    }
 
     var id: ObjectID { oid }
     var isMerge: Bool { parents.count > 1 }
