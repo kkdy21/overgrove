@@ -88,7 +88,7 @@
 | 그래프 행 높이 고정 | 그래프 행 높이는 24px(`size.row-graph`)로 고정한다. 가상화를 위해서다. 글자 크기 확대에 대응하지 않는다 | later (확대 기능) |
 | 자동 새로고침 없음 | FSEvents 감시가 없다. 창 활성화, `⌘R`, fetch 완료 때 새로고침한다 | later. v0.1 포함 여부는 #163에서 결정 중 |
 | UI 언어 | 영어만 | later (현지화) |
-| untracked 표시 상한 | 잠정 5,000개. 넘으면 `UNTRACKED (5,000+)`로 표시한다. 최종값은 [performance-budget.md](performance/performance-budget.md)에서 확정한다 | 성능 측정 후 |
+| untracked 표시 상한 | 5,000개(확정, #91). 넘으면 `UNTRACKED (5,000+)`로 표시한다. `--untracked-files=all` 유지. 근거는 [performance-budget.md PB-5](performance/performance-budget.md) | 2026-11-08 확정 |
 | 서브모듈 | 서브모듈 내부 변경은 펼치지 않고 커밋 변경만 표시한다 | v0.2.0 |
 | 로컬 필터 무력화 | 로컬에 정의된 필터(LFS 포함)를 무력화하므로 필터 대상 파일이 변경으로 보일 수 있다 | 의도된 동작 (S-05에 표시) |
 | 다중 선택 없음 | 커밋·파일 다중 선택과 비교가 없다 | later |

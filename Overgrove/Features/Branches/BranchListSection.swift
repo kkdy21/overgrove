@@ -11,6 +11,8 @@ struct BranchListSection: View {
     var warning: String?
     /// Tooltips for folder rows by id; REMOTE uses it for each remote's URL (Settings › Show full remote URLs, #86).
     var folderHelp: [String: String] = [:]
+    /// The sidebar filter is on (#74): every folder shows its matches, and an empty list says so.
+    var isFiltered = false
 
     @State private var isExpanded = true
     @State private var openFolders: Set<String> = []
@@ -23,15 +25,19 @@ struct BranchListSection: View {
                     SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
                 }
                 if nodes.isEmpty {
-                    Text(title == "LOCAL" ? "No local branches" : "No remote branches")
-                        .font(Tokens.Font.callout)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                        .padding(.horizontal, Tokens.Spacing.md)
-                        .frame(height: Tokens.Size.rowSidebar)
+                    Text(
+                        isFiltered
+                            ? "No matching branches" : title == "LOCAL" ? "No local branches" : "No remote branches"
+                    )
+                    .font(Tokens.Font.callout)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .padding(.horizontal, Tokens.Spacing.md)
+                    .frame(height: Tokens.Size.rowSidebar)
                 }
                 // One lazy stack over the visible rows (folders flattened), one timer for every relative date.
                 TimelineView(.periodic(from: .now, by: 60)) { context in
-                    let rows = BranchListModel.visibleRows(nodes, open: openFolders)
+                    let rows = BranchListModel.visibleRows(
+                        nodes, open: isFiltered ? SidebarFilter.folderIDs(nodes) : openFolders)
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(rows, id: \.node.id) { item in
                             switch item.node {
