@@ -91,6 +91,11 @@ struct SidebarPanel: View {
     var worktreeModel: WorktreeListModel?
     var selectedWorktree: GitPath?
     var onSelectWorktree: (GitPath) -> Void = { _ in }
+    /// STASHES (#71).
+    var stashRows: [StashRow] = []
+    var isStashListPartial = false
+    var selectedStash: ObjectID?
+    var onSelectStash: (ObjectID) -> Void = { _ in }
     var canCompareWorktree: (GitPath) -> Bool = { _ in false }
     var onCompareWorktree: (GitPath) -> Void = { _ in }
 
@@ -100,12 +105,19 @@ struct SidebarPanel: View {
             PlaceholderField(symbol: "magnifyingglass", prompt: "Filter", shortcut: "⌥⌘F")
         } content: {
             if hasRepository {
-                // TODO(#72): LOCAL and REMOTE; TODO(#71): STASHES; TODO(#81): ISSUES.
+                // TODO(#72): LOCAL and REMOTE; TODO(#81): ISSUES.
                 ScrollView {
-                    WorktreeListSection(
-                        status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
-                        onSelect: onSelectWorktree, canCompare: canCompareWorktree,
-                        onCompare: onCompareWorktree)
+                    VStack(alignment: .leading, spacing: 0) {
+                        WorktreeListSection(
+                            status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
+                            onSelect: onSelectWorktree, canCompare: canCompareWorktree,
+                            onCompare: onCompareWorktree)
+                        if case .loaded = worktreeStatus {
+                            StashListSection(
+                                rows: stashRows, isPartial: isStashListPartial, selectedID: selectedStash,
+                                onSelect: onSelectStash)
+                        }
+                    }
                 }
             } else {
                 PanelEmptyState(
@@ -169,6 +181,10 @@ struct DetailPanel: View {
     var onSelectFile: (FileSelection) -> Void = { _ in }
     /// `nil` hides the segment (nothing selected, or a selection that is not a worktree).
     var showsWorktreeSegment: Bool?
+    /// S-04 when a stash is selected (#71).
+    var stashModel: StashDetailModel?
+    var selectedStashFile: GitPath?
+    var onSelectStashFile: (FileStat) -> Void = { _ in }
     var onShowChanges: () -> Void = {}
     var onShowWorktree: () -> Void = {}
     /// S-11's lists while a comparison is open (#158).
@@ -179,11 +195,14 @@ struct DetailPanel: View {
     var body: some View {
         PanelSection {
             Image(systemName: "tree.fill").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
-            Text(wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title ?? "No selection")
-                .font(Tokens.Font.headline)
-                .foregroundStyle(Tokens.Color.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.middle)
+            Text(
+                stashModel?.refName ?? wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title
+                    ?? "No selection"
+            )
+            .font(Tokens.Font.headline)
+            .foregroundStyle(Tokens.Color.textPrimary)
+            .lineLimit(1)
+            .truncationMode(.middle)
             if let isWorktree = showsWorktreeSegment {
                 Spacer(minLength: Tokens.Spacing.sm)
                 DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
@@ -191,6 +210,8 @@ struct DetailPanel: View {
         } content: {
             if let comparisonList {
                 comparisonList
+            } else if let stashModel {
+                StashDetailView(model: stashModel, selectedFile: selectedStashFile, onSelectFile: onSelectStashFile)
             } else if let worktreeModel {
                 WorktreeDetailView(model: worktreeModel, onCompare: onCompare)
             } else if let wipModel {

@@ -44,6 +44,10 @@ struct WorktreeListing: Sendable, Equatable {
     let entries: [Entry]
     /// `worktree list` was cut at the size limit and its last record dropped (parsing-spec.md §1.5).
     let isPartial: Bool
+    /// The repository's stashes, newest first (sidebar STASHES, S-04, #71).
+    var stashes: [Stash] = []
+    /// The stash list was cut at the size limit.
+    var isStashListPartial = false
 }
 
 extension WorktreeListing {
@@ -53,7 +57,8 @@ extension WorktreeListing {
             entries: overview.entries.map {
                 Entry(worktree: $0.worktree, state: Self.state($0.status), inspection: $0.inspection)
             },
-            isPartial: overview.isWorktreeListPartial)
+            isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
+            isStashListPartial: overview.stashes.isPartial)
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {

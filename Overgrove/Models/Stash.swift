@@ -12,8 +12,16 @@ struct Stash: Sendable, Hashable, Identifiable {
     /// Message extracted from the subject, or the whole subject.
     let message: String
     let date: Date
+    /// `%P`: base commit, index commit, and (with `-u`/`-a`) the untracked-files commit, in that order.
+    let parents: [ObjectID]
 
     var id: ObjectID { oid }
+    /// The commit the stash was made on (first parent).
+    var baseCommit: ObjectID? { parents.first }
+    /// The stash recorded the index (second parent; `git stash` always makes one).
+    var includesIndex: Bool { parents.count >= 2 }
+    /// The stash has an untracked-files commit (third parent, `git stash -u`).
+    var includesUntracked: Bool { parents.count >= 3 }
     var refName: String { "stash@{\(index)}" }
 }
 
