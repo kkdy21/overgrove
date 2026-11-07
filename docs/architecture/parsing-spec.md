@@ -380,6 +380,34 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | PAR-ISSUE-02 | 제목의 `#n`, 오탐(`C#`, `#define`) 배제 |
 | PAR-ISSUE-03 | 트레일러 |
 
+### 11.4 FetchProgressParser — `fetch --progress` stderr (#76)
+
+git이 실행되는 동안 stderr 조각을 순서대로 받아 `FetchProgress`(단계, 완료 수, 전체 수, 완료 여부)를 만든다. 형식은 Apple Git 2.54.0에서 채집했다.
+
+```
+remote: Enumerating objects: 304, done.        ⏎
+remote: Counting objects:  50% (152/304)        ␍
+Receiving objects: 100% (202/202), 304.96 KiB | 76.24 MiB/s, done.⏎
+Resolving deltas: 100% (102/102), completed with 102 local objects.⏎
+```
+
+- `\r`와 `\n` 모두 줄 끝이다. git은 같은 줄을 `\r`로 다시 쓰고, 단계가 끝나면 `\n`을 쓴다.
+- `remote: ` 접두사와 줄 끝의 공백 채움을 떼고, 다음 다섯 단계만 읽는다: `Enumerating objects`(개수만), `Counting objects`, `Compressing objects`, `Receiving objects`, `Resolving deltas`.
+- 비율 형식은 `<p>% (<n>/<total>)`이다. `p ≤ 100`, `n ≤ total`, ASCII 숫자 15자리 이하만 받는다. `)` 뒤에는 아무것도 없거나 `, `로 시작하는 꼬리(처리량, `done.`)만 올 수 있다. 완료는 `, done.`으로 끝나거나 `, completed with `로 시작하는 꼬리로 판단한다.
+- 그 밖의 줄(`From …`, ref 갱신 줄, `remote: Total …`, 알 수 없는 단계)과 형식이 어긋난 줄은 조용히 무시한다. 진행률은 표시용이고, `remote:` 줄은 서버가 쓰기 때문이다. 문자열은 결과에 담지 않는다.
+- 줄 길이 상한은 1024바이트다. 넘으면 그 줄의 나머지를 버리고 다음 줄부터 다시 읽는다.
+- 직전과 같은 갱신(처리량만 바뀐 경우)은 다시 내보내지 않는다.
+- 어떤 단계가 나오는지는 팩 크기와 속도에 따라 다르다. 작은 팩은 `Receiving objects`를 건너뛰기도 한다.
+
+| 테스트 | 사례 |
+|---|---|
+| PAR-FETCH-01 | 실제 출력의 모든 단계가 순서대로 나옴 (중간에 끼어든 `remote: Total` 포함) |
+| PAR-FETCH-02 | 바이트 단위로 나눠 넣어도 결과가 같음 |
+| PAR-FETCH-03 | 진행률이 아닌 줄 무시 |
+| PAR-FETCH-04 | 형식이 어긋난 숫자(100% 초과, `n > total`, 음수, 전각 숫자, 오버플로, 뒤에 붙은 제어 문자) 무시 |
+| PAR-FETCH-05 | 상한을 넘는 줄을 버린 뒤 다시 읽음 |
+| PAR-FETCH-06 | 같은 갱신은 한 번만 |
+
 ---
 
 ## 12. 경계 사례 요약

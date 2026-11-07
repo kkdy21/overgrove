@@ -44,6 +44,42 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertFalse(result.succeeded)
     }
 
+    /// Thread-safe collector for the stderr observer.
+    private final class Chunks: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage = Data()
+        private(set) var count = 0
+        var data: Data { lock.withLock { storage } }
+        func append(_ chunk: Data) {
+            lock.withLock {
+                storage.append(chunk)
+                count += 1
+            }
+        }
+    }
+
+    func testStderrObserverSeesStderrOnly() async throws {
+        // Fetch progress is read from stderr while git runs (#76).
+        let script = try executables.exitWith(0)
+        let chunks = Chunks()
+        let result = try await ProcessRunner().run(request(script.path), stderrObserver: { chunks.append($0) })
+        XCTAssertEqual(chunks.data, result.stderr)
+        XCTAssertEqual(String(decoding: chunks.data, as: UTF8.self), "err\n", "stdout is not observed")
+    }
+
+    func testStderrObserverStopsAtTheLimit() async throws {
+        // `ls` reports each missing path on stderr: far more than the 1 KiB limit.
+        let missing = (0..<2000).map { "/nonexistent-overgrove-\($0)" }
+        var limits = ProcessLimits.query
+        limits.stderrLimit = 1024
+        let chunks = Chunks()
+        let result = try await ProcessRunner().run(
+            request("/bin/ls", missing, limits: limits), stderrObserver: { chunks.append($0) })
+        XCTAssertTrue(result.stderrTruncated)
+        XCTAssertEqual(chunks.data, result.stderr, "the observer never sees bytes beyond the limit")
+        XCTAssertEqual(chunks.data.count, 1024)
+    }
+
     func testArgumentsArePassedVerbatimWithoutAShell() async throws {
         let tricky = ["a b", "$(touch /tmp/should-not-exist)", "; rm -rf ~", "--", "-n", "ü\u{0301}"]
         let result = try await ProcessRunner().run(request("/usr/bin/printf", ["%s\\n"] + tricky))
