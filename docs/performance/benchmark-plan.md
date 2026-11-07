@@ -62,6 +62,8 @@ scripts/make-bench-repo.sh --commits 3000 --files 500 --worktrees 4 <dir>  # 스
 | PERF-07 | 10만 커밋 적재 시 최대 메모리 | PB-6 | `XCTMemoryMetric` | Phase 3 |
 | PERF-08 | git 계층 기준선 (B01–B18) | 전체 하한 | `measure-git-baseline.sh` | 지금, git 버전 변경 시 |
 | PERF-09 | Diff 뷰어 파싱·행·첫 프레임 (500줄, 1만 줄, 약 10MB) | PB-9 | XCTest, 합성 patch | Phase 3 |
+| PERF-11 | 파일 이력(S-09) 첫 100개 (`--follow`) | PB-7 | XCTest, bench 저장소 (#98) | Phase 4 |
+| PERF-12 | 커밋·stash 상세(S-03, S-04) 파일 목록 | PB-8 | XCTest, bench 저장소 (#98) | Phase 4 |
 
 ### 3.1 지금 있는 XCTest (#90)
 
@@ -74,6 +76,8 @@ UI 계층(첫 프레임, hitch)은 아직 재지 않는다. 아래 테스트는 
 | PERF-03 | `GraphBenchmarkTests.test_PERF_03_graphFirstPageAndPaging` | bench 저장소 | 첫 페이지 p95 < 500ms (PB-3). commit-graph가 없으면 < 1.0초 (PB-3b). 페이지별 레이아웃 최대 < 16.7ms |
 | PERF-04 | `GraphEnginePerformanceTests.test_GRA_09_*` | 합성 이력 10만 | `XCTClockMetric`, `XCTMemoryMetric` 기준값(`.xcbaseline`). 항상 실행 |
 | PERF-05 | `GraphBenchmarkTests.test_PERF_05_pageLayoutFitsAFrame` | 합성 이력 10만 | 스크롤 중 메인 액터가 하는 페이지 레이아웃 최대 < 16.7ms (PB-4 대리 측정). hitch ratio는 XCUITest 이후 |
+| PERF-11 | `DetailBenchmarkTests.test_PERF_11_fileHistoryFirstPage` | bench 저장소, 파일 하나의 `--follow` 이력 | 첫 페이지(100) p95 < 1.0초 (PB-7, 렌더링 제외) |
+| PERF-12 | `DetailBenchmarkTests.test_PERF_12_commitAndStashFileLists` | bench 저장소, 캐시에 없는 커밋 20개와 최신 stash | 각각 p95 < 200ms (PB-8, 렌더링 제외) |
 | PERF-09 | `DiffViewerBenchmarkTests.test_PERF_09_diffRendering` | 합성 patch | 1만 줄 이하 파싱+행 p95 < 200ms, 모든 크기 첫 프레임 p95 < 16ms (PB-9) |
 
 모든 테스트는 `PERF-nn RESULT` 표를 출력한다. 예산을 넘으면 실패한다(`OVERGROVE_PERF_REPORT_ONLY=1`이면 표에만 적는다). 반복 횟수와 p95 계산은 [performance-budget.md §1](performance-budget.md)을 따른다. 21회 실행에서 첫 회를 버리고, nearest-rank로 구한다.
@@ -173,7 +177,7 @@ PERF 테스트는 환경 변수를 켰을 때만 돈다. 보통의 `xcodebuild t
 
 | 변수 | 효과 |
 |---|---|
-| `OVERGROVE_BENCH_REPO=<dir>` | `make-bench-repo.sh` 출력 폴더. PERF-01·02·03 실행 |
+| `OVERGROVE_BENCH_REPO=<dir>` | `make-bench-repo.sh` 출력 폴더. PERF-01·02·03·11·12 실행 |
 | `OVERGROVE_PERF=1` | 합성 입력 테스트 PERF-05·09 실행. 예전 `OVERGROVE_BENCH_DIFF=1`도 PERF-09를 켠다 |
 | `OVERGROVE_PERF_REPORT_ONLY=1` | 예산을 넘어도 실패하지 않고 표에만 적는다 (CI 러너) |
 | `OVERGROVE_PERF_REPORT_DIR=<dir>` | 테스트마다 결과 표를 `<dir>/PERF-nn.md`로 쓴다 |
@@ -188,6 +192,7 @@ TEST_RUNNER_OVERGROVE_PERF_REPORT_DIR=~/tmp/perf-report \
 xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS' \
   -only-testing:OvergroveTests/RepositoryOverviewBenchmarkTests \
   -only-testing:OvergroveTests/GraphBenchmarkTests \
+  -only-testing:OvergroveTests/DetailBenchmarkTests \
   -only-testing:OvergroveTests/GraphEnginePerformanceTests \
   -only-testing:OvergroveTests/DiffViewerBenchmarkTests
 ```
