@@ -314,13 +314,25 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertEqual(String(decoding: result.stdout, as: UTF8.self), "clean\n")
     }
 
+    /// 60 runs: a leak of even one descriptor per run shows as dozens. Counts are taken once settled, and only growth
+    /// fails: descriptors from earlier tests may still be closing, so the count can drop (#234, CI saw 12 → 11).
     func testParentDoesNotLeakDescriptors() async throws {
-        let before = openDescriptorCount()
+        let before = await settledDescriptorCount()
         for _ in 0..<30 {
             _ = try await ProcessRunner().run(request("/bin/echo", ["x"]))
             _ = try? await ProcessRunner().run(request("/bin/echo", directory: URL(fileURLWithPath: "/nonexistent")))
         }
-        XCTAssertEqual(openDescriptorCount(), before)
+        let after = await settledDescriptorCount()
+        XCTAssertLessThanOrEqual(after, before, "open descriptors grew from \(before) to \(after)")
+    }
+
+    /// The reason for settling: right after `run` returns, its pipe descriptors may not be closed yet (they close in
+    /// dispatch cancel handlers), but they always close shortly after.
+    func testPipeDescriptorsCloseShortlyAfterARun() async throws {
+        let before = await settledDescriptorCount()
+        _ = try await ProcessRunner().run(request("/bin/echo", ["x"]))
+        let closed = await eventually { openDescriptorCount() <= before }
+        XCTAssertTrue(closed, "descriptors still open: \(openDescriptorCount()) > \(before)")
     }
 
     func testDirectoryIsNotAnExecutable() async {

@@ -218,6 +218,24 @@ func openDescriptorCount() -> Int {
     (try? FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count) ?? -1
 }
 
+/// The open descriptor count once it has stopped changing (#234).
+///
+/// `ProcessRunner` closes a run's pipe descriptors in dispatch cancel handlers, which run on its queue just after
+/// `run` returns, and an earlier test's abandoned pipes close the same way. A count taken at once can therefore be
+/// one or two off in either direction. This waits until `stableReads` reads in a row agree.
+func settledDescriptorCount(stableReads: Int = 3, timeout: Duration = .seconds(5)) async -> Int {
+    let deadline = ContinuousClock.now + timeout
+    var last = openDescriptorCount()
+    var agreeing = 1
+    while agreeing < stableReads, ContinuousClock.now < deadline {
+        try? await Task.sleep(for: .milliseconds(50))
+        let current = openDescriptorCount()
+        agreeing = current == last ? agreeing + 1 : 1
+        last = current
+    }
+    return last
+}
+
 /// What a fake `gh` from `TestExecutables.fakeGH` recorded about its last run.
 struct FakeGH {
     let root: URL

@@ -34,6 +34,17 @@ struct FixtureRepo: Sendable {
             }
         }
 
+        /// A local push or fetch inside the setup script died: `fatal: the remote end hung up unexpectedly` (#234).
+        ///
+        /// Seen once in a full local run while several other test suites ran on the same machine; 40 parallel script
+        /// runs did not reproduce it. The script talks only to local bare repositories, so the receiving `git`
+        /// process failing to start or run (process limits under heavy load) is the likely cause. It is not a
+        /// product failure, so `make` retries once.
+        var isTransientSetupFailure: Bool {
+            guard case .scriptFailed(_, let timedOut, let stderr, _) = self else { return false }
+            return !timedOut && stderr.contains("the remote end hung up unexpectedly")
+        }
+
         /// The fixture's container directory, already removed unless `OVERGROVE_KEEP_FIXTURES=1`.
         var container: URL {
             switch self {
@@ -81,6 +92,15 @@ struct FixtureRepo: Sendable {
     /// Builds a fixture. Remove it with `remove()`, or use `XCTestCase.makeFixture(malicious:)`, which registers the
     /// removal as a teardown block so it also runs when the test fails or throws.
     static func make(malicious: Bool = false, script: URL = FixtureRepo.script) async throws -> FixtureRepo {
+        do {
+            return try await makeOnce(malicious: malicious, script: script)
+        } catch let failure as Failure where failure.isTransientSetupFailure {
+            // One more try in a fresh container: the failure was in the script's own setup, not in code under test.
+            return try await makeOnce(malicious: malicious, script: script)
+        }
+    }
+
+    private static func makeOnce(malicious: Bool, script: URL) async throws -> FixtureRepo {
         let container = try makeContainer()
         let home = container.appendingPathComponent("home", isDirectory: true)
         let root = container.appendingPathComponent("fixture", isDirectory: true)
