@@ -52,6 +52,15 @@ final class CommitDetailModelTests: XCTestCase {
         XCTAssertNil(model.filesNote)
     }
 
+    /// #82: `owner/repo#n` counts only for the repository the issues come from.
+    func testIssuesUseTheIssueRepository() {
+        let commit = Self.commit(subject: "fix: port team/app#9 and evil/app#8")
+        XCTAssertEqual(
+            CommitDetailModel(commit: commit, detail: nil, pills: [], showsAllFiles: false, issueRepository: "team/app")
+                .issues, [9])
+        XCTAssertEqual(CommitDetailModel(commit: commit, detail: nil, pills: [], showsAllFiles: false).issues, [])
+    }
+
     func testLoadedDetailBodyTrailersFilesAndCommitter() {
         let detail = Self.detail(
             message:

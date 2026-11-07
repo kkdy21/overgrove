@@ -42,8 +42,16 @@ private struct IssueRowView: View {
             Text(row.number).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
             Text(row.title).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
                 .lineLimit(1).truncationMode(.tail)
-            // TODO(#82): `tree` / `arrow.triangle.branch` badge for a linked worktree or branch.
             Spacer(minLength: 0)
+            switch row.linkKind {
+            case .worktree:
+                Image(systemName: "tree").foregroundStyle(Tokens.Color.textSecondary).help("Linked worktree")
+            case .branch:
+                Image(systemName: "arrow.triangle.branch").foregroundStyle(Tokens.Color.textSecondary)
+                    .help("Linked branch")
+            case nil:
+                EmptyView()
+            }
         }
         .padding(.horizontal, Tokens.Spacing.sm)
         .frame(height: Tokens.Size.rowSidebar)
@@ -63,6 +71,9 @@ private struct IssueRowView: View {
 /// S-06, one issue (screens.md S-06). Read-only: no comment, edit, or close (ADR-0004); the body is not rendered.
 struct IssueDetailView: View {
     let model: IssueDetailModel
+    var onSelectWorktree: (GitPath) -> Void = { _ in }
+    /// A linked branch's tip or a linked commit, selected in the graph.
+    var onSelectCommit: (ObjectID) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -70,7 +81,7 @@ struct IssueDetailView: View {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
                     header
                     info
-                    // TODO(#82): LINKED card (worktrees, branches, the latest five commits).
+                    linked
                     Text(IssueDetailModel.bodyNotice)
                         .font(Tokens.Font.callout)
                         .foregroundStyle(Tokens.Color.textSecondary)
@@ -165,6 +176,66 @@ struct IssueDetailView: View {
                 }
             }
         }
+    }
+
+    /// LINKED (screens.md S-06): worktrees, branches, then the latest five commits; each selects its item.
+    @ViewBuilder
+    private var linked: some View {
+        DetailCard {
+            Text("LINKED")
+                .font(Tokens.Font.sectionHeader)
+                .tracking(Tokens.Font.sectionHeaderTracking)
+                .foregroundStyle(Tokens.Color.textTertiary)
+            if model.linkedWorktrees.isEmpty && model.linkedBranches.isEmpty && model.linkedCommits.isEmpty
+                && model.hiddenLinkCount == 0
+            {
+                Text("No branch, worktree, or loaded commit mentions this issue.")
+                    .font(Tokens.Font.callout)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(model.linkedWorktrees, id: \.path) { link in
+                linkRow(symbol: "tree", text: link.title, note: "worktree") { onSelectWorktree(link.path) }
+            }
+            ForEach(model.linkedBranches, id: \.fullName) { link in
+                linkRow(symbol: link.isRemote ? "network" : "arrow.triangle.branch", text: link.title, note: nil) {
+                    onSelectCommit(link.target)
+                }
+            }
+            if model.hiddenLinkCount > 0 {
+                Text("and \(model.hiddenLinkCount) more branches or worktrees")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+            }
+            ForEach(model.linkedCommits) { link in
+                linkRow(symbol: "smallcircle.filled.circle", text: link.subject, note: nil, sha: link.shortSHA) {
+                    onSelectCommit(link.id)
+                }
+            }
+        }
+    }
+
+    private func linkRow(
+        symbol: String, text: String, note: String?, sha: String? = nil, action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: Tokens.Spacing.xs) {
+                Image(systemName: symbol).foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
+                if let sha {
+                    Text(sha).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
+                }
+                Text(text).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
+                    .lineLimit(1).truncationMode(.middle)
+                if let note {
+                    Text("(\(note))").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(text)
+        .accessibilityLabel([sha, text, note].compactMap { $0 }.joined(separator: " "))
     }
 
     private func label(_ text: String) -> some View {

@@ -164,6 +164,7 @@ struct WorktreeRowView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: Tokens.Spacing.xs)
+                    if let number = row.issueNumber { IssueNumberBadge(number: number) }
                     // Highest priority at the trailing edge; the leading (lowest) badges give way first.
                     ForEach(Array(row.badges.reversed().enumerated()), id: \.offset) { _, badge in
                         BadgeView(badge: badge)
@@ -185,6 +186,7 @@ struct WorktreeRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .issueBadgeAction(row.issueNumber)
     }
 
     @ViewBuilder

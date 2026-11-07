@@ -56,7 +56,8 @@ struct MainWindowView: View {
             } center: {
                 GraphPanel(
                     hasRepository: state.repository != nil, graphStore: state.graph,
-                    onSelectCommit: state.selectCommit, diff: state.diffViewer,
+                    highlightedCommits: state.highlightedCommits, onSelectCommit: state.selectCommit,
+                    diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
             } detail: {
                 DetailPanel(
@@ -76,6 +77,7 @@ struct MainWindowView: View {
                     onShowAllCommitFiles: state.showAllCommitFiles,
                     stashModel: state.stashDetailModel, selectedStashFile: state.selectedStashFile?.path,
                     onSelectStashFile: state.selectStashFile, issueModel: state.issueDetailModel,
+                    onSelectLinkedWorktree: state.selectWorktree, onSelectLinkedCommit: state.selectLinkedCommit,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
                     comparisonList: comparisonList,
                     onCompare: state.canCompare() ? { state.showComparison() } : nil)
@@ -84,6 +86,8 @@ struct MainWindowView: View {
         }
         // Under the toolbar too, so the title bar area is `surface.window` like the status bar (art-direction §3).
         .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
+        // `#n` badges on worktree, branch, and graph rows (#82).
+        .environment(\.issueBadges, state.issueBadgeContext)
         .toolbar {
             MainToolbar(
                 repository: state.repository,

@@ -27,6 +27,8 @@ struct WorktreeRow: Identifiable, Equatable {
     let hasNeutralTile: Bool
     let isFocused: Bool
     let badges: [Badge]
+    /// The issue its branch names (`feat/12-x`, #82): the lowest-priority badge, drawn leftmost (§4.3).
+    var issueNumber: Int?
     /// Tooltip: full path, the change breakdown, upstream, lock reason, and anything the badges leave out.
     let help: String
     /// VoiceOver reads every badge, shown or not (interaction.md §6.1).
@@ -117,6 +119,7 @@ struct WorktreeListModel: Equatable {
         }
 
         let badges = badges(worktree: worktree, state: state)
+        let issueNumber = worktree.branch.flatMap(IssueRefExtractor.issueNumber(inBranch:))
         return WorktreeRow(
             id: worktree.path,
             title: title,
@@ -127,9 +130,11 @@ struct WorktreeListModel: Equatable {
             hasNeutralTile: worktree.isDetached || missing,
             isFocused: isFocused,
             badges: badges,
+            issueNumber: issueNumber,
             help: help(worktree: worktree, path: path, state: state, note: noteHelp),
             accessibilityLabel: accessibilityLabel(
-                title: title, worktree: worktree, isFocused: isFocused, missing: missing, note: note, state: state))
+                title: title, worktree: worktree, isFocused: isFocused, missing: missing, note: note, state: state)
+                + (issueNumber.map { ", issue \($0)" } ?? ""))
     }
 
     /// §4.4. Detached comes from `worktree list` (no `branch` attribute), not from the status header.

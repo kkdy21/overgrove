@@ -91,6 +91,7 @@ private struct BranchRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: Tokens.Spacing.xs)
+            if let number = row.issueNumber { IssueNumberBadge(number: number) }
             if row.isUpstreamGone {
                 Text("gone").font(Tokens.Font.pill).foregroundStyle(Tokens.Color.statusPrunable)
             }
@@ -122,5 +123,6 @@ private struct BranchRowView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
+        .issueBadgeAction(row.issueNumber)
     }
 }
