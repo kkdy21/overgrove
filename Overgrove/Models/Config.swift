@@ -52,6 +52,15 @@ struct RepoSecurityReport: Sendable, Hashable {
     let findings: [Finding]
     /// Set when a finding cannot be neutralized safely; queries must not run (fail closed).
     let blockingReason: String?
+    /// Findings past `RepoConfigInspector.maximumFindings`, counted but not kept (#262, T15). Neutralization still
+    /// covers them: only the report is shortened.
+    let omittedFindings: Int
+
+    init(findings: [Finding], blockingReason: String?, omittedFindings: Int = 0) {
+        self.findings = findings
+        self.blockingReason = blockingReason
+        self.omittedFindings = omittedFindings
+    }
 
     var isBlocked: Bool { blockingReason != nil }
 }

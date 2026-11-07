@@ -271,6 +271,72 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertNil(miss)
     }
 
+    // MARK: - Bounded work on huge listings (#262, T15)
+
+    private func local(_ section: String, _ subsection: String?, _ variable: String, _ value: String) -> ConfigEntry {
+        ConfigEntry(scope: .local, section: section, subsection: subsection, variable: variable, value: value)
+    }
+
+    /// SEC-T15-12. A repository chooses its `config --list` output up to the stdout cap. 100,000 remotes (plus as many repeats)
+    /// and 100,000 URL-specific TLS and proxy keys must not cost quadratic time: before #262 the remote, TLS, and
+    /// proxy de-duplication and the trusted-proxy lookup each scanned what came before.
+    func testSECT15_12_HugeListingIsInspectedInLinearTime() {
+        var entries: [ConfigEntry] = []
+        for index in 0..<100_000 {
+            entries.append(local("remote", "r\(index)", "url", "https://example.invalid/\(index).git"))
+            entries.append(local("remote", "r0", "url", "https://example.invalid/again.git"))
+            entries.append(local("http", "https://h\(index).invalid/", "sslverify", "false"))
+            entries.append(local("http", "https://p\(index).invalid/", "proxy", "http://proxy.invalid"))
+        }
+        let clock = ContinuousClock()
+        let started = clock.now
+        let result = inspect(entries)
+        let elapsed = clock.now - started
+
+        XCTAssertLessThan(elapsed, .seconds(3), "400,000 entries took \(elapsed)")
+        XCTAssertEqual(result.remotes.count, RepoConfigInspector.maximumRemotes)
+        XCTAssertEqual(result.remotes.first?.name.value, "r0")
+        XCTAssertEqual(result.omittedRemotes, 100_000 - RepoConfigInspector.maximumRemotes)
+        XCTAssertEqual(result.report.findings.count, RepoConfigInspector.maximumFindings)
+        XCTAssertEqual(result.report.omittedFindings, 200_000 - RepoConfigInspector.maximumFindings)
+        XCTAssertNotNil(result.fetchBlockingReason, "too many URL overrides: fetch is disabled")
+        XCTAssertFalse(result.report.isBlocked, "queries still run: nothing here needs neutralizing")
+    }
+
+    func testTooManyFilterDriversStopQueries() {
+        func drivers(_ count: Int) -> [ConfigEntry] {
+            (0..<count).map { local("filter", "d\($0)", "clean", "evil") }
+        }
+        let atLimit = inspect(drivers(RepoConfigInspector.maximumNeutralizedDrivers))
+        XCTAssertFalse(atLimit.report.isBlocked)
+        XCTAssertEqual(atLimit.neutralization.count, RepoConfigInspector.maximumNeutralizedDrivers * 8)
+
+        let over = inspect(drivers(RepoConfigInspector.maximumNeutralizedDrivers + 1))
+        XCTAssertTrue(over.report.isBlocked, "every driver must be neutralized, or nothing runs (fail closed)")
+        XCTAssertNil(over.safetyContext)
+    }
+
+    func testTooManyFetchOverridesDisableFetchOnly() {
+        func keys(_ count: Int) -> [ConfigEntry] {
+            (0..<count).map { local("http", "https://h\($0).invalid/", "sslverify", "false") }
+        }
+        XCTAssertNil(inspect(keys(RepoConfigInspector.maximumFetchOverrides)).fetchBlockingReason)
+        let over = inspect(keys(RepoConfigInspector.maximumFetchOverrides + 1))
+        XCTAssertNotNil(over.fetchBlockingReason)
+        XCTAssertNotNil(over.safetyContext, "queries are unaffected")
+    }
+
+    func testProxyIsStillResetToTheLastTrustedValue() {
+        let result = inspect([
+            entry(.global, "http.proxy", "http://first.invalid"), entry(.local, "http.proxy", "http://evil.invalid"),
+            entry(.global, "http.proxy", "http://trusted.invalid"),
+            entry(.local, "http.https://x.invalid/.proxy", "http://evil.invalid"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            ["-c", "http.proxy=http://trusted.invalid", "-c", "http.https://x.invalid/.proxy="])
+    }
+
     // MARK: - Result cache hardening (#88)
 
     /// A repository-controlled include can point at a file the fingerprint does not stamp (even a tracked file in the
