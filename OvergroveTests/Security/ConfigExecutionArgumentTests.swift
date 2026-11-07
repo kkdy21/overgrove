@@ -49,9 +49,11 @@ final class ConfigExecutionArgumentTests: XCTestCase {
         }
         let fetch = FetchCommand.fetch(remote: RemoteName("origin")!)
         let fetchAuthentication = ["-c", "credential.helper="]
+        let fetchOverrides = fetch.configurationOverrides()
         let fetchArguments = environment.arguments(
-            for: fetch.subcommandArguments(), fetchAuthentication: fetchAuthentication)
-        return queries + [("fetch", fetchArguments, GitEnvironment.commonArguments.count + fetchAuthentication.count)]
+            for: fetch.subcommandArguments(), fetchAuthentication: fetchAuthentication, fetchOverrides: fetchOverrides)
+        let subcommandStart = GitEnvironment.commonArguments.count + fetchAuthentication.count + fetchOverrides.count
+        return queries + [("fetch", fetchArguments, subcommandStart)]
     }
 
     func testEveryCaseIsListed() throws {
@@ -82,6 +84,12 @@ final class ConfigExecutionArgumentTests: XCTestCase {
     func testSECT8_02_EveryCommandDisablesAutoGCAndMaintenance() throws {
         try assertEveryCommandSets("gc.auto=0")
         try assertEveryCommandSets("maintenance.auto=false")
+    }
+
+    /// SEC-T13-02 (argument part): `git diff` would otherwise refresh and rewrite the index for a stat-dirty path,
+    /// ignoring `--no-optional-locks` (#208). The setting is on every command, so a new porcelain diff is covered too.
+    func testSECT13_02_EveryCommandDisablesDiffIndexRefresh() throws {
+        try assertEveryCommandSets("diff.autoRefreshIndex=false")
     }
 
     /// SEC-T15-06 (argument part): every command pins the output encoding, so repository i18n config cannot

@@ -313,6 +313,7 @@ final class ParserPropertyTests: XCTestCase {
                 label: "log graph",
                 fixtures: [
                     LogParserFixtures.sha1Graph, LogParserFixtures.sha256Graph, LogParserFixtures.nulMessageGraph,
+                    LogParserFixtures.coAuthorGraph,
                 ]
             ) { data, truncated in
                 let page = try LogParser.parseGraph(data, truncated: truncated)

@@ -2,14 +2,16 @@ import Foundation
 
 /// Parses `git log -z` output for the graph, file history and commit detail (parsing-spec.md §5).
 ///
-/// Every field is NUL-terminated, so tokens are grouped by a fixed count. git cuts a commit message at its first NUL,
-/// so a message can never shift the fields that follow (PAR-LOG-08). A malformed field fails the whole parse instead
-/// of resynchronizing: a shifted record would attach one commit's parents to another.
+/// Every field is NUL-terminated, so tokens are grouped by a fixed count. git cuts a commit message at its first NUL
+/// (PAR-LOG-08), but that alone does not keep fields aligned: a repository's `i18n.logOutputEncoding` or
+/// `i18n.commitEncoding` re-encodes the whole output, and some encodings turn message text into NUL bytes (#205).
+/// A malformed field fails the whole parse instead of resynchronizing: a shifted record would attach one commit's
+/// parents to another.
 ///
 /// The formats never use signature placeholders (`%G?`, `%GS`, …): those run `gpg.program` (T7). The parser only
 /// reads the fields listed below, and `GitCommand` owns the format strings.
 enum LogParser {
-    /// One page of `%H%x00%P%x00%an%x00%ae%x00%at%x00%s` records (§5.1).
+    /// One page of `%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:…)` records (§5.1).
     struct GraphPage: Sendable, Equatable {
         let commits: [CommitNode]
         /// The output was cut at the size limit and the last record was dropped.
@@ -50,7 +52,7 @@ enum LogParser {
     }
 
     private static let name = "LogParser"
-    private static let graphFieldCount = 6
+    private static let graphFieldCount = 7
     private static let detailFieldCount = 9
 
     private typealias Token = Data.SubSequence
@@ -80,7 +82,8 @@ enum LogParser {
                     authorName: text(fields[start + 2]),
                     authorEmail: text(fields[start + 3]),
                     authorDate: try date(fields[start + 4], field: "author time", in: data),
-                    subject: text(fields[start + 5])
+                    subject: text(fields[start + 5]),
+                    coAuthors: coAuthors(fields[start + 6])
                 )
             )
         }
@@ -121,6 +124,17 @@ enum LogParser {
     private static func text(_ token: Token) -> String {
         String(decoding: token, as: UTF8.self)
     }
+
+    /// `%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)`: values separated by U+001F, empty when the
+    /// commit has none. Display only, so decoded leniently; blank values are dropped.
+    private static func coAuthors(_ token: Token) -> [String] {
+        token.split(separator: unitSeparator).compactMap { part in
+            let value = text(part).trimmingCharacters(in: .whitespaces)
+            return value.isEmpty ? nil : value
+        }
+    }
+
+    private static let unitSeparator: UInt8 = 0x1F
 
     private static func offset(of token: Token, in data: Data) -> Int {
         token.startIndex - data.startIndex

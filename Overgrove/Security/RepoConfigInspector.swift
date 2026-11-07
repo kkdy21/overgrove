@@ -160,6 +160,12 @@ enum RepoConfigInspector {
             }
         case "remote":
             if variable == "uploadpack" { return ("T5", .neutralized) }
+            // Settings that would widen what fetch writes; the pinned fetch arguments override them (#209).
+            if variable == "fetch", let remote = entry.subsection, writesOutsideRemoteNamespace(value, remote: remote) {
+                return ("T13", .neutralized)
+            }
+            if variable == "prunetags" || variable == "tagopt" { return ("T13", .neutralized) }
+            if variable == "mirror" { return ("T13", .reported) }
             // A remote helper chosen by the repository. `GIT_ALLOW_PROTOCOL` refuses it at fetch time (#161).
             if variable == "vcs" { return ("T5", .reported) }
             if variable == "url", TransportName.remoteHelper(forURL: value) != nil { return ("T5", .reported) }
@@ -172,6 +178,8 @@ enum RepoConfigInspector {
             return ("T3", .reported)
         case "diff" where variable == "orderfile":
             return ("T15", .warned)
+        case "fetch" where variable == "prunetags" || variable == "bundleuri":
+            return ("T13", .neutralized)
         case "gpg" where variable == "program":
             return ("T7", .reported)
         case "log" where variable == "showsignature":
@@ -198,6 +206,17 @@ enum RepoConfigInspector {
         default:
             return nil
         }
+    }
+}
+
+extension RepoConfigInspector {
+    /// Whether a fetch refspec writes outside `refs/remotes/<remote>/`. A refspec without a destination only fills
+    /// `FETCH_HEAD`, and a negative refspec (`^…`) writes nothing.
+    static func writesOutsideRemoteNamespace(_ refspec: String, remote: String) -> Bool {
+        let spec = refspec.hasPrefix("+") ? refspec.dropFirst() : Substring(refspec)
+        guard !spec.hasPrefix("^"), let colon = spec.firstIndex(of: ":") else { return false }
+        let destination = spec[spec.index(after: colon)...]
+        return !destination.isEmpty && !destination.hasPrefix("refs/remotes/\(remote)/")
     }
 }
 

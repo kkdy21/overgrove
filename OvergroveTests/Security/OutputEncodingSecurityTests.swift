@@ -6,7 +6,7 @@ import XCTest
 /// SEC-T15-06: a repository's `i18n.commitEncoding` / `i18n.logOutputEncoding` must not re-encode `-z` output (#205).
 ///
 /// JOHAB maps the fullwidth `！` (U+FF01) to a NUL byte, so without the pinned output encoding a commit subject
-/// containing it splits into extra fields: enough of them forge a whole record (security-review.md T15, E40).
+/// containing it splits into extra fields: enough of them forge a whole record (security-review.md T15, E41).
 final class OutputEncodingSecurityTests: XCTestCase {
     private var repository: GitTestRepository!
     private let hostileSubject = "a！b！c"
