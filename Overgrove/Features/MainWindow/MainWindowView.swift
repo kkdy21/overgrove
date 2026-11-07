@@ -51,6 +51,7 @@ struct MainWindowView: View {
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
                     onSelectStash: state.selectStash, issueModel: state.issueListModel,
                     selectedIssue: state.selectedIssueNumber, onSelectIssue: state.selectIssue,
+                    onCheckIssuesAgain: state.checkIssuesAgain,
                     canCompareWorktree: { state.canCompare($0) },
                     onCompareWorktree: { state.showComparison(of: $0) })
             } center: {
@@ -118,7 +119,8 @@ struct MainWindowView: View {
                     snapshot: state.snapshot, fetchStatus: state.fetchStatus, ghStatus: state.ghStatus,
                     now: context.date, hasFetchDetails: !state.fetch.failures.isEmpty,
                     isRefreshing: state.isRefreshing, fetchRemoteLimit: state.fetch.remoteLimit),
-                onFetchDetails: state.fetch.hasDetails ? { showsFetchDetails = true } : nil)
+                onFetchDetails: state.fetch.hasDetails ? { showsFetchDetails = true } : nil,
+                onGitHubSetup: { state.setup.present() })
         }
     }
 

@@ -55,6 +55,24 @@ final class IssuePanelRenderTests: XCTestCase {
         try render(rows, width: 256, height: 420, name: "issue-badges")
     }
 
+    /// #83: gh missing, logged out, failed, and no remote at the narrowest sidebar (220pt).
+    func testDegradedStatesRender() throws {
+        let sections = VStack(spacing: 0) {
+            ForEach(
+                Array(
+                    [
+                        IssueListContent.notLoggedIn, .notInstalled,
+                        .failed(repository: IssueModelsTests.repository, detail: "HTTP 404"), .noGitHubRemote,
+                    ].enumerated()), id: \.offset
+            ) { _, content in
+                IssueListSection(
+                    model: IssueListModel(content: content, isLoading: false), selectedNumber: nil, onSelect: { _ in })
+            }
+            Spacer()
+        }
+        try render(sections, width: Tokens.Size.sidebarWidthMin, height: 520, name: "issues-degraded")
+    }
+
     private func render(_ view: some View, width: CGFloat, height: CGFloat, name: String) throws {
         for (suffix, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let host = NSHostingView(

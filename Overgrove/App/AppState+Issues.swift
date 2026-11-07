@@ -88,4 +88,33 @@ extension AppState {
         guard let number = selectedIssueNumber, !issues.contains(where: { $0.number == number }) else { return }
         selection = focusedWorktreePath.map(MainSelection.wip)
     }
+
+    // MARK: GitHub CLI state (#83)
+
+    /// Reads gh's login state for the status bar. Git features never wait for it (ADR-0004 §4).
+    func checkGitHub() {
+        ghCheckTask?.cancel()
+        ghCheckGeneration += 1
+        let generation = ghCheckGeneration
+        let checker = ghChecker
+        isCheckingGitHub = true
+        ghCheckTask = Task { [weak self] in
+            let status = await checker.authStatus()
+            guard let self, generation == self.ghCheckGeneration, !Task.isCancelled else { return }
+            self.ghStatus = status
+            self.isCheckingGitHub = false
+        }
+    }
+
+    /// The ISSUES section's Check Again: gh's state and the issues again. Without a GitHub remote, the repository
+    /// reloads so its remotes are read again.
+    func checkIssuesAgain() {
+        // Pressing it again while gh is still running does not start more gh processes (security review of #83).
+        guard repository != nil, !issuePanel.isLoading, !isCheckingGitHub else { return }
+        if issuePanel.retry() {
+            checkGitHub()
+        } else {
+            reload()
+        }
+    }
 }
