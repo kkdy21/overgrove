@@ -125,6 +125,17 @@ final class AppStateLaunchSnapshotTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.file(for: repository).path), "deleted on failure")
     }
 
+    func testSECT19_04_BlockedInspectionDeletesTheSnapshot() async throws {
+        try saveSnapshot()
+        let state = makeState(StubRepositoryLoader(result: .failure(.blocked(reason: "core.fsmonitor"))))
+        state.open(RepositoryContext(repository: repository, owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: store.file(for: repository).path),
+            "a repository the inspection stops has no snapshot (ADR-0018 §3)")
+    }
+
     func testWritesAreSpacedAndTheLatestWins() async throws {
         let state = makeState(StubRepositoryLoader(result: .success(.mockup)))
         state.open(RepositoryContext(repository: repository, owner: nil))
