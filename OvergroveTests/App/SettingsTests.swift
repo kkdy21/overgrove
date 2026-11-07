@@ -23,7 +23,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertFalse(settings.autoFetch, "auto fetch is off by default (S-08, #79)")
         XCTAssertEqual(settings.autoFetchIntervalMinutes, 10)
         XCTAssertFalse(settings.showsFullRemoteURLs)
-        XCTAssertFalse(AppSettings.isAutoFetchAvailable, "the toggle stays hidden until the scheduler lands (#79)")
+        XCTAssertTrue(AppSettings.isAutoFetchAvailable, "the scheduler exists since #79")
     }
 
     func testChangesAreKept() {
