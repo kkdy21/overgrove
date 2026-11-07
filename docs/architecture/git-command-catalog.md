@@ -39,7 +39,7 @@
 | `-c core.fsmonitor=false` | fsmonitor 훅 실행 방지. 서브프로세스(서브모듈)에도 전파됨 (확인) | T1 |
 | `-c core.hooksPath=/dev/null` | 모든 훅 실행 방지 (fetch의 `reference-transaction` 포함, 확인) | T2 |
 | `-c core.askPass=` | 로컬 `core.askPass` 실행 방지 (확인) | T12 |
-| `-c protocol.ext.allow=never` | `ext::` 원격과 `insteadOf`로 바꿔치기한 `ext::` 차단 (확인) | T5 |
+| `-c protocol.ext.allow=never` | `ext::` 원격과 `insteadOf`로 바꿔치기한 `ext::` 차단 (확인). `GIT_ALLOW_PROTOCOL`(§2.4)과 겹치는 심층 방어 | T5 |
 | `-c protocol.fd.allow=never` | `fd::` 원격 차단. 기본값에서는 허용되고 정지를 일으킴 (확인) | T5, T15 |
 | `-c core.alternateRefsCommand=` | `objects/info/alternates`가 있는 저장소를 fetch할 때 로컬 `core.alternateRefsCommand`가 실행되는 것을 막음. 빈 값으로 덮어도 fetch는 성공 (확인: [fixtures.md §8](../testing/fixtures.md)) | T5 |
 | `-c log.showSignature=false` | 로컬 `log.showSignature=true`로 인한 `gpg.program` 실행 방지 (확인) | T7 |
@@ -83,6 +83,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `GIT_PAGER`, `PAGER` | `cat` | 모든 git |
 | `GIT_ASKPASS`, `SSH_ASKPASS` | 빈 문자열 | 모든 git (빈 `GIT_ASKPASS`는 `core.askPass`보다 우선해 실행을 막음, 확인) |
 | `GIT_PROXY_COMMAND` | 빈 문자열 | 모든 git (로컬 `core.gitProxy` 무력화, 확인) |
+| `GIT_ALLOW_PROTOCOL` | `https:ssh:git:file:http` | 모든 git (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
 | `GIT_SSH_COMMAND` | 신뢰 scope의 `core.sshCommand` 값, 없으면 `ssh -o BatchMode=yes` | 모든 git (환경 변수가 로컬 설정보다 우선, 확인) |
 | `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK` | 부모 값 그대로 | 모든 git |
 | `PATH` | `/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin` | 모든 git |
@@ -152,7 +153,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 공통 규칙 (ADR-0004):
 
 - 실행 파일은 `/opt/homebrew/bin/gh`, `/usr/local/bin/gh` 순서로 찾는다.
-- 작업 디렉터리는 **저장소 밖**의 중립 디렉터리다. 앱 전용 임시 디렉터리를 쓴다. `gh`가 내부적으로 실행하는 git이 저장소 설정을 읽지 않게 하려는 것이다.
+- 작업 디렉터리는 **저장소 밖**의 중립 디렉터리다. 앱 전용 임시 디렉터리(`<사용자 임시 디렉터리>/io.github.kkdy21.overgrove.gh-neutral`, 모드 `0700`, 처음 쓸 때 만듦)를 쓴다. `gh`가 내부적으로 실행하는 git이 저장소 설정을 읽지 않게 하려는 것이다.
 - `--repo OWNER/NAME`을 항상 명시한다. OWNER는 `[A-Za-z0-9-]{1,39}`이고 `-`로 시작하지 않는다. NAME은 `[A-Za-z0-9._-]{1,100}`이다.
 - 환경 변수 allowlist는 다음과 같다. `GH_TOKEN`, `GITHUB_TOKEN`, `GH_HOST`, `GH_REPO`, `GH_ENTERPRISE_TOKEN`, `GH_CONFIG_DIR`, `BROWSER`, `GH_BROWSER`, `EDITOR`는 전달하지 않는다.
 
@@ -168,6 +169,17 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `version` | `["--version"]` | 첫 줄 `gh version X.Y.Z (...)` | 온보딩 표시 |
 | `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
 | `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
+
+실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
+
+- 실행 파일은 위 두 경로를 순서대로 보고, 실행 가능한 일반 파일(심볼릭 링크는 따라감)인 첫 경로를 쓴다. 호출할 때마다 다시 찾으므로 앱 실행 중에 gh를 설치해도 반영된다. 둘 다 없으면 `authStatus()`는 `GHAuthStatus.notInstalled`를 돌려주고, 그 밖의 명령은 `GHError.notInstalled`를 던진다.
+- 작업 디렉터리는 위의 앱 전용 중립 디렉터리다. 비어 있고 저장소가 아니다. 만들지 못하면 실행이 `launchFailed`로 실패한다.
+- 원본 출력은 `GHClient` 밖으로 나가지 않는다. 호출자는 파싱된 값(`GHAuthStatus`, `[Issue]`, 버전 첫 줄)만 받는다.
+- 실행 제한은 §2.5의 gh 값이다. 타임아웃과 stdout 잘림은 종료 코드와 관계없이 실패(`timeout`, `outputTruncated`)로 본다. 잘린 JSON은 해석하지 않는다.
+- `authStatus`: 판단은 JSON으로만 한다. JSON이 아니면 종료 코드 4는 `GHAuthStatus.notLoggedIn`, 그 밖의 0이 아닌 코드는 `nonZeroExit`(예: `--json`을 모르는 옛 gh의 `unknown flag: --json`), 0은 `parseFailed`다.
+- 그 밖의 명령은 종료 코드 0만 성공이다. 종료 코드 4(gh의 "인증 필요")는 `GHError.notLoggedIn`, 나머지는 마스킹한 stderr를 담은 `nonZeroExit`다.
+- 에러 타입은 `GitError`와 따로 둔 `GHError`다. gh 문제는 이슈 패널만 끄기 때문이다 (ADR-0004 §4). 사용자에게는 `gh auth login`, `brew install gh`를 복사 가능한 명령으로만 보여 준다.
+- `XDG_CONFIG_HOME`도 전달하지 않는다. gh는 `~/.config/gh`의 설정을 읽는다. 셸에서만 `XDG_CONFIG_HOME`이나 `GH_CONFIG_DIR`을 바꿔 쓰는 사용자는 앱에서 로그인하지 않은 것으로 보인다 (의도된 동작, T10 잔여 위험과 같음).
 
 GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 때만 `OWNER/NAME`을 뽑는다. 그 밖의 호스트는 이슈 패널을 끄고 "github.com 원격 없음"을 보여 준다.
 
@@ -187,7 +199,7 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 | `networkUnavailable` | `Could not resolve host`, `unable to look up`, `Connection refused`, `Connection timed out`, `Operation timed out`, `Network is unreachable` |
 | `notARepository` | `not a git repository` |
 | `dubiousOwnership` | `detected dubious ownership` |
-| `blockedBySecurityPolicy` | `transport 'ext' not allowed`, `transport 'fd' not allowed` |
+| `transportNotAllowed(transport)` | `fatal: transport '<이름>' not allowed`로 **시작하는 줄** (`GIT_ALLOW_PROTOCOL` 밖의 전송, `ext`, `fd`). `remote:` 줄은 인정하지 않는다. 이름은 `[A-Za-z0-9][A-Za-z0-9+.-]*`이고 64자 이하일 때만 메시지에 넣는다 |
 | `configInspectionFailed` | (설정 검사 단계의 비정상 종료나 파싱 실패) |
 
 `dubiousOwnership`이면 메시지에 "앱은 `safe.directory`를 우회하지 않는다"는 안내를 붙인다.

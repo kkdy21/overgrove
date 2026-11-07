@@ -29,6 +29,14 @@ struct GitEnvironment: Sendable, Equatable {
     /// Used when no trusted `core.sshCommand` exists: never prompt (host keys, passphrases) in the background.
     static let defaultSSHCommand = "ssh -o BatchMode=yes"
 
+    /// Transports git may use, as `GIT_ALLOW_PROTOCOL` (security-review.md §3.2, #161).
+    ///
+    /// The variable acts like `protocol.allow=never` with only these set to `always`, and it overrides every config
+    /// value, including a repository's own `protocol.<name>.allow=always`. So a repository cannot make fetch run an
+    /// installed `git-remote-<helper>` through a `<helper>::` URL, `remote.<n>.vcs`, or `url.<base>.insteadOf` (T5).
+    /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
+    static let allowedProtocols = "https:ssh:git:file:http"
+
     /// Parent variables that are passed through unchanged. Everything else is dropped (T10).
     static let passthroughVariables = ["HOME", "USER", "LOGNAME", "TMPDIR", "SSH_AUTH_SOCK"]
 
@@ -36,7 +44,8 @@ struct GitEnvironment: Sendable, Equatable {
     let version: GitVersion
 
     /// The complete child environment (security-review.md §3.2). Nothing else from `parent` reaches git, so
-    /// `GIT_DIR`, `GIT_CONFIG_*`, `GIT_SSH_COMMAND`, `GIT_EXEC_PATH`, `DYLD_*`, and the user's PATH are ignored.
+    /// `GIT_DIR`, `GIT_CONFIG_*`, `GIT_SSH_COMMAND`, `GIT_EXEC_PATH`, `GIT_ALLOW_PROTOCOL`, `DYLD_*`, and the user's
+    /// PATH are ignored.
     ///
     /// - Parameter trustedSSHCommand: `core.sshCommand` from a trusted scope (system, global, Apple built-in), as
     ///   found by `RepoConfigInspector`. Repository-local values are never passed here (T5).
@@ -51,6 +60,7 @@ struct GitEnvironment: Sendable, Equatable {
             "GIT_ASKPASS": "",
             "SSH_ASKPASS": "",
             "GIT_PROXY_COMMAND": "",
+            "GIT_ALLOW_PROTOCOL": allowedProtocols,
             "GIT_SSH_COMMAND": trustedSSHCommand ?? defaultSSHCommand,
             "PATH": path,
         ]

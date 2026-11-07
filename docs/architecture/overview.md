@@ -202,7 +202,8 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | `worktreeMissing` | 워크트리 경로가 사라짐 (prunable) | "워크트리 경로가 없습니다. 터미널에서 `git worktree prune`을 검토하세요." | — |
 | `configInspectionFailed` | 설정 검사 실패 (fail closed) | "저장소 설정을 검사하지 못해 조회를 멈췄습니다." | 수동 |
 | `invalidArgument` | 인자 검증 실패 (T9) | "안전하지 않은 이름이 있어 실행하지 않았습니다." | — |
-| `blockedBySecurityPolicy(detail)` | 보안 정책이 막은 동작 (예: `ext::`·`fd::` 원격) | "보안 정책으로 차단된 원격 형식입니다." | — |
+| `blockedBySecurityPolicy(detail)` | 보안 정책이 막은 동작 | "보안 정책으로 차단된 원격 형식입니다." | — |
+| `transportNotAllowed(transport, detail)` | git이 허용 목록 밖의 전송을 거부함 (`ext::`·`fd::`, `codecommit::` 같은 원격 helper, #161) | "'<이름>' 전송을 쓰는 원격은 fetch하지 않습니다. https, ssh, git, http, 로컬 파일 원격만 가능합니다." | — |
 | `timeout(seconds)` | 타임아웃 | "git 응답이 X초를 넘어 중단했습니다." | 수동 |
 | `outputTruncated` | 출력 상한 초과 | "출력이 너무 커서 일부만 표시합니다." (경고 수준) | — |
 | `authenticationFailed` | fetch 인증 실패 (stderr 패턴) | "원격 인증에 실패했습니다. 터미널에서 git 자격 증명을 확인하세요." | 수동 |
@@ -211,7 +212,9 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | `parseFailed(parser, offset)` | 파서가 형식 위반을 만남 | "git 출력을 해석하지 못했습니다. 버그로 제보해 주세요." | — |
 | `cancelled` | 사용자가 취소함 | 표시하지 않음 | — |
 
-fetch 실패는 `authenticationFailed`, `networkUnavailable`, `timeout`, 그 밖(`nonZeroExit`, `blockedBySecurityPolicy`)으로 분류한다. **분류는 이 에러 모델이 맡는다.** 화면(S-01 상태바, S-05)은 분류 결과와 메시지를 표시만 하고, stderr를 직접 해석하지 않는다.
+fetch 실패는 `authenticationFailed`, `networkUnavailable`, `timeout`, 그 밖(`nonZeroExit`, `transportNotAllowed`, `blockedBySecurityPolicy`)으로 분류한다. **분류는 이 에러 모델이 맡는다.** 화면(S-01 상태바, S-05)은 분류 결과와 메시지를 표시만 하고, stderr를 직접 해석하지 않는다.
+
+gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다: `notInstalled`, `notLoggedIn`(종료 코드 4), `launchFailed`, `invalidArgument`, `timeout`, `outputTruncated`(잘린 JSON은 해석하지 않으므로 실패), `nonZeroExit`, `parseFailed`, `cancelled`. gh 문제는 이슈 패널만 끄고 Git 조회에는 영향을 주지 않는다 (ADR-0004 §4). 로그인 상태 조회(`authStatus()`)에서 gh가 없거나 로그인하지 않은 것은 에러가 아니라 `GHAuthStatus` 값이다. 상세는 [git-command-catalog.md §5](git-command-catalog.md).
 
 ### 6.2 메시지 원칙
 

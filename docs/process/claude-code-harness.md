@@ -50,6 +50,8 @@ hook은 **실수를 막는 장치이지 보안 경계가 아니다.** 같은 규
 - 워크플로우: SHA로 고정되지 않은 `uses:`
 - `HANDOFF.md` 수정(보관 문서)
 
+경로 규칙은 편집 파일이 속한 워크트리의 루트 기준 상대 경로에 적용한다. 그래서 프로젝트 밖 링크 워크트리(`~/dev/overgrove-wt/<branch>/…`)에서도 같은 규칙이 걸린다. 검사 스크립트와 `.gitleaks.toml`은 세션의 체크아웃(`CLAUDE_PROJECT_DIR`)에서 가져온다 (#193).
+
 ### `session-context.sh`
 
 세션을 시작할 때 다음 정보를 Claude 컨텍스트에 넣는다.
