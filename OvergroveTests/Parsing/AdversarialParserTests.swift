@@ -142,6 +142,33 @@ final class AdversarialParserTests: XCTestCase {
         XCTAssertEqual(stash.message, "On main: a\nb", "shown verbatim instead")
     }
 
+    /// Real refs: names git allows but `FullRefName` refuses (`-odd`, `-lead`) are skipped and counted instead of being
+    /// decoded into something git would read as an option; `(detached)` is an ordinary branch here; `gone` is real.
+    func test_PAR_REF_04_realOutputKeepsHostileNamesAndSkipsUnusableOnes() throws {
+        let listing = try RefParser.parse(Fixtures.refs)
+        XCTAssertEqual(
+            listing.branches.map(\.fullName),
+            [
+                "refs/heads/(detached)", "refs/heads/(initial)", "refs/heads/feat/58-x", "refs/heads/main",
+                "refs/heads/한글/🌳-name", "refs/remotes/origin/HEAD", "refs/remotes/origin/main",
+            ]
+        )
+        XCTAssertEqual(listing.tags.map(\.fullName), ["refs/tags/v1-🌳"])
+        XCTAssertEqual(listing.skippedRecords, 2, "refs/heads/-odd and refs/tags/-lead")
+        XCTAssertNotNil(listing.tags.first?.peeledTarget)
+        XCTAssertEqual(listing.branches.filter(\.isHead).map(\.fullName), ["refs/heads/main"])
+        XCTAssertEqual(
+            listing.branches.map(\.upstreamStatus),
+            [
+                .none, .none, .gone(upstream: "refs/remotes/origin/missing"),
+                .tracking(upstream: "refs/remotes/origin/main", ahead: 1, behind: 0), .none, .none, .none,
+            ]
+        )
+        XCTAssertEqual(listing.branches.compactMap(\.symbolicTarget), ["refs/remotes/origin/main"])
+        XCTAssertTrue(listing.branches.allSatisfy { FullRefName($0.fullName) != nil })
+        XCTAssertEqual(try RevListParser.parse(Fixtures.revList), RevListParser.Counts(behind: 0, ahead: 1))
+    }
+
     // MARK: - §12 NFD/NFC
 
     func test_PAR_STATUS_10_realNFDNameIsNotNormalizedAndRoundTrips() throws {
@@ -239,6 +266,7 @@ final class AdversarialParserTests: XCTestCase {
             XCTAssertEqual(try ConfigParser.parse(Data(), truncated: truncated).entries, [])
             XCTAssertEqual(try NumstatParser.parseCommitFiles(Data(), truncated: truncated).files, [])
             XCTAssertEqual(try NumstatParser.parseStashFiles(Data(), truncated: truncated).files, [])
+            XCTAssertEqual(try RefParser.parse(Data(), truncated: truncated).branches, [])
             assertFails("StatusParser", try StatusParser.parse(Data(), truncated: truncated), "no branch headers")
             assertFails("LogParser", try LogParser.parseCommitMeta(Data(), truncated: truncated), "no commit")
         }
@@ -251,6 +279,10 @@ final class AdversarialParserTests: XCTestCase {
         assertFails("ConfigParser", try ConfigParser.parse(loneNUL))
         assertFails("NumstatParser", try NumstatParser.parseCommitFiles(loneNUL))
         assertFails("NumstatParser", try NumstatParser.parseStashFiles(loneNUL))
+        assertFails("RefParser", try RefParser.parse(loneNUL))
+        assertFails("RefParser", try RefParser.parse(Data([0x0A])), "lone LF")
+        assertFails("RevListParser", try RevListParser.parse(Data()))
+        assertFails("RevListParser", try RevListParser.parse(Data([0x0A])))
     }
 
     // MARK: - §12 submodules
@@ -305,6 +337,8 @@ final class AdversarialParserTests: XCTestCase {
                 try NumstatParser.parseCommitFiles(data(":100644 100644 \(value) \(oid) M\u{0}p\u{0}1\t0\tp\u{0}")),
                 value
             )
+            assertFails(
+                "RefParser", try RefParser.parse(data("refs/heads/x\u{0}\(value)\u{0}\u{0}\u{0} \u{0}\u{0}\u{0}\n")))
         }
     }
 
@@ -330,12 +364,14 @@ final class AdversarialParserTests: XCTestCase {
         assertFails("StashParser", try StashParser.parse(data(stash("On main: a\u{0}b") + stash("On main: c"))))
         assertFails(
             "StashParser", try StashParser.parse(data(stash("On main: a\u{0}b\u{0}c\u{0}d\u{0}e") + stash("x"))))
+        let ref = "refs/heads/a\u{0}b\u{0}\(oid)\u{0}\u{0}\u{0} \u{0}1\u{0}\u{0}\n"
+        assertFails("RefParser", try RefParser.parse(data(ref)), "a NUL in a ref name adds a field")
     }
 
     // MARK: - §1.5 / §1.6 structure
 
-    /// Output that was not cut must end with its terminator; a missing final NUL is a format violation in every
-    /// NUL-terminated parser, never a silently accepted last record.
+    /// Output that was not cut must end with its terminator (NUL, or LF for refs and rev-list); a missing one is a
+    /// format violation in every parser, never a silently accepted last record.
     func test_PAR_PROP_01_missingFinalNULFailsWithoutTruncation() {
         assertFails("WorktreeParser", try WorktreeParser.parse(Fixtures.worktree.dropLast()))
         assertFails("StatusParser", try StatusParser.parse(Fixtures.status.dropLast()))
@@ -346,5 +382,7 @@ final class AdversarialParserTests: XCTestCase {
         assertFails("ConfigParser", try ConfigParser.parse(data("local\u{0}x.flag")), "valueless boolean")
         assertFails("NumstatParser", try NumstatParser.parseCommitFiles(Fixtures.numstat.dropLast()))
         assertFails("NumstatParser", try NumstatParser.parseStashFiles(Fixtures.stashShow.dropLast()))
+        assertFails("RefParser", try RefParser.parse(Fixtures.refs.dropLast()))
+        assertFails("RevListParser", try RevListParser.parse(Fixtures.revList.dropLast()))
     }
 }

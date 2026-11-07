@@ -82,4 +82,28 @@ enum AdversarialParserFixtures {
                 + "cmUKZmFsc2UAbG9jYWwAY29yZS5sb2dhbGxyZWZ1cGRhdGVzCnRydWUAbG9jYWwAY29yZS5pZ25vcmVjYXNlCnRydWUAbG9jYWwA"
                 + "Y29yZS5wcmVjb21wb3NldW5pY29kZQpmYWxzZQA="
         ) ?? Data()
+
+    /// `for-each-ref` in the `ReadOnlyGitCommand.refs` format (`LC_ALL=C`) after adding branches `(detached)`,
+    /// `(initial)`, `한글/🌳-name`, `refs/heads/-odd` and `refs/tags/-lead` (via `update-ref`), an annotated tag `v1-🌳`,
+    /// `main` one commit ahead of `origin/main`, `feat/58-x` tracking a missing branch (`gone`), and `origin/HEAD`.
+    static let refs =
+        Data(
+            base64Encoded:
+                "cmVmcy9oZWFkcy8oZGV0YWNoZWQpADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAAAgADE3OTM4NTM2"
+                + "NTIAAApyZWZzL2hlYWRzLyhpbml0aWFsKQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAAIAAxNzkz"
+                + "ODUzNjUyAAAKcmVmcy9oZWFkcy8tb2RkADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAAAgADE3OTM4"
+                + "NTM2NTIAAApyZWZzL2hlYWRzL2ZlYXQvNTgteAA3OTcyMmYyNTcwYzE4YTQzMTVjM2MzZDkwMzU1NzJjNmE1YTBmYzQ1AAByZWZz"
+                + "L3JlbW90ZXMvb3JpZ2luL21pc3NpbmcAIAAxNzkzODUzNjUyAABnb25lCnJlZnMvaGVhZHMvbWFpbgA0YWI0NGJkODFhMmZkODg4"
+                + "ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAByZWZzL3JlbW90ZXMvb3JpZ2luL21haW4AKgAxNzkzODUzNjUyAABhaGVhZCAxCnJl"
+                + "ZnMvaGVhZHMv7ZWc6riAL/CfjLMtbmFtZQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAAIAAxNzkz"
+                + "ODUzNjUyAAAKcmVmcy9yZW1vdGVzL29yaWdpbi9IRUFEADc5NzIyZjI1NzBjMThhNDMxNWMzYzNkOTAzNTU3MmM2YTVhMGZjNDUA"
+                + "AAAgADE3OTM4NTM2NTIAcmVmcy9yZW1vdGVzL29yaWdpbi9tYWluAApyZWZzL3JlbW90ZXMvb3JpZ2luL21haW4ANzk3MjJmMjU3"
+                + "MGMxOGE0MzE1YzNjM2Q5MDM1NTcyYzZhNWEwZmM0NQAAACAAMTc5Mzg1MzY1MgAACnJlZnMvdGFncy8tbGVhZAA0YWI0NGJkODFh"
+                + "MmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAAIAAxNzkzODUzNjUyAAAKcmVmcy90YWdzL3YxLfCfjLMAM2JhYTc2NDU0"
+                + "ZDM3MzM2YzQzOTFlMWE0NDM2YjY4NDVkMmJkNDMyOQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAg"
+                + "AAAACg=="
+        ) ?? Data()
+
+    /// `rev-list --left-right --count --end-of-options refs/remotes/origin/main...refs/heads/main`.
+    static let revList = Data("0\t1\n".utf8)
 }
