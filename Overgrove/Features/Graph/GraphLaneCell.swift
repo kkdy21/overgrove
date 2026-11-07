@@ -85,11 +85,14 @@ struct GraphLaneCell: View {
     let avatarIndex: Int
     let wipLine: GraphWipLine
     let width: CGFloat
+    /// How far the lanes are scrolled sideways (#255); the cell shows `offset ..< offset + width`.
+    var offset: CGFloat = 0
 
     private func lane(_ index: Int) -> Color { Tokens.Color.graphLanes[index % Tokens.Color.graphLanes.count] }
 
     var body: some View {
         Canvas { context, size in
+            context.translateBy(x: -offset, y: 0)
             let center = size.height / 2
             let stroke = StrokeStyle(lineWidth: Tokens.Size.graphEdge, lineCap: .round)
             for segment in row.incoming {
@@ -104,9 +107,9 @@ struct GraphLaneCell: View {
             }
             drawWipLine(&context, center: center)
             let nodeX = GraphGeometry.x(row.column)
-            if hasRefs {
+            if hasRefs && nodeX > offset {
                 var connector = Path()
-                connector.move(to: CGPoint(x: 0, y: center))
+                connector.move(to: CGPoint(x: offset, y: center))
                 connector.addLine(to: CGPoint(x: nodeX, y: center))
                 context.stroke(
                     connector, with: .color(lane(row.colorIndex).opacity(0.55)), style: StrokeStyle(lineWidth: 1.5))
@@ -170,9 +173,11 @@ struct GraphWipCell: View {
     let column: Int
     let hasLine: Bool
     let width: CGFloat
+    var offset: CGFloat = 0
 
     var body: some View {
         Canvas { context, size in
+            context.translateBy(x: -offset, y: 0)
             let point = CGPoint(x: GraphGeometry.x(column), y: size.height / 2)
             let dashed = StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [3, 3])
             if hasLine {
@@ -188,6 +193,7 @@ struct GraphWipCell: View {
                     .foregroundStyle(Tokens.Color.graphWipNode), at: point)
         }
         .frame(width: width, height: GraphGeometry.rowHeight)
+        .clipped()
         .accessibilityHidden(true)
     }
 }

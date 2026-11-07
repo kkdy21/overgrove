@@ -83,6 +83,18 @@ struct GraphColumnLayout: Codable, Equatable, Sendable {
         setting(column, to: width(of: column) + delta)
     }
 
+    /// Refs, Graph, and the visible columns right of Message: everything but Message.
+    func fixedWidth(graphWidth: CGFloat) -> CGFloat {
+        width(of: .refs) + graphWidth + trailingColumns.reduce(0) { $0 + width(of: $1) }
+    }
+
+    /// A divider drag inside a panel `panelWidth` wide: widening stops where Message would drop under its minimum;
+    /// narrowing always applies.
+    func resizing(_ column: Column, by delta: CGFloat, panelWidth: CGFloat, graphWidth: CGFloat) -> GraphColumnLayout {
+        let room = max(0, panelWidth - fixedWidth(graphWidth: graphWidth) - Self.messageMinimum)
+        return resizing(column, by: min(delta, room))
+    }
+
     /// The `⋯` menu: shows or hides Author, Date, or SHA. Refs stays.
     func toggling(_ column: Column) -> GraphColumnLayout {
         guard column.isHideable else { return self }

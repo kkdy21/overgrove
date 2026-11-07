@@ -39,6 +39,18 @@ final class GraphColumnLayoutTests: XCTestCase {
         XCTAssertEqual(layout.limitState(of: .sha), .between)
     }
 
+    func testWideningStopsWhereMessageWouldGoUnderItsMinimum() {
+        let layout = GraphColumnLayout.default
+        // 172 + 54 + 108 + 52 + 72 = 458 fixed; a 700pt panel leaves Message 242, so 42pt of room.
+        XCTAssertEqual(layout.fixedWidth(graphWidth: 54), 458)
+        let widened = layout.resizing(.author, by: 80, panelWidth: 700, graphWidth: 54)
+        XCTAssertEqual(widened.width(of: .author), 150)
+        XCTAssertEqual(
+            layout.resizing(.author, by: -30, panelWidth: 300, graphWidth: 54).width(of: .author), 78,
+            "narrowing always applies, even in a cramped panel")
+        XCTAssertEqual(layout.toggling(.sha).fixedWidth(graphWidth: 54), 386, "hidden columns take no room")
+    }
+
     func testOnlyAuthorDateAndShaCanBeHidden() {
         let layout = GraphColumnLayout.default.toggling(.author).toggling(.sha).toggling(.refs)
         XCTAssertFalse(layout.isVisible(.author))
