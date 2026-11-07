@@ -200,7 +200,7 @@ struct ComparisonListView: View {
             if row.hasUncommittedChanges {
                 Text("WIP").font(Tokens.Font.pill).foregroundStyle(Tokens.Color.textSecondary)
                     .padding(.horizontal, Tokens.Spacing.xs)
-                    .background(Capsule().strokeBorder(Tokens.Color.borderSeparator))
+                    .controlOutline(Capsule())
             }
             Spacer(minLength: Tokens.Spacing.xs)
             if let change = row.lineChange {
