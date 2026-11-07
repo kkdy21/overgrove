@@ -15,7 +15,7 @@ struct IntegrationContext {
     let safety: RepoSafetyContext
 
     static func make(fixture: FixtureRepo) async throws -> IntegrationContext {
-        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: fixture.environment)
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let config = try await client.run(.configList, in: fixture.repository, safety: .preInspection)
         let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(config.stdout))

@@ -460,7 +460,7 @@ final class RepoConfigInspectorTests: XCTestCase {
 final class RepoConfigInspectorFixtureTests: XCTestCase {
     func testSECT4_FilterPayloadRunsWithoutNeutralizationAndNotWithIt() async throws {
         let fixture = try await makeFixture(malicious: true)
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let worktree = fixture.repository
         // Make the `*.md` files stat-dirty so every status re-reads them through `filter.fixtureproc.process`. A fresh
