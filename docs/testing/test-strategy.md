@@ -65,6 +65,7 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
   - SEC ID는 security-review.md의 **검증** 줄에서 `SEC-Tn-xx (` 형태로 한 번만, 자기 위협 절(`### Tn.`) 아래에 정의된다. 본문의 다른 곳에서 참조하는 것은 괜찮다.
   - 문서·테스트(`SEC-Tn-xx`, `SEC-Tn-xx/yy`, `testSECTn_xx`)·스크립트·워크플로에서 언급한 SEC ID는 모두 정의되어 있다.
   - parsing-spec 표의 PAR 행과 §4.1의 E 행도 ID가 겹치지 않는다.
+  - PERF ID는 benchmark-plan.md §3 표에 한 번만 정의된다(§3.1의 테스트 표는 ID를 일부러 반복한다). 문서·테스트(`PERF-nn`, `test_PERF_nn_…`)·스크립트·워크플로에서 쓴 PERF ID는 모두 §3에 있어야 한다(#288). 아직 머지되지 않은 PR의 PERF ID는 그 PR이 §3에 행을 더한 뒤에 쓴다.
 - 병렬 PR이 같은 새 번호를 고르면, 나중에 main을 merge한 쪽의 CI가 실패한다. 그쪽이 다음 빈 번호로 바꾼다.
 
 번호는 한 번 쓰면 재사용하지 않는다. 테스트를 지우면 원본 표에 "폐기"로 남긴다.
