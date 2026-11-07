@@ -94,6 +94,8 @@ final class AppState {
     var inspectionGeneration = 0
     /// Fetch / Stop, the status bar's fetch field, and the last fetch of each repository (#77).
     let fetch: FetchController
+    /// Auto fetch for this window (#79); off unless Settings turns it on.
+    let autoFetch: AutoFetchScheduler
     /// The status bar's fetch field.
     var fetchStatus: FetchStatus { fetch.status }
     /// A local refresh is running: the status bar shows `Refreshing…` (interaction.md §4).
@@ -203,6 +205,7 @@ final class AppState {
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
         // After a fetch, re-query the worktree list, every status (ahead/behind), and the refs (overview.md §5).
+        autoFetch = AutoFetchScheduler(settings: self.settings, fetch: fetch)
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
     }
