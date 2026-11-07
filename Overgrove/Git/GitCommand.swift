@@ -29,7 +29,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case worktreeNumstat(staged: Bool)
     /// Diff of an untracked file against /dev/null. Only a `WorktreeFile` (checked by `PathValidator`) is accepted.
     case untrackedPreview(WorktreeFile)
-    case fileHistory(path: GitPath, limit: Int)
+    /// A file's newest `limit` commits (S-09, #70): `follow` tracks renames (`--follow`), `--numstat` gives the file's
+    /// `+n −m` and its path in each commit. There is no `--skip`: with `--follow` it skips the wrong commits (a later
+    /// page repeated the rename commit), so later pages ask for more and drop what is already shown.
+    case fileHistory(path: GitPath, follow: Bool = true, limit: Int)
     /// Files changed in the worktree since it branched off `base` (the merge-base, like a pull request's "Files
     /// changed", #157). With `includeWorkingTree`, uncommitted tracked changes count too; untracked files come from
     /// `status`.
@@ -141,8 +144,12 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .untrackedPreview(let file):
             return ["diff", "--no-index", "--no-ext-diff", "--no-textconv"] + Self.porcelainDiffOptions
                 + ["--", "/dev/null", file.relativePath]
-        case .fileHistory(let path, let limit):
-            return ["log", "--follow", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit))]
+        case .fileHistory(let path, let follow, let limit):
+            // `--numstat` (with the porcelain options, `--no-ext-diff`, `--no-textconv`) adds one stat per commit for
+            // the followed path; a rename prints both names (parsing-spec.md §5.3).
+            return ["log"] + (follow ? ["--follow"] : []) + [
+                "-z", Self.logFormat, "--numstat", "--no-ext-diff", "--no-textconv",
+            ] + Self.porcelainDiffOptions + ["-n", String(Self.clampLimit(limit))]
                 + (try Self.pathspec(path))
         case .compareFiles(let base, let includeWorkingTree):
             // `--no-abbrev`: `git diff --raw` abbreviates object names, unlike `diff-tree`. `--ignore-submodules=dirty`

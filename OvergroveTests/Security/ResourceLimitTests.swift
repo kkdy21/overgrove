@@ -100,8 +100,9 @@ final class ResourceLimitTests: XCTestCase {
                 name: "file history", command: .fileHistory(path: GitPath("docs/manual.md"), limit: 100),
                 directory: repo
             ) { data, truncated in
-                let page = try LogParser.parseGraph(data, truncated: truncated)
-                return (page.commits.map(\.oid.hex), page.isPartial)
+                let page = try LogParser.parseFileHistory(
+                    data, path: GitPath("docs/manual.md"), truncated: truncated)
+                return (page.entries.map(\.commit.oid.hex), page.isPartial)
             },
             Case(name: "refs", command: .refs, directory: repo) { data, truncated in
                 let listing = try RefParser.parse(data, truncated: truncated)
