@@ -22,7 +22,13 @@ final class GraphStreamTests: XCTestCase {
         return records
     }()
 
-    private static let all = try! LogParser.parseGraph(LogParserFixtures.sha1Graph).commits
+    /// The fixture's nine commits, parsed in `setUp` so a bad fixture fails the test instead of the host (#312).
+    private var all: [CommitNode] = []
+
+    override func setUp() async throws {
+        all = try LogParser.parseGraph(LogParserFixtures.sha1Graph).commits
+        XCTAssertEqual(all.count, Self.records.count)
+    }
 
     /// A stream fed by the test: `start` never reads anything itself.
     private func stream(maximum: Int = 100) -> (GraphStream, Gate) {
@@ -39,7 +45,7 @@ final class GraphStreamTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(30))
         stream.receive(Self.records[2])
         let result = await page.value
-        XCTAssertEqual(result, .commits(Array(Self.all.prefix(3))))
+        XCTAssertEqual(result, .commits(Array(all.prefix(3))))
         XCTAssertFalse(stream.hasEnded, "the page did not wait for the end")
         gate.open(finishedNormally: true)
     }
@@ -51,7 +57,7 @@ final class GraphStreamTests: XCTestCase {
         _ = await stream.page(skip: 0, limit: 1)
         try await waitUntil { stream.hasEnded }
         let result1 = await stream.page(skip: 6, limit: 5)
-        XCTAssertEqual(result1, .commits(Array(Self.all[6...])))
+        XCTAssertEqual(result1, .commits(Array(all[6...])))
         let result2 = await stream.page(skip: 9, limit: 5)
         XCTAssertEqual(result2, .commits([]), "past the end: an empty page")
     }
@@ -62,7 +68,7 @@ final class GraphStreamTests: XCTestCase {
         gate.open(finishedNormally: false)  // timeout, output cap, failure
         try await waitUntil { stream.hasEnded }
         let result3 = await stream.page(skip: 0, limit: 2)
-        XCTAssertEqual(result3, .commits(Array(Self.all.prefix(2))), "what arrived")
+        XCTAssertEqual(result3, .commits(Array(all.prefix(2))), "what arrived")
         let result4 = await stream.page(skip: 0, limit: 3)
         XCTAssertEqual(result4, .beyond, "not covered: read it with --skip")
     }
@@ -73,7 +79,7 @@ final class GraphStreamTests: XCTestCase {
         gate.open(finishedNormally: true)
         try await waitUntil { stream.hasEnded }
         let result5 = await stream.page(skip: 0, limit: 4)
-        XCTAssertEqual(result5, .commits(Array(Self.all.prefix(4))))
+        XCTAssertEqual(result5, .commits(Array(all.prefix(4))))
         let result6 = await stream.page(skip: 4, limit: 4)
         XCTAssertEqual(result6, .beyond, "there may be more history past the ceiling")
     }
@@ -93,7 +99,7 @@ final class GraphStreamTests: XCTestCase {
         stream.receive(Data("x\0\0\0\0\0\0\0".utf8))
         XCTAssertTrue(stream.hasEnded)
         let result8 = await stream.page(skip: 0, limit: 1)
-        XCTAssertEqual(result8, .commits([Self.all[0]]))
+        XCTAssertEqual(result8, .commits([all[0]]))
         let result9 = await stream.page(skip: 0, limit: 2)
         XCTAssertEqual(result9, .beyond)
         gate.open(finishedNormally: true)
@@ -124,7 +130,7 @@ final class GraphStreamTests: XCTestCase {
         XCTAssertFalse(stream.hasEnded, "another page may still want the stream")
         for record in Self.records { stream.receive(record) }
         let result11 = await stream.page(skip: 0, limit: 5)
-        XCTAssertEqual(result11, .commits(Array(Self.all.prefix(5))))
+        XCTAssertEqual(result11, .commits(Array(all.prefix(5))))
         gate.open(finishedNormally: true)
     }
 
