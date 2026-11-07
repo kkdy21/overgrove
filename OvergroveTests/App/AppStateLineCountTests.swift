@@ -174,6 +174,24 @@ final class AppStateLineCountTests: XCTestCase {
         XCTAssertEqual(state.wipDetailModel?.lineTotals, WipLineTotals(added: 5, deleted: 0))
     }
 
+    /// The `Worktree` segment (S-05) needs no counts; switching back to `Changes` asks for them.
+    func testCountsAreAskedForWhenTheChangesSegmentIsShown() async {
+        let loader = GatedLineCountLoader()
+        let state = await loadedState(lineCounts: loader)
+        state.selectWorktree(login)
+        state.showWorktreeDetail()
+        state.selectWorktree(feature)  // stays on the Worktree segment
+        await loader.waitForRequests(1)
+        XCTAssertEqual(loader.requestedPaths, [login], "only the worktree selected on Changes")
+
+        state.showChanges()
+        await loader.waitForRequests(2)
+        XCTAssertEqual(loader.requestedPaths, [login, feature])
+        loader.release(1, with: .success(featureCounts))
+        await state.lineCountTask?.value
+        XCTAssertEqual(state.wipDetailModel?.lineTotals, WipLineTotals(added: 32, deleted: 6))
+    }
+
     func testLateAnswerForAnotherWorktreeIsDropped() async {
         let loader = GatedLineCountLoader()
         let state = await loadedState(lineCounts: loader)

@@ -73,8 +73,17 @@ enum WorktreeListStatus: Equatable {
 /// The detail panel's subject (interaction.md §1). #65 selects worktrees; commits, stashes, and issues come with
 /// their screens.
 enum MainSelection: Equatable {
-    /// The worktree's uncommitted changes (S-02, #66).
+    /// The worktree's uncommitted changes (S-02, #66): the `Changes` segment.
     case wip(GitPath)
+    /// The worktree's facts and safety (S-05, #67): the `Worktree` segment.
+    case worktreeInfo(GitPath)
+
+    /// The worktree either segment shows.
+    var worktreePath: GitPath {
+        switch self {
+        case .wip(let path), .worktreeInfo(let path): path
+        }
+    }
 }
 
 /// The groups of the WIP detail (S-02), in display order.
@@ -107,6 +116,7 @@ final class AppState {
     private let registrar: RepositoryRegistrar
     private let loader: any RepositoryLoading
     private let lineCountLoader: (any LineCountLoading)?
+    private let inspector: any WorktreeInspecting
 
     private(set) var repository: RepositoryContext?
     /// The toolbar chip and status bar fields, derived from the worktree list and the focused worktree.
@@ -118,6 +128,10 @@ final class AppState {
     private(set) var selection: MainSelection?
     /// The file picked in the detail panel; the diff viewer (S-10, #69) shows it. Cleared when the focus moves.
     private(set) var selectedFile: FileSelection?
+    /// S-05 inspections by worktree, read when the `Worktree` segment opens; cleared on every reload.
+    private(set) var worktreeInspections: [GitPath: WorktreeInspection] = [:]
+    /// The S-05 inspection in flight; tests await it.
+    private(set) var inspectionTask: Task<Void, Never>?
     /// The load in flight; tests await it.
     private(set) var loadTask: Task<Void, Never>?
     /// The selected worktree's line counts (#230), for the status they were requested with.
@@ -145,17 +159,20 @@ final class AppState {
     ///   - registry: Shared by every window; the registered repositories.
     ///   - registrar: Checks a picked folder (`.live` probes it through `GitClient`).
     ///   - loader: Inspects an opened repository and loads its worktrees.
+    ///   - inspector: Reads one worktree's configuration for S-05.
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
+        inspector: any WorktreeInspecting = LiveWorktreeInspector.live,
         lineCountLoader: (any LineCountLoading)? = nil
     ) {
         self.layoutStore = layoutStore
         self.registry = registry
         self.registrar = registrar
         self.loader = loader
+        self.inspector = inspector
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
     }
 
@@ -181,6 +198,9 @@ final class AppState {
         lineCountTask?.cancel()
         lineCountTask = nil
         lineCounts = nil
+        inspectionTask?.cancel()
+        inspectionTask = nil
+        worktreeInspections = [:]
         fetchStatus = .never
         searchText = ""
     }
@@ -214,8 +234,11 @@ final class AppState {
         case .success(let listing):
             worktreeList = .loaded(listing)
             focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
-            if case .wip(let path) = selection, path != focusedWorktreePath { selection = nil }
+            if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
             selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
+            // Configuration may have changed since the last inspection.
+            worktreeInspections = [:]
+            if case .worktreeInfo = selection { inspectSelectedWorktree() }
             snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
             // Keep the picked file only while it is still listed in the same group.
             // Same rule as `selectFile`: the row must still exist and still be selectable.
@@ -250,9 +273,58 @@ final class AppState {
         else { return }
         if focusedWorktreePath != path { selectedFile = nil }
         focusedWorktreePath = path
-        selection = .wip(path)
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: path)
+        // The segment the user chose stays when they move to another worktree; `Changes` is the default.
+        if case .worktreeInfo = selection {
+            selection = .worktreeInfo(path)
+            inspectSelectedWorktree()
+        } else {
+            selection = .wip(path)
+            requestLineCounts()
+        }
+    }
+
+    // MARK: Worktree detail (#67)
+
+    /// The `Changes | Worktree` segment.
+    func showChanges() {
+        guard let path = selection?.worktreePath else { return }
+        selection = .wip(path)
         requestLineCounts()
+    }
+
+    func showWorktreeDetail() {
+        guard let path = selection?.worktreePath else { return }
+        selection = .worktreeInfo(path)
+        inspectSelectedWorktree()
+    }
+
+    /// S-05 for the selected worktree, `nil` unless its `Worktree` segment is shown.
+    var worktreeDetailModel: WorktreeDetailModel? {
+        guard case .worktreeInfo(let path) = selection, let entry = entry(at: path) else { return nil }
+        return WorktreeDetailModel(
+            entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date())
+    }
+
+    private func entry(at path: GitPath) -> WorktreeListing.Entry? {
+        guard case .loaded(let listing) = worktreeList else { return nil }
+        return listing.entries.first { $0.worktree.path == path }
+    }
+
+    /// Reads the shown worktree's configuration once per load, only for worktrees `RepositoryService` verified.
+    private func inspectSelectedWorktree() {
+        guard case .worktreeInfo(let path) = selection, worktreeInspections[path] == nil,
+            let entry = entry(at: path), WorktreeDetailModel.shouldInspect(entry), let repository
+        else { return }
+        let generation = loadGeneration
+        let inspector = inspector
+        let target = repository.repository
+        inspectionTask?.cancel()
+        inspectionTask = Task { [weak self] in
+            let result = await inspector.inspect(entry.worktree, of: target)
+            guard let self, generation == self.loadGeneration, !Task.isCancelled else { return }
+            self.worktreeInspections[path] = result
+        }
     }
 
     // MARK: WIP detail (#66)
