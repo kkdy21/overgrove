@@ -341,6 +341,7 @@ struct WorktreeListModel: Equatable {
             headShortSHA: (state?.headCommit ?? worktree.head)?.short,
             ahead: state?.upstream.ahead ?? 0,
             behind: state?.upstream.behind ?? 0,
-            hasUpstream: hasUpstream)
+            hasUpstream: hasUpstream,
+            slowStatus: entry.slowStatusHint)
     }
 }
