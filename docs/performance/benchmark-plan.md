@@ -62,6 +62,7 @@ scripts/make-bench-repo.sh --commits 3000 --files 500 --worktrees 4 <dir>  # 스
 | PERF-07 | 10만 커밋 적재 시 최대 메모리 | PB-6 | `XCTMemoryMetric` | Phase 3 |
 | PERF-08 | git 계층 기준선 (B01–B18) | 전체 하한 | `measure-git-baseline.sh` | 지금, git 버전 변경 시 |
 | PERF-09 | Diff 뷰어 파싱·행·첫 프레임 (500줄, 1만 줄, 약 10MB) | PB-9 | XCTest, 합성 patch | Phase 3 |
+| PERF-10 | 자동 새로고침 중 파일 쓰기 폭주 (파일 6,000개를 8초 동안, #119) | PB-10 | XCTest, 실제 FSEvents + 표준 픽스처, git 호출 기록 | Phase 3 |
 
 ### 3.1 지금 있는 XCTest (#90)
 
@@ -75,6 +76,7 @@ UI 계층(첫 프레임, hitch)은 아직 재지 않는다. 아래 테스트는 
 | PERF-04 | `GraphEnginePerformanceTests.test_GRA_09_*` | 합성 이력 10만 | `XCTClockMetric`, `XCTMemoryMetric` 기준값(`.xcbaseline`). 항상 실행 |
 | PERF-05 | `GraphBenchmarkTests.test_PERF_05_pageLayoutFitsAFrame` | 합성 이력 10만 | 스크롤 중 메인 액터가 하는 페이지 레이아웃 최대 < 16.7ms (PB-4 대리 측정). hitch ratio는 XCUITest 이후 |
 | PERF-09 | `DiffViewerBenchmarkTests.test_PERF_09_diffRendering` | 합성 patch | 1만 줄 이하 파싱+행 p95 < 200ms, 모든 크기 첫 프레임 p95 < 16ms (PB-9) |
+| PERF-10 | `AutoRefreshBenchmarkTests.testPERF10_EventStormKeepsStatusRunsBounded` | 표준 픽스처, `node_modules`에 파일 6,000개 | 요청 ≤ 경과/2초 + 1, status 실행 = 요청 수 (PB-10). git CPU는 기록만 |
 
 모든 테스트는 `PERF-nn RESULT` 표를 출력한다. 예산을 넘으면 실패한다(`OVERGROVE_PERF_REPORT_ONLY=1`이면 표에만 적는다). 반복 횟수와 p95 계산은 [performance-budget.md §1](performance-budget.md)을 따른다. 21회 실행에서 첫 회를 버리고, nearest-rank로 구한다.
 
