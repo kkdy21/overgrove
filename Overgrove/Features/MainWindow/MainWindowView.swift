@@ -98,7 +98,9 @@ struct MainWindowView: View {
                     highlightedCommits: state.highlightedCommits, onSelectCommit: state.selectCommit,
                     onSelectWip: state.selectFocusedWip, onOpen: { state.focus(.detail) },
                     diff: state.diffViewer,
-                    onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
+                    onShowGraph: state.clearSelectedFile,
+                    onShowDiffHistory: state.shownFileHistoryTarget == nil ? nil : { state.showHistoryOfShownFile() },
+                    history: historyCenter, comparison: comparisonCenter)
             } detail: {
                 DetailPanel(
                     focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
@@ -173,6 +175,15 @@ struct MainWindowView: View {
         guard state.fetch.canFetch else { return nil }
         let fetch = state.fetch
         return { fetch.status.isFetching ? fetch.stop() : fetch.fetch() }
+    }
+
+    /// S-09 when a file's history is open (#70).
+    private var historyCenter: FileHistoryView? {
+        guard state.history.isOpen else { return nil }
+        let state = state
+        return FileHistoryView(
+            store: state.history, onBack: state.closeHistory, onSelect: state.selectHistoryEntry,
+            onOpen: state.openHistoryDiff)
     }
 
     /// ⌘R from the toolbar; disabled without a repository.
