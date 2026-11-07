@@ -121,7 +121,7 @@ final class RepositoryRegistrarTests: XCTestCase {
     }
 
     func testFolderOutsideARepositoryIsRefused() async throws {
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let plain = try temporaryDirectory()
         do {
             _ = try await registrar(environment: environment).register(plain)

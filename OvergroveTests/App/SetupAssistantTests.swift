@@ -85,7 +85,7 @@ final class GitSetupCheckerTests: XCTestCase {
     }
 
     func testLiveCheckerReportsTheDiscoveredGit() async throws {
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let checker = LiveGitSetupChecker(client: { GitClient(environment: environment) })
         let status = await checker.check()
         XCTAssertEqual(status, .ready(version: environment.version, path: environment.executable.path))
