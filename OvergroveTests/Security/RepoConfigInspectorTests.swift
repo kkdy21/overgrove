@@ -277,10 +277,10 @@ final class RepoConfigInspectorTests: XCTestCase {
         ConfigEntry(scope: .local, section: section, subsection: subsection, variable: variable, value: value)
     }
 
-    /// SEC-T15-08. A repository chooses its `config --list` output up to the stdout cap. 100,000 remotes (plus as many repeats)
+    /// SEC-T15-12. A repository chooses its `config --list` output up to the stdout cap. 100,000 remotes (plus as many repeats)
     /// and 100,000 URL-specific TLS and proxy keys must not cost quadratic time: before #262 the remote, TLS, and
     /// proxy de-duplication and the trusted-proxy lookup each scanned what came before.
-    func testSECT15_08_HugeListingIsInspectedInLinearTime() {
+    func testSECT15_12_HugeListingIsInspectedInLinearTime() {
         var entries: [ConfigEntry] = []
         for index in 0..<100_000 {
             entries.append(local("remote", "r\(index)", "url", "https://example.invalid/\(index).git"))
