@@ -26,9 +26,18 @@ final class SecurityReportTests: XCTestCase {
                 ? RepoConfigInspector.inspect(ConfigParser.Listing(entries: entries, isPartial: false)) : nil,
             failure: failure, inspectedAt: now, gitVersion: GitVersion(major: 2, minor: 50, patch: 1),
             commonArguments: common,
-            diffArguments: try! ReadOnlyGitCommand.worktreeDiff(path: GitPath("f"), staged: false)
-                .subcommandArguments(),
+            diffArguments: diffArguments(),
             hookExecutables: hooks, realPath: nil)
+    }
+
+    /// The worktree diff's arguments; a build failure fails the test instead of crashing the host (#312).
+    private func diffArguments() -> [String] {
+        do {
+            return try ReadOnlyGitCommand.worktreeDiff(path: GitPath("f"), staged: false).subcommandArguments()
+        } catch {
+            XCTFail("worktreeDiff arguments: \(error)")
+            return []
+        }
     }
 
     private func report(

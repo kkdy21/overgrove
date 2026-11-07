@@ -161,6 +161,8 @@ struct WorktreeRowView: View {
     let isSelected: Bool
     let isListFocused: Bool
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     var body: some View {
         HStack(spacing: Tokens.Spacing.sm) {
             tile
@@ -185,8 +187,19 @@ struct WorktreeRowView: View {
         .frame(height: Tokens.Size.rowWorktree)
         .background {
             if isSelected {
-                RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
+                let shape = RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
+                shape
                     .fill(isListFocused ? Tokens.Color.surfaceSelection : Tokens.Color.surfaceSelectionInactive)
+                    .overlay {
+                        // The branch's lane colour, so the selection reads as the same line in the graph (#300).
+                        if let lane = laneColor {
+                            shape.strokeBorder(
+                                lane.opacity(
+                                    Tokens.refMarkOpacity(contrast, normal: Tokens.Graph.worktreeSelectionBorderOpacity)
+                                ),
+                                lineWidth: Tokens.controlOutlineWidth(contrast))
+                        }
+                    }
             }
         }
         .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
@@ -221,7 +234,7 @@ struct WorktreeRowView: View {
     /// and its line in the graph read as one (art-direction.md §6, #255). Detached and missing worktrees, and tips
     /// not loaded yet, stay neutral. The focused worktree gets an accent dot at the top right.
     private var tile: some View {
-        let lane = row.laneIndex.map { Tokens.Color.graphLanes[$0 % Tokens.Color.graphLanes.count] }
+        let lane = laneColor
         return RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
             .fill(lane.map { $0.opacity(Self.tileLaneOpacity) } ?? Tokens.Color.surfaceRaised)
             .frame(width: Self.tileSize, height: Self.tileSize)
@@ -241,6 +254,11 @@ struct WorktreeRowView: View {
                 }
             }
             .accessibilityHidden(true)
+    }
+
+    /// The branch tip's lane colour; `nil` for detached and missing worktrees and tips not loaded yet.
+    private var laneColor: Color? {
+        row.laneIndex.map { Tokens.Color.graphLanes[$0 % Tokens.Color.graphLanes.count] }
     }
 
     /// art-direction.md §6: 22pt tile, 8pt focus dot. No size tokens for them.
