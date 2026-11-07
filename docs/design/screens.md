@@ -577,7 +577,7 @@ Advanced
 | 자동 fetch | 끔, 간격 10분 | `UserDefaults` | 켜면 백그라운드 fetch. 창이 비활성일 때는 건너뛴다 |
 | 원격 URL 전체 표시 | 끔 | `UserDefaults` | 끄면 호스트와 경로만(`github.com/acme/api`), 켜면 마스킹한 전체 URL. 둘 다 마스킹한 URL에서 만들므로 자격 증명이 나오지 않는다 (T11). S-05의 원격 목록과 사이드바 REMOTE 그룹 툴팁에 적용한다 (#86) |
 | untracked 표시 | 켬 | `UserDefaults` | 끄면 `--untracked-files=no` |
-| git 실행 파일 | `/usr/bin/git` | `UserDefaults` | 절대 경로만 허용한다. 바꿀 때 `--version`으로 검증 (ADR-0008) |
+| git 실행 파일 | 기본 git(`xcode-select`의 git) | `UserDefaults` (`settings.gitExecutablePath`) | 절대 경로만 허용한다. 경로·소유자·권한·버전 규칙을 고를 때와 git을 찾을 때마다 검사하고, 실제 경로·버전·Apple 서명 여부·partial clone fetch 가능 여부를 보여 준다. 실패하면 조회를 멈추고 `Use Default`를 보여 준다 ([ADR-0019](../adr/0019-user-chosen-git-executable.md)) |
 | 상세 로그 | 끔 | `UserDefaults` | 로그에도 마스킹을 적용한다 (T16) |
 
 토큰이나 비밀 값을 입력받는 필드는 **없다.**
