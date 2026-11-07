@@ -138,13 +138,15 @@ struct IssueBadgeContext: Equatable {
     var known: Set<Int> = []
     /// `OWNER/NAME` the issues come from, for `owner/repo#n` in commit subjects.
     var repository: String?
+    /// Escaped titles of the fetched issues, for S-03's Issues row.
+    var titles: [Int: String] = [:]
     var select: (Int) -> Void = { _ in }
 
     func isKnown(_ number: Int) -> Bool { known.contains(number) }
 
     /// The closure is not compared: a new one each render must not redraw every badge.
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.known == rhs.known && lhs.repository == rhs.repository
+        lhs.known == rhs.known && lhs.repository == rhs.repository && lhs.titles == rhs.titles
     }
 }
 

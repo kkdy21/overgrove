@@ -154,6 +154,7 @@ final class AppStateIssueTests: XCTestCase {
         let badges = state.issueBadgeContext
         XCTAssertEqual(badges.known, [12, 42])
         XCTAssertEqual(badges.repository, "team/app")
+        XCTAssertEqual(badges.titles[42], "Rate limit")
         badges.select(12)
         XCTAssertEqual(state.selection, .issue(12), "a known badge selects its issue")
         badges.select(42)

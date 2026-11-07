@@ -49,6 +49,8 @@ actor RepositoryService {
     static let defaultCachedRepositories = 8
     /// Base comparisons kept across all repositories (#157).
     static let cachedComparisons = 32
+    /// Commit details kept across all repositories (#69). Commits never change, so only the bound evicts them.
+    static let cachedCommitDetails = 200
     /// Graph pages kept across all repositories (#68): 40 pages of 500 commits.
     static let cachedGraphPages = 40
     /// Worktrees queried per load (#226, T15). Each one costs three git processes (probe, config, status), and the list
@@ -75,6 +77,8 @@ actor RepositoryService {
     /// Base comparisons (#157), keyed so that a moved base tip, a new HEAD, or (with the working tree) a newer status
     /// query makes a new entry (`RepositoryService+Compare.swift`).
     var comparisons = BoundedCache<ComparisonKey, WorktreeComparison>(capacity: RepositoryService.cachedComparisons)
+    /// Commit details (#69), by repository and object ID (`RepositoryService+Commit.swift`).
+    var commitDetails = BoundedCache<CommitKey, CommitDetail>(capacity: RepositoryService.cachedCommitDetails)
     /// Graph pages (#68), keyed by the ref set they were read with (`RepositoryService+Graph.swift`).
     var graphPages = BoundedCache<GraphPageKey, LogParser.GraphPage>(capacity: RepositoryService.cachedGraphPages)
 
@@ -113,6 +117,7 @@ actor RepositoryService {
         cache.removeValue(for: id)
         lineCountCache[id] = nil
         comparisons.removeAll { $0.repositoryID == id }
+        commitDetails.removeAll { $0.repositoryID == id }
         graphPages.removeAll { $0.repositoryID == id }
         await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
     }

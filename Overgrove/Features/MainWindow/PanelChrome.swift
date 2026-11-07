@@ -149,6 +149,7 @@ struct GraphPanel: View {
     var graphStore: GraphStore?
     /// Commits outlined for the selected issue (#82).
     var highlightedCommits: Set<ObjectID> = []
+    var onSelectCommit: ((ObjectID) -> Void)?
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -173,7 +174,9 @@ struct GraphPanel: View {
         } content: {
             switch graphStore?.status {
             case .loaded?:
-                if let graphStore { GraphView(store: graphStore, highlighted: highlightedCommits) }
+                if let graphStore {
+                    GraphView(store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits)
+                }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed(let message)?:
@@ -198,6 +201,13 @@ struct DetailPanel: View {
     var onSelectFile: (FileSelection) -> Void = { _ in }
     /// `nil` hides the segment (nothing selected, or a selection that is not a worktree).
     var showsWorktreeSegment: Bool?
+    /// S-03 when a commit is selected (#69).
+    var commitModel: CommitDetailModel?
+    var commitLane = 0
+    var selectedCommitFile: GitPath?
+    var onSelectCommitFile: (FileStat) -> Void = { _ in }
+    var onSelectParent: (ObjectID) -> Void = { _ in }
+    var onShowAllCommitFiles: () -> Void = {}
     /// S-04 when a stash is selected (#71).
     var stashModel: StashDetailModel?
     var selectedStashFile: GitPath?
@@ -213,18 +223,21 @@ struct DetailPanel: View {
     /// S-05's `Compare with Base…` (#158); `nil` disables it.
     var onCompare: (() -> Void)?
 
+    private var title: String {
+        if let commitModel { return "Commit \(commitModel.shortSHA)" }
+        if let issueModel { return issueModel.number }
+        if let stashModel { return stashModel.refName }
+        return wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title ?? "No selection"
+    }
+
     var body: some View {
         PanelSection {
             Image(systemName: "tree.fill").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
-            Text(
-                issueModel?.number ?? stashModel?.refName ?? wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?
-                    .title
-                    ?? "No selection"
-            )
-            .font(Tokens.Font.headline)
-            .foregroundStyle(Tokens.Color.textPrimary)
-            .lineLimit(1)
-            .truncationMode(.middle)
+            Text(title)
+                .font(Tokens.Font.headline)
+                .foregroundStyle(Tokens.Color.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.middle)
             if let isWorktree = showsWorktreeSegment {
                 Spacer(minLength: Tokens.Spacing.sm)
                 DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
@@ -232,6 +245,11 @@ struct DetailPanel: View {
         } content: {
             if let comparisonList {
                 comparisonList
+            } else if let commitModel {
+                CommitDetailView(
+                    model: commitModel, laneIndex: commitLane, selectedFile: selectedCommitFile,
+                    onSelectFile: onSelectCommitFile, onSelectParent: onSelectParent,
+                    onShowAllFiles: onShowAllCommitFiles)
             } else if let issueModel {
                 IssueDetailView(
                     model: issueModel, onSelectWorktree: onSelectLinkedWorktree,
