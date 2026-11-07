@@ -130,8 +130,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - fetch는 `--no-recurse-submodules`로 서브모듈 원격에 연결하지 않는다.
 - **잔여 위험**:
   - 로컬 경로 원격(`file://` 또는 경로)을 fetch하면, **상대 저장소**에서 `git-upload-pack`이 실행되면서 그 저장소의 설정을 읽는다. 상대 저장소의 설정은 검사하지 않는다. v0.2.0의 "신뢰하지 않음 모드"(#107)에서는 `GIT_ALLOW_PROTOCOL` 목록에서 `file`을 빼는 방식으로 막을 수 있다 (`transport 'file' not allowed`, 확인).
-  - `ftp://`·`ftps://` 원격도 목록에 없어 fetch할 수 없다. git 내장 전송이지만 거의 쓰이지 않아 감수한다.
-  - 커스텀 원격 helper(`codecommit::` 등)를 쓰는 원격은 v0.1에서 fetch할 수 없다. 허용이 필요해지면 저장소 설정이 아니라 앱 설정(사용자 선택)으로만 연다 (v0.1 범위 밖).
+  - 내장 전송만 허용하는 데 따른 사용 제약(`ftp://`·`ftps://`, 커스텀 원격 helper는 fetch 불가, 허용하더라도 앱 설정으로만)은 사용자 안내 [guides/self-hosted-git.md §Limits](../guides/self-hosted-git.md#limits)로 옮겼다(#161, #152).
   - 사용자가 global에 정의한 `core.gitProxy`는 v0.1에서 무시된다 (빈 `GIT_PROXY_COMMAND`). `git://` 프로토콜은 드물어서 감수한다.
   - **터미널로 보내는 안내.** fetch 실패 안내(`FetchFailureGuidance`, #78)가 사용자를 터미널로 보내면, 터미널의 git은 이 문서의 대응을 하나도 적용받지 않는다. 악성 저장소가 일부러 fetch를 실패시켜(예: 처음 보는 호스트로 `hostKeyNotTrusted`) 사용자가 페이로드를 직접 실행하게 만들 수 있다(#200 보안 검토).
     - 그래서 `git` 명령은 `RepoSecurityReport`에 항목이 없을 때만 복사용으로 제시하고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다.
