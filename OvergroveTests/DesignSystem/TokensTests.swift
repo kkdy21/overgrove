@@ -260,13 +260,23 @@ final class TokensTests: XCTestCase {
         }
     }
 
+    /// Status and lane colours held to 4.5:1 in the Increase Contrast modes.
+    private static let increaseContrastForegrounds =
+        ["statusStaged", "statusUnstaged", "statusUntracked", "statusConflicted", "statusAhead", "statusBehind"]
+        + ["statusLocked", "statusPrunable", "statusOk", "statusWarning", "statusError"]
+        + (0..<8).map { "graphLane\($0)" }
+
+    /// #37: the 4.5:1 check below lists its colours by hand; a status or lane token added later must join it.
+    func testIncreaseContrastCheckCoversEveryStatusAndLaneColor() throws {
+        let paths = try assetColorPaths().filter { $0.hasPrefix("status.") || $0.hasPrefix("graph.lane.") }
+        XCTAssertEqual(paths.count, 19, "11 status colours and 8 lanes")
+        XCTAssertEqual(Set(paths.map(camelCase)), Set(Self.increaseContrastForegrounds))
+    }
+
     /// The same rule as `colorcheck.py` for the Increase Contrast modes, measured on the committed color sets.
     func testIncreaseContrastStatusAndLaneColorsReach4_5OnEveryPanelSurface() throws {
         let surfaces = ["surfaceCanvas", "surfacePanel", "surfacePanelHeader", "surfaceRaised", "surfaceSelection"]
-        let foregrounds =
-            ["statusStaged", "statusUnstaged", "statusUntracked", "statusConflicted", "statusAhead", "statusBehind"]
-            + ["statusLocked", "statusPrunable", "statusOk", "statusWarning", "statusError"]
-            + (0..<8).map { "graphLane\($0)" }
+        let foregrounds = Self.increaseContrastForegrounds
         for mode in [Mode.highContrast, .darkHighContrast] {
             for foreground in foregrounds {
                 let color = try asset("Tokens/\(foreground)", mode)
@@ -385,6 +395,9 @@ final class TokensTests: XCTestCase {
                 "ref-pill-border-opacity": Tokens.Graph.refPillBorderOpacity,
                 "ref-connector-opacity": Tokens.Graph.refConnectorOpacity,
                 "selection-opacity": Tokens.Graph.selectionOpacity,
+                "worktree-selection-border-opacity": Tokens.Graph.worktreeSelectionBorderOpacity,
+                "focus-chip-fill-opacity": Tokens.Graph.focusChipFillOpacity,
+                "focus-chip-border-opacity": Tokens.Graph.focusChipBorderOpacity,
             ]
         )
         XCTAssertEqual(Tokens.Font.sectionHeaderTracking, 0.66, accuracy: 1e-9, "0.06em at 11px")

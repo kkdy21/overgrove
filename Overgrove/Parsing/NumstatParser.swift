@@ -38,18 +38,22 @@ enum NumstatParser {
 
         var files: [FileStat] = []
         files.reserveCapacity(raws.count)
+        var next = 0
         while !reader.isAtEnd, let stat = try readNumstat(&reader) {
-            guard files.count < raws.count else {
+            // A working-tree record git found unchanged after all has no numstat (PAR-NUMSTAT-07, #305).
+            while next < raws.count, raws[next].isWorkingTreeSide, !stat.matches(raws[next]) { next += 1 }
+            guard next < raws.count else {
                 throw failure("numstat record without raw record", at: stat.offset)
             }
-            let raw = raws[files.count]
-            guard stat.path == raw.path, stat.originalPath == raw.originalPath else {
+            let raw = raws[next]
+            guard stat.matches(raw) else {
                 throw failure("numstat record does not match raw record", at: stat.offset)
             }
             files.append(stat.fileStat(status: raw.status, isFromUntracked: false))
+            next += 1
         }
-        if !truncated, files.count < raws.count {
-            throw failure("raw record without numstat record", at: raws[files.count].offset)
+        if !truncated, let missing = raws[next...].first(where: { !$0.isWorkingTreeSide }) {
+            throw failure("raw record without numstat record", at: missing.offset)
         }
         return Files(files: files, isPartial: truncated)
     }
@@ -111,6 +115,10 @@ extension NumstatParser {
         let originalPath: Token?
         let path: Token
         let offset: Int
+        /// The destination object name is all zeros: the file is read from the working tree, so git only decides
+        /// whether it changed when it diffs it. A stat-only change (mtime touched, content the same) then has no
+        /// numstat record.
+        let isWorkingTreeSide: Bool
     }
 
     private struct NumstatRecord {
@@ -119,6 +127,8 @@ extension NumstatParser {
         let originalPath: Token?
         let path: Token
         let offset: Int
+
+        func matches(_ raw: RawRecord) -> Bool { path == raw.path && originalPath == raw.originalPath }
 
         func fileStat(status: FileChange.Status?, isFromUntracked: Bool) -> FileStat {
             FileStat(
@@ -142,14 +152,16 @@ extension NumstatParser {
     private static func readRaw(_ reader: inout TokenReader) throws -> RawRecord? {
         guard let meta = try reader.next() else { return nil }
         let offset = reader.offset(of: meta)
-        let status = try rawStatus(meta, offset: offset)
+        let (status, isWorkingTreeSide) = try rawStatus(meta, offset: offset)
         guard let first = try reader.path() else { return nil }
         switch status {
         case .renamed, .copied:
             guard let second = try reader.path() else { return nil }
-            return RawRecord(status: status, originalPath: first, path: second, offset: offset)
+            return RawRecord(
+                status: status, originalPath: first, path: second, offset: offset, isWorkingTreeSide: isWorkingTreeSide)
         default:
-            return RawRecord(status: status, originalPath: nil, path: first, offset: offset)
+            return RawRecord(
+                status: status, originalPath: nil, path: first, offset: offset, isWorkingTreeSide: isWorkingTreeSide)
         }
     }
 
@@ -178,14 +190,14 @@ extension NumstatParser {
 
     // MARK: Fields
 
-    private static func rawStatus(_ meta: Token, offset: Int) throws -> FileChange.Status {
+    private static func rawStatus(_ meta: Token, offset: Int) throws -> (FileChange.Status, isWorkingTreeSide: Bool) {
         let parts = meta.dropFirst().split(separator: space, omittingEmptySubsequences: false)
         guard parts.count == 5, isMode(parts[0]), isMode(parts[1]),
             let source = ObjectID(text(parts[2])), let destination = ObjectID(text(parts[3])),
             source.isSHA256 == destination.isSHA256
         else { throw failure("invalid raw record", at: offset) }
         guard let status = status(parts[4]) else { throw failure("invalid status", at: offset) }
-        return status
+        return (status, destination.hex.utf8.allSatisfy { $0 == UInt8(ascii: "0") })
     }
 
     /// git prints modes as exactly six octal digits (`%06o`), e.g. `000000`, `100644`, `120000`, `160000`.

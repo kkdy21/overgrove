@@ -157,6 +157,8 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
   - `graph.wip-node`: WIP 점선 노드. 레인 색을 쓰지 않는다
   - `graph.ref-pill-local-fill-opacity` 0.2, `graph.ref-pill-border-opacity` 0.75, `graph.ref-connector-opacity` 0.55: 알약과 연결선
   - `graph.selection-opacity` 0.16: 선택 행의 레인 색 틴트
+  - `graph.worktree-selection-border-opacity` 0.55: 선택한 WORKTREES 행의 레인 색 테두리(art-direction.md §6, #300)
+  - `graph.focus-chip-fill-opacity` 0.14, `graph.focus-chip-border-opacity` 0.45: 툴바 포커스 워크트리 칩의 레인 색 틴트(§3.4). colorcheck가 모든 레인에서 칩 위 `text.primary`·`text.secondary` 4.5:1을 확인한다. `text.tertiary`는 light에서 일부 레인에 못 미쳐 칩의 `⌘J`는 `text.secondary`로 그린다
 
   그리는 규칙은 [art-direction.md §5](art-direction.md#5-그래프)에 있다.
 
