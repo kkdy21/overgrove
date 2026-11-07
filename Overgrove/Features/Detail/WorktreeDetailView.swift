@@ -122,6 +122,11 @@ private struct SecurityCard: View {
             if let reason = model.blockingReason {
                 banner(symbol: "xmark.octagon", tint: Tokens.Color.statusError, title: "Queries stopped", text: reason)
             }
+            if let reason = model.failure {
+                banner(
+                    symbol: "exclamationmark.triangle", tint: Tokens.Color.statusWarning,
+                    title: "Configuration not read", text: reason)
+            }
             if let reason = model.fetchBlockingReason {
                 banner(
                     symbol: "arrow.down.circle", tint: Tokens.Color.statusWarning, title: "Fetch disabled",
@@ -146,7 +151,7 @@ private struct SecurityCard: View {
                     .accessibilityElement(children: .combine)
                 }
             }
-            Text("Values are never shown. Overridden for every git command Overgrove runs in this worktree.")
+            Text("Values are never shown. Each setting is overridden where git would use it.")
                 .font(Tokens.Font.caption)
                 .foregroundStyle(Tokens.Color.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -204,6 +209,13 @@ private struct SecurityRowView: View {
                         .foregroundStyle(Tokens.Color.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.middle)
+                        .padding(.leading, Tokens.Spacing.xl)
+                }
+                if let advice = row.advice {
+                    Text(advice)
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.leading, Tokens.Spacing.xl)
                 }
             }

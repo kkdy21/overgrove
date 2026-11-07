@@ -11,7 +11,8 @@ struct WorktreeInspection: Sendable, Equatable {
     let commonArguments: [String]
     /// What the catalog passes to `git diff` for a worktree file, for the external diff / textconv row.
     let diffArguments: [String]
-    /// Executable hook files that are not `.sample` (security-review.md §6, "Hooks disabled" ⚠). Names only.
+    /// Executable hook files that are not `.sample` (security-review.md §6, "Hooks disabled" ⚠), as display lines:
+    /// `hooks/pre-commit`, `+3 more`, or a note that `hooks` is a link. Names only, escaped.
     let hookExecutables: [String]
     /// The real location when the worktree path goes through a symbolic link (T14); `nil` otherwise.
     let realPath: String?
@@ -23,7 +24,8 @@ protocol WorktreeInspecting: Sendable {
 }
 
 /// The app's inspector. Call it only for worktrees `RepositoryService` already verified belong to the repository
-/// (`.loaded` or `.notQueried(.inspectionBlocked)`); it runs in the worktree's canonical path.
+/// (`.loaded` or `.notQueried(.inspectionBlocked)`). It runs in the worktree's canonical path and checks it belongs
+/// again (probe) before reading the configuration.
 struct LiveWorktreeInspector: WorktreeInspecting {
     let client: @Sendable () async throws -> GitClient
     var now: @Sendable () -> Date = { Date() }
@@ -60,6 +62,16 @@ struct LiveWorktreeInspector: WorktreeInspecting {
         }
         let version = client.environment.version
         do {
+            // The folder was verified when the list loaded, but links can change since. Check again right before
+            // reading its configuration, with the same rule as RepositoryService (security review of #67, T14).
+            let probe = try await client.run(.probeRepository, in: directory, safety: .preInspection)
+            guard let reported = try? ProbeParser.parse(probe.stdout),
+                Self.belongs(directory, probe: reported, commonDirectory: repository.commonGitDirectoryURL)
+            else {
+                return result(
+                    nil, failure: "This folder no longer matches the repository, so it was not inspected.",
+                    version: version)
+            }
             let output = try await client.run(.configList, in: directory, safety: .preInspection)
             let listing = try ConfigParser.parse(output.stdout, truncated: output.isTruncated)
             return result(RepoConfigInspector.inspect(listing), failure: nil, version: version)
@@ -71,20 +83,55 @@ struct LiveWorktreeInspector: WorktreeInspecting {
         }
     }
 
+    /// git reports this folder itself as the worktree, the shared directory matches, and the folder's `.git` leads
+    /// there directly (main worktree) or as a linked worktree whose administrative entry points back.
+    static func belongs(_ directory: URL, probe: RepositoryProbe, commonDirectory: URL) -> Bool {
+        guard let common = PathValidator.canonical(commonDirectory),
+            PathValidator.canonical(probe.topLevel)?.path == directory.path,
+            PathValidator.canonical(probe.commonDirectory)?.path == common.path
+        else { return false }
+        if PathValidator.gitDirectory(of: directory)?.path == common.path { return true }
+        if case .linked = PathValidator.checkLinkedWorktree(root: directory, commonGitDirectory: common) { return true }
+        return false
+    }
+
+    /// Directory entries read at most while looking for hooks; a forged repository could hold millions.
+    static let maximumHookScan = 1_000
+
     /// Executable files in `<common dir>/hooks` that are not `.sample`. git would run them without
-    /// `core.hooksPath=/dev/null`. Only names are read, never contents.
+    /// `core.hooksPath=/dev/null`. Only names are read, never contents. A `hooks` that is itself a link is reported
+    /// as such and not followed. A link inside counts as executable whatever its target (macOS gives links mode
+    /// 0755): over-reporting is the safe side.
     static func hookExecutables(in commonDirectory: URL) -> [String] {
         let hooks = commonDirectory.appendingPathComponent("hooks", isDirectory: true)
-        guard let names = try? FileManager.default.contentsOfDirectory(atPath: hooks.path) else { return [] }
-        let executables = names.sorted().filter { name in
-            guard !name.hasSuffix(".sample") else { return false }
-            var info = stat()
-            let path = hooks.appendingPathComponent(name).path
-            // lstat: a link is reported as itself, not followed.
-            guard lstat(path, &info) == 0 else { return false }
-            let type = info.st_mode & S_IFMT
-            return (type == S_IFREG || type == S_IFLNK) && info.st_mode & 0o111 != 0
+        var info = stat()
+        guard lstat(hooks.path, &info) == 0 else { return [] }
+        switch info.st_mode & S_IFMT {
+        case S_IFDIR: break
+        case S_IFLNK: return ["hooks (a link, not followed)"]
+        default: return []
         }
-        return Array(executables.prefix(maximumHookNames)).map(PathValidator.displayable)
+        guard let directory = opendir(hooks.path) else { return [] }
+        defer { closedir(directory) }
+        var names: [String] = []
+        var scanned = 0
+        while scanned < maximumHookScan, let entry = readdir(directory) {
+            scanned += 1
+            let name = withUnsafeBytes(of: entry.pointee.d_name) { raw in
+                String(decoding: raw.prefix(Int(entry.pointee.d_namlen)), as: UTF8.self)
+            }
+            guard name != ".", name != "..", !name.hasSuffix(".sample") else { continue }
+            var file = stat()
+            // lstat: a link is reported as itself, not followed.
+            guard lstat(hooks.appendingPathComponent(name).path, &file) == 0 else { continue }
+            let type = file.st_mode & S_IFMT
+            if (type == S_IFREG || type == S_IFLNK) && file.st_mode & 0o111 != 0 { names.append("hooks/" + name) }
+        }
+        names.sort()
+        var shown = names.prefix(maximumHookNames).map(PathValidator.displayable)
+        let more = names.count - shown.count
+        if more > 0 { shown.append("+\(more) more") }
+        if scanned >= maximumHookScan { shown.append("(stopped after \(maximumHookScan) entries)") }
+        return shown
     }
 }

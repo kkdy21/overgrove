@@ -22,9 +22,9 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
             isBare: false)
     }
 
-    /// The normal fixture's only finding is the `mirror` remote with credentials in its URL (fixtures.md): shown
-    /// masked (T11). Every other row is applied.
-    func testNormalFixtureShowsOnlyTheMaskedRemote() async throws {
+    /// SEC-T11-04 (S-05, QA-SEC-05): the normal fixture's only finding is the `mirror` remote with credentials in its
+    /// URL (fixtures.md), shown masked. Every other row is applied.
+    func testSECT11_04_NormalFixtureShowsOnlyTheMaskedRemote() async throws {
         let fixture = try await makeFixture()
         let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
         let result = await inspector(environment: environment, parent: fixture.environment)
@@ -72,7 +72,46 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
             try "hook\n".write(to: file, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes([.posixPermissions: mode], ofItemAtPath: file.path)
         }
-        XCTAssertEqual(LiveWorktreeInspector.hookExecutables(in: base), ["pre-commit"])
+        XCTAssertEqual(LiveWorktreeInspector.hookExecutables(in: base), ["hooks/pre-commit"])
         XCTAssertEqual(LiveWorktreeInspector.hookExecutables(in: base.appendingPathComponent("none")), [])
+
+        // A link inside counts (over-reporting is the safe side); a linked `hooks` folder is not followed.
+        try FileManager.default.createSymbolicLink(
+            at: hooks.appendingPathComponent("post-merge"),
+            withDestinationURL: hooks.appendingPathComponent("notes.txt"))
+        XCTAssertEqual(LiveWorktreeInspector.hookExecutables(in: base), ["hooks/post-merge", "hooks/pre-commit"])
+        let linked = base.appendingPathComponent("linked", isDirectory: true)
+        try FileManager.default.createDirectory(at: linked, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: linked.appendingPathComponent("hooks"), withDestinationURL: hooks)
+        XCTAssertEqual(LiveWorktreeInspector.hookExecutables(in: linked), ["hooks (a link, not followed)"])
+    }
+
+    func testHookListIsCapped() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "overgrove-hooks-\(UUID().uuidString)", isDirectory: true)
+        let hooks = base.appendingPathComponent("hooks", isDirectory: true)
+        try FileManager.default.createDirectory(at: hooks, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: base) }
+        for index in 0..<(LiveWorktreeInspector.maximumHookNames + 3) {
+            let file = hooks.appendingPathComponent(String(format: "hook-%02d", index))
+            try "hook\n".write(to: file, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
+        }
+        let listed = LiveWorktreeInspector.hookExecutables(in: base)
+        XCTAssertEqual(listed.count, LiveWorktreeInspector.maximumHookNames + 1)
+        XCTAssertEqual(listed.last, "+3 more")
+    }
+
+    /// The folder is checked again right before its configuration is read: a path that git resolves to another
+    /// worktree root (here a subfolder) is not inspected (security review of #67, T14).
+    func testFolderThatNoLongerMatchesIsNotInspected() async throws {
+        let fixture = try await makeFixture()
+        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let subfolder = fixture.repository.appendingPathComponent("src", isDirectory: true)
+        let result = await inspector(environment: environment, parent: fixture.environment)
+            .inspect(worktree(subfolder), of: repository(fixture))
+        XCTAssertNil(result.inspection)
+        XCTAssertEqual(result.failure, "This folder no longer matches the repository, so it was not inspected.")
     }
 }

@@ -87,7 +87,7 @@ final class WorktreeDetailModelTests: XCTestCase {
     }
 
     func testExecutableHooksTurnTheHooksRowWarning() throws {
-        let row = try row("Hooks disabled", in: security([], hooks: ["pre-commit", "post-checkout"]))
+        let row = try row("Hooks disabled", in: security([], hooks: ["hooks/pre-commit", "hooks/post-checkout"]))
         XCTAssertEqual(row.mark, .neutralized)
         XCTAssertEqual(row.details, ["hooks/pre-commit", "hooks/post-checkout"])
     }
@@ -113,14 +113,15 @@ final class WorktreeDetailModelTests: XCTestCase {
 
     func testFailedInspectionShowsTheFailure() throws {
         let model = WorktreeSecurityModel(inspection([], failure: "git did not respond\u{202E}"))
-        XCTAssertEqual(model.blockingReason, "git did not respond\\u{202E}")
+        XCTAssertEqual(model.failure, "git did not respond\\u{202E}")
+        XCTAssertNil(model.blockingReason, "a failed re-read is not a stopped query (§6)")
         XCTAssertEqual(model.rows.map(\.title).count, 4, "configuration rows need an inspection")
         XCTAssertTrue(
             model.rows.filter { $0.title != "External diff and textconv disabled" }.allSatisfy { $0.mark == .unknown })
     }
 
-    /// T11: URLs with credentials show masked, never with the secret.
-    func testRemoteURLCredentialsAreMasked() throws {
+    /// SEC-T11-04 (S-05): URLs with credentials show masked, never with the secret, with removal advice.
+    func testSECT11_04_RemoteURLCredentialsAreMasked() throws {
         let model = security([
             entry(.local, "remote.origin.url", "https://kim:\(secret)@github.com/acme/api.git"),
             entry(.local, "remote.mirror.url", "https://github.com/acme/api.git"),
@@ -130,6 +131,26 @@ final class WorktreeDetailModelTests: XCTestCase {
         XCTAssertEqual(row.details.count, 1)
         XCTAssertTrue(row.details[0].hasPrefix("origin: https://"), row.details[0])
         XCTAssertFalse(row.details[0].contains(secret))
+        XCTAssertEqual(row.advice, "Remove the credentials from the URL and let a credential helper store them.")
+        XCTAssertNil(try self.row("Remote URL credentials masked", in: security([])).advice)
+    }
+
+    /// A filter blocked because its name has `=` shows ✕, not "overridden" (security review of #67).
+    func testFilterBlockedByEqualsSignIsUnknown() throws {
+        let model = security([entry(.local, "filter.a=b.clean")])
+        XCTAssertNotNil(model.blockingReason)
+        XCTAssertEqual(try row("Filters neutralized", in: model).mark, .unknown)
+        // Blocked for another reason: filters themselves were fine.
+        let other = security([entry(.local, "http.a=b.proxy"), entry(.local, "filter.lfs.clean")])
+        XCTAssertNotNil(other.blockingReason)
+        XCTAssertEqual(try row("Filters neutralized", in: other).mark, .neutralized)
+    }
+
+    /// Keys listed under "other" are masked too (`url.<url>.insteadof`).
+    func testOtherKeysAreMasked() {
+        let model = security([entry(.local, "url.https://kim:\(secret)@h.example/.insteadof", "https://h.example/")])
+        XCTAssertEqual(model.others.count, 1)
+        XCTAssertFalse(model.others[0].key.contains(secret), model.others[0].key)
     }
 
     func testFetchBlockingAndPartialCloneBanners() {

@@ -163,6 +163,8 @@ struct WorktreeSecurityModel: Equatable {
         let mark: Mark
         /// Key names (never values) behind a ⚠ or ✕, shown when the row is expanded. Escaped.
         let details: [String]
+        /// What the user can do, shown under the details (security-review.md T11: remove credentials from URLs).
+        var advice: String?
         var id: String { title }
     }
 
@@ -180,6 +182,9 @@ struct WorktreeSecurityModel: Equatable {
     let gitVersion: String?
     /// Queries are stopped (✕): the reason. Shown above the rows.
     let blockingReason: String?
+    /// This worktree's configuration could not be read for S-05 (the rows that need it show ✕). Unlike
+    /// `blockingReason`, queries may still be running (security review of #67).
+    let failure: String?
     /// Queries run, but `git fetch` will not (e.g. a repository-local TLS certificate).
     let fetchBlockingReason: String?
     let rows: [Row]
@@ -191,7 +196,8 @@ struct WorktreeSecurityModel: Equatable {
         let inspection = result.inspection
         let findings = inspection?.report.findings ?? []
         let blocked = inspection?.report.blockingReason
-        blockingReason = blocked.map(PathValidator.displayable) ?? result.failure.map(PathValidator.displayable)
+        blockingReason = blocked.map(PathValidator.displayable)
+        failure = result.failure.map(PathValidator.displayable)
         var fetchReason = inspection?.fetchBlockingReason
         if fetchReason == nil, inspection?.isPartialClone == true {
             fetchReason = "This repository is a partial clone; Overgrove never downloads missing objects."
@@ -226,10 +232,12 @@ struct WorktreeSecurityModel: Equatable {
         var rows = [
             row(
                 "Hooks disabled", unknown: notInspected || !hooksGuarded,
-                details: hookKeys + result.hookExecutables.map { "hooks/\($0)" }),
+                details: hookKeys + result.hookExecutables),
             row("fsmonitor disabled", unknown: notInspected || !fsmonitorGuarded, details: fsmonitorKeys),
             row("External diff and textconv disabled", unknown: !diffGuarded, details: diffKeys),
-            row("Filters neutralized", unknown: inspection == nil || Self.isFilterBlock(blocked), details: filterKeys),
+            row(
+                "Filters neutralized", unknown: inspection == nil || (blocked != nil && Self.hasUnsafeFilter(findings)),
+                details: filterKeys),
         ]
         if let inspection {
             let transportKeys = keys {
@@ -242,7 +250,15 @@ struct WorktreeSecurityModel: Equatable {
                 row("Transport commands neutralized", unknown: false, details: transportKeys),
                 row("Repository credential helpers ignored", unknown: false, details: helperKeys),
                 row("TLS verification kept on", unknown: false, details: tlsKeys),
-                row("Remote URL credentials masked", unknown: false, details: Self.remotesWithCredentials(inspection)),
+                {
+                    var masked = row(
+                        "Remote URL credentials masked", unknown: false,
+                        details: Self.remotesWithCredentials(inspection))
+                    if !masked.details.isEmpty {
+                        masked.advice = "Remove the credentials from the URL and let a credential helper store them."
+                    }
+                    return masked
+                }(),
             ]
         }
         self.rows = rows
@@ -280,8 +296,13 @@ struct WorktreeSecurityModel: Equatable {
         entry.section == "diff" && ["external", "textconv", "command"].contains(entry.variable)
     }
 
-    private static func isFilterBlock(_ reason: String?) -> Bool {
-        reason?.localizedCaseInsensitiveContains("filter") == true
+    /// A filter key the inspector cannot neutralize: a driver name it refuses, or one with `=` (which would split the
+    /// `-c` argument). These are what block queries for filters (RepoConfigInspector).
+    private static func hasUnsafeFilter(_ findings: [RepoSecurityReport.Finding]) -> Bool {
+        findings.contains { finding in
+            guard finding.entry.section == "filter", let driver = finding.entry.subsection else { return false }
+            return driver.contains("=") || !ConfigParser.isNeutralizableDriverName(driver)
+        }
     }
 
     private static func hasPair(_ arguments: [String], _ setting: String) -> Bool {
