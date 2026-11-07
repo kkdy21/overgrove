@@ -1,13 +1,40 @@
 import Foundation
 import Observation
 
-/// A repository the user added. Only paths are stored (overview.md §8): no bookmarks, remote URLs, or credentials.
+/// A repository the user added. Only paths and the untrusted flag are stored (overview.md §8): no bookmarks, remote
+/// URLs, or credentials.
 struct RegisteredRepository: Codable, Equatable, Hashable, Identifiable, Sendable {
     /// The main worktree, where repository-wide commands run. `nil` for a bare repository (#222), whose
     /// repository-wide commands run in `commonDirectoryPath` and worktree commands in its linked worktrees.
     let rootPath: String?
     /// The shared git directory. Worktrees of one repository share it, so it is the identity.
     let commonDirectoryPath: String
+    /// Untrusted mode (#107, ADR-0009): no fetch from a remote on this Mac, and Open in Terminal always asks first.
+    /// Off by default.
+    var isUntrusted: Bool
+
+    init(rootPath: String?, commonDirectoryPath: String, isUntrusted: Bool = false) {
+        self.rootPath = rootPath
+        self.commonDirectoryPath = commonDirectoryPath
+        self.isUntrusted = isUntrusted
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case rootPath, commonDirectoryPath, isUntrusted
+    }
+
+    /// Entries saved before #107 have no flag and read as trusted. A flag that is present but not a boolean reads as
+    /// untrusted: stored values are untrusted, and the entry still loads.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        rootPath = try container.decodeIfPresent(String.self, forKey: .rootPath)
+        commonDirectoryPath = try container.decode(String.self, forKey: .commonDirectoryPath)
+        if container.contains(.isUntrusted) {
+            isUntrusted = (try? container.decode(Bool.self, forKey: .isUntrusted)) ?? true
+        } else {
+            isUntrusted = false
+        }
+    }
 
     var id: String { repository.id }
     var isBare: Bool { rootPath == nil }
@@ -75,6 +102,15 @@ final class RepositoryRegistry {
         repositories = repositories + [entry]
         save()
         return .added
+    }
+
+    /// Marks a repository untrusted, or trusted again (#107).
+    func setUntrusted(_ isUntrusted: Bool, for id: RegisteredRepository.ID) {
+        guard let index = repositories.firstIndex(where: { $0.id == id }),
+            repositories[index].isUntrusted != isUntrusted
+        else { return }
+        repositories[index].isUntrusted = isUntrusted
+        save()
     }
 
     /// Forgets a repository. Its folder is not touched.
