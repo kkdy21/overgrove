@@ -225,7 +225,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **프로세스 생성 위치 제한**: `Overgrove/Execution/` 밖에서 `Process`를 만들면 안 된다. `scripts/lint/check-forbidden-apis.sh`가 pre-commit hook, Claude Code hook, CI에서 검사한다.
   - **index 쓰기 방지**: `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`으로 조회 중 `index.lock`을 잡지 않는다.
   - **허용된 쓰기**: fetch가 만드는 쓰기(원격 추적 ref, `FETCH_HEAD`, 객체)와 `--prune`의 원격 추적 ref 삭제뿐이다.
-- **잔여 위험**: 낮음.
+- **잔여 위험**: 낮음. 단, **`worktreeDiff`(`git diff`)는 내용은 같고 stat만 바뀐 파일을 diff할 때 index를 새로 고쳐 쓴다.** `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 무시한다 (#94 실측, Apple Git 2.50.1). 잠깐 `index.lock`을 잡으므로 같은 순간 사용자의 git 쓰기 명령과 겹칠 수 있다. plumbing `git diff-files -p`는 같은 patch를 내면서 index를 쓰지 않는다(실측). 명령 교체는 결정 대기이고, 테스트(`WriteProtectionTests`)가 이 차이를 expected failure로 추적한다.
 - **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변), SEC-T13-03 (금지 API 정적 검사)
 - **상태**: 설계 완료 (정적 검사 스크립트는 저장소 셋업에서 적용)
 
