@@ -88,8 +88,23 @@ struct AppAlert: Equatable, Identifiable {
 enum WorktreeListStatus: Equatable {
     case idle
     case loading
+    /// Drawn from the last session's `LaunchSnapshot` while the first load runs (ADR-0018 §5, #109): rows only, and
+    /// nothing can be selected or opened until the load replaces it.
+    case snapshot(WorktreeListModel)
     case loaded(WorktreeListing)
     case failed(message: String)
+
+    var isSnapshot: Bool {
+        if case .snapshot = self { true } else { false }
+    }
+
+    /// Waiting for the first load: nothing loaded, or only a launch snapshot.
+    var isAwaitingLoad: Bool {
+        switch self {
+        case .loading, .snapshot: true
+        case .idle, .loaded, .failed: false
+        }
+    }
 }
 
 /// The detail panel's subject (interaction.md §1). #65 selects worktrees; commits, stashes, and issues come with

@@ -38,9 +38,32 @@ struct WorktreeListSection: View {
             .frame(height: Tokens.Size.rowSidebar)
         case .failed(let message):
             SidebarNotice(symbol: "exclamationmark.triangle", text: message)
+        case .snapshot(let snapshot):
+            snapshotRows(snapshot)
         case .loaded:
             if let model { rows(model) }
         }
+    }
+
+    /// The last session's rows while the first load runs (ADR-0018 §5): an `Updating…` line, then the rows without
+    /// selection, menus, or actions.
+    private func snapshotRows(_ snapshot: WorktreeListModel) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: Tokens.Spacing.sm) {
+                ProgressView().controlSize(.small)
+                Text("Updating…")
+            }
+            .font(Tokens.Font.callout)
+            .foregroundStyle(Tokens.Color.textSecondary)
+            .padding(.horizontal, Tokens.Spacing.md)
+            .frame(height: Tokens.Size.rowSidebar)
+            .accessibilityElement(children: .combine)
+            ForEach((model ?? snapshot).rows) { row in
+                WorktreeRowView(row: row, isSelected: false, isListFocused: false)
+                    .opacity(Tokens.Opacity.stale)
+            }
+        }
+        .allowsHitTesting(false)
     }
 
     private func rows(_ model: WorktreeListModel) -> some View {

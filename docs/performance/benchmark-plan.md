@@ -81,7 +81,7 @@ UI 계층(첫 프레임, hitch)은 아직 재지 않는다. 아래 테스트는 
 | PERF-11 | `DetailBenchmarkTests.test_PERF_11_fileHistoryFirstPage` | bench 저장소, 파일 하나의 `--follow` 이력 | 첫 페이지(100) p95 < 1.0초 (PB-7, 렌더링 제외) |
 | PERF-12 | `DetailBenchmarkTests.test_PERF_12_commitAndStashFileLists` | bench 저장소, 캐시에 없는 커밋 20개와 최신 stash | 각각 p95 < 200ms (PB-8, 렌더링 제외) |
 | PERF-09 | `DiffViewerBenchmarkTests.test_PERF_09_diffRendering` | 합성 patch | 1만 줄 이하 파싱+행 p95 < 200ms, 모든 크기 첫 프레임 p95 < 16ms (PB-9) |
-| PERF-13 | `LaunchSnapshotBenchmarkTests.test_PERF_13_relaunchFirstListWithAndWithoutSnapshot` | bench 저장소, 스냅샷 10행·64행(시제품 형식) | 스냅샷 없음(git 찾기 + 첫 `.user` 조회) p95 − 10행 스냅샷 읽기 p95 ≥ 150ms (ADR-0018 §7). 앱 실행·렌더링은 양쪽이 같아 제외 |
+| PERF-13 | `LaunchSnapshotBenchmarkTests.test_PERF_13_relaunchFirstListWithAndWithoutSnapshot` | bench 저장소, `LaunchSnapshotStore` 스냅샷 10행·64행 | 스냅샷 없음(git 찾기 + 첫 `.user` 조회) p95 − 10행 스냅샷 읽기 p95 ≥ 150ms (ADR-0018 §7). 앱 실행·렌더링은 양쪽이 같아 제외 |
 | PERF-10 | `AutoRefreshBenchmarkTests.testPERF10_EventStormKeepsStatusRunsBounded` | 표준 픽스처, `node_modules`에 파일 6,000개 | 요청 ≤ 경과/2초 + 1, status 실행 = 요청 수 (PB-10). git CPU는 기록만 |
 
 모든 테스트는 `PERF-nn RESULT` 표를 출력한다. 예산을 넘으면 실패한다(`OVERGROVE_PERF_REPORT_ONLY=1`이면 표에만 적는다). 반복 횟수와 p95 계산은 [performance-budget.md §1](performance-budget.md)을 따른다. 21회 실행에서 첫 회를 버리고, nearest-rank로 구한다.

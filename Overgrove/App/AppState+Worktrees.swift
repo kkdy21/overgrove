@@ -45,14 +45,20 @@ extension AppState {
         loadTask = Task { [weak self] in
             if !isShown, let cached = await loader.cachedListing(target) {
                 self?.showCached(cached, generation: generation)
+            } else if !isShown, trigger == .user {
+                // Nothing in memory (a relaunch): the last session's sidebar, display only (ADR-0018 §5).
+                self?.showLaunchSnapshot(of: target, generation: generation)
             }
+            // Taken before the load, so what changes during it makes the next launch's snapshot stale (ADR-0018 §3).
+            let fingerprint =
+                self?.launchSnapshots == nil ? nil : LaunchSnapshot.fingerprint(target.commonGitDirectoryURL)
             let result: Result<WorktreeListing?, RepositoryLoadError>
             do throws(RepositoryLoadError) {
                 result = .success(try await loader.load(target, trigger: trigger))
             } catch {
                 result = .failure(error)
             }
-            self?.finishLoad(result, generation: generation)
+            self?.finishLoad(result, generation: generation, fingerprint: fingerprint)
         }
     }
 
@@ -63,7 +69,10 @@ extension AppState {
         apply(listing, isVerified: false)
     }
 
-    private func finishLoad(_ result: Result<WorktreeListing?, RepositoryLoadError>, generation: Int) {
+    private func finishLoad(
+        _ result: Result<WorktreeListing?, RepositoryLoadError>, generation: Int,
+        fingerprint: [LaunchSnapshot.FileStamp]? = nil
+    ) {
         guard generation == loadGeneration, !Task.isCancelled else { return }
         let finished = runningTrigger
         runningTrigger = nil
@@ -84,6 +93,13 @@ extension AppState {
             supersededRetries = 0
             needsFullLoad = false
             apply(listing, isVerified: true)
+            // Loads that brought the whole sidebar (ADR-0018 §3), not a single worktree or a file event.
+            switch finished {
+            case .user?, .automatic?, .fetchCompleted?:
+                scheduleLaunchSnapshot(listing, fingerprint: fingerprint)
+            default:
+                break
+            }
         case .success(nil), .failure(.git(.cancelled)):
             // Superseded (another window asked for the same repository) or debounced away. A verified listing stays;
             // a cached paint is not kept as if it were current (security review of #243).
@@ -102,6 +118,8 @@ extension AppState {
             worktreeList = .failed(message: PathValidator.displayable(error.message))
             branchListModel = nil
             snapshot = nil
+            // The memory cache is dropped on failure (overview.md §5); so is the snapshot (ADR-0018 §3).
+            deleteLaunchSnapshot()
         }
     }
 
@@ -157,6 +175,7 @@ extension AppState {
 
     /// The sidebar row model, `nil` until the list has loaded.
     var worktreeListModel: WorktreeListModel? {
+        if case .snapshot(let model) = worktreeList { return model }
         guard case .loaded(let listing) = worktreeList else { return nil }
         let graph = graph
         return WorktreeListModel(listing: listing, focused: focusedWorktreePath, laneIndex: graph.laneIndex(of:))
