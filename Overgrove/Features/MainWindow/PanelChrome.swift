@@ -91,6 +91,8 @@ struct SidebarPanel: View {
     var worktreeModel: WorktreeListModel?
     var selectedWorktree: GitPath?
     var onSelectWorktree: (GitPath) -> Void = { _ in }
+    /// LOCAL and REMOTE (#72).
+    var branchModel: BranchListModel?
     /// STASHES (#71).
     var stashRows: [StashRow] = []
     var isStashListPartial = false
@@ -105,13 +107,20 @@ struct SidebarPanel: View {
             PlaceholderField(symbol: "magnifyingglass", prompt: "Filter", shortcut: "⌥⌘F")
         } content: {
             if hasRepository {
-                // TODO(#72): LOCAL and REMOTE; TODO(#81): ISSUES.
+                // TODO(#81): ISSUES.
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         WorktreeListSection(
                             status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
                             onSelect: onSelectWorktree, canCompare: canCompareWorktree,
                             onCompare: onCompareWorktree)
+                        if let branchModel {
+                            BranchListSection(
+                                title: "LOCAL", count: branchModel.localCount, nodes: branchModel.local,
+                                warning: branchModel.warning)
+                            BranchListSection(
+                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote)
+                        }
                         if case .loaded = worktreeStatus {
                             StashListSection(
                                 rows: stashRows, isPartial: isStashListPartial, selectedID: selectedStash,

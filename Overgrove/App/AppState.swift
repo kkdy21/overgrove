@@ -255,6 +255,7 @@ final class AppState {
         needsFullLoad = false
         snapshot = nil
         worktreeList = .idle
+        branchListModel = nil
         focusedWorktreePath = nil
         selection = nil
         selectedFile = nil
@@ -308,7 +309,10 @@ final class AppState {
         let generation = loadGeneration
         runningTrigger = trigger
         let isShown: Bool = if case .loaded = worktreeList { true } else { false }
-        if !isShown { worktreeList = .loading }
+        if !isShown {
+            worktreeList = .loading
+            branchListModel = nil
+        }
         let loader = loader
         let target = repository.repository
         loadTask = Task { [weak self] in
@@ -350,12 +354,14 @@ final class AppState {
                 refresh(.user)
             } else {
                 worktreeList = .loading
+                branchListModel = nil
                 snapshot = nil
                 needsFullLoad = true
             }
         case .failure(let error):
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
+            branchListModel = nil
             snapshot = nil
         }
     }
@@ -372,6 +378,7 @@ final class AppState {
 
     private func apply(_ listing: WorktreeListing) {
         worktreeList = .loaded(listing)
+        branchListModel = Self.branchModel(listing)
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
         if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
         // A stash that is gone (dropped or applied elsewhere) falls back to the focused worktree.
@@ -559,6 +566,19 @@ final class AppState {
     func clearSelectedFile() {
         selectedFile = nil
         clearStashFile()
+    }
+
+    // MARK: Branches (#72)
+
+    /// Sidebar LOCAL and REMOTE, built once per load (sorting thousands of refs on every render would stall clicks;
+    /// security review of #72). `nil` until the list loads with refs.
+    private(set) var branchListModel: BranchListModel?
+
+    private static func branchModel(_ listing: WorktreeListing) -> BranchListModel? {
+        guard let refs = listing.refs else { return nil }
+        return BranchListModel(
+            refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
+            remoteNames: listing.remoteNames)
     }
 
     // MARK: Stashes (#71)
