@@ -129,7 +129,10 @@ final class GitEnvironmentTests: XCTestCase {
             [
                 "--no-pager", "--no-optional-locks", "--literal-pathspecs",
                 "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.askPass=",
-                "-c", "protocol.ext.allow=never", "-c", "protocol.fd.allow=never", "-c", "core.alternateRefsCommand=",
+                "-c", "protocol.ext.allow=never", "-c", "protocol.fd.allow=never",
+                "-c", "alias.remote-https=", "-c", "alias.remote-ssh=", "-c", "alias.remote-git=",
+                "-c", "alias.remote-file=", "-c", "alias.remote-http=", "-c", "help.autocorrect=0",
+                "-c", "core.alternateRefsCommand=",
                 "-c", "log.showSignature=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
                 "-c", "diff.autoRefreshIndex=false", "-c", "color.ui=never", "-c", "diff.suppressBlankEmpty=false",
                 "-c", "i18n.logOutputEncoding=UTF-8", "-c", "log.follow=false",
