@@ -14,11 +14,15 @@ final class LogParserTests: XCTestCase {
     private let sha1A = String(repeating: "a", count: 40)
     private let sha1B = String(repeating: "b", count: 40)
 
-    /// One graph record in the `%H␀%P␀%an␀%ae␀%at␀%s␀` layout.
-    private func record(_ oid: String, parents: String = "", time: String = "1793853652", subject: String = "s")
-        -> String
-    {
-        "\(oid)\u{0}\(parents)\u{0}t\u{0}t@example.com\u{0}\(time)\u{0}\(subject)\u{0}"
+    /// One graph record in the `%H␀%P␀%an␀%ae␀%at␀%s␀<co-authors>␀` layout.
+    private func record(
+        _ oid: String,
+        parents: String = "",
+        time: String = "1793853652",
+        subject: String = "s",
+        coAuthors: String = ""
+    ) -> String {
+        "\(oid)\u{0}\(parents)\u{0}t\u{0}t@example.com\u{0}\(time)\u{0}\(subject)\u{0}\(coAuthors)\u{0}"
     }
 
     private func assertParseFails(
@@ -100,8 +104,8 @@ final class LogParserTests: XCTestCase {
     }
 
     func testPARLOG03_InvalidUTF8IsDecodedLossily() throws {
-        var input = Data(record(sha1A).dropLast(2).utf8)  // drop "s␀"
-        input.append(contentsOf: [0x66, 0xFF, 0x00])
+        var input = Data(record(sha1A).dropLast(3).utf8)  // drop "s␀␀"
+        input.append(contentsOf: [0x66, 0xFF, 0x00, 0x00])
         XCTAssertEqual(try LogParser.parseGraph(input).commits.first?.subject, "f\u{FFFD}")
     }
 
@@ -161,7 +165,7 @@ final class LogParserTests: XCTestCase {
         let midOID = try LogParser.parseGraph(data(record(sha1A) + String(sha1B.prefix(10))), truncated: true)
         XCTAssertEqual(midOID.commits.map(\.oid), [try oid(sha1A)])
 
-        // Cut right after a complete subject but before its terminator: the subject may be cut, so drop it.
+        // Cut right before the last field's terminator: the co-author list may be cut, so drop the record.
         let noTerminator = try LogParser.parseGraph(data(String(record(sha1A).dropLast())), truncated: true)
         XCTAssertEqual(noTerminator.commits, [])
         XCTAssertTrue(noTerminator.isPartial)
@@ -178,6 +182,46 @@ final class LogParserTests: XCTestCase {
         XCTAssertEqual(commits.count, 1)
         XCTAssertEqual(commits.first?.subject, "before", "git cuts the message at the NUL")
         XCTAssertEqual(commits.first?.oid, try oid("efd1998cadd78ecf586b19d24b2b3d7ee650acb3"))
+    }
+
+    // MARK: - Co-author trailers (§5.1, PAR-LOG-09)
+
+    func testPARLOG09_RealCoAuthorTrailers() throws {
+        let commits = try LogParser.parseGraph(Fixtures.coAuthorGraph).commits
+        XCTAssertEqual(commits.map(\.subject), ["mid-text mention", "folded", "human and AI", "plain"])
+        XCTAssertEqual(commits[0].coAuthors, [], "a Co-authored-by line inside a paragraph is not a trailer")
+        XCTAssertEqual(commits[1].coAuthors, ["Bob Continued <bob@example.com>"], "folded lines are unfolded")
+        XCTAssertEqual(
+            commits[2].coAuthors,
+            ["Claude Opus 5.5 <noreply@anthropic.com>", "Alice <alice@example.com>"],
+            "keys match case-insensitively, in message order; Signed-off-by is not a co-author"
+        )
+        XCTAssertEqual(commits[3].coAuthors, [])
+        XCTAssertEqual(commits.map(AIAgentRule.builtIn.isAIAssisted), [false, false, true, false])
+    }
+
+    func testPARLOG09_CoAuthorFieldEdgeCases() throws {
+        let unitSeparator = "\u{1F}"
+        let input = data(
+            record(sha1A, coAuthors: "A <a@x>\(unitSeparator)\(unitSeparator) \(unitSeparator)B <b@x>")
+                + record(sha1B, coAuthors: "")
+        )
+        let commits = try LogParser.parseGraph(input).commits
+        XCTAssertEqual(commits[0].coAuthors, ["A <a@x>", "B <b@x>"], "blank values are dropped")
+        XCTAssertEqual(commits[1].coAuthors, [])
+
+        var invalidUTF8 = Data(record(sha1A).dropLast(1).utf8)  // keep the co-author field open
+        invalidUTF8.append(contentsOf: [0x41, 0xFF, 0x20, 0x3C, 0x61, 0x40, 0x78, 0x3E, 0x00])  // "A\xFF <a@x>"
+        XCTAssertEqual(
+            try LogParser.parseGraph(invalidUTF8).commits.first?.coAuthors,
+            ["A\u{FFFD} <a@x>"],
+            "display only, so decoded leniently"
+        )
+    }
+
+    func testOldSixFieldGraphOutputFails() {
+        let sixFields = "\(sha1A)\u{0}\u{0}t\u{0}t@example.com\u{0}1793853652\u{0}s\u{0}"
+        assertParseFails(data(sixFields), reason: "incomplete record")
     }
 
     // MARK: - Commit detail (§5.2)

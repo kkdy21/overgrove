@@ -35,7 +35,11 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case worktree
     }
 
-    static let logFormat = "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s"
+    /// Graph and file history (parsing-spec.md §5.1). The last field lists `Co-authored-by` trailer values (matched
+    /// case-insensitively, folded lines unfolded) separated by U+001F (#160). No `%G` placeholder: those run
+    /// `gpg.program` (T7).
+    static let logFormat =
+        "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)"
 
     /// Subcommand arguments. Throws `GitError.invalidArgument` for values that cannot be passed losslessly.
     func subcommandArguments() throws -> [String] {
