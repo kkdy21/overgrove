@@ -30,6 +30,9 @@ struct GitEnvironment: Sendable, Equatable {
         // separators included, and some encodings (JOHAB, CP1361) turn message text into NUL bytes that shift fields
         // (#205). Pinning the output to UTF-8 overrides both.
         "-c", "i18n.logOutputEncoding=UTF-8",
+        // A repository's log.follow=true makes `git log -- <one path>` follow renames, so S-09's "Follow renames" off
+        // still followed (#310). `fileHistory` passes `--follow` itself when it wants it; an option beats the config.
+        "-c", "log.follow=false",
     ]
 
     /// Fixed search path for the child; the user's shell PATH is never used (SEC-T10-02).
@@ -46,8 +49,11 @@ struct GitEnvironment: Sendable, Equatable {
     /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
     static let allowedProtocols = "https:ssh:git:file:http"
 
-    /// The first git that honors `GIT_NO_LAZY_FETCH` (#212). Older git cannot turn off lazy fetching during fetch.
-    static let lazyFetchControlVersion = GitVersion(major: 2, minor: 44, patch: 0)
+    /// The first git on the newest line whose `GIT_NO_LAZY_FETCH` also stops a lazy fetch during fetch (#212, #317).
+    /// That came with the May 2024 security releases: 2.45.1, and 2.44.1 with backports to 2.39.4, 2.40.2, 2.41.1,
+    /// 2.42.2, and 2.43.4. 2.44.0 predates the variable, and 2.45.0 has it only for other lazy fetches. Comparing
+    /// versions refuses the older fixed releases too, which errs on the safe side.
+    static let lazyFetchControlVersion = GitVersion(major: 2, minor: 45, patch: 1)
 
     /// Parent variables that are passed through unchanged. Everything else is dropped (T10).
     static let passthroughVariables = ["HOME", "USER", "LOGNAME", "TMPDIR", "SSH_AUTH_SOCK"]
@@ -83,7 +89,8 @@ struct GitEnvironment: Sendable, Equatable {
             "SSH_ASKPASS": "",
             "GIT_PROXY_COMMAND": "",
             "GIT_ALLOW_PROTOCOL": allowsTransport ? allowedProtocols : "",
-            // Second layer (git 2.44+, ignored before): no lazy fetch from a promisor remote, for any command (#212).
+            // Second layer: no lazy fetch from a promisor remote, for any command (#212). Older git ignores it, and
+            // before the May 2024 security releases it does not cover every path (#317, lazyFetchControlVersion).
             "GIT_NO_LAZY_FETCH": "1",
             "GIT_SSH_COMMAND": trustedSSHCommand ?? defaultSSHCommand,
             "PATH": path,

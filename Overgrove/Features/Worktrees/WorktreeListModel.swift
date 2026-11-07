@@ -10,6 +10,28 @@ struct WorktreeRow: Identifiable, Equatable {
         case ahead(Int)
         case behind(Int)
         case locked
+
+        /// The SF Symbol drawn before the count (iconography.md §5.2); `nil` for ahead and behind, whose arrow is
+        /// part of `text`. Colour is never the only cue (interaction.md §6.2).
+        var symbol: String? {
+            switch self {
+            case .conflicts: "exclamationmark.triangle.fill"
+            case .prunable: "questionmark.folder"
+            case .changed: "pencil"
+            case .locked: "lock.fill"
+            case .ahead, .behind: nil
+            }
+        }
+
+        /// The count, capped at `999+`; ahead and behind carry their direction (`↑2`, `↓3`).
+        var text: String? {
+            switch self {
+            case .conflicts(let count), .changed(let count): WorktreeListModel.badgeText(count)
+            case .ahead(let count): "↑" + WorktreeListModel.badgeText(count)
+            case .behind(let count): "↓" + WorktreeListModel.badgeText(count)
+            case .prunable, .locked: nil
+            }
+        }
     }
 
     let id: GitPath
@@ -321,5 +343,57 @@ struct WorktreeListModel: Equatable {
             behind: state?.upstream.behind ?? 0,
             hasUpstream: hasUpstream,
             slowStatus: entry.slowStatusHint)
+    }
+}
+
+// MARK: - Launch snapshot (ADR-0018, #109)
+
+extension WorktreeListModel {
+    /// The rows a relaunch draws from a `LaunchSnapshot` while the first load runs. Same order, names, and badges as
+    /// a loaded list (§4.2–§4.4), from the snapshot's counts; every row says it is updating, and nothing else (issue
+    /// badges, lane colours, lock reasons, notes) is guessed.
+    init(snapshot: LaunchSnapshot, home: String = NSHomeDirectory()) {
+        let focused = snapshot.focusedPath ?? snapshot.rows.first { $0.isMain }?.path ?? snapshot.rows.first?.path
+        let ordered = snapshot.rows.sorted { lhs, rhs in
+            func group(_ row: LaunchSnapshot.Row) -> Int { row.isMain ? 0 : (row.isMissing ? 2 : 1) }
+            func key(_ row: LaunchSnapshot.Row) -> String {
+                row.branch == nil ? (row.path as NSString).lastPathComponent : (row.branch ?? "")
+            }
+            if group(lhs) != group(rhs) { return group(lhs) < group(rhs) }
+            let order = key(lhs).localizedStandardCompare(key(rhs))
+            if order != .orderedSame { return order == .orderedAscending }
+            return lhs.path < rhs.path
+        }
+        rows = ordered.map { Self.row($0, isFocused: $0.path == focused, home: home) }
+        warning = nil
+    }
+
+    private static func row(_ row: LaunchSnapshot.Row, isFocused: Bool, home: String) -> WorktreeRow {
+        let folder = PathValidator.displayable((row.path as NSString).lastPathComponent)
+        let title = PathValidator.displayable(
+            row.branch ?? (row.isDetached || row.head != nil ? "detached @ \(row.head ?? "unknown")" : folder))
+        let path = PathValidator.displayable(abbreviated(row.path, home: home))
+        let subtitle: String? =
+            if row.isMissing { "path missing" } else if row.isMain { path } else { folder == title ? nil : folder }
+        var badges: [WorktreeRow.Badge] = []
+        if row.hasStatus, row.conflicts > 0 { badges.append(.conflicts(row.conflicts)) }
+        if row.isMissing { badges.append(.prunable) }
+        if row.hasStatus {
+            if row.changed > 0 { badges.append(.changed(row.changed)) }
+            if row.ahead > 0 { badges.append(.ahead(row.ahead)) }
+            if row.behind > 0 { badges.append(.behind(row.behind)) }
+        }
+        if row.isLocked { badges.append(.locked) }
+        var label = [title, "worktree"]
+        if row.isMain { label.append("main worktree") }
+        if isFocused { label.append("focused") }
+        label.append("updating")
+        return WorktreeRow(
+            id: GitPath(row.path), title: title, isMain: row.isMain, subtitle: subtitle,
+            isSubtitleWarning: row.isMissing, isDimmed: row.isMissing, hasNeutralTile: row.isDetached || row.isMissing,
+            isFocused: isFocused, badges: badges,
+            help: "\(path)\nShown from the last session while Overgrove updates this repository.",
+            accessibilityLabel: label.joined(separator: ", "),
+            branchName: row.branch.map(PathValidator.displayable))
     }
 }

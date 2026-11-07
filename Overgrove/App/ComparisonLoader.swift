@@ -14,7 +14,8 @@ protocol ComparisonLoading: Sendable {
     func compare(_ repository: Repository, worktree: GitPath, base: FullRefName?, includeUncommitted: Bool) async
         -> Result<WorktreeComparison, ComparisonError>
     func patch(
-        _ repository: Repository, worktree: GitPath, base: FullRefName, file: GitPath, includeUncommitted: Bool
+        _ repository: Repository, worktree: GitPath, base: FullRefName, file: GitPath, originalPath: GitPath?,
+        includeUncommitted: Bool
     ) async -> DiffLoadResult
 }
 
@@ -45,16 +46,18 @@ struct LiveComparisonLoader: ComparisonLoading {
     }
 
     func patch(
-        _ repository: Repository, worktree: GitPath, base: FullRefName, file: GitPath, includeUncommitted: Bool
+        _ repository: Repository, worktree: GitPath, base: FullRefName, file: GitPath, originalPath: GitPath?,
+        includeUncommitted: Bool
     ) async -> DiffLoadResult {
-        guard file.isRepresentable else {
+        guard file.isRepresentable, originalPath?.isRepresentable ?? true else {
             return .unavailable("This path is not valid UTF-8, so Overgrove cannot show its diff.")
         }
         guard let (_, service) = try? await services() else {
             return .unavailable(GitError.executableNotFound(path: "git").message)
         }
         switch await service.comparePatch(
-            repository, worktree: worktree, base: base, file: file, includeWorkingTree: includeUncommitted)
+            repository, worktree: worktree, base: base, file: file, originalPath: originalPath,
+            includeWorkingTree: includeUncommitted)
         {
         case .success(let patch):
             do {

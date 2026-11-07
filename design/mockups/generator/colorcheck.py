@@ -5,6 +5,8 @@ Checks
   - text tiers on every panel surface (WCAG 2.x contrast; text needs 4.5:1)
   - lane, status, and accent colors against the surfaces they are drawn on (graphics need 3:1)
   - text on solid lane fills (graph.on-lane)
+  - text on the toolbar focus chip: text.primary and text.secondary on every lane at
+    graph.focus-chip-fill-opacity over surface.window (#300)
   - neighbouring lanes (i, i+1 mod 8): OKLab distance with normal vision and simulated
     protanopia / deuteranopia / tritanopia (Machado et al. 2009, severity 1.0)
   - Increase Contrast modes (high-contrast, dark-high-contrast): every text tier including tertiary,
@@ -139,6 +141,17 @@ def main():
                 fails.append(f'{mode} lane {i} below 4.5:1 on a panel surface ({low:.2f})')
             if t < 4.5:
                 fails.append(f'{mode} on-lane {i} {t:.2f}')
+        # Toolbar focus chip (#300): the branch name (text.primary) and the ahead count and ⌘J hint (text.secondary)
+        # on the lane tint over the toolbar background.
+        alpha = tok('semantic.color.graph.focus-chip-fill-opacity', mode)
+        window = sem('surface.window', mode)
+        chips = [blend(lane + '%02x' % round(alpha * 255), window) for lane in lanes]
+        chip_low = {t: min(contrast(sem('text.' + t, mode), c) for c in chips) for t in ('primary', 'secondary')}
+        print(f'\nfocus chip (lane {alpha:.0%} over window) min text.primary {chip_low["primary"]:.2f}'
+              f'  text.secondary {chip_low["secondary"]:.2f}')
+        for t, v in chip_low.items():
+            if v < 4.5:
+                fails.append(f'{mode} text.{t} on the focus chip {v:.2f}')
         print('\nneighbour lanes ΔE(OKLab×100)  normal  protan  deutan  tritan')
         for i in range(8):
             a, b = lanes[i], lanes[(i + 1) % 8]
