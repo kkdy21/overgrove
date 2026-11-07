@@ -140,8 +140,17 @@ final class WorktreeDetailModelTests: XCTestCase {
         let row = try row("Remote URL credentials masked", in: model)
         XCTAssertEqual(row.mark, .neutralized)
         XCTAssertEqual(row.details.count, 1)
-        XCTAssertTrue(row.details[0].hasPrefix("origin: https://"), row.details[0])
+        // Host and path by default (Settings › Show full remote URLs off, #86); the full masked URL when on.
+        XCTAssertEqual(row.details[0], "origin: github.com/acme/api")
+        let full = WorktreeSecurityModel(
+            inspection([
+                entry(.local, "remote.origin.url", "https://kim:\(secret)@github.com/acme/api.git")
+            ]), showsFullRemoteURLs: true)
+        let fullRow = try self.row("Remote URL credentials masked", in: full)
+        XCTAssertTrue(fullRow.details[0].hasPrefix("origin: https://"), fullRow.details[0])
         XCTAssertFalse(row.details[0].contains(secret))
+        XCTAssertFalse(fullRow.details[0].contains(secret))
+        XCTAssertFalse(fullRow.details[0].contains("kim"))
         XCTAssertEqual(row.advice, "Remove the credentials from the URL and let a credential helper store them.")
         XCTAssertNil(try self.row("Remote URL credentials masked", in: security([])).advice)
     }

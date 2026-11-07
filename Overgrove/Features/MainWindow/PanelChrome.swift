@@ -93,6 +93,8 @@ struct SidebarPanel: View {
     var onSelectWorktree: (GitPath) -> Void = { _ in }
     /// LOCAL and REMOTE (#72).
     var branchModel: BranchListModel?
+    /// Remote name → URL text for the REMOTE group tooltips (#86).
+    var remoteURLTooltips: [String: String] = [:]
     /// STASHES (#71).
     var stashRows: [StashRow] = []
     var isStashListPartial = false
@@ -122,7 +124,8 @@ struct SidebarPanel: View {
                                 title: "LOCAL", count: branchModel.localCount, nodes: branchModel.local,
                                 warning: branchModel.warning)
                             BranchListSection(
-                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote)
+                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote,
+                                folderHelp: Self.remoteFolderHelp(remoteURLTooltips))
                         }
                         if case .loaded = worktreeStatus {
                             StashListSection(
@@ -268,5 +271,12 @@ struct DetailPanel: View {
                     message: "Changes in the focused worktree or the selected commit appear here.")
             }
         }
+    }
+}
+
+extension SidebarPanel {
+    /// REMOTE folder ids are `remote:<name>` (`BranchListModel`); the tooltip is `origin — github.com/acme/api`.
+    static func remoteFolderHelp(_ urls: [String: String]) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: urls.map { ("remote:\($0.key)", "\($0.key) — \($0.value)") })
     }
 }

@@ -151,6 +151,8 @@ final class AppState {
     let issuePanel: IssuePanelState
     /// The setup assistant (S-07, #85): git and GitHub CLI checks, first run and Help › Setup Assistant….
     let setup: SetupAssistantState
+    /// App preferences shared by every window (S-08, #86).
+    let settings: AppSettings
     /// S-04 (#71): the selected stash's files, and the file whose patch the center shows.
     private(set) var stashDetail: StashDetailState?
     private(set) var selectedStashFile: FileStat?
@@ -252,6 +254,7 @@ final class AppState {
     ///   - fetcher: Fetches the open repository's remotes. Defaults to `loader` when it can; without one, Fetch is off.
     ///   - fetchRecords: The last fetch of each repository (`UserDefaults`).
     ///   - gitChecker, ghChecker: The setup assistant's git and GitHub CLI checks (S-07).
+    ///   - settings: App preferences (S-08); shared by every window. A fresh one from `UserDefaults` if `nil`.
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
@@ -266,7 +269,8 @@ final class AppState {
         fetcher: (any RepositoryFetching)? = nil,
         fetchRecords: FetchRecordStore = FetchRecordStore(),
         gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
-        ghChecker: any GHAuthChecking = LiveGHAuthChecker.live
+        ghChecker: any GHAuthChecking = LiveGHAuthChecker.live,
+        settings: AppSettings? = nil
     ) {
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
@@ -279,6 +283,7 @@ final class AppState {
         self.stashLoader = stashLoader
         issuePanel = IssuePanelState(loader: issueLoader)
         setup = SetupAssistantState(gitChecker: gitChecker, ghChecker: ghChecker)
+        self.settings = settings ?? AppSettings()
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
@@ -527,7 +532,8 @@ final class AppState {
     var worktreeDetailModel: WorktreeDetailModel? {
         guard case .worktreeInfo(let path) = selection, let entry = entry(at: path) else { return nil }
         return WorktreeDetailModel(
-            entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date())
+            entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date(),
+            showsFullRemoteURLs: settings.showsFullRemoteURLs)
     }
 
     private func entry(at path: GitPath) -> WorktreeListing.Entry? {
@@ -1120,6 +1126,24 @@ final class AppState {
                 await loader.forget(removed)
             }
         }
+    }
+
+    /// Settings › Repositories removed the open repository (#86): close it here too.
+    func closeIfUnregistered() {
+        guard let id = repository?.repository.id, registry.repository(withID: id) == nil else { return }
+        close()
+    }
+
+    /// Sidebar REMOTE group tooltips (#86): remote name → its URL as the Show full remote URLs setting says. Built
+    /// from the masked URLs of an inspected worktree's configuration (remotes are shared by every worktree).
+    var remoteURLTooltips: [String: String] {
+        guard case .loaded(let listing) = worktreeList,
+            let inspection = listing.entries.lazy.compactMap(\.inspection).first
+        else { return [:] }
+        let full = settings.showsFullRemoteURLs
+        return Dictionary(
+            inspection.remotes.map { ($0.name.value, RemoteURLDisplay.text($0.displayURL, full: full)) },
+            uniquingKeysWith: { first, _ in first })
     }
 
     private func close() {
