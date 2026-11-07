@@ -79,7 +79,7 @@ Overgrove/
 ├── Execution/      # ProcessRunner — 앱 전체에서 Process를 만드는 유일한 곳
 ├── Git/            # GitClient(actor), GitCommand(ReadOnlyGitCommand, FetchCommand), GitEnvironment, RepoConfigInspector, GitError,
 │                   # FetchFailureGuidance, TransportName
-├── GitHub/         # GHClient(actor), GHCommand(gh 명령 allowlist), GHError, GitHubRepository
+├── GitHub/         # GHClient(actor), GHCommand(gh 명령 allowlist), GHError, GitHubRepository, GitHubRemote(원격 → OWNER/NAME)
 ├── Parsing/        # WorktreeParser, StatusParser, StashParser, LogParser, RevListParser, RefParser, NumstatParser,
 │                   # ConfigParser, VersionParser, ProbeParser, GHAuthParser, IssueParser, IssueRefExtractor,
 │                   # FetchProgressParser
