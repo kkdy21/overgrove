@@ -209,13 +209,29 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | `transportNotAllowed(transport, detail)` | git이 허용 목록 밖의 전송을 거부함 (`ext::`·`fd::`, `codecommit::` 같은 원격 helper, #161) | "'<이름>' 전송을 쓰는 원격은 fetch하지 않습니다. https, ssh, git, http, 로컬 파일 원격만 가능합니다." | — |
 | `timeout(seconds)` | 타임아웃 | "git 응답이 X초를 넘어 중단했습니다." | 수동 |
 | `outputTruncated` | 출력 상한 초과 | "출력이 너무 커서 일부만 표시합니다." (경고 수준) | — |
-| `authenticationFailed` | fetch 인증 실패 (stderr 패턴) | "원격 인증에 실패했습니다. 터미널에서 git 자격 증명을 확인하세요." | 수동 |
+| `authenticationFailed` | HTTPS 인증 실패, 프롬프트 없이 쓸 자격 증명이 없음 | "원격 인증에 실패했습니다. 터미널에서 git 자격 증명을 확인하세요." | 수동 |
+| `sshAuthenticationFailed` | SSH 서버가 키를 모두 거부함 (#78) | "서버가 SSH 키를 거부했습니다. 터미널에서 SSH agent를 확인하세요." | 수동 |
+| `hostKeyVerificationFailed(changed)` | ssh가 호스트 키를 거부함. 처음 보는 키 / `known_hosts`와 다른 키 (#78) | "SSH 호스트 키를 아직 신뢰하지 않습니다." / "SSH 호스트 키가 바뀌었습니다. 새 키를 믿기 전에 확인하세요." | — |
+| `accessDenied` | 인증은 됐지만 읽을 권한이 없음 (HTTP 403, #78) | "원격이 이 저장소에 대한 접근을 거부했습니다." | — |
+| `remoteNotFound` | 원격 저장소가 없거나 원격 이름이 설정되지 않음 (HTTP 404, 없는 경로, #78) | "원격 저장소를 찾을 수 없습니다." | — |
 | `networkUnavailable` | DNS·연결 실패 | "원격에 연결할 수 없습니다." | 수동 |
 | `nonZeroExit(code, summary)` | 그 밖의 실패 | 마스킹한 stderr 첫 줄 요약 | 수동 |
 | `parseFailed(parser, offset)` | 파서가 형식 위반을 만남 | "git 출력을 해석하지 못했습니다. 버그로 제보해 주세요." | — |
 | `cancelled` | 사용자가 취소함 | 표시하지 않음 | — |
 
-fetch 실패는 `authenticationFailed`, `networkUnavailable`, `timeout`, 그 밖(`nonZeroExit`, `transportNotAllowed`, `blockedBySecurityPolicy`)으로 분류한다. **분류는 이 에러 모델이 맡는다.** 화면(S-01 상태바, S-05)은 분류 결과와 메시지를 표시만 하고, stderr를 직접 해석하지 않는다.
+fetch 실패의 **분류는 이 에러 모델이 맡는다.** 화면(S-01 상태바, S-05)은 분류 결과와 메시지를 표시만 하고, stderr를 직접 해석하지 않는다. stderr의 `remote:` 줄(서버가 쓴 글)은 분류에 쓰지 않는다([git-command-catalog.md §6](git-command-catalog.md)).
+
+fetch 실패 안내는 `FetchFailureGuidance(error:remote:endpoint:report:)`(`Overgrove/Git/`, #78)가 만든다. 화면은 이것을 그대로 그린다.
+- **4분류**([interaction.md §4.2](../design/interaction.md))
+  - 인증: `authenticationFailed`, `sshAuthenticationFailed`, `hostKeyVerificationFailed`, `accessDenied`
+  - 네트워크: `networkUnavailable`
+  - 시간 초과: `timeout`
+  - 기타: `remoteNotFound`, `transportNotAllowed`, 설정 때문에 꺼진 fetch(`configInspectionFailed`), 그 밖
+- **필드**: 한 줄 요약(`summary`), 해결 안내(`guidance`), 복사 가능한 명령(`commands`), 마스킹한 stderr(`detail`, 끝 5줄은 `detailTail`)
+- **문구**: 모두 앱이 쓴다. 명령에는 검증된 원격 이름, 호스트 이름, 포트만 넣는다. 호스트는 `Endpoint(remoteURL:)`로 자격 증명과 경로를 뺀 이름만 쓴다.
+- **터미널 git**: 터미널의 git은 앱처럼 무력화되지 않는다. 저장소의 hook, 로컬 `core.sshCommand`, 프록시, credential helper, pager가 그대로 실행된다. 그래서 `git` 명령(`git fetch <remote>`, `git --no-pager remote -v`)은 저장소 설정 보고(`RepoSecurityReport`)에 항목이 없을 때만 넣고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다. 보고에 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan`, `ssh-keygen -F`)만 넣고 보안 보고서를 먼저 보라고 안내한다(#200 보안 검토).
+- **취소**: 실패가 아니다. 안내를 만들지 않는다(`nil`). 원격이 없을 때는 `FetchFailureGuidance.noRemotes`를 쓴다.
+- **호스트 키**: 앱은 받아들이지 않는다. 바뀐 키에는 가로채기 가능성을 경고하고, 읽기 전용 확인 명령(`ssh-keygen -F <host>`)만 제안한다. 키를 지우는 `ssh-keygen -R`은 제안하지 않는다.
 
 gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다: `notInstalled`, `notLoggedIn`(종료 코드 4), `launchFailed`, `invalidArgument`, `timeout`, `outputTruncated`(잘린 JSON은 해석하지 않으므로 실패), `nonZeroExit`, `parseFailed`, `cancelled`. gh 문제는 이슈 패널만 끄고 Git 조회에는 영향을 주지 않는다 (ADR-0004 §4). 로그인 상태 조회(`authStatus()`)에서 gh가 없거나 로그인하지 않은 것은 에러가 아니라 `GHAuthStatus` 값이다. 상세는 [git-command-catalog.md §5](git-command-catalog.md).
 
