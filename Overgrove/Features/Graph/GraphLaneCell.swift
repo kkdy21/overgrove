@@ -88,6 +88,8 @@ struct GraphLaneCell: View {
     /// How far the lanes are scrolled sideways (#255); the cell shows `offset ..< offset + width`.
     var offset: CGFloat = 0
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     private func lane(_ index: Int) -> Color { Tokens.Color.graphLanes[index % Tokens.Color.graphLanes.count] }
 
     var body: some View {
@@ -112,7 +114,11 @@ struct GraphLaneCell: View {
                 connector.move(to: CGPoint(x: offset, y: center))
                 connector.addLine(to: CGPoint(x: nodeX, y: center))
                 context.stroke(
-                    connector, with: .color(lane(row.colorIndex).opacity(0.55)), style: StrokeStyle(lineWidth: 1.5))
+                    connector,
+                    with: .color(
+                        lane(row.colorIndex).opacity(
+                            Tokens.refMarkOpacity(contrast, normal: Tokens.Graph.refConnectorOpacity))),
+                    style: StrokeStyle(lineWidth: 1.5))
             }
             drawNode(&context, at: CGPoint(x: nodeX, y: center))
         }

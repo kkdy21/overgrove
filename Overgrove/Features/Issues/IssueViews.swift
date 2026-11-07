@@ -211,7 +211,7 @@ struct IssueDetailView: View {
                     .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
                     .padding(.vertical, Tokens.Spacing.xxs)
                     .background(Capsule().fill(Tokens.Color.surfaceRaised))
-                    .overlay(Capsule().strokeBorder(Tokens.Color.borderSeparator, lineWidth: 1))
+                    .controlOutline(Capsule())
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     Text(
                         ([model.repository].compactMap { $0 } + [
@@ -246,6 +246,7 @@ struct IssueDetailView: View {
                                     .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
                                     .padding(.vertical, Tokens.Spacing.xxs)
                                     .background(Capsule().fill(Tokens.Color.surfaceControl))
+                                    .controlOutline(Capsule(), normal: nil)
                             }
                         }
                     }

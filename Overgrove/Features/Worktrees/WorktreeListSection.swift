@@ -205,7 +205,7 @@ struct WorktreeRowView: View {
                     .font(Tokens.Font.pill)
                     .foregroundStyle(Tokens.Color.textSecondary)
                     .padding(.horizontal, Tokens.Spacing.xs)
-                    .background(Capsule().strokeBorder(Tokens.Color.borderSeparator))
+                    .controlOutline(Capsule())
             }
             if let subtitle = row.subtitle {
                 Text(subtitle)
@@ -256,22 +256,8 @@ struct BadgeView: View {
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.xxs) {
-            switch badge {
-            case .conflicts(let count):
-                Image(systemName: "exclamationmark.triangle.fill")
-                Text(WorktreeListModel.badgeText(count))
-            case .prunable:
-                Image(systemName: "questionmark.folder")
-            case .changed(let count):
-                Image(systemName: "pencil")
-                Text(WorktreeListModel.badgeText(count))
-            case .ahead(let count):
-                Text("↑" + WorktreeListModel.badgeText(count))
-            case .behind(let count):
-                Text("↓" + WorktreeListModel.badgeText(count))
-            case .locked:
-                Image(systemName: "lock.fill")
-            }
+            if let symbol = badge.symbol { Image(systemName: symbol) }
+            if let text = badge.text { Text(text) }
         }
         .font(Tokens.Font.pill)
         .foregroundStyle(color)

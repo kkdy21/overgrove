@@ -186,9 +186,10 @@ struct IssueNumberBadge: View {
             .font(Tokens.Font.pill)
             .foregroundStyle(isKnown ? Tokens.Color.textSecondary : Tokens.Color.textTertiary)
             .padding(.horizontal, Tokens.Spacing.xs)
-            .overlay(
-                Capsule().strokeBorder(
-                    isKnown ? Tokens.Color.textSecondary : Tokens.Color.borderSeparator, lineWidth: 1)
+            // A link keeps its text-coloured outline under Increase Contrast; an inert number gets `border.strong`.
+            .controlOutline(
+                Capsule(), normal: isKnown ? Tokens.Color.textSecondary : Tokens.Color.borderSeparator,
+                increased: isKnown ? Tokens.Color.textSecondary : Tokens.Color.borderStrong
             )
             .fixedSize()
         if isKnown {
