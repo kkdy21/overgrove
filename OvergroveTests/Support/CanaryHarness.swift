@@ -54,6 +54,17 @@ struct CanaryHarness {
             fixture: fixture, environment: environment, client: client, inspection: inspection, safety: safety)
     }
 
+    /// The same harness with `remote` let past the remote form check (#350, SEC-T5-20), to show that the inner
+    /// layers (`GIT_ALLOW_PROTOCOL`, the common arguments) refuse it on their own.
+    func allowingFetch(of remote: String) -> CanaryHarness {
+        CanaryHarness(
+            fixture: fixture, environment: environment, client: client, inspection: inspection,
+            safety: RepoSafetyContext(
+                inspectedNeutralization: safety.neutralization, fetchAuthentication: safety.fetchAuthentication,
+                trustedSSHCommand: safety.trustedSSHCommand, fetchBlockingReason: safety.fetchBlockingReason,
+                isPartialClone: safety.isPartialClone, fetchableRemotes: safety.fetchableRemotes.union([remote])))
+    }
+
     /// Files whose content is unchanged but whose mtime differs from the index, so the next status re-hashes them
     /// through their filter: `src/filter-target.txt` (clean, done by the script) and `docs/manual.md`
     /// (`*.md filter=fixtureproc`, the long-running process filter, T4).
