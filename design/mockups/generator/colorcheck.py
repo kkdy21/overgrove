@@ -7,6 +7,8 @@ Checks
   - text on solid lane fills (graph.on-lane)
   - neighbouring lanes (i, i+1 mod 8): OKLab distance with normal vision and simulated
     protanopia / deuteranopia / tritanopia (Machado et al. 2009, severity 1.0)
+  - Increase Contrast modes (high-contrast, dark-high-contrast): every text tier including tertiary,
+    status and lane colors need 4.5:1 on every panel surface including surface.selection
 """
 import json, math, os
 
@@ -22,12 +24,20 @@ def node(path):
     return n
 
 
+# Mode lookup order; $value (light) is the last fallback. Aliases resolve in the same mode.
+FALLBACK = {
+    'light': [],
+    'dark': ['dark'],
+    'high-contrast': ['high-contrast'],
+    'dark-high-contrast': ['dark-high-contrast', 'dark'],
+}
+MODES = list(FALLBACK)
+
+
 def tok(path, mode):
     n = node(path)
-    v = n['$value']
-    d = n.get('$extensions', {}).get(EXT, {}).get('modes', {}).get('dark')
-    if mode == 'dark' and d is not None:
-        v = d
+    modes = n.get('$extensions', {}).get(EXT, {}).get('modes', {})
+    v = next((modes[m] for m in FALLBACK[mode] if m in modes), n['$value'])
     if isinstance(v, str) and v.startswith('{'):
         return tok(v[1:-1], mode)
     return v
@@ -100,7 +110,8 @@ def simulate(h, kind):
 def main():
     fails = []
     surfaces = ['surface.canvas', 'surface.panel', 'surface.panel-header', 'surface.raised', 'surface.selection']
-    for mode in ('light', 'dark'):
+    for mode in MODES:
+        hc = mode.endswith('high-contrast')
         print(f'\n## {mode}')
         surf = {s: sem(s, mode) for s in surfaces}
         print('surfaces:', ', '.join(f'{k.split(".")[1]} {v}' for k, v in surf.items()), '| window', sem('surface.window', mode))
@@ -112,17 +123,20 @@ def main():
             for s, v in zip(surfaces, vals):
                 if t in ('primary', 'secondary') and v < 4.5:
                     fails.append(f'{mode} text.{t} on {s}: {v:.2f}')
-                if t == 'tertiary' and s != 'surface.selection' and v < 4.5:
+                if t == 'tertiary' and (hc or s != 'surface.selection') and v < 4.5:
                     fails.append(f'{mode} text.tertiary on {s}: {v:.2f}')
         canvas = surf['surface.canvas']
         lanes = [sem(f'graph.lane.{i}', mode) for i in range(8)]
-        print('\nlane  color    vs canvas  on-lane text')
+        print('\nlane  color    vs canvas  on-lane text' + ('  min surface' if hc else ''))
         for i, c in enumerate(lanes):
             ol = sem(f'graph.on-lane.{i}', mode)
             v, t = contrast(c, canvas), contrast(ol, c)
-            print(f'{i}     {c}  {v:6.2f}     {ol} {t:5.2f}')
+            low = min(contrast(c, x) for x in surf.values())
+            print(f'{i}     {c}  {v:6.2f}     {ol} {t:5.2f}' + (f'  {low:5.2f}' if hc else ''))
             if v < 3:
                 fails.append(f'{mode} lane {i} vs canvas {v:.2f}')
+            if hc and low < 4.5:
+                fails.append(f'{mode} lane {i} below 4.5:1 on a panel surface ({low:.2f})')
             if t < 4.5:
                 fails.append(f'{mode} on-lane {i} {t:.2f}')
         print('\nneighbour lanes ΔE(OKLab×100)  normal  protan  deutan  tritan')
@@ -130,13 +144,16 @@ def main():
             a, b = lanes[i], lanes[(i + 1) % 8]
             row = [de(a, b)] + [de(simulate(a, k), simulate(b, k)) for k in ('protan', 'deutan', 'tritan')]
             print(f'{i}-{(i + 1) % 8}                          ' + '  '.join(f'{v:6.1f}' for v in row))
-        print('\nstatus/accent  vs canvas  panel  raised')
+        print('\nstatus/accent  vs canvas  panel  raised' + ('  min surface' if hc else ''))
         for name in ('status.staged', 'status.unstaged', 'status.untracked', 'status.conflicted', 'status.ahead', 'accent'):
             c = sem(name, mode)
             vals = [contrast(c, surf[s]) for s in ('surface.canvas', 'surface.panel', 'surface.raised')]
-            print(f'{name:18} {c} ' + '  '.join(f'{v:5.2f}' for v in vals))
+            low = min(contrast(c, x) for x in surf.values())
+            print(f'{name:18} {c} ' + '  '.join(f'{v:5.2f}' for v in vals) + (f'  {low:5.2f}' if hc else ''))
             if min(vals) < 3:
                 fails.append(f'{mode} {name} below 3:1')
+            if hc and name.startswith('status.') and low < 4.5:
+                fails.append(f'{mode} {name} below 4.5:1 on a panel surface ({low:.2f})')
         for k in ('staged', 'unstaged', 'untracked', 'conflicted', 'ahead'):
             v = contrast(sem('on-status.' + k, mode), sem('status.' + k, mode))
             if v < 4.5:
@@ -155,7 +172,8 @@ def main():
             if v < 4.5:
                 fails.append(f'{mode} text on diff.{k} {v:.2f}')
     print('\nRESULT:', 'all checks pass' if not fails else 'FAIL\n  ' + '\n  '.join(fails))
+    return 1 if fails else 0
 
 
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())
