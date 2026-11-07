@@ -103,8 +103,8 @@ final class GitErrorTests: XCTestCase {
         guard case .transportNotAllowed("hg", _) = try XCTUnwrap(classify(stderr)) else { return XCTFail() }
     }
 
-    /// #212: a query that needs an object a partial clone lacks. Real Apple Git 2.50.1 stderr, with
-    /// GIT_NO_LAZY_FETCH (2.44+) and with only the empty transport list (what older git reports).
+    /// #212: a query that needs an object a partial clone lacks. Real Apple Git 2.50.1 stderr, with GIT_NO_LAZY_FETCH
+    /// and with only the empty transport list. A git without the variable reports it differently (#303, below).
     func testPartialCloneObjectMissing() throws {
         let samples = [
             "warning: lazy fetching disabled; some objects may not be available\n"
