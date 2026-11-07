@@ -185,7 +185,11 @@ struct CanaryHarness {
     ///
     /// - Parameter dropping: Subcommand-level safety flags to remove as well, e.g. `--no-textconv`, to prove that
     ///   those flags (not the absence of a code path) are what stop a payload.
-    func runPlain(_ query: Query, dropping: Set<String> = []) async throws -> ProcessResult {
+    func runPlain(
+        _ query: Query,
+        dropping: Set<String> = [],
+        limits: ProcessLimits = .fetch
+    ) async throws -> ProcessResult {
         let arguments = try query.subcommandArguments()
         let missing = dropping.subtracting(arguments)
         guard missing.isEmpty else { throw HarnessError.unresolved("\(query) has no \(missing.sorted())") }
@@ -200,9 +204,51 @@ struct CanaryHarness {
                     "GIT_CONFIG_GLOBAL": "/dev/null",
                 ],
                 currentDirectory: query.directory,
-                limits: .fetch
+                limits: limits
             )
         )
+    }
+
+    // MARK: Setup
+
+    /// Plain git for setup that runs no repository program, such as `config` writes. Fails on a non-zero exit.
+    @discardableResult
+    func runPlainSetup(_ arguments: [String]) async throws -> ProcessResult {
+        try await setup(
+            arguments,
+            environment: ["HOME": fixture.home.path, "PATH": GitEnvironment.path, "GIT_CONFIG_NOSYSTEM": "1"])
+    }
+
+    /// git with the app's common arguments and neutralization, for setup that would otherwise run a planted program
+    /// (a ref update runs the reference-transaction hook). Fails on a non-zero exit.
+    @discardableResult
+    func runHardenedSetup(_ arguments: [String]) async throws -> ProcessResult {
+        try await setup(
+            environment.arguments(for: arguments, neutralization: safety.neutralization),
+            environment: GitEnvironment.environment(parent: fixture.environment))
+    }
+
+    /// Makes the next fetch of origin update a ref again: hooks and auto maintenance only run when there is work.
+    func forgetRemoteOnlyBranch() async throws {
+        try await runHardenedSetup(["update-ref", "-d", "refs/remotes/origin/feat/remote-only"])
+    }
+
+    private func setup(_ arguments: [String], environment childEnvironment: [String: String]) async throws
+        -> ProcessResult
+    {
+        let result = try await ProcessRunner().run(
+            ProcessRequest(
+                executable: environment.executable,
+                arguments: arguments,
+                environment: childEnvironment,
+                currentDirectory: fixture.repository,
+                limits: .query
+            )
+        )
+        guard result.succeeded else {
+            throw HarnessError.unresolved("setup \(arguments): \(String(decoding: result.stderr, as: UTF8.self))")
+        }
+        return result
     }
 
     // MARK: Helpers
