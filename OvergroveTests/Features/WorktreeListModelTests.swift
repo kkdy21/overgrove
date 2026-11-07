@@ -43,6 +43,23 @@ final class WorktreeListModelTests: XCTestCase {
         XCTAssertTrue(prunable.hasNeutralTile)
     }
 
+    /// art-direction.md §6 (#255): a branch's tile takes its tip's lane colour from the graph; detached and missing
+    /// worktrees, and tips not loaded yet, stay neutral.
+    func testTilesTakeTheLaneColourOfTheBranchTip() throws {
+        XCTAssertTrue(model().rows.allSatisfy { $0.laneIndex == nil }, "no graph yet")
+
+        let tip = try XCTUnwrap(ObjectID("a91f3c2000000000000000000000000000000000"))
+        let model = WorktreeListModel(
+            listing: .mockup, focused: nil, home: "/tmp/dev", laneIndex: { $0 == tip ? 3 : nil })
+        XCTAssertEqual(try row("main", in: model).laneIndex, 3)
+        XCTAssertEqual(try row("feat/42-rate-limit", in: model).laneIndex, 3)
+        XCTAssertNil(try row("detached @ c46c37d", in: model).laneIndex, "detached: neutral")
+        XCTAssertNil(try row("spike/cache", in: model).laneIndex, "missing: neutral")
+
+        let unloaded = WorktreeListModel(listing: .mockup, focused: nil, home: "/tmp/dev", laneIndex: { _ in nil })
+        XCTAssertTrue(unloaded.rows.allSatisfy { $0.laneIndex == nil }, "tip not in a loaded page")
+    }
+
     /// §4.3: badges in priority order, zero hidden.
     func testBadges() throws {
         let model = model()

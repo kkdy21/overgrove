@@ -104,6 +104,25 @@ struct GraphSearchResult: Equatable {
             issueRepository: issueRepository, searchedCount: commits.count, isComplete: isComplete)
     }
 
+    /// The matches that are also in `allowed` (the author filter, #255): a search with a chip picked is an AND.
+    /// Counts and stepping then follow the rows that stay bright.
+    func restricted(to allowed: Set<ObjectID>) -> GraphSearchResult {
+        GraphSearchResult(
+            query: query, matches: matches.filter(allowed.contains), searchedCount: searchedCount,
+            scannedCount: scannedCount, isComplete: isComplete)
+    }
+
+    private init(
+        query: GraphSearchQuery, matches: [ObjectID], searchedCount: Int, scannedCount: Int, isComplete: Bool
+    ) {
+        self.query = query
+        self.matches = matches
+        matchSet = Set(matches)
+        self.searchedCount = searchedCount
+        self.scannedCount = scannedCount
+        self.isComplete = isComplete
+    }
+
     /// `3 matches in 1,500 loaded commits · older commits are searched as they load` (the loaded-page notice).
     var summary: String {
         let count = matches.count

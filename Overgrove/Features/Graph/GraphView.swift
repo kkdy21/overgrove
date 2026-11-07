@@ -20,30 +20,53 @@ struct GraphView: View {
     var search: GraphSearchResult?
     var onFindNext: () -> Void = {}
     var onFindPrevious: () -> Void = {}
+    /// The author chip's commits (#255): other rows are dimmed like non-matches; `nil` for `All`.
+    var authorMatches: Set<ObjectID>?
+    /// Column widths and visibility (#255).
+    var columns: GraphColumnLayout = .default
+    /// A finished column change: saved per repository.
+    var onCommitColumns: (GraphColumnLayout) -> Void = { _ in }
 
     @FocusState private var hasFocus: Bool
     @Environment(\.rowMenu) private var rowMenu
+    /// The layout while a column divider is dragged; committed on release.
+    @State private var dragColumns: GraphColumnLayout?
+    @State private var dragBase: GraphColumnLayout?
+    @State private var panelWidth: CGFloat = 0
+    /// How far the lanes are scrolled sideways (more than `size.graph-max-lanes-visible` lanes).
+    @State private var laneOffset: CGFloat = 0
 
     private var graphWidth: CGFloat { GraphGeometry.width(lanes: store.laneCount) }
     private var headIndex: Int? { store.head.flatMap(store.index(of:)) }
+    private var shownColumns: GraphColumnLayout { dragColumns ?? columns }
+    private var laneScroll: GraphLaneScroll { GraphLaneScroll(offset: laneOffset, lanes: store.laneCount) }
+    private var isDimming: Bool { search != nil || authorMatches != nil }
+
+    private func isBright(_ oid: ObjectID) -> Bool {
+        (search?.matchSet.contains(oid) ?? true) && (authorMatches?.contains(oid) ?? true)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             if let search {
                 GraphSearchBar(result: search, onPrevious: onFindPrevious, onNext: onFindNext)
             }
-            GraphColumnHeader(graphWidth: graphWidth)
+            GraphColumnHeader(
+                columns: shownColumns, graphWidth: graphWidth, laneScroll: laneScroll, onResize: resize,
+                onResizeEnded: endResize, onFit: fit, onStep: { onCommitColumns(columns.resizing($0, by: $1)) },
+                onScrollLanes: scrollLanes)
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
                         if let wip = store.wip {
                             GraphWipRowView(
                                 wip: wip, column: headIndex.map { store.rows[$0].column } ?? 0,
-                                hasLine: headIndex != nil, graphWidth: graphWidth
+                                hasLine: headIndex != nil, graphWidth: graphWidth,
+                                refsWidth: shownColumns.width(of: .refs), laneOffset: laneScroll.offset
                             )
                             .id(Self.wipRowID)
                             .contextMenu { wipMenu }
-                            .opacity(search == nil ? 1 : Tokens.Opacity.disabled)
+                            .opacity(isDimming ? Tokens.Opacity.disabled : 1)
                         }
                         ForEach(store.rows.indices, id: \.self) { index in
                             row(index)
@@ -58,8 +81,25 @@ struct GraphView: View {
                     guard let target, let index = store.index(of: target.oid) else { return }
                     proxy.scrollTo(index, anchor: .center)
                 }
+                .overlay(alignment: .topLeading) {
+                    // Sideways swipes over the Graph column move the lanes (#255); the rest scroll the rows.
+                    GraphLaneScrollMonitor(isEnabled: laneScroll.maxOffset > 0) { scrollLanes(laneScroll.offset + $0) }
+                        .frame(width: graphWidth)
+                        .frame(maxHeight: .infinity)
+                        .padding(.leading, shownColumns.width(of: .refs))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
             }
         }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            panelWidth = $0
+        }
+        // A commit picked in a lane scrolled out of sight comes into view.
+        .onAppear { reveal(store.selected) }
+        .onChange(of: store.selected) { _, selected in reveal(selected) }
         .background(Tokens.Color.surfaceCanvas)
         .focusable()
         .focused($hasFocus)
@@ -76,6 +116,36 @@ struct GraphView: View {
 
     /// The WIP row's id in the scroll view; commit rows use their index.
     private static let wipRowID = -1
+
+    // MARK: Columns and lanes
+
+    /// `delta` is the width change since the drag began.
+    private func resize(_ column: GraphColumnLayout.Column, by delta: CGFloat) {
+        let base = dragBase ?? columns
+        dragBase = base
+        dragColumns = base.resizing(column, by: delta, panelWidth: panelWidth, graphWidth: graphWidth)
+    }
+
+    private func endResize() {
+        guard let final = dragColumns else { return }
+        dragColumns = nil
+        dragBase = nil
+        onCommitColumns(final)
+    }
+
+    private func fit(_ column: GraphColumnLayout.Column) {
+        let widths = GraphColumnFit.contentWidths(column, commits: store.commits[...], pills: store.pills, now: now)
+        onCommitColumns(columns.setting(column, to: GraphColumnLayout.fittedWidth(column, contentWidths: widths)))
+    }
+
+    private func reveal(_ oid: ObjectID?) {
+        guard laneScroll.maxOffset > 0, let oid, let index = store.index(of: oid) else { return }
+        laneOffset = GraphGeometry.revealing(store.rows[index].column, offset: laneOffset, lanes: store.laneCount)
+    }
+
+    private func scrollLanes(_ offset: CGFloat) {
+        laneOffset = GraphGeometry.clampOffset(offset, lanes: store.laneCount)
+    }
 
     @ViewBuilder
     private var wipMenu: some View {
@@ -127,12 +197,12 @@ struct GraphView: View {
             commit: commit, row: graphRow, outgoing: outgoing, pills: store.pills[commit.oid] ?? [],
             isHead: commit.oid == store.head, isSelected: commit.oid == store.selected,
             isHighlighted: highlighted.contains(commit.oid), wipLine: wipLine, graphWidth: graphWidth, now: now,
-            isListFocused: hasFocus
+            isListFocused: hasFocus, columns: shownColumns, laneOffset: laneScroll.offset
         ) {
             if let onSelectCommit { onSelectCommit(commit.oid) } else { store.select(commit.oid) }
         }
         .contextMenu { CommitRowMenu(commit: commit, onShowChanges: { select(commit.oid) }) }
-        .opacity(search.map { $0.matchSet.contains(commit.oid) ? 1 : Tokens.Opacity.disabled } ?? 1)
+        .opacity(isBright(commit.oid) ? 1 : Tokens.Opacity.disabled)
     }
 }
 
@@ -170,29 +240,6 @@ struct GraphSearchBar: View {
     }
 }
 
-/// Refs | Graph | Message | Author | Date | SHA (art-direction.md §5.1).
-struct GraphColumnHeader: View {
-    let graphWidth: CGFloat
-
-    var body: some View {
-        HStack(spacing: 0) {
-            title("Refs").frame(width: Tokens.Size.columnRefsIdeal, alignment: .leading)
-            title("Graph").frame(width: graphWidth, alignment: .leading)
-            title("Message").frame(maxWidth: .infinity, alignment: .leading)
-            title("Author").frame(width: Tokens.Size.columnAuthorIdeal, alignment: .leading)
-            title("Date").frame(width: Tokens.Size.columnDateIdeal, alignment: .leading)
-            title("SHA").frame(width: Tokens.Size.columnShaIdeal, alignment: .leading)
-        }
-        .frame(height: Tokens.Size.columnHeader)
-        .background(Tokens.Color.surfacePanelHeader)
-    }
-
-    private func title(_ text: String) -> some View {
-        Text(text).font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textSecondary)
-            .padding(.horizontal, Tokens.Spacing.sm)
-    }
-}
-
 /// One commit row (art-direction.md §5.2): selection is the commit's lane color at 16% with a 3pt bar.
 struct GraphCommitRowView: View {
     let commit: CommitNode
@@ -208,6 +255,8 @@ struct GraphCommitRowView: View {
     /// The selection is lane colour at 16% while the graph has keyboard focus and 10% when it does not
     /// (interaction.md §1.2: inactive selection is dimmer).
     var isListFocused = true
+    var columns: GraphColumnLayout = .default
+    var laneOffset: CGFloat = 0
     let onSelect: () -> Void
 
     @Environment(\.issueBadges) private var issues
@@ -227,10 +276,12 @@ struct GraphCommitRowView: View {
         let linkedIssues = linkedIssues()
         HStack(spacing: 0) {
             GraphRefsCell(pills: pills, laneColor: lane, laneIndex: row.colorIndex)
-                .frame(width: Tokens.Size.columnRefsIdeal, alignment: .trailing)
+                .frame(width: columns.width(of: .refs), alignment: .trailing)
+                .clipped()
             GraphLaneCell(
                 row: row, outgoing: outgoing, isMerge: commit.isMerge, isHead: isHead, hasRefs: !pills.isEmpty,
-                initials: text.initials, avatarIndex: text.avatarIndex, wipLine: wipLine, width: graphWidth)
+                initials: text.initials, avatarIndex: text.avatarIndex, wipLine: wipLine, width: graphWidth,
+                offset: laneOffset)
             HStack(spacing: Tokens.Spacing.xs) {
                 Text(text.subject).font(Tokens.Font.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
                 ForEach(linkedIssues, id: \.self) { IssueNumberBadge(number: $0) }
@@ -238,9 +289,15 @@ struct GraphCommitRowView: View {
             }
             .padding(.horizontal, Tokens.Spacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
-            cell(text.author, width: Tokens.Size.columnAuthorIdeal, color: Tokens.Color.textSecondary)
-            cell(text.date, width: Tokens.Size.columnDateIdeal, color: tertiary).help(text.absoluteDate)
-            cell(text.shortSHA, width: Tokens.Size.columnShaIdeal, color: tertiary, font: Tokens.Font.monoSmall)
+            if columns.isVisible(.author) {
+                cell(text.author, width: columns.width(of: .author), color: Tokens.Color.textSecondary)
+            }
+            if columns.isVisible(.date) {
+                cell(text.date, width: columns.width(of: .date), color: tertiary).help(text.absoluteDate)
+            }
+            if columns.isVisible(.sha) {
+                cell(text.shortSHA, width: columns.width(of: .sha), color: tertiary, font: Tokens.Font.monoSmall)
+            }
         }
         .frame(height: GraphGeometry.rowHeight)
         .background(
@@ -383,6 +440,8 @@ struct GraphWipRowView: View {
     let column: Int
     let hasLine: Bool
     let graphWidth: CGFloat
+    var refsWidth = Tokens.Size.columnRefsIdeal
+    var laneOffset: CGFloat = 0
 
     var body: some View {
         HStack(spacing: 0) {
@@ -399,8 +458,9 @@ struct GraphWipRowView: View {
                     .strokeBorder(Tokens.Color.graphWipNode, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
             }
             .padding(.horizontal, Tokens.Spacing.xs)
-            .frame(width: Tokens.Size.columnRefsIdeal, alignment: .trailing)
-            GraphWipCell(column: column, hasLine: hasLine, width: graphWidth)
+            .frame(width: refsWidth, alignment: .trailing)
+            .clipped()
+            GraphWipCell(column: column, hasLine: hasLine, width: graphWidth, offset: laneOffset)
             Text(wip.summary).font(Tokens.Font.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
                 .padding(.horizontal, Tokens.Spacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
