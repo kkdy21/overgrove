@@ -28,6 +28,12 @@ struct FetchFailureDetailsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack {
+                if !failures.isEmpty, let guide = HelpLinks.selfHostedGit {
+                    // Tokens, SSH, private CAs, and proxies on self-hosted or corporate servers (#152).
+                    Link("Help with self-hosted Git servers", destination: guide)
+                        .font(Tokens.Font.callout)
+                        .help(guide.absoluteString)
+                }
                 Spacer()
                 Button("Done", action: dismiss).keyboardShortcut(.defaultAction)
             }

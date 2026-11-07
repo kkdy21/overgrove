@@ -49,6 +49,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | 프로세스 | [process/release.md](process/release.md) | 버전 정책, 릴리스 절차 |
 | 프로세스 | [process/github-settings.md](process/github-settings.md) | 저장소 설정(룰셋, 보안, 라벨, 보드)과 재현 스크립트 |
 | 프로세스 | [process/claude-code-harness.md](process/claude-code-harness.md) | Claude Code 하네스(CLAUDE.md, skills, agents, hooks) 사용법 |
+| 사용자 안내 | [guides/self-hosted-git.md](guides/self-hosted-git.md) ([한국어](guides/self-hosted-git.ko.md)) | 자체 호스팅·사내 Git 서버에서 Fetch 성공시키기: 토큰, SSH, 사설 CA, 프록시, 실패 안내별 해결, 한계(#152). 앱의 Fetch 실패 Details가 링크한다. 사용자가 읽는 문서라 README처럼 영어판과 한국어판을 함께 둔다 |
 
 ---
 
@@ -226,7 +227,7 @@ git 계층 실측 기준선(이 표의 근거)은 [performance/benchmark-plan.md
 
 1. **머리말.** 제목 바로 아래에 상태 줄을 둔다.
    `> 상태: Draft | Proposed | Accepted | Superseded · 관련: ADR-000N, #이슈`
-2. **언어.** 내부 문서는 한국어로 쓰고 기술 용어는 영문 그대로 둔다. 외부 기여자 접점(README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, 템플릿)은 영어로 쓴다 (ADR-0005). `README.ko.md`는 `README.md`의 한국어판이다. 원본은 영어판이고, README를 고치는 PR에서 두 파일을 함께 고친다. 외부 기여자가 영어판만 고치면 메인테이너가 한국어판을 맞춘다.
+2. **언어.** 내부 문서는 한국어로 쓰고 기술 용어는 영문 그대로 둔다. 외부 기여자 접점(README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, 템플릿)은 영어로 쓴다 (ADR-0005). `README.ko.md`는 `README.md`의 한국어판이다. 원본은 영어판이고, README를 고치는 PR에서 두 파일을 함께 고친다. 사용자 안내(`docs/guides/`)도 같은 방식으로 영어판(`*.md`)과 한국어판(`*.ko.md`)을 함께 둔다. 외부 기여자가 영어판만 고치면 메인테이너가 한국어판을 맞춘다.
 3. **링크.** 저장소 안 문서는 상대 경로로 링크한다. 개인 홈 디렉터리 경로(`/Users/<이름>/...`)는 쓰지 않는다. 예시 경로는 `~/dev/...` 형태로 쓴다.
 4. **다이어그램.** Mermaid 코드 블록을 쓴다. GitHub에서 바로 렌더링된다.
 5. **결정.** 문서에서 새로운 결정을 내리면 ADR로 옮기고 링크한다. 문서 안에 결정 근거를 길게 쓰지 않는다.
