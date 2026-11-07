@@ -360,6 +360,17 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 
 출력은 줄 3개다. 경로에 제어 문자(LF 포함)가 있으면 등록을 거부한다 (`PathValidator`).
 
+`ProbeParser`(#84) 규칙:
+- 정확히 LF로 끝나는 줄 3개만 받는다. 유효한 UTF-8이 아니거나, 줄 수가 다르거나, 마지막 LF가 없으면 실패한다. 경로 안의 LF는 필드를 밀어내므로 추측하지 않는다.
+- 1·2번째 줄은 `/`로 시작하는 절대 경로이고 제어 문자(C0, DEL, C1)가 없어야 한다. git이 출력한 그대로 쓴다(`standardizedFileURL`은 `/private`를 떼어 `realpath(3)` 결과와 어긋난다).
+- 3번째 줄은 `true` 또는 `false`.
+- 맨 저장소와 `.git` 안에서는 `--show-toplevel`이 `fatal: this operation must be run in a work tree`(종료 128)로 실패한다. 등록은 이를 "워크트리를 추가하라"는 안내로 거부한다.
+- 메인 워크트리는 공통 디렉터리 이름이 `.git`이면 그 부모, 아니면(`--separate-git-dir`) probe한 워크트리로 본다.
+
+| 테스트 | 사례 |
+|---|---|
+| `ProbeParserTests` | 3줄, 연결 워크트리, 공백·유니코드, 줄 수 오류, 경로 안 LF, 상대 경로, 잘못된 bare 값, 마지막 LF 없음, 제어 문자, 잘못된 UTF-8 |
+
 ### 11.3 IssueRefExtractor (G8)
 
 | 출처 | 규칙 |

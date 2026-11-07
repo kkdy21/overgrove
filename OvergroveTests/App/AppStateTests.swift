@@ -27,7 +27,8 @@ final class AppStateTests: XCTestCase {
     }
 
     func testStartsWithNoRepositoryAndTheDefaultLayout() {
-        let state = AppState(layoutStore: PanelLayoutStore(defaults: defaults))
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults))
         XCTAssertNil(state.repository)
         XCTAssertEqual(state.panelLayout, .default)
         XCTAssertEqual(state.fetchStatus, .never)
@@ -36,7 +37,7 @@ final class AppStateTests: XCTestCase {
 
     func testPanelLayoutIsSavedAndRestoredPerRepository() {
         let store = PanelLayoutStore(defaults: defaults)
-        let state = AppState(layoutStore: store)
+        let state = AppState(layoutStore: store, registry: RepositoryRegistry(defaults: defaults))
         state.open(context("api"))
         let apiLayout = PanelLayout(sidebarWidth: 300, detailWidth: 400, isDetailCollapsed: true)
         state.commitPanelLayout(apiLayout)
@@ -48,14 +49,14 @@ final class AppStateTests: XCTestCase {
         state.open(context("api"))
         XCTAssertEqual(state.panelLayout, apiLayout)
         // A new AppState over the same defaults, as after relaunch.
-        let relaunched = AppState(layoutStore: store)
+        let relaunched = AppState(layoutStore: store, registry: RepositoryRegistry(defaults: defaults))
         relaunched.open(context("web"))
         XCTAssertEqual(relaunched.panelLayout.sidebarWidth, 240)
     }
 
     func testCommitWithoutARepositoryKeepsTheLayoutInMemoryOnly() {
         let store = PanelLayoutStore(defaults: defaults)
-        let state = AppState(layoutStore: store)
+        let state = AppState(layoutStore: store, registry: RepositoryRegistry(defaults: defaults))
         let layout = PanelLayout.default.toggling(.sidebar)
         state.commitPanelLayout(layout)
         XCTAssertEqual(state.panelLayout, layout)
@@ -65,7 +66,8 @@ final class AppStateTests: XCTestCase {
     }
 
     func testOpeningARepositoryClearsTheOldRepositoryData() {
-        let state = AppState(layoutStore: PanelLayoutStore(defaults: defaults))
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults))
         state.open(context("api"))
         state.snapshot = RepositorySnapshot(focusedWorktree: nil, worktreeCount: 6, prunableCount: 1)
         state.fetchStatus = .idle(lastFetched: Date())
@@ -80,7 +82,7 @@ final class AppStateTests: XCTestCase {
 
     func testTogglePanelSavesForTheOpenRepository() {
         let store = PanelLayoutStore(defaults: defaults)
-        let state = AppState(layoutStore: store)
+        let state = AppState(layoutStore: store, registry: RepositoryRegistry(defaults: defaults))
         state.open(context("api"))
         state.togglePanel(.sidebar)
         XCTAssertTrue(state.panelLayout.isSidebarCollapsed)
@@ -91,8 +93,8 @@ final class AppStateTests: XCTestCase {
     /// repositories independently, and a layout saved in one is restored when another window opens that repository.
     func testWindowsAreIndependentButShareRememberedLayouts() {
         let store = PanelLayoutStore(defaults: defaults)
-        let first = AppState(layoutStore: store)
-        let second = AppState(layoutStore: store)
+        let first = AppState(layoutStore: store, registry: RepositoryRegistry(defaults: defaults))
+        let second = AppState(layoutStore: store, registry: RepositoryRegistry(defaults: defaults))
         first.open(context("api"))
         second.open(context("web"))
         first.togglePanel(.sidebar)

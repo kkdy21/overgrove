@@ -7,6 +7,7 @@ import SwiftUI
 struct MainWindowView: View {
     @Bindable var state: AppState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isManagingRepositories = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,6 +31,9 @@ struct MainWindowView: View {
         .toolbar {
             MainToolbar(
                 repository: state.repository,
+                repositoryMenu: repositoryMenu,
+                isAddingRepository: state.isAddingRepository,
+                repositoryActions: repositoryActions,
                 focusedWorktree: state.snapshot?.focusedWorktree,
                 isSidebarCollapsed: state.panelLayout.isSidebarCollapsed,
                 toggleSidebar: toggleSidebar
@@ -40,6 +44,39 @@ struct MainWindowView: View {
         // TODO(#74): filter the graph by message, author, SHA, ref, or #issue; ⌘G / ⌘⇧G between matches.
         .searchable(text: $state.searchText, placement: .toolbar, prompt: "Search commits, authors, refs, #issues")
         .navigationTitle(state.repository?.name ?? "Overgrove")
+        .focusedSceneValue(
+            \.repositoryActions,
+            FocusedRepositoryActions(isAdding: state.isAddingRepository, add: addRepository)
+        )
+        .sheet(isPresented: $isManagingRepositories) {
+            ManageRepositoriesView(
+                model: repositoryMenu, isAdding: state.isAddingRepository, actions: repositoryActions,
+                dismiss: { isManagingRepositories = false })
+        }
+        .alert(item: $state.alert) { alert in
+            Alert(title: Text(alert.title), message: Text(alert.message))
+        }
+        .task { state.restoreLastSelected() }
+    }
+
+    private var repositoryMenu: RepositoryMenuModel {
+        RepositoryMenuModel(repositories: state.registeredRepositories, openID: state.repository?.repository.id)
+    }
+
+    private var repositoryActions: RepositoryActions {
+        RepositoryActions(
+            open: { state.openRegistered($0) },
+            add: addRepository,
+            remove: { state.removeRepository($0) },
+            manage: { isManagingRepositories = true })
+    }
+
+    /// NSOpenPanel, then registration. The picker is a sheet on the key window (or on the manage sheet).
+    private func addRepository() {
+        Task {
+            guard let folder = await RepositoryPicker.choose(in: NSApp.keyWindow) else { return }
+            await state.addRepository(at: folder)
+        }
     }
 
     private func toggleSidebar() {
@@ -67,11 +104,18 @@ struct MainWindowView: View {
         }
     }
 
+    extension RepositoryRegistry {
+        /// Previews keep their repositories out of the app's own preferences.
+        static var preview: RepositoryRegistry {
+            RepositoryRegistry(defaults: UserDefaults(suiteName: "io.github.kkdy21.overgrove.previews") ?? .standard)
+        }
+    }
+
     extension AppState {
         /// The repository of the high-fidelity mockup (design/mockups/main-window-*.png), for previews and the
         /// render test. Uses no file system or git.
         static func mockup(layoutStore: PanelLayoutStore = .preview) -> AppState {
-            let state = AppState(layoutStore: layoutStore)
+            let state = AppState(layoutStore: layoutStore, registry: .preview)
             let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
             state.open(
                 RepositoryContext(
@@ -93,7 +137,7 @@ struct MainWindowView: View {
     }
 
     #Preview("No repository") {
-        MainWindowView(state: AppState(layoutStore: .preview))
+        MainWindowView(state: AppState(layoutStore: .preview, registry: .preview))
             .frame(width: 1440, height: 900)
     }
 #endif

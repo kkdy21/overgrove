@@ -51,6 +51,17 @@ final class PathValidatorTests: XCTestCase {
         XCTAssertFalse(try PathValidator.checkRegistration(real).isThroughSymlink)
     }
 
+    /// parsing-spec.md §11.2: the probe prints one path per line, so a control character (LF above all) in the
+    /// chosen path would shift its fields. Registration refuses it before any git command runs.
+    func testRegistrationRefusesControlCharacters() throws {
+        for name in ["new\nline", "tab\there", "car\rriage", "del\u{7F}ete", "nul\u{1}x"] {
+            let folder = try directory(name)
+            XCTAssertThrowsError(try PathValidator.checkRegistration(folder), name.debugDescription) {
+                XCTAssertEqual($0 as? PathValidator.Failure, .controlCharacters)
+            }
+        }
+    }
+
     func testRegistrationRejectsMissingFilesAndNonDirectories() throws {
         XCTAssertThrowsError(try PathValidator.checkRegistration(sandbox.appendingPathComponent("nope"))) {
             XCTAssertEqual($0 as? PathValidator.Failure, .doesNotExist)

@@ -84,7 +84,9 @@ flowchart TD
 | 타입 | 위치 | 책임 |
 |---|---|---|
 | `OvergroveApp` | `App/` | 진입점, 창 구성, 의존성 조립 |
-| `AppState` | `App/` | 등록된 저장소 목록, 선택된 저장소, 전역 설정, 온보딩 상태 |
+| `AppState` | `App/` | 창 하나의 상태: 열린 저장소, 패널 레이아웃, 저장소 추가·전환·제거, 알림 |
+| `RepositoryRegistry` | `App/` | 등록된 저장소 목록과 마지막 선택(모든 창이 공유). `UserDefaults`에 경로만 저장 (§8) |
+| `RepositoryRegistrar` | `App/` | 고른 폴더 → `PathValidator` → probe(`GitClient`, 검사 전 허용 명령) → 등록할 저장소. 같은 공통 git 디렉터리는 한 저장소 (§9) |
 | `RepositoryStore` | `App/` | 선택된 저장소 하나의 화면 상태: 워크트리, 상태, stash, 그래프 페이지, 선택 항목, 로딩·에러 |
 | `IssueStore` | `App/` | gh 로그인 상태, 이슈 목록, 이슈 번호 매칭 결과 |
 | `RepositoryService` | `App/` | 조회 조합: 병렬 실행, 취소, 디바운스, 캐시 |
@@ -279,9 +281,10 @@ gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다:
 
 - 저장소는 `NSOpenPanel`로 사용자가 고른 디렉터리만 등록한다. 등록된 목록은 설정 화면에서 명시적으로 지울 수 있다.
 - 등록할 때 다음을 확인한다.
-  1. `rev-parse --path-format=absolute --show-toplevel --git-common-dir`로 저장소 여부와 공통 디렉터리를 얻는다.
-  2. 경로를 정규화하고 심볼릭 링크를 해석한다(`URL.resolvingSymlinksInPath()`).
-  3. 사용자가 고른 경로와 다르면 경고한다.
+  1. 고른 경로를 `realpath(3)`로 정규화하고 심볼릭 링크를 해석한다(`PathValidator`). 제어 문자가 있으면 거부한다.
+  2. `rev-parse --path-format=absolute --show-toplevel --git-common-dir --is-bare-repository`로 저장소 여부와 공통 디렉터리를 얻는다.
+  3. probe 결과를 파일 시스템과 맞춰 본다: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나(메인 워크트리, `--separate-git-dir`) back-pointer가 맞는 연결 워크트리여야 한다(SEC-T14-04).
+  4. 등록 경로가 사용자가 고른 경로와 다르면 알린다.
 - 연결된 워크트리는 `worktree list`가 알려 주는 경로에 접근한다. 워크트리가 등록 경로 밖에 있어도 정상이다. 대신 그 경로가 존재하는 디렉터리인지, 그 안의 `.git` 파일이 이 저장소의 `worktrees/<name>`을 가리키는지 확인한다.
 - **샌드박스를 끄는 이유**: 임의 위치의 저장소와 워크트리에 접근해야 한다. 샌드박스를 켜면 워크트리마다 security-scoped bookmark와 권한 팝업이 필요하다. 또 git 자식 프로세스도 샌드박스를 상속해 사용자의 credential helper나 SSH 설정에 접근하지 못한다. 그래서 security-scoped bookmark는 쓰지 않는다. 그 대신 Hardened Runtime을 켜고, 이 문서의 실행 경로 통제와 [security-review.md](../design/security-review.md)로 보완한다.
 - 앱이 내용을 읽는 파일(diff 대상 등)은 git 출력으로만 얻는다. 파일 시스템을 직접 읽는 경우는 `FETCH_HEAD` mtime과 설정 파일 mtime뿐이다.
