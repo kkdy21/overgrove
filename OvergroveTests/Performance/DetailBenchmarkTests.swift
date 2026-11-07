@@ -27,7 +27,7 @@ final class DetailBenchmarkTests: XCTestCase {
     private func bench() async throws -> Bench {
         let root = try PerfRun.benchRepository()
         let parent = PerfRun.isolatedParentEnvironment
-        let environment = try await GitEnvironment.discover(parentEnvironment: parent)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: parent)
         let client = GitClient(environment: environment, parentEnvironment: parent)
         let service = RepositoryService(client: client)
         let repository = Repository(
