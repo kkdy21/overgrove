@@ -98,7 +98,7 @@ final class WriteProtectionTests: XCTestCase {
     }
 
     /// T13 beyond status: every other query, in the main worktree and in a linked one, leaves every file under
-    /// `.git` unchanged (not just the index). The stat-dirty worktree diff is the known gap below and is excluded.
+    /// `.git` unchanged (not just the index), including the worktree diff of a stat-dirty file (#208).
     func testOtherQueriesChangeNothingUnderGit() async throws {
         let (context, _, _) = try await staleStatFixture()
         let fixture = context.fixture
@@ -123,6 +123,7 @@ final class WriteProtectionTests: XCTestCase {
             (.commitPatch(merge.oid, parent: merge.parents.first, path: GitPath("README.md")), repo),
             (.worktreeDiff(path: GitPath("src/staged-modified.txt"), staged: true), repo),
             (.worktreeDiff(path: GitPath("src/unstaged-modified.txt"), staged: false), repo),
+            (.worktreeDiff(path: GitPath("docs/manual.md"), staged: false), repo),
             (.untrackedPreview(untracked), repo), (.fileHistory(path: GitPath("docs/manual.md"), limit: 100), repo),
             (.status, fixture.worktree("wt-behind")),
             (.worktreeDiff(path: GitPath("docs/guide.md"), staged: false), fixture.worktree("wt-behind")),
@@ -136,18 +137,51 @@ final class WriteProtectionTests: XCTestCase {
         }
     }
 
-    /// Known gap, tracked in #208: `git diff` on a path whose content is unchanged but whose stat data is stale
-    /// refreshes and rewrites the index, ignoring `--no-optional-locks` and `GIT_OPTIONAL_LOCKS=0` (Apple Git 2.50.1).
-    /// `-c diff.autoRefreshIndex=false` stops it (measured). This test flags the day the gap is closed, so the
-    /// expectation can be removed.
-    func testWorktreeDiffOfAStatDirtyFileDoesNotWriteTheIndex() async throws {
+    /// SEC-T13-02, worktree diff: `git diff` of a path whose content is unchanged but whose stat data is stale leaves
+    /// the index untouched. `git diff` ignores `--no-optional-locks` for this refresh; `-c diff.autoRefreshIndex=false`
+    /// in the common arguments stops it (#208). Control: the same app arguments without that one setting rewrite the
+    /// index, so this test proves the setting is what protects it.
+    func testSECT13_02_WorktreeDiffOfAStatDirtyFileKeepsTheIndex() async throws {
         let (context, indexes, before) = try await staleStatFixture()
-        _ = try await context.run(.worktreeDiff(path: GitPath("docs/manual.md"), staged: false))
+        let diff = ReadOnlyGitCommand.worktreeDiff(path: GitPath("docs/manual.md"), staged: false)
+        let output = try await context.run(diff)
+        XCTAssertEqual(output, Data(), "unchanged content diffs empty")
+        // The same in a linked worktree (its index is `.git/worktrees/wt-behind/index`).
+        let linked = try await context.run(diff, in: context.fixture.worktree("wt-behind"))
+        XCTAssertEqual(linked, Data(), "unchanged content diffs empty in wt-behind")
+        try assertUnchanged(indexes, since: before, after: "worktreeDiff of a stat-dirty file")
+
+        let commonWithoutSetting = Self.removingSetting(
+            "diff.autoRefreshIndex=false", from: GitEnvironment.commonArguments)
+        XCTAssertNotEqual(commonWithoutSetting, GitEnvironment.commonArguments, "the setting is a common argument")
+        let control = try await ProcessRunner().run(
+            ProcessRequest(
+                executable: context.environment.executable,
+                arguments: commonWithoutSetting + context.safety.neutralization + (try diff.subcommandArguments()),
+                environment: GitEnvironment.environment(parent: context.fixture.environment),
+                currentDirectory: context.fixture.repository,
+                limits: .query
+            )
+        )
+        XCTAssertEqual(control.termination, .exited(code: 0))
         let index = try XCTUnwrap(indexes["repo"])
-        let after = try IndexState(index)  // read outside the block so a setup error is not swallowed
-        XCTExpectFailure("git diff refreshes and writes the index despite --no-optional-locks (#208)") {
-            XCTAssertEqual(after, before["repo"], "worktreeDiff of a stat-dirty file rewrote the index")
+        XCTAssertNotEqual(
+            try IndexState(index), before["repo"], "control: without the setting git diff rewrites the index")
+    }
+
+    /// `arguments` without one `-c <setting>` pair.
+    private static func removingSetting(_ setting: String, from arguments: [String]) -> [String] {
+        var result: [String] = []
+        var index = arguments.startIndex
+        while index < arguments.endIndex {
+            if arguments[index] == "-c", index + 1 < arguments.endIndex, arguments[index + 1] == setting {
+                index += 2
+                continue
+            }
+            result.append(arguments[index])
+            index += 1
         }
+        return result
     }
 
     // MARK: SEC-T13-03

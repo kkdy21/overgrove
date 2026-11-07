@@ -104,7 +104,7 @@ final class GitEnvironmentTests: XCTestCase {
                 "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.askPass=",
                 "-c", "protocol.ext.allow=never", "-c", "protocol.fd.allow=never", "-c", "core.alternateRefsCommand=",
                 "-c", "log.showSignature=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
-                "-c", "color.ui=never",
+                "-c", "diff.autoRefreshIndex=false", "-c", "color.ui=never",
             ]
         )
     }

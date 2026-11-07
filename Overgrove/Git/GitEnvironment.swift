@@ -20,6 +20,8 @@ struct GitEnvironment: Sendable, Equatable {
         "-c", "log.showSignature=false",
         "-c", "gc.auto=0",
         "-c", "maintenance.auto=false",
+        // `git diff` refreshes and rewrites the index for stat-dirty paths despite --no-optional-locks (#208).
+        "-c", "diff.autoRefreshIndex=false",
         "-c", "color.ui=never",
     ]
 
