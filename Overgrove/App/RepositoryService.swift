@@ -136,16 +136,10 @@ actor RepositoryService {
         }
     }
 
-    /// The git common directory from `rev-parse --path-format=absolute --show-toplevel --git-common-dir
-    /// --is-bare-repository` (parsing-spec.md §11.2): the second of three lines.
-    private static func commonDirectory(fromProbe output: Data) -> URL? {
-        let lines = String(decoding: output, as: UTF8.self).split(separator: "\n", omittingEmptySubsequences: false)
-        guard lines.count >= 3, lines[1].hasPrefix("/") else { return nil }
-        return URL(fileURLWithPath: String(lines[1]), isDirectory: true)
-    }
-
+    /// Compared after `realpath(3)` (PathValidator), so a symbolic link cannot make two folders look alike or apart.
     private static func isSameDirectory(_ lhs: URL, _ rhs: URL) -> Bool {
-        lhs.resolvingSymlinksInPath().standardizedFileURL.path == rhs.resolvingSymlinksInPath().standardizedFileURL.path
+        guard let lhs = PathValidator.canonical(lhs), let rhs = PathValidator.canonical(rhs) else { return false }
+        return lhs.path == rhs.path
     }
 
     private enum Part: Sendable {
@@ -174,9 +168,9 @@ actor RepositoryService {
     ) async -> RepositoryOverview.Status {
         let directory = URL(fileURLWithPath: worktree.path.display, isDirectory: true)
         do {
-            let probe = try await client.run(.probeRepository, in: directory, safety: .preInspection)
-            guard let common = commonDirectory(fromProbe: probe.stdout),
-                isSameDirectory(common, repository.commonGitDirectoryURL)
+            let output = try await client.run(.probeRepository, in: directory, safety: .preInspection)
+            guard let probe = try? ProbeParser.parse(output.stdout),
+                isSameDirectory(probe.commonDirectory, repository.commonGitDirectoryURL)
             else { return .notQueried(.foreignRepository) }
 
             let config = try await client.run(.configList, in: directory, safety: .preInspection)
@@ -186,8 +180,8 @@ actor RepositoryService {
                 return .notQueried(.inspectionBlocked(inspection.report.blockingReason ?? ""))
             }
 
-            let output = try await client.run(.status, in: directory, safety: safety)
-            return .loaded(try StatusParser.parse(output.stdout, truncated: output.isTruncated))
+            let status = try await client.run(.status, in: directory, safety: safety)
+            return .loaded(try StatusParser.parse(status.stdout, truncated: status.isTruncated))
         } catch let error as GitError {
             return .failed(error)
         } catch let error as ParseError {
