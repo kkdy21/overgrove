@@ -23,11 +23,16 @@ struct MainWindowView: View {
                 Alert(title: Text(alert.title), message: Text(alert.message))
             }
             .task { state.restoreLastSelected() }
-            // A closed window cannot show Stop: its fetch is stopped (security review of #77, T15).
-            .onDisappear { state.fetch.stop() }
-            // Coming back from an editor: re-query what is stale (interaction.md §4, `.automatic`).
+            // A closed window cannot show Stop: its fetch is stopped (security review of #77, T15); no more auto fetch.
+            .onDisappear {
+                state.fetch.stop()
+                state.autoFetch.stop()
+            }
+            // Coming back from an editor: re-query what is stale (interaction.md §4, `.automatic`). Auto fetch runs
+            // only while the window is key (#79).
             .onChange(of: controlActiveState) { _, active in
                 if active == .key { state.windowDidBecomeActive() }
+                state.autoFetch.windowActivityChanged(isActive: active == .key)
             }
             .modifier(FetchFeedback(state: state, showsDetails: $showsFetchDetails))
             .modifier(SetupAssistantPresentation(state: state, setup: state.setup, addRepository: addRepository))
@@ -251,10 +256,13 @@ private struct FetchFeedback: ViewModifier {
                     dismiss: { showsDetails = false })
             }
             .onChange(of: state.fetchStatus) { old, new in
-                if let text = FetchAnnouncement.text(from: old, to: new) {
+                // Auto fetch (#79) ends quietly: its result is in the status bar only (interaction.md §4.2).
+                if !state.fetch.isAutomaticRun, let text = FetchAnnouncement.text(from: old, to: new) {
                     AccessibilityNotification.Announcement(text).post()
                 }
             }
+            // Settings › Fetch automatically and its interval (#79).
+            .task(id: AutoFetchSettingKey(state.settings)) { state.autoFetch.update() }
     }
 }
 
@@ -276,5 +284,16 @@ private struct SetupAssistantPresentation: ViewModifier {
     private var repositoryPath: String? {
         guard let id = state.repository?.repository.id else { return nil }
         return state.registeredRepositories.first { $0.id == id }?.displayRootPath
+    }
+}
+
+/// Changes when the auto fetch settings change, so the window's scheduler restarts (#79).
+private struct AutoFetchSettingKey: Equatable {
+    let isOn: Bool
+    let minutes: Int
+
+    @MainActor init(_ settings: AppSettings) {
+        isOn = settings.autoFetch
+        minutes = settings.autoFetchIntervalMinutes
     }
 }

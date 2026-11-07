@@ -10,8 +10,8 @@ final class AppSettings {
     static let autoFetchIntervalKey = "settings.autoFetchIntervalMinutes"
     static let showsFullRemoteURLsKey = "settings.showsFullRemoteURLs"
 
-    /// The auto fetch section appears once the scheduler exists (#79); the setting is stored already.
-    static let isAutoFetchAvailable = false
+    /// The auto fetch section is shown (the scheduler exists since #79).
+    static let isAutoFetchAvailable = true
     /// Minutes offered for the auto fetch interval (S-08: default 10).
     static let autoFetchIntervals = [5, 10, 15, 30, 60]
     static let defaultAutoFetchInterval = 10
