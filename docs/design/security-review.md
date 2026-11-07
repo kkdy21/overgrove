@@ -290,8 +290,8 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - Apple 툴체인과 GitHub 러너 이미지는 신뢰한다.
   - 보드 토큰이 새면 그 계정이 쓸 수 있는 모든 Projects 보드가 바뀔 수 있다. 메인테이너 계정 토큰이면 메인테이너가 속한 조직의 보드도 포함된다. 저장소 코드와 이슈는 영향이 없다.
   - `pull_request_target`은 첫 기여자 승인 없이 실행된다. 외부 사용자가 이벤트를 많이 만들면 토큰 계정의 API 한도를 쓸 수 있다. 공유 동시성 그룹으로 상한을 둔다.
-- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정), SEC-T17-03 (Dependabot 설정 존재), 보드 상태 규칙은 `scripts/github/board-sync-rules.test.sh`(CI `build-test`)
-- **상태**: 적용됨 (저장소 셋업: 워크플로우와 Dependabot). SEC-T17-01은 Phase 3에서 CI에 추가
+- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음 — `scripts/lint/check-no-dependencies.sh`와 그 테스트, CI `build-test`), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정), SEC-T17-03 (Dependabot 설정 존재), 보드 상태 규칙은 `scripts/github/board-sync-rules.test.sh`(CI `build-test`)
+- **상태**: 적용됨 (저장소 셋업: 워크플로우와 Dependabot, SEC-T17-01은 #33에서 CI에 추가)
 
 ### T18. 공개 저장소에 비밀 정보·개인 경로 커밋
 
