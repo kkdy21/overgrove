@@ -128,6 +128,38 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertNil(inspect([entry(.local, "core.sshcommand", "evil")]).trustedSSHCommand)
     }
 
+    /// #209 (T13): settings that would widen what fetch writes are reported; the pinned fetch arguments override them.
+    func testFetchScopeSettingsAreReported() {
+        let neutralized = [
+            entry(.local, "remote.origin.fetch", "+refs/heads/*:refs/heads/*"),
+            entry(.local, "remote.origin.fetch", "+refs/*:refs/*"),
+            entry(.local, "remote.origin.fetch", "refs/heads/main:refs/remotes/upstream/main"),
+            entry(.local, "fetch.prunetags", "true"),
+            entry(.local, "remote.origin.prunetags", "true"),
+            entry(.local, "remote.origin.tagopt", "--tags"),
+        ]
+        for sample in neutralized {
+            let findings = inspect([sample]).report.findings
+            XCTAssertEqual(findings.map(\.handling), [.neutralized], "\(sample.key)=\(sample.value ?? "")")
+            XCTAssertEqual(findings.map(\.threat), ["T13"], sample.key)
+        }
+        let mirror = inspect([entry(.local, "remote.origin.mirror", "true")]).report.findings
+        XCTAssertEqual(mirror.map(\.handling), [.reported])
+        XCTAssertEqual(mirror.map(\.threat), ["T13"])
+
+        // The default refspec, extra refspecs that stay inside the remote's namespace, and FETCH_HEAD-only refspecs.
+        let ordinary = [
+            "+refs/heads/*:refs/remotes/origin/*", "refs/heads/*:refs/remotes/origin/*",
+            "+refs/pull/*/head:refs/remotes/origin/pr/*", "refs/heads/main", "^refs/heads/skip",
+        ]
+        for refspec in ordinary {
+            XCTAssertTrue(inspect([entry(.local, "remote.origin.fetch", refspec)]).report.findings.isEmpty, refspec)
+        }
+        XCTAssertTrue(
+            inspect([entry(.global, "remote.origin.fetch", "+refs/heads/*:refs/heads/*")]).report.findings.isEmpty,
+            "trusted scopes are not reported")
+    }
+
     func testReportHandling() {
         let samples: [(ConfigEntry, RepoSecurityReport.Handling)] = [
             (entry(.local, "core.fsmonitor", "x"), .reported), (entry(.local, "core.hookspath", "x"), .reported),

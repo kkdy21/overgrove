@@ -159,7 +159,7 @@ actor GitClient {
         let arguments = environment.arguments(
             for: command.subcommandArguments(),
             neutralization: safety.neutralization,
-            fetchAuthentication: safety.fetchAuthentication
+            fetchAuthentication: safety.fetchAuthentication + command.configurationOverrides()
         )
         // The repository first: a fetch that waits for its turn must not hold one of the shared fetch slots.
         try await acquire(.repository(repository.id))
