@@ -26,6 +26,9 @@ protocol WorktreeInspecting: Sendable {
 /// The app's inspector. Call it only for worktrees `RepositoryService` already verified belong to the repository
 /// (`.loaded` or `.notQueried(.inspectionBlocked)`). It runs in the worktree's canonical path and checks it belongs
 /// again (probe) before reading the configuration.
+///
+/// TODO(#240): read the inspection RepositoryService already made for this worktree (`RepositoryOverview.Entry`)
+/// instead of running `configList` again.
 struct LiveWorktreeInspector: WorktreeInspecting {
     let client: @Sendable () async throws -> GitClient
     var now: @Sendable () -> Date = { Date() }
