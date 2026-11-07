@@ -95,6 +95,23 @@ final class BranchListModelTests: XCTestCase {
         XCTAssertEqual(names(guessed.remote), ["team[a/[dev]]"])
     }
 
+    /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
+    /// (`origin/x`); an empty remainder shows the whole name (security review of #72).
+    func testRemoteSplitIsByteExact() {
+        let model = BranchListModel(
+            refs: refs([remote("origin/\u{301}x"), remote("solo", guess: "solo")]), checkedOut: [],
+            remoteNames: ["origin"])
+        XCTAssertEqual(names(model.remote), ["origin[\u{301}x]", "solo[solo]"])
+    }
+
+    func testVisibleRowsFlattenOpenFolders() {
+        let model = BranchListModel(
+            refs: refs([local("main"), local("feat/a"), local("feat/b")]), checkedOut: [], remoteNames: [])
+        XCTAssertEqual(BranchListModel.visibleRows(model.local, open: []).count, 2)
+        let open = BranchListModel.visibleRows(model.local, open: ["local/feat"])
+        XCTAssertEqual(open.map(\.depth), [0, 0, 1, 1])
+    }
+
     func testNamesAreEscaped() throws {
         let model = BranchListModel(
             refs: refs([local("feat/x\u{202E}y"), remote("ori\u{2028}gin/b", guess: "ori\u{2028}gin")]),

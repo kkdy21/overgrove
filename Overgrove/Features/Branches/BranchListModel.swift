@@ -46,6 +46,17 @@ struct BranchListModel: Equatable {
     /// A non-blocking note when branches were skipped (names git cannot take back) or the list was cut.
     let warning: String?
 
+    /// The rows to draw: folders and, inside open ones, their children, flattened so one lazy stack builds only what
+    /// is on screen (thousands of branches, security review of #72).
+    static func visibleRows(_ nodes: [BranchNode], open: Set<String>, depth: Int = 0) -> [(
+        node: BranchNode, depth: Int
+    )] {
+        nodes.flatMap { node -> [(node: BranchNode, depth: Int)] in
+            guard case .folder(let id, _, _, let children) = node, open.contains(id) else { return [(node, depth)] }
+            return [(node, depth)] + visibleRows(children, open: open, depth: depth + 1)
+        }
+    }
+
     /// - Parameters:
     ///   - checkedOut: Full ref names checked out in a worktree.
     ///   - remoteNames: Configured remotes, to split `refs/remotes/<remote>/<branch>` when a name has `/`.
@@ -73,13 +84,16 @@ struct BranchListModel: Equatable {
         var byRemote: [String: [BranchRow]] = [:]
         for branch in remotes {
             let rest = String(branch.fullName.dropFirst("refs/remotes/".count))
+            // Compared and cut in UTF-8 bytes: by characters, a combining mark after `/` would join it and hide the
+            // match (security review of #72).
             let remote =
-                configured.first { rest.hasPrefix($0 + "/") }
+                configured.first { rest.utf8.starts(with: ($0 + "/").utf8) }
                 ?? {
                     guard case .remote(let guess) = branch.kind else { return "" }
                     return guess
                 }()
-            let name = String(rest.dropFirst(remote.count + 1))
+            let cut = String(decoding: rest.utf8.dropFirst(remote.utf8.count + 1), as: UTF8.self)
+            let name = cut.isEmpty ? rest : cut
             byRemote[remote, default: []].append(
                 Self.row(branch, name: name, isCheckedOut: false, isDefault: false))
         }

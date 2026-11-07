@@ -28,58 +28,58 @@ struct BranchListSection: View {
                         .padding(.horizontal, Tokens.Spacing.md)
                         .frame(height: Tokens.Size.rowSidebar)
                 }
-                // Lazy: a repository can have thousands of branches.
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(nodes) { node in nodeView(node, depth: 0) }
+                // One lazy stack over the visible rows (folders flattened), one timer for every relative date.
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    let rows = BranchListModel.visibleRows(nodes, open: openFolders)
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(rows, id: \.node.id) { item in
+                            switch item.node {
+                            case .branch(let row):
+                                BranchRowView(row: row, depth: item.depth, now: title == "REMOTE" ? context.date : nil)
+                            case .folder(let id, let name, let count, _):
+                                folderRow(id: id, name: name, count: count, depth: item.depth)
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    private func nodeView(_ node: BranchNode, depth: Int) -> AnyView {
-        switch node {
-        case .branch(let row):
-            return AnyView(BranchRowView(row: row, depth: depth, showsDate: title == "REMOTE"))
-        case .folder(let id, let name, let count, let children):
-            let isOpen = openFolders.contains(id)
-            return AnyView(
-                VStack(alignment: .leading, spacing: 0) {
-                    Button {
-                        if isOpen { openFolders.remove(id) } else { openFolders.insert(id) }
-                    } label: {
-                        HStack(spacing: Tokens.Spacing.xs) {
-                            Image(systemName: "chevron.right")
-                                .rotationEffect(.degrees(isOpen ? 90 : 0))
-                                .font(Tokens.Font.caption)
-                                .foregroundStyle(Tokens.Color.textTertiary)
-                            Image(systemName: depth == 0 && title == "REMOTE" ? "globe" : "folder")
-                                .foregroundStyle(Tokens.Color.textTertiary)
-                            Text(name).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
-                            Spacer()
-                            Text(WorktreeListModel.badgeText(count))
-                                .font(Tokens.Font.caption)
-                                .foregroundStyle(Tokens.Color.textTertiary)
-                        }
-                        .padding(.leading, Tokens.Spacing.md + CGFloat(depth) * Tokens.Spacing.lg)
-                        .padding(.trailing, Tokens.Spacing.md)
-                        .frame(height: Tokens.Size.rowSidebar)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(name), \(count) branches")
-                    .accessibilityValue(isOpen ? "expanded" : "collapsed")
-                    if isOpen {
-                        ForEach(children) { child in nodeView(child, depth: depth + 1) }
-                    }
-                })
+    private func folderRow(id: String, name: String, count: Int, depth: Int) -> some View {
+        let isOpen = openFolders.contains(id)
+        return Button {
+            if isOpen { openFolders.remove(id) } else { openFolders.insert(id) }
+        } label: {
+            HStack(spacing: Tokens.Spacing.xs) {
+                Image(systemName: "chevron.right")
+                    .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                Image(systemName: depth == 0 && title == "REMOTE" ? "globe" : "folder")
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                Text(name).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
+                Spacer()
+                Text(WorktreeListModel.badgeText(count))
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+            }
+            .padding(.leading, Tokens.Spacing.md + CGFloat(depth) * Tokens.Spacing.lg)
+            .padding(.trailing, Tokens.Spacing.md)
+            .frame(height: Tokens.Size.rowSidebar)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(name + ", \(count) branches")
+        .accessibilityValue(isOpen ? "expanded" : "collapsed")
     }
 }
 
 private struct BranchRowView: View {
     let row: BranchRow
     let depth: Int
-    let showsDate: Bool
+    /// Set for remote rows, which show the tip's relative date.
+    let now: Date?
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {
@@ -102,12 +102,10 @@ private struct BranchRowView: View {
                 Text("↓" + WorktreeListModel.badgeText(row.behind)).font(Tokens.Font.pill)
                     .foregroundStyle(Tokens.Color.statusBehind)
             }
-            if showsDate, let date = row.date {
-                TimelineView(.periodic(from: .now, by: 60)) { context in
-                    Text(StatusBarItem.relative(date, now: context.date))
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                }
+            if let now, let date = row.date {
+                Text(StatusBarItem.relative(date, now: now))
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
             }
             if row.isCheckedOut {
                 Image(systemName: "tree").foregroundStyle(Tokens.Color.textSecondary)

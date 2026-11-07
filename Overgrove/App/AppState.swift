@@ -235,6 +235,7 @@ final class AppState {
         loadGeneration += 1
         snapshot = nil
         worktreeList = .idle
+        branchListModel = nil
         focusedWorktreePath = nil
         selection = nil
         selectedFile = nil
@@ -283,6 +284,7 @@ final class AppState {
         switch result {
         case .success(let listing):
             worktreeList = .loaded(listing)
+            branchListModel = Self.branchModel(listing)
             focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
             if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
             // A stash that is gone (dropped or applied elsewhere) falls back to the focused worktree.
@@ -474,9 +476,12 @@ final class AppState {
 
     // MARK: Branches (#72)
 
-    /// Sidebar LOCAL and REMOTE, `nil` until the list loads with refs.
-    var branchListModel: BranchListModel? {
-        guard case .loaded(let listing) = worktreeList, let refs = listing.refs else { return nil }
+    /// Sidebar LOCAL and REMOTE, built once per load (sorting thousands of refs on every render would stall clicks;
+    /// security review of #72). `nil` until the list loads with refs.
+    private(set) var branchListModel: BranchListModel?
+
+    private static func branchModel(_ listing: WorktreeListing) -> BranchListModel? {
+        guard let refs = listing.refs else { return nil }
         return BranchListModel(
             refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
             remoteNames: listing.remoteNames)
