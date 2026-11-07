@@ -30,9 +30,22 @@ final class PanelSplitViewTests: XCTestCase {
         var layout = PanelLayout.default
     }
 
-    private func makeView(_ box: LayoutBox, counter: Counter) -> some View {
+    /// Records the width the sidebar content is actually given, as a positive control for the PB-4 test.
+    private final class WidthProbe {
+        var lastWidth: CGFloat = 0
+    }
+
+    private func makeView(_ box: LayoutBox, counter: Counter, probe: WidthProbe = WidthProbe()) -> some View {
         PanelSplitView(layout: Binding(get: { box.layout }, set: { box.layout = $0 })) {
-            CountingPanel(title: "Sidebar", counter: counter)
+            ZStack {
+                CountingPanel(title: "Sidebar", counter: counter)
+                GeometryReader { proxy in
+                    let width = proxy.size.width
+                    Color.clear
+                        .onAppear { probe.lastWidth = width }
+                        .onChange(of: width) { _, new in probe.lastWidth = new }
+                }
+            }
         } center: {
             CountingPanel(title: "Graph", counter: counter)
         } detail: {
@@ -45,7 +58,8 @@ final class PanelSplitViewTests: XCTestCase {
     func testResizingDoesNotReEvaluatePanelContent() {
         let box = LayoutBox()
         let counter = Counter()
-        let host = NSHostingView(rootView: AnyView(makeView(box, counter: counter)))
+        let probe = WidthProbe()
+        let host = NSHostingView(rootView: AnyView(makeView(box, counter: counter, probe: probe)))
         host.frame = NSRect(x: 0, y: 0, width: 1440, height: 600)
         host.layoutSubtreeIfNeeded()
         let initial = counter.evaluations
@@ -54,9 +68,11 @@ final class PanelSplitViewTests: XCTestCase {
         for step in 0..<40 {
             box.layout.sidebarWidth = 230 + CGFloat(step) * 4
             box.layout.detailWidth = 320 + CGFloat(step) * 3
-            host.rootView = AnyView(makeView(box, counter: counter))
+            host.rootView = AnyView(makeView(box, counter: counter, probe: probe))
             host.layoutSubtreeIfNeeded()
         }
+        // Positive control: the resizes really reached the panel (sidebar drawn at its last width).
+        XCTAssertEqual(probe.lastWidth, 230 + 39 * 4, accuracy: 0.5, "the layout changes must reach the panels")
         XCTAssertEqual(counter.evaluations, initial, "panel content must not be rebuilt on every resize frame")
     }
 

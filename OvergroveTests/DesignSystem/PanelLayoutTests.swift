@@ -126,6 +126,16 @@ final class PanelLayoutTests: XCTestCase {
         XCTAssertEqual(ended.sidebarWidth, 256, "reopening restores the width from before the drag")
     }
 
+    func testCollapseByDragKeepsThePreferenceNotTheShrunkWidth() {
+        // Preferred 400, but a narrow window draws the sidebar at its minimum; collapsing must keep 400.
+        let layout = PanelLayout(sidebarWidth: 400, detailWidth: 344)
+        let narrow: CGFloat = 4 * gap + 220 + 300 + 480
+        XCTAssertEqual(layout.resolved(windowWidth: narrow).sidebar, 220)
+        let ended = layout.endDrag(.sidebar, from: 220, by: -41, windowWidth: narrow)
+        XCTAssertTrue(ended.isSidebarCollapsed)
+        XCTAssertEqual(ended.sidebarWidth, 400)
+    }
+
     func testDetailCollapsesWhenDraggedRightPastTheThreshold() {
         let ended = PanelLayout.default.endDrag(.detail, from: 344, by: 344 - 300 + 41, windowWidth: wide)
         XCTAssertTrue(ended.isDetailCollapsed)

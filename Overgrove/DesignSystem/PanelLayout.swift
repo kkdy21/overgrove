@@ -82,6 +82,7 @@ struct PanelLayout: Codable, Equatable, Sendable {
     static let collapseOvershoot: CGFloat = 40
     /// `←` / `→` on a focused divider (interaction.md §2.1: 8pt).
     static let keyboardStep = Tokens.Spacing.sm
+    private static let limitTolerance: CGFloat = 0.5
 
     static let `default` = PanelLayout(
         sidebarWidth: limits(for: .sidebar).ideal, detailWidth: limits(for: .detail).ideal)
@@ -155,6 +156,7 @@ struct PanelLayout: Codable, Equatable, Sendable {
     }
 
     /// The widest `side` can be in this window: its own maximum, or less if the center would drop below its minimum.
+    /// Dragging one panel never shrinks the other: the other panel's drawn width is taken as fixed.
     func maximumWidth(of side: Side, windowWidth: CGFloat) -> CGFloat {
         let limits = Self.limits(for: side)
         let other: Side = side == .sidebar ? .detail : .sidebar
@@ -165,8 +167,9 @@ struct PanelLayout: Codable, Equatable, Sendable {
 
     func limitState(_ side: Side, windowWidth: CGFloat) -> LimitState {
         guard let width = resolved(windowWidth: windowWidth).width(of: side) else { return .between }
-        if width <= Self.limits(for: side).minimum { return .atMinimum }
-        if width >= maximumWidth(of: side, windowWidth: windowWidth) { return .atMaximum }
+        // Half a point of tolerance: widths from the shrink path can differ by a rounding error.
+        if width <= Self.limits(for: side).minimum + Self.limitTolerance { return .atMinimum }
+        if width >= maximumWidth(of: side, windowWidth: windowWidth) - Self.limitTolerance { return .atMaximum }
         return .between
     }
 
@@ -206,12 +209,12 @@ struct PanelLayout: Codable, Equatable, Sendable {
         return Drag(layout: setting(side, width: width), isCollapsePending: false)
     }
 
-    /// The layout once the drag is released: either the dragged width, or collapsed with the pre-drag width kept
-    /// so reopening restores it.
+    /// The layout once the drag is released: either the dragged width, or collapsed with the stored preference
+    /// kept (not the possibly shrunk width drawn in a narrow window), so reopening restores it.
     func endDrag(_ side: Side, from startWidth: CGFloat, by translation: CGFloat, windowWidth: CGFloat) -> PanelLayout {
         let drag = drag(side, from: startWidth, by: translation, windowWidth: windowWidth)
         guard drag.isCollapsePending else { return drag.layout }
-        return setting(side, width: startWidth).setting(side, collapsed: true)
+        return setting(side, collapsed: true)
     }
 
     /// Double-click on a divider: that panel back to its ideal width.

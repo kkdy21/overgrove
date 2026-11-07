@@ -54,20 +54,22 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
             let resolved = shown.resolved(windowWidth: windowWidth)
             HStack(spacing: 0) {
                 Color.clear.frame(width: Self.gap)
-                if let width = resolved.sidebar {
-                    PanelBox(fill: Tokens.Color.surfacePanel) { sidebar }
-                        .frame(width: width)
-                        .opacity(isPendingCollapse(.sidebar, live) ? Tokens.Opacity.disabled : 1)
+                // Collapsed panels stay in the hierarchy at width 0, so their content keeps its state (selection,
+                // scroll position) and the width animates instead of the view being removed and rebuilt.
+                PanelBox(fill: Tokens.Color.surfacePanel) { sidebar }
+                    .modifier(
+                        CollapsiblePanel(width: resolved.sidebar, isPendingCollapse: isPendingCollapse(.sidebar, live)))
+                if resolved.sidebar != nil {
                     divider(.sidebar, shown: shown, windowWidth: windowWidth)
                 }
                 PanelBox(fill: Tokens.Color.surfaceCanvas) { center }
                     .frame(width: resolved.center)
-                if let width = resolved.detail {
+                if resolved.detail != nil {
                     divider(.detail, shown: shown, windowWidth: windowWidth)
-                    PanelBox(fill: Tokens.Color.surfacePanel) { detail }
-                        .frame(width: width)
-                        .opacity(isPendingCollapse(.detail, live) ? Tokens.Opacity.disabled : 1)
                 }
+                PanelBox(fill: Tokens.Color.surfacePanel) { detail }
+                    .modifier(
+                        CollapsiblePanel(width: resolved.detail, isPendingCollapse: isPendingCollapse(.detail, live)))
                 Color.clear.frame(width: Self.gap)
             }
             .padding(.vertical, Self.gap)
@@ -79,7 +81,10 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
             PanelLayoutActions(
                 isSidebarCollapsed: layout.isSidebarCollapsed,
                 isDetailCollapsed: layout.isDetailCollapsed,
-                toggle: { side in commit(layout.toggling(side), animated: true) }
+                toggle: { side in
+                    drag = nil  // a collapse during a drag ends it; the gesture may never report an end
+                    commit(layout.toggling(side), animated: true)
+                }
             ))
     }
 
@@ -101,20 +106,25 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
             accessibilityValue: shown.accessibilityValue(side, windowWidth: windowWidth),
             isDragging: drag?.side == side,
             onDragChanged: { translation in
-                if drag == nil {
+                if drag?.side == side {
+                    drag?.translation = translation
+                } else {
+                    // New drag, or a stale session from the other divider whose end was never reported.
                     let start = layout.resolved(windowWidth: windowWidth).width(of: side) ?? layout.width(of: side)
                     drag = DragSession(side: side, startWidth: start, translation: translation)
-                } else {
-                    drag?.translation = translation
                 }
             },
             onDragEnded: { translation in
-                guard let session = drag else { return }
+                guard let session = drag, session.side == side else { return }
                 let ended = layout.endDrag(
                     side, from: session.startWidth, by: translation, windowWidth: windowWidth)
                 drag = nil
                 // Following the pointer is never animated; only a collapse on release is.
                 commit(ended, animated: ended.isCollapsed(side))
+            },
+            onDragCancelled: {
+                // SwiftUI does not call `onEnded` for a cancelled gesture; drop the session without committing.
+                if drag?.side == side { drag = nil }
             },
             onReset: { commit(layout.reset(side), animated: false) },
             onStep: { steps in commit(layout.step(side, by: steps, windowWidth: windowWidth), animated: false) },
@@ -171,12 +181,15 @@ private struct PanelDivider: View {
     let isDragging: Bool
     let onDragChanged: (CGFloat) -> Void
     let onDragEnded: (CGFloat) -> Void
+    let onDragCancelled: () -> Void
     let onReset: () -> Void
     /// Positive widens the panel.
     let onStep: (Int) -> Void
     let onEdge: (PanelLayout.Edge) -> Void
 
     @State private var isHovering = false
+    /// True while the drag gesture runs; SwiftUI resets it on end *and* on cancel, unlike `onEnded`.
+    @GestureState private var isGestureActive = false
 
     /// interaction.md §2.1: the hovered or dragged gutter gets the accent at 10%. No token yet (tokens.json describes
     /// `surface.hover` for it); kept here so the value has one home.
@@ -195,26 +208,34 @@ private struct PanelDivider: View {
         .frame(width: PanelLayout.gap)
         .frame(maxHeight: .infinity)
         .contentShape(Rectangle())
-        .onContinuousHover { phase in
-            switch phase {
-            case .active:
-                isHovering = true
-                cursor.set()
-            case .ended:
-                isHovering = false
-                if !isDragging { NSCursor.arrow.set() }
-            }
-        }
+        // AppKit cursor rects (as NSSplitView does): AppKit owns hover, key/inactive windows, and drag end.
+        .background(CursorArea(cursor: cursor))
+        .onHover { isHovering = $0 }
         .gesture(
-            DragGesture(minimumDistance: 1, coordinateSpace: .global)
+            // 3pt so a slightly jittery double-click on a trackpad is not taken for a drag.
+            DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .updating($isGestureActive) { _, active, _ in active = true }
                 .onChanged { value in
                     onDragChanged(value.translation.width)
-                    cursor.set()
+                    cursor.set()  // keep the resize cursor while the pointer leaves the 8pt gutter
                 }
-                .onEnded { value in onDragEnded(value.translation.width) }
+                .onEnded { value in
+                    onDragEnded(value.translation.width)
+                    NSCursor.arrow.set()
+                }
         )
+        .onChange(of: isGestureActive) { _, active in
+            guard !active else { return }
+            // After a normal end `onEnded` has already cleared the session, so this is a no-op; after a cancel
+            // (e.g. the divider disappeared mid-drag) it is the only signal. Deferred so it never races `onEnded`.
+            Task { @MainActor in
+                onDragCancelled()
+                NSCursor.arrow.set()
+            }
+        }
         .onTapGesture(count: 2, perform: onReset)
-        .focusable()
+        // Focus only through keyboard navigation; a click on the gutter must not steal focus from the panels.
+        .focusable(interactions: .activate)
         .onKeyPress(keys: [.leftArrow, .rightArrow]) { press in
             handle(press)
         }
@@ -232,6 +253,8 @@ private struct PanelDivider: View {
 
     /// `→` moves the divider right: wider sidebar, narrower detail. `⌥` jumps to the end of the range.
     private func handle(_ press: KeyPress) -> KeyPress.Result {
+        // Only plain and ⌥ arrows; ⌘/⌃/⇧ arrows belong to someone else.
+        guard press.modifiers.isDisjoint(with: [.command, .control, .shift]) else { return .ignored }
         let movesRight = press.key == .rightArrow
         let widens = movesRight == (side == .sidebar)
         if press.modifiers.contains(.option) {
@@ -256,13 +279,73 @@ private struct PanelDivider: View {
     }
 }
 
+// MARK: - Collapsing and cursor helpers
+
+/// Width for a panel that may be collapsed: at width 0 it is invisible, ignored by VoiceOver, untouchable, and
+/// disabled (so focus cannot move into it), but it stays in the view hierarchy.
+private struct CollapsiblePanel: ViewModifier {
+    let width: CGFloat?
+    let isPendingCollapse: Bool
+
+    func body(content: Content) -> some View {
+        let isCollapsed = width == nil
+        content
+            .frame(width: width ?? 0)
+            .clipped()
+            .opacity(isCollapsed ? 0 : (isPendingCollapse ? Tokens.Opacity.disabled : 1))
+            .accessibilityHidden(isCollapsed)
+            .allowsHitTesting(!isCollapsed)
+            .disabled(isCollapsed)
+    }
+}
+
+/// An AppKit cursor rect over the divider. It takes no mouse events (`hitTest` returns nil), so SwiftUI gestures
+/// and hover still work.
+private struct CursorArea: NSViewRepresentable {
+    let cursor: NSCursor
+
+    func makeNSView(context: Context) -> CursorView {
+        CursorView()
+    }
+
+    func updateNSView(_ view: CursorView, context: Context) {
+        view.cursor = cursor
+    }
+
+    final class CursorView: NSView {
+        var cursor: NSCursor = .arrow {
+            didSet {
+                if cursor !== oldValue { window?.invalidateCursorRects(for: self) }
+            }
+        }
+
+        override func resetCursorRects() {
+            addCursorRect(bounds, cursor: cursor)
+        }
+
+        override func setFrameSize(_ newSize: NSSize) {
+            super.setFrameSize(newSize)
+            window?.invalidateCursorRects(for: self)
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            nil
+        }
+    }
+}
+
 // MARK: - Commands
 
 /// What the focused window's `PanelSplitView` offers to menu commands.
-struct PanelLayoutActions {
+struct PanelLayoutActions: Equatable {
     let isSidebarCollapsed: Bool
     let isDetailCollapsed: Bool
     let toggle: @MainActor (PanelLayout.Side) -> Void
+
+    /// Equal when the menu would look the same, so ordinary re-renders do not republish the focused value.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.isSidebarCollapsed == rhs.isSidebarCollapsed && lhs.isDetailCollapsed == rhs.isDetailCollapsed
+    }
 }
 
 private struct PanelLayoutActionsKey: FocusedValueKey {
