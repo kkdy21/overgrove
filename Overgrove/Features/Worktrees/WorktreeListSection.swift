@@ -9,6 +9,9 @@ struct WorktreeListSection: View {
     let model: WorktreeListModel?
     let selectedPath: GitPath?
     let onSelect: (GitPath) -> Void
+    /// `Compare with Base` in the row's context menu (#158); `nil` for rows that cannot be compared.
+    var canCompare: (GitPath) -> Bool = { _ in false }
+    var onCompare: (GitPath) -> Void = { _ in }
 
     @State private var isExpanded = true
     @FocusState private var hasFocus: Bool
@@ -48,6 +51,9 @@ struct WorktreeListSection: View {
                 WorktreeRowView(row: row, isSelected: row.id == selectedPath, isListFocused: hasFocus)
                     .contentShape(Rectangle())
                     .onTapGesture { onSelect(row.id) }
+                    .contextMenu {
+                        Button("Compare with Base") { onCompare(row.id) }.disabled(!canCompare(row.id))
+                    }
                     .accessibilityAction { onSelect(row.id) }
             }
         }

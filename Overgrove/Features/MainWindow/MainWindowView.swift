@@ -17,11 +17,12 @@ struct MainWindowView: View {
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
                     onSelectWorktree: state.selectWorktree, stashRows: state.stashes.map(StashRow.init),
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
-                    onSelectStash: state.selectStash)
+                    onSelectStash: state.selectStash, canCompareWorktree: { state.canCompare($0) },
+                    onCompareWorktree: { state.showComparison(of: $0) })
             } center: {
                 GraphPanel(
                     hasRepository: state.repository != nil, diff: state.diffViewer,
-                    onShowGraph: state.clearSelectedFile)
+                    onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
             } detail: {
                 DetailPanel(
                     focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
@@ -36,7 +37,9 @@ struct MainWindowView: View {
                     },
                     stashModel: state.stashDetailModel, selectedStashFile: state.selectedStashFile?.path,
                     onSelectStashFile: state.selectStashFile,
-                    onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail)
+                    onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
+                    comparisonList: comparisonList,
+                    onCompare: state.canCompare() ? { state.showComparison() } : nil)
             }
             // Relative fetch times ("2 min ago") stay current without a model change.
             TimelineView(.periodic(from: .now, by: statusRefreshInterval)) { context in
@@ -56,7 +59,8 @@ struct MainWindowView: View {
                 repositoryActions: repositoryActions,
                 focusedWorktree: state.snapshot?.focusedWorktree,
                 isSidebarCollapsed: state.panelLayout.isSidebarCollapsed,
-                toggleSidebar: toggleSidebar
+                toggleSidebar: toggleSidebar,
+                onCompare: state.canCompare() ? { state.showComparison() } : nil
             )
         }
         .toolbarBackground(Tokens.Color.surfaceWindow, for: .windowToolbar)
@@ -97,6 +101,22 @@ struct MainWindowView: View {
             guard let folder = await RepositoryPicker.choose(in: NSApp.keyWindow) else { return }
             await state.addRepository(at: folder)
         }
+    }
+
+    // MARK: Compare with base (#158)
+
+    private var comparisonCenter: ComparisonCenterView? {
+        guard let session = state.comparison, let model = state.comparisonModel else { return nil }
+        return ComparisonCenterView(
+            session: session, model: model, onBack: state.closeComparison, onChooseBase: state.chooseComparisonBase,
+            onIncludeUncommitted: state.setIncludeUncommitted)
+    }
+
+    private var comparisonList: ComparisonListView? {
+        guard let session = state.comparison, let model = state.comparisonModel else { return nil }
+        return ComparisonListView(
+            title: state.snapshot?.focusedWorktree?.title ?? "", session: session, model: model,
+            onSelect: state.selectComparisonFile, onShowAll: state.showAllComparisonFiles)
     }
 
     private func toggleSidebar() {

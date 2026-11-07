@@ -96,6 +96,8 @@ struct SidebarPanel: View {
     var isStashListPartial = false
     var selectedStash: ObjectID?
     var onSelectStash: (ObjectID) -> Void = { _ in }
+    var canCompareWorktree: (GitPath) -> Bool = { _ in false }
+    var onCompareWorktree: (GitPath) -> Void = { _ in }
 
     var body: some View {
         PanelSection {
@@ -108,7 +110,8 @@ struct SidebarPanel: View {
                     VStack(alignment: .leading, spacing: 0) {
                         WorktreeListSection(
                             status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
-                            onSelect: onSelectWorktree)
+                            onSelect: onSelectWorktree, canCompare: canCompareWorktree,
+                            onCompare: onCompareWorktree)
                         if case .loaded = worktreeStatus {
                             StashListSection(
                                 rows: stashRows, isPartial: isStashListPartial, selectedID: selectedStash,
@@ -132,8 +135,13 @@ struct GraphPanel: View {
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
 
+    /// S-11 covers the graph while a comparison is open (#158).
+    var comparison: ComparisonCenterView?
+
     var body: some View {
-        if let diff {
+        if let comparison {
+            comparison
+        } else if let diff {
             DiffViewerView(title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph)
         } else {
             graph
@@ -169,6 +177,10 @@ struct DetailPanel: View {
     var onSelectStashFile: (FileStat) -> Void = { _ in }
     var onShowChanges: () -> Void = {}
     var onShowWorktree: () -> Void = {}
+    /// S-11's lists while a comparison is open (#158).
+    var comparisonList: ComparisonListView?
+    /// S-05's `Compare with Base…` (#158); `nil` disables it.
+    var onCompare: (() -> Void)?
 
     var body: some View {
         PanelSection {
@@ -186,10 +198,12 @@ struct DetailPanel: View {
                 DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
             }
         } content: {
-            if let stashModel {
+            if let comparisonList {
+                comparisonList
+            } else if let stashModel {
                 StashDetailView(model: stashModel, selectedFile: selectedStashFile, onSelectFile: onSelectStashFile)
             } else if let worktreeModel {
-                WorktreeDetailView(model: worktreeModel)
+                WorktreeDetailView(model: worktreeModel, onCompare: onCompare)
             } else if let wipModel {
                 WipDetailView(model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile)
             } else if worktreeStatus == .loading {
