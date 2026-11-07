@@ -1,6 +1,8 @@
 # ADR-0018: 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 둔다
 
 > 상태: Accepted · 날짜: 2026-11-08 · 관련: #328, #109, ADR-0008, ADR-0009, [overview.md §5·§8](../architecture/overview.md#5-캐시와-무효화), [security-review.md T19](../design/security-review.md#t19-디스크에-남는-저장소-데이터), [performance-budget.md PB-1](../performance/performance-budget.md)
+>
+> 개정: 2026-11-08 #109 구현 중 무효화 기준 정정 (§1·§3: git 버전 → git 실행 파일 경로와 `lstat`, 버전은 진단용 기록)
 
 ## 맥락
 
@@ -24,9 +26,9 @@ v0.1의 결과 캐시(`RepositoryService`, overview.md §5)는 메모리에만 �
 
 | 필드 | 내용 | 비고 |
 |---|---|---|
-| 머리 | 형식 버전, 앱 버전·빌드, git 버전, 저장 시각, 저장소 ID의 SHA-256 | 무효화(§3)에 쓴다 |
+| 머리 | 형식 버전, 앱 버전·빌드, git 실행 파일 경로와 그 `lstat` 값, git 버전(진단용), 저장 시각, 저장소 ID의 SHA-256 | 무효화(§3)에 쓴다. git 버전은 무효화에 쓰지 않는다 |
 | 워크트리 행 (최대 64개) | 경로, main 여부, 브랜치 짧은 이름 또는 detached, HEAD 짧은 SHA, 잠김·prunable 여부 | 64는 한 번에 조회하는 워크트리 상한(`defaultMaximumQueriedWorktrees`, T15)과 같다 |
-| 행의 개수 | 변경 파일 수, untracked 수, 충돌 수, ahead·behind, upstream 없음·사라짐 여부 | 숫자와 상태만. upstream 이름은 저장하지 않는다 |
+| 행의 개수 | 변경 파일 수(staged·unstaged·untracked 합계, 사이드바 배지와 같은 값), 충돌 수, ahead·behind, upstream 없음·사라짐 여부 | 숫자와 상태만. upstream 이름은 저장하지 않는다 |
 | 저장소 | stash 개수, 포커스 워크트리 경로 | |
 | 지문 | §3의 파일들의 `stat` 값 | |
 
@@ -42,13 +44,16 @@ v0.1의 결과 캐시(`RepositoryService`, overview.md §5)는 메모리에만 �
 
 다음 중 하나라도 맞으면 스냅샷을 보여 주지 않고 지운다.
 
-- 형식 버전, 앱 버전·빌드, git 버전이 지금과 다르다.
+- 형식 버전, 앱 버전·빌드가 지금과 다르다.
+- git 실행 파일 경로와 `lstat(2)`(장치·inode·크기·mtime·ctime)이 저장할 때와 다르다. 파일이 없어져도 다르다. git 버전은 진단용으로만 기록한다. 읽을 때마다 `git --version`을 실행하면 스냅샷이 줄이려는 기다림이 다시 생기기 때문이다.
 - 파일 머리의 저장소 ID 해시가 파일 이름(지금 저장소 ID의 해시)과 다르다.
 - 지문이 다르다. 지문은 공통 git 디렉터리의 `HEAD`, `packed-refs`, `config`, `worktrees/` 디렉터리와, 각 워크트리 git 디렉터리의 `HEAD`, `index`에 대한 `lstat(2)`의 장치·inode·크기·mtime·ctime이다(설정 검사 캐시와 같은 방식, overview.md §5). 없던 파일이 생기거나 있던 파일이 사라져도 다르다.
 - 저장한 지 7일이 지났다.
 - 파일이 §4의 검증을 통과하지 못한다.
 
 지문이 같아도 작업 트리만 바뀐 경우(index를 건드리지 않는 수정)는 잡지 못한다. 그래서 스냅샷은 항상 "갱신 중"으로 그리고, 숫자는 첫 조회가 끝나면 바뀐다.
+
+앱이 쓰는 git만 바뀌고 이전 git 파일은 그대로 남은 경우도 잡지 못한다. 예를 들어 `xcode-select`로 developer dir만 바꾸거나 #106의 사용자 지정 경로를 바꾼 경우다. 스냅샷은 표시 전용이고 첫 조회는 지금의 git으로 하므로, 첫 조회 전까지 옛 숫자가 보일 뿐이다.
 
 다음 때는 파일을 지운다: 저장소 제거(`forget`), 그 저장소의 새로고침 실패(지금도 메모리 캐시를 버리는 조건), 설정 검사가 조회를 막을 때.
 
@@ -113,7 +118,7 @@ v0.1의 결과 캐시(`RepositoryService`, overview.md §5)는 메모리에만 �
 
 ## 후속 작업
 
-- [ ] security-review.md에 T19 추가 (#328, 이 PR)
-- [ ] overview.md §5·§8에 결정 요약 연결 (#328, 이 PR)
-- [ ] 측정 → 진행 조건 판단 → `LaunchSnapshot` 구현과 SEC-T19 테스트 (#109)
-- [ ] 측정 항목을 benchmark-plan.md에 추가 (#109)
+- [x] security-review.md에 T19 추가 (#328)
+- [x] overview.md §5·§8에 결정 요약 연결 (#328)
+- [x] 측정 → 진행 조건 판단 → `LaunchSnapshot` 구현과 SEC-T19 테스트 (#109, [PERF-13 결과](../performance/results/2026-11-08-perf13-launch-snapshot-gate.md))
+- [x] 측정 항목을 benchmark-plan.md에 추가 (#109)

@@ -40,7 +40,8 @@ final class FetchFailureTests: XCTestCase {
     ) async throws -> (GitError, FetchFailureGuidance) {
         try await local.git(["remote", "add", "origin", url])
         let safety = RepoSafetyContext(
-            inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: sshCommand?.path)
+            inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: sshCommand?.path,
+            fetchableRemotes: ["origin"])
         do {
             _ = try await GitClient(environment: local.environment).fetch(
                 .fetch(remote: origin), in: repository, safety: safety)

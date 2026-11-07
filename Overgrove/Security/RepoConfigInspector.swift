@@ -8,6 +8,9 @@ struct RepoConfigInspection: Sendable, Equatable {
         let url: String
         /// Credential-masked URL for the UI.
         let displayURL: String
+        /// Every URL of the remote, after any `url.<base>.insteadOf` rewrite, is in a built-in transport form, and no
+        /// `remote.<n>.vcs` is set (#350). Fetch runs only these remotes.
+        let isBuiltInTransport: Bool
     }
 
     let report: RepoSecurityReport
@@ -40,7 +43,8 @@ struct RepoConfigInspection: Sendable, Equatable {
             fetchAuthentication: fetchAuthentication,
             trustedSSHCommand: trustedSSHCommand,
             fetchBlockingReason: fetchBlockingReason,
-            isPartialClone: isPartialClone
+            isPartialClone: isPartialClone,
+            fetchableRemotes: Set(remotes.filter(\.isBuiltInTransport).map(\.name.value))
         )
     }
 }
@@ -64,6 +68,17 @@ enum RepoConfigInspector {
     static let maximumRemotes = 1_000
     /// Findings kept for the report (S-05); the rest are counted in `omittedFindings`.
     static let maximumFindings = 1_000
+    /// Bounds on the remote form check (#350, T15). Past any of them a remote is not fetchable; queries go on.
+    /// - Remotes checked, the first in configuration order. More than one Fetch takes
+    ///   (`RepositoryService.defaultMaximumFetchedRemotes`).
+    static let maximumCheckedRemotes = 32
+    /// - URLs per remote. Beyond this the remote is not fetchable.
+    static let maximumURLsPerRemote = 4
+    /// - `url.<base>.insteadOf` rewrites. Beyond this no remote is fetchable.
+    static let maximumInsteadOfRewrites = 256
+    /// - Bytes in a URL, a rewrite's base, or its prefix. A longer URL is not fetchable; a longer rewrite makes no
+    ///   remote fetchable.
+    static let maximumCheckedLength = 1_024
 
     static func inspect(_ listing: ConfigParser.Listing) -> RepoConfigInspection {
         var findings: [RepoSecurityReport.Finding] = []
@@ -182,18 +197,25 @@ enum RepoConfigInspector {
                 !$0.scope.isRepositoryControlled && $0.section == "core" && $0.variable == "sshcommand"
             }?.value
 
-        var remotes: [RepoConfigInspection.Remote] = []
+        var listedRemotes: [(name: RemoteName, url: String)] = []
         var seenRemotes = Set<String>()
         var omittedRemotes = 0
         for entry in listing.entries where entry.section == "remote" && entry.variable == "url" {
             guard let subsection = entry.subsection, let name = RemoteName(subsection), let url = entry.value,
                 seenRemotes.insert(name.value).inserted
             else { continue }
-            guard remotes.count < maximumRemotes else {
+            guard listedRemotes.count < maximumRemotes else {
                 omittedRemotes += 1
                 continue
             }
-            remotes.append(.init(name: name, url: url, displayURL: CredentialMasker.mask(url)))
+            listedRemotes.append((name, url))
+        }
+        let builtInRemotes = builtInRemoteNames(
+            listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
+        let remotes = listedRemotes.map {
+            RepoConfigInspection.Remote(
+                name: $0.name, url: $0.url, displayURL: CredentialMasker.mask($0.url),
+                isBuiltInTransport: builtInRemotes.contains($0.name.value))
         }
 
         let dependsOnHEAD = listing.entries.contains {
@@ -271,7 +293,8 @@ enum RepoConfigInspector {
             // Partial clone: reads lazy-fetch from the promisor remote. Queries allow no transport (#212).
             if variable == "promisor" || variable == "partialclonefilter" { return ("T5", .neutralized) }
             if variable == "mirror" { return ("T13", .reported) }
-            // A remote helper chosen by the repository. `GIT_ALLOW_PROTOCOL` refuses it at fetch time (#161).
+            // A remote helper chosen by the repository. Fetch refuses the remote before git starts (#350);
+            // `GIT_ALLOW_PROTOCOL` refuses helpers outside the allowed transports (#161).
             if variable == "vcs" { return ("T5", .reported) }
             if variable == "url", TransportName.remoteHelper(forURL: value) != nil { return ("T5", .reported) }
             return nil
@@ -317,6 +340,79 @@ enum RepoConfigInspector {
 }
 
 extension RepoConfigInspector {
+    /// The remotes among `candidates` that fetch may run: every URL is in a built-in transport form, as written and
+    /// after a `url.<base>.insteadOf` rewrite, and no `remote.<n>.vcs` is set, whatever the scope of the setting
+    /// (#350, T5). Fail closed: anything that cannot be checked like git leaves the remote out.
+    ///
+    /// - git applies only the longest matching rewrite; every match is checked here, which can only refuse more. A key
+    ///   without a value counts as an empty prefix, which matches every URL.
+    /// - An empty URL value is refused: on newer git it clears the remote's URL list, and git then reads legacy
+    ///   remote files this inspection does not see.
+    /// - Values are compared as bytes, as git does. The listing decodes invalid UTF-8 lossily, so a value with a
+    ///   replacement character is not checked: such a URL is refused, and such a rewrite refuses every remote.
+    /// - Work is bounded (#262, T15): at most `candidates` × `maximumURLsPerRemote` × `maximumInsteadOfRewrites`
+    ///   checks of at most `maximumCheckedLength` bytes each, plus one pass over the listing.
+    static func builtInRemoteNames(_ listing: ConfigParser.Listing, among candidates: [String]) -> Set<String> {
+        let checked = Set(candidates)
+        var rewrites: [(base: TransportName.ScannedBytes, prefix: [UInt8])] = []
+        var areRewritesCheckable = true
+        var urls: [String: [TransportName.ScannedBytes]] = [:]
+        var refused = Set<String>()
+        for entry in listing.entries {
+            switch (entry.section, entry.variable) {
+            case ("url", "insteadof"):
+                let base = entry.subsection ?? ""
+                let prefix = entry.value ?? ""
+                if rewrites.count < maximumInsteadOfRewrites, isCheckable(base), isCheckable(prefix) {
+                    rewrites.append((TransportName.ScannedBytes(base), Array(prefix.utf8)))
+                } else {
+                    areRewritesCheckable = false
+                }
+            case ("remote", "vcs"):
+                if let name = entry.subsection, checked.contains(name) { refused.insert(name) }
+            case ("remote", "url"):
+                guard let name = entry.subsection, checked.contains(name), !refused.contains(name) else { continue }
+                let url = entry.value ?? ""
+                if url.isEmpty || !isCheckable(url) || urls[name, default: []].count >= maximumURLsPerRemote {
+                    refused.insert(name)
+                    urls[name] = nil
+                } else {
+                    urls[name, default: []].append(TransportName.ScannedBytes(url))
+                }
+            default:
+                continue
+            }
+        }
+        guard areRewritesCheckable else { return [] }
+        let empty = TransportName.ScannedBytes("")
+        var builtIn = Set<String>()
+        for (name, values) in urls where !refused.contains(name) {
+            let isBuiltIn = values.allSatisfy { url in
+                TransportName.isBuiltInFetchForm(empty, url, from: 0)
+                    && rewrites.allSatisfy { rewrite in
+                        !hasPrefix(url.bytes, rewrite.prefix)
+                            || TransportName.isBuiltInFetchForm(rewrite.base, url, from: rewrite.prefix.count)
+                    }
+            }
+            if isBuiltIn { builtIn.insert(name) }
+        }
+        return builtIn
+    }
+
+    /// git's `starts_with` on bytes.
+    private static func hasPrefix(_ bytes: [UInt8], _ prefix: [UInt8]) -> Bool {
+        guard !prefix.isEmpty else { return true }
+        guard prefix.count <= bytes.count else { return false }
+        return bytes.withUnsafeBufferPointer { whole in
+            prefix.withUnsafeBufferPointer { start in memcmp(whole.baseAddress, start.baseAddress, prefix.count) == 0 }
+        }
+    }
+
+    /// Short enough to check, and decoded without loss, so its bytes are the ones git compares.
+    private static func isCheckable(_ value: String) -> Bool {
+        value.utf8.count <= maximumCheckedLength && !value.unicodeScalars.contains("\u{FFFD}")
+    }
+
     /// Every setting that makes git treat a remote as a promisor, in any scope: `remote.<n>.promisor` set to anything
     /// but a clear false, any `remote.<n>.partialclonefilter` (git registers the remote for a filter alone), and any
     /// `extensions.partialclone`, even empty (#317). Lazy fetch runs the repository's own uploadpack whichever scope

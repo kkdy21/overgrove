@@ -207,7 +207,8 @@ final class ConfigHookSecurityTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: canary.path), [])
         let control = RepoSafetyContext(
             inspectedNeutralization: Self.droppingHookArguments(safety.neutralization),
-            fetchAuthentication: safety.fetchAuthentication, trustedSSHCommand: safety.trustedSSHCommand)
+            fetchAuthentication: safety.fetchAuthentication, trustedSSHCommand: safety.trustedSSHCommand,
+            fetchableRemotes: safety.fetchableRemotes)
         _ = try await client.fetch(.fetch(remote: RemoteName("origin")!), in: repository, safety: control)
         XCTAssertEqual(
             Set(try FileManager.default.contentsOfDirectory(atPath: canary.path)),
