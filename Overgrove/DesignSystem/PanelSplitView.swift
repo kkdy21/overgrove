@@ -7,7 +7,7 @@ import SwiftUI
 /// splitters. `PanelLayout` does all the width math; this view only draws it and turns pointer, keyboard, and
 /// VoiceOver input into layout changes.
 ///
-/// - `layout` is the live value (it changes on every drag frame).
+/// - `layout` is written when a change finishes; drag frames are kept in this view's own state.
 /// - `onCommit` runs once per finished change (drag released, double-click, keyboard step, collapse toggle). Save
 ///   the layout there (`PanelLayoutStore`), not on every frame.
 ///
@@ -137,7 +137,7 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
     private func commit(_ new: PanelLayout, animated: Bool) {
         guard new != layout else { return }
         if animated, !reduceMotion {
-            withAnimation(Self.collapseAnimation) { layout = new }
+            withAnimation(.panelCollapse) { layout = new }
         } else {
             var transaction = Transaction(animation: nil)
             transaction.disablesAnimations = true
@@ -146,8 +146,12 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
         onCommit(new)
     }
 
-    /// Collapse and reopen: `motion.duration-standard` with `motion.easing-standard`.
-    static var collapseAnimation: Animation {
+}
+
+extension Animation {
+    /// Panel collapse and reopen: `motion.duration-standard` with `motion.easing-standard`. Callers skip it under
+    /// Reduce Motion.
+    static var panelCollapse: Animation {
         let curve = Tokens.Motion.easingStandardControlPoints
         return .timingCurve(curve.x1, curve.y1, curve.x2, curve.y2, duration: Tokens.Motion.durationStandard)
     }
@@ -155,7 +159,9 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
 
 // MARK: - Panel box
 
-/// One rounded panel on the window background (art-direction.md §3: radius 10, 1px `border.panel`).
+/// One rounded panel on the window background (art-direction.md §3): radius 10, 1px `border.panel`, a 1px top
+/// highlight in dark mode (`surface.panel-highlight`) and a 1px shadow below in light mode (`surface.panel-shadow`).
+/// Each token is transparent in the other mode, so both are always applied.
 private struct PanelBox<Content: View>: View {
     let fill: Color
     @ViewBuilder let content: Content
@@ -165,8 +171,13 @@ private struct PanelBox<Content: View>: View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(fill)
+            .overlay(alignment: .top) {
+                Tokens.Color.surfacePanelHighlight.frame(height: 1).padding(.top, 1).allowsHitTesting(false)
+            }
             .clipShape(shape)
             .overlay(shape.strokeBorder(Tokens.Color.borderPanel, lineWidth: 1))
+            // Drawn from the shape only: `.shadow` on the panel would shadow every glyph inside it.
+            .background { shape.fill(Tokens.Color.surfacePanelShadow).offset(y: 1) }
     }
 }
 
@@ -191,8 +202,8 @@ private struct PanelDivider: View {
     /// True while the drag gesture runs; SwiftUI resets it on end *and* on cancel, unlike `onEnded`.
     @GestureState private var isGestureActive = false
 
-    /// interaction.md §2.1: the hovered or dragged gutter gets the accent at 10%. No token yet (tokens.json describes
-    /// `surface.hover` for it); kept here so the value has one home.
+    /// interaction.md §2.1: the hovered or dragged gutter gets the accent at 10%. No opacity token; tokens.json describes it in
+    /// `splitter-grip-active`; kept here so the value has one home.
     static let gutterHighlightOpacity = 0.10
 
     private var isActive: Bool { isHovering || isDragging }
