@@ -56,7 +56,16 @@ enum GitError: Error, Sendable, Equatable {
     case timeout(seconds: Int)
     /// Output exceeded the limit. Warning level: callers may still show the partial result.
     case outputTruncated
+    /// The remote rejected the HTTPS credentials, or none were available without a prompt.
     case authenticationFailed(detail: MaskedText)
+    /// The SSH server rejected every key (`Permission denied (publickey)`), #78.
+    case sshAuthenticationFailed(detail: MaskedText)
+    /// ssh refused the server's host key: unknown (`changed == false`) or different from `known_hosts`, #78.
+    case hostKeyVerificationFailed(changed: Bool, detail: MaskedText)
+    /// Authenticated but not allowed to read the repository (HTTP 403), #78.
+    case accessDenied(detail: MaskedText)
+    /// The remote repository does not exist, or the remote name is not configured (HTTP 404, missing path), #78.
+    case remoteNotFound(detail: MaskedText)
     case networkUnavailable(detail: MaskedText)
     case nonZeroExit(code: Int32, detail: MaskedText)
     case parseFailed(parser: String, offset: Int)
@@ -80,42 +89,71 @@ enum GitError: Error, Sendable, Equatable {
         if exitCode == 0 { return nil }
 
         let detail = MaskedText(masking: stderr)
-        let haystack = detail.text.lowercased()
-        func matches(_ patterns: [String]) -> Bool { patterns.contains { haystack.contains($0) } }
-
-        if matches(["detected dubious ownership"]) { return .dubiousOwnership(detail: detail) }
-        if let name = refusedTransport(in: detail.text) {
-            // The name comes from repository configuration: echo only a plain scheme name of at most 64 characters.
-            let isEchoable = name.count <= 64 && TransportName.isSchemeName(name)
-            return .transportNotAllowed(transport: isEchoable ? String(name) : nil, detail: detail)
-        }
-        if matches([
-            "authentication failed", "could not read username", "could not read password",
-            "terminal prompts disabled", "permission denied (publickey", "host key verification failed",
-            "invalid username or password",
-        ]) {
-            return .authenticationFailed(detail: detail)
-        }
-        if matches([
-            "could not resolve host", "unable to look up", "connection refused", "connection timed out",
-            "operation timed out", "network is unreachable",
-        ]) {
-            return .networkUnavailable(detail: detail)
-        }
-        if matches(["not a git repository"]) { return .notARepository(detail: detail) }
+        // Only lines from local git and ssh count. Over HTTP the server's own text arrives as `remote:` lines; it must
+        // not be able to choose the category, or hide the real error behind another one (#78).
+        let localLines = detail.text.split(separator: "\n").filter { !$0.hasPrefix("remote:") }
+        if let error = classify(localLines: localLines, detail: detail) { return error }
         // Killed by a signal we did not send: report like a shell does (128 + signal).
         let code = exitCode ?? (signal.map { 128 + $0 } ?? -1)
         return .nonZeroExit(code: code, detail: detail)
     }
 
+    /// Matches local stderr lines against `LC_ALL=C` patterns (git-command-catalog.md §6). Order matters: the more
+    /// specific cause wins, e.g. a changed host key before an unknown one.
+    private static func classify(localLines: [Substring], detail: MaskedText) -> GitError? {
+        let haystack = localLines.joined(separator: "\n").lowercased()
+        func matches(_ patterns: [String]) -> Bool { patterns.contains { haystack.contains($0) } }
+
+        if matches(["detected dubious ownership"]) { return .dubiousOwnership(detail: detail) }
+        if let name = refusedTransport(in: localLines) {
+            // The name comes from repository configuration: echo only a plain scheme name of at most 64 characters.
+            let isEchoable = name.count <= 64 && TransportName.isSchemeName(name)
+            return .transportNotAllowed(transport: isEchoable ? String(name) : nil, detail: detail)
+        }
+        if matches(["remote host identification has changed"]) {
+            return .hostKeyVerificationFailed(changed: true, detail: detail)
+        }
+        if matches(["host key verification failed"]) {
+            return .hostKeyVerificationFailed(changed: false, detail: detail)
+        }
+        // ssh lists the methods it tried; a local file error says "Permission denied" without them.
+        if matches(Self.sshMethods.map { "permission denied (\($0)" }) {
+            return .sshAuthenticationFailed(detail: detail)
+        }
+        if matches([
+            "authentication failed", "could not read username", "could not read password",
+            "terminal prompts disabled", "invalid username or password", "returned error: 401",
+        ]) {
+            return .authenticationFailed(detail: detail)
+        }
+        if matches(["returned error: 403"]) { return .accessDenied(detail: detail) }
+        if matches(["returned error: 404", "does not appear to be a git repository"])
+            || localLines.contains(where: { $0.hasPrefix("fatal: repository '") && $0.hasSuffix("' not found") })
+        {
+            return .remoteNotFound(detail: detail)
+        }
+        if matches([
+            "could not resolve host", "unable to look up", "connection refused", "connection timed out",
+            "operation timed out", "network is unreachable", "no route to host", "failed to connect to",
+            "couldn't connect to server", "connection reset by peer",
+        ]) {
+            return .networkUnavailable(detail: detail)
+        }
+        if matches(["not a git repository"]) { return .notARepository(detail: detail) }
+        return nil
+    }
+
+    /// OpenSSH authentication method names, as printed in `Permission denied (<methods>).`
+    private static let sshMethods = ["publickey", "password", "keyboard-interactive", "hostbased", "gssapi"]
+
     /// The name in git's own refusal line, `fatal: transport '<name>' not allowed` (possibly empty).
     ///
     /// Only a whole line that starts with `fatal:` counts, so a server cannot fake a refusal, and hide the real error,
     /// with a `remote:` progress line.
-    private static func refusedTransport(in text: String) -> Substring? {
+    private static func refusedTransport(in lines: [Substring]) -> Substring? {
         let prefix = "fatal: transport '"
         let suffix = "' not allowed"
-        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+        for line in lines {
             guard line.hasPrefix(prefix), line.hasSuffix(suffix), line.count >= prefix.count + suffix.count else {
                 continue
             }
@@ -162,6 +200,16 @@ enum GitError: Error, Sendable, Equatable {
             "The output was too large; only part of it is shown."
         case .authenticationFailed:
             "Authentication with the remote failed. Check your git credentials in Terminal."
+        case .sshAuthenticationFailed:
+            "The server rejected your SSH key. Check your SSH agent in Terminal."
+        case .hostKeyVerificationFailed(let changed, _):
+            changed
+                ? "The server's SSH host key has changed. Verify it before trusting the new key."
+                : "The server's SSH host key is not trusted yet. Connect once in Terminal to verify it."
+        case .accessDenied:
+            "The remote denied access to this repository."
+        case .remoteNotFound:
+            "The remote repository was not found."
         case .networkUnavailable:
             "The remote could not be reached."
         case .nonZeroExit(_, let detail):
@@ -187,8 +235,10 @@ enum GitError: Error, Sendable, Equatable {
     var detail: MaskedText? {
         switch self {
         case .notARepository(let detail), .dubiousOwnership(let detail), .blockedBySecurityPolicy(let detail),
-            .transportNotAllowed(_, let detail), .authenticationFailed(let detail), .networkUnavailable(let detail),
-            .nonZeroExit(_, let detail):
+            .transportNotAllowed(_, let detail), .authenticationFailed(let detail),
+            .sshAuthenticationFailed(let detail),
+            .hostKeyVerificationFailed(_, let detail), .accessDenied(let detail), .remoteNotFound(let detail),
+            .networkUnavailable(let detail), .nonZeroExit(_, let detail):
             detail
         default:
             nil
@@ -198,7 +248,9 @@ enum GitError: Error, Sendable, Equatable {
     /// Whether a manual retry can help without changing anything.
     var isRetryable: Bool {
         switch self {
-        case .timeout, .authenticationFailed, .networkUnavailable, .nonZeroExit, .configInspectionFailed: true
+        case .timeout, .authenticationFailed, .sshAuthenticationFailed, .networkUnavailable, .nonZeroExit,
+            .configInspectionFailed:
+            true
         default: false
         }
     }
