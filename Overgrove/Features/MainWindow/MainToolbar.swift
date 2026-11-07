@@ -18,6 +18,9 @@ struct MainToolbar: ToolbarContent {
     var refresh: (() -> Void)?
     /// Compare with base (`⌘⇧B`, #158); `nil` disables the button.
     var onCompare: (() -> Void)?
+    /// Fetch (`⌘⇧R`), or Stop while fetching (`⌘.`, same place; interaction.md §4.2). `nil` disables the button.
+    var onFetch: (() -> Void)?
+    var isFetching = false
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
@@ -52,6 +55,11 @@ struct MainToolbar: ToolbarContent {
                             title: action.title, symbol: action.symbol, help: action.help, action: onCompare
                         )
                         .keyboardShortcut("b", modifiers: [.command, .shift])
+                    } else if action == .fetch {
+                        ToolbarActionButton(
+                            title: isFetching ? "Stop" : action.title,
+                            symbol: isFetching ? "stop.fill" : action.symbol,
+                            help: isFetching ? "Stop fetching (⌘.)" : action.help, action: onFetch)
                     } else {
                         ToolbarActionButton(
                             title: action.title, symbol: action.symbol, help: action.help,
@@ -108,7 +116,6 @@ enum ToolbarAction: CaseIterable, Hashable {
 
     var help: String {
         switch self {
-        // TODO(#77): fetch all remotes; becomes Stop while running.
         case .fetch: "Fetch all remotes (⌘⇧R)"
         case .refresh: "Refresh local data (⌘R)"
         case .compare: "Compare with base branch (⌘⇧B)"

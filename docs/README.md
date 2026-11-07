@@ -75,7 +75,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 
 ```
 Overgrove/
-├── App/            # 진입점(OvergroveApp), AppState, 의존성 조립, RepositoryService(병렬 조회·세대·디바운스 #87, 결과 캐시 #88, 기준 브랜치 비교 #157)·RepositoryOverview·WorktreeComparison·BoundedCache
+├── App/            # 진입점(OvergroveApp), AppState, 의존성 조립, RepositoryService(병렬 조회·세대·디바운스 #87, 결과 캐시 #88, 기준 브랜치 비교 #157, fetch #77)·RepositoryOverview·WorktreeComparison·BoundedCache·FetchController·FetchRecordStore
 ├── Execution/      # ProcessRunner — 앱 전체에서 Process를 만드는 유일한 곳
 ├── Git/            # GitClient(actor), GitCommand(ReadOnlyGitCommand, FetchCommand), GitEnvironment, RepoConfigInspector, GitError,
 │                   # FetchFailureGuidance, TransportName

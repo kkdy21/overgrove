@@ -45,12 +45,33 @@ struct RepositorySnapshot: Equatable, Sendable {
     let prunableCount: Int
 }
 
-/// Fetch state for the status bar (interaction.md §4.2). Driven by the fetch feature (#77).
+/// Fetch state for the status bar (interaction.md §4.2). Driven by `FetchController` (#77).
 enum FetchStatus: Equatable, Sendable {
     case never
+    /// The last fetch Overgrove ran succeeded at this time (`FetchRecord`).
     case idle(lastFetched: Date)
+    /// Overgrove has no record; `FETCH_HEAD`'s modification time stands in, marked as an estimate (overview.md §8).
+    case estimated(lastFetched: Date)
+    /// `remotes` is empty until the remotes to fetch are known.
     case fetching(remotes: [String], since: Date, lastFetched: Date?)
+    /// The last attempt failed; `lastFetched` is the last success, if any.
     case failed(lastFetched: Date?)
+    /// The user stopped the fetch (interaction.md §4.2, `Fetch cancelled`).
+    case cancelled(lastFetched: Date?)
+
+    /// The last known successful (or estimated) fetch.
+    var lastFetched: Date? {
+        switch self {
+        case .never: nil
+        case .idle(let date), .estimated(let date): date
+        case .fetching(_, _, let date), .failed(let date), .cancelled(let date): date
+        }
+    }
+
+    var isFetching: Bool {
+        if case .fetching = self { return true }
+        return false
+    }
 }
 
 /// A message for the window's alert: a refused folder, a missing one, or a note about what was registered.
@@ -185,8 +206,12 @@ final class AppState {
     private var needsFullLoad = false
     /// Bumped when S-05 inspections are dropped; unlike `loadGeneration`, background refreshes keep it.
     private var inspectionGeneration = 0
-    /// TODO(#77): set by the fetch feature.
-    var fetchStatus: FetchStatus = .never
+    /// Fetch / Stop, the status bar's fetch field, and the last fetch of each repository (#77).
+    let fetch: FetchController
+    /// The status bar's fetch field.
+    var fetchStatus: FetchStatus { fetch.status }
+    /// A local refresh is running: the status bar shows `Refreshing…` (interaction.md §4).
+    var isRefreshing: Bool { runningTrigger != nil }
     /// TODO(#83): set from `GHClient.authStatus()`; `nil` until checked.
     var ghStatus: GHAuthStatus?
     /// TODO(#74): drives graph search.
@@ -210,6 +235,8 @@ final class AppState {
     ///   - comparisonLoader: Compares a worktree with its base branch for S-11.
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
+    ///   - fetcher: Fetches the open repository's remotes. Defaults to `loader` when it can; without one, Fetch is off.
+    ///   - fetchRecords: The last fetch of each repository (`UserDefaults`).
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
@@ -217,7 +244,9 @@ final class AppState {
         diffLoader: any DiffLoading = LiveDiffLoader.live,
         stashLoader: any StashLoading = LiveStashLoader.live,
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
-        lineCountLoader: (any LineCountLoading)? = nil
+        lineCountLoader: (any LineCountLoading)? = nil,
+        fetcher: (any RepositoryFetching)? = nil,
+        fetchRecords: FetchRecordStore = FetchRecordStore()
     ) {
         self.layoutStore = layoutStore
         self.registry = registry
@@ -228,6 +257,9 @@ final class AppState {
         self.stashLoader = stashLoader
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
+        fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
+        // After a fetch, re-query the worktree list, every status (ahead/behind), and the refs (overview.md §5).
+        fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
     }
 
     /// The registered repositories, in the order they were added.
@@ -267,7 +299,7 @@ final class AppState {
         inspectionTask = nil
         worktreeInspections = [:]
         inspectionGeneration += 1
-        fetchStatus = .never
+        fetch.open(repository?.repository)
         searchText = ""
     }
 
@@ -905,8 +937,9 @@ final class AppState {
         let removed = registry.repository(withID: id)?.repository
         registry.remove(id)
         if repository?.repository.id == id { close() }
-        // Its cached results and inspections go too (`RepositoryService.forget`, overview.md §5).
+        // Its cached results, inspections, and fetch record go too (`RepositoryService.forget`, overview.md §5, §8).
         if let removed {
+            fetch.forget(removed.id)
             let loader = loader
             forgetTask = Task { [weak self] in
                 // Added again in the meantime: its new load must not be cancelled (security review of #243).
