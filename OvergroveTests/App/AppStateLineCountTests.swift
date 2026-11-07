@@ -92,7 +92,7 @@ final class AppStateLineCountTests: XCTestCase {
         XCTAssertEqual(staged.rows.first?.lineCount, .lines(added: 10, deleted: 2))
     }
 
-    func testSameStatusIsNotQueriedAgain() async {
+    func testReselectingTheWorktreeDoesNotQueryAgain() async {
         let loader = GatedLineCountLoader()
         let state = await loadedState(lineCounts: loader)
         state.selectWorktree(feature)
@@ -101,10 +101,34 @@ final class AppStateLineCountTests: XCTestCase {
         await state.lineCountTask?.value
 
         state.selectWorktree(feature)
+        XCTAssertEqual(loader.requestedPaths, [feature], "same status, no new load: counts kept")
+        XCTAssertEqual(state.wipDetailModel?.lineTotals, WipLineTotals(added: 32, deleted: 6))
+    }
+
+    /// Security review of #230: an edit inside an already modified file leaves the status the same, so after a reload
+    /// the counts are asked for again (the service answers from memory if it did not re-query the status). The old
+    /// counts stay shown until the answer arrives.
+    func testReloadAsksAgainEvenWhenTheStatusReadsTheSame() async {
+        let loader = GatedLineCountLoader()
+        let state = await loadedState(lineCounts: loader)
+        state.selectWorktree(feature)
+        await loader.waitForRequests(1)
+        loader.release(0, with: .success(featureCounts))
+        await state.lineCountTask?.value
+
         state.reload()  // the stub returns the same statuses
         await state.loadTask?.value
-        XCTAssertEqual(loader.requestedPaths, [feature], "unchanged status keeps its counts")
-        XCTAssertEqual(state.wipDetailModel?.lineTotals, WipLineTotals(added: 32, deleted: 6))
+        await loader.waitForRequests(2)
+        XCTAssertEqual(loader.requestedPaths, [feature, feature])
+        XCTAssertEqual(state.wipDetailModel?.lineTotals, WipLineTotals(added: 32, deleted: 6), "kept meanwhile")
+
+        let edited = WorkingLineCounts(
+            staged: featureCounts.staged.values.map { $0 },
+            unstaged: (0..<2).map { FileStat(path: GitPath("unstaged\($0).swift"), added: 4, deleted: 0) },
+            isPartial: false)
+        loader.release(1, with: .success(edited))
+        await state.lineCountTask?.value
+        XCTAssertEqual(state.wipDetailModel?.lineTotals, WipLineTotals(added: 38, deleted: 6))
     }
 
     func testChangedStatusIsQueriedAgain() async {

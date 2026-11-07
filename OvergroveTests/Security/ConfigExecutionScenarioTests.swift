@@ -241,6 +241,27 @@ final class ConfigExecutionScenarioTests: XCTestCase {
         assertFired("T4-sub", "status recursing into the submodule")
     }
 
+    /// SEC-T4-05, worktree numstat (#230): the WIP line counts run `git diff` over the whole superproject. Without
+    /// `--ignore-submodules=dirty`, git diff runs `git status` inside each submodule, where the submodule's own
+    /// filter (never inspected) runs. The flag is the only layer, as for status.
+    func testSECT4_05_SubmoduleFilterDoesNotRunFromWorktreeNumstat() async throws {
+        let (superproject, submodule) = try await superprojectWithSubmodule()
+        try await scenario.plain(
+            ["--git-dir", submodule.path, "config", "filter.evil.clean", try scenario.payload("T4-sub", tail: "cat")],
+            in: superproject, requireSuccess: true)
+        try writeAttributes("*.dat filter=evil", gitDirectory: submodule)
+        try touch(superproject.appendingPathComponent("sub/a.dat"))
+
+        for staged in [false, true] {
+            _ = try await scenario.app(.worktreeNumstat(staged: staged), in: superproject)
+            assertNoCanary(after: "app worktreeNumstat staged=\(staged)")
+        }
+
+        let arguments = try ReadOnlyGitCommand.worktreeNumstat(staged: false).subcommandArguments()
+        _ = try await scenario.appArguments(arguments.filter { $0 != "--ignore-submodules=dirty" }, in: superproject)
+        assertFired("T4-sub", "app numstat arguments without --ignore-submodules=dirty")
+    }
+
     // MARK: T6 (credential fill with the app's fetch arguments stands in for HTTP authentication)
     //
     // Like the app, the app-path runs read system configuration, so a system helper (Apple's `osxkeychain`) also runs

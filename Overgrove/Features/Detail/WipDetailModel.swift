@@ -13,8 +13,21 @@ struct WipLineTotals: Equatable {
 
     /// The added share of the ratio bar, 0…1; `nil` when nothing was added or deleted.
     var addedFraction: Double? {
-        let total = added + deleted
-        return total > 0 ? Double(added) / Double(total) : nil
+        let total = Double(added) + Double(deleted)
+        return total > 0 ? Double(added) / total : nil
+    }
+
+    /// The sum of `totals`, or `nil` if it does not fit in `Int` (counts come from repository output).
+    static func sum(_ totals: [WipLineTotals]) -> WipLineTotals? {
+        var added = 0
+        var deleted = 0
+        for total in totals {
+            let (newAdded, addedOverflow) = added.addingReportingOverflow(total.added)
+            let (newDeleted, deletedOverflow) = deleted.addingReportingOverflow(total.deleted)
+            guard !addedOverflow, !deletedOverflow else { return nil }
+            (added, deleted) = (newAdded, newDeleted)
+        }
+        return WipLineTotals(added: added, deleted: deleted)
     }
 }
 
@@ -125,10 +138,7 @@ struct WipDetailModel: Equatable {
                 ? "Some changes could not be read, so this list may be incomplete." : nil
             let counted = groups.filter { $0.group == .staged || $0.group == .unstaged }
             let totals = counted.compactMap(\.lineTotals)
-            lineTotals =
-                !counted.isEmpty && totals.count == counted.count
-                ? WipLineTotals(added: totals.map(\.added).reduce(0, +), deleted: totals.map(\.deleted).reduce(0, +))
-                : nil
+            lineTotals = !counted.isEmpty && totals.count == counted.count ? WipLineTotals.sum(totals) : nil
             lineCountNote = lineCounts == .failed && !counted.isEmpty ? "Line counts unavailable" : nil
         case .missing:
             changedFileCount = 0
@@ -216,20 +226,18 @@ struct WipDetailModel: Equatable {
     /// The group total, only when every row (submodules aside) has its count: a partial sum would read as complete.
     private static func totals(_ rows: [WipFileRow], lineCounts: LineCounts, hasStats: Bool) -> WipLineTotals? {
         guard hasStats, case .loaded(let counts) = lineCounts, !counts.isPartial else { return nil }
-        var added = 0
-        var deleted = 0
+        var totals: [WipLineTotals] = []
         for row in rows where !row.isSubmodule {
             switch row.lineCount {
-            case .lines(let rowAdded, let rowDeleted):
-                added += rowAdded
-                deleted += rowDeleted
+            case .lines(let added, let deleted):
+                totals.append(WipLineTotals(added: added, deleted: deleted))
             case .binary:
                 continue
             case nil:
                 return nil  // the status lists a file the numstat did not: they were taken at different times
             }
         }
-        return WipLineTotals(added: added, deleted: deleted)
+        return WipLineTotals.sum(totals)
     }
 
     /// `+40 −8`; a zero side is left out (`+12`, `−2`), and nothing when both are zero (screens.md S-02).

@@ -220,7 +220,8 @@ final class AppState {
             // Keep the picked file only while it is still listed in the same group.
             // Same rule as `selectFile`: the row must still exist and still be selectable.
             if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true { selectedFile = nil }
-            requestLineCounts()
+            // The load may have re-queried the status even if it reads the same (an edit inside a modified file).
+            requestLineCounts(refresh: true)
         case .failure(.git(.cancelled)):
             break
         case .failure(let error):
@@ -285,15 +286,20 @@ final class AppState {
     /// Queries the selected worktree's line counts unless the shown status already has them (#230). Only the
     /// selected worktree is queried, and only once its status has loaded; the service answers from its cache until
     /// that status is queried again.
-    private func requestLineCounts() {
+    /// - Parameter refresh: Ask even when the status reads the same: after a load, the service knows whether it
+    ///   re-queried that status (and runs no git if not). The current counts stay shown until the answer.
+    private func requestLineCounts(refresh: Bool = false) {
         guard let lineCountLoader, let repository, let entry = selectedWipEntry, case .loaded(let state) = entry.state
         else { return }
         let path = entry.worktree.path
-        if let lineCounts, lineCounts.matches(path, state) { return }
+        let isSameStatus = lineCounts?.matches(path, state) ?? false
+        if isSameStatus && !refresh { return }
         lineCountTask?.cancel()
-        lineCounts = LineCountRequest(path: path, state: state, result: .pending)
+        if !isSameStatus { lineCounts = LineCountRequest(path: path, state: state, result: .pending) }
         guard !state.staged.isEmpty || !state.unstaged.isEmpty else {
-            lineCounts?.result = .loaded(WorkingLineCounts(staged: [], unstaged: [], isPartial: false))
+            lineCounts = LineCountRequest(
+                path: path, state: state,
+                result: .loaded(WorkingLineCounts(staged: [], unstaged: [], isPartial: false)))
             return
         }
         let loader = lineCountLoader

@@ -143,3 +143,14 @@ final class WipDetailLineCountTests: XCTestCase {
         XCTAssertEqual(WipLineTotals(added: 0, deleted: 4).addedFraction, 0)
     }
 }
+
+/// Counts come from repository output, so sums that do not fit in `Int` give no total instead of trapping.
+final class WipLineTotalsOverflowTests: XCTestCase {
+    func testOverflowingSumGivesNoTotal() {
+        let one = WipLineTotals(added: 1, deleted: 1)
+        XCTAssertNil(WipLineTotals.sum([WipLineTotals(added: Int.max, deleted: 0), one]))
+        XCTAssertNil(WipLineTotals.sum([WipLineTotals(added: 0, deleted: Int.max), one]))
+        XCTAssertEqual(WipLineTotals.sum([]), WipLineTotals(added: 0, deleted: 0))
+        XCTAssertEqual(WipLineTotals(added: Int.max, deleted: Int.max).addedFraction ?? 0, 0.5, accuracy: 1e-9)
+    }
+}
