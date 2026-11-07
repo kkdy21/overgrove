@@ -10,6 +10,8 @@
 #                is skipped)
 #   PAR-*      each row ID of docs/architecture/parsing-spec.md's tables appears in one row only
 #   E<n>       each experiment row of security-review.md §4.1 appears once
+#   PERF-nn    defined once in docs/performance/benchmark-plan.md §3's table; every PERF ID or `test_PERF_nn` name in
+#              docs/, OvergroveTests, scripts/, or .github/ is defined (#288)
 #
 # Plain bash, grep and awk: runs in CI (macOS) and locally without extra tools.
 #
@@ -95,7 +97,37 @@ while read -r id; do
   [[ -n "$id" ]] && report "security-review.md: experiment $id has more than one row"
 done < <(grep -oE '^\| E[0-9]+ \|' "$review" | tr -d '| ' | sort | uniq -d)
 
+# PERF IDs (#288): defined once, as the first cell of a row in benchmark-plan.md §3's table (§3.1 lists tests and
+# repeats IDs on purpose); every PERF ID or `test_PERF_nn` name used elsewhere is defined.
+plan="$root/docs/performance/benchmark-plan.md"
+perf_count=0
+if [[ -f "$plan" ]]; then
+  perf_defined=$(awk '
+    /^## 3\./ { inside = 1; next }
+    /^##/ { inside = 0 }
+    inside && match($0, /^\| PERF-[0-9]+ \|/) { print substr($0, 3, RLENGTH - 4) }' "$plan")
+  while read -r id; do
+    [[ -n "$id" ]] && report "benchmark-plan.md: $id has more than one row in §3; give the newer measurement the next free number"
+  done < <(sort <<<"$perf_defined" | uniq -d)
+  perf_count=$(sort -u <<<"$perf_defined" | grep -c . || true)
+  perf_sources=("$root/docs")
+  for dir in OvergroveTests scripts .github; do
+    [[ -d "$root/$dir" ]] && perf_sources+=("$root/$dir")
+  done
+  while read -r id; do
+    [[ -z "$id" ]] && continue
+    if ! grep -qxF "$id" <<<"$perf_defined"; then
+      where=$({ grep -rlE --exclude=check-sec-ids.test.sh "${id}([^0-9]|$)|test_PERF_${id#PERF-}_" "${perf_sources[@]}" 2>/dev/null || true; } |
+        sed "s|^$root/||" | head -3 | tr '\n' ' ')
+      report "$id is mentioned (${where% }) but not defined in benchmark-plan.md §3"
+    fi
+  done < <({
+    grep -rhoE --exclude=check-sec-ids.test.sh 'PERF-[0-9]+' "${perf_sources[@]}" 2>/dev/null || true
+    grep -rhoE --exclude=check-sec-ids.test.sh 'test_PERF_[0-9]+' "${perf_sources[@]}" 2>/dev/null | sed 's/^test_PERF_/PERF-/' || true
+  } | sort -u)
+fi
+
 if [[ "$status" -eq 0 ]]; then
-  echo "ok  test IDs: $(wc -l <<<"$defined" | tr -d ' ') SEC definitions unique and in place, every SEC mention defined, PAR and E rows unique"
+  echo "ok  test IDs: $(wc -l <<<"$defined" | tr -d ' ') SEC definitions unique and in place, every SEC mention defined, PAR and E rows unique, $perf_count PERF IDs unique and defined"
 fi
 exit "$status"
