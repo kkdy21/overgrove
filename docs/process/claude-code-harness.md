@@ -37,7 +37,8 @@ hook은 **실수를 막는 장치이지 보안 경계가 아니다.** 같은 규
 ### `guard-bash.sh` — 차단하는 명령
 
 - hook 우회: `--no-verify`, `git commit -n`, `core.hooksPath` 변경, `OVERGROVE_ALLOW_MAIN_*` 사용
-- 강제 푸시, `main` 대상 푸시, `main`에서의 인자 없는 `git push`
+- 강제 푸시, `main` 대상 푸시(`main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main`), `main`에서의 인자 없는 `git push`
+  - 푸시 판정은 명령줄을 `&&`, `||`, `;`, `|`, 줄바꿈으로 나눈 뒤 `git push`(`git -C <dir> push`, `$(…)` 안 포함)가 있는 조각에만 적용한다. 그래서 `git push … && gh pr create --base main`의 `--base main`은 막지 않는다(#301)
 - `main` 브랜치에서의 `git commit`
 - `gh repo delete/archive/rename`, 공개 범위 변경, `gh secret/variable`, `gh auth token/logout/refresh`, `gh api`를 통한 DELETE와 룰셋 변경
 - 외부 PR 로컬 체크아웃(`gh pr checkout`), `core.hooksPath=/dev/null` 없이 PR ref를 가져오는 `git fetch ... pull/<n>/head` (PR이 넣은 hook 실행 방지)
@@ -62,7 +63,7 @@ hook은 **실수를 막는 장치이지 보안 경계가 아니다.** 같은 규
 
 ### hook 고치기
 
-hook을 바꾸는 PR은 보안 영향 PR이다([pull-requests.md §6](pull-requests.md#6-보안-영향-pr)). 바꾼 뒤에는 차단·허용 사례를 직접 실행해 확인하고, 결과를 PR에 붙인다. 예:
+hook을 바꾸는 PR은 보안 영향 PR이다([pull-requests.md §6](pull-requests.md#6-보안-영향-pr)). `guard-bash.sh`의 차단·허용 사례는 `.claude/hooks/guard-bash.test.sh`에 있고 CI가 실행한다(#301). 규칙을 바꾸면 사례를 함께 더한다. 한 사례를 직접 확인하려면:
 
 ```sh
 printf '{"tool_input":{"command":"git push --force"},"cwd":"%s"}' "$PWD" | .claude/hooks/guard-bash.sh; echo "exit=$?"   # 2 = 차단
