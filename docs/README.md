@@ -148,6 +148,7 @@ OvergroveTests/
 | 0015 | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |
 | 0016 | 보드 Status는 워크플로우가 project 전용 토큰으로 맞춘다 | Accepted |
 | 0019 | 사용자가 고른 git 실행 파일을 믿는 조건 | Accepted |
+| 0020 | git 호환성 매트릭스를 CI에서 돌리는 방법 | Accepted |
 
 ### 2.6 테스트 ID
 

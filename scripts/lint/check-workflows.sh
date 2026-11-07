@@ -7,6 +7,8 @@
 #               - untrusted event text (PR/issue titles and bodies, comments, branch names) reaches a workflow only
 #                 through a `KEY: ${{ … }}` mapping (env, with, if), never inline in a script
 #               - the CI gitleaks download stays pinned by version and SHA-256
+#   SEC-T17-04  git-compat.yml builds its test git only from the official kernel.org tarball, pinned by version and
+#               SHA-256, verified before the build, and never cached (ADR-0020)
 #   SEC-T17-03  Dependabot updates the `github-actions` ecosystem at `/`
 #
 # Plain bash, grep and awk: runs in CI (macOS) and locally without extra tools.
@@ -84,6 +86,22 @@ if [[ -f "$scan" ]]; then
   grep -qE 'sha256sum -c' "$scan" || report "secret-scan.yml: the gitleaks download is not checksum-verified"
 else
   report "missing .github/workflows/secret-scan.yml"
+fi
+
+# SEC-T17-04: the compatibility matrix's git comes from the official tarball, pinned and verified, and is not cached.
+compat="$workflows/git-compat.yml"
+if [[ -f "$compat" ]]; then
+  grep -qE 'TEST_GIT_VERSION:[[:space:]]*"?[0-9]+\.[0-9]+\.[0-9]+"?' "$compat" ||
+    report "git-compat.yml: TEST_GIT_VERSION is not pinned"
+  grep -qE 'TEST_GIT_SHA256:[[:space:]]*"?[0-9a-f]{64}"?' "$compat" || report "git-compat.yml: TEST_GIT_SHA256 is not pinned"
+  grep -qE '(shasum -a 256|sha256sum) -c' "$compat" || report "git-compat.yml: the git tarball is not checksum-verified"
+  grep -qE 'https://mirrors\.edge\.kernel\.org/pub/software/scm/git/git-' "$compat" ||
+    report "git-compat.yml: the git tarball does not come from kernel.org"
+  if grep -nE '^[[:space:]-]*uses:[[:space:]]*actions/cache' "$compat" >/dev/null; then
+    report "git-compat.yml: the test git must not be cached (ADR-0020)"
+  fi
+else
+  report "missing .github/workflows/git-compat.yml"
 fi
 
 # SEC-T17-03: Dependabot keeps the pinned SHAs current.

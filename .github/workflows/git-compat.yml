@@ -1,0 +1,166 @@
+# git compatibility matrix (ADR-0020, #292). Not a required check.
+# Runs the integration and security tests on Apple Git (the selected Xcode), the runner's existing Homebrew git, and
+# git 2.36 (the minimum supported version) built from the official kernel.org tarball pinned by SHA-256.
+# Each run must prove it used the requested git: TestGitOverrideTests.testThisRunUsesTheRequestedGit has to pass.
+name: git-compat
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"
+  pull_request:
+    paths:
+      - "Overgrove/Git/**"
+      - "Overgrove/Execution/**"
+      - "Overgrove/Parsing/**"
+      - "Overgrove/Security/**"
+      - "OvergroveTests/Integration/**"
+      - "OvergroveTests/Security/**"
+      - "OvergroveTests/Support/**"
+      - "scripts/make-fixture-repo.sh"
+      - ".github/workflows/git-compat.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: git-compat-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    name: git-compat (${{ matrix.git }})
+    runs-on: macos-26
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        git: [apple, homebrew, minimum]
+    env:
+      XCODE_MAJOR: "26"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          xcode=$(ls -d /Applications/Xcode_${XCODE_MAJOR}*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$xcode" ]; then
+            echo "::error::No Xcode ${XCODE_MAJOR}.x on this runner image."; exit 1
+          fi
+          echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
+          echo "Selected $xcode"
+
+      # Sets TEST_GIT_PATH (empty: the app's own discovery) and EXPECTED_GIT_VERSION for the test step.
+      - name: Apple Git
+        if: matrix.git == 'apple'
+        run: |
+          set -euo pipefail
+          version=$("$DEVELOPER_DIR/usr/bin/git" --version | sed -E 's/^git version ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          echo "TEST_GIT_PATH=" >> "$GITHUB_ENV"
+          echo "EXPECTED_GIT_VERSION=$version" >> "$GITHUB_ENV"
+
+      # The git already on the runner image; nothing is installed (ADR-0020 §1).
+      - name: Homebrew git
+        if: matrix.git == 'homebrew'
+        run: |
+          set -euo pipefail
+          git_path="$(brew --prefix)/bin/git"
+          if [ ! -x "$git_path" ]; then
+            echo "::error::No Homebrew git on this runner image ($git_path). It is not installed by this workflow."; exit 1
+          fi
+          version=$("$git_path" --version | sed -E 's/^git version ([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+          echo "TEST_GIT_PATH=$git_path" >> "$GITHUB_ENV"
+          echo "EXPECTED_GIT_VERSION=$version" >> "$GITHUB_ENV"
+
+      # Official tarball, pinned by version and SHA-256 (SEC-T17-04). A mismatch stops before anything is built.
+      # Update both values together from the directory's sha256sums.asc (ADR-0020 §4). Built every run, never cached.
+      - name: git (minimum version, built from the pinned tarball)
+        if: matrix.git == 'minimum'
+        env:
+          TEST_GIT_VERSION: "2.36.6"
+          TEST_GIT_SHA256: "3a54356dd0a6b23d7d0742952d5c86958ad8f797cbe41bd1952bc83ec429ea94"
+        run: |
+          set -euo pipefail
+          tarball="$RUNNER_TEMP/git-${TEST_GIT_VERSION}.tar.xz"
+          curl -sSfL --proto '=https' -o "$tarball" \
+            "https://mirrors.edge.kernel.org/pub/software/scm/git/git-${TEST_GIT_VERSION}.tar.xz"
+          echo "${TEST_GIT_SHA256}  ${tarball}" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/git-src"
+          tar -xJf "$tarball" -C "$RUNNER_TEMP/git-src"
+          prefix="$RUNNER_TEMP/git-${TEST_GIT_VERSION}"
+          make -C "$RUNNER_TEMP/git-src/git-${TEST_GIT_VERSION}" -j"$(sysctl -n hw.ncpu)" prefix="$prefix" \
+            NO_GETTEXT=1 NO_PERL=1 NO_PYTHON=1 NO_TCLTK=1 NO_INSTALL_HARDLINKS=1 install >"$RUNNER_TEMP/git-build.log" 2>&1 \
+            || { tail -40 "$RUNNER_TEMP/git-build.log"; exit 1; }
+          "$prefix/bin/git" --version
+          echo "TEST_GIT_PATH=$prefix/bin/git" >> "$GITHUB_ENV"
+          echo "EXPECTED_GIT_VERSION=${TEST_GIT_VERSION}" >> "$GITHUB_ENV"
+
+      # Every test class in Integration and Security, plus the classes that run real git elsewhere.
+      - name: Integration and security tests
+        run: |
+          set -o pipefail
+          declaration='^[[:space:]]*(@[A-Za-z]+[[:space:]]+)*(final[[:space:]]+)?class[[:space:]]+([A-Za-z0-9_]+)[[:space:]]*:[[:space:]]*XCTestCase'
+          grep -hE "$declaration" OvergroveTests/Integration/*.swift OvergroveTests/Security/*.swift \
+            | sed -E "s/${declaration}.*/\\3/" > "$RUNNER_TEMP/classes.txt"
+          printf '%s\n' TestGitOverrideTests WorktreeParserTests >> "$RUNNER_TEMP/classes.txt"
+          sort -u -o "$RUNNER_TEMP/classes.txt" "$RUNNER_TEMP/classes.txt"
+          only=()
+          while IFS= read -r class; do
+            only+=("-only-testing:OvergroveTests/$class")
+          done < "$RUNNER_TEMP/classes.txt"
+          echo "Running ${#only[@]} test classes"
+          runner_env=("TEST_RUNNER_OVERGROVE_TEST_GIT_VERSION=$EXPECTED_GIT_VERSION")
+          if [ -n "$TEST_GIT_PATH" ]; then runner_env+=("TEST_RUNNER_OVERGROVE_TEST_GIT=$TEST_GIT_PATH"); fi
+          env "${runner_env[@]}" xcodebuild test \
+            -project Overgrove.xcodeproj \
+            -scheme Overgrove \
+            -destination 'platform=macOS' \
+            -resultBundlePath "$RUNNER_TEMP/git-compat.xcresult" \
+            "${only[@]}" \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
+            | tee "$RUNNER_TEMP/xcodebuild.log"
+
+      # The run proves it used the requested git; a skipped or missing check fails the job.
+      - name: The requested git ran
+        if: success() || failure()
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/xcodebuild.log"
+          {
+            echo "### git-compat (${{ matrix.git }})"
+            echo "- git: ${TEST_GIT_PATH:-the selected Xcode git} ${EXPECTED_GIT_VERSION:-}"
+            if [ -f "$log" ]; then
+              # The total is the summary right after the "Selected tests" suite line.
+              grep -A1 -E "^Test Suite 'Selected tests' (passed|failed)" "$log" | grep -E "Executed [0-9]+ tests" \
+                | tail -1 | sed 's/^[[:space:]]*/- /' || true
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ -f "$log" ] || { echo "::error::No xcodebuild log."; exit 1; }
+          if ! grep -qE "testThisRunUsesTheRequestedGit\]' passed" "$log"; then
+            echo "::error::TestGitOverrideTests.testThisRunUsesTheRequestedGit did not pass: the run may not have used git ${EXPECTED_GIT_VERSION:-}."
+            exit 1
+          fi
+          # Every selected class ran (a misselected class would be skipped silently).
+          missing=0
+          while IFS= read -r class; do
+            if ! grep -qE "^Test Suite '${class}' (passed|failed)" "$log"; then
+              echo "::error::Test class ${class} did not run."; missing=1
+            fi
+          done < "$RUNNER_TEMP/classes.txt"
+          [ "$missing" -eq 0 ]
+          echo "ok  git ${EXPECTED_GIT_VERSION} was used"
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: git-compat-${{ matrix.git }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/git-compat.xcresult
+            ${{ runner.temp }}/xcodebuild.log
+            ${{ runner.temp }}/git-build.log
+          retention-days: 7
+          if-no-files-found: ignore

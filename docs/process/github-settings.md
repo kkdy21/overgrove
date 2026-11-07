@@ -51,6 +51,8 @@
 | Private vulnerability reporting | 켬 |
 | CodeQL | advanced setup(`.github/workflows/codeql.yml`). `actions`는 모든 PR·main·주간에 돈다. `swift`는 main 푸시·주간·수동 실행만 돈다(#34). 필수 검사가 아니다(아래) |
 
+| git 호환성 매트릭스 | `.github/workflows/git-compat.yml` ([ADR-0020](../adr/0020-git-compatibility-matrix-in-ci.md)). Apple Git, 러너의 Homebrew git, 공식 tarball(SHA-256 고정)로 빌드한 최소 지원 git으로 INT·SEC 테스트를 돈다. 주 1회, 수동 실행, git·실행·파서·보안 경로 PR. 필수 검사가 아니다 |
+
 **CodeQL Swift를 필수 검사로 두지 않는 이유 (#34)**:
 - Swift 분석은 macOS 러너에서 추적 빌드(`xcodebuild clean build`, build-mode `manual`)를 해야 한다. macOS 분은 Ubuntu의 약 10배로 계산되고, `build-test`와 같은 크기의 빌드가 PR마다 하나 더 생긴다.
 - 그래서 PR에서는 돌리지 않는다. main에 들어간 뒤와 주 1회 분석하고, 결과는 Security › Code scanning에 쌓인다.
