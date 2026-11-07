@@ -84,7 +84,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **대응** (ADR-0009):
   - `RepoConfigInspector`가 `local`·`worktree` scope의 `filter.<d>.*`를 찾아, 드라이버마다 `-c filter.<d>.clean= -c filter.<d>.smudge= -c filter.<d>.process= -c filter.<d>.required=false`를 붙인다.
     - 빈 clean은 필터를 끈다 (확인).
-    - `required=true`인 상태에서 clean만 비우면 fatal이 난다 (확인). 그래서 `required=false`를 함께 넣는다.
+    - `required=true`인 상태에서 clean만 비우면 fatal이 난다고 Phase 2에서 기록했다. #92 재측정(Apple Git 2.50.1)에서는 clean만 비워도 status가 성공했다. 반면 `required=true`인 필터가 실패하면 plain status는 실패한다(SEC-T4-03 대조군). 어느 쪽이든 `required=false`를 함께 넣으므로 앱의 결과는 같다.
   - 드라이버 이름이 허용 형식이 아니면 fail closed.
   - 서브모듈 쪽 필터는 `--ignore-submodules=dirty`로 재귀를 막아 차단한다.
 - **대안 검토**: `--attr-source=<empty tree>`(git 2.41+)는 트리의 `.gitattributes`만 막고 `.git/info/attributes`는 막지 못한다 (확인). 주 대응이 될 수 없다.
@@ -446,7 +446,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | 실제 HTTPS fetch에서 `sslVerify` 덮어쓰기 효과 | `--get-urlmatch` 결과로 추정 | 자체 서명 인증서 로컬 서버 통합 테스트 (선택) |
 | `ssh -o BatchMode=yes`가 호스트 키 확인 프롬프트를 막는지 | ssh 문서상 그렇다고 추정 | 수동 QA |
 | unborn 브랜치 워크트리의 `worktree list` 출력 | **확인됨**: `HEAD` 0 OID + `branch` (Apple Git 2.54.0) | PAR-WT-09 (실제 git 테스트 포함) |
-| 서브모듈 내부 `filter`가 상위 status에서 실행되는 조건 | 재귀하면 실행 가능하다고 추정 (fsmonitor는 확인) | SEC-T4-05 (재귀를 막으므로 결과와 무관하게 안전) |
+| 서브모듈 내부 `filter`가 상위 status에서 실행되는 조건 | **확인됨** (#92): `--ignore-submodules=dirty` 없이 재귀하는 plain status에서 실행된다. 앱의 status는 재귀를 막아 실행되지 않는다 | SEC-T4-05 (대조군 포함) |
 
 ---
 
