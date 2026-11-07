@@ -8,6 +8,9 @@ import SwiftUI
 /// ADR-0011: there is no Pull, Push, Commit, Branch, Stash, or Checkout, not even disabled.
 struct MainToolbar: ToolbarContent {
     let repository: RepositoryContext?
+    let repositoryMenu: RepositoryMenuModel
+    let isAddingRepository: Bool
+    let repositoryActions: RepositoryActions
     let focusedWorktree: FocusedWorktree?
     let isSidebarCollapsed: Bool
     let toggleSidebar: () -> Void
@@ -19,7 +22,9 @@ struct MainToolbar: ToolbarContent {
             }
             .help(isSidebarCollapsed ? "Show Sidebar (⌃⌘S)" : "Hide Sidebar (⌃⌘S)")
 
-            RepositorySwitcher(repository: repository)
+            RepositorySwitcher(
+                repository: repository, model: repositoryMenu, isAdding: isAddingRepository,
+                actions: repositoryActions)
             // Outside the menu: macOS reduces a menu label to its first text, which would drop the owner.
             if let owner = repository?.owner {
                 Text(owner).foregroundStyle(Tokens.Color.textSecondary)
@@ -129,30 +134,6 @@ struct ToolbarActionButton: View {
 
     /// Keeps short labels (Fetch, Finder) from making uneven buttons.
     static let minimumWidth: CGFloat = 48
-}
-
-/// `[▭ api acme ⌃]`: the registered repositories. TODO(#84): list, Add Repository… (⌘O), Manage Repositories…
-struct RepositorySwitcher: View {
-    let repository: RepositoryContext?
-
-    var body: some View {
-        Menu {
-            Button("Add Repository…") {}
-                .keyboardShortcut("o", modifiers: .command)
-                .disabled(true)
-            Button("Manage Repositories…") {}
-                .disabled(true)
-        } label: {
-            HStack(spacing: Tokens.Spacing.xs) {
-                Image(systemName: "folder")
-                Text(repository?.name ?? "No Repository").font(Tokens.Font.bodyEmphasized)
-            }
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .accessibilityLabel(
-            repository.map { "Repository \($0.name)" + ($0.owner.map { " by \($0)" } ?? "") } ?? "No repository")
-    }
 }
 
 /// `[◆ feat/42-rate-limit ↑2 ⌘J]`: the focused worktree. Pressing it scrolls the graph to its HEAD.

@@ -11,6 +11,9 @@ enum PathValidator {
         case notAbsolute
         case doesNotExist
         case notADirectory
+        /// The path contains a control character (LF above all). git prints one path per line, so such a path
+        /// would shift the probe's fields (parsing-spec.md §11.2). Refused before any git command runs.
+        case controlCharacters
     }
 
     /// Result of checking a folder the user picked in `NSOpenPanel`.
@@ -47,11 +50,19 @@ enum PathValidator {
     /// Checks a folder chosen for registration.
     static func checkRegistration(_ url: URL) throws -> Registration {
         guard url.isFileURL, url.path.hasPrefix("/") else { throw Failure.notAbsolute }
+        guard !containsControlCharacters(url.path) else { throw Failure.controlCharacters }
         guard let resolved = canonical(url) else { throw Failure.doesNotExist }
+        // A link can point at a name with control characters even when the chosen path has none.
+        guard !containsControlCharacters(resolved.path) else { throw Failure.controlCharacters }
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDirectory), isDirectory.boolValue
         else { throw Failure.notADirectory }
         return Registration(chosen: url, resolved: resolved)
+    }
+
+    /// C0 controls, DEL, and C1 controls.
+    static func containsControlCharacters(_ path: String) -> Bool {
+        path.unicodeScalars.contains { $0.value < 0x20 || (0x7F...0x9F).contains($0.value) }
     }
 
     /// Where `file` really lives relative to `root`.
@@ -101,6 +112,34 @@ enum PathValidator {
             realBack == realGitEntry
         else { return .backPointerMismatch }
         return .linked(name: name)
+    }
+
+    /// The real git directory a worktree's `.git` entry leads to: the directory itself, or the target of a
+    /// `gitdir:` file (`--separate-git-dir`, linked worktrees). `nil` if missing or malformed.
+    static func gitDirectory(of root: URL) -> URL? {
+        let gitEntry = root.appendingPathComponent(".git")
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: gitEntry.path, isDirectory: &isDirectory) else { return nil }
+        if isDirectory.boolValue { return canonical(gitEntry) }
+        guard let contents = readSmallFile(gitEntry), contents.hasPrefix("gitdir: ") else { return nil }
+        let target = String(contents.dropFirst("gitdir: ".count)).trimmingCharacters(in: .newlines)
+        guard !target.isEmpty, !target.contains("\n") else { return nil }
+        return canonical(target.hasPrefix("/") ? URL(fileURLWithPath: target) : root.appendingPathComponent(target))
+    }
+
+    /// A path or name made safe to show: format characters (bidi overrides such as U+202E), line and paragraph
+    /// separators, and controls become visible `\u{…}` escapes, so a folder name cannot disguise a path.
+    static func displayable(_ text: String) -> String {
+        var result = ""
+        for scalar in text.unicodeScalars {
+            switch scalar.properties.generalCategory {
+            case .format, .lineSeparator, .paragraphSeparator, .control:
+                result += "\\u{\(String(scalar.value, radix: 16, uppercase: true))}"
+            default:
+                result.unicodeScalars.append(scalar)
+            }
+        }
+        return result
     }
 
     /// Validates a worktree-relative path for reading file content (untracked previews, T14).
