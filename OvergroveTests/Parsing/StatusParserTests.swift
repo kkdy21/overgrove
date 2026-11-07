@@ -365,6 +365,22 @@ final class StatusParserTests: XCTestCase {
         assertParseFails(data(""), "empty output has no branch headers")
     }
 
+    func test_invalidUTF8BranchHeadersFail() {
+        let invalid = Data([0x66, 0xFF, 0x6F])  // "f\xFFo"
+        let oidHeader = data("# branch.oid \(oid)\u{0}")
+        assertParseFails(oidHeader + data("# branch.head ") + invalid + data("\u{0}"), "invalid UTF-8 branch.head")
+        assertParseFails(
+            oidHeader + data("# branch.head main\u{0}# branch.upstream origin/") + invalid + data("\u{0}"),
+            "invalid UTF-8 branch.upstream"
+        )
+    }
+
+    func test_invalidUTF8UnknownHeaderIsIgnored() throws {
+        let input = data(header) + data("# x-future ") + Data([0xFF]) + data("\u{0}")
+        let state = try StatusParser.parse(input)
+        XCTAssertEqual(state.head, .branch("main"))
+    }
+
     func test_sha256ObjectIDs() throws {
         let long = String(repeating: "b", count: 64)
         let input =

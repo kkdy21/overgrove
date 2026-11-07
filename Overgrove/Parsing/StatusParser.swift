@@ -115,7 +115,12 @@ private struct StatusReader {
     // MARK: Headers (§3.1)
 
     private mutating func header(_ token: Span) throws {
-        let text = string(token)
+        // Branch names go back to git as arguments, so a lossy decode would name a different ref. Unknown headers
+        // with invalid UTF-8 are still ignored (§1.6).
+        guard let text = strictString(token) else {
+            if string(token).hasPrefix("# branch.") { throw failure("invalid UTF-8 branch header") }
+            return
+        }
         guard text.hasPrefix("# ") else { return }  // unknown header shape
         let rest = text.dropFirst(2)
         let key = rest.prefix { $0 != " " }
@@ -319,6 +324,10 @@ private struct StatusReader {
 
     private func string(_ span: Span) -> String {
         String(decoding: UnsafeRawBufferPointer(rebasing: bytes[span]), as: UTF8.self)
+    }
+
+    private func strictString(_ span: Span) -> String? {
+        String(bytes: UnsafeRawBufferPointer(rebasing: bytes[span]), encoding: .utf8)
     }
 
     private func path(_ span: Span) -> GitPath {
