@@ -19,6 +19,9 @@ ENABLE_HARDENED_RUNTIME = YES
 // Registers NSAccentColorName; a user-chosen system accent still takes precedence.
 ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor
 
+// AppIcon.appiconset is rendered from design/icon/*.svg by scripts/render-app-icon.sh (iconography.md §6.1, #38).
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
+
 COMBINE_HIDPI_IMAGES = YES
 ENABLE_PREVIEWS = YES
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/../Frameworks
