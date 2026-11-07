@@ -38,7 +38,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | QA | [qa/checklist.md](qa/checklist.md) | 수동 점검 체크리스트 (QA-xx) |
 | QA | [qa/release-checklist.md](qa/release-checklist.md) | 릴리스 직전 점검 |
 | QA | [qa/bug-triage.md](qa/bug-triage.md) | 버그 분류 기준, 심각도 |
-| QA | [qa/reports/](qa/reports/) | 실행 보고 ([보안 테스트 통과 보고](qa/reports/2026-11-08-security-test-pass.md) #97, [성능 예산 검증 보고](qa/reports/2026-11-08-performance-budget.md) #98) |
+| QA | [qa/reports/](qa/reports/) | 실행 보고 ([보안 테스트 통과 보고](qa/reports/2026-11-08-security-test-pass.md) #97, [성능 예산 검증 보고](qa/reports/2026-11-08-performance-budget.md) #98, [git 호환성 매트릭스 보고](qa/reports/2026-11-08-git-compatibility.md) #99) |
 | 프로세스 | [process/development-workflow.md](process/development-workflow.md) | Discussion → Issue → Branch → PR → Merge 전체 흐름 |
 | 프로세스 | [process/issues.md](process/issues.md) | 이슈 규칙, 라벨, 트리아지, Epic |
 | 프로세스 | [process/pull-requests.md](process/pull-requests.md) | PR 규칙, 리뷰와 코멘트 규약, 머지 정책 |
@@ -147,6 +147,7 @@ OvergroveTests/
 | 0014 | 메인 창의 자체 패널 테마와 사용자 정의 분할 레이아웃 | Accepted |
 | 0015 | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |
 | 0016 | 보드 Status는 워크플로우가 project 전용 토큰으로 맞춘다 | Accepted |
+| 0019 | 사용자가 고른 git 실행 파일을 믿는 조건 | Accepted |
 
 ### 2.6 테스트 ID
 
@@ -161,7 +162,7 @@ OvergroveTests/
 
 ID 원본 위치: SEC → [design/security-review.md](design/security-review.md), PAR → [architecture/parsing-spec.md](architecture/parsing-spec.md), GRA → [testing/test-strategy.md §4.2](testing/test-strategy.md), INT → [testing/fixtures.md §7](testing/fixtures.md), PERF → [performance/benchmark-plan.md §3](performance/benchmark-plan.md), QA → [qa/checklist.md](qa/checklist.md).
 
-테스트 지원 규약: 픽스처는 `OvergroveTests/Support/FixtureRepo.swift`가 `scripts/make-fixture-repo.sh`를 실행해 만든다. 실패한 테스트의 픽스처를 남기려면 `OVERGROVE_KEEP_FIXTURES=1`을 설정한다.
+테스트 지원 규약: 픽스처는 `OvergroveTests/Support/FixtureRepo.swift`가 `scripts/make-fixture-repo.sh`를 실행해 만든다. 실패한 테스트의 픽스처를 남기려면 `OVERGROVE_KEEP_FIXTURES=1`을 설정한다. 테스트가 실행할 git을 바꾸려면 `OVERGROVE_TEST_GIT`(절대 경로)과 `OVERGROVE_TEST_GIT_VERSION`을 쓴다([test-strategy.md §4.3](testing/test-strategy.md), #99).
 
 ### 2.7 화면 ID (상세: design/screens.md)
 

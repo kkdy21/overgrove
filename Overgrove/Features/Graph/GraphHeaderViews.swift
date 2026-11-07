@@ -117,6 +117,8 @@ struct GraphChipButtonStyle: ButtonStyle {
             .padding(.horizontal, Tokens.Spacing.sm)
             .frame(height: Self.height)
             .background(Capsule().fill(isSelected ? Tokens.Color.accent : Tokens.Color.surfaceControl))
+            // No outline normally; `border.strong` 1.5pt under Increase Contrast (#304).
+            .controlOutline(Capsule(), normal: nil)
             .opacity(configuration.isPressed ? 0.8 : 1)
             .contentShape(Capsule())
     }

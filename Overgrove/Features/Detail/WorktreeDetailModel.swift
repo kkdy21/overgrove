@@ -22,6 +22,8 @@ struct WorktreeDetailModel: Equatable {
     let security: WorktreeSecurityModel?
     /// Why there is no security section, when there is none and none is coming.
     let securityUnavailable: String?
+    /// Its last status was slow: why, and the command that refreshes the index (copy only, #168).
+    let slowStatus: SlowStatusHint?
 
     init(
         entry: WorktreeListing.Entry, inspection: WorktreeInspection?, fetchStatus: FetchStatus, now: Date,
@@ -69,6 +71,7 @@ struct WorktreeDetailModel: Equatable {
                 InfoRow(label: $0.label, value: $0.value, isWarning: $0.isWarning, isDimmed: $0.label != "Path")
             } : rows
 
+        slowStatus = entry.slowStatusHint(hookExecutables: inspection?.hookExecutables)
         switch entry.state {
         case .loaded, .notQueried(.inspectionBlocked):
             security = inspection.map { WorktreeSecurityModel($0, showsFullRemoteURLs: showsFullRemoteURLs) }

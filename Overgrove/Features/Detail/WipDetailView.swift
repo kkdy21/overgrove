@@ -260,7 +260,7 @@ struct WipFileRowView: View {
                     .font(Tokens.Font.pill)
                     .foregroundStyle(Tokens.Color.textSecondary)
                     .padding(.horizontal, Tokens.Spacing.xs)
-                    .background(Capsule().strokeBorder(Tokens.Color.borderSeparator))
+                    .controlOutline(Capsule())
             }
             Spacer(minLength: 0)
             switch row.lineCount {

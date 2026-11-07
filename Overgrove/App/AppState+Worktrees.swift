@@ -29,6 +29,8 @@ extension AppState {
     func refresh(_ trigger: RepositoryService.Trigger) {
         guard let repository else { return }
         if trigger != .user, runningTrigger == .user { return }
+        // An auto refresh in flight is replaced: its changes are kept and sent again (#119).
+        if case .filesChanged = runningTrigger { autoRefresh.requestSuperseded() }
         loadTask?.cancel()
         loadGeneration += 1
         let generation = loadGeneration
@@ -63,7 +65,19 @@ extension AppState {
 
     private func finishLoad(_ result: Result<WorktreeListing?, RepositoryLoadError>, generation: Int) {
         guard generation == loadGeneration, !Task.isCancelled else { return }
+        let finished = runningTrigger
         runningTrigger = nil
+        defer {
+            if let finished {
+                let outcome: AutoRefreshController.LoadOutcome =
+                    switch result {
+                    case .success(.some): .succeeded
+                    case .success(nil), .failure(.git(.cancelled)): .superseded
+                    case .failure: .failed
+                    }
+                autoRefresh.loadFinished(finished, outcome: outcome)
+            }
+        }
         switch result {
         case .success(let listing?):
             hasVerifiedListing = true
@@ -104,6 +118,10 @@ extension AppState {
     /// - Parameter isVerified: The listing came from this load's inspection, not from the cache painted before it.
     private func apply(_ listing: WorktreeListing, isVerified: Bool) {
         worktreeList = .loaded(listing)
+        // Watch only what this load verified (#226), never a cached paint (#119).
+        if isVerified, let repository {
+            autoRefresh.update(FileChangeClassifier(listing: listing, repository: repository.repository))
+        }
         branchListModel = Self.branchModel(listing)
         issueLinks = IssueLinkIndex(listing: listing)
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
