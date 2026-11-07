@@ -177,6 +177,24 @@ stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575ab
 - `--exclude=refs/stash --all`로 stash 커밋을 뺀다 (확인).
 - 서명 관련 포맷(`%G?`, `%GS`, `%GK`, `%GF`, `%GP`, `%GT`)은 금지한다. 쓰면 `gpg.program`이 실행된다 (T7, 확인).
 
+### 5.3 파일 이력 — 5.1의 형식 + `--numstat` (+ `--follow`)
+
+레코드의 필드 7개 뒤에, 그 커밋이 파일을 바꿨으면 `\n`과 numstat 항목 하나가 온다. 병합처럼 stat이 없는 레코드는 다음 레코드가 바로 이어진다(`--follow`에서는 병합이 나오지 않는 것을 확인).
+
+```
+71d743de…␀884ed6dd…␀t␀t@example.com␀1793853652␀chore: make it binary␀␀⏎-⇥-⇥Status.swift␀
+4a8b5413…␀356e2f29…␀t␀t@example.com␀1793853652␀refactor: rename to Status.swift␀␀⏎1⇥0⇥␀Parser.swift␀Status.swift␀
+```
+
+| 부분 | 규칙 |
+|---|---|
+| `added⇥deleted⇥path` | 개수는 ASCII 숫자(18자리 이하), `-`면 바이너리(`nil`). 경로는 원시 바이트(`GitPath`) |
+| `added⇥deleted⇥` + `old␀new␀` | rename. 그 커밋의 경로는 `new`, `renamed from`은 `old` |
+| stat 없음 | 개수는 모름(`hasStat == false`). 경로는 따라가던 경로를 유지한다 |
+
+- 레코드마다 경로를 기록하고, 더 오래된 커밋은 rename 이전 경로를 이어받는다. 페이지는 늘 가장 새 커밋부터 다시 읽으므로(카탈로그 `fileHistory`) 경로를 페이지 사이에 넘기지 않는다.
+- 잘린 출력은 마지막 레코드를 버린다(stat이 잘렸을 수 있음). 잘리지 않은 출력은 NUL로 끝나야 하고, 잘못된 개수·빈 rename 경로는 실패한다.
+
 ### 5.2 커밋 상세 — `%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B` + `-z -1`
 
 필드 9개이고, 마지막 `%B`(전체 메시지)는 여러 줄일 수 있다. 메시지 끝의 개행은 보존하되 표시할 때 다듬는다.
@@ -192,6 +210,9 @@ stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575ab
 | PAR-LOG-07 | 잘린 마지막 레코드 버림 |
 | PAR-LOG-08 | NUL이 들어간 커밋 메시지 (literally 객체) |
 | PAR-LOG-09 | co-author 트레일러: 없음, 여러 개(대소문자 섞임), 사람+AI, 접힌 값, 본문 중간 줄 |
+| PAR-LOG-10 | 파일 이력(§5.3): numstat, rename(이전·새 경로), 바이너리, 커밋마다의 경로 |
+| PAR-LOG-11 | 파일 이력의 잘린 출력과 잘못된 numstat |
+| PAR-LOG-12 | 파일 이력에서 제목 안의 여분 NUL → 실패(재동기화하지 않음) |
 
 ---
 

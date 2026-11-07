@@ -18,6 +18,10 @@ struct DiffViewerView: View {
     let onBack: () -> Void
     /// S-11 shows the patch under its own header, which already has `‹ Graph`.
     var showsBackButton = true
+    /// The back button's label: `Graph`, or `History` when the diff was opened from S-09.
+    var backTitle = "Graph"
+    /// `Show History` of the shown file (S-09, #70), in the title's menu.
+    var onShowHistory: (() -> Void)?
 
     /// screens.md S-10: the choice is remembered.
     @AppStorage("diffViewMode") private var isSplit = false
@@ -41,17 +45,20 @@ struct DiffViewerView: View {
         PanelHeader {
             if showsBackButton {
                 Button(action: onBack) {
-                    Label("Graph", systemImage: "chevron.left")
+                    Label(backTitle, systemImage: "chevron.left")
                 }
                 .buttonStyle(.borderless)
                 .keyboardShortcut(.cancelAction)
-                .help("Back to the graph (⎋)")
+                .help("Back to the \(backTitle.lowercased()) (⎋)")
             }
             Text(title)
                 .font(Tokens.Font.headline)
                 .foregroundStyle(Tokens.Color.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.head)
+                .contextMenu {
+                    if let onShowHistory { Button("Show History", action: onShowHistory) }
+                }
             Text(sourceLabel)
                 .font(Tokens.Font.callout)
                 .foregroundStyle(Tokens.Color.textSecondary)

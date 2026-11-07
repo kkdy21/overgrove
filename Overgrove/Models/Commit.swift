@@ -60,6 +60,13 @@ struct FileHistoryEntry: Sendable, Hashable, Identifiable {
     let commit: CommitNode
     /// The file's path in this commit (it changes across renames).
     let path: GitPath
+    /// The path before this commit when the commit renamed the file (`renamed from …`).
+    var originalPath: GitPath?
+    /// The file's line changes in this commit; `nil` for binary files or when git printed no stat (a merge).
+    var added: Int?
+    var deleted: Int?
+    /// git printed a stat for this commit (`false`: the counts are unknown, not zero).
+    var hasStat = false
 
     var id: ObjectID { commit.oid }
 }

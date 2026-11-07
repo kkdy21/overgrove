@@ -72,7 +72,7 @@ final class ConfigExecutionFixtureTests: XCTestCase {
         let queries = try await harness.queries()
         for prefix in [
             "worktreeDiff unstaged", "worktreeDiff staged", "worktreeNumstat", "untrackedPreview", "stashPatch",
-            "commitPatch",
+            "commitPatch", "fileHistory",
         ] {
             for patch in queries.filter({ $0.label.hasPrefix(prefix) }) {
                 try await harness.runHardened(patch)
@@ -86,6 +86,14 @@ final class ConfigExecutionFixtureTests: XCTestCase {
         try harness.fixture.clearCanaries()
         _ = try await harness.runPlain(diff, dropping: ["--no-textconv"])
         assertFired(["T3-textconv"], harness.fixture, "diff without --no-textconv")
+
+        // Measurement (E24, #70): file history's `log --follow --numstat` counts lines from the blobs and runs no
+        // textconv or external diff even without the two flags, which it keeps anyway.
+        try harness.fixture.clearCanaries()
+        let history = try query("fileHistory src/unstaged-modified.txt", in: queries)
+        let plain = try await harness.runPlain(history, dropping: ["--no-ext-diff", "--no-textconv"])
+        XCTAssertFalse(plain.stdout.isEmpty, "the history query ran")
+        harness.fixture.assertNoCanaries(after: "log --numstat without --no-ext-diff/--no-textconv")
     }
 
     // MARK: T4
