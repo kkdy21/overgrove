@@ -6,7 +6,7 @@ import SwiftUI
 /// Pick a file with a click or `↑`/`↓`; the diff viewer (S-10, #69) shows it. Nothing here changes the repository:
 /// there is no staging, discard, or commit (ADR-0011).
 ///
-/// TODO(#158): the base-branch comparison card pinned at the bottom. TODO(#67): the `Changes | Worktree` segment.
+/// The base-branch comparison opens from the toolbar, `⌘⇧B`, or the worktree row menu (S-11, #158).
 struct WipDetailView: View {
     let model: WipDetailModel
     let selectedFile: FileSelection?
