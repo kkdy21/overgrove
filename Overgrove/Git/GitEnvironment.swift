@@ -130,6 +130,47 @@ struct GitEnvironment: Sendable, Equatable {
             parentEnvironment: parentEnvironment)
     }
 
+    /// The git to use: the one chosen in Settings when it passes ADR-0019's rules, else the default (#106).
+    ///
+    /// A chosen git is checked on every call. If it fails, this throws `chosenExecutableRejected` (or the version
+    /// error) and never falls back to the default git (fail closed). The `/usr/bin/git` shim means the default.
+    ///
+    /// - Parameter protectedDirectories: `GitExecutablePolicy.protectedDirectories(for:)` of the registered
+    ///   repositories, read now.
+    static func resolve(
+        chosenPath: String?,
+        protectedDirectories: [URL],
+        runner: ProcessRunner = ProcessRunner(),
+        parentEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        developerDirectory: (() async -> URL?)? = nil
+    ) async throws -> GitEnvironment {
+        guard let chosenPath, !chosenPath.isEmpty else {
+            return try await discover(
+                runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
+        }
+        let shown = PathValidator.displayable(chosenPath)
+        let outcome: GitExecutablePolicy.Outcome
+        do {
+            outcome = try GitExecutablePolicy.check(path: chosenPath, protectedDirectories: protectedDirectories)
+        } catch let rejection as GitExecutablePolicy.Rejection {
+            throw GitError.chosenExecutableRejected(path: shown, reason: rejection.message)
+        }
+        switch outcome {
+        case .useDefault:
+            return try await discover(
+                runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
+        case .chosen(_, let resolved):
+            do {
+                // The real file that passed the rules, so a link swapped afterwards does not change what runs.
+                return try await probe(executable: resolved, runner: runner, parentEnvironment: parentEnvironment)
+            } catch GitError.executableNotFound {
+                throw GitError.chosenExecutableRejected(path: shown, reason: "The file can no longer be run.")
+            } catch GitError.launchFailed(let code) {
+                throw GitError.chosenExecutableRejected(path: shown, reason: "It could not be started (error \(code)).")
+            }
+        }
+    }
+
     /// Runs `git version` on `executable` with the query environment and checks the minimum version (ADR-0008 §3).
     ///
     /// Only the version check: callers decide which executable may be probed. The default comes from `discover`; a
