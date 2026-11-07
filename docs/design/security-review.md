@@ -203,13 +203,15 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **대응**:
   - **`CredentialMasker`**: 아래 패턴을 `***`로 바꾼다. 화면 표시, 로그, 에러 요약 전에 반드시 거친다.
     - URL userinfo (`scheme://user:pass@` → `scheme://***@`, `scheme://token@` → `scheme://***@`)
+    - scheme 없는 userinfo (`user:token@host:repo` → `***@host:repo`, #244). 첫 `@` 앞에 `:`가 있을 때만 가린다. 그래서 scp 형식 `git@host:repo`, 이메일, `bob@host's password:`는 그대로 보인다. 공백 없는 `단어:단어@단어` 꼴(예: `mailto:a@b`)도 가려지는 오탐이 있지만, 글자가 조금 덜 보일 뿐이다. `:` 없는 `token@host`는 사용자 이름과 구별할 수 없어 일반 텍스트에서는 가리지 않는다
+    - config 키 이름(S-05, Open in Terminal): `credential`·`url`·`http` subsection은 URL이나 URL 패턴이므로, scheme 유무와 관계없이 첫 `/` 앞의 마지막 `@`까지를 userinfo로 보고 가린다(`credential.token@host.helper` → `credential.***@host.helper`, `CredentialMasker.maskConfigKey`, #244). 사용자 이름도 URL과 같이 가린다(`url.***@github.com:.insteadof`)
     - 쿼리 파라미터 `access_token=`, `token=`
     - GitHub 토큰 접두사 `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`
     - `Authorization:` 헤더 줄
   - **원격 URL 표시**: 기본은 마스킹이다. 설정의 "원격 URL 표시"를 켜도 자격 증명 부분은 계속 마스킹한다. 원격 URL에 자격 증명이 들어 있으면 S-05에 경고하고, credential helper 사용을 권장한다.
   - **TLS 설정**: `local`·`worktree` scope에서 `false`로 설정된 `http.sslVerify`·`http.<url>.sslVerify`를 fetch에서 같은 키의 `true`로 덮는다 (확인: `config --get-urlmatch`). 로컬 `http.*proxy`는 신뢰 scope 값(없으면 빈 값)으로 덮고, 로컬 `http.*sslCAInfo`·`sslCAPath`·`sslCert`·`sslKey`가 있으면 fetch를 막는다(§3.3, #150).
   - 앱은 토큰을 받거나 저장하지 않는다. `gh auth status`는 `--show-token` 없이 호출한다.
-- **잔여 위험**: 새로운 토큰 형식은 마스킹 패턴에 없을 수 있다. URL userinfo는 형식과 관계없이 전부 마스킹하므로 위험이 줄어든다.
+- **잔여 위험**: 새로운 토큰 형식은 마스킹 패턴에 없을 수 있다. URL userinfo는 형식과 관계없이 전부 마스킹하므로 위험이 줄어든다. scheme 없이 `:`도 없는 `token@host`가 config 키가 아닌 텍스트(stderr 등)에 나오면 가리지 않는다(#244).
 - **검증**: SEC-T11-01 (`CredentialMasker` 단위 테스트), SEC-T11-02 (fetch 실패 stderr가 마스킹된 뒤에만 UI 모델과 로그에 들어감), SEC-T11-03 (로컬 `sslVerify=false` → 최종 인자로 `true` 복원), SEC-T11-04 (S-05, 상태바의 원격 표시가 마스킹됨), SEC-T11-05 (`GHCommand`의 어떤 인자에도 token이 없고, gh stderr는 마스킹된 뒤에만 `GHError`에 들어감)
 - **상태**: 설계 완료
 

@@ -30,6 +30,56 @@ final class CredentialMaskerTests: XCTestCase {
         )
     }
 
+    /// #244: `user:token@host` without a scheme (scp-like remotes, config subsections, stderr quoting them). The
+    /// userinfo must hold a `:` before its first `@`, so `git@host:repo` stays readable.
+    func testSECT11_01_SchemelessUserinfoIsMasked() {
+        XCTAssertEqual(CredentialMasker.mask("alice:\(secret)@github.com:org/repo.git"), "***@github.com:org/repo.git")
+        XCTAssertEqual(CredentialMasker.mask(":\(secret)@host.example:repo"), "***@host.example:repo")
+        XCTAssertEqual(
+            CredentialMasker.mask("fatal: could not read from 'bob:\(secret)@host:x/y'"),
+            "fatal: could not read from '***@host:x/y'")
+        XCTAssertEqual(
+            CredentialMasker.mask("u:p@ss@host:repo"), "***@host:repo", "an unescaped @ in the password must not leak")
+        XCTAssertEqual(CredentialMasker.mask("see bob:\(secret)@h and git@h:r"), "see ***@h and git@h:r")
+    }
+
+    /// Without a `:` before the first `@` there is nothing to tell a token from a user name: scp-like SSH remotes,
+    /// e-mail addresses, and ssh prompts stay as they are.
+    func testSchemelessTextWithoutAPasswordIsUnchanged() {
+        for text in [
+            "git@github.com:org/repo.git", "git@host:repo@v1", "alice@example.com", "bob@host's password:",
+            "git@github.com: Permission denied (publickey).", "Author: A <a@b.example>", "refs/heads/x:y",
+            "https://***@host/x", "***@host:repo", "@host:repo",
+        ] {
+            XCTAssertEqual(CredentialMasker.mask(text), text)
+        }
+    }
+
+    /// S-05 and Open in Terminal list config keys. A subsection is a URL or URL pattern, so its userinfo is masked
+    /// whatever its form, with or without a scheme (#244).
+    func testSECT11_01_ConfigKeySubsectionsAreMasked() {
+        XCTAssertEqual(
+            CredentialMasker.maskConfigKey("url.alice:\(secret)@host:repo.insteadof"), "url.***@host:repo.insteadof")
+        XCTAssertEqual(
+            CredentialMasker.maskConfigKey("credential.alice:\(secret)@host.example.helper"),
+            "credential.***@host.example.helper")
+        XCTAssertEqual(
+            CredentialMasker.maskConfigKey("credential.\(secret)@host.example.helper"),
+            "credential.***@host.example.helper", "a token alone, without a user name")
+        XCTAssertEqual(
+            CredentialMasker.maskConfigKey("credential.https://alice:\(secret)@h.example/x.helper"),
+            "credential.https://***@h.example/x.helper")
+        XCTAssertEqual(
+            CredentialMasker.maskConfigKey("url.git@github.com:.insteadof"), "url.***@github.com:.insteadof",
+            "a subsection's user name is masked too, as in a URL")
+        XCTAssertEqual(
+            CredentialMasker.maskConfigKey("http.h.example/a@b.sslverify"), "http.h.example/a@b.sslverify",
+            "an @ after the host is a path")
+        for key in ["core.fsmonitor", "remote.origin.url", "includeif.gitdir:~/work/.path", "nodots", ""] {
+            XCTAssertEqual(CredentialMasker.maskConfigKey(key), key)
+        }
+    }
+
     func testSECT11_01_GitStderrIsMasked() {
         let stderr = """
             fatal: unable to access 'https://x-access-token:\(classicToken)@github.com/org/repo.git/': \
@@ -97,11 +147,16 @@ final class CredentialMaskerTests: XCTestCase {
             String(repeating: "?token=", count: size / 7),
             String(repeating: "gh" + "p_", count: size / 4),
             String(repeating: "authorization", count: size / 13),
+            String(repeating: "a:", count: size / 2),
+            String(repeating: "a:b@", count: size / 4),
+            String(repeating: ":", count: size) + "@",
+            String(repeating: "@", count: size) + ":",
         ]
         let clock = ContinuousClock()
         for input in inputs {
             let start = clock.now
             _ = CredentialMasker.mask(input)
+            _ = CredentialMasker.maskConfigKey("url." + input + ".insteadof")
             XCTAssertLessThan(clock.now - start, .seconds(1), "input starting with \(input.prefix(12))")
         }
     }
