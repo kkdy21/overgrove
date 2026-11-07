@@ -2,6 +2,8 @@
 
 > 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [benchmark-plan.md](benchmark-plan.md), [docs/README.md §2.8](../README.md), ADR-0008, ADR-0010, HANDOFF G9
 
+**최근 검증**: [qa/reports/2026-11-08-performance-budget.md](../qa/reports/2026-11-08-performance-budget.md) (#98). 측정한 범위에서 PB-1–PB-9 위반이 없다. 재지 않은 항목은 그 보고서 §4에 있다.
+
 HANDOFF G9의 "체감상 즉시"를 측정 가능한 수치로 바꾼 문서다. 각 예산에는 측정 시작점과 끝점, 데이터셋, 장비, 회귀 기준이 있다.
 
 앱이 아직 없으므로 git 계층 비용을 먼저 쟀다 (`scripts/measure-git-baseline.sh`). 앱이 아무리 빨라도 git이 쓰는 시간보다 빠를 수는 없으므로, 이 값이 각 예산의 하한선이다. 남는 예산이 파싱, 모델 갱신, SwiftUI 렌더링에 쓸 수 있는 시간이다.
