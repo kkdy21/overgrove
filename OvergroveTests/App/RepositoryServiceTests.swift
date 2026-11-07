@@ -124,6 +124,85 @@ final class RepositoryServiceTests: XCTestCase {
         XCTAssertEqual(overview.snapshot(focusing: lane.worktree.path).focusedWorktree?.branch, "lane/2")
     }
 
+    // MARK: - Untrusted worktree paths (security review of #221)
+
+    /// A repository with a clean filter that writes a canary, and a tracked file whose stat changed, so `status` would
+    /// run the filter (security-review.md E4).
+    private func makeFilterRepository(_ canary: URL, name: String) async throws -> GitTestRepository {
+        let other = try await GitTestRepository.make()
+        try other.write("tracked.txt", "content\n")
+        try await other.git(["add", "tracked.txt"])
+        try await other.git(["commit", "-q", "-m", "one"])
+        let filter = try executables.canaryProgram(named: name, canary: canary)
+        try other.write(".gitattributes", "* filter=evil\n")
+        try await other.git(["config", "filter.evil.clean", filter.path])
+        try await Task.sleep(for: .seconds(1.1))  // a later mtime than the index: status must re-read the file
+        try other.write("tracked.txt", "content\n")
+        return other
+    }
+
+    private func canaries(_ directory: URL) -> [String] {
+        ((try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []).sorted()
+    }
+
+    /// `worktree list` reads paths from `.git/worktrees/<id>/gitdir`, which the repository controls. A forged entry can
+    /// point at another repository whose configuration was never inspected; its status must not run.
+    func testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried() async throws {
+        let canary = executables.directory.appendingPathComponent("canary-forged", isDirectory: true)
+        let other = try await makeFilterRepository(canary, name: "foreign-filter")
+        defer { other.remove() }
+        let forged = repository.root.appendingPathComponent(".git/worktrees/forged", isDirectory: true)
+        try FileManager.default.createDirectory(at: forged, withIntermediateDirectories: true)
+        try (other.root.appendingPathComponent(".git").path + "\n").write(
+            to: forged.appendingPathComponent("gitdir"), atomically: true, encoding: .utf8)
+        try "ref: refs/heads/main\n".write(to: forged.appendingPathComponent("HEAD"), atomically: true, encoding: .utf8)
+        try "../..\n".write(to: forged.appendingPathComponent("commondir"), atomically: true, encoding: .utf8)
+
+        // Control: status in that directory with this repository's safety context runs the other repository's filter.
+        _ = try? await GitClient(environment: repository.environment).run(.status, in: other.root, safety: safety)
+        XCTAssertEqual(canaries(canary), ["foreign-filter"], "control: the filter must be reachable")
+        try FileManager.default.removeItem(at: canary.appendingPathComponent("foreign-filter"))
+
+        let overview = try await RepositoryService(client: GitClient(environment: repository.environment))
+            .loadOverview(of: model, safety: safety)
+        let entry = try XCTUnwrap(
+            overview.entries.first {
+                URL(fileURLWithPath: $0.worktree.path.display).resolvingSymlinksInPath().path
+                    == other.root.resolvingSymlinksInPath().path
+            })
+        XCTAssertEqual(entry.status, .notQueried(.foreignRepository))
+        XCTAssertEqual(canaries(canary), [], "nothing from the other repository may run")
+    }
+
+    /// With `extensions.worktreeConfig`, a linked worktree has its own `config.worktree`, which the main worktree's
+    /// inspection does not see. Each worktree is inspected before its status runs.
+    func testLinkedWorktreeOwnConfigurationIsInspected() async throws {
+        let canary = executables.directory.appendingPathComponent("canary-worktree", isDirectory: true)
+        let filter = try executables.canaryProgram(named: "worktree-filter", canary: canary)
+        let linked = executables.directory.appendingPathComponent("wt-3")
+        try await repository.git(["config", "extensions.worktreeConfig", "true"])
+        try await repository.git(["-C", linked.path, "config", "--worktree", "filter.wt.clean", filter.path])
+        try "* filter=wt\n".write(
+            to: linked.appendingPathComponent(".gitattributes"), atomically: true, encoding: .utf8)
+        try await Task.sleep(for: .seconds(1.1))
+        try "a\n".write(to: linked.appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+
+        // Control: the main worktree's safety context does not neutralize the linked worktree's own driver.
+        let listing = try await GitClient(environment: repository.environment)
+            .run(.configList, in: repository.root, safety: .preInspection)
+        let mainSafety = try XCTUnwrap(
+            RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
+        _ = try? await GitClient(environment: repository.environment).run(.status, in: linked, safety: mainSafety)
+        XCTAssertEqual(canaries(canary), ["worktree-filter"], "control: the driver must be reachable")
+        try FileManager.default.removeItem(at: canary.appendingPathComponent("worktree-filter"))
+
+        let overview = try await RepositoryService(client: GitClient(environment: repository.environment))
+            .loadOverview(of: model, safety: mainSafety)
+        let entry = try XCTUnwrap(overview.entries.first { $0.worktree.branch == "refs/heads/lane/3" })
+        guard case .loaded = entry.status else { return XCTFail("\(entry.status)") }
+        XCTAssertEqual(canaries(canary), [], "the linked worktree's driver is neutralized")
+    }
+
     // MARK: - Concurrency cap
 
     func testStatusQueriesNeverExceedTheConcurrencyCap() async throws {

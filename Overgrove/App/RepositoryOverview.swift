@@ -23,6 +23,11 @@ struct RepositoryOverview: Sendable, Equatable {
         case bare
         /// The path is not valid UTF-8, so it cannot be passed to git (parsing-spec.md §1.3).
         case unrepresentablePath
+        /// The listed path belongs to another repository. `worktree list` reads paths from files the repository
+        /// controls, so a forged entry could point at a repository whose configuration was never inspected.
+        case foreignRepository
+        /// This worktree's own configuration (e.g. `config.worktree`) blocks queries (ADR-0009, fail closed).
+        case inspectionBlocked(String)
     }
 
     /// In `worktree list` order: the main worktree first.

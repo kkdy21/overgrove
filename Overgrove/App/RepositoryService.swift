@@ -102,7 +102,7 @@ actor RepositoryService {
         return try await withThrowingTaskGroup(of: Part.self) { group in
             for (index, worktree) in listing.worktrees.enumerated() where Self.skipReason(worktree) == nil {
                 group.addTask {
-                    .status(index, await Self.status(of: worktree, safety: safety, client: client))
+                    .status(index, await Self.status(of: worktree, in: repository, client: client))
                 }
             }
             group.addTask {
@@ -136,6 +136,18 @@ actor RepositoryService {
         }
     }
 
+    /// The git common directory from `rev-parse --path-format=absolute --show-toplevel --git-common-dir
+    /// --is-bare-repository` (parsing-spec.md §11.2): the second of three lines.
+    private static func commonDirectory(fromProbe output: Data) -> URL? {
+        let lines = String(decoding: output, as: UTF8.self).split(separator: "\n", omittingEmptySubsequences: false)
+        guard lines.count >= 3, lines[1].hasPrefix("/") else { return nil }
+        return URL(fileURLWithPath: String(lines[1]), isDirectory: true)
+    }
+
+    private static func isSameDirectory(_ lhs: URL, _ rhs: URL) -> Bool {
+        lhs.resolvingSymlinksInPath().standardizedFileURL.path == rhs.resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
     private enum Part: Sendable {
         case status(Int, RepositoryOverview.Status)
         case refs(RefParser.Listing)
@@ -150,14 +162,31 @@ actor RepositoryService {
     }
 
     /// One worktree's status. Errors stay with that worktree, except cancellation, which ends the whole load.
+    ///
+    /// Worktree paths come from files the repository controls (`.git/worktrees/<id>/gitdir`), so each one is treated
+    /// as untrusted (security review of #221): it must belong to this repository (same git common directory), and its
+    /// own configuration is inspected (a linked worktree can have `config.worktree`) before `status` runs with that
+    /// worktree's safety context. Both checks use the commands allowed before inspection.
     private static func status(
         of worktree: Worktree,
-        safety: RepoSafetyContext,
+        in repository: Repository,
         client: GitClient
     ) async -> RepositoryOverview.Status {
+        let directory = URL(fileURLWithPath: worktree.path.display, isDirectory: true)
         do {
-            let output = try await client.run(
-                .status, in: URL(fileURLWithPath: worktree.path.display, isDirectory: true), safety: safety)
+            let probe = try await client.run(.probeRepository, in: directory, safety: .preInspection)
+            guard let common = commonDirectory(fromProbe: probe.stdout),
+                isSameDirectory(common, repository.commonGitDirectoryURL)
+            else { return .notQueried(.foreignRepository) }
+
+            let config = try await client.run(.configList, in: directory, safety: .preInspection)
+            let inspection = RepoConfigInspector.inspect(
+                try ConfigParser.parse(config.stdout, truncated: config.isTruncated))
+            guard let safety = inspection.safetyContext else {
+                return .notQueried(.inspectionBlocked(inspection.report.blockingReason ?? ""))
+            }
+
+            let output = try await client.run(.status, in: directory, safety: safety)
             return .loaded(try StatusParser.parse(output.stdout, truncated: output.isTruncated))
         } catch let error as GitError {
             return .failed(error)
