@@ -189,6 +189,8 @@ struct WorktreeSecurityModel: Equatable {
     let failure: String?
     /// Queries run, but `git fetch` will not (e.g. a repository-local TLS certificate).
     let fetchBlockingReason: String?
+    /// The report or remote list was shortened (#262): very large configuration.
+    let limitNote: String?
     let rows: [Row]
     let others: [OtherFinding]
 
@@ -205,6 +207,13 @@ struct WorktreeSecurityModel: Equatable {
             fetchReason = "This repository is a partial clone; Overgrove never downloads missing objects."
         }
         fetchBlockingReason = fetchReason.map(PathValidator.displayable)
+        let omitted = [
+            (inspection?.report.omittedFindings ?? 0) > 0
+                ? "\(inspection?.report.omittedFindings ?? 0) more findings are not listed" : nil,
+            (inspection?.omittedRemotes ?? 0) > 0
+                ? "\(inspection?.omittedRemotes ?? 0) more remotes are not listed" : nil,
+        ].compactMap { $0 }
+        limitNote = omitted.isEmpty ? nil : "This configuration is very large: " + omitted.joined(separator: "; ") + "."
 
         var used = Set<RepoSecurityReport.Finding>()
         /// Key names of the findings `match` selects (never values), each once; they no longer count as "other".

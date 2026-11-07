@@ -271,6 +271,16 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 타임아웃: 기본 15초, fetch 120초. SIGTERM 뒤 2초가 지나면 SIGKILL.
   - stdout 상한 10MB(fetch 1MB), stderr 상한 64KB(fetch 256KB). 넘으면 읽기를 멈추고 `truncated` 결과를 돌려준다.
   - 동시 git 프로세스 수를 `min(코어 수, 8)`로 제한한다.
+  - **설정 검사도 선형 시간이다(#262)**. `config --list` 출력은 stdout 상한(10MB)까지 저장소가 정한다. 원격, TLS·프록시 키, filter 드라이버의 중복 제거와 신뢰 프록시 값 찾기는 집합과 한 번의 훑기로 한다. 이전에는 앞의 항목을 매번 다시 훑어 O(n²)였다. 검사는 저장소를 열 때와 워크트리마다 실행된다. 남기는 양에도 상한을 둔다.
+
+    | 대상 | 상한 | 넘으면 |
+    |---|---|---|
+    | filter 드라이버 | 256 | 조회 중단(fail closed). 드라이버마다 모든 git 명령에 인자 8개가 붙고, 모두 무력화하지 못하면 실행하지 않는다 |
+    | fetch 전용 덮어쓰기(`http.<url>.sslVerify`·`.proxy`) | 256 | fetch만 막는다. 조회는 계속한다 |
+    | 원격 목록 | 1,000 (설정 순서) | 나머지는 개수만 센다(`omittedRemotes`). fetch는 더 적게 쓴다(#259). 무력화와 무관하므로 fail closed가 아니다 |
+    | 보고서 항목 | 1,000 | 나머지는 개수만 센다(`omittedFindings`). 무력화는 모든 항목에 그대로 적용한다 |
+
+    S-05는 보고서가 줄었으면 "Report shortened"로 알린다.
   - 한 번의 조회에서 status를 실행하는 워크트리는 최대 64개다(`RepositoryService.defaultMaximumQueriedWorktrees`, #226). 워크트리 목록은 저장소가 쓰는 파일에서 오고 10MB까지 읽으므로, 위조 레코드 수천 개가 각각 프로세스 3개(probe, config, status, 각 최대 15초)와 `WorkingState`를 만들 수 있었다. 64는 PB-1 기준(워크트리 10개)의 6배 남짓이다. 나머지는 목록에만 두고 `.notQueried(.limit)`로 표시하며, 화면은 `RepositoryOverview.isQueryLimited`로 알린다. 같은 경로는 한 번만 나열하고, 다른 경로가 같은 폴더로 이어지면(심볼릭 링크) 한 번만 조회한다(`.notQueried(.duplicate)`).
   - Fetch 한 번이 가져오는 원격은 최대 16개다(`RepositoryService.defaultMaximumFetchedRemotes`, #259). 원격 목록은 저장소 설정이 정하고, 원격마다 최대 120초씩 순서대로 돌기 때문에, 원격 수천 개를 넣으면 Fetch 한 번이 사실상 끝나지 않고 앱 전체 fetch 슬롯 2개 중 하나를 붙잡았다. 보통은 1~3개(origin, upstream, fork 몇 개)이고 16은 fork가 많은 리뷰 환경도 담는다. 최악의 경우는 약 32분이며, Stop과 창 닫기는 언제든 멈춘다. 설정 순서로 앞의 16개만 가져오고, 건너뛴 수는 상태바(`· 16 of 40 remotes`)와 Details에 알린다.
   - 그래프는 페이지 단위로 불러온다.
@@ -278,7 +288,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - `fd::`는 `protocol.fd.allow=never`로 차단한다.
   - 출력 인코딩을 공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정한다. 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`(include 경유 포함)은 포맷된 출력 전체를 `-z` 구분자까지 다시 인코딩한다. JOHAB·CP1361은 메시지의 전각 문자(U+FF01…)를 NUL로 바꿔 필드를 밀고, 모든 검사를 통과하는 가짜 커밋 레코드를 만들 수 있다. UTF-16·UCS-4 등은 파싱을 실패시켜 그래프를 못 쓰게 만든다 (확인, E41, #205).
 - **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다. 커밋 객체의 `encoding` 헤더가 UCS-2·CP037·TCVN이면 git이 그 커밋의 모든 필드를 빈 값으로 출력해 그래프 페이지 전체가 파싱 실패한다(출력 인코딩 고정과 무관, #203 보안 검토). 필드가 밀리지는 않으므로 위조는 아니고, 가용성 문제로 남긴다.
-- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259)
+- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-08 (원격 10만 개 + 반복 10만 개 + URL별 TLS·프록시 키 20만 개의 설정 목록을 3초 안에 검사하고 상한대로 줄임. 드라이버 257개는 조회 중단, fetch 덮어쓰기 257개는 fetch만 막음, #262), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259)
 - **상태**: 설계 완료
 
 ### T16. 로그를 통한 정보 유출
