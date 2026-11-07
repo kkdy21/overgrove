@@ -12,11 +12,14 @@ struct SlowStatusHint: Equatable, Sendable {
     /// `Status 5.2 s` for the status bar.
     let short: String
     let message: String
-    /// `git status` to copy, offered only when the worktree's configuration report is clean: Terminal git runs the
-    /// repository's hooks, pager, and other settings (security review of #200).
+    /// `git status` to copy, offered only when the configuration report is clean **and** the repository has no hook
+    /// executables: Terminal git runs the repository's settings, and refreshing the index runs its
+    /// `post-index-change` hook, which the configuration report does not show (security reviews of #200, #168).
     let command: String?
 
     /// `nil` below the threshold or without a measurement.
+    /// - Parameter isConfigurationClean: The report has no findings and the hooks folder was checked and has no
+    ///   executables. Without that knowledge (no inspection yet) pass `false`.
     init?(duration: Duration?, isConfigurationClean: Bool) {
         guard let duration, duration > Self.threshold else { return nil }
         self.duration = duration
@@ -27,13 +30,13 @@ struct SlowStatusHint: Equatable, Sendable {
             + "every time until its index is refreshed. Overgrove does not write the index."
         if isConfigurationClean {
             message =
-                cause + " Running \"git status\" once in Terminal refreshes it and makes this fast again; do this "
-                + "only for a repository you trust."
+                cause + " Running \"git status\" once in Terminal refreshes it and makes this fast again. Terminal git "
+                + "also runs the repository's own hooks and settings, so do this only for a repository you trust."
             command = "git status"
         } else {
             message =
-                cause + " This repository has configuration findings, so Overgrove does not suggest running git in "
-                + "Terminal for it."
+                cause + " Overgrove does not suggest running git in Terminal for this repository: its configuration "
+                + "or hooks are not known to be safe."
             command = nil
         }
     }

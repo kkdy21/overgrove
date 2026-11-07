@@ -80,14 +80,17 @@ extension RepositoryService {
             let status: RepositoryOverview.Status
             let clock = ContinuousClock()
             let start = clock.now
+            var duration: Duration?
             do {
                 let output = try await context.client.run(.status, in: folder, safety: safety)
                 status = .loaded(try StatusParser.parse(output.stdout, truncated: output.isTruncated))
+                // Only a status that finished: a timeout or failure is not a stale index.
+                duration = clock.now - start
             } catch {
                 status = failure(error)
             }
             return RepositoryOverview.Entry(
-                worktree: worktree, status: status, inspection: inspection, statusDuration: clock.now - start)
+                worktree: worktree, status: status, inspection: inspection, statusDuration: duration)
         }
     }
 

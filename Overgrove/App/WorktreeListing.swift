@@ -44,10 +44,16 @@ struct WorktreeListing: Sendable, Equatable {
             self.statusDuration = statusDuration
         }
 
-        /// The slow-status hint for this worktree, if its last status was slow (#168).
+        /// The slow-status hint for this worktree, if its last status was slow (#168). Without S-05's hook check it
+        /// never offers a command (the status bar shows only its text).
         var slowStatusHint: SlowStatusHint? {
-            SlowStatusHint(
-                duration: statusDuration, isConfigurationClean: inspection?.report.findings.isEmpty ?? false)
+            slowStatusHint(hookExecutables: nil)
+        }
+
+        /// - Parameter hookExecutables: S-05's hooks check; `nil` when unknown, which offers no command.
+        func slowStatusHint(hookExecutables: [String]?) -> SlowStatusHint? {
+            let clean = (inspection?.report.findings.isEmpty ?? false) && (hookExecutables?.isEmpty ?? false)
+            return SlowStatusHint(duration: statusDuration, isConfigurationClean: clean)
         }
     }
 

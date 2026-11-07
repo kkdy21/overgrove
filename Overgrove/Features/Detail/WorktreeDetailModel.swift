@@ -71,7 +71,7 @@ struct WorktreeDetailModel: Equatable {
                 InfoRow(label: $0.label, value: $0.value, isWarning: $0.isWarning, isDimmed: $0.label != "Path")
             } : rows
 
-        slowStatus = entry.slowStatusHint
+        slowStatus = entry.slowStatusHint(hookExecutables: inspection?.hookExecutables)
         switch entry.state {
         case .loaded, .notQueried(.inspectionBlocked):
             security = inspection.map { WorktreeSecurityModel($0, showsFullRemoteURLs: showsFullRemoteURLs) }
