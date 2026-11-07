@@ -11,7 +11,7 @@ struct GitTestRepository {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("overgrove-repo-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let repository = GitTestRepository(root: root, environment: try await GitEnvironment.discover())
+        let repository = GitTestRepository(root: root, environment: try await GitEnvironment.discoverForTesting())
         try await repository.git(["init", "-q", "-b", "main"])
         return repository
     }
