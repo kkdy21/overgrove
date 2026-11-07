@@ -125,8 +125,21 @@ struct GitEnvironment: Sendable, Equatable {
             directory = await activeDeveloperDirectory(runner: runner, environment: environment)
         }
         guard let directory else { throw GitError.executableNotFound(path: "/usr/bin/git") }
-        let executable = directory.appendingPathComponent("usr/bin/git")
+        return try await probe(
+            executable: directory.appendingPathComponent("usr/bin/git"), runner: runner,
+            parentEnvironment: parentEnvironment)
+    }
 
+    /// Runs `git version` on `executable` with the query environment and checks the minimum version (ADR-0008 §3).
+    ///
+    /// Only the version check: callers decide which executable may be probed. The default comes from `discover`; a
+    /// git chosen in Settings must pass ADR-0019's path, ownership, and permission rules first (#106).
+    static func probe(
+        executable: URL,
+        runner: ProcessRunner = ProcessRunner(),
+        parentEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) async throws -> GitEnvironment {
+        let environment = environment(parent: parentEnvironment, allowsTransport: false)
         let result: ProcessResult
         do {
             result = try await runner.run(
