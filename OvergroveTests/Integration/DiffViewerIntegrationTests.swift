@@ -15,7 +15,7 @@ final class DiffViewerIntegrationTests: XCTestCase {
 
     private func context() async throws -> Context {
         let fixture = try await makeFixture()
-        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: fixture.environment)
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let root = try XCTUnwrap(PathValidator.canonical(fixture.repository))
         return Context(
@@ -106,7 +106,7 @@ final class DiffViewerIntegrationTests: XCTestCase {
     /// worktree's safety) runs none of the repository's payloads, for staged, unstaged, and untracked files.
     func testSECT4_08_DiffViewerRunsNoPayloads() async throws {
         let fixture = try await makeFixture(malicious: true)
-        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: fixture.environment)
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let root = try XCTUnwrap(PathValidator.canonical(fixture.repository))
         let repository = Repository(

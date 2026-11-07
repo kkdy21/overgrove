@@ -295,6 +295,8 @@ struct DetailSegmentPicker: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .fixedSize()
+        // The panel theme's outline under Increase Contrast (#304); AppKit draws the rest of the control.
+        .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.sm), normal: nil)
     }
 }
 
