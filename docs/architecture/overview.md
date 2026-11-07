@@ -295,7 +295,7 @@ gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다:
   1. 고른 경로를 `realpath(3)`로 정규화하고 심볼릭 링크를 해석한다(`PathValidator`). 제어 문자가 있으면 거부한다.
   2. `probeGitDirectory`(`rev-parse --path-format=absolute --git-common-dir --absolute-git-dir --is-bare-repository --is-inside-work-tree`)로 저장소 여부, 공통 디렉터리, 이 위치의 git 디렉터리를 얻는다. bare 저장소에서도 성공한다(#222).
   3. 결과에 따라 나눈다.
-     - **bare**: 고른 폴더가 공통 git 디렉터리 자체이거나, 그 폴더의 `.git`이 디스크에서 공통 디렉터리로 이어져야 한다(`repo/.git`·`repo/.bare` 배치). 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. 그래서 bare 안의 하위 폴더와 관리 디렉터리 `worktrees/<id>`는 거부한다(git은 둘 다 bare라고 답한다). 등록 항목은 `rootPath`가 없다(`Repository.rootURL == nil`).
+     - **bare**: 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 한다(`repo/.git`·`repo/.bare` 배치). 다른 곳의 bare 저장소를 가리키는 `.git` 파일은 거부한다. 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. 그래서 bare 안의 하위 폴더와 관리 디렉터리 `worktrees/<id>`는 거부한다(git은 둘 다 bare라고 답한다). 등록 항목은 `rootPath`가 없다(`Repository.rootURL == nil`).
      - **워크트리 안**: `probeRepository`(`rev-parse --path-format=absolute --show-toplevel --git-common-dir --is-bare-repository`)로 워크트리 최상위를 얻는다. 두 probe의 공통 디렉터리가 같아야 한다.
      - **그 밖**(`.git` 안, 다른 곳을 가리키는 `core.worktree`): 거부한다.
   4. probe 결과를 파일 시스템과 맞춰 본다(SEC-T14-04).

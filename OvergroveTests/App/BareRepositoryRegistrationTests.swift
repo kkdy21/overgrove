@@ -177,6 +177,45 @@ final class BareRepositoryRegistrationTests: XCTestCase {
         await assertRefused(forged, .insideGitDirectory, environment: layout.environment)
     }
 
+    /// Security review of #222: a folder whose `.git` file points at a bare repository somewhere else is not that
+    /// repository's holder. git follows the file; the registrar refuses instead of registering an unrelated repository.
+    func testSECT14_04_gitFilePointingAtABareRepositoryElsewhereIsRefused() async throws {
+        let layout = try await makeLayout()
+        let decoy = layout.base.appendingPathComponent("decoy", isDirectory: true)
+        try FileManager.default.createDirectory(at: decoy, withIntermediateDirectories: true)
+        try "gitdir: \(layout.bare.path)\n".write(
+            to: decoy.appendingPathComponent(".git"), atomically: true, encoding: .utf8)
+
+        let raw = try await GitClient(environment: layout.environment)
+            .run(.probeGitDirectory, in: decoy, safety: .preInspection).stdout
+        XCTAssertTrue(try GitDirectoryProbeParser.parse(raw).isBare, "git treats the decoy as the bare repository")
+
+        await assertRefused(decoy, .inconsistentRepository, environment: layout.environment)
+    }
+
+    /// `core.bare = true` with a `core.worktree`: git ignores the work tree and reports a bare repository, so it is
+    /// registered as one (commands run in the git directory). The local `core.worktree` is still reported when the
+    /// repository's configuration is inspected (SEC-T14-03).
+    func testBareRepositoryWithCoreWorktreeRegistersAsBareAndIsReported() async throws {
+        let layout = try await makeLayout()
+        let elsewhere = layout.base.appendingPathComponent("elsewhere", isDirectory: true)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+        try await GitTestRepository(root: layout.bare, environment: layout.environment)
+            .git(["config", "core.worktree", elsewhere.path])
+
+        let registration = try await registrar(layout.environment).register(layout.bare)
+        XCTAssertNil(registration.entry.rootPath)
+        XCTAssertEqual(registration.entry.commonDirectoryPath, layout.bare.path)
+
+        let config = try await GitClient(environment: layout.environment)
+            .run(.configList, in: layout.bare, safety: .preInspection)
+        let report = RepoConfigInspector.inspect(try ConfigParser.parse(config.stdout, truncated: config.isTruncated))
+            .report
+        XCTAssertTrue(
+            report.findings.contains { $0.entry.key == "core.worktree" && $0.threat == "T14" },
+            "\(report.findings)")
+    }
+
     // MARK: - Opening
 
     /// The registered bare repository loads its worktree list from the shared git directory: the bare main record

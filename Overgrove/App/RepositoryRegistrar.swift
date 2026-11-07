@@ -20,8 +20,8 @@ enum RegistrationError: Error, Equatable, Sendable {
         case .invalidPath(.controlCharacters):
             "The folder's path contains control characters (such as a line break), so Overgrove will not add it."
         case .insideGitDirectory:
-            "This folder is inside a Git directory. Choose the repository folder (for a bare repository, the folder "
-                + "itself, such as repo.git) or one of its worktrees."
+            "This folder is a Git directory (such as .git) or a folder inside one, not a repository folder. Choose the "
+                + "repository or one of its worktrees; a bare repository (such as repo.git) can be chosen directly."
         case .inconsistentRepository:
             "This repository's Git settings point outside the folder you chose (for example core.worktree, or a .git "
                 + "file that points into another repository), so Overgrove will not add it."
@@ -107,10 +107,12 @@ struct RepositoryRegistrar: Sendable {
 
     // MARK: - Bare repositories (#222)
 
-    /// SEC-T14-04 for a bare repository: the picked folder must be the shared git directory itself, or a folder
-    /// whose `.git` entry leads to it on disk (a bare repository kept in `repo/.git` or `repo/.bare`). Its own git
-    /// directory must be the shared one, so neither a subfolder nor an administrative `worktrees/<id>` folder (which
-    /// git also reports as bare) is registered.
+    /// SEC-T14-04 for a bare repository: the picked folder must be the shared git directory itself, or the folder
+    /// that holds it as a direct child and whose `.git` entry leads to it on disk (a bare repository kept in
+    /// `repo/.git` or `repo/.bare`). A `.git` file pointing at a bare repository anywhere else is refused, so picking a
+    /// folder never registers an unrelated repository (security review of #222). The location's own git directory
+    /// must be the shared one, so neither a subfolder nor an administrative `worktrees/<id>` folder (which git also
+    /// reports as bare) is registered.
     private static func bareRepository(probe: GitDirectoryProbe, chosen: URL) throws(RegistrationError)
         -> RegisteredRepository
     {
@@ -118,9 +120,12 @@ struct RepositoryRegistrar: Sendable {
         guard PathValidator.canonical(common)?.path == common.path else { throw .inconsistentRepository }
         // `worktrees/<id>`, or a folder whose `commondir` names another repository.
         guard PathValidator.canonical(probe.gitDirectory)?.path == common.path else { throw .insideGitDirectory }
-        guard chosen.path == common.path || PathValidator.gitDirectory(of: chosen)?.path == common.path else {
-            throw .insideGitDirectory
+        if chosen.path == common.path {
+            return RegisteredRepository(rootPath: nil, commonDirectoryPath: common.path)
         }
+        guard PathValidator.gitDirectory(of: chosen)?.path == common.path else { throw .insideGitDirectory }
+        // The holder layout only: the bare repository lives directly inside the picked folder.
+        guard common.deletingLastPathComponent().path == chosen.path else { throw .inconsistentRepository }
         return RegisteredRepository(rootPath: nil, commonDirectoryPath: common.path)
     }
 
