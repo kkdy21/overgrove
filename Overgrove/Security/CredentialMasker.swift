@@ -5,8 +5,8 @@ import Foundation
 ///
 /// Every remote URL and every stderr excerpt must pass through `mask(_:)` first. URL userinfo is masked regardless
 /// of its format, so new token formats embedded in URLs are still covered. Without a scheme (`user:token@host:repo`,
-/// #244) only userinfo with a `:` is masked, so scp-like `git@host:repo` stays readable; config keys go through
-/// `maskConfigKey(_:)`, which masks any userinfo in the subsection.
+/// #244) the password after the first `:` is masked, so scp-like `git@host:repo` stays readable and the host stays
+/// true; config keys go through `maskConfigKey(_:)`, which masks any userinfo in a URL subsection.
 ///
 /// Input can be remote-controlled (up to 256 KiB of fetch stderr), so every rule must run in linear time (#143).
 /// URL userinfo is handled by a hand-written scanner; the remaining regexes have no nested or overlapping
@@ -95,14 +95,17 @@ enum CredentialMasker {
         return String(decoding: output, as: UTF8.self)
     }
 
-    /// `user:token@host:repo` → `***@host:repo` without a scheme (#244), in one pass over the bytes.
+    /// `user:token@host:repo` → `user:***@host:repo` without a scheme (#244), in one pass over the bytes.
     ///
-    /// A segment is a run of bytes up to `/`, whitespace, a quote, `<`, or `>`. When the part before its first `@`
-    /// holds a `:`, everything up to its last `@` is replaced (an unescaped `@` in a password leaks nothing). A
-    /// segment without that `:` is kept: `git@host:repo`, `alice@example.com`, `bob@host's password:`.
+    /// A segment is a run of bytes up to `/`, whitespace, a quote, `<`, or `>`. When an `@` follows the segment's
+    /// first `:`, the bytes between that `:` and the last `@` are replaced. Only the password goes: what precedes the
+    /// `:` stays, because git reads `a:b@c:d` as scp-style SSH to host `a`, and hiding it would make the remote look
+    /// like it points at `c` (security review of #244, #86). An unescaped `@` in the password, or a decoy `@` before
+    /// the `:`, leaks nothing. `git@host:repo`, `alice@example.com`, and `bob@host's password:` have no `@` after a
+    /// `:` and stay as they are.
     ///
-    /// False positives are text shaped like `word:word@word` with no space, such as `mailto:a@b`; masking them only
-    /// hides a little text. Runs after `maskURLUserinfo`, whose `***@` output has no `:` and is kept.
+    /// False positives are text shaped like `word:word@word` with no space (`mailto:a@b`, `git@host:repo@v1`); they
+    /// only hide a little text. `***` holds neither `:` nor `@`, so masking twice changes nothing.
     static func maskSchemelessUserinfo(_ text: String) -> String {
         let bytes = Array(text.utf8)
         guard bytes.contains(0x40) else { return text }
@@ -116,22 +119,18 @@ enum CredentialMasker {
                 continue
             }
             var end = start
-            var firstAt = -1
+            var colon = -1
             var lastAt = -1
-            var colonBeforeAt = false
             while end < bytes.count, !isSegmentTerminator(bytes[end]) {
                 switch bytes[end] {
-                case 0x40:
-                    if firstAt < 0 { firstAt = end }
-                    lastAt = end
-                case 0x3A where firstAt < 0:
-                    colonBeforeAt = true
-                default:
-                    break
+                case 0x3A where colon < 0: colon = end
+                case 0x40 where colon >= 0: lastAt = end
+                default: break
                 }
                 end += 1
             }
-            if colonBeforeAt, lastAt >= 0 {
+            if lastAt > colon + 1 {
+                output.append(contentsOf: bytes[start...colon])
                 output.append(contentsOf: Array(placeholder.utf8))
                 output.append(contentsOf: bytes[lastAt..<end])
             } else {
@@ -142,22 +141,37 @@ enum CredentialMasker {
         return String(decoding: output, as: UTF8.self)
     }
 
+    /// Sections whose subsection is a URL or a URL pattern (`credential.<url>.helper`, `url.<base>.insteadOf`,
+    /// `http.<url>.sslVerify`).
+    private static let urlSubsectionSections: Set<String> = ["credential", "url", "http"]
+
     /// A config key as S-05 and Open in Terminal list it (`section.subsection.variable`), with the subsection's
     /// userinfo masked whatever its form (#244): `credential.token@host.helper` → `credential.***@host.helper`.
     ///
-    /// The subsection of `credential`, `url`, and `http` keys is a URL or a URL pattern, so everything up to the last
-    /// `@` before the first `/` is userinfo, as `maskURLUserinfo` treats it after `://`. A user name is masked too
-    /// (`url.***@github.com:.insteadof`), as in a URL. The section and variable cannot contain dots, so the
-    /// subsection is what lies between the first and last dot. The result also goes through `mask(_:)`.
+    /// For `credential`, `url`, and `http`, a subsection that does not start with a scheme is masked up to the last
+    /// `@` before its first `/`, as `maskURLUserinfo` treats what follows `://`. A user name goes too
+    /// (`url.***@github.com:.insteadof`), as in a URL; the key is shown, never connected to. One that starts with a
+    /// scheme is left to `maskURLUserinfo`. The section and variable cannot contain dots, so the subsection is what
+    /// lies between the first and last dot. The result always goes through `mask(_:)`.
     static func maskConfigKey(_ key: String) -> String {
-        guard let first = key.firstIndex(of: "."), let last = key.lastIndex(of: "."), first < last else {
-            return mask(key)
-        }
+        guard let first = key.firstIndex(of: "."), let last = key.lastIndex(of: "."), first < last,
+            urlSubsectionSections.contains(key[..<first].lowercased())
+        else { return mask(key) }
         let subsection = key[key.index(after: first)..<last]
-        guard !subsection.contains("://") else { return mask(key) }
+        guard !startsWithScheme(subsection) else { return mask(key) }
         let host = subsection.firstIndex(of: "/") ?? subsection.endIndex
         guard let at = subsection[..<host].lastIndex(of: "@") else { return mask(key) }
         return mask(String(key[...first]) + placeholder + String(key[at...]))
+    }
+
+    /// `^[A-Za-z][A-Za-z0-9+.-]*://`
+    private static func startsWithScheme(_ text: Substring) -> Bool {
+        let bytes = text.utf8
+        guard let first = bytes.first, (0x41...0x5A).contains(first) || (0x61...0x7A).contains(first) else {
+            return false
+        }
+        guard let separator = text.range(of: "://") else { return false }
+        return text[..<separator.lowerBound].utf8.allSatisfy(isSchemeByte)
     }
 
     private static func isSchemeByte(_ byte: UInt8) -> Bool {
