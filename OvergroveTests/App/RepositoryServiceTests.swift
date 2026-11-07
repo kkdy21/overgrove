@@ -84,7 +84,7 @@ final class RepositoryServiceTests: XCTestCase {
 
     func testOverviewQueriesEveryWorktree() async throws {
         let client = GitClient(environment: repository.environment)
-        let overview = try await RepositoryService(client: client).loadOverview(of: model, safety: safety)
+        let overview = try await RepositoryService(client: client).loadOverview(of: model)
 
         XCTAssertEqual(overview.entries.count, 6, "main + 5 linked worktrees, in worktree-list order")
         XCTAssertTrue(overview.entries.first?.worktree.isMain ?? false)
@@ -101,7 +101,7 @@ final class RepositoryServiceTests: XCTestCase {
     func testPrunableWorktreesAreNotQueriedAndOneFailureDoesNotFailTheRest() async throws {
         try FileManager.default.removeItem(at: executables.directory.appendingPathComponent("wt-0"))
         let client = GitClient(environment: repository.environment)
-        let overview = try await RepositoryService(client: client).loadOverview(of: model, safety: safety)
+        let overview = try await RepositoryService(client: client).loadOverview(of: model)
 
         let pruned = try XCTUnwrap(overview.entries.first { $0.worktree.isPrunable })
         XCTAssertEqual(pruned.status, .notQueried(.prunable), "a missing worktree is listed, not queried (INT-14)")
@@ -111,7 +111,7 @@ final class RepositoryServiceTests: XCTestCase {
     func testSnapshotForTheShell() async throws {
         try FileManager.default.removeItem(at: executables.directory.appendingPathComponent("wt-1"))
         let client = GitClient(environment: repository.environment)
-        let overview = try await RepositoryService(client: client).loadOverview(of: model, safety: safety)
+        let overview = try await RepositoryService(client: client).loadOverview(of: model)
 
         let snapshot = overview.snapshot(focusing: nil)
         XCTAssertEqual(snapshot.worktreeCount, 6)
@@ -164,7 +164,7 @@ final class RepositoryServiceTests: XCTestCase {
         try FileManager.default.removeItem(at: canary.appendingPathComponent("foreign-filter"))
 
         let overview = try await RepositoryService(client: GitClient(environment: repository.environment))
-            .loadOverview(of: model, safety: safety)
+            .loadOverview(of: model)
         let entry = try XCTUnwrap(
             overview.entries.first {
                 URL(fileURLWithPath: $0.worktree.path.display).resolvingSymlinksInPath().path
@@ -197,7 +197,7 @@ final class RepositoryServiceTests: XCTestCase {
         try FileManager.default.removeItem(at: canary.appendingPathComponent("worktree-filter"))
 
         let overview = try await RepositoryService(client: GitClient(environment: repository.environment))
-            .loadOverview(of: model, safety: mainSafety)
+            .loadOverview(of: model)
         let entry = try XCTUnwrap(overview.entries.first { $0.worktree.branch == "refs/heads/lane/3" })
         guard case .loaded = entry.status else { return XCTFail("\(entry.status)") }
         XCTAssertEqual(canaries(canary), [], "the linked worktree's driver is neutralized")
@@ -209,8 +209,7 @@ final class RepositoryServiceTests: XCTestCase {
         let client = try gatedClient(maximumConcurrency: 3)
         let service = RepositoryService(client: client)
         let target = model
-        let safety = safety
-        let load = Task { try await service.loadOverview(of: target, safety: safety) }
+        let load = Task { try await service.loadOverview(of: target) }
 
         try await waitUntil("three status calls to start") { self.startedStatusCalls() == 3 }
         // A fourth would have to start while the first three are held. A missing marker can only make this pass early.
@@ -236,12 +235,11 @@ final class RepositoryServiceTests: XCTestCase {
         let client = try gatedClient(maximumConcurrency: 8)
         let service = RepositoryService(client: client)
         let target = model
-        let safety = safety
 
-        let first = Task { await service.refresh(target, safety: safety, trigger: .user) }
+        let first = Task { await service.refresh(target, trigger: .user) }
         try await waitUntil("the first refresh to reach status") { self.startedStatusCalls() > 0 }
 
-        let second = Task { await service.refresh(target, safety: safety, trigger: .user) }
+        let second = Task { await service.refresh(target, trigger: .user) }
         let superseded = await first.value
         XCTAssertNil(superseded, "a superseded refresh delivers nothing, and its git processes are stopped")
 
@@ -257,9 +255,8 @@ final class RepositoryServiceTests: XCTestCase {
         let client = try gatedClient(maximumConcurrency: 8)
         let service = RepositoryService(client: client)
         let target = model
-        let safety = safety
 
-        let refresh = Task { await service.refresh(target, safety: safety, trigger: .user) }
+        let refresh = Task { await service.refresh(target, trigger: .user) }
         try await waitUntil("the refresh to reach status") { self.startedStatusCalls() > 0 }
         refresh.cancel()
         let result = await refresh.value
@@ -267,7 +264,7 @@ final class RepositoryServiceTests: XCTestCase {
 
         // The service is not left busy: the next refresh runs normally.
         release()
-        let next = await service.refresh(target, safety: safety, trigger: .user)
+        let next = await service.refresh(target, trigger: .user)
         XCTAssertEqual(next?.generation, 2)
     }
 
@@ -281,9 +278,9 @@ final class RepositoryServiceTests: XCTestCase {
             rootURL: other.root, commonGitDirectoryURL: other.root.appendingPathComponent(".git"), isBare: false)
         let service = RepositoryService(client: GitClient(environment: repository.environment))
 
-        let first = await service.refresh(model, safety: safety, trigger: .user)
-        let unrelated = await service.refresh(otherModel, safety: safety, trigger: .user)
-        let second = await service.refresh(model, safety: safety, trigger: .user)
+        let first = await service.refresh(model, trigger: .user)
+        let unrelated = await service.refresh(otherModel, trigger: .user)
+        let second = await service.refresh(model, trigger: .user)
         XCTAssertEqual(first?.generation, 1)
         XCTAssertEqual(unrelated?.generation, 1, "another repository does not supersede this one")
         XCTAssertEqual(second?.generation, 2)
@@ -315,10 +312,9 @@ final class RepositoryServiceTests: XCTestCase {
         release()  // status calls pass straight through here
         let service = RepositoryService(client: client, sleep: { try await gate.sleep($0) })
         let target = model
-        let safety = safety
 
         let requests = (0..<3).map { _ in
-            Task { await service.refresh(target, safety: safety, trigger: .automatic) }
+            Task { await service.refresh(target, trigger: .automatic) }
         }
         try await waitUntil("three debounced requests") { await gate.waiting == 3 }
         let sleeps = await gate.requested
@@ -337,12 +333,11 @@ final class RepositoryServiceTests: XCTestCase {
         let service = RepositoryService(
             client: GitClient(environment: repository.environment), sleep: { try await gate.sleep($0) })
         let target = model
-        let safety = safety
 
-        let automatic = Task { await service.refresh(target, safety: safety, trigger: .automatic) }
+        let automatic = Task { await service.refresh(target, trigger: .automatic) }
         try await waitUntil("the automatic request to wait") { await gate.waiting == 1 }
 
-        let user = await service.refresh(target, safety: safety, trigger: .user)
+        let user = await service.refresh(target, trigger: .user)
         XCTAssertEqual(user?.generation, 2, "⌘R runs immediately (interaction.md: not debounced)")
         let waitingCount = await gate.waiting
         XCTAssertEqual(waitingCount, 1, "the user refresh did not sleep")
