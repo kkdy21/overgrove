@@ -19,12 +19,19 @@ final class GatedLineCountLoader: LineCountLoading, @unchecked Sendable {
     }
 
     func release(_ index: Int, with result: Result<WorkingLineCounts?, RepositoryLoadError>) {
-        let continuation = lock.withLock { waiting[index].1 }
+        let continuation = lock.withLock { index < waiting.count ? waiting[index].1 : nil }
+        guard let continuation else { return XCTFail("no request \(index)") }
         continuation.resume(returning: result)
     }
 
     func waitForRequests(_ count: Int) async {
-        while requestedPaths.count < count { await Task.yield() }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while requestedPaths.count < count {
+            guard ContinuousClock.now < deadline else {
+                return XCTFail("expected \(count) requests, got \(requestedPaths)")
+            }
+            await Task.yield()
+        }
     }
 }
 

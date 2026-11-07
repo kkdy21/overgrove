@@ -7,9 +7,34 @@ import SwiftUI
 struct MainWindowView: View {
     @Bindable var state: AppState
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.controlActiveState) private var controlActiveState
     @State private var isManagingRepositories = false
 
     var body: some View {
+        window
+            .focusedSceneValue(\.repositoryActions, focusedActions)
+            .sheet(isPresented: $isManagingRepositories) {
+                ManageRepositoriesView(
+                    model: repositoryMenu, isAdding: state.isAddingRepository, actions: repositoryActions,
+                    dismiss: { isManagingRepositories = false })
+            }
+            .alert(item: $state.alert) { alert in
+                Alert(title: Text(alert.title), message: Text(alert.message))
+            }
+            .task { state.restoreLastSelected() }
+            // Coming back from an editor: re-query what is stale (interaction.md §4, `.automatic`).
+            .onChange(of: controlActiveState) { _, active in
+                if active == .key { state.windowDidBecomeActive() }
+            }
+    }
+
+    private var focusedActions: FocusedRepositoryActions {
+        FocusedRepositoryActions(
+            isAdding: state.isAddingRepository, add: addRepository, canRefresh: state.repository != nil,
+            refresh: state.reload)
+    }
+
+    private var window: some View {
         VStack(spacing: 0) {
             PanelSplitView(layout: $state.panelLayout, onCommit: state.commitPanelLayout) {
                 SidebarPanel(
@@ -61,6 +86,7 @@ struct MainWindowView: View {
                 focusedWorktree: state.snapshot?.focusedWorktree,
                 isSidebarCollapsed: state.panelLayout.isSidebarCollapsed,
                 toggleSidebar: toggleSidebar,
+                refresh: refreshAction,
                 onCompare: state.canCompare() ? { state.showComparison() } : nil
             )
         }
@@ -69,19 +95,13 @@ struct MainWindowView: View {
         // TODO(#74): filter the graph by message, author, SHA, ref, or #issue; ⌘G / ⌘⇧G between matches.
         .searchable(text: $state.searchText, placement: .toolbar, prompt: "Search commits, authors, refs, #issues")
         .navigationTitle(state.repository?.name ?? "Overgrove")
-        .focusedSceneValue(
-            \.repositoryActions,
-            FocusedRepositoryActions(isAdding: state.isAddingRepository, add: addRepository)
-        )
-        .sheet(isPresented: $isManagingRepositories) {
-            ManageRepositoriesView(
-                model: repositoryMenu, isAdding: state.isAddingRepository, actions: repositoryActions,
-                dismiss: { isManagingRepositories = false })
-        }
-        .alert(item: $state.alert) { alert in
-            Alert(title: Text(alert.title), message: Text(alert.message))
-        }
-        .task { state.restoreLastSelected() }
+    }
+
+    /// ⌘R from the toolbar; disabled without a repository.
+    private var refreshAction: (() -> Void)? {
+        guard state.repository != nil else { return nil }
+        let state = state
+        return { state.reload() }
     }
 
     private var repositoryMenu: RepositoryMenuModel {

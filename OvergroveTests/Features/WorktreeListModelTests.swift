@@ -117,6 +117,23 @@ final class WorktreeListModelTests: XCTestCase {
         }
     }
 
+    /// #243: a list that hit the per-load query limit (#226) says so above the rows, with the partial-list note.
+    func testWarningForQueryLimitedList() {
+        let limited = Listing(
+            entries: WorktreeListing.mockup.entries + [
+                Listing.entry("/tmp/dev/api-wt/extra", branch: "extra", state: .notQueried(.limit))
+            ],
+            isPartial: true)
+        XCTAssertTrue(limited.isQueryLimited)
+        XCTAssertFalse(WorktreeListing.mockup.isQueryLimited)
+        let limit = RepositoryService.defaultMaximumQueriedWorktrees
+        XCTAssertEqual(
+            model(limited).warning,
+            "Some worktrees could not be listed because git's output was too large. This repository lists more than "
+                + "\(limit) worktrees. Overgrove loads the changes of the first \(limit).")
+        XCTAssertEqual(model(limited).rows.count, 7, "the warning does not hide rows")
+    }
+
     func testRowsForWorktreesWithoutStatus() throws {
         let listing = Listing(
             entries: [
