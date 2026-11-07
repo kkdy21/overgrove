@@ -205,7 +205,7 @@ struct WorktreeRowView: View {
                     .font(Tokens.Font.pill)
                     .foregroundStyle(Tokens.Color.textSecondary)
                     .padding(.horizontal, Tokens.Spacing.xs)
-                    .background(Capsule().strokeBorder(Tokens.Color.borderSeparator))
+                    .controlOutline(Capsule())
             }
             if let subtitle = row.subtitle {
                 Text(subtitle)
