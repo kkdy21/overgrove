@@ -149,6 +149,8 @@ final class AppState {
     private let stashLoader: any StashLoading
     /// The sidebar's ISSUES and S-06 (#81). gh problems stay inside it (ADR-0004 §4).
     let issuePanel: IssuePanelState
+    /// The setup assistant (S-07, #85): git and GitHub CLI checks, first run and Help › Setup Assistant….
+    let setup: SetupAssistantState
     /// S-04 (#71): the selected stash's files, and the file whose patch the center shows.
     private(set) var stashDetail: StashDetailState?
     private(set) var selectedStashFile: FileStat?
@@ -249,6 +251,7 @@ final class AppState {
     ///     it can (the live loader can); without one, the detail shows no line counts.
     ///   - fetcher: Fetches the open repository's remotes. Defaults to `loader` when it can; without one, Fetch is off.
     ///   - fetchRecords: The last fetch of each repository (`UserDefaults`).
+    ///   - gitChecker, ghChecker: The setup assistant's git and GitHub CLI checks (S-07).
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
@@ -261,7 +264,9 @@ final class AppState {
         graphLoader: any GraphLoading = LiveGraphLoader.live,
         commitLoader: any CommitLoading = LiveCommitLoader.live,
         fetcher: (any RepositoryFetching)? = nil,
-        fetchRecords: FetchRecordStore = FetchRecordStore()
+        fetchRecords: FetchRecordStore = FetchRecordStore(),
+        gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
+        ghChecker: any GHAuthChecking = LiveGHAuthChecker.live
     ) {
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
@@ -273,6 +278,7 @@ final class AppState {
         self.diffLoader = diffLoader
         self.stashLoader = stashLoader
         issuePanel = IssuePanelState(loader: issueLoader)
+        setup = SetupAssistantState(gitChecker: gitChecker, ghChecker: ghChecker)
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
@@ -1093,6 +1099,8 @@ final class AppState {
 
     /// Opens the repository shown last, once, when the window has none.
     func restoreLastSelected() {
+        // First run: nothing registered yet, so the setup assistant opens (S-07).
+        if repository == nil, registry.repositories.isEmpty { return setup.present() }
         guard repository == nil, let id = registry.lastSelected else { return }
         openRegistered(id, quietly: true)
     }

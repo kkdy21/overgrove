@@ -178,6 +178,8 @@ struct FocusedRepositoryActions: Equatable {
     var isFetching = false
     var fetch: @MainActor () -> Void = {}
     var stopFetch: @MainActor () -> Void = {}
+    /// Help › Setup Assistant… (S-07, #85).
+    var openSetup: @MainActor () -> Void = {}
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.isAdding == rhs.isAdding && lhs.canRefresh == rhs.canRefresh && lhs.canFetch == rhs.canFetch
@@ -208,6 +210,11 @@ struct RepositoryCommands: Commands {
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(actions?.canRefresh != true)
             Divider()
+        }
+        // Help › Setup Assistant… (screens.md S-07).
+        CommandGroup(after: .help) {
+            Button("Setup Assistant…") { actions?.openSetup() }
+                .disabled(actions == nil)
         }
         // Repository › Fetch `⌘⇧R` and Stop `⌘.` (interaction.md §3.1). Fetch is the app's only network command.
         CommandMenu("Repository") {
