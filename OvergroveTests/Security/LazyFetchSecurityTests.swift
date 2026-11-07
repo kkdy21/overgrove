@@ -95,8 +95,8 @@ final class LazyFetchSecurityTests: XCTestCase {
         }
     }
 
-    /// git without GIT_NO_LAZY_FETCH (before 2.44.1 and the 2024 backports, e.g. 2.36 and 2.44.0) ignores it. The empty
-    /// transport list alone must already block the lazy fetch.
+    /// Older git (e.g. 2.36) ignores GIT_NO_LAZY_FETCH. The empty transport list alone must already block the lazy
+    /// fetch.
     func testSECT5_16_EmptyTransportListAloneBlocksLazyFetch() async throws {
         let uploadPack = try executables.canaryProgram(named: "uploadpack", canary: canary)
         try await partial.git(["config", "remote.origin.uploadpack", uploadPack.path])
@@ -186,19 +186,18 @@ final class LazyFetchSecurityTests: XCTestCase {
 
 /// SEC-T5-17 (#317, security review of #213): during fetch, received objects that use a blob the partial clone lacks
 /// as a delta base make git lazy-fetch that blob. The lazy fetch does not get the app's pinned `--upload-pack`, so it
-/// runs the repository's own `remote.<n>.uploadpack`. Only `GIT_NO_LAZY_FETCH` stops it, so the app fetches a partial
-/// clone only on git that supports the variable (`GitEnvironment.lazyFetchControlVersion`).
+/// runs the repository's own `remote.<n>.uploadpack`. Only a git whose `GIT_NO_LAZY_FETCH` covers this path stops it,
+/// so the app fetches a partial clone only from `GitEnvironment.lazyFetchControlVersion` on.
 ///
 /// The clone here keeps `remote.origin.promisor` but no filter, and the new blob on the remote is stored as a delta
-/// against the blob the clone never received. Run with `OVERGROVE_TEST_GIT` set to git 2.44.0 (no variable) or 2.36 to
-/// exercise the refusal; with a newer git, the fetch runs and fails safely.
+/// against the blob the clone never received. git resolves it in `unpack-objects` for a small pack and in `index-pack`
+/// once the repository's own `fetch.unpackLimit` is low; both paths are run. Run with `OVERGROVE_TEST_GIT` set to git
+/// 2.36, 2.44.0, or 2.45.0 to exercise the refusal with a real git; with a newer git, the fetch runs and fails safely.
 final class PartialCloneFetchSecurityTests: XCTestCase {
     private var executables: TestExecutables!
     private var source: GitTestRepository!
-    private var partial: GitTestRepository!
+    private var bare: URL!
     private var canary: URL!
-    private var repository: Repository!
-    private var safety: RepoSafetyContext!
 
     override func setUp() async throws {
         executables = try TestExecutables()
@@ -208,31 +207,15 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
         try source.write("a.txt", (1...3200).map(String.init).joined(separator: "\n") + "\n")
         try await source.git(["add", "a.txt"])
         try await source.git(["commit", "-q", "-m", "one"])
-        let bare = executables.directory.appendingPathComponent("remote.git")
+        bare = executables.directory.appendingPathComponent("remote.git")
         try await source.git(["init", "-q", "--bare", "-b", "main", bare.path])
         try await source.git(["-C", bare.path, "config", "uploadpack.allowFilter", "true"])
         try await source.git(["push", "-q", bare.path, "main"])
-
-        let clone = executables.directory.appendingPathComponent("partial", isDirectory: true)
-        try await source.git(["clone", "-q", "--filter=blob:none", "--no-checkout", "file://" + bare.path, clone.path])
-        partial = GitTestRepository(root: clone, environment: source.environment)
-        try await partial.git(["config", "--unset", "remote.origin.partialclonefilter"])
-
+        // "two" goes to another branch, so every clone of `main` alone starts from "one" and fetch must bring "two".
         try source.write("a.txt", (1...3000).map(String.init).joined(separator: "\n") + "\n")
         try await source.git(["commit", "-q", "-am", "two"])
-        try await source.git(["push", "-q", bare.path, "main"])
+        try await source.git(["push", "-q", bare.path, "HEAD:refs/heads/next"])
         try await source.git(["-C", bare.path, "repack", "-q", "-a", "-d", "-f"])
-
-        let uploadPack = try executables.canaryProgram(named: "uploadpack", canary: canary)
-        try await partial.git(["config", "remote.origin.uploadpack", uploadPack.path])
-
-        let listing = try await GitClient(environment: partial.environment)
-            .run(.configList, in: partial.root, safety: .preInspection)
-        let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout))
-        safety = try XCTUnwrap(inspection.safetyContext)
-        XCTAssertTrue(safety.isPartialClone)
-        repository = Repository(
-            rootURL: partial.root, commonGitDirectoryURL: partial.root.appendingPathComponent(".git"), isBare: false)
     }
 
     override func tearDown() {
@@ -240,71 +223,145 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
         executables?.remove()
     }
 
+    /// A fresh partial clone of "one" (promisor, no filter, local uploadpack canary). On the remote, "two" (branch
+    /// `next`) stores its blob as a delta against the blob the clone lacks. Every fetch attempt gets its own clone: a failed fetch can leave the
+    /// commit and tree behind, and the next fetch would then finish without resolving the delta at all.
+    private func freshPartialClone(_ name: String, unpackLimit: String?) async throws -> PartialClone {
+        let clone = executables.directory.appendingPathComponent(name, isDirectory: true)
+        try await source.git([
+            "clone", "-q", "--filter=blob:none", "--no-checkout", "--single-branch", "--branch", "main",
+            "file://" + bare.path, clone.path,
+        ])
+        let repository = GitTestRepository(root: clone, environment: source.environment)
+        try await repository.git(["config", "--unset", "remote.origin.partialclonefilter"])
+        if let unpackLimit { try await repository.git(["config", "fetch.unpackLimit", unpackLimit]) }
+        let uploadPack = try executables.canaryProgram(named: "uploadpack", canary: canary)
+        try await repository.git(["config", "remote.origin.uploadpack", uploadPack.path])
+
+        let listing = try await GitClient(environment: repository.environment)
+            .run(.configList, in: clone, safety: .preInspection)
+        let safety = try XCTUnwrap(RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
+        XCTAssertTrue(safety.isPartialClone)
+        return PartialClone(git: repository, safety: safety, before: try await trackingRefs(repository))
+    }
+
+    private struct PartialClone {
+        let git: GitTestRepository
+        let safety: RepoSafetyContext
+        let before: String
+        var repository: Repository {
+            Repository(
+                rootURL: git.root, commonGitDirectoryURL: git.root.appendingPathComponent(".git"), isBare: false)
+        }
+    }
+
+    /// `refname objectname` of every remote-tracking ref: only `origin/main` until a fetch brings `next`.
+    private func trackingRefs(_ repository: GitTestRepository) async throws -> String {
+        let result = try await repository.git(["for-each-ref", "--format=%(refname) %(objectname)", "refs/remotes"])
+        return String(decoding: result.stdout, as: UTF8.self)
+    }
+
     private func canaries() -> [String] {
         ((try? FileManager.default.contentsOfDirectory(atPath: canary.path)) ?? []).sorted()
+    }
+
+    private func clearCanaries() throws {
+        for name in canaries() { try FileManager.default.removeItem(at: canary.appendingPathComponent(name)) }
     }
 
     private let fetch = FetchCommand.fetch(remote: RemoteName("origin")!)
 
     /// The app's fetch arguments with the fetch environment minus GIT_NO_LAZY_FETCH, as git without the variable runs.
-    private func fetchWithoutLazyFetchControl() async throws {
+    private func fetchWithoutLazyFetchControl(_ clone: PartialClone) async throws -> ProcessResult {
         var environment = GitEnvironment.environment(parent: [:], allowsTransport: true)
         environment["GIT_NO_LAZY_FETCH"] = nil
-        _ = try await ProcessRunner().run(
+        return try await ProcessRunner().run(
             ProcessRequest(
-                executable: partial.environment.executable,
-                arguments: partial.environment.arguments(
-                    for: fetch.subcommandArguments(), neutralization: safety.neutralization,
+                executable: clone.git.environment.executable,
+                arguments: clone.git.environment.arguments(
+                    for: fetch.subcommandArguments(), neutralization: clone.safety.neutralization,
                     fetchOverrides: fetch.configurationOverrides()),
-                environment: environment, currentDirectory: partial.root, limits: .fetch))
+                environment: environment, currentDirectory: clone.git.root, limits: .fetch))
     }
 
-    func testSECT5_17_FetchRunsNoRepositoryUploadPackForAMissingDeltaBase() async throws {
-        // Control: the lazy fetch is reachable and runs the canary despite the pinned --upload-pack.
-        try await fetchWithoutLazyFetchControl()
-        XCTAssertEqual(canaries(), ["uploadpack"], "control: the fetch must lazy-fetch, or this proves nothing")
-        try FileManager.default.removeItem(at: canary.appendingPathComponent("uploadpack"))
+    /// Control on one fresh clone, the app's fetch on another.
+    private func assertFetchRunsNoUploadPack(unpackLimit: String?, path: String) async throws {
+        let control = try await freshPartialClone("control", unpackLimit: unpackLimit)
+        let result = try await fetchWithoutLazyFetchControl(control)
+        XCTAssertEqual(canaries(), ["uploadpack"], "control (\(path)): the fetch must lazy-fetch")
+        XCTAssertNotEqual(result.termination, .exited(code: 0), "control (\(path)) cannot finish the fetch")
+        let afterControl = try await trackingRefs(control.git)
+        XCTAssertEqual(afterControl, control.before, "control (\(path)) leaves the repository as it was")
+        try clearCanaries()
 
-        let version = partial.environment.version
+        let app = try await freshPartialClone("app", unpackLimit: unpackLimit)
+        let version = app.git.environment.version
         do {
-            _ = try await GitClient(environment: partial.environment).fetch(fetch, in: repository, safety: safety)
-            XCTAssertGreaterThanOrEqual(version, GitEnvironment.lazyFetchControlVersion, "fetch must be refused")
+            _ = try await GitClient(environment: app.git.environment).fetch(
+                fetch, in: app.repository, safety: app.safety)
+            XCTFail("git \(version) (\(path)): fetch must be refused, or fail on the unresolved delta")
         } catch let error as GitError {
             if version < GitEnvironment.lazyFetchControlVersion {
                 guard case .configInspectionFailed(let reason) = error else { return XCTFail("got \(error)") }
                 XCTAssertTrue(reason.contains("partial clone"), reason)
+            } else {
+                // The fetch reached the delta and failed on it instead of lazy-fetching: the safe outcome.
+                switch error {
+                case .nonZeroExit, .partialCloneObjectMissing: break
+                default: XCTFail("got \(error)")
+                }
             }
-            // A git with GIT_NO_LAZY_FETCH cannot resolve the delta and fails: the safe outcome.
         }
-        XCTAssertEqual(canaries(), [], "git \(version): the repository's uploadpack does not run")
+        XCTAssertEqual(canaries(), [], "git \(version) (\(path)): the repository's uploadpack does not run")
+        let afterApp = try await trackingRefs(app.git)
+        XCTAssertEqual(afterApp, app.before)
     }
 
-    /// The control version is the first release with GIT_NO_LAZY_FETCH on its own line: 2.44.0 shipped before the
-    /// May 2024 security releases that added it (2.44.1, and backports to 2.39.4, 2.40.2, 2.41.1, 2.42.2, 2.43.4).
+    /// A small pack: git resolves the delta in `unpack-objects`.
+    func testSECT5_17_FetchRunsNoRepositoryUploadPack_unpackObjects() async throws {
+        try await assertFetchRunsNoUploadPack(unpackLimit: nil, path: "unpack-objects")
+    }
+
+    /// The repository's own `fetch.unpackLimit` sends every pack through `index-pack`, which looks up delta bases in
+    /// another way.
+    func testSECT5_17_FetchRunsNoRepositoryUploadPack_indexPack() async throws {
+        try await assertFetchRunsNoUploadPack(unpackLimit: "1", path: "index-pack")
+    }
+
+    /// The May 2024 security releases made GIT_NO_LAZY_FETCH stop this lazy fetch: 2.45.1 and 2.44.1, with backports
+    /// to 2.39.4, 2.40.2, 2.41.1, 2.42.2, and 2.43.4. 2.44.0 predates the variable, and 2.45.0 has it only for other
+    /// lazy fetches. Comparing versions, the newest-line release 2.45.1 is the threshold; older fixed releases are
+    /// refused too, on the safe side.
     func testSECT5_17_ControlVersionBoundary() async throws {
-        XCTAssertEqual(GitEnvironment.lazyFetchControlVersion, GitVersion(major: 2, minor: 44, patch: 1))
-        for refused in [GitVersion(major: 2, minor: 44, patch: 0), GitVersion(major: 2, minor: 43, patch: 4)] {
-            let stand = GitEnvironment(executable: partial.environment.executable, version: refused)
+        let clone = try await freshPartialClone("boundary", unpackLimit: nil)
+        let (safety, repository) = (clone.safety, clone.repository)
+        XCTAssertEqual(GitEnvironment.lazyFetchControlVersion, GitVersion(major: 2, minor: 45, patch: 1))
+        let refused = [
+            GitVersion(major: 2, minor: 45, patch: 0), GitVersion(major: 2, minor: 44, patch: 1),
+            GitVersion(major: 2, minor: 44, patch: 0), GitVersion(major: 2, minor: 43, patch: 4),
+        ]
+        for version in refused {
+            let stand = GitEnvironment(executable: clone.git.environment.executable, version: version)
             do {
                 _ = try await GitClient(environment: stand).fetch(fetch, in: repository, safety: safety)
-                XCTFail("git \(refused): fetch must be refused")
+                XCTFail("git \(version): fetch must be refused")
             } catch let error as GitError {
                 guard case .configInspectionFailed(let reason) = error else { return XCTFail("got \(error)") }
-                XCTAssertTrue(reason.contains("2.44.1"), reason)
+                XCTAssertTrue(reason.contains("2.45.1"), reason)
             }
         }
         XCTAssertEqual(canaries(), [], "a refused fetch starts no git")
 
-        // 2.44.1 passes the gate (it may still fail later, which is the safe outcome on a missing delta base).
+        // 2.45.1 passes the gate (it may still fail later, which is the safe outcome on a missing delta base).
         let allowed = GitEnvironment(
-            executable: partial.environment.executable, version: GitVersion(major: 2, minor: 44, patch: 1))
+            executable: clone.git.environment.executable, version: GitVersion(major: 2, minor: 45, patch: 1))
         do {
             _ = try await GitClient(environment: allowed).fetch(fetch, in: repository, safety: safety)
         } catch GitError.configInspectionFailed(let reason) {
-            XCTFail("git 2.44.1 must not be refused: \(reason)")
+            XCTFail("git 2.45.1 must not be refused: \(reason)")
         } catch is GitError {}
-        // Only a git that really has the variable can show that no uploadpack ran through the open gate.
-        if partial.environment.version >= GitEnvironment.lazyFetchControlVersion {
+        // Only a git that really is that new can show that no uploadpack ran through the open gate.
+        if clone.git.environment.version >= GitEnvironment.lazyFetchControlVersion {
             XCTAssertEqual(canaries(), [])
         }
     }

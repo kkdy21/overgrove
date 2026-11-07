@@ -88,7 +88,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `GIT_ASKPASS`, `SSH_ASKPASS` | 빈 문자열 | 모든 git (빈 `GIT_ASKPASS`는 `core.askPass`보다 우선해 실행을 막음, 확인) |
 | `GIT_PROXY_COMMAND` | 빈 문자열 | 모든 git (로컬 `core.gitProxy` 무력화, 확인) |
 | `GIT_ALLOW_PROTOCOL` | fetch: `https:ssh:git:file:http`. 조회·기본값: 빈 값 | 조회(`GitClient.run`)는 전송을 쓰지 않는다. partial clone에서 누락 객체가 필요한 조회가 promisor 원격으로 lazy fetch하며 저장소의 uploadpack·credential helper를 실행하는 것을 막는다(#212). fetch는 (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
-| `GIT_NO_LAZY_FETCH` | `1` | 모든 git (promisor lazy fetch 금지, #212). git 2.44.1과 2.39.4·2.40.2·2.41.1·2.42.2·2.43.4 백포트가 지원하고, 2.44.0을 포함한 그 전 버전은 무시한다(#317). 조회는 빈 `GIT_ALLOW_PROTOCOL`이 막고, fetch는 전송이 필요하므로 `lazyFetchControlVersion`(2.44.1) 미만에서 partial clone이면 `GitClient.fetch`가 실행을 거부한다(fetch 중 lazy fetch가 로컬 uploadpack을 실행하기 때문, #213 보안 검토) |
+| `GIT_NO_LAZY_FETCH` | `1` | 모든 git (promisor lazy fetch 금지, #212). 모든 경로를 막는 것은 2024년 5월 보안 릴리스(2.45.1, 2.44.1, 2.39.4·2.40.2·2.41.1·2.42.2·2.43.4 백포트)부터다. 2.44.0 이하는 무시하고, 2.45.0은 fetch 중의 lazy fetch를 막지 못한다(#317). 조회는 빈 `GIT_ALLOW_PROTOCOL`이 막고, fetch는 전송이 필요하므로 `lazyFetchControlVersion`(2.45.1) 미만에서 partial clone이면 `GitClient.fetch`가 실행을 거부한다(fetch 중 lazy fetch가 로컬 uploadpack을 실행하기 때문, #213 보안 검토) |
 | `GIT_SSH_COMMAND` | 신뢰 scope의 `core.sshCommand` 값, 없으면 `ssh -o BatchMode=yes` | 모든 git (환경 변수가 로컬 설정보다 우선, 확인) |
 | `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK` | 부모 값 그대로 | 모든 git |
 | `PATH` | `/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin` | 모든 git |

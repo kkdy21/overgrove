@@ -114,7 +114,7 @@ Overgrove shows the reason in the status bar (`Fetch failed — Details`). The d
 | Fetch timed out after … s | Slow link or a very large repository | Fetch once in Terminal, in a repository you trust |
 | The repository for … was not found | Wrong URL, or a private repository you cannot see | Check the URL with `git --no-pager remote -v`, in a repository you trust |
 | Overgrove does not fetch … | `ftp://`, `ftps://`, or a custom remote helper | See [Limits](#limits) |
-| Fetching … is turned off for this repository | The repository's own config sets a CA, client certificate, or similar; or a partial clone with Git older than 2.44.1 | [A private certificate authority](#a-private-certificate-authority), [Limits](#limits) |
+| Fetching … is turned off for this repository | The repository's own config sets a CA, client certificate, or similar; or a partial clone with Git older than 2.45.1 | [A private certificate authority](#a-private-certificate-authority), [Limits](#limits) |
 
 ## Limits
 
@@ -122,6 +122,6 @@ Overgrove shows the reason in the status bar (`Fetch failed — Details`). The d
 - **`ftp://` and `ftps://`** are built into Git but rarely used, so they are not on the allowed list.
 - **`git://` through `core.gitProxy`** is not supported.
 - **Issues** (the sidebar's ISSUES and the issue panel) work with github.com only in v0.1. GitHub Enterprise hosts are planned ([#117](https://github.com/kkdy21/overgrove/issues/117)). Fetching from a GitHub Enterprise server works like any other Git server.
-- **Partial clones** (`--filter`) can be fetched only with Git 2.44.1 or later. Views that need objects not yet downloaded show an error instead of fetching them.
+- **Partial clones** (`--filter`) can be fetched only with Git 2.45.1 or later. Views that need objects not yet downloaded show an error instead of fetching them.
 
 The reasons behind these rules are in the [security review](../design/security-review.md) (T5, T6, T11, T12).
