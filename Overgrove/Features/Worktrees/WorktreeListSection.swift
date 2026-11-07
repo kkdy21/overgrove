@@ -185,7 +185,7 @@ struct WorktreeRowView: View {
         .frame(height: Tokens.Size.rowWorktree)
         .background {
             if isSelected {
-                RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
+                RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                     .fill(isListFocused ? Tokens.Color.surfaceSelection : Tokens.Color.surfaceSelectionInactive)
             }
         }

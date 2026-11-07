@@ -326,7 +326,10 @@ final class TokensTests: XCTestCase {
         )
         try assertTable(
             "radius",
-            ["sm": Tokens.Radius.sm, "md": Tokens.Radius.md, "lg": Tokens.Radius.lg, "pill": Tokens.Radius.pill]
+            [
+                "sm": Tokens.Radius.sm, "md": Tokens.Radius.md, "card": Tokens.Radius.card, "lg": Tokens.Radius.lg,
+                "pill": Tokens.Radius.pill,
+            ]
         )
     }
 

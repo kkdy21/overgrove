@@ -238,7 +238,9 @@ enum Tokens {
 
     /// Corner radii in points.
     enum Radius {
-        /// Panels and cards.
+        /// Cards and the selected worktree row (art-direction.md §6, §9).
+        static let card: CGFloat = 8
+        /// Panels and popovers.
         static let lg: CGFloat = 10
         /// Buttons, text fields (matches system controls)
         static let md: CGFloat = 6
