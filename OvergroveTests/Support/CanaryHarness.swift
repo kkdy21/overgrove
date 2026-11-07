@@ -95,6 +95,7 @@ struct CanaryHarness {
         }
         let queries: [Query] = [
             query(.version, "version"),
+            query(.probeGitDirectory, "probeGitDirectory"),
             query(.probeRepository, "probeRepository"),
             query(.configList, "configList"),
             query(.worktreeList, "worktreeList"),
@@ -145,7 +146,8 @@ struct CanaryHarness {
     /// the build until it gets a value here; a new value enlarges `allCases`, so INT-19 then fails until `queries()`
     /// runs that command.
     enum CaseName: String, CaseIterable {
-        case version, probeRepository, configList, worktreeList, status, refs, aheadBehind, stashList, stashFiles
+        case version, probeGitDirectory, probeRepository, configList, worktreeList, status, refs, aheadBehind
+        case stashList, stashFiles
         case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, untrackedPreview, fileHistory
         case compareFiles, comparePatch, commitsAhead
     }
@@ -153,6 +155,7 @@ struct CanaryHarness {
     static func caseName(_ command: ReadOnlyGitCommand) -> CaseName {
         switch command {
         case .version: .version
+        case .probeGitDirectory: .probeGitDirectory
         case .probeRepository: .probeRepository
         case .configList: .configList
         case .worktreeList: .worktreeList

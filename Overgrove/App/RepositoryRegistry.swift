@@ -3,28 +3,33 @@ import Observation
 
 /// A repository the user added. Only paths are stored (overview.md §8): no bookmarks, remote URLs, or credentials.
 struct RegisteredRepository: Codable, Equatable, Hashable, Identifiable, Sendable {
-    /// The main worktree, where repository-wide commands run.
-    let rootPath: String
+    /// The main worktree, where repository-wide commands run. `nil` for a bare repository (#222), whose
+    /// repository-wide commands run in `commonDirectoryPath` and worktree commands in its linked worktrees.
+    let rootPath: String?
     /// The shared git directory. Worktrees of one repository share it, so it is the identity.
     let commonDirectoryPath: String
 
     var id: String { repository.id }
+    var isBare: Bool { rootPath == nil }
+    /// The folder that stands for the repository: the main worktree, or the bare repository's git directory.
+    var locationPath: String { rootPath ?? commonDirectoryPath }
     /// The folder name, safe to show (`PathValidator.displayable`).
-    var name: String { PathValidator.displayable((rootPath as NSString).lastPathComponent) }
-    /// The root path, safe to show.
-    var displayRootPath: String { PathValidator.displayable(rootPath) }
+    var name: String { PathValidator.displayable((locationPath as NSString).lastPathComponent) }
+    /// `locationPath`, safe to show.
+    var displayRootPath: String { PathValidator.displayable(locationPath) }
 
     var repository: Repository {
         Repository(
-            rootURL: URL(fileURLWithPath: rootPath, isDirectory: true),
+            rootURL: rootPath.map { URL(fileURLWithPath: $0, isDirectory: true) },
             commonGitDirectoryURL: URL(fileURLWithPath: commonDirectoryPath, isDirectory: true),
-            isBare: false)
+            isBare: isBare)
     }
 
     /// Stored values are untrusted (another process can write the defaults): absolute paths without control
     /// characters only.
     var isWellFormed: Bool {
-        [rootPath, commonDirectoryPath].allSatisfy { $0.hasPrefix("/") && !PathValidator.containsControlCharacters($0) }
+        [rootPath, commonDirectoryPath].compactMap { $0 }
+            .allSatisfy { $0.hasPrefix("/") && !PathValidator.containsControlCharacters($0) }
     }
 }
 

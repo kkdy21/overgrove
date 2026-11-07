@@ -320,9 +320,17 @@ gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다:
 - 저장소는 `NSOpenPanel`로 사용자가 고른 디렉터리만 등록한다. 등록된 목록은 설정 화면에서 명시적으로 지울 수 있다.
 - 등록할 때 다음을 확인한다.
   1. 고른 경로를 `realpath(3)`로 정규화하고 심볼릭 링크를 해석한다(`PathValidator`). 제어 문자가 있으면 거부한다.
-  2. `rev-parse --path-format=absolute --show-toplevel --git-common-dir --is-bare-repository`로 저장소 여부와 공통 디렉터리를 얻는다.
-  3. probe 결과를 파일 시스템과 맞춰 본다: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나(메인 워크트리, `--separate-git-dir`) back-pointer가 맞는 연결 워크트리여야 한다(SEC-T14-04).
-  4. 등록 경로가 사용자가 고른 경로와 다르면 알린다.
+  2. `probeGitDirectory`(`rev-parse --path-format=absolute --git-common-dir --absolute-git-dir --is-bare-repository --is-inside-work-tree`)로 저장소 여부, 공통 디렉터리, 이 위치의 git 디렉터리를 얻는다. bare 저장소에서도 성공한다(#222).
+  3. 결과에 따라 나눈다.
+     - **bare**: 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 한다(`repo/.git`·`repo/.bare` 배치). 다른 곳의 bare 저장소를 가리키는 `.git` 파일은 거부한다. 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. 그래서 bare 안의 하위 폴더와 관리 디렉터리 `worktrees/<id>`는 거부한다(git은 둘 다 bare라고 답한다). 등록 항목은 `rootPath`가 없다(`Repository.rootURL == nil`).
+     - **워크트리 안**: `probeRepository`(`rev-parse --path-format=absolute --show-toplevel --git-common-dir --is-bare-repository`)로 워크트리 최상위를 얻는다. 두 probe의 공통 디렉터리가 같아야 한다.
+     - **그 밖**(`.git` 안, 다른 곳을 가리키는 `core.worktree`): 거부한다.
+  4. probe 결과를 파일 시스템과 맞춰 본다(SEC-T14-04).
+     - 고른 폴더가 probe의 워크트리 안에 있어야 한다.
+     - 그 워크트리의 `.git`이 첫 probe의 git 디렉터리로 이어져야 한다.
+     - 그 git 디렉터리가 공통 디렉터리이거나(메인 워크트리, `--separate-git-dir`), back-pointer가 맞는 연결 워크트리여야 한다.
+     - 연결 워크트리면 공통 디렉터리에서 `probeGitDirectory`를 한 번 더 실행한다. bare 저장소면 bare 항목으로 등록한다. 그래서 bare 저장소와 그 링크 워크트리 중 어느 것을 골라도 같은 항목이 된다.
+  5. 등록 경로가 사용자가 고른 경로와 다르면 알린다.
 - 연결된 워크트리는 `worktree list`가 알려 주는 경로에 접근한다. 워크트리가 등록 경로 밖에 있어도 정상이다. 대신 그 경로가 존재하는 디렉터리인지, 그 안의 `.git` 파일이 이 저장소의 `worktrees/<name>`을 가리키는지 확인한다.
 - **샌드박스를 끄는 이유**: 임의 위치의 저장소와 워크트리에 접근해야 한다. 샌드박스를 켜면 워크트리마다 security-scoped bookmark와 권한 팝업이 필요하다. 또 git 자식 프로세스도 샌드박스를 상속해 사용자의 credential helper나 SSH 설정에 접근하지 못한다. 그래서 security-scoped bookmark는 쓰지 않는다. 그 대신 Hardened Runtime을 켜고, 이 문서의 실행 경로 통제와 [security-review.md](../design/security-review.md)로 보완한다.
 - 앱이 내용을 읽는 파일(diff 대상 등)은 git 출력으로만 얻는다. 파일 시스템을 직접 읽는 경우는 `FETCH_HEAD` mtime과 설정 파일 mtime뿐이다.
