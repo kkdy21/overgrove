@@ -3,13 +3,13 @@ import Security
 
 /// When a git chosen in Settings may run (ADR-0019, #106, T10). Checked when it is chosen and on every discovery.
 ///
-/// Only file-system facts are read (`realpath`, `lstat`/`stat`, `readlink`, `statfs`, `access`, and a static
-/// code-signature check); no process runs. The version is checked afterwards by `GitEnvironment.probe`.
+/// Only file-system facts are read (`realpath`, `stat`, `statfs`, `access`, and a static code-signature check); no
+/// process runs. The version is checked afterwards by `GitEnvironment.probe`.
 ///
-/// One rule set covers every directory the path goes through: each directory on the entered path, on every link in
-/// its chain, and above the real file. Each must be safe to trust (owner, write access), and none may be a protected
-/// directory, compared by device and inode so another name for the same directory (a firmlink, a directory link)
-/// does not get around it.
+/// One rule covers the real file (`realpath` of the chosen path) and every directory above it: each must be safe to
+/// trust (owner, write access), and none may be a protected directory, compared by device and inode so another name
+/// for the same directory (a firmlink) does not get around it. Only the real file runs, and every discovery checks
+/// again, so links on the way to it are not judged (ADR-0019 §1–2).
 enum GitExecutablePolicy {
     enum Outcome: Equatable {
         /// The `/usr/bin/git` shim: use the default git (ADR-0008: ~8 ms per call and the install dialog).
@@ -20,8 +20,8 @@ enum GitExecutablePolicy {
 
     enum Rejection: Error, Equatable {
         case notAbsolute
-        /// `.`, `..`, or empty components, which hide the directories the path goes through.
-        case unclearPath
+        /// Control characters, which could hide what the path names.
+        case invalidCharacters
         case notFound
         case notAFile
         case notExecutable
@@ -38,7 +38,7 @@ enum GitExecutablePolicy {
         var message: String {
             switch self {
             case .notAbsolute: "The path must be absolute."
-            case .unclearPath: "The path must not contain “.”, “..”, or empty parts."
+            case .invalidCharacters: "The path contains control characters."
             case .notFound: "No file exists at that path."
             case .notAFile: "The path is not a file."
             case .notExecutable: "The file is not executable."
@@ -84,8 +84,6 @@ enum GitExecutablePolicy {
     static let shimPath = "/usr/bin/git"
     /// `wheel` and `admin`: groups whose write access is as trusted as root's.
     static let administrativeGroups: Set<gid_t> = [0, 80]
-    /// Links followed before giving up (the system's own limit is 32).
-    static let maximumLinks = 32
 
     /// `statfs` flags of the volume holding `path`; `nil` when it cannot be read.
     static func currentVolumeFlags(_ path: String) -> UInt32? {
@@ -107,7 +105,7 @@ enum GitExecutablePolicy {
         volumeFlags: (String) -> UInt32? = currentVolumeFlags
     ) throws -> Outcome {
         guard path.hasPrefix("/") else { throw Rejection.notAbsolute }
-        guard isClear(path) else { throw Rejection.unclearPath }
+        guard !PathValidator.containsControlCharacters(path) else { throw Rejection.invalidCharacters }
         guard let real = realPath(path) else { throw Rejection.notFound }
         if real == shimPath { return .useDefault }
         guard let status = fileStatus(real) else { throw Rejection.notFound }
@@ -117,14 +115,10 @@ enum GitExecutablePolicy {
             flags & UInt32(MNT_IGNORE_OWNERSHIP) == 0
         else { throw Rejection.untrustedVolume }
 
-        let directories = try directoriesPassedThrough(path, real: real)
         let protected = Set(protectedDirectories.compactMap { fileStatus($0.path).map(Identity.init) })
-        for directory in directories {
-            guard let status = fileStatus(directory) else { throw Rejection.notFound }
-            if protected.contains(Identity(status)) { throw Rejection.insideRepository }
-        }
-        for item in [real] + directories {
+        for item in [real] + ancestors(of: real) {
             guard let status = item == real ? status : fileStatus(item) else { throw Rejection.notFound }
+            if item != real, protected.contains(Identity(status)) { throw Rejection.insideRepository }
             guard status.owner == 0 || status.owner == currentUser else { throw Rejection.unsafeOwner(item) }
             guard !status.isWritableByOthers else { throw Rejection.writableByOthers(item) }
         }
@@ -154,10 +148,15 @@ enum GitExecutablePolicy {
                 guard isPlainDirectory(entry.path),
                     let text = readSmallFile(entry.appendingPathComponent("gitdir").path)
                 else { continue }
-                let gitFile = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard gitFile.hasPrefix("/"), !PathValidator.containsControlCharacters(gitFile) else { continue }
-                directories.append(
-                    URL(fileURLWithPath: (gitFile as NSString).deletingLastPathComponent, isDirectory: true))
+                let written = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !written.isEmpty, !PathValidator.containsControlCharacters(written) else { continue }
+                // git 2.48+ can write it relative to the entry (`worktree.useRelativePaths`).
+                let gitFile = written.hasPrefix("/") ? written : entry.path + "/" + written
+                let worktree = URL(fileURLWithPath: (gitFile as NSString).deletingLastPathComponent, isDirectory: true)
+                    .standardizedFileURL
+                // `/` would refuse every git; a repository must not be able to switch the feature off that way.
+                guard worktree.path != "/" else { continue }
+                directories.append(worktree)
             }
         }
         return directories
@@ -200,51 +199,16 @@ enum GitExecutablePolicy {
         return String(cString: resolved)
     }
 
-    /// No `.`, `..`, or empty components, and no trailing slash.
-    private static func isClear(_ path: String) -> Bool {
-        path.dropFirst().split(separator: "/", omittingEmptySubsequences: false)
-            .allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." }
-    }
-
-    /// The real path of every directory `path` goes through: each directory named on the entered path and on every
-    /// link in its chain (a link's own directory could swap it), and every directory above the real file.
-    private static func directoriesPassedThrough(_ path: String, real: String) throws -> [String] {
-        var hops = [path]
-        var current = path
-        for _ in 0..<maximumLinks {
-            guard let target = linkTarget(current) else { break }
-            current = target.hasPrefix("/") ? target : (current as NSString).deletingLastPathComponent + "/" + target
-            hops.append(current)
-        }
-        guard linkTarget(current) == nil else { throw Rejection.notFound }
-        var seen = Set<String>()
+    /// The directories above `path` (a real path), from its parent up to `/`.
+    private static func ancestors(of path: String) -> [String] {
         var result: [String] = []
-        for directory in hops.flatMap(namedDirectories) + namedDirectories(real) {
-            guard let resolved = realPath(directory) else { throw Rejection.notFound }
-            if seen.insert(resolved).inserted { result.append(resolved) }
+        var current = (path as NSString).deletingLastPathComponent
+        while !current.isEmpty {
+            result.append(current)
+            if current == "/" { break }
+            current = (current as NSString).deletingLastPathComponent
         }
         return result
-    }
-
-    /// The directories named on `path`, from `/` down to its parent, as written (links not resolved).
-    private static func namedDirectories(_ path: String) -> [String] {
-        var result = ["/"]
-        var prefix = ""
-        for component in path.split(separator: "/").dropLast() {
-            prefix += "/" + component
-            result.append(prefix)
-        }
-        return result
-    }
-
-    /// The target of `path` if it is a symbolic link.
-    private static func linkTarget(_ path: String) -> String? {
-        var info = Darwin.stat()
-        guard lstat(path, &info) == 0, info.st_mode & S_IFMT == S_IFLNK else { return nil }
-        var buffer = [CChar](repeating: 0, count: Int(PATH_MAX) + 1)
-        let count = readlink(path, &buffer, Int(PATH_MAX))
-        guard count > 0 else { return nil }
-        return String(decoding: buffer[0..<count].map { UInt8(bitPattern: $0) }, as: UTF8.self)
     }
 
     private static func isPlainDirectory(_ path: String) -> Bool {

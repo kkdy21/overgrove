@@ -85,15 +85,13 @@ final class GitExecutablePolicyTests: XCTestCase {
         XCTAssertThrowsError(try GitExecutablePolicy.check(path: link.path, protectedDirectories: [repository])) {
             XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .insideRepository)
         }
-        // A link inside that resolves outside.
+        // A link inside that resolves outside is judged by the real file it runs (ADR-0019 §1): what runs is outside.
         let outside = try makeGit()
         let linkInside = inside.appendingPathComponent("git-out")
         try FileManager.default.createSymbolicLink(at: linkInside, withDestinationURL: outside)
-        XCTAssertThrowsError(
-            try GitExecutablePolicy.check(path: linkInside.path, protectedDirectories: [repository])
-        ) {
-            XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .insideRepository)
-        }
+        XCTAssertEqual(
+            try GitExecutablePolicy.check(path: linkInside.path, protectedDirectories: [repository]),
+            .chosen(entered: linkInside.path, resolved: URL(fileURLWithPath: resolved(outside))))
         // A sibling whose name only starts with the repository's name is not inside it.
         let sibling = executables.directory.appendingPathComponent("repo-tools", isDirectory: true)
         try FileManager.default.createDirectory(at: sibling, withIntermediateDirectories: true)
@@ -103,7 +101,7 @@ final class GitExecutablePolicyTests: XCTestCase {
     }
 
     /// SEC-T10-04: the check compares directories by device and inode, so another name for the same directory does
-    /// not get around it: the Data volume's firmlinked path, or a directory link kept inside the repository.
+    /// not get around it: the Data volume's firmlinked path, which `realpath` leaves as it is.
     func testSECT10_04_OtherNamesForTheRepositoryAreStillInside() throws {
         let repository = executables.directory.appendingPathComponent("repo", isDirectory: true)
         let inside = repository.appendingPathComponent("bin", isDirectory: true)
@@ -117,28 +115,13 @@ final class GitExecutablePolicyTests: XCTestCase {
         XCTAssertThrowsError(try GitExecutablePolicy.check(path: firmlinked, protectedDirectories: [repository])) {
             XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .insideRepository)
         }
-
-        // A directory link inside the repository that points at a git elsewhere.
-        let elsewhere = try makeGit().deletingLastPathComponent()
-        let tools = repository.appendingPathComponent("tools")
-        try FileManager.default.createSymbolicLink(at: tools, withDestinationURL: elsewhere)
-        XCTAssertThrowsError(
-            try GitExecutablePolicy.check(
-                path: tools.appendingPathComponent("git").path, protectedDirectories: [repository])
-        ) {
-            XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .insideRepository)
-        }
     }
 
-    /// `.`, `..`, and empty components are refused: a picked path never has them, and they hide which directories
-    /// the path goes through.
-    func testDotComponentsAreRefused() throws {
+    /// Control characters are refused: they could hide what the path names on screen.
+    func testControlCharactersAreRefused() throws {
         let git = try makeGit()
-        let directory = git.deletingLastPathComponent().path
-        for path in [directory + "/./git", directory + "/../bin/git", directory + "//git", git.path + "/"] {
-            XCTAssertThrowsError(try GitExecutablePolicy.check(path: path, protectedDirectories: []), path) {
-                XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .unclearPath, path)
-            }
+        XCTAssertThrowsError(try GitExecutablePolicy.check(path: git.path + "\n", protectedDirectories: [])) {
+            XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .invalidCharacters)
         }
     }
 
@@ -160,17 +143,18 @@ final class GitExecutablePolicyTests: XCTestCase {
         }
     }
 
-    /// SEC-T10-05: a link in a directory others may write could be swapped, so the entered path's directories count.
-    func testSECT10_05_ALinkInAWritableDirectoryIsRefused() throws {
+    /// Links on the way are not judged, only the real file and its directories (ADR-0019 §2): a link in a directory
+    /// others may write could be swapped, but what it points at must pass the same rules at the next discovery.
+    func testALinkIsJudgedByTheRealFile() throws {
         let git = try makeGit()
         let shared = executables.directory.appendingPathComponent("shared", isDirectory: true)
         try FileManager.default.createDirectory(at: shared, withIntermediateDirectories: true)
         let link = shared.appendingPathComponent("git")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: git)
         try FileManager.default.setAttributes([.posixPermissions: 0o777], ofItemAtPath: shared.path)
-        XCTAssertThrowsError(try GitExecutablePolicy.check(path: link.path, protectedDirectories: [])) {
-            XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .writableByOthers(self.resolved(shared)))
-        }
+        XCTAssertEqual(
+            try GitExecutablePolicy.check(path: link.path, protectedDirectories: []),
+            .chosen(entered: link.path, resolved: URL(fileURLWithPath: resolved(git))))
     }
 
     /// SEC-T10-05: an owner other than root or the user is refused (injected: a test cannot create such a file).
@@ -226,23 +210,6 @@ final class GitExecutablePolicyTests: XCTestCase {
                 path: git.path, protectedDirectories: [], fileStatus: groupWritable(group: 80, mode: 0o757))
         ) {
             XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .writableByOthers(directory), "others")
-        }
-    }
-
-    /// SEC-T10-05: in a chain of links, the directory holding each link counts, since any of them could be swapped.
-    func testSECT10_05_EveryLinkInAChainCounts() throws {
-        let git = try makeGit()
-        let middle = executables.directory.appendingPathComponent("middle", isDirectory: true)
-        try FileManager.default.createDirectory(at: middle, withIntermediateDirectories: true)
-        let second = middle.appendingPathComponent("git2")
-        try FileManager.default.createSymbolicLink(at: second, withDestinationURL: git)
-        let first = executables.directory.appendingPathComponent("git-first")
-        try FileManager.default.createSymbolicLink(at: first, withDestinationURL: second)
-        XCTAssertNoThrow(try GitExecutablePolicy.check(path: first.path, protectedDirectories: []))
-
-        try FileManager.default.setAttributes([.posixPermissions: 0o777], ofItemAtPath: middle.path)
-        XCTAssertThrowsError(try GitExecutablePolicy.check(path: first.path, protectedDirectories: [])) {
-            XCTAssertEqual($0 as? GitExecutablePolicy.Rejection, .writableByOthers(self.resolved(middle)))
         }
     }
 
@@ -337,6 +304,31 @@ final class GitExecutableResolveTests: XCTestCase {
         XCTAssertEqual(environment.version, GitVersion(major: 2, minor: 45, patch: 1))
         XCTAssertEqual(environment.executable.lastPathComponent, "git")
         XCTAssertTrue(environment.executable.path.hasPrefix("/private/"), "the real path, links resolved")
+    }
+
+    /// SEC-T10-06: the process runs the real file that was checked, not the entered path, so swapping a link after the
+    /// check does not change what runs (the next discovery checks the new target from scratch).
+    func testSECT10_06_TheCheckedRealFileIsWhatRuns() async throws {
+        let first = try executables.fakeDeveloperDirectory(versionLine: "git version 2.45.1")
+            .appendingPathComponent("usr/bin/git")
+        let second = try executables.fakeDeveloperDirectory(versionLine: "git version 2.50.0")
+            .appendingPathComponent("usr/bin/git")
+        let link = executables.directory.appendingPathComponent("chosen-git")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: first)
+
+        let environment = try await resolve(link.path, lookup: DefaultLookup())
+        let real = try XCTUnwrap(realpath(first.path, nil))
+        defer { free(real) }
+        XCTAssertEqual(environment.executable.path, String(cString: real))
+
+        // Swap the link: the client built from the earlier check still runs the file it checked.
+        try FileManager.default.removeItem(at: link)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: second)
+        let again = try await GitEnvironment.probe(executable: environment.executable)
+        XCTAssertEqual(again.version, GitVersion(major: 2, minor: 45, patch: 1))
+        // A new discovery checks and runs the new target.
+        let next = try await resolve(link.path, lookup: DefaultLookup())
+        XCTAssertEqual(next.version, GitVersion(major: 2, minor: 50, patch: 0))
     }
 
     /// SEC-T10-06: a stored choice that no longer passes stops discovery with the reason. The default git is not used
@@ -440,12 +432,17 @@ final class GitExecutableResolveTests: XCTestCase {
             at: worktrees.appendingPathComponent("linked"), withDestinationURL: URL(fileURLWithPath: "/dev"))
         let good = executables.directory.appendingPathComponent("wt-good", isDirectory: true)
         try "\(good.path)/.git\n".write(to: try entry("good"), atomically: true, encoding: .utf8)
+        // `/.git` would put `/` on the list and refuse every git: skipped.
+        try "/.git\n".write(to: try entry("root"), atomically: true, encoding: .utf8)
+        // git 2.48+ relative form, from the entry directory.
+        try "../../../../wt-relative/.git\n".write(to: try entry("relative"), atomically: true, encoding: .utf8)
+        let relative = executables.directory.appendingPathComponent("wt-relative", isDirectory: true)
 
         let registered = RegisteredRepository(rootPath: nil, commonDirectoryPath: common.path)
         let start = ContinuousClock.now
         let protected = GitExecutablePolicy.protectedDirectories(for: [registered]).map(\.path)
         XCTAssertLessThan(ContinuousClock.now - start, .seconds(2), "nothing blocks")
-        XCTAssertEqual(Set(protected), [common.path, good.path])
+        XCTAssertEqual(Set(protected), [common.path, good.path, relative.standardizedFileURL.path])
     }
 
     /// SEC-T10-06: no choice, no protected directories: discovery for the default git reads no repository file (a hostile
