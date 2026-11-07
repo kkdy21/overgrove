@@ -84,6 +84,12 @@ final class ConfigExecutionArgumentTests: XCTestCase {
         try assertEveryCommandSets("maintenance.auto=false")
     }
 
+    /// SEC-T15-06 (argument part): every command pins the output encoding, so repository i18n config cannot
+    /// re-encode `-z` output (#205).
+    func testSECT15_06_EveryCommandPinsTheOutputEncoding() throws {
+        try assertEveryCommandSets("i18n.logOutputEncoding=UTF-8")
+    }
+
     /// SEC-T7 (argument part of SEC-T7-01): signature checking is off on every command.
     func testEveryCommandDisablesSignatureDisplay() throws {
         try assertEveryCommandSets("log.showSignature=false")
