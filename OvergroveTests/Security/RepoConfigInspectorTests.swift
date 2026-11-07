@@ -152,6 +152,36 @@ final class RepoConfigInspectorTests: XCTestCase {
             inspect([entry(.global, "core.fsmonitor", "x")]).report.findings.isEmpty, "trusted scopes are not reported")
     }
 
+    /// A repository can make fetch run any installed `git-remote-<helper>`; `GIT_ALLOW_PROTOCOL` blocks it, and the
+    /// report tells the user why (#161, T5).
+    func testRemoteHelpersChosenByTheRepositoryAreReported() {
+        let helperURLs = [
+            "evilhelper::payload", "codecommit::us-east-1://repo", "hg::https://example.com/r", "ext::sh -c x",
+            "fd::3", "Git-Remote+x.y::z", "C::x",
+        ]
+        for url in helperURLs {
+            let findings = inspect([entry(.local, "remote.origin.url", url)]).report.findings
+            XCTAssertEqual(findings.map(\.handling), [.reported], url)
+            XCTAssertEqual(findings.map(\.threat), ["T5"], url)
+        }
+        let vcs = inspect([entry(.worktree, "remote.origin.vcs", "evilhelper")]).report.findings
+        XCTAssertEqual(vcs.map(\.handling), [.reported])
+        XCTAssertEqual(vcs.map(\.threat), ["T5"])
+
+        // git only treats `<scheme chars>::` at the very start as a helper (transport.c: is_urlschemechar).
+        let ordinaryURLs = [
+            "https://github.com/o/r.git", "git@github.com:o/r.git", "ssh://git@example.com/a::b", "/srv/repos/a::b",
+            "../relative::x", "file:///tmp/r", "1abc::x", "::x", "-x::y", "a b::c",
+        ]
+        for url in ordinaryURLs {
+            XCTAssertTrue(inspect([entry(.local, "remote.origin.url", url)]).report.findings.isEmpty, url)
+        }
+        XCTAssertTrue(
+            inspect([entry(.global, "remote.origin.url", "codecommit::us-east-1://repo")]).report.findings.isEmpty,
+            "trusted scopes are not reported"
+        )
+    }
+
     func testRemotesAreMaskedAndValidated() {
         let secret = "s3" + "cr3t"
         let result = inspect([

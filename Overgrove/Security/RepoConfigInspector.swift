@@ -160,7 +160,9 @@ enum RepoConfigInspector {
             }
         case "remote":
             if variable == "uploadpack" { return ("T5", .neutralized) }
-            if variable == "url", value.hasPrefix("ext::") || value.hasPrefix("fd::") { return ("T5", .reported) }
+            // A remote helper chosen by the repository. `GIT_ALLOW_PROTOCOL` refuses it at fetch time (#161).
+            if variable == "vcs" { return ("T5", .reported) }
+            if variable == "url", remoteHelperName(in: value) != nil { return ("T5", .reported) }
             return nil
         case "http":
             if variable == "sslverify" || variable == "proxy" { return ("T11", .neutralized) }
@@ -195,6 +197,20 @@ enum RepoConfigInspector {
         }
     }
 
+    /// The helper a `<helper>::<address>` URL selects (`ext`, `fd`, `codecommit`, …), or `nil` for an ordinary URL.
+    ///
+    /// Mirrors git's transport.c: a letter, then letters, digits, `+`, `-`, `.`, immediately followed by `::`.
+    static func remoteHelperName(in url: String) -> Substring? {
+        guard let separator = url.range(of: "::") else { return nil }
+        let name = url[..<separator.lowerBound]
+        guard let first = name.unicodeScalars.first, first.isASCII, first.properties.isAlphabetic else { return nil }
+        let isSchemeCharacter: (Unicode.Scalar) -> Bool = { scalar in
+            scalar.isASCII
+                && (scalar.properties.isAlphabetic || ("0"..."9").contains(scalar)
+                    || "+-.".unicodeScalars.contains(scalar))
+        }
+        return name.unicodeScalars.allSatisfy(isSchemeCharacter) ? name : nil
+    }
 }
 
 /// Caches inspections per repository until one of its configuration files changes (modification time or size).

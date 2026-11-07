@@ -54,12 +54,43 @@ final class GitErrorTests: XCTestCase {
         XCTAssertFalse(error.suggestedCommand?.contains("--add safe.directory") ?? false)
     }
 
-    func testBlockedTransports() {
-        guard case .blockedBySecurityPolicy = classify("fatal: transport 'ext' not allowed\n") else {
-            return XCTFail("ext:: must be classified as blocked")
+    /// `GIT_ALLOW_PROTOCOL` and `protocol.<name>.allow=never` refusals (#161, T5). Real Apple Git 2.54.0 stderr.
+    func testBlockedTransports() throws {
+        for name in ["ext", "fd", "evilhelper", "codecommit", "file", "Git-Remote+x.y"] {
+            let error = try XCTUnwrap(classify("fatal: transport '\(name)' not allowed\n"))
+            guard case .transportNotAllowed(let transport, _) = error else { return XCTFail("\(name): got \(error)") }
+            XCTAssertEqual(transport, name)
+            XCTAssertTrue(error.message.contains("'\(name)'"), error.message)
+            XCTAssertTrue(error.message.contains("https, ssh"), "the message says which transports work")
+            XCTAssertFalse(error.isRetryable, "retrying cannot help until the remote changes")
+            XCTAssertEqual(error.detail?.text, "fatal: transport '\(name)' not allowed\n")
         }
-        guard case .blockedBySecurityPolicy = classify("fatal: transport 'fd' not allowed") else {
-            return XCTFail("fd:: must be classified as blocked")
+    }
+
+    func testBlockedTransportNameIsSanitized() throws {
+        // The name comes from repository configuration. Anything that is not a plain scheme name is not echoed.
+        let hostile = [
+            "fatal: transport 'a b' not allowed", "fatal: transport '' not allowed",
+            "fatal: transport '\(String(repeating: "x", count: 65))' not allowed",
+            "fatal: transport 'evil\u{1B}[31mred' not allowed", "fatal: transport '1abc' not allowed",
+        ]
+        for sample in hostile {
+            let error = try XCTUnwrap(classify(sample))
+            guard case .transportNotAllowed(nil, _) = error else { return XCTFail("\(sample): got \(error)") }
+            XCTAssertFalse(error.message.contains("evil"), error.message)
+            XCTAssertFalse(error.message.isEmpty)
+        }
+    }
+
+    func testServerTextCannotPoseAsATransportBlock() {
+        let spoofed = "remote: transport 'evil' not allowed\nfatal: unable to access 'https://example.com/r/': x\n"
+        guard case .nonZeroExit = classify(spoofed) else { return XCTFail("only git's own fatal line counts") }
+    }
+
+    func testRemoteHelperFailureIsNotATransportBlock() {
+        // A helper that ran and failed (no GIT_ALLOW_PROTOCOL) must not be mistaken for a block.
+        guard case .nonZeroExit = classify("fatal: remote helper 'evilhelper' aborted session\n") else {
+            return XCTFail("only git's refusal counts as blocked")
         }
     }
 
@@ -137,7 +168,8 @@ final class GitErrorTests: XCTestCase {
             .executableNotFound(path: "/usr/bin/git"), .launchFailed(errno: 13), .unsupportedVersion(found: old),
             .notARepository(detail: detail), .dubiousOwnership(detail: detail), .worktreeMissing(path: "/x"),
             .configInspectionFailed(reason: "r"), .invalidArgument(reason: "r"),
-            .blockedBySecurityPolicy(detail: detail), .timeout(seconds: 15), .outputTruncated,
+            .blockedBySecurityPolicy(detail: detail), .transportNotAllowed(transport: "hg", detail: detail),
+            .transportNotAllowed(transport: nil, detail: detail), .timeout(seconds: 15), .outputTruncated,
             .authenticationFailed(detail: detail), .networkUnavailable(detail: detail),
             .nonZeroExit(code: 1, detail: detail), .parseFailed(parser: "p", offset: 0),
         ]

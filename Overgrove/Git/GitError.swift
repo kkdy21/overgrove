@@ -48,8 +48,11 @@ enum GitError: Error, Sendable, Equatable {
     case configInspectionFailed(reason: String)
     /// An argument failed validation before anything ran (T9).
     case invalidArgument(reason: String)
-    /// A security rule blocked the operation, e.g. an `ext::` or `fd::` remote.
+    /// A security rule blocked the operation.
     case blockedBySecurityPolicy(detail: MaskedText)
+    /// git refused a transport outside `GIT_ALLOW_PROTOCOL` or one set to `never` (`ext`, `fd`, a remote helper such
+    /// as `codecommit`), #161. `transport` is `nil` unless git's message names a plain scheme.
+    case transportNotAllowed(transport: String?, detail: MaskedText)
     case timeout(seconds: Int)
     /// Output exceeded the limit. Warning level: callers may still show the partial result.
     case outputTruncated
@@ -81,8 +84,13 @@ enum GitError: Error, Sendable, Equatable {
         func matches(_ patterns: [String]) -> Bool { patterns.contains { haystack.contains($0) } }
 
         if matches(["detected dubious ownership"]) { return .dubiousOwnership(detail: detail) }
-        if matches(["transport 'ext' not allowed", "transport 'fd' not allowed"]) {
-            return .blockedBySecurityPolicy(detail: detail)
+        // git's own refusal (`fatal: transport '<name>' not allowed`), not a `remote:` line the server printed.
+        if let refusal = detail.text.range(of: "fatal: transport '", options: .caseInsensitive),
+            let end = detail.text.range(
+                of: "' not allowed", options: .caseInsensitive, range: refusal.upperBound..<detail.text.endIndex)
+        {
+            let name = String(detail.text[refusal.upperBound..<end.lowerBound])
+            return .transportNotAllowed(transport: isSchemeName(name) ? name : nil, detail: detail)
         }
         if matches([
             "authentication failed", "could not read username", "could not read password",
@@ -101,6 +109,16 @@ enum GitError: Error, Sendable, Equatable {
         // Killed by a signal we did not send: report like a shell does (128 + signal).
         let code = exitCode ?? (signal.map { 128 + $0 } ?? -1)
         return .nonZeroExit(code: code, detail: detail)
+    }
+
+    /// `[A-Za-z][A-Za-z0-9+.-]{0,63}`: the characters git accepts in a transport or remote-helper name. Anything else
+    /// is not echoed in a message, because the name comes from repository configuration.
+    private static func isSchemeName(_ name: String) -> Bool {
+        let utf8 = Array(name.utf8)
+        guard let first = utf8.first, utf8.count <= 64, first.isASCIILetter else { return false }
+        return utf8.allSatisfy {
+            $0.isASCIILetter || (0x30...0x39).contains($0) || $0 == 0x2B || $0 == 0x2D || $0 == 0x2E
+        }
     }
 
     /// Maps a parser failure.
@@ -131,6 +149,10 @@ enum GitError: Error, Sendable, Equatable {
             "A name looked unsafe, so the command was not run."
         case .blockedBySecurityPolicy:
             "This remote uses a transport that Overgrove blocks for security."
+        case .transportNotAllowed(let transport, _):
+            (transport.map { "Overgrove does not fetch remotes that use the '\($0)' transport." }
+                ?? "This remote uses a transport that Overgrove does not allow.")
+                + " Only https, ssh, git, http, and local file remotes can be fetched."
         case .timeout(let seconds):
             "git did not respond within \(seconds) seconds and was stopped."
         case .outputTruncated:
@@ -162,7 +184,8 @@ enum GitError: Error, Sendable, Equatable {
     var detail: MaskedText? {
         switch self {
         case .notARepository(let detail), .dubiousOwnership(let detail), .blockedBySecurityPolicy(let detail),
-            .authenticationFailed(let detail), .networkUnavailable(let detail), .nonZeroExit(_, let detail):
+            .transportNotAllowed(_, let detail), .authenticationFailed(let detail), .networkUnavailable(let detail),
+            .nonZeroExit(_, let detail):
             detail
         default:
             nil
@@ -182,4 +205,8 @@ enum GitError: Error, Sendable, Equatable {
 
     /// Warning rather than failure: partial results may still be shown.
     var isWarning: Bool { self == .outputTruncated }
+}
+
+extension UInt8 {
+    fileprivate var isASCIILetter: Bool { (0x41...0x5A).contains(self) || (0x61...0x7A).contains(self) }
 }
