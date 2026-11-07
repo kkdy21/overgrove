@@ -10,7 +10,10 @@ struct CommitDetailModel: Equatable {
     }
 
     struct CoAuthor: Equatable {
+        /// The name part of the trailer (`Coding Agent`), escaped.
         let title: String
+        /// The whole trailer value, for the tooltip.
+        let tooltip: String
         let isAI: Bool
     }
 
@@ -71,7 +74,12 @@ struct CommitDetailModel: Equatable {
         shortSHA = commit.oid.short
         fullSHA = commit.oid.hex
         author = Self.person(commit.authorName, commit.authorEmail)
-        coAuthors = commit.coAuthors.map { CoAuthor(title: PathValidator.displayable($0), isAI: rule.isAgent($0)) }
+        coAuthors = commit.coAuthors.map { value in
+            let name = value.split(separator: "<", maxSplits: 1).first.map { $0.trimmingCharacters(in: .whitespaces) }
+            return CoAuthor(
+                title: PathValidator.displayable(name.flatMap { $0.isEmpty ? nil : $0 } ?? value),
+                tooltip: PathValidator.displayable(value), isAI: rule.isAgent(value))
+        }
         date = Self.format(commit.authorDate, timeZone: timeZone)
         parents = commit.parents
         self.pills = pills
@@ -155,10 +163,11 @@ struct CommitDetailModel: Equatable {
     private static func fileRow(_ stat: FileStat) -> FileRow {
         let change = FileChange(path: stat.path, originalPath: stat.originalPath, status: stat.status ?? .modified)
         let (directory, fileName) = WipDetailModel.displayParts(change)
-        let lineChange =
-            stat.isBinary
-            ? "binary"
-            : [stat.added.map { "+\($0)" }, stat.deleted.map { "−\($0)" }].compactMap { $0 }.joined(separator: " ")
+        let parts = [
+            (stat.added ?? 0) > 0 ? "+\(stat.added ?? 0)" : nil,
+            (stat.deleted ?? 0) > 0 ? "−\(stat.deleted ?? 0)" : nil,
+        ].compactMap { $0 }
+        let lineChange = stat.isBinary ? "binary" : (parts.isEmpty ? "±0" : parts.joined(separator: " "))
         return FileRow(
             stat: stat, kindLetter: String((stat.status ?? .modified).code), directory: directory, fileName: fileName,
             lineChange: lineChange,

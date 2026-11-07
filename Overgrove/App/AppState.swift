@@ -79,12 +79,14 @@ enum MainSelection: Equatable {
     case worktreeInfo(GitPath)
     /// A stash's contents (S-04, #71), by OID: `stash@{n}` shifts when stashes change.
     case stash(ObjectID)
+    /// A commit picked in the graph (S-03, #69).
+    case commit(ObjectID)
 
-    /// The worktree either segment shows; `nil` for a stash.
+    /// The worktree either segment shows; `nil` for a stash or a commit.
     var worktreePath: GitPath? {
         switch self {
         case .wip(let path), .worktreeInfo(let path): path
-        case .stash: nil
+        case .stash, .commit: nil
         }
     }
 }
@@ -135,6 +137,8 @@ final class AppState {
     private let comparisonLoader: any ComparisonLoading
     /// The commit graph of the open repository (S-01 center, #68).
     let graph: GraphStore
+    /// S-03 for the selected commit and the patch of a file picked in it (#69).
+    let commitDetail: CommitDetailStore
     /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
     private(set) var comparison: ComparisonSession?
     /// The comparison (and its patch) in flight; tests await them.
@@ -221,9 +225,11 @@ final class AppState {
         stashLoader: any StashLoading = LiveStashLoader.live,
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
         lineCountLoader: (any LineCountLoading)? = nil,
-        graphLoader: any GraphLoading = LiveGraphLoader.live
+        graphLoader: any GraphLoading = LiveGraphLoader.live,
+        commitLoader: any CommitLoading = LiveCommitLoader.live
     ) {
         self.graph = GraphStore(loader: graphLoader)
+        self.commitDetail = CommitDetailStore(loader: commitLoader)
         self.layoutStore = layoutStore
         self.registry = registry
         self.registrar = registrar
@@ -276,6 +282,7 @@ final class AppState {
         fetchStatus = .never
         searchText = ""
         graph.clear()
+        commitDetail.clear()
     }
 
     // MARK: Worktrees (#65)
@@ -426,6 +433,8 @@ final class AppState {
     func selectWorktree(_ path: GitPath) {
         guard case .loaded(let listing) = worktreeList, listing.entries.contains(where: { $0.worktree.path == path })
         else { return }
+        graph.select(nil)
+        commitDetail.clearFile()
         if focusedWorktreePath != path {
             selectedFile = nil
             // S-11 belongs to one worktree.
@@ -566,6 +575,7 @@ final class AppState {
     func clearSelectedFile() {
         selectedFile = nil
         clearStashFile()
+        commitDetail.clearFile()
     }
 
     // MARK: Branches (#72)
@@ -605,11 +615,17 @@ final class AppState {
         return StashDetailModel(stash: stash, state: stashDetail ?? .loading)
     }
 
+    /// Marks a commit as the detail panel's subject (`AppState+Commit.swift`, which cannot write `selection`).
+    func setCommitSelection(_ oid: ObjectID) {
+        selection = .commit(oid)
+    }
+
     /// Selecting a stash shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
     func selectStash(_ oid: ObjectID) {
         guard stashes.contains(where: { $0.oid == oid }) else { return }
         selectedFile = nil
         closeComparison()
+        graph.select(nil)
         selection = .stash(oid)
         loadStash()
     }
@@ -809,6 +825,7 @@ final class AppState {
 
     /// What the center area shows for the selected file: its title, `Staged · M`, and the load state.
     var diffViewer: (title: String, source: String, state: DiffLoadState)? {
+        if let commitFile = commitFileDiff { return commitFile }
         if case .stash(let oid) = selection, let file = selectedStashFile, let state = stashFileDiff,
             let stash = stashes.first(where: { $0.oid == oid })
         {

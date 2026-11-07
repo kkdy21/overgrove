@@ -47,7 +47,8 @@ struct MainWindowView: View {
                     onCompareWorktree: { state.showComparison(of: $0) })
             } center: {
                 GraphPanel(
-                    hasRepository: state.repository != nil, graphStore: state.graph, diff: state.diffViewer,
+                    hasRepository: state.repository != nil, graphStore: state.graph,
+                    onSelectCommit: state.selectCommit, diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
             } detail: {
                 DetailPanel(
@@ -58,9 +59,13 @@ struct MainWindowView: View {
                         switch $0 {
                         case .worktreeInfo: true
                         case .wip: false
-                        case .stash: nil
+                        case .stash, .commit: nil
                         }
                     },
+                    commitModel: state.commitDetailModel, commitLane: state.selectedCommitLane,
+                    selectedCommitFile: state.commitDetail.selectedFile?.path,
+                    onSelectCommitFile: state.selectCommitFile, onSelectParent: state.selectCommit,
+                    onShowAllCommitFiles: state.showAllCommitFiles,
                     stashModel: state.stashDetailModel, selectedStashFile: state.selectedStashFile?.path,
                     onSelectStashFile: state.selectStashFile,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
