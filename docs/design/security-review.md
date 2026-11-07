@@ -226,8 +226,10 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **index 쓰기 방지**: `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`으로 조회 중 `index.lock`을 잡지 않는다.
   - **허용된 쓰기**: fetch가 만드는 쓰기(`refs/remotes/<원격>/*`, `FETCH_HEAD`, 객체)와 `--prune`의 원격 추적 ref 삭제뿐이다.
   - **fetch 범위 고정(#209)**: 저장소 설정이 이 범위를 넓히지 못하게 fetch 인자에 고정한다. refspec `+refs/heads/*:refs/remotes/<원격>/*`와 `--refmap=`, `--no-tags`, `-c fetch.pruneTags=false -c remote.<원격>.pruneTags=false -c fetch.bundleURI=`를 쓴다([카탈로그 §4](../architecture/git-command-catalog.md)). 고정하기 전에는 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`(detached HEAD)가 로컬 브랜치를 지우고 `main`을 되돌렸다. 로컬 `fetch.pruneTags`는 로컬 태그를 지웠다(#206 보안 검토, E40).
-- **잔여 위험**: 낮음. `--no-tags` 때문에 원격에만 있는 새 태그는 v0.1에서 가져오지 않는다(의도된 동작).
-- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변), SEC-T13-03 (금지 API 정적 검사), SEC-T13-04 (로컬 `remote.<n>.fetch`·`fetch.pruneTags`·`remote.<n>.pruneTags`·`tagOpt`·`fetch.bundleURI`를 심은 저장소에서 앱 fetch 뒤 `refs/remotes/` 밖의 모든 ref와 HEAD 불변, 대조군(고정 전 인자)에서는 브랜치·태그 삭제, `main` 이동, `refs/bundles/*` 생성)
+- **잔여 위험**: 낮음.
+  - **`worktreeDiff`(`git diff`)는 내용은 같고 stat만 바뀐 파일을 diff할 때 index를 새로 고쳐 쓴다** (#208). `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`을 무시한다(Apple Git 2.50.1 실측). 잠깐 `index.lock`을 잡으므로 같은 순간 사용자의 git 쓰기 명령과 겹칠 수 있다. `-c diff.autoRefreshIndex=false`로 막힌다(실측). `WriteProtectionTests`가 expected failure로 추적한다.
+  - `--no-tags` 때문에 원격에만 있는 새 태그는 v0.1에서 가져오지 않는다(의도된 동작, #209).
+- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인), SEC-T13-04 (로컬 `remote.<n>.fetch`·`fetch.pruneTags`·`remote.<n>.pruneTags`·`tagOpt`·`fetch.bundleURI`를 심은 저장소에서 앱 fetch 뒤 `refs/remotes/` 밖의 모든 ref와 HEAD 불변, 대조군(고정 전 인자)에서는 브랜치·태그 삭제, `main` 이동, `refs/bundles/*` 생성)
 - **상태**: 설계 완료 (정적 검사 스크립트는 저장소 셋업에서 적용)
 
 ### T14. 파일 시스템 범위 이탈, 심볼릭 링크 탈출
@@ -243,7 +245,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 로컬 `core.worktree`는 경고로 보고한다.
   - 연결 워크트리는 그 안의 `.git` 파일이 이 저장소의 `worktrees/<name>`을 가리키는지 확인한다.
 - **잔여 위험**: git 자체가 따라가는 경로(예: alternates 객체 저장소)는 통제하지 않는다. 읽기 전용이라 영향이 제한적이다.
-- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크 미리보기 거부), SEC-T14-03 (로컬 `core.worktree` 보고)
+- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고)
 - **상태**: 설계 완료
 
 ### T15. 자원 고갈
