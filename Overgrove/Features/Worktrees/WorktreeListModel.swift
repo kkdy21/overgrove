@@ -39,12 +39,20 @@ struct WorktreeRow: Identifiable, Equatable {
 
 /// The WORKTREES section built from a load. Pure, so it is unit tested without views.
 struct WorktreeListModel: Equatable {
-    let rows: [WorktreeRow]
+    private(set) var rows: [WorktreeRow]
     /// A non-blocking note when a parser dropped or skipped something (parsing-spec.md §1.5, §1.6).
     let warning: String?
 
     /// Badges above this are shown as `999+` (§4.3).
     static let badgeLimit = 999
+
+    /// The rows whose name, folder, or path contains the sidebar filter (#74).
+    func filtered(_ query: String?) -> WorktreeListModel {
+        guard query != nil else { return self }
+        var copy = self
+        copy.rows = rows.filter { SidebarFilter.matches(query, $0.title, $0.subtitle, $0.branchName) }
+        return copy
+    }
 
     /// - Parameters:
     ///   - focused: The focused worktree's path; `nil` focuses the main worktree.

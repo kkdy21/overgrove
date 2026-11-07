@@ -112,8 +112,14 @@ final class AppState {
     var ghCheckGeneration = 0
     /// A gh login check is running.
     var isCheckingGitHub = false
-    /// TODO(#74): drives graph search.
+    /// The toolbar search (#74): dims graph rows that do not match; ⌘G/⌘⇧G step through matches.
     var searchText = ""
+    /// The sidebar's Filter field (⌥⌘F, #74).
+    var sidebarFilter = ""
+    /// Bumped by Edit › Filter Sidebar (⌥⌘F); the field takes focus when it changes.
+    var sidebarFilterFocusRequest = 0
+    /// The last search over the loaded graph, reused until the query or the loaded pages change.
+    @ObservationIgnored var searchCache: (key: SearchCacheKey, result: GraphSearchResult)?
     /// `⌘1`–`⌘4` asked for a panel (interaction.md §1.2, #73); the panel's list takes keyboard focus when it changes.
     var panelFocusRequest: PanelFocusRequest?
     /// The pasteboard and Finder for row menus and copy commands (#73); tests put a recorder here.
@@ -263,6 +269,7 @@ final class AppState {
         inspectionGeneration += 1
         fetch.open(repository?.repository)
         searchText = ""
+        sidebarFilter = ""
         issuePanel.clear()
         graph.clear()
         commitDetail.clear()

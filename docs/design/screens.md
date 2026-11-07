@@ -96,7 +96,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | `Refresh` | 로컬 git 조회만 다시 한다. 네트워크 없음 | `⌘R` |
 | `Compare` | 포커스 워크트리를 기준 브랜치와 비교(S-11) | `⌘⇧B` |
 | `Terminal`, `Finder` | 포커스 워크트리 폴더를 Terminal.app / Finder로 연다. 워크트리 컨텍스트 메뉴의 `Open in Terminal`, `Reveal in Finder`와 같고 보안 조건도 같다 | [interaction.md §5](interaction.md#5-컨텍스트-메뉴) |
-| 검색 필드 | 그래프를 커밋 메시지, 작성자, SHA 앞부분, ref 이름, 이슈 번호(`#12`)로 필터 | `⌘F`. 일치 행만 강조하고 나머지는 흐리게. `⌘G` / `⌘⇧G`로 다음·이전 일치 |
+| 검색 필드 | 그래프를 커밋 메시지, 작성자(co-author 포함), SHA 앞부분(4자 이상), ref 이름, 이슈 번호(`#12`: 제목의 참조나 그 번호로 이름 붙은 브랜치)로 필터 | `⌘F`. 일치 행만 강조하고 나머지는 흐리게(`opacity.disabled`, 행을 숨기지 않음). `⏎`·`⌘G` / `⌘⇧G`로 다음·이전 일치(그 커밋을 고르고 스크롤). **로드된 페이지만 검색한다**(git을 실행하지 않음). 그래프 머리 아래 줄에 `3 matches in 1,500 loaded commits · older commits are searched as they load`처럼 범위를 알린다(#74) |
 
 가운데 동작 버튼은 아이콘 위에 라벨을 둔다(NSToolbar의 icon-and-label 모드). v0.1 툴바에는 Pull, Push, Branch, Stash, Checkout 버튼이 **없다.** 비활성 버튼으로도 두지 않는다.
 
