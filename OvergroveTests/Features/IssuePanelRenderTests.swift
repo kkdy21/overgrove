@@ -25,9 +25,34 @@ final class IssuePanelRenderTests: XCTestCase {
             Spacer()
         }
         try render(sidebar, width: 256, height: 200, name: "issues-sidebar")
+        let links = IssueLinkIndex(
+            listing: IssueLinkTests.listing([
+                IssueLinkTests.branch("refs/heads/feat/42-rate-limit"),
+                IssueLinkTests.branch("refs/remotes/origin/feat/42-rate-limit", .remote(remote: "origin")),
+            ]))
+        let commits = CommitLink.latest(
+            linkedTo: 42, in: [IssueLinkTests.commit(0, "feat: rate limit the fetch button (#42)")], repository: nil)
         try render(
-            IssueDetailView(model: IssueDetailModel(issues[0], repository: IssueModelsTests.repository)), width: 344,
-            height: 420, name: "issue-detail")
+            IssueDetailView(
+                model: IssueDetailModel(
+                    issues[0], repository: IssueModelsTests.repository, links: links.links(42), commits: commits)),
+            width: 344, height: 560, name: "issue-detail")
+        // Worktree and branch rows with a known (#42) and an unknown (#7) issue badge.
+        var listing = WorktreeListing.mockup
+        let refs = RefParser.Listing(
+            branches: [IssueLinkTests.branch("refs/heads/fix/7-crash")], tags: [], isPartial: false,
+            skippedRecords: 0)
+        listing.refs = refs
+        let branches = BranchListModel(refs: refs, checkedOut: [], remoteNames: [])
+        let rows = VStack(spacing: 0) {
+            WorktreeListSection(
+                status: .loaded(listing), model: WorktreeListModel(listing: listing, focused: nil), selectedPath: nil,
+                onSelect: { _ in })
+            BranchListSection(title: "LOCAL", count: branches.localCount, nodes: branches.local)
+            Spacer()
+        }
+        .environment(\.issueBadges, IssueBadgeContext(known: [42]))
+        try render(rows, width: 256, height: 420, name: "issue-badges")
     }
 
     private func render(_ view: some View, width: CGFloat, height: CGFloat, name: String) throws {

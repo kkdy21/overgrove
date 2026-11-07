@@ -146,6 +146,21 @@ final class AppStateIssueTests: XCTestCase {
         XCTAssertEqual(loader.requests, ["team/app"], "the cached paint's remote is never asked about")
     }
 
+    /// #82: the mockup's `feat/42-rate-limit` worktree links issue 42; badges know the fetched numbers.
+    func testLinksFromTheListing() async {
+        let state = await loadedState(StubIssueLoader([.issues([first, second])]))
+        XCTAssertEqual(state.issueListModel.rows.map(\.id), [42, 12])
+        XCTAssertEqual(state.issueListModel.rows.first?.linkKind, .worktree)
+        let badges = state.issueBadgeContext
+        XCTAssertEqual(badges.known, [12, 42])
+        XCTAssertEqual(badges.repository, "team/app")
+        badges.select(12)
+        XCTAssertEqual(state.selection, .issue(12), "a known badge selects its issue")
+        badges.select(42)
+        XCTAssertEqual(state.issueDetailModel?.linkedWorktrees.map(\.title), ["feat/42-rate-limit"])
+        XCTAssertTrue(state.highlightedCommits.isEmpty, "the mockup has no refs, so no branch tips")
+    }
+
     func testOpeningAnotherRepositoryClearsTheIssues() async {
         let state = await loadedState(StubIssueLoader([.issues([first])]))
         state.selectIssue(12)

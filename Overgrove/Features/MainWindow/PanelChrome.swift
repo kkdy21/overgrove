@@ -147,6 +147,8 @@ struct SidebarPanel: View {
 struct GraphPanel: View {
     let hasRepository: Bool
     var graphStore: GraphStore?
+    /// Commits outlined for the selected issue (#82).
+    var highlightedCommits: Set<ObjectID> = []
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -171,7 +173,7 @@ struct GraphPanel: View {
         } content: {
             switch graphStore?.status {
             case .loaded?:
-                if let graphStore { GraphView(store: graphStore) }
+                if let graphStore { GraphView(store: graphStore, highlighted: highlightedCommits) }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed(let message)?:
@@ -202,6 +204,8 @@ struct DetailPanel: View {
     var onSelectStashFile: (FileStat) -> Void = { _ in }
     /// S-06 when an issue is selected (#81).
     var issueModel: IssueDetailModel?
+    var onSelectLinkedWorktree: (GitPath) -> Void = { _ in }
+    var onSelectLinkedCommit: (ObjectID) -> Void = { _ in }
     var onShowChanges: () -> Void = {}
     var onShowWorktree: () -> Void = {}
     /// S-11's lists while a comparison is open (#158).
@@ -229,7 +233,9 @@ struct DetailPanel: View {
             if let comparisonList {
                 comparisonList
             } else if let issueModel {
-                IssueDetailView(model: issueModel)
+                IssueDetailView(
+                    model: issueModel, onSelectWorktree: onSelectLinkedWorktree,
+                    onSelectCommit: onSelectLinkedCommit)
             } else if let stashModel {
                 StashDetailView(model: stashModel, selectedFile: selectedStashFile, onSelectFile: onSelectStashFile)
             } else if let worktreeModel {
