@@ -73,7 +73,7 @@ final class WorktreeDetailModelTests: XCTestCase {
     /// Each §6 row turns ⚠ for its own keys (as git prints them, lowercased), listing key names only.
     func testEachRowListsItsRepositoryKeys() throws {
         let cases: [(String, [String])] = [
-            ("Hooks disabled", ["core.hookspath"]),
+            ("Hooks disabled", ["core.hookspath", "hook.lint.command", "hook.lint.event"]),
             ("fsmonitor disabled", ["core.fsmonitor"]),
             ("External diff and textconv disabled", ["diff.external", "diff.go.textconv"]),
             ("Filters neutralized", ["filter.lfs.process", "filter.lfs.clean"]),
@@ -101,6 +101,14 @@ final class WorktreeDetailModelTests: XCTestCase {
         let row = try row("Hooks disabled", in: security([], hooks: ["hooks/pre-commit", "hooks/post-checkout"]))
         XCTAssertEqual(row.mark, .neutralized)
         XCTAssertEqual(row.details, ["hooks/pre-commit", "hooks/post-checkout"])
+    }
+
+    /// #354: a config-defined hook that cannot be neutralized shows ✕ on the hooks row and disables fetch.
+    func testUnneutralizableConfigHookShowsUnknown() throws {
+        let model = security([entry(.local, "hook.a=b.command")])
+        XCTAssertEqual(try row("Hooks disabled", in: model).mark, .unknown)
+        XCTAssertNotNil(model.fetchBlockingReason)
+        XCTAssertNil(model.blockingReason, "queries still run")
     }
 
     /// The ✓ conditions come from the real arguments: dropping one shows ✕.

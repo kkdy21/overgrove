@@ -65,6 +65,15 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 - `required=true`인 상태에서 clean만 비우면 `fatal: clean filter failed`가 난다. 그래서 `required=false`도 함께 넣는다 (확인).
 - `<d>` 드라이버 이름은 `[A-Za-z0-9._-]{1,64}`만 허용한다. 이 형식에 맞지 않는 이름이 있으면 무력화 인자를 만들 수 없다. 이때는 `configInspectionFailed`로 조회를 막는다 (fail closed).
 
+같은 scope에서 설정형 hook(`hook.<이름>.*`, git 2.54+)을 찾으면 이름마다 다음 인자를 모든 호출에 붙인다(#354).
+
+```
+-c hook.<이름>.enabled=false
+```
+
+- `core.hooksPath=/dev/null`은 hooks 디렉터리만 막으므로 따로 끈다. 2.54 미만 git은 이 키를 무시한다.
+- 이름에 `=`(git이 `-c`를 첫 `=`에서 자른다), 제어 문자, 손실 디코딩이 있거나 256바이트를 넘으면, 또는 이름이 256개를 넘으면 무력화 인자를 만들 수 없다. 이때는 fetch를 막는다(`fetchBlockingReason`). 앱의 조회는 hook을 일으키지 않는다(security-review.md SEC-T2-04).
+
 ### 2.3 fetch 전용 인증 인자
 
 ```

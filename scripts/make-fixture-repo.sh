@@ -380,6 +380,8 @@ if [ "$MALICIOUS" -eq 1 ]; then
   for h in post-index-change reference-transaction post-checkout post-merge pre-auto-gc post-rewrite pre-commit; do
     mkpayload "$PAY/hooks/$h"        "T2-hook-$h"              'cat >/dev/null 2>&1 || true; exit 0'
   done
+  # T2: 설정형 hook (git 2.54+). 이전 git 은 hook.* 키를 무시한다.
+  mkpayload "$PAY/t2-config-hook.sh" "T2-config-hook"          'cat >/dev/null 2>&1 || true; exit 0'
   mkpayload "$PAY/t3-textconv.sh"    "T3-textconv"             'cat "$1"'
   mkpayload "$PAY/t3-extdiff.sh"     "T3-external-diff"        'exit 0'
   mkpayload "$PAY/t4-clean.sh"       "T4-filter-clean"         'cat'
@@ -446,6 +448,13 @@ EOF
     printf '[log]\n\tshowSignature = true\n'
     printf '[gc]\n\tauto = 1\n\tautoPackLimit = 1\n\tautoDetach = false\n'
     printf '[maintenance]\n\tauto = true\n'
+    printf '[hook "fixture"]\n\tcommand = %s\n' "$PAY/t2-config-hook.sh"
+    for e in applypatch-msg pre-applypatch post-applypatch pre-commit pre-merge-commit prepare-commit-msg \
+      commit-msg post-commit pre-rebase post-checkout post-merge pre-push pre-receive update proc-receive \
+      post-receive post-update reference-transaction push-to-checkout pre-auto-gc post-rewrite \
+      sendemail-validate fsmonitor-watchman post-index-change; do
+      printf '\tevent = %s\n' "$e"
+    done
   } >> "$GC/config"
 
   # T4: 내용은 같고 mtime 만 바뀐 추적 파일 → 다음 status 가 clean 필터로 내용을 다시 해시한다

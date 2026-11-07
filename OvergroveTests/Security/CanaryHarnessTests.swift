@@ -57,6 +57,9 @@ final class CanaryHarnessTests: XCTestCase {
         let harness = try await CanaryHarness.make(fixture: fixture)
         let queries = try await harness.queries()
 
+        // Config-defined hooks exist from git 2.54 (#354); older git ignores the fixture's `hook.*` keys.
+        let configHooks: Set<String> =
+            harness.environment.version >= GitVersion.configDefinedHooks ? ["T2-config-hook"] : []
         let controls: [(label: String, dropping: Set<String>, expected: Set<String>)] = [
             // The failing process filter aborts plain status, so whether the clean filter ran first depends on
             // file order; `T4-filter-clean` is proven by the worktreeDiff row instead.
@@ -66,7 +69,7 @@ final class CanaryHarnessTests: XCTestCase {
             ("worktreeDiff unstaged", ["--no-textconv"], ["T3-textconv", "T4-filter-smudge"]),
             ("worktreeNumstat unstaged", [], ["T1-fsmonitor", "T4-filter-clean"]),
             ("graphPage", [], ["T7-gpg-program"]),
-            ("fetch origin", [], ["T5-alternateRefsCommand", "T2-hook-reference-transaction"]),
+            ("fetch origin", [], Set(["T5-alternateRefsCommand", "T2-hook-reference-transaction"]).union(configHooks)),
             ("fetch origin", ["--upload-pack=git-upload-pack"], ["T5-uploadpack"]),
         ]
         for control in controls {

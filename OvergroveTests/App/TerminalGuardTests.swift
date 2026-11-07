@@ -66,6 +66,8 @@ final class TerminalGuardTests: XCTestCase {
             ("sequence", nil, "editor", "x"), ("alias", nil, "st", "!x"), ("submodule", "lib", "update", "!x"),
             ("uploadpack", nil, "packobjectshook", "x"), ("include", nil, "path", "x"),
             ("core", nil, "attributesfile", "/tmp/fifo"), ("http", nil, "sslverify", "false"),
+            // A config-defined hook (git 2.54+, #354) runs in Terminal's git too.
+            ("hook", "lint", "command", "x"),
         ]
         for (section, subsection, variable, value) in cases {
             let key = [section, subsection, variable].compactMap { $0 }.joined(separator: ".")

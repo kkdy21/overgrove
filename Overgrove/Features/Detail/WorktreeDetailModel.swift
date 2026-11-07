@@ -262,13 +262,14 @@ struct WorktreeSecurityModel: Equatable {
             result.diffArguments.contains("--no-ext-diff") && result.diffArguments.contains("--no-textconv")
         let notInspected = inspection == nil || blocked != nil
 
-        let hookKeys = keys { $0.section == "core" && $0.variable == "hookspath" }
+        // `core.hooksPath` and config-defined hooks (`hook.<name>.*`, git 2.54+, #354).
+        let hookKeys = keys { ($0.section == "core" && $0.variable == "hookspath") || $0.section == "hook" }
         let fsmonitorKeys = keys { $0.section == "core" && $0.variable == "fsmonitor" }
         let diffKeys = keys { Self.isDiffDriver($0) }
         let filterKeys = keys { $0.section == "filter" }
         var rows = [
             row(
-                "Hooks disabled", unknown: notInspected || !hooksGuarded,
+                "Hooks disabled", unknown: notInspected || !hooksGuarded || inspection?.hasUnneutralizedHooks == true,
                 details: (
                     hookKeys.shown + result.hookExecutables,
                     hookKeys.report + SecurityReport.hookLines(result.hookExecutables)

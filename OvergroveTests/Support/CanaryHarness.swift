@@ -258,6 +258,17 @@ struct CanaryHarness {
             environment: GitEnvironment.environment(parent: fixture.environment))
     }
 
+    /// The same harness with the neutralization arguments `transform` keeps, everything else as inspected. Shows that
+    /// one kind of neutralization, not the rest of the hardening, is what stops a payload (#354).
+    func withNeutralization(_ transform: ([String]) -> [String]) -> CanaryHarness {
+        CanaryHarness(
+            fixture: fixture, environment: environment, client: client, inspection: inspection,
+            safety: RepoSafetyContext(
+                inspectedNeutralization: transform(safety.neutralization),
+                fetchAuthentication: safety.fetchAuthentication, trustedSSHCommand: safety.trustedSSHCommand,
+                fetchBlockingReason: safety.fetchBlockingReason, isPartialClone: safety.isPartialClone))
+    }
+
     /// Makes the next fetch of origin update a ref again: hooks and auto maintenance only run when there is work.
     func forgetRemoteOnlyBranch() async throws {
         try await runHardenedSetup(["update-ref", "-d", "refs/remotes/origin/feat/remote-only"])
