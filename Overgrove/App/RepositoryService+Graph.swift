@@ -1,8 +1,12 @@
 import Foundation
 
 /// The refs a graph page was read with (ADR-0010 §3, overview.md §5): every branch, remote-tracking branch, and tag
-/// tip, and every worktree's HEAD: exactly what `graphPage` walks (#308). Pages continue only within one ref set; when it
-/// changes, the graph starts over.
+/// tip, and every worktree's HEAD: the namespaces `graphPage` walks (#308). Pages continue only within one ref set;
+/// when it changes, the graph starts over.
+///
+/// The match is by namespace. A ref the parser skips (`RefParser.Listing.skippedRecords`, e.g. a non-UTF-8 name) or
+/// one past a truncated listing is still walked but not in the key, so moving only that ref does not invalidate
+/// cached pages (security review of #308, low: display only).
 ///
 /// The exact sorted list is the identity, not a hash of it, so two different ref sets can never share cached pages.
 struct GraphRefSet: Sendable, Hashable {
