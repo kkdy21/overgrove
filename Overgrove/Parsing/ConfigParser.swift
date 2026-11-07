@@ -15,6 +15,11 @@ enum ConfigParser {
     }
 
     static func parse(_ data: Data, truncated: Bool = false) throws -> Listing {
+        // Complete output ends with NUL. Without it the last entry was cut (e.g. `core.r` for `core.repository…`), and
+        // accepting it would inspect a key git never reported (§1.5).
+        guard truncated || data.isEmpty || data.last == 0 else {
+            throw ParseError(parser: "ConfigParser", offset: data.count, reason: "output does not end with NUL")
+        }
         var tokens = data.split(separator: 0, omittingEmptySubsequences: false)
         if tokens.last?.isEmpty == true { tokens.removeLast() }  // output ends with NUL
         var isPartial = false
