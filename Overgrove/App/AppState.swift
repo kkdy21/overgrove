@@ -99,6 +99,10 @@ final class AppState {
     var ghStatus: GHAuthStatus?
     /// TODO(#74): drives graph search.
     var searchText = ""
+    /// `⌘1`–`⌘4` asked for a panel (interaction.md §1.2, #73); the panel's list takes keyboard focus when it changes.
+    var panelFocusRequest: PanelFocusRequest?
+    /// The pasteboard and Finder for row menus and copy commands (#73); tests put a recorder here.
+    var rowActions: any RowActionPerforming = LiveRowActions.shared
     /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
     /// repository by `commitPanelLayout`.
     var panelLayout: PanelLayout = .default

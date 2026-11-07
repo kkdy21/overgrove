@@ -52,7 +52,8 @@ struct WorktreeListSection: View {
                     .contentShape(Rectangle())
                     .onTapGesture { onSelect(row.id) }
                     .contextMenu {
-                        Button("Compare with Base") { onCompare(row.id) }.disabled(!canCompare(row.id))
+                        WorktreeRowMenu(
+                            row: row, canCompare: canCompare(row.id), onCompare: { onCompare(row.id) })
                     }
                     .accessibilityAction { onSelect(row.id) }
             }
@@ -60,6 +61,7 @@ struct WorktreeListSection: View {
         .focusable()
         .focused($hasFocus)
         .focusEffectDisabled()
+        .focusOnRequest([.sidebar], $hasFocus)
         .onKeyPress(keys: [.upArrow, .downArrow]) { press in
             move(in: model, press: press)
         }
@@ -275,5 +277,31 @@ struct BadgeView: View {
         case .behind: Tokens.Color.statusBehind
         case .locked: Tokens.Color.statusLocked
         }
+    }
+}
+
+/// A worktree row's menu (interaction.md §5): show, copy, Reveal in Finder, and Open in Terminal. Nothing removes,
+/// locks, or prunes a worktree.
+private struct WorktreeRowMenu: View {
+    let row: WorktreeRow
+    let canCompare: Bool
+    let onCompare: () -> Void
+
+    @Environment(\.rowMenu) private var actions
+
+    var body: some View {
+        Button("Show Changes") { actions.showWorktreeChanges(row.id) }
+        Button("Show Info") { actions.showWorktreeInfo(row.id) }
+        Button("Compare with Base", action: onCompare).disabled(!canCompare)
+        Divider()
+        Button("Copy Path") { actions.copy(row.id.display) }
+        Button("Copy Branch Name") { if let branch = row.branchName { actions.copy(branch) } }
+            .disabled(row.branchName == nil)
+        Divider()
+        // A missing folder has nothing to show (§4.4); a path that is not valid UTF-8 has no file actions.
+        Button("Reveal in Finder") { actions.revealWorktree(row.id) }
+            .disabled(row.isDimmed || !row.id.isRepresentable)
+        Button("Open in Terminal") { actions.openTerminal(row.id) }
+            .disabled(row.isDimmed || !row.id.isRepresentable)
     }
 }

@@ -87,12 +87,13 @@ struct WipDetailView: View {
                 ForEach(groups) { group in
                     WipGroupCard(
                         group: group, selectedPath: selectedPath(in: group.group), isListFocused: hasFocus,
-                        onSelect: { row in select(row) })
+                        onSelect: { row in select(row) }, worktree: model.worktreePath)
                 }
             }
             .focusable()
             .focused($hasFocus)
             .focusEffectDisabled()
+            .focusOnRequest([.detail], $hasFocus)
             .onKeyPress(keys: [.upArrow, .downArrow]) { press in
                 move(groups: groups, down: press.key == .downArrow)
             }
@@ -146,6 +147,8 @@ struct WipGroupCard: View {
     let selectedPath: GitPath?
     let isListFocused: Bool
     let onSelect: (WipFileRow) -> Void
+    /// The worktree the rows are in, for the file row menu (#73); `nil` hides the menu.
+    var worktree: GitPath?
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
@@ -177,6 +180,11 @@ struct WipGroupCard: View {
                 .contentShape(Rectangle())
                 .onTapGesture { onSelect(row) }
                 .accessibilityAction { onSelect(row) }
+                .contextMenu {
+                    if let worktree {
+                        FileRowMenu(worktree: worktree, path: row.path, showDiff: { onSelect(row) })
+                    }
+                }
             }
             if let note = group.limitNote {
                 Text(note)

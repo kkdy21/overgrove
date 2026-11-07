@@ -40,6 +40,22 @@ enum RowActions {
         }
     }
 
+    /// What goes on the clipboard: the text as it is shown, with control, format (bidi), and line-separator
+    /// characters escaped (`\u{A}`), so a file name cannot paste a line break or a bidi override into a terminal
+    /// (T14). A commit message keeps its line feeds and tabs.
+    static func clipboardText(_ text: String, keepsLineBreaks: Bool = false) -> String {
+        guard keepsLineBreaks else { return PathValidator.displayable(text) }
+        var result = ""
+        for scalar in text.unicodeScalars {
+            if scalar == "\n" || scalar == "\t" {
+                result.unicodeScalars.append(scalar)
+            } else {
+                result += PathValidator.displayable(String(scalar))
+            }
+        }
+        return result
+    }
+
     /// `url` when it is an `https` URL with a host; anything else (including `http`, `file`, custom schemes) is refused.
     static func browserTarget(_ url: URL) -> Result<URL, RowActionRefusal> {
         guard url.scheme?.lowercased() == "https", let host = url.host, !host.isEmpty else {

@@ -9,6 +9,10 @@ struct IssueRow: Identifiable, Equatable {
     /// A linked worktree (`tree`) or local branch (`arrow.triangle.branch`), #82.
     let linkKind: IssueLinkIndex.Kind?
     let accessibilityLabel: String
+    /// Open in Browser (#73): only a github.com issue page for this number (`IssueDetailModel.browserURL(for:)`).
+    let browserURL: URL?
+    /// What Copy URL puts on the clipboard, escaped.
+    let urlText: String
 
     init(_ issue: Issue, linkKind: IssueLinkIndex.Kind? = nil) {
         id = issue.number
@@ -22,6 +26,8 @@ struct IssueRow: Identifiable, Equatable {
             case nil: nil
             }
         accessibilityLabel = (["Issue \(issue.number)", title] + [link].compactMap { $0 }).joined(separator: ", ")
+        browserURL = IssueDetailModel.browserURL(for: issue)
+        urlText = PathValidator.displayable(issue.url.absoluteString)
     }
 }
 

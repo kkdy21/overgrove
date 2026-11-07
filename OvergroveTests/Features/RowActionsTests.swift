@@ -3,7 +3,7 @@ import XCTest
 
 @testable import Overgrove
 
-/// Row menu safety checks (#73, interaction.md §5, security-review.md T14).
+/// SEC-T14-07: row menu safety checks (#73, interaction.md §5, security-review.md T14).
 final class RowActionsTests: XCTestCase {
     private var root: URL!
     private var outside: URL!
@@ -52,5 +52,12 @@ final class RowActionsTests: XCTestCase {
         ] {
             XCTAssertEqual(RowActions.browserTarget(URL(string: text)!), .failure(.notHTTPS), text)
         }
+    }
+
+    func testClipboardTextEscapesWhatAPasteCouldHide() {
+        XCTAssertEqual(RowActions.clipboardText("src/a.swift"), "src/a.swift")
+        XCTAssertEqual(RowActions.clipboardText("a\nb\u{202E}c\u{7}"), "a\\u{A}b\\u{202E}c\\u{7}")
+        XCTAssertEqual(
+            RowActions.clipboardText("s\r\n\nb\t\u{2028}", keepsLineBreaks: true), "s\\u{D}\n\nb\t\\u{2028}")
     }
 }

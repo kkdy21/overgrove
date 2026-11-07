@@ -117,6 +117,8 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⎋` | Back / Clear | — | 우선순위: ① S-09·S-10 닫기 ② 검색어 지우기 ③ 주 선택을 기본값으로 |
 | `Tab` / `⇧Tab` | 다음 / 이전 패널 | — | 전체 키보드 접근 |
 
+**구현 상태 (#73)**: Navigate 메뉴(`⌘J`, `⌘I`, `⌘1`~`⌘4`)와 Edit › Copy Full Path(`⌥⌘C`), 선택에 따른 `⌘C`, 그래프·사이드바·상세 목록의 `↑`/`↓`·`⌘↑`/`⌘↓`, 그래프의 `⏎`(상세로 포커스), `⎋`의 ②③이 들어왔다. `⎋` ①은 각 화면의 `‹ Graph` 버튼이 맡는다. `⌘F`·`⌘G`는 검색(#74)과 함께 넣는다. `Tab`/`⇧Tab`은 시스템의 전체 키보드 접근을 따른다. 사이드바 섹션의 `←`/`→`는 아직 없다.
+
 ### 3.2 바꾼 이유와 확인한 충돌
 
 | 후보 | 판단 |
@@ -215,6 +217,8 @@ stateDiagram-v2
 | 원격 그룹 행 | Copy Remote URL (자격 증명 제거), Fetch This Remote → v0.1 제외 | Fetch This Remote |
 | Stash 행 | Show Changes, Copy Ref, Copy SHA | — |
 | 이슈 행 | Open in Browser, Copy URL, Copy Number, Show Linked Branch | — |
+
+**구현 상태 (#73)**: 위 v0.1 항목을 넣었다. 파일 행의 Show History는 S-09와 함께, 원격 그룹 행 메뉴는 v0.1 범위 밖이라 넣지 않았다. 워크트리 행에는 기존 Compare with Base(#158)도 남긴다. 커밋·stash 파일 행의 Reveal in Finder와 Copy Full Path는 포커스 워크트리 기준이다.
 
 **보안 조건** ([security-review.md](security-review.md)):
 

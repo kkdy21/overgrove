@@ -150,6 +150,8 @@ struct GraphPanel: View {
     /// Commits outlined for the selected issue (#82).
     var highlightedCommits: Set<ObjectID> = []
     var onSelectCommit: ((ObjectID) -> Void)?
+    var onSelectWip: (() -> Void)?
+    var onOpen: () -> Void = {}
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -175,7 +177,9 @@ struct GraphPanel: View {
             switch graphStore?.status {
             case .loaded?:
                 if let graphStore {
-                    GraphView(store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits)
+                    GraphView(
+                        store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits,
+                        onSelectWip: onSelectWip, onOpen: onOpen)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
