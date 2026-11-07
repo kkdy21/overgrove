@@ -58,30 +58,6 @@ struct PanelEmptyState: View {
     }
 }
 
-/// A non-interactive stand-in for a field that a later feature makes live (the sidebar filter).
-struct PlaceholderField: View {
-    let symbol: String
-    let prompt: String
-    let shortcut: String
-
-    var body: some View {
-        HStack(spacing: Tokens.Spacing.xs) {
-            Image(systemName: symbol).accessibilityHidden(true)
-            Text(prompt)
-            Spacer(minLength: Tokens.Spacing.sm)
-            Text(shortcut).font(Tokens.Font.monoSmall)
-        }
-        .font(Tokens.Font.callout)
-        .foregroundStyle(Tokens.Color.textTertiary)
-        .padding(.horizontal, Tokens.Spacing.sm)
-        .frame(height: Tokens.Size.rowSidebar)
-        .background(Tokens.Color.surfaceControl, in: RoundedRectangle(cornerRadius: Tokens.Radius.md))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(prompt)
-        .accessibilityAddTraits(.isStaticText)
-    }
-}
-
 // MARK: - The three panels of S-01
 
 /// Sidebar: filter header, then WORKTREES / LOCAL / REMOTE / STASHES / ISSUES.
@@ -107,35 +83,44 @@ struct SidebarPanel: View {
     var onCheckIssuesAgain: () -> Void = {}
     var canCompareWorktree: (GitPath) -> Bool = { _ in false }
     var onCompareWorktree: (GitPath) -> Void = { _ in }
+    /// The Filter field (⌥⌘F, #74): worktrees, branches, stashes, and issues whose names contain it.
+    var filter: Binding<String> = .constant("")
+    var filterFocusRequest = 0
+
+    private var query: String? { SidebarFilter.query(filter.wrappedValue) }
 
     var body: some View {
         PanelSection {
-            // TODO(#74): filter the sidebar.
-            PlaceholderField(symbol: "magnifyingglass", prompt: "Filter", shortcut: "⌥⌘F")
+            SidebarFilterField(text: filter, focusRequest: filterFocusRequest)
         } content: {
             if hasRepository {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         WorktreeListSection(
-                            status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
+                            status: worktreeStatus, model: worktreeModel?.filtered(query),
+                            selectedPath: selectedWorktree,
                             onSelect: onSelectWorktree, canCompare: canCompareWorktree,
                             onCompare: onCompareWorktree)
                         if let branchModel {
                             BranchListSection(
-                                title: "LOCAL", count: branchModel.localCount, nodes: branchModel.local,
-                                warning: branchModel.warning)
+                                title: "LOCAL", count: branchModel.localCount,
+                                nodes: SidebarFilter.branches(branchModel.local, query: query),
+                                warning: branchModel.warning, isFiltered: query != nil)
                             BranchListSection(
-                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote,
-                                folderHelp: Self.remoteFolderHelp(remoteURLTooltips))
+                                title: "REMOTE", count: branchModel.remoteCount,
+                                nodes: SidebarFilter.branches(branchModel.remote, query: query),
+                                folderHelp: Self.remoteFolderHelp(remoteURLTooltips), isFiltered: query != nil)
                         }
                         if case .loaded = worktreeStatus {
                             StashListSection(
-                                rows: stashRows, isPartial: isStashListPartial, selectedID: selectedStash,
+                                rows: stashRows.filter { SidebarFilter.matches(query, $0.refName, $0.message) },
+                                isPartial: isStashListPartial, selectedID: selectedStash,
                                 onSelect: onSelectStash)
                         }
                         if let issueModel {
                             IssueListSection(
-                                model: issueModel, selectedNumber: selectedIssue, onSelect: onSelectIssue,
+                                model: issueModel.filtered(query), selectedNumber: selectedIssue,
+                                onSelect: onSelectIssue,
                                 onCheckAgain: onCheckIssuesAgain)
                         }
                     }
@@ -158,6 +143,10 @@ struct GraphPanel: View {
     var onSelectCommit: ((ObjectID) -> Void)?
     var onSelectWip: (() -> Void)?
     var onOpen: () -> Void = {}
+    /// The toolbar search over the loaded graph (#74).
+    var search: GraphSearchResult?
+    var onFindNext: () -> Void = {}
+    var onFindPrevious: () -> Void = {}
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -185,7 +174,8 @@ struct GraphPanel: View {
                 if let graphStore {
                     GraphView(
                         store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits,
-                        onSelectWip: onSelectWip, onOpen: onOpen)
+                        onSelectWip: onSelectWip, onOpen: onOpen, search: search, onFindNext: onFindNext,
+                        onFindPrevious: onFindPrevious)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)

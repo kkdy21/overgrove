@@ -20,6 +20,8 @@ struct OvergroveApp: App {
             // File › Add Repository… (⌘O) (#84).
             RepositoryCommands()
             NavigationCommands()
+            // Edit › Find ⌘F, Find Next ⌘G, Find Previous ⌘⇧G, Filter Sidebar ⌥⌘F (#74).
+            SearchCommands()
         }
         // S-08 (⌘,), #86.
         Settings {

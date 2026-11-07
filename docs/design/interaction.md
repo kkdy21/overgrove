@@ -97,7 +97,8 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⌘⇧R` | Fetch | Repository | **HANDOFF의 `⌘⇧F`에서 변경.** 아래 3.2 참고 |
 | `⌘.` | Stop | Repository | 진행 중인 fetch나 긴 조회를 취소. macOS 표준 취소 단축키 |
 | `⌘F` | Find | Edit › Find | 그래프 필터 |
-| `⌘G` / `⌘⇧G` | Find Next / Previous | Edit › Find | 표준 |
+| `⌘G` / `⌘⇧G` | Find Next / Previous | Edit › Find | 표준. 검색 필드에서 `⏎`는 Find Next |
+| `⌥⌘F` | Filter Sidebar | Edit › Find | 사이드바 필터 필드로 포커스. `⎋`로 필터를 지운다 |
 | `⌘J` | Jump to HEAD | Navigate | 포커스 워크트리의 HEAD로 스크롤하고 선택. TextEdit 등의 "Jump to Selection" 관례 |
 | `⌘⇧B` | Compare with Base | Navigate | 포커스 워크트리를 기준 브랜치와 비교(S-11). 툴바 `Compare`와 같다. 상태를 읽지 못한 워크트리에서는 꺼진다 (#158) |
 | `⌘I` | Show Worktree Info | Navigate | 워크트리 맥락에서 `Changes` ↔ `Worktree` 세그먼트 전환. Finder의 Get Info 관례 |
@@ -117,7 +118,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⎋` | Back / Clear | — | 우선순위: ① S-09·S-10 닫기 ② 검색어 지우기 ③ 주 선택을 기본값으로 |
 | `Tab` / `⇧Tab` | 다음 / 이전 패널 | — | 전체 키보드 접근 |
 
-**구현 상태 (#73)**: Navigate 메뉴(`⌘J`, `⌘I`, `⌘1`~`⌘4`)와 Edit › Copy Full Path(`⌥⌘C`), 선택에 따른 `⌘C`, 그래프·사이드바·상세 목록의 `↑`/`↓`·`⌘↑`/`⌘↓`, 그래프의 `⏎`(상세로 포커스), `⎋`의 ②③이 들어왔다. `⎋` ①은 각 화면의 `‹ Graph` 버튼이 맡는다. `⌘F`·`⌘G`는 검색(#74)과 함께 넣는다. `Tab`/`⇧Tab`은 시스템의 전체 키보드 접근을 따른다. 사이드바 섹션의 `←`/`→`는 아직 없다.
+**구현 상태 (#73)**: Navigate 메뉴(`⌘J`, `⌘I`, `⌘1`~`⌘4`)와 Edit › Copy Full Path(`⌥⌘C`), 선택에 따른 `⌘C`, 그래프·사이드바·상세 목록의 `↑`/`↓`·`⌘↑`/`⌘↓`, 그래프의 `⏎`(상세로 포커스), `⎋`의 ②③이 들어왔다. `⎋` ①은 각 화면의 `‹ Graph` 버튼이 맡는다. `⌘F`·`⌘G`·`⌘⇧G`·`⌥⌘F`는 검색(#74)이 넣었다(Edit › Find, `SearchCommands`). `⌘F`는 툴바 검색 필드로 포커스를 옮긴다. `.searchFocused`는 macOS 15부터라서, 14와 15 모두 AppKit의 `NSSearchToolbarItem`을 통해 포커스를 준다. `Tab`/`⇧Tab`은 시스템의 전체 키보드 접근을 따른다. 사이드바 섹션의 `←`/`→`는 아직 없다.
 
 ### 3.2 바꾼 이유와 확인한 충돌
 

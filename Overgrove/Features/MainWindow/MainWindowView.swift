@@ -15,6 +15,7 @@ struct MainWindowView: View {
         window
             .focusedSceneValue(\.repositoryActions, focusedActions)
             .focusedSceneValue(\.navigationActions, navigationActions)
+            .focusedSceneValue(\.searchActions, searchActions)
             .onExitCommand(perform: state.escape)
             // `⌘C` with no text selected copies what the selection names (interaction.md §3.1).
             .onCopyCommand {
@@ -91,12 +92,14 @@ struct MainWindowView: View {
                     selectedIssue: state.selectedIssueNumber, onSelectIssue: state.selectIssue,
                     onCheckIssuesAgain: state.checkIssuesAgain,
                     canCompareWorktree: { state.canCompare($0) },
-                    onCompareWorktree: { state.showComparison(of: $0) })
+                    onCompareWorktree: { state.showComparison(of: $0) }, filter: $state.sidebarFilter,
+                    filterFocusRequest: state.sidebarFilterFocusRequest)
             } center: {
                 GraphPanel(
                     hasRepository: state.repository != nil, graphStore: state.graph,
                     highlightedCommits: state.highlightedCommits, onSelectCommit: state.selectCommit,
                     onSelectWip: state.selectFocusedWip, onOpen: { state.focus(.detail) },
+                    search: state.graphSearch, onFindNext: state.findNext, onFindPrevious: state.findPrevious,
                     diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
             } detail: {
@@ -150,8 +153,9 @@ struct MainWindowView: View {
         }
         .toolbarBackground(Tokens.Color.surfaceWindow, for: .windowToolbar)
         .toolbarBackground(.visible, for: .windowToolbar)
-        // TODO(#74): filter the graph by message, author, SHA, ref, or #issue; ⌘G / ⌘⇧G between matches.
+        // Filters the loaded graph by message, author, SHA, ref, or #issue; ⏎ and ⌘G / ⌘⇧G step through matches (#74).
         .searchable(text: $state.searchText, placement: .toolbar, prompt: "Search commits, authors, refs, #issues")
+        .onSubmit(of: .search) { state.findNext() }
         .navigationTitle(state.repository?.name ?? "Overgrove")
     }
 
@@ -173,6 +177,13 @@ struct MainWindowView: View {
         guard state.fetch.canFetch else { return nil }
         let fetch = state.fetch
         return { fetch.status.isFetching ? fetch.stop() : fetch.fetch() }
+    }
+
+    private var searchActions: FocusedSearchActions {
+        let state = state
+        return FocusedSearchActions(
+            canFindMatch: state.canFindMatch, findNext: { state.findNext() }, findPrevious: { state.findPrevious() },
+            filterSidebar: { state.focusSidebarFilter() })
     }
 
     /// ⌘R from the toolbar; disabled without a repository.
