@@ -17,8 +17,11 @@ struct WorktreeDetailView: View {
                 Button("Compare with Base…") { onCompare?() }
                     .disabled(onCompare == nil)
                     .help("See what this worktree changed compared with its base branch (⌘⇧B)")
+                if let slow = model.slowStatus {
+                    SlowStatusCard(hint: slow)
+                }
                 if let security = model.security {
-                    SecurityCard(model: security)
+                    SecurityCard(model: security, report: model.securityReport)
                 } else if let reason = model.securityUnavailable {
                     DetailCard {
                         Text("Security").font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textPrimary)
@@ -111,7 +114,10 @@ private struct InfoCard: View {
 
 private struct SecurityCard: View {
     let model: WorktreeSecurityModel
+    /// `Copy Report` (#110); `nil` hides the button.
+    var report: SecurityReport.Source?
     @State private var expanded: Set<String> = []
+    @Environment(\.rowMenu) private var actions
 
     var body: some View {
         DetailCard {
@@ -122,6 +128,18 @@ private struct SecurityCard: View {
                     Text(header(now: context.date))
                         .font(Tokens.Font.caption)
                         .foregroundStyle(Tokens.Color.textTertiary)
+                }
+                if let report {
+                    Button {
+                        // Line breaks kept; every other control character escaped (`RowActions.clipboardText`).
+                        actions.copyMessage(SecurityReport.text(report))
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .hitTarget()
+                    .help("Copy Report: key names and results only, without values, paths, or remote URLs")
+                    .accessibilityLabel("Copy security report")
                 }
             }
             if let reason = model.blockingReason {
@@ -277,5 +295,29 @@ struct DetailSegmentPicker: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .fixedSize()
+        // The panel theme's outline under Increase Contrast (#304); AppKit draws the rest of the control.
+        .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.sm), normal: nil)
+    }
+}
+
+/// S-05's note on a slow status (#168): why, and `git status` to copy. Overgrove never runs it: refreshing the index is
+/// a write, and it could collide with an agent's own git work on `index.lock`.
+private struct SlowStatusCard: View {
+    let hint: SlowStatusHint
+
+    var body: some View {
+        DetailCard {
+            Label(hint.short, systemImage: "tortoise")
+                .font(Tokens.Font.columnHeader)
+                .foregroundStyle(Tokens.Color.statusWarning)
+            Text(hint.message)
+                .font(Tokens.Font.callout)
+                .foregroundStyle(Tokens.Color.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let command = hint.command {
+                CopyableCommand(command: command)
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 }

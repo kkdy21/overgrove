@@ -8,6 +8,8 @@ struct StatusBarItem: Equatable, Identifiable {
         /// `Refreshing…` with a small spinner while local data reloads (interaction.md §4).
         case refreshing
         case aheadBehind
+        /// The focused worktree's last status was slow (#168); the tooltip explains why.
+        case slowStatus
         case worktrees
         case prunable
         case gh
@@ -23,6 +25,8 @@ struct StatusBarItem: Equatable, Identifiable {
     let text: String
     let symbol: String?
     let tone: Tone
+    /// A tooltip that explains the field (the slow-status hint, #168).
+    var help: String?
 
     var id: Kind { kind }
     /// The gh status sits at the trailing end; everything else is on the leading side.
@@ -57,6 +61,11 @@ struct StatusBarItem: Equatable, Identifiable {
                     StatusBarItem(
                         kind: .aheadBehind, text: "↑\(worktree.ahead) ↓\(worktree.behind)", symbol: nil, tone: .neutral)
                 )
+            }
+            if let slow = snapshot.focusedWorktree?.slowStatus {
+                items.append(
+                    StatusBarItem(
+                        kind: .slowStatus, text: slow.short, symbol: "tortoise", tone: .warning, help: slow.message))
             }
             let count = snapshot.worktreeCount
             items.append(
@@ -173,6 +182,8 @@ struct StatusBar: View {
                     .buttonStyle(.plain)
                     .help("GitHub CLI setup")
                     .accessibilityHint("Opens the setup assistant")
+            } else if let help = item.help {
+                field(item).help(help).accessibilityHint(help)
             } else {
                 field(item)
             }
