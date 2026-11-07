@@ -250,12 +250,16 @@ raw 레코드가 모두 나온 뒤 numstat 레코드가 나온다 (확인).
 
 - raw 구간은 토큰이 `:`로 시작하는 동안 이어진다.
 - 두 구간은 새 경로 기준으로 합친다. 상태 문자(A, M, D, R, C, T)는 raw에서, 줄 수는 numstat에서 가져온다.
+  - numstat 레코드는 raw 레코드와 같은 순서로 하나씩 나온다. 타입 변경(`T`)도 numstat 레코드는 하나다 (확인). 순서·개수·경로가 어긋나면 `parseFailed`.
+  - 잘린 출력에서 numstat이 잘려 나간 파일은 버린다. 줄 수를 모르는데 `nil`로 두면 바이너리로 보이기 때문이다.
 - 루트 커밋은 `--root`가 있어야 파일 목록이 나온다 (확인).
 - 병합 커밋은 첫 부모를 명시해 두 트리를 비교한다. 기본 동작은 파일 목록을 내지 않는다 (확인).
 
 ### 8.2 stash 파일 — `stash show --include-untracked --numstat -z`
 
-numstat 레코드만 나온다. `--include-untracked`가 있으면 untracked 부분 파일도 포함된다 (git 2.32+, 확인). untracked 출신 파일인지는 stash 커밋의 세 번째 부모(`%P`)에 있는지로 구분한다. 이 판별 방법은 Phase 3에서 PAR-NUMSTAT-05로 확정한다.
+numstat 레코드만 나온다. `--include-untracked`가 있으면 untracked 부분 파일도 포함된다 (git 2.32+, 확인). untracked 출신 파일인지는 stash 커밋의 세 번째 부모(`%P`)에 있는지로 구분한다. 세 번째 부모는 untracked 트리만 담은 루트 커밋이라서 `commitFiles(<stash>^3)`의 파일 목록이 곧 untracked 파일 목록이다. 이 경로 집합을 `parseStashFiles(untrackedPaths:)`에 넘기고 raw 바이트로 비교한다 (PAR-NUMSTAT-05, Apple Git 2.50.1 확인).
+
+- stash 출력에도 이름 변경 numstat(`<added>\t<deleted>\t␀<old>␀<new>␀`)이 나온다. `stash show`는 `diff.renames` 기본값(켜짐)을 따른다 (확인).
 
 | 테스트 | 사례 |
 |---|---|
@@ -350,6 +354,13 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | 커밋 트레일러 | `^Refs: #(\d{1,7})$`, `^(?:Closes\|Fixes\|Resolves) #(\d{1,7})` (`%B`에서) |
 
 매칭된 번호는 이슈 목록에 있을 때만 링크로 표시한다. 목록에 없으면 회색 `#n`으로 표시한다.
+
+경계 규칙 (오탐 배제, #57에서 확정):
+- 숫자는 ASCII `0-9`만 센다. `\d`가 받아들이는 전각·기타 유니코드 숫자는 제외한다.
+- 숫자가 8자리 이상 이어지면 앞 7자리로 자르지 않고 매칭하지 않는다. `0`은 이슈 번호가 아니다.
+- 제목의 `#`는 단어 문자, `&`, `/`, `#` 바로 뒤에 오면 매칭하지 않는다. 그래서 `C#10`, `&#123;`, `issue#12`, `path/#12`가 빠진다. `#define`은 숫자가 없어서 빠진다.
+- `owner/repo#n`은 `owner/repo`가 현재 저장소와 같을 때만 매칭한다(GitHub처럼 대소문자 무시). `evil-owner/repo#n`이나 `x/owner/repo#n`은 다른 대상으로 보고 매칭하지 않는다.
+- 트레일러는 줄 단위로 보고, `\r\n` 줄바꿈도 받아들인다.
 
 | 테스트 | 사례 |
 |---|---|
