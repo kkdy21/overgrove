@@ -166,7 +166,7 @@ final class HistoryIntegrationTests: XCTestCase {
 
     /// INT-20: the git the app runs parses as a supported version.
     func testINT20_InstalledGitVersionIsSupported() async throws {
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let client = GitClient(environment: environment)
         let output = try await client.run(.version, in: nil, safety: .preInspection)
         let version = try VersionParser.parse(output.stdout)
