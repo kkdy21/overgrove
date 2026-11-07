@@ -387,10 +387,11 @@ worktrees/wt-no-upstream   staged=0 unstaged=0 untracked=0 conflicted=0
 | `testINT11_Refs` | 같은 파일 | INT-11 |
 | `testINT12_FetchThenAheadBehindAgrees` | 같은 파일 | INT-12 (D4) |
 | `testINT20_InstalledGitVersionIsSupported` | 같은 파일 | INT-20 |
+| `testINT10_FixtureSpecialFileNames` | `Security/SECT9InjectionTests.swift` (#93) | INT-10: §5의 커밋된 특수 파일명은 `fileHistory`·`worktreeDiff`, 미추적 특수 파일명은 `PathValidator` → `untrackedPreview`, `line⏎break.txt`는 staged diff로 조회해 그 파일만 대상이 됨 |
 
 - INT-14의 "status를 호출하지 않음"은 화면 계층의 동작이다. 여기서는 그 근거인 "경로가 없는 워크트리의 status는 `GitError.worktreeMissing`으로 실패한다"를 확인한다.
 - D4의 "마지막 fetch 시각 표시"는 `FetchRecord`를 만드는 계층(화면·저장소 상태)이 생길 때 다룬다. 여기서는 fetch 뒤 ahead/behind가 status(`branch.ab`), `for-each-ref`(`upstream:track`), `rev-list` 세 곳에서 일치함을 확인한다. upstream 이름은 출처마다 형식이 다르다(status는 `origin/main`, `for-each-ref`는 `refs/remotes/origin/main`).
-- 다루지 않는 것: INT-10(특수 파일명 diff·이력, SEC-T9-03과 함께 #93), INT-13(UI 모델의 원격 URL 마스킹, S-05 화면), INT-19(#61에서 구현).
+- 다루지 않는 것: INT-13(UI 모델의 원격 URL 마스킹, S-05 화면. 화면이 쓸 모델은 SEC-T11-04가 확인한다), INT-19(#61에서 구현).
 
 ## 10. 확장 규칙
 

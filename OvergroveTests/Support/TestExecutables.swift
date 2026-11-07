@@ -140,6 +140,15 @@ struct TestExecutables {
         )
     }
 
+    /// A program that records that it ran by creating `<canary>/<name>`, prints `stdout`, and exits 0 (#93). Stands in
+    /// for anything a hostile environment or configuration could make git run (pager, external diff, askpass, ssh).
+    func canaryProgram(named name: String, canary: URL, stdout: String = "") throws -> URL {
+        try FileManager.default.createDirectory(at: canary, withIntermediateDirectories: true)
+        let marker = canary.appendingPathComponent(name).path
+        let printed = stdout.isEmpty ? "" : "printf '%s\\n' '\(stdout)'\n"
+        return try script("canary-\(name)-\(UUID().uuidString)", ": > '\(marker)'\n\(printed)exit 0")
+    }
+
     private func script(_ name: String, _ body: String, in folder: URL? = nil) throws -> URL {
         let url = (folder ?? directory).appendingPathComponent(name)
         try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
