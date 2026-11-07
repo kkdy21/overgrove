@@ -91,6 +91,8 @@ struct SidebarPanel: View {
     var worktreeModel: WorktreeListModel?
     var selectedWorktree: GitPath?
     var onSelectWorktree: (GitPath) -> Void = { _ in }
+    var canCompareWorktree: (GitPath) -> Bool = { _ in false }
+    var onCompareWorktree: (GitPath) -> Void = { _ in }
 
     var body: some View {
         PanelSection {
@@ -102,7 +104,8 @@ struct SidebarPanel: View {
                 ScrollView {
                     WorktreeListSection(
                         status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
-                        onSelect: onSelectWorktree)
+                        onSelect: onSelectWorktree, canCompare: canCompareWorktree,
+                        onCompare: onCompareWorktree)
                 }
             } else {
                 PanelEmptyState(
@@ -116,13 +119,18 @@ struct SidebarPanel: View {
 /// Center: author filter header, column headers, and the commit graph. TODO(#68): commit graph.
 struct GraphPanel: View {
     let hasRepository: Bool
-    /// A file picked in the detail panel covers the graph with its diff (S-10).
-    var selectedFile: FileSelection?
+    /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
+    var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
 
+    /// S-11 covers the graph while a comparison is open (#158).
+    var comparison: ComparisonCenterView?
+
     var body: some View {
-        if let selectedFile {
-            DiffPlaceholder(file: selectedFile, onShowGraph: onShowGraph)
+        if let comparison {
+            comparison
+        } else if let diff {
+            DiffViewerView(title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph)
         } else {
             graph
         }
@@ -141,32 +149,6 @@ struct GraphPanel: View {
     }
 }
 
-/// Where the diff viewer (S-10) will go. TODO(#69): show the selected file's patch here.
-struct DiffPlaceholder: View {
-    let file: FileSelection
-    let onShowGraph: () -> Void
-
-    var body: some View {
-        PanelSection {
-            Button(action: onShowGraph) {
-                Label("Graph", systemImage: "chevron.left")
-            }
-            .buttonStyle(.borderless)
-            .keyboardShortcut(.cancelAction)
-            .help("Back to the graph (⎋)")
-            Text(PathValidator.displayable(file.path.display))
-                .font(Tokens.Font.headline)
-                .foregroundStyle(Tokens.Color.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.head)
-        } content: {
-            PanelEmptyState(
-                symbol: "doc.text", title: "Diff viewer",
-                message: "The \(file.group.title.lowercased()) changes of this file will appear here.")
-        }
-    }
-}
-
 /// Detail: the selected worktree's changes (S-02) or facts and safety (S-05), switched by the header segment.
 struct DetailPanel: View {
     let focusedWorktree: FocusedWorktree?
@@ -179,6 +161,10 @@ struct DetailPanel: View {
     var showsWorktreeSegment: Bool?
     var onShowChanges: () -> Void = {}
     var onShowWorktree: () -> Void = {}
+    /// S-11's lists while a comparison is open (#158).
+    var comparisonList: ComparisonListView?
+    /// S-05's `Compare with Base…` (#158); `nil` disables it.
+    var onCompare: (() -> Void)?
 
     var body: some View {
         PanelSection {
@@ -193,8 +179,10 @@ struct DetailPanel: View {
                 DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
             }
         } content: {
-            if let worktreeModel {
-                WorktreeDetailView(model: worktreeModel)
+            if let comparisonList {
+                comparisonList
+            } else if let worktreeModel {
+                WorktreeDetailView(model: worktreeModel, onCompare: onCompare)
             } else if let wipModel {
                 WipDetailView(model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile)
             } else if worktreeStatus == .loading {

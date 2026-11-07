@@ -16,6 +16,8 @@ struct MainToolbar: ToolbarContent {
     let toggleSidebar: () -> Void
     /// ⌘R; `nil` (disabled) without a repository.
     var refresh: (() -> Void)?
+    /// Compare with base (`⌘⇧B`, #158); `nil` disables the button.
+    var onCompare: (() -> Void)?
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .navigation) {
@@ -45,9 +47,16 @@ struct MainToolbar: ToolbarContent {
                     ToolbarGroupSeparator()
                 }
                 ForEach(ToolbarAction.allCases.filter { $0.group == group }, id: \.self) { action in
-                    ToolbarActionButton(
-                        title: action.title, symbol: action.symbol, help: action.help,
-                        action: action == .refresh ? refresh : nil)
+                    if action == .compare {
+                        ToolbarActionButton(
+                            title: action.title, symbol: action.symbol, help: action.help, action: onCompare
+                        )
+                        .keyboardShortcut("b", modifiers: [.command, .shift])
+                    } else {
+                        ToolbarActionButton(
+                            title: action.title, symbol: action.symbol, help: action.help,
+                            action: action == .refresh ? refresh : nil)
+                    }
                 }
             }
         }
@@ -102,7 +111,6 @@ enum ToolbarAction: CaseIterable, Hashable {
         // TODO(#77): fetch all remotes; becomes Stop while running.
         case .fetch: "Fetch all remotes (⌘⇧R)"
         case .refresh: "Refresh local data (⌘R)"
-        // TODO(#158): compare the focused worktree with its base branch.
         case .compare: "Compare with base branch (⌘⇧B)"
         // TODO(#73): Open in Terminal / Reveal in Finder for the focused worktree (interaction.md §5 rules).
         case .terminal: "Open the focused worktree in Terminal"

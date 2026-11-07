@@ -271,7 +271,7 @@ actor RepositoryService {
     }
 
     private enum Part: Sendable {
-        case status(GitPath, RepositoryOverview.Status)
+        case status(RepositoryOverview.Entry)
         case refs(RefParser.Listing)
         case stashes(StashParser.Listing)
     }
@@ -299,12 +299,12 @@ actor RepositoryService {
             return (worktree, folder)
         }
 
-        var fresh: [GitPath: RepositoryOverview.Status] = [:]
+        var fresh: [GitPath: RepositoryOverview.Entry] = [:]
         var refs: RefParser.Listing?
         var stashes: StashParser.Listing?
         try await withThrowingTaskGroup(of: Part.self) { group in
             for (worktree, folder) in stale {
-                group.addTask { .status(worktree.path, await Self.status(of: worktree, at: folder, context)) }
+                group.addTask { .status(await Self.status(of: worktree, at: folder, context)) }
             }
             if plan.refs || previous == nil {
                 group.addTask { .refs(try await Self.refs(context, directory: directory, safety: safety)) }
@@ -314,7 +314,7 @@ actor RepositoryService {
             }
             for try await part in group {
                 switch part {
-                case .status(let path, let status): fresh[path] = status
+                case .status(let entry): fresh[entry.worktree.path] = entry
                 case .refs(let listing): refs = listing
                 case .stashes(let listing): stashes = listing
                 }
@@ -322,7 +322,7 @@ actor RepositoryService {
         }
 
         // Derived invalidation: fresh statuses show a moved branch tip or a different stash count.
-        let states = fresh.values.compactMap { if case .loaded(let state) = $0 { state } else { nil } }
+        let states = fresh.values.compactMap { if case .loaded(let state) = $0.status { state } else { nil } }
         let cachedRefs = refs == nil ? previous?.overview.refs : nil
         let cachedStashes = stashes == nil ? previous?.overview.stashes : nil
         let refsMoved = cachedRefs.map { !tipsMatch($0, states, worktrees) } ?? false
@@ -415,7 +415,7 @@ actor RepositoryService {
     private static func assemble(
         _ worktrees: [(Worktree, Admission)],
         isListPartial: Bool,
-        fresh: [GitPath: RepositoryOverview.Status],
+        fresh: [GitPath: RepositoryOverview.Entry],
         previous: CachedRepository?,
         at now: ContinuousClock.Instant,
         refs: RefParser.Listing,
@@ -423,19 +423,22 @@ actor RepositoryService {
         inspection: RepoConfigInspection
     ) -> CachedRepository {
         let cached = Dictionary(
-            (previous?.overview.entries ?? []).map { ($0.worktree.path, $0.status) }, uniquingKeysWith: { $1 })
+            (previous?.overview.entries ?? []).map { ($0.worktree.path, $0) }, uniquingKeysWith: { $1 })
         var times: [GitPath: ContinuousClock.Instant] = [:]
         let entries = worktrees.map { worktree, admission in
             let path = worktree.path
             if case .skip(let status) = admission {
                 return RepositoryOverview.Entry(worktree: worktree, status: status)
             }
-            if let status = fresh[path] {
+            if let entry = fresh[path] {
                 times[path] = now
-                return RepositoryOverview.Entry(worktree: worktree, status: status)
+                return RepositoryOverview.Entry(worktree: worktree, status: entry.status, inspection: entry.inspection)
             }
             times[path] = previous?.statusTimes[path]
-            return RepositoryOverview.Entry(worktree: worktree, status: cached[path] ?? .failed(.cancelled))
+            // The listed worktree is the current one; its status and inspection come from the last query.
+            let last = cached[path]
+            return RepositoryOverview.Entry(
+                worktree: worktree, status: last?.status ?? .failed(.cancelled), inspection: last?.inspection)
         }
         let overview = RepositoryOverview(
             entries: entries, isWorktreeListPartial: isListPartial, refs: refs, stashes: stashes,

@@ -117,6 +117,16 @@ final class AppState {
     private let loader: any RepositoryLoading
     private let lineCountLoader: (any LineCountLoading)?
     private let inspector: any WorktreeInspecting
+    private let diffLoader: any DiffLoading
+    private let comparisonLoader: any ComparisonLoading
+    /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
+    private(set) var comparison: ComparisonSession?
+    /// The comparison (and its patch) in flight; tests await them.
+    private(set) var comparisonTask: Task<Void, Never>?
+    private(set) var comparisonPatchTask: Task<Void, Never>?
+    private var comparisonGeneration = 0
+    /// The base the user picked per worktree, for the session (screens.md S-11: remembered per worktree).
+    private var comparisonBases: [GitPath: FullRefName] = [:]
 
     private(set) var repository: RepositoryContext?
     /// The toolbar chip and status bar fields, derived from the worktree list and the focused worktree.
@@ -126,8 +136,18 @@ final class AppState {
     /// The focused worktree (information-architecture.md §2.2). `nil` focuses the main worktree.
     private(set) var focusedWorktreePath: GitPath?
     private(set) var selection: MainSelection?
-    /// The file picked in the detail panel; the diff viewer (S-10, #69) shows it. Cleared when the focus moves.
-    private(set) var selectedFile: FileSelection?
+    /// The file picked in the detail panel; the diff viewer (S-10, #232) shows it. Cleared when the focus moves.
+    /// Every change starts (or, for `nil`, cancels) loading its diff.
+    private(set) var selectedFile: FileSelection? {
+        didSet {
+            if selectedFile != oldValue { loadDiff() }
+        }
+    }
+    /// The selected file's diff, `nil` without a selected file.
+    private(set) var diffState: DiffLoadState?
+    /// The diff load in flight; tests await it.
+    private(set) var diffTask: Task<Void, Never>?
+    private var diffGeneration = 0
     /// S-05 inspections by worktree, read when the `Worktree` segment opens; cleared on every reload.
     private(set) var worktreeInspections: [GitPath: WorktreeInspection] = [:]
     /// The S-05 inspection in flight; tests await it.
@@ -144,16 +164,12 @@ final class AppState {
     private(set) var lineCountTask: Task<Void, Never>?
     /// Bumped on every open and close, so a load that finishes after the user moved on is dropped.
     private var loadGeneration = 0
-    /// Whether this open has shown a result the service verified (not only the cached paint). Until it has, a load
-    /// that another window superseded is retried (security review of #243).
+    /// Whether this open has shown a service-verified result, not only the cached paint (security review of #243).
     private var hasVerifiedListing = false
-    /// `.user` retries after superseded loads, before the first verified result.
+    /// `.user` retries after superseded loads, and whether they ran out (the next activation loads everything).
     private var supersededRetries = 0
-    /// The retries ran out and the unverified cached paint was taken down: the next window activation loads
-    /// everything.
     private var needsFullLoad = false
-    /// Bumped whenever S-05 inspections are dropped, so a late one is not stored (`loadGeneration` also moves on
-    /// background refreshes, which keep the inspections).
+    /// Bumped when S-05 inspections are dropped; unlike `loadGeneration`, background refreshes keep it.
     private var inspectionGeneration = 0
     /// TODO(#77): set by the fetch feature.
     var fetchStatus: FetchStatus = .never
@@ -175,12 +191,16 @@ final class AppState {
     ///   - registrar: Checks a picked folder (`.live` probes it through `GitClient`).
     ///   - loader: Inspects an opened repository and loads its worktrees.
     ///   - inspector: Reads one worktree's configuration for S-05.
+    ///   - diffLoader: Loads a picked file's patch for S-10.
+    ///   - comparisonLoader: Compares a worktree with its base branch for S-11.
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
         inspector: any WorktreeInspecting = LiveWorktreeInspector.live,
+        diffLoader: any DiffLoading = LiveDiffLoader.live,
+        comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
         lineCountLoader: (any LineCountLoading)? = nil
     ) {
         self.layoutStore = layoutStore
@@ -188,6 +208,8 @@ final class AppState {
         self.registrar = registrar
         self.loader = loader
         self.inspector = inspector
+        self.diffLoader = diffLoader
+        self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
     }
 
@@ -214,6 +236,8 @@ final class AppState {
         focusedWorktreePath = nil
         selection = nil
         selectedFile = nil
+        closeComparison()
+        comparisonBases = [:]
         lineCountTask?.cancel()
         lineCountTask = nil
         lineCounts = nil
@@ -234,20 +258,16 @@ final class AppState {
         refresh(.user)
     }
 
-    /// The window became key (interaction.md §4): re-query what is stale (`.automatic`, debounced by the service).
-    /// Skipped until the repository has loaded, and while another load runs.
+    /// The window became key (interaction.md §4): `.automatic` (debounced), once loaded and while no load runs.
     func windowDidBecomeActive() {
         guard repository != nil, runningTrigger == nil else { return }
-        if needsFullLoad {
-            // The first load was superseded every time (another window): load everything.
-            refresh(.user)
-            return
-        }
+        // The first load was superseded every time (another window): load everything.
+        if needsFullLoad { return refresh(.user) }
         guard hasVerifiedListing, case .loaded = worktreeList else { return }
         refresh(.automatic)
     }
 
-    /// Superseded first loads retried before the window falls back to Loading (the next window activation retries).
+    /// Superseded first loads retried before falling back to Loading.
     static let maximumSupersededRetries = 2
 
     /// Starts a refresh for `trigger` (overview.md §5 decides what it re-queries). A full refresh in flight is not
@@ -324,7 +344,12 @@ final class AppState {
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
         // Keep the picked file only while it is still listed in the same group.
         // Same rule as `selectFile`: the row must still exist and still be selectable.
-        if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true { selectedFile = nil }
+        if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true {
+            selectedFile = nil
+        } else if selectedFile != nil {
+            // Same file, new content: load its diff again.
+            loadDiff()
+        }
         // The load may have re-queried the status even if it reads the same (an edit inside a modified file).
         requestLineCounts(refresh: true)
     }
@@ -349,7 +374,11 @@ final class AppState {
     func selectWorktree(_ path: GitPath) {
         guard case .loaded(let listing) = worktreeList, listing.entries.contains(where: { $0.worktree.path == path })
         else { return }
-        if focusedWorktreePath != path { selectedFile = nil }
+        if focusedWorktreePath != path {
+            selectedFile = nil
+            // S-11 belongs to one worktree.
+            if comparison?.worktree != path { closeComparison() }
+        }
         focusedWorktreePath = path
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: path)
         // The segment the user chose stays when they move to another worktree; `Changes` is the default.
@@ -400,7 +429,7 @@ final class AppState {
         let target = repository.repository
         inspectionTask?.cancel()
         inspectionTask = Task { [weak self] in
-            let result = await inspector.inspect(entry.worktree, of: target)
+            let result = await inspector.inspect(entry, of: target)
             guard let self, generation == self.inspectionGeneration, !Task.isCancelled else { return }
             self.worktreeInspections[path] = result
         }
@@ -483,6 +512,187 @@ final class AppState {
     /// Back to the graph (`⎋`, interaction.md §3).
     func clearSelectedFile() {
         selectedFile = nil
+    }
+
+    // MARK: Compare with base (#158)
+
+    /// S-11's rows, `nil` without an open comparison.
+    var comparisonModel: ComparisonModel? {
+        guard let comparison else { return nil }
+        let state: WorkingState? =
+            if case .loaded(let state) = entry(at: comparison.worktree)?.state { state } else { nil }
+        return ComparisonModel(session: comparison, workingState: state)
+    }
+
+    /// Whether `path` (default: the focused worktree) can be compared: its status loaded (#157 needs it).
+    func canCompare(_ path: GitPath? = nil) -> Bool {
+        guard let path = path ?? focusedWorktreePath, case .loaded = entry(at: path)?.state else { return false }
+        return true
+    }
+
+    /// Opens S-11 for `path` (default: the focused worktree): `⌘⇧B`, the worktree row menu, S-05's button.
+    func showComparison(of path: GitPath? = nil) {
+        guard let path = path ?? focusedWorktreePath, canCompare(path) else { return }
+        if focusedWorktreePath != path { selectWorktree(path) }
+        selectedFile = nil
+        comparison = ComparisonSession(worktree: path, base: comparisonBases[path])
+        runComparison()
+    }
+
+    /// Back to the graph (`‹ Graph`, `⎋`).
+    func closeComparison() {
+        comparisonTask?.cancel()
+        comparisonPatchTask?.cancel()
+        comparisonTask = nil
+        comparisonPatchTask = nil
+        comparisonGeneration += 1
+        comparison = nil
+    }
+
+    func chooseComparisonBase(_ base: FullRefName) {
+        // Only a branch the repository listed (#157 checks again).
+        guard let worktree = comparison?.worktree, comparison?.bases.contains(base) == true else { return }
+        comparisonBases[worktree] = base
+        comparison?.base = base
+        runComparison()
+    }
+
+    func setIncludeUncommitted(_ include: Bool) {
+        guard comparison != nil, comparison?.includeUncommitted != include else { return }
+        comparison?.includeUncommitted = include
+        runComparison()
+    }
+
+    func showAllComparisonFiles() {
+        comparison?.showsAllFiles = true
+    }
+
+    private func runComparison() {
+        guard let session = comparison, let repository else { return }
+        comparisonTask?.cancel()
+        comparisonPatchTask?.cancel()
+        comparisonGeneration += 1
+        let generation = comparisonGeneration
+        comparison?.result = .loading
+        comparison?.selectedFile = nil
+        comparison?.patch = nil
+        let loader = comparisonLoader
+        let target = repository.repository
+        comparisonTask = Task { [weak self] in
+            let bases = await loader.bases(of: target)
+            let base = session.base ?? bases.preferred
+            let result: Result<WorktreeComparison, ComparisonError> =
+                if let base {
+                    await loader.compare(
+                        target, worktree: session.worktree, base: base, includeUncommitted: session.includeUncommitted)
+                } else {
+                    .failure(.noBaseBranch)
+                }
+            guard let self, generation == self.comparisonGeneration, !Task.isCancelled else { return }
+            self.comparison?.bases = bases.all
+            switch result {
+            case .success(let comparison):
+                self.comparison?.base = comparison.base
+                self.comparison?.result = .loaded(comparison)
+            case .failure(let error):
+                self.comparison?.base = base
+                self.comparison?.result = .failed(error)
+            }
+        }
+    }
+
+    /// Picks a file in S-11: committed (and uncommitted) changes come from the comparison patch, untracked files from
+    /// the same preview as S-02.
+    func selectComparisonFile(_ file: ComparisonFile) {
+        guard let session = comparison, case .loaded(let result) = session.result, let repository,
+            // Untracked selections come only from the listed untracked files, and tracked ones from FILES CHANGED.
+            let row = (file.isUntracked ? comparisonModel?.untracked : comparisonModel?.files)?
+                .first(where: { $0.path == file.path }),
+            row.isSelectable, let entry = entry(at: session.worktree)
+        else { return }
+        comparisonPatchTask?.cancel()
+        comparison?.selectedFile = file
+        comparison?.patch = .loading
+        let generation = comparisonGeneration
+        let loader = comparisonLoader
+        let diffLoader = diffLoader
+        let target = repository.repository
+        let label =
+            file.isUntracked
+            ? "Untracked" : (row.hasUncommittedChanges ? "Committed + uncommitted" : "Committed")
+        let source = DiffDocument.Source(label: label, kindLetter: row.kindLetter)
+        comparisonPatchTask = Task { [weak self] in
+            let loaded: DiffLoadResult
+            if file.isUntracked {
+                loaded = await diffLoader.load(
+                    FileSelection(worktree: session.worktree, group: .untracked, path: file.path),
+                    worktree: entry.worktree, of: target, isSubmodule: false)
+            } else {
+                loaded = await loader.patch(
+                    target, worktree: session.worktree, base: result.base, file: file.path,
+                    includeUncommitted: result.includesWorkingTree)
+            }
+            guard let self, generation == self.comparisonGeneration, !Task.isCancelled,
+                self.comparison?.selectedFile == file
+            else { return }
+            switch loaded {
+            case .patch(let patch):
+                self.comparison?.patch = .loaded(DiffDocument(listing: patch, path: file.path, source: source))
+            case .unavailable(let reason):
+                self.comparison?.patch = .unavailable(reason)
+            }
+        }
+    }
+
+    // MARK: Diff viewer (#232)
+
+    /// What the center area shows for the selected file: its title, `Staged · M`, and the load state.
+    var diffViewer: (title: String, source: String, state: DiffLoadState)? {
+        guard let file = selectedFile, let state = diffState else { return nil }
+        let letter = wipDetailModel?.row(for: file)?.kindLetter
+        let source = file.group.title + (letter.map { " · \($0)" } ?? "")
+        let title: String
+        if case .loaded(let document) = state {
+            title = document.title
+        } else {
+            title = PathValidator.displayable(file.path.display)
+        }
+        return (title, source, state)
+    }
+
+    private func loadDiff() {
+        diffTask?.cancel()
+        diffGeneration += 1
+        guard let file = selectedFile, case .loaded(let listing) = worktreeList,
+            let entry = listing.entries.first(where: { $0.worktree.path == file.worktree }), let repository
+        else {
+            diffState = nil
+            diffTask = nil
+            return
+        }
+        let generation = diffGeneration
+        let row = wipDetailModel?.row(for: file)
+        // Fail closed: without its row the file cannot be shown to be an ordinary file.
+        let isSubmodule = row?.isSubmodule ?? true
+        let source = DiffDocument.Source(label: file.group.title, kindLetter: row?.kindLetter ?? "")
+        let loader = diffLoader
+        let target = repository.repository
+        // A different file shows a spinner, not the previous file's diff under the new name; a reload of the same
+        // file keeps the old diff on screen until the new one arrives.
+        if case .loaded(let document) = diffState, document.title == PathValidator.displayable(file.path.display) {
+        } else {
+            diffState = .loading
+        }
+        diffTask = Task { [weak self] in
+            let result = await loader.load(file, worktree: entry.worktree, of: target, isSubmodule: isSubmodule)
+            guard let self, generation == self.diffGeneration, !Task.isCancelled else { return }
+            switch result {
+            case .patch(let patch):
+                self.diffState = .loaded(DiffDocument(listing: patch, path: file.path, source: source))
+            case .unavailable(let reason):
+                self.diffState = .unavailable(reason)
+            }
+        }
     }
 
     /// A finished layout change (drag released, toggle, keyboard step). Saved for the open repository; without one

@@ -30,6 +30,14 @@ struct WorktreeListing: Sendable, Equatable {
     struct Entry: Sendable, Equatable {
         let worktree: Worktree
         let state: State
+        /// The worktree's configuration inspection from the load (`RepositoryOverview.Entry.inspection`, #240).
+        let inspection: RepoConfigInspection?
+
+        init(worktree: Worktree, state: State, inspection: RepoConfigInspection? = nil) {
+            self.worktree = worktree
+            self.state = state
+            self.inspection = inspection
+        }
     }
 
     /// In `worktree list` order: the main worktree first.
@@ -47,7 +55,9 @@ extension WorktreeListing {
     /// The sidebar's view of a `RepositoryService` load.
     init(overview: RepositoryOverview) {
         self.init(
-            entries: overview.entries.map { Entry(worktree: $0.worktree, state: Self.state($0.status)) },
+            entries: overview.entries.map {
+                Entry(worktree: $0.worktree, state: Self.state($0.status), inspection: $0.inspection)
+            },
             isPartial: overview.isWorktreeListPartial)
     }
 

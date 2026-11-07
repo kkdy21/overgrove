@@ -34,8 +34,16 @@ extension RepositoryService {
     ///    have `config.worktree`); commands then run with that worktree's safety context.
     /// The probe and the inspection use the commands allowed before inspection.
     static func prepare(_ worktree: Worktree, at folder: URL, _ context: Context) async -> Preparation {
+        await prepareInspected(worktree, at: folder, context).preparation
+    }
+
+    /// `prepare`, plus the worktree's configuration inspection when it was read (ready or blocked), so the overview
+    /// can carry what the commands ran with (#240).
+    static func prepareInspected(
+        _ worktree: Worktree, at folder: URL, _ context: Context
+    ) async -> (preparation: Preparation, inspection: RepoConfigInspection?) {
         guard belongs(folder, isMain: worktree.isMain, to: context.repository) else {
-            return .refused(.notQueried(.foreignRepository))
+            return (.refused(.notQueried(.foreignRepository)), nil)
         }
         do {
             let output: GitOutput
@@ -44,35 +52,39 @@ extension RepositoryService {
             } catch GitError.launchFailed(errno: ENOENT) {
                 // The probe may run before a folder is known to be a repository, so GitClient reports a missing folder
                 // as a launch failure. Here it is a worktree that vanished after the list was read.
-                return .refused(.failed(.worktreeMissing(path: folder.path)))
+                return (.refused(.failed(.worktreeMissing(path: folder.path))), nil)
             }
             guard let probe = try? ProbeParser.parse(output.stdout),
                 isSameDirectory(probe.topLevel, folder),
                 isSameDirectory(probe.commonDirectory, context.repository.commonGitDirectoryURL)
-            else { return .refused(.notQueried(.foreignRepository)) }
+            else { return (.refused(.notQueried(.foreignRepository)), nil) }
 
             let inspection = try await inspect(folder, probe: probe, context)
             guard let safety = inspection.safetyContext else {
-                return .refused(.notQueried(.inspectionBlocked(inspection.report.blockingReason ?? "")))
+                return (.refused(.notQueried(.inspectionBlocked(inspection.report.blockingReason ?? ""))), inspection)
             }
-            return .ready(folder: folder, safety: safety)
+            return (.ready(folder: folder, safety: safety), inspection)
         } catch {
-            return .refused(failure(error))
+            return (.refused(failure(error)), nil)
         }
     }
 
-    /// One worktree's status. Errors stay with that worktree, except cancellation, which ends the whole load.
-    static func status(of worktree: Worktree, at folder: URL, _ context: Context) async -> RepositoryOverview.Status {
-        switch await prepare(worktree, at: folder, context) {
+    /// One worktree's status and the inspection it ran with. Errors stay with that worktree, except cancellation,
+    /// which ends the whole load.
+    static func status(of worktree: Worktree, at folder: URL, _ context: Context) async -> RepositoryOverview.Entry {
+        let (preparation, inspection) = await prepareInspected(worktree, at: folder, context)
+        switch preparation {
         case .refused(let status):
-            return status
+            return RepositoryOverview.Entry(worktree: worktree, status: status, inspection: inspection)
         case .ready(let folder, let safety):
+            let status: RepositoryOverview.Status
             do {
-                let status = try await context.client.run(.status, in: folder, safety: safety)
-                return .loaded(try StatusParser.parse(status.stdout, truncated: status.isTruncated))
+                let output = try await context.client.run(.status, in: folder, safety: safety)
+                status = .loaded(try StatusParser.parse(output.stdout, truncated: output.isTruncated))
             } catch {
-                return failure(error)
+                status = failure(error)
             }
+            return RepositoryOverview.Entry(worktree: worktree, status: status, inspection: inspection)
         }
     }
 
