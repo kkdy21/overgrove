@@ -91,7 +91,7 @@ scripts/make-fixture-repo.sh --force <dir>       # 비어 있지 않은 <dir>을
 | `v0.0.1` | 주석 태그 (`337f477`을 가리킴) | PAR-REF-02 |
 | `light-tag` | 경량 태그 (`4202323`) | PAR-REF-01 |
 | `refs/remotes/upstream/main` | `5606cda chore: upstream-only change` (로컬에 없는 커밋) | INT-04, INT-11 |
-| `refs/remotes/upstream/HEAD` | `refs/remotes/upstream/main`을 가리키는 symref. git 2.48 이상의 fetch가 자동으로 만든다. `origin/HEAD`는 없다 (push로만 채웠기 때문) | PAR-REF-03 |
+| `refs/remotes/upstream/HEAD` | `refs/remotes/upstream/main`을 가리키는 symref. git 2.48 이상의 fetch는 자동으로 만들지만 그 미만은 만들지 않으므로, 스크립트가 `git remote set-head upstream main`으로 직접 만든다(#99). `origin/HEAD`는 없다 (push로만 채웠기 때문) | PAR-REF-03 |
 | `refs/stash` | stash 2개 (§2.4) | PAR-STASH-01, INT-05 |
 | 원격 `mirror` | `https://<user>:<pass>@example.invalid/overgrove-fixture.git`. 사용자명과 비밀번호는 스크립트가 런타임에 조합한 가짜 값이다. `remote.mirror.skipFetchAll=true` | SEC-T11-01, SEC-T11-04, INT-13 |
 
