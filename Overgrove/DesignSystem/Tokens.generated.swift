@@ -157,6 +157,14 @@ enum Tokens {
         /// Panel header strip and the graph column header row.
         /// Light `#f3f5f9` · Dark `#1d2229`
         static let surfacePanelHeader = SwiftUI.Color("Tokens/surfacePanelHeader", bundle: nil)
+        /// 1px inner highlight along the top edge of each panel in dark mode (white 3.5%, art-direction.md §3).
+        /// Transparent in light mode, which uses surface.panel-shadow instead.
+        /// Light `#ffffff00` · Dark `#ffffff09`
+        static let surfacePanelHighlight = SwiftUI.Color("Tokens/surfacePanelHighlight", bundle: nil)
+        /// 1px shadow below each panel in light mode (black 5%, offset 1px, no blur; art-direction.md §3). Transparent
+        /// in dark mode, which uses surface.panel-highlight instead.
+        /// Light `#0000000d` · Dark `#00000000`
+        static let surfacePanelShadow = SwiftUI.Color("Tokens/surfacePanelShadow", bundle: nil)
         /// Cards inside a panel (file groups, metadata blocks, the focused worktree row).
         /// Light `#eef0f4` · Dark `#21252e`
         static let surfaceRaised = SwiftUI.Color("Tokens/surfaceRaised", bundle: nil)
@@ -174,7 +182,7 @@ enum Tokens {
         /// handle is visible before hover.
         /// Light `#666c78` · Dark `#666c78`
         static let surfaceSplitterGrip = SwiftUI.Color("Tokens/surfaceSplitterGrip", bundle: nil)
-        /// Grip while hovered or dragged; the gutter also gets surface.hover.
+        /// Grip while hovered or dragged; the gutter also gets the accent at 10% (art-direction.md §3.2, ADR-0014).
         /// Alias of `accent`, so it follows a user-chosen system accent.
         static let surfaceSplitterGripActive = SwiftUI.Color.accentColor
         /// Window background behind the panels: toolbar, gutters between panels, status bar.
@@ -287,6 +295,8 @@ enum Tokens {
         static let sidebarWidthMin: CGFloat = 220
         /// Grip capsule centred in a splitter gutter.
         static let splitterGrip = CGSize(width: 4, height: 28)
+        /// Status bar height at the bottom of the main window (art-direction.md §3).
+        static let statusBar: CGFloat = 30
         static let symbolMedium: CGFloat = 14
         static let symbolSmall: CGFloat = 12
         static let windowMinHeight: CGFloat = 600

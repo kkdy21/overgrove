@@ -1,14 +1,32 @@
 import SwiftUI
 
-/// Application entry point.
-///
-/// Phase 3 builds the real window (S-01) on top of the security foundation first; until then the app shows a
-/// placeholder so the project builds, launches, and hosts the test bundle.
+/// Application entry point. Each main window (S-01) shows one repository and owns its `AppState`; only the panel
+/// layout store, which keys layouts by repository, is shared (prd.md, interaction.md §1.1: one repository per window).
 @main
 struct OvergroveApp: App {
+    private let layoutStore = PanelLayoutStore()
+
     var body: some Scene {
         WindowGroup("Overgrove") {
-            PlaceholderView()
+            MainWindowScene(layoutStore: layoutStore)
         }
+        .windowToolbarStyle(.unified(showsTitle: false))
+        .commands {
+            // View › Show/Hide Sidebar (⌃⌘S) and Show/Hide Detail (⌥⌘0) for the panel split container (#174).
+            PanelCommands()
+        }
+    }
+}
+
+/// One window's root: creates that window's state once and keeps it for the window's lifetime.
+struct MainWindowScene: View {
+    @State private var state: AppState
+
+    init(layoutStore: PanelLayoutStore) {
+        _state = State(initialValue: AppState(layoutStore: layoutStore))
+    }
+
+    var body: some View {
+        MainWindowView(state: state)
     }
 }

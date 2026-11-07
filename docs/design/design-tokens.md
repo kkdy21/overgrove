@@ -69,7 +69,7 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | 키는 kebab-case | `selection-inactive`, `row-graph` |
 | primitive는 `색상군-단계`. 단계가 클수록 어둡다 | `green-600`, `slate.850` |
 | semantic은 역할 이름. 색상 이름을 쓰지 않는다 | `status.conflicted` (O), `status.red` (X) |
-| semantic 색은 원칙적으로 별칭(`{…}`)만 쓴다. 예외는 알파를 섞어 다른 표면 위에 겹치는 `surface.hover`, `surface.control`(다크), `surface.wip-row`, `surface.scrollbar-thumb`와 `surface.selection` | |
+| semantic 색은 원칙적으로 별칭(`{…}`)만 쓴다. 예외는 알파를 섞어 다른 표면 위에 겹치는 `surface.hover`, `surface.control`(다크), `surface.wip-row`, `surface.scrollbar-thumb`, `surface.panel-highlight`, `surface.panel-shadow`와 `surface.selection` | |
 | 그래프 레인은 숫자 인덱스 | `graph.lane.0` ~ `graph.lane.7` |
 | 앱 코드는 semantic만 참조한다 | `Tokens.Color.statusStaged` (생성 이름은 §4) |
 
@@ -92,7 +92,9 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | `surface.control` | `#ffffff` + 테두리 | 흰색 6% | 칩, 세그먼트, 필드 |
 | `surface.wip-row` | 액센트 7% | 액센트 9% | 그래프 WIP 행 |
 | `surface.splitter-grip` | `#666c78` | `#666c78` | 분할선 손잡이(홈 대비 4.2 / 3.6) |
-| `surface.splitter-grip-active` | 액센트 | 액센트 | 손잡이 hover·drag |
+| `surface.splitter-grip-active` | 액센트 | 액센트 | 손잡이 hover·drag. 홈에는 액센트 10%를 칠한다 |
+| `surface.panel-highlight` | 투명 | 흰색 3.5% | 패널 위쪽 안쪽 1px 하이라이트(다크, #64) |
+| `surface.panel-shadow` | 검정 5% | 투명 | 패널 아래 1px 그림자(라이트, 흐림 없음, #64) |
 | `surface.scrollbar-thumb` | 검정 24% | 흰색 20% | 오버레이 스크롤바 |
 | `text.primary` | `#191d24` | `#e7eaef` | 제목, 파일 이름, 커밋 제목 |
 | `text.secondary` | `#4a505b` | `#b0b6c0` | 작성자, 경로 앞부분, 개수 |
@@ -198,7 +200,7 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 |---|---|
 | `spacing` | xxs 2 · xs 4 · sm 8 · md 12 · lg 16 · xl 24 · xxl 32 (px) |
 | `radius` | sm 4 · md 6 (버튼, 필드) · lg 10 (패널, popover) · pill. 카드 8과 알약 5는 [art-direction.md §9](art-direction.md#9-모양-간격-움직임) |
-| `size` | 행: 사이드바 28, 워크트리 46, 그래프 30(고정, 가상화 전제), 파일 26. 그래프: 레인 간격 20, 노드 22(병합 10, HEAD 링 30), 간선 3, 노드 링 2.5, 알약 높이 18·최대 폭 150. 패널: 홈 8, 머리 40, 열 머리 28, 손잡이 4×28, 사이드바 220/256/420, 상세 300/344/560, 그래프 최소 480. 열: Refs 172(96~280), Author 108, Date 52, SHA 72. 창 최소 1040×600. 최소 클릭 영역 20 |
+| `size` | 행: 사이드바 28, 워크트리 46, 그래프 30(고정, 가상화 전제), 파일 26. 그래프: 레인 간격 20, 노드 22(병합 10, HEAD 링 30), 간선 3, 노드 링 2.5, 알약 높이 18·최대 폭 150. 패널: 홈 8, 머리 40, 상태바 30, 열 머리 28, 손잡이 4×28, 사이드바 220/256/420, 상세 300/344/560, 그래프 최소 480. 열: Refs 172(96~280), Author 108, Date 52, SHA 72. 창 최소 1040×600. 최소 클릭 영역 20 |
 | `typography` | macOS 텍스트 스타일에 대응한다. large-title 26 bold(S-07 제목 전용), body 13, headline 13 bold, title(상세 제목) 15 semibold, callout 12, section-header 11 bold(대문자, 자간 0.06em), column-header 11 medium(Title Case), pill 11 medium, initials 8.5 bold, caption 10, mono 12 (SF Mono), mono-small 11. **앱 코드는 포인트 크기가 아니라 SwiftUI 텍스트 스타일을 쓴다** |
 | `motion` | fast 120ms · standard 200ms · slow 350ms · easing `cubic-bezier(0.2, 0, 0, 1)`. Reduce Motion이면 크로스페이드나 애니메이션 없음. 분할선 드래그는 애니메이션 없이 포인터를 따른다 |
 | `opacity` | disabled 0.4 · stale 0.6 (새로고침 실패 후 이전 데이터) |
