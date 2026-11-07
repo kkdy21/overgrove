@@ -54,6 +54,12 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     static let logFormat =
         "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)"
 
+    /// Pins porcelain `git diff` output against a repository's own diff configuration (#239): `color.diff=always`
+    /// beats `color.ui=never`, `diff.noprefix`/`diff.mnemonicPrefix`/`diff.srcPrefix`/`diff.dstPrefix` change the
+    /// `a/`, `b/` prefixes, and `diff.submodule=log|diff` adds submodule logs or the submodule's own file diffs.
+    /// All exist in git 2.36 (`--default-prefix` needs 2.41). `diff.suppressBlankEmpty` is a common argument.
+    static let porcelainDiffOptions = ["--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short"]
+
     /// Subcommand arguments. Throws `GitError.invalidArgument` for values that cannot be passed losslessly.
     func subcommandArguments() throws -> [String] {
         switch self {
@@ -119,15 +125,19 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             return ["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options"]
                 + (parent.map { [$0.hex] } ?? []) + [oid.hex] + (try Self.pathspec(path))
         case .worktreeDiff(let path, let staged):
-            return ["diff", "--no-ext-diff", "--no-textconv", "-M"] + (staged ? ["--cached"] : [])
-                + (try Self.pathspec(path))
+            // `--ignore-submodules=dirty` (as in status): for a submodule path git would otherwise run `status` inside
+            // the submodule, with the submodule's own filters, which were never inspected (#239, SEC-T4-05).
+            return ["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty"]
+                + Self.porcelainDiffOptions + (staged ? ["--cached"] : []) + (try Self.pathspec(path))
         case .worktreeNumstat(let staged):
             // `--ignore-submodules=dirty` (as in status): without it git diff runs `git status` inside every
-            // submodule, whose configuration was never inspected (#230).
+            // submodule, whose configuration was never inspected (#230). The porcelain options do not change numstat
+            // output today (checked, #239); they keep every porcelain diff case under one rule.
             return ["diff", "--no-ext-diff", "--no-textconv", "--numstat", "-z", "-M", "--ignore-submodules=dirty"]
-                + (staged ? ["--cached"] : [])
+                + Self.porcelainDiffOptions + (staged ? ["--cached"] : [])
         case .untrackedPreview(let file):
-            return ["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", file.relativePath]
+            return ["diff", "--no-index", "--no-ext-diff", "--no-textconv"] + Self.porcelainDiffOptions
+                + ["--", "/dev/null", file.relativePath]
         case .fileHistory(let path, let limit):
             return ["log", "--follow", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit))]
                 + (try Self.pathspec(path))
@@ -137,13 +147,12 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             // inspected (SEC-T4-05). The trailing `--` keeps a file named like the ref from being read as a path.
             return [
                 "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
-                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", base.value,
-            ] + (includeWorkingTree ? [] : ["HEAD"]) + ["--"]
+                "--ignore-submodules=dirty",
+            ] + Self.porcelainDiffOptions + ["--merge-base", "--end-of-options", base.value]
+                + (includeWorkingTree ? [] : ["HEAD"]) + ["--"]
         case .comparePatch(let base, let path, let includeWorkingTree):
-            return [
-                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
-                "--end-of-options", base.value,
-            ]
+            return ["diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty"]
+                + Self.porcelainDiffOptions + ["--merge-base", "--end-of-options", base.value]
                 + (includeWorkingTree ? [] : ["HEAD"]) + (try Self.pathspec(path))
         case .commitsAhead(let base, let limit):
             // `FullRefName` has no `..`, so `<base>..HEAD` is one unambiguous range.
