@@ -60,10 +60,15 @@ HANDOFF의 대응(`-c core.fsmonitor=false -c core.hooksPath=/dev/null`, `--no-e
 - 확인된 실행 경로를 모두 막으면서도, 사용자 자신의 신뢰된 설정(credential helper, ssh 설정)은 유지한다.
 - Git LFS처럼 정당한 로컬 필터도 무력화된다. LFS 포인터 파일이 변경으로 보일 수 있는데, 조회 앱에서 감수할 수 있는 부작용이다. 화면에 표시해 혼란을 줄인다.
 - 호출마다 설정 검사가 붙어 비용이 늘어난다. 결과를 캐시하고, 설정 파일들(`.git/config`, `config.worktree`, include 대상)의 mtime이 바뀔 때만 다시 검사한다.
-- 로컬 경로 원격을 fetch하면 상대 저장소에서 `git-upload-pack`이 실행되는데, 그 저장소의 설정은 검사하지 않는다. 잔여 위험으로 기록한다.
+- 로컬 경로 원격을 fetch하면 상대 저장소에서 `git-upload-pack`이 실행되는데, 그 저장소의 설정은 검사하지 않는다. 잔여 위험으로 기록한다. v0.2.0의 "신뢰하지 않음" 모드(#107)로 저장소마다 막을 수 있다(아래 후속 작업).
 
 ## 후속 작업
 
 - [x] RepoConfigInspector 구현 (Phase 3 보안 기반 Epic, #44 → PR #150). 구현 과정에서 처리 범위가 넓어졌다(로컬 프록시 무력화, 자체 TLS 인증서가 있으면 fetch 차단, `=`가 든 subsection은 조회 차단). 위 §4 표보다 [security-review.md §3.3](../design/security-review.md)이 현재 기준이다
 - [ ] 악성 픽스처(`scripts/make-fixture-repo.sh --malicious`)의 canary 기반 SEC-T4~T8 테스트
-- [ ] v0.2.0: 저장소별 "신뢰하지 않음" 모드 (fetch 차단, file 프로토콜 차단)
+- [x] v0.2.0: 저장소별 "신뢰하지 않음" 모드 (#107). 결정 사항은 #107에서 승인받았다.
+  - **동작**: fetch 전체가 아니라 `file` 전송만 막는다. 신뢰하지 않음 저장소의 fetch는 `GIT_ALLOW_PROTOCOL=https:ssh:git:http`로 돈다. 로컬 경로·`file://` 원격은 git을 실행하지 않고 "이 저장소는 신뢰하지 않음이라 이 Mac의 원격은 fetch하지 않는다"로 안내하고, 복사용 명령은 주지 않는다. `insteadOf`로 로컬 경로가 되는 원격은 git이 전송 단계에서 거부하고(`transport 'file' not allowed`), 같은 안내를 보여 준다. 네트워크 원격의 upload-pack은 서버에서 돌기 때문에 계속 fetch한다.
+  - **Open in Terminal**: 신뢰하지 않음 저장소는 설정이 깨끗해도 항상 확인을 거친 뒤 연다(#73 가드 재사용).
+  - **기본값**: 신뢰함(지금 동작). 신뢰함이면서 이 Mac에 있는 원격이 있으면, S-05 보안 카드가 원격 이름(마스킹·이스케이프)과 함께 경고하고 "Treat as untrusted"를 권한다.
+  - **저장**: `RegisteredRepository.isUntrusted`. #107 이전 항목은 키가 없어 신뢰함으로 읽는다. 키가 있지만 불리언이 아니면 신뢰하지 않음으로 읽는다(저장값은 신뢰하지 않는다).
+  - **UI**: S-05 보안 카드의 토글·경고·상태 줄, Settings › Repositories 행의 토글. Copy Report에 `Untrusted: yes/no`와 `Remotes on this Mac: n`(이름·경로·URL 없음)을 넣는다.
