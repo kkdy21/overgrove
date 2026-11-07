@@ -297,7 +297,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - Apple 툴체인과 GitHub 러너 이미지는 신뢰한다.
   - 보드 토큰이 새면 그 계정이 쓸 수 있는 모든 Projects 보드가 바뀔 수 있다. 메인테이너 계정 토큰이면 메인테이너가 속한 조직의 보드도 포함된다. 저장소 코드와 이슈는 영향이 없다.
   - `pull_request_target`은 첫 기여자 승인 없이 실행된다. 외부 사용자가 이벤트를 많이 만들면 토큰 계정의 API 한도를 쓸 수 있다. 공유 동시성 그룹으로 상한을 둔다.
-- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음 — `scripts/lint/check-no-dependencies.sh`와 그 테스트, CI `build-test`), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정), SEC-T17-03 (Dependabot 설정 존재), 보드 상태 규칙은 `scripts/github/board-sync-rules.test.sh`(CI `build-test`)
+- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음 — `scripts/lint/check-no-dependencies.sh`와 그 테스트, CI `build-test`), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정. 같은 검사가 다음도 확인한다: 모든 워크플로우에 최상위 `permissions:`가 있고 `write-all`이 없음, `pull_request_target`은 `board-sync.yml`에만, PR·이슈 제목·본문·브랜치 이름 같은 신뢰할 수 없는 값은 `KEY: ${{ … }}` 매핑(`env:`)으로만, CI gitleaks 다운로드의 버전·SHA-256 고정 — `scripts/lint/check-workflows.sh`와 그 테스트, CI `build-test`, #95), SEC-T17-03 (Dependabot이 `/`의 `github-actions`를 갱신 — 같은 스크립트), 보드 상태 규칙은 `scripts/github/board-sync-rules.test.sh`(CI `build-test`). **수동**: `PROJECT_TOKEN`이 `project` scope 하나만 가진 토큰인지는 CI에서 볼 수 없어 메인테이너가 토큰을 바꿀 때 확인한다
 - **상태**: 적용됨 (저장소 셋업: 워크플로우와 Dependabot, SEC-T17-01은 #33에서 CI에 추가)
 
 ### T18. 공개 저장소에 비밀 정보·개인 경로 커밋
@@ -312,7 +312,11 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 테스트 픽스처의 가짜 자격 증명은 `gitleaks:allow` 주석이나 픽스처 경로 allowlist로 명시한다.
 - **잔여 위험**: 규칙 밖 형식의 비밀은 놓칠 수 있다. 리뷰 체크리스트로 보완한다.
 - **검증**: SEC-T18-01 (gitleaks가 pre-commit, pre-push, CI에서 동작), SEC-T18-02 (개인 경로 규칙이 샘플을 잡아냄)
-- **상태**: 적용됨 (저장소 셋업)
+  - 정적 연결 검사: `scripts/lint/check-secret-scanning.sh`(CI `build-test`). 두 hook이 gitleaks를 실행하고 gitleaks가 없으면 멈추는지, bootstrap이 hook을 설치하는지, CI `gitleaks` job이 PR과 main을 검사하는지, `.gitleaks.toml`이 기본 규칙과 개인 경로 규칙을 유지하는지 본다.
+  - 실제 동작: `scripts/lint/check-secret-scanning.test.sh`(CI `gitleaks` job, `OVERGROVE_REQUIRE_GITLEAKS=1`). 실제 pre-commit hook이 staged 개인 경로를, pre-push hook이 push할 커밋의 개인 경로와 main push를 막는지 확인한다. 저장소 규칙이 `/Users/<이름>/`, `/home/<이름>/`, 한 글자 이름을 잡고 `runner`·`Shared`·`~/` 같은 자리표시자는 통과시키는지도 본다. gitleaks가 없는 환경(`build-test`)에서는 "gitleaks가 없으면 hook이 실패한다"만 확인한다. 샘플은 실행 중에 조립해 커밋된 문자열이 없다.
+  - **#95에서 발견해 고침**: 개인 경로 규칙의 `/home/<이름>/` 절반이 동작하지 않았다. gitleaks 기본 설정(`useDefault`)의 전역 allowlist가 `/home/...`처럼 생긴 시스템 경로 비밀을 허용하기 때문이다. 규칙이 경로 전체가 아니라 `<이름>/`을 비밀로 보고하게 했다(`secretGroup`). 자리표시자 allowlist는 여전히 전체 일치를 본다.
+  - **수동**: GitHub Secret scanning과 Push protection 설정은 관리자 API라 CI에서 볼 수 없다. [github-settings.md](../process/github-settings.md)의 `security_and_analysis` 조회 명령으로 확인한다(2026-11-07 확인: 둘 다 켜짐). Claude Code hook과 공개 글 승인은 하네스·절차 통제다.
+- **상태**: 적용됨 (저장소 셋업, 검증 자동화 #95)
 
 ---
 
