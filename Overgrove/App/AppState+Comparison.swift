@@ -118,7 +118,7 @@ extension AppState {
             } else {
                 loaded = await loader.patch(
                     target, worktree: session.worktree, base: result.base, file: file.path,
-                    includeUncommitted: result.includesWorkingTree)
+                    originalPath: row.originalPath, includeUncommitted: result.includesWorkingTree)
             }
             guard let self, generation == self.comparisonGeneration, !Task.isCancelled,
                 self.comparison?.selectedFile == file

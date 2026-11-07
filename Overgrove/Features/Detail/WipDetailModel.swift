@@ -51,6 +51,8 @@ struct WipFileRow: Identifiable, Equatable {
     /// False for paths that are not valid UTF-8: shown, but they cannot be passed back to git, so they cannot be
     /// selected for a diff (parsing-spec.md §1.3).
     let isSelectable: Bool
+    /// The old name of a renamed file, so its diff pairs both names (#309).
+    var originalPath: GitPath? = nil
     let help: String
     let accessibilityLabel: String
 }
@@ -267,7 +269,7 @@ struct WipDetailModel: Equatable {
         return WipFileRow(
             id: index, group: group, path: change.path, kindLetter: String(change.status.code), kindName: kind,
             directory: directory, fileName: fileName, isSubmodule: change.isSubmodule, lineCount: lineCount,
-            isSelectable: isSelectable,
+            isSelectable: isSelectable, originalPath: change.originalPath,
             help: help, accessibilityLabel: label)
     }
 

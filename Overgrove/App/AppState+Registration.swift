@@ -79,6 +79,7 @@ extension AppState {
         // Its cached results, inspections, and fetch record go too (`RepositoryService.forget`, overview.md §5, §8).
         if let removed {
             fetch.forget(removed.id)
+            launchSnapshots?.delete(for: removed)
             let loader = loader
             forgetTask = Task { [weak self] in
                 // Added again in the meantime: its new load must not be cancelled (security review of #243).
@@ -95,6 +96,7 @@ extension AppState {
     }
 
     private func close() {
+        launchSnapshotTask?.cancel()
         repository = nil
         panelLayout = .default
         graphColumns = .default
