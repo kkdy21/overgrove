@@ -67,6 +67,9 @@ jobs:
           # The gitleaks-dependent half runs in secret-scan.yml, where gitleaks is installed.
           scripts/lint/check-secret-scanning.sh
           scripts/lint/check-secret-scanning.test.sh
+          # #282: each SEC, PAR, and experiment ID is defined once; every SEC ID mentioned is defined.
+          scripts/lint/check-sec-ids.sh
+          scripts/lint/check-sec-ids.test.sh
           for f in .github/labels.json .claude/settings.json .swift-format design/tokens/tokens.json; do
             jq empty "$f"
           done
