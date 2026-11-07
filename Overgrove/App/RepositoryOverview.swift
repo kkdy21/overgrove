@@ -28,12 +28,21 @@ struct RepositoryOverview: Sendable, Equatable {
         case foreignRepository
         /// This worktree's own configuration (e.g. `config.worktree`) blocks queries (ADR-0009, fail closed).
         case inspectionBlocked(String)
+        /// Another listed path leads to the same folder, which is queried once (#226).
+        case duplicate
+        /// More worktrees are listed than one load queries (`RepositoryService.maximumQueriedWorktrees`, #226).
+        case limit
     }
 
-    /// In `worktree list` order: the main worktree first.
+    /// In `worktree list` order: the main worktree first. Paths are unique (a repeated path is listed once).
     let entries: [Entry]
     let refs: RefParser.Listing
     let stashes: StashParser.Listing
+
+    /// Some listed worktrees were not queried because of the limit; the UI says so (#226).
+    var isQueryLimited: Bool {
+        entries.contains { $0.status == .notQueried(.limit) }
+    }
 
     /// What the toolbar and status bar show (`AppState.snapshot`). The focused worktree is the one at `path`, or the
     /// main worktree when `path` is `nil` or not listed.

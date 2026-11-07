@@ -12,11 +12,18 @@ struct MainWindowView: View {
     var body: some View {
         VStack(spacing: 0) {
             PanelSplitView(layout: $state.panelLayout, onCommit: state.commitPanelLayout) {
-                SidebarPanel(hasRepository: state.repository != nil)
+                SidebarPanel(
+                    hasRepository: state.repository != nil, worktreeStatus: state.worktreeList,
+                    worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
+                    onSelectWorktree: state.selectWorktree)
             } center: {
-                GraphPanel(hasRepository: state.repository != nil)
+                GraphPanel(
+                    hasRepository: state.repository != nil, selectedFile: state.selectedFile,
+                    onShowGraph: state.clearSelectedFile)
             } detail: {
-                DetailPanel(focusedWorktree: state.snapshot?.focusedWorktree)
+                DetailPanel(
+                    focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
+                    wipModel: state.wipDetailModel, selectedFile: state.selectedFile, onSelectFile: state.selectFile)
             }
             // Relative fetch times ("2 min ago") stay current without a model change.
             TimelineView(.periodic(from: .now, by: statusRefreshInterval)) { context in
@@ -122,10 +129,8 @@ struct MainWindowView: View {
                     repository: Repository(
                         rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
                     owner: "acme"))
-            state.snapshot = RepositorySnapshot(
-                focusedWorktree: FocusedWorktree(
-                    branch: "feat/42-rate-limit", headShortSHA: "a91f3c2", ahead: 2, behind: 0, hasUpstream: true),
-                worktreeCount: 6, prunableCount: 1)
+            state.showForPreview(.mockup)
+            state.selectWorktree(GitPath("/tmp/dev/api-wt/42-rate-limit"))
             state.fetchStatus = .idle(lastFetched: Date().addingTimeInterval(-120))
             state.ghStatus = .loggedIn(login: "mina-dev")
             return state

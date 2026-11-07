@@ -85,6 +85,8 @@ flowchart TD
 |---|---|---|
 | `OvergroveApp` | `App/` | 진입점, 창 구성, 의존성 조립 |
 | `AppState` | `App/` | 창 하나의 상태: 열린 저장소, 패널 레이아웃, 저장소 추가·전환·제거, 알림 |
+| `RepositoryLoading`, `LiveRepositoryLoader` | `App/` | 연 저장소의 `configList` → `RepoConfigInspector` → 워크트리 목록(§3.2). 목록과 워크트리별 확인·조회는 `RepositoryService`(#87)가 하고, 결과(`RepositoryOverview`)를 `WorktreeListing`으로 옮긴다 (#65) |
+| `WorktreeListing` | `App/` | 워크트리마다 status 결과(`loaded`, `missing`, `failed`, `notQueried`)와 목록 잘림 여부. 사이드바 `WorktreeListModel`(`Features/Worktrees/`)의 입력 |
 | `RepositoryRegistry` | `App/` | 등록된 저장소 목록과 마지막 선택(모든 창이 공유). `UserDefaults`에 경로만 저장 (§8) |
 | `RepositoryRegistrar` | `App/` | 고른 폴더 → `PathValidator` → probe(`GitClient`, 검사 전 허용 명령) → 등록할 저장소. 같은 공통 git 디렉터리는 한 저장소 (§9) |
 | `RepositoryStore` | `App/` | 선택된 저장소 하나의 화면 상태: 워크트리, 상태, stash, 그래프 페이지, 선택 항목, 로딩·에러 |
@@ -170,7 +172,11 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 - **취소**: 저장소나 워크트리를 바꾸면 이전 Task를 취소한다. `ProcessRunner`는 `withTaskCancellationHandler`로 취소를 받으면 프로세스를 종료한다 (SIGTERM → 2초 → SIGKILL).
 - **디바운스**: 같은 워크트리의 새로고침 요청이 300ms 안에 반복되면 마지막 요청만 실행한다. 사용자가 누른 `⌘R`은 디바운스하지 않는다.
 - **저장소 새로고침(`RepositoryService`, #87)**: `loadOverview`가 `worktree list` 뒤에 워크트리별 status, `for-each-ref`, `stash list`를 병렬로 실행한다(§3.2 4–5단계). 정리할 대상(prunable)과 bare 워크트리는 목록에만 두고 status를 실행하지 않는다. 워크트리 하나의 실패는 그 행에만 남는다.
-  - 워크트리 경로는 저장소가 쓰는 파일(`.git/worktrees/<id>/gitdir`)에서 오므로 믿지 않는다. 각 워크트리는 status 전에 두 가지를 확인한다. `probeRepository`로 같은 저장소(공통 git 디렉터리)인지 보고(아니면 `.notQueried(.foreignRepository)`), 그 워크트리에서 `configList`를 검사해 그 워크트리의 `RepoSafetyContext`로 status를 실행한다(연결 워크트리의 `config.worktree`는 메인 검사에 나오지 않는다). 위조된 항목이 다른 저장소를 가리키면 그 저장소의 filter가 실행될 수 있었다(#221 보안 검토).
+  - 워크트리 경로는 저장소가 쓰는 파일(`.git/worktrees/<id>/gitdir`)에서 오므로 믿지 않는다(#221, #226 보안 검토). 나열된 경로는 `realpath(3)`로 한 번 정규화해 그 폴더에서만 명령을 실행한다. 각 워크트리는 status 전에 세 가지를 확인한다.
+    1. 등록과 같은 기준으로 이 저장소의 워크트리인지 파일 시스템으로 본다. 메인은 `.git`이 공통 디렉터리로 이어지고, 연결 워크트리는 `checkLinkedWorktree`가 `.linked`다.
+    2. `probeRepository`가 그 폴더를 워크트리 루트로, 이 저장소의 공통 git 디렉터리를 보고하는지 본다(`core.worktree`가 다른 곳을 가리키면 어긋난다). 1·2가 어긋나면 `.notQueried(.foreignRepository)`다.
+    3. 그 워크트리에서 `configList`를 검사해 그 워크트리의 `RepoSafetyContext`로 status를 실행한다(연결 워크트리의 `config.worktree`는 메인 검사에 나오지 않는다). 검사가 막으면 `.notQueried(.inspectionBlocked)`다.
+  - 같은 경로는 한 번만 나열하고(`entries`의 경로는 고유하다), 다른 경로가 같은 폴더로 이어지면 한 번만 조회한다(`.duplicate`). 한 번에 status를 실행하는 워크트리는 최대 64개이고 나머지는 `.notQueried(.limit)`다(`RepositoryOverview.isQueryLimited`, security-review.md T15).
   - `refresh(_:safety:trigger:)`는 저장소마다 세대 번호를 매긴다. 새 요청은 진행 중인 요청을 취소한다(git 프로세스 종료). 최신 세대가 아닌 결과와 취소된 결과는 `nil`로 버린다. 그래서 Store는 받은 결과를 그대로 반영하면 된다.
   - 자동 요청(`.automatic`)은 300ms(`debounceInterval`) 동안 기다리고, 그 사이 더 새 요청이 오면 실행하지 않는다. 사용자 요청(`.user`, ⌘R·저장소 선택)은 기다리지 않고 기다리던 자동 요청을 대체한다.
   - 화면 쪽은 `RepositoryOverview.snapshot(focusing:)`으로 `AppState.snapshot`을 채운다(#65에서 연결).

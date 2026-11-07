@@ -229,16 +229,26 @@ extension RepositoryRegistrar {
     })
 }
 
-/// One `GitClient` for the app, created on first use (`GitEnvironment.discover` runs `git version`).
+/// One `GitClient` and one `RepositoryService` for the app, created on first use (`GitEnvironment.discover` runs
+/// `git version`). Sharing them keeps one process limit and one generation count per repository across windows.
 actor LiveGitClient {
     static let shared = LiveGitClient()
 
     private var cached: GitClient?
+    private var cachedService: RepositoryService?
 
     func client() async throws -> GitClient {
         if let cached { return cached }
         let client = GitClient(environment: try await GitEnvironment.discover())
         cached = client
         return client
+    }
+
+    func services() async throws -> (GitClient, RepositoryService) {
+        let client = try await client()
+        if let cachedService { return (client, cachedService) }
+        let service = RepositoryService(client: client)
+        cachedService = service
+        return (client, service)
     }
 }
