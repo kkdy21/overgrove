@@ -91,7 +91,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **잔여 위험**:
   - global 설정에 정의된 필터(예: 사용자가 설치한 Git LFS)는 신뢰 범위라 그대로 실행된다. 의도된 동작이다.
   - 로컬에 정의된 LFS 필터를 무력화하면 LFS 파일이 변경으로 보일 수 있다.
-- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터)
+- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160)
 - **상태**: 설계 완료
 
 ### T5. 전송 계층 명령 실행
@@ -438,6 +438,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E36 | https 원격 + `url.evilhelper::x.insteadOf`, 또는 `remote.origin.vcs=evilhelper` | 실행됨. `GIT_ALLOW_PROTOCOL`이면 차단 |
 | E37 | `GIT_ALLOW_PROTOCOL` 적용 후 로컬 경로·https·`git+ssh`·scp 형식 원격 | 정상 동작. 목록에서 `file`을 빼면 로컬 경로는 `transport 'file' not allowed`. `https::<url>`은 내장 https로 처리됨 |
 | E38 | `1abc::x`, `::x`(빈 이름), `evilhelper://x`, `EvilHelper://x` | 모두 `git-remote-<이름>`이 실행됨(대소문자를 구분하지 않는 볼륨에서는 `EvilHelper`도 `git-remote-evilhelper`를 찾음). `GIT_ALLOW_PROTOCOL`이면 모두 차단. `ftp://`·`ftps://`는 git 내장(curl)이지만 목록에 없어 `transport 'ftp' not allowed` (#191 보안 검토) |
+| E39 | 로컬 `trailer.<key>.{cmd,command}`, `trailer.where/ifexists/ifmissing`, `include.path`로 넣은 `trailer.*.command` + 그래프 포맷 `%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)` | 실행 안 됨(pretty 형식은 트레일러를 읽기만 함). 같은 설정에서 `interpret-trailers --trailer`는 실행됨. `trailer.<x>.key`·`trailer.separators`·`core.commentChar`는 어떤 줄이 co-author인지만 바꾼다 (#160 보안 검토) |
 
 릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41.
 

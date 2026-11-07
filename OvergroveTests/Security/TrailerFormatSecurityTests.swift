@@ -3,9 +3,9 @@ import XCTest
 
 @testable import Overgrove
 
-/// The graph format reads `Co-authored-by` trailers (#160). Repository-local `trailer.<key>.cmd` / `.command` runs a
-/// program when `git interpret-trailers` adds that trailer; this checks that `%(trailers:…)` in a pretty format only
-/// parses and never runs it (T4-style config execution, security-review.md §2).
+/// SEC-T4-06: the graph format reads `Co-authored-by` trailers (#160). Repository-local `trailer.<key>.cmd` and
+/// `.command` run a program when `git interpret-trailers` adds that trailer; this checks that `%(trailers:…)` in a
+/// pretty format only parses and never runs it (config execution, security-review.md T4, E39).
 final class TrailerFormatSecurityTests: XCTestCase {
     private var repository: GitTestRepository!
 
@@ -29,7 +29,7 @@ final class TrailerFormatSecurityTests: XCTestCase {
         [cmdCanary, commandCanary].filter { FileManager.default.fileExists(atPath: $0.path) }.map(\.lastPathComponent)
     }
 
-    func testGraphFormatReadsTrailersWithoutRunningTrailerCommands() async throws {
+    func testSECT4_06_GraphFormatReadsTrailersWithoutRunningTrailerCommands() async throws {
         try await repository.git([
             "commit", "-q", "--allow-empty", "-m",
             "with trailers\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nco-authored-by: Alice <a@example.com>",
@@ -45,7 +45,7 @@ final class TrailerFormatSecurityTests: XCTestCase {
     }
 
     /// Negative control: the planted configuration is live — `interpret-trailers` does run it.
-    func testNegativeControl_InterpretTrailersRunsThePlantedCommand() async throws {
+    func testSECT4_06_control_InterpretTrailersRunsThePlantedCommand() async throws {
         try await plantTrailerCommands()
         try repository.write("message.txt", "subject\n")
 

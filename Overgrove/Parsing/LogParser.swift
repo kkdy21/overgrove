@@ -2,9 +2,11 @@ import Foundation
 
 /// Parses `git log -z` output for the graph, file history and commit detail (parsing-spec.md §5).
 ///
-/// Every field is NUL-terminated, so tokens are grouped by a fixed count. git cuts a commit message at its first NUL,
-/// so a message can never shift the fields that follow (PAR-LOG-08). A malformed field fails the whole parse instead
-/// of resynchronizing: a shifted record would attach one commit's parents to another.
+/// Every field is NUL-terminated, so tokens are grouped by a fixed count. git cuts a commit message at its first NUL
+/// (PAR-LOG-08), but that alone does not keep fields aligned: a repository's `i18n.logOutputEncoding` or
+/// `i18n.commitEncoding` re-encodes the whole output, and some encodings turn message text into NUL bytes (#205).
+/// A malformed field fails the whole parse instead of resynchronizing: a shifted record would attach one commit's
+/// parents to another.
 ///
 /// The formats never use signature placeholders (`%G?`, `%GS`, …): those run `gpg.program` (T7). The parser only
 /// reads the fields listed below, and `GitCommand` owns the format strings.

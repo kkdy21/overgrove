@@ -49,6 +49,12 @@ final class AIAgentRuleTests: XCTestCase {
         XCTAssertFalse(rule.isAgent("In-house <bot@company.example>"), "the original rule is unchanged")
     }
 
+    func testEmptyOrAddressLessEntriesAreIgnored() {
+        let extended = rule.adding(emails: [""], emailSuffixes: ["", "example.com"])
+        XCTAssertEqual(extended, rule, "an empty suffix would match every address")
+        XCTAssertFalse(extended.isAgent("Alice <alice@example.com>"))
+    }
+
     func testCommitIsAIAssistedWhenAnyCoAuthorIsAnAgent() throws {
         let oid = try XCTUnwrap(ObjectID(String(repeating: "a", count: 40)))
         let commit = { (coAuthors: [String]) in

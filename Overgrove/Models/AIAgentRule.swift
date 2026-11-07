@@ -3,7 +3,7 @@ import Foundation
 /// Decides whether a commit was written together with an AI coding agent, from its `Co-authored-by` trailers (#160).
 ///
 /// The graph and commit detail show an "AI" badge for such commits. Matching is by the co-author's email only:
-/// display names such as "Claude" or "Cursor" are also ordinary people's names. Agents sign with fixed addresses
+/// display names such as "Claude" or "Cursor" are also ordinary people's names. Agents use fixed addresses
 /// (or a fixed GitHub noreply suffix for bot accounts), which a person would not use by accident. The badge is a
 /// review hint, not a security signal: anyone can write any trailer.
 ///
@@ -11,12 +11,13 @@ import Foundation
 struct AIAgentRule: Sendable, Hashable {
     /// Exact addresses, lowercased.
     let emails: Set<String>
-    /// Address suffixes, lowercased, for agents that sign as numbered GitHub bot accounts.
+    /// Address suffixes, lowercased, for agents that commit as numbered GitHub bot accounts.
     let emailSuffixes: Set<String>
 
+    /// Empty entries are dropped, and so are suffixes without `@`: an empty suffix would match every address.
     init(emails: Set<String>, emailSuffixes: Set<String>) {
-        self.emails = Set(emails.map { $0.lowercased() })
-        self.emailSuffixes = Set(emailSuffixes.map { $0.lowercased() })
+        self.emails = Set(emails.map { $0.lowercased() }.filter { !$0.isEmpty })
+        self.emailSuffixes = Set(emailSuffixes.map { $0.lowercased() }.filter { $0.contains("@") })
     }
 
     /// Agents known to add a `Co-authored-by` trailer by default.

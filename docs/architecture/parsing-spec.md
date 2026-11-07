@@ -167,8 +167,8 @@ stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc�
 | `%P` | 공백으로 나눈 OID 목록. 루트 커밋은 빈 문자열, 병합은 2개, octopus는 3개 이상 |
 | `%an`, `%ae` | 표시용 문자열 |
 | `%at` | epoch 초 |
-| `%s` | 제목. 커밋 메시지에 NUL이 있어도 git이 NUL 앞에서 자르므로 필드 구조는 깨지지 않는다 (`hash-object --literally`로 만든 객체로 확인) |
-| `%(trailers:…)` | `Co-authored-by` 트레일러 값. 키는 대소문자를 가리지 않고, 여러 줄로 접힌 값은 `unfold`로 한 줄이 된다. 값 사이는 U+001F(`␟`), 없으면 빈 필드. 본문 중간의 `Co-authored-by:` 줄은 트레일러가 아니다. 표시용이라 손실 디코딩하고 빈 값은 버린다 → `CommitNode.coAuthors`. AI 배지는 `AIAgentRule`(알려진 에이전트 이메일·GitHub bot 접미사, 설정으로 확장)로 판정한다. 저장소 로컬 `trailer.<key>.cmd`/`.command`는 pretty 형식에서 실행되지 않는다 (Apple Git 2.54.0 확인, #160) |
+| `%s` | 제목. 커밋 메시지에 NUL이 있으면 git이 NUL 앞에서 자른다 (`hash-object --literally`로 만든 객체로 확인). 단, 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`이 출력 전체를 다시 인코딩하면 메시지 텍스트가 NUL로 바뀌어 필드가 밀릴 수 있다. 공통 인자로 출력 인코딩을 고정해 막는다 (#205) |
+| `%(trailers:…)` | `Co-authored-by` 트레일러 값. 키는 대소문자를 가리지 않고, 여러 줄로 접힌 값은 `unfold`로 한 줄이 된다. 값 사이는 U+001F(`␟`), 없으면 빈 필드. 본문 중간의 `Co-authored-by:` 줄은 트레일러가 아니다. 표시용이라 손실 디코딩하고 빈 값은 버린다 → `CommitNode.coAuthors`. AI 배지는 `AIAgentRule`(알려진 에이전트 이메일·GitHub bot 접미사, 설정으로 확장)로 판정한다. 저장소 로컬 `trailer.<key>.cmd`/`.command`는 pretty 형식에서 실행되지 않는다 (E39, SEC-T4-06). 표시 범위 한계: 로컬 `trailer.<x>.key=Co-authored-by`(git은 키를 접두사로 맞춤), `trailer.separators`, `core.commentChar`/`commentString`으로 어떤 줄이 co-author인지 바뀔 수 있다. 값 안의 U+001F는 co-author를 하나 더 만든다. 모두 표시에만 영향을 주고 아무것도 실행되지 않는다. 화면은 값의 제어·bidi 문자를 제목·이름과 같은 방식으로 처리한다 |
 
 - `--graph`는 쓰지 않는다. 레인은 GraphEngine이 `%P`로 계산한다 (ADR-0010).
 - `--exclude=refs/stash --all`로 stash 커밋을 뺀다 (확인).
