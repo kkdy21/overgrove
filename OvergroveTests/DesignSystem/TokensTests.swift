@@ -339,6 +339,7 @@ final class TokensTests: XCTestCase {
             "graph-max-lanes-visible": Double(S.graphMaxLanesVisible), "ref-pill-height": S.refPillHeight,
             "ref-pill-max-width": S.refPillMaxWidth, "symbol-small": S.symbolSmall, "symbol-medium": S.symbolMedium,
             "hit-target-min": S.hitTargetMin, "panel-gap": S.panelGap, "panel-header": S.panelHeader,
+            "status-bar": S.statusBar,
             "column-header": S.columnHeader, "sidebar-width-min": S.sidebarWidthMin,
             "sidebar-width-ideal": S.sidebarWidthIdeal, "sidebar-width-max": S.sidebarWidthMax,
             "detail-width-min": S.detailWidthMin, "detail-width-ideal": S.detailWidthIdeal,

@@ -137,7 +137,7 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
     private func commit(_ new: PanelLayout, animated: Bool) {
         guard new != layout else { return }
         if animated, !reduceMotion {
-            withAnimation(Self.collapseAnimation) { layout = new }
+            withAnimation(.panelCollapse) { layout = new }
         } else {
             var transaction = Transaction(animation: nil)
             transaction.disablesAnimations = true
@@ -146,8 +146,12 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
         onCommit(new)
     }
 
-    /// Collapse and reopen: `motion.duration-standard` with `motion.easing-standard`.
-    static var collapseAnimation: Animation {
+}
+
+extension Animation {
+    /// Panel collapse and reopen: `motion.duration-standard` with `motion.easing-standard`. Callers skip it under
+    /// Reduce Motion.
+    static var panelCollapse: Animation {
         let curve = Tokens.Motion.easingStandardControlPoints
         return .timingCurve(curve.x1, curve.y1, curve.x2, curve.y2, duration: Tokens.Motion.durationStandard)
     }
@@ -155,7 +159,9 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
 
 // MARK: - Panel box
 
-/// One rounded panel on the window background (art-direction.md §3: radius 10, 1px `border.panel`).
+/// One rounded panel on the window background (art-direction.md §3): radius 10, 1px `border.panel`, a 1px top
+/// highlight in dark mode (`surface.panel-highlight`) and a 1px shadow below in light mode (`surface.panel-shadow`).
+/// Each token is transparent in the other mode, so both are always applied.
 private struct PanelBox<Content: View>: View {
     let fill: Color
     @ViewBuilder let content: Content
@@ -165,8 +171,12 @@ private struct PanelBox<Content: View>: View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(fill)
+            .overlay(alignment: .top) {
+                Tokens.Color.surfacePanelHighlight.frame(height: 1).padding(.top, 1).allowsHitTesting(false)
+            }
             .clipShape(shape)
             .overlay(shape.strokeBorder(Tokens.Color.borderPanel, lineWidth: 1))
+            .shadow(color: Tokens.Color.surfacePanelShadow, radius: 0, x: 0, y: 1)
     }
 }
 

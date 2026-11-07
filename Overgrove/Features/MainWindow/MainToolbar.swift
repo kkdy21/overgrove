@@ -1,0 +1,181 @@
+import SwiftUI
+
+/// The main window toolbar (screens.md S-01, art-direction.md §3.4).
+///
+/// Leading: sidebar toggle, repository switcher, focused-worktree chip. Center: Fetch, Refresh │ Compare │ Terminal,
+/// Finder, icon above label. The search field is added by `MainWindowView` with `.searchable`.
+///
+/// ADR-0011: there is no Pull, Push, Commit, Branch, Stash, or Checkout, not even disabled.
+struct MainToolbar: ToolbarContent {
+    let repository: RepositoryContext?
+    let focusedWorktree: FocusedWorktree?
+    let isSidebarCollapsed: Bool
+    let toggleSidebar: () -> Void
+
+    var body: some ToolbarContent {
+        ToolbarItemGroup(placement: .navigation) {
+            Button(action: toggleSidebar) {
+                Label(isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar", systemImage: "sidebar.left")
+            }
+            .help(isSidebarCollapsed ? "Show Sidebar (⌃⌘S)" : "Hide Sidebar (⌃⌘S)")
+
+            RepositorySwitcher(repository: repository)
+
+            Image(systemName: "chevron.right")
+                .foregroundStyle(Tokens.Color.textTertiary)
+                .accessibilityHidden(true)
+
+            WorktreeChip(worktree: focusedWorktree)
+        }
+
+        ToolbarItemGroup(placement: .principal) {
+            ForEach(ToolbarAction.Group.allCases, id: \.self) { group in
+                if group != ToolbarAction.Group.allCases.first {
+                    Divider()
+                }
+                ForEach(ToolbarAction.allCases.filter { $0.group == group }, id: \.self) { action in
+                    ToolbarActionButton(title: action.title, symbol: action.symbol, help: action.help)
+                }
+            }
+        }
+    }
+}
+
+/// Every action in the toolbar's center group, in order (art-direction.md §3.4). The toolbar is built from this list,
+/// so a test can check that no write action exists (ADR-0011).
+enum ToolbarAction: CaseIterable, Hashable {
+    case fetch
+    case refresh
+    case compare
+    case terminal
+    case finder
+
+    enum Group: CaseIterable, Hashable {
+        case sync
+        case compare
+        case open
+    }
+
+    var group: Group {
+        switch self {
+        case .fetch, .refresh: .sync
+        case .compare: .compare
+        case .terminal, .finder: .open
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .fetch: "Fetch"
+        case .refresh: "Refresh"
+        case .compare: "Compare"
+        case .terminal: "Terminal"
+        case .finder: "Finder"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .fetch: "arrow.down.circle"
+        case .refresh: "arrow.clockwise"
+        case .compare: "plus.forwardslash.minus"
+        case .terminal: "terminal"
+        case .finder: "folder"
+        }
+    }
+
+    var help: String {
+        switch self {
+        // TODO(#77): fetch all remotes; becomes Stop while running.
+        case .fetch: "Fetch all remotes (⌘⇧R)"
+        // TODO(#65): reload local git data, no network.
+        case .refresh: "Refresh local data (⌘R)"
+        // TODO(#158): compare the focused worktree with its base branch.
+        case .compare: "Compare with base branch (⌘⇧B)"
+        // TODO(#73): Open in Terminal / Reveal in Finder for the focused worktree (interaction.md §5 rules).
+        case .terminal: "Open the focused worktree in Terminal"
+        case .finder: "Reveal the focused worktree in Finder"
+        }
+    }
+}
+
+/// An action shown as an icon above its label (NSToolbar icon-and-label look, art-direction.md §3.4).
+/// Disabled until its feature lands; `action` is optional for that reason.
+struct ToolbarActionButton: View {
+    let title: String
+    let symbol: String
+    let help: String
+    var action: (() -> Void)?
+
+    var body: some View {
+        Button {
+            action?()
+        } label: {
+            VStack(spacing: Tokens.Spacing.xxs) {
+                Image(systemName: symbol).imageScale(.large)
+                Text(title).font(Tokens.Font.caption)
+            }
+            .frame(minWidth: Self.minimumWidth)
+        }
+        .buttonStyle(.borderless)
+        .disabled(action == nil)
+        .help(help)
+        .accessibilityLabel(title)
+    }
+
+    /// Keeps short labels (Fetch, Finder) from making uneven buttons.
+    static let minimumWidth: CGFloat = 48
+}
+
+/// `[▭ api acme ⌃]`: the registered repositories. TODO(#84): list, Add Repository… (⌘O), Manage Repositories…
+struct RepositorySwitcher: View {
+    let repository: RepositoryContext?
+
+    var body: some View {
+        Menu {
+            Button("Add Repository…") {}
+                .keyboardShortcut("o", modifiers: .command)
+                .disabled(true)
+            Button("Manage Repositories…") {}
+                .disabled(true)
+        } label: {
+            HStack(spacing: Tokens.Spacing.xs) {
+                Image(systemName: "folder")
+                Text(repository?.name ?? "No Repository").font(Tokens.Font.bodyEmphasized)
+                if let owner = repository?.owner {
+                    Text(owner).foregroundStyle(Tokens.Color.textSecondary)
+                }
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel(repository.map { "Repository \($0.name)" } ?? "No repository")
+    }
+}
+
+/// `[◆ feat/42-rate-limit ↑2 ⌘J]`: the focused worktree. Pressing it scrolls the graph to its HEAD.
+/// TODO(#68): scroll the graph to HEAD (⌘J); TODO(#65): lane-color tint from the worktree's branch.
+struct WorktreeChip: View {
+    let worktree: FocusedWorktree?
+
+    var body: some View {
+        if let worktree {
+            Button {
+            } label: {
+                HStack(spacing: Tokens.Spacing.xs) {
+                    Image(systemName: "tree.fill")
+                    Text(worktree.title).lineLimit(1).truncationMode(.middle)
+                    if let ahead = worktree.aheadBadge {
+                        Text(ahead).foregroundStyle(Tokens.Color.textSecondary)
+                    }
+                    Text("⌘J").font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textTertiary)
+                }
+                .padding(.horizontal, Tokens.Spacing.sm)
+            }
+            .buttonStyle(.borderless)
+            .disabled(true)
+            .help("Jump to HEAD (⌘J)")
+            .accessibilityLabel(worktree.accessibilityLabel)
+        }
+    }
+}
