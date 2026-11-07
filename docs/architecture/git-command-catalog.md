@@ -126,6 +126,9 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `worktreeDiff(path:staged:)` | `["diff", "--no-ext-diff", "--no-textconv", "-M", (staged ? "--cached" : 생략), "--", "<path>"]` | 워크트리 경로 | 원문 패치 → S-10 | T3, T9 |
 | `untrackedPreview(WorktreeFile)` | `["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", "<path>"]` (종료 코드 1이 정상) | 워크트리 경로 | 원문 패치 → S-10 | T3, T14 |
 | `fileHistory(path:limit:)` | `["log", "--follow", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "-n", "<limit>", "--", "<path>"]` | 워크트리 경로 | `LogParser` → `[FileHistoryEntry]` | T7, T9 |
+| `compareFiles(base:includeWorkingTree:)` | `["diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base", "--end-of-options", "<base full ref>", ("HEAD" 또는 작업 트리 포함이면 생략), "--"]` | 워크트리 경로 | `NumstatParser.parseCommitFiles` → `WorktreeComparison.files` | T3, T4, T9, T13 |
+| `comparePatch(base:path:includeWorkingTree:)` | `["diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base", "--end-of-options", "<base full ref>", ("HEAD" 또는 생략), "--", "<path>"]` | 워크트리 경로 | 원문 패치 → S-11 | T3, T4, T9, T13 |
+| `commitsAhead(base:limit:)` | `["log", "-z", "--format=<graphPage와 같은 형식>", "-n", "<limit>", "--end-of-options", "<base full ref>..HEAD", "--"]` | 워크트리 경로 | `LogParser` → `WorktreeComparison.commits` | T7, T9 |
 
 보충 규칙:
 
@@ -133,6 +136,18 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 - **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 사이드바 LOCAL의 로컬 브랜치는 `refs`의 `%(upstream:track,nobracket)`에서 한 번에 얻고, 브랜치마다 `rev-list`를 실행하지 않는다(#54, 2026-11-06 측정 S5). `aheadBehind`는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에만 쓴다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).
 - **그래프 페이지**는 `--skip`과 `-n`으로 나눈다. 같은 ref 집합이면 순서가 결정적이라 GraphEngine이 열린 레인 상태를 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다. 10만 커밋에서 뒤쪽 페이지의 `--skip` 비용이 PB-4를 넘으면, 스트리밍 읽기 모드(한 프로세스의 출력을 페이지 단위로 소비)로 바꾼다. 이 결정은 Phase 3 성능 측정 뒤에 ADR-0010을 갱신해 남긴다.
 - **untrackedPreview**는 `PathValidator.worktreeFile`이 만든 `WorktreeFile`만 받는다(상대 경로, `..` 없음, 실제 위치가 워크트리 안, 일반 파일 또는 심볼릭 링크 — FIFO는 git을 멈추게 하므로 거부). 심볼릭 링크는 내용 대신 링크 대상 문자열만 보여 준다 (T14).
+- **기준 브랜치 비교(#157)**는 워크트리 브랜치가 기준 브랜치에서 갈라진 지점(merge-base)부터 비교한다. GitHub PR의 "Files changed"와 같은 결과다. 그래서 기준 브랜치가 따로 진행한 변경은 나오지 않는다.
+  - `--merge-base <base> HEAD`는 커밋만 비교한다. `HEAD`를 빼면 미커밋 추적 변경까지 포함한다(git 2.30+, Apple Git 2.50.1 확인).
+  - `git diff --raw`는 `diff-tree`와 달리 객체 이름을 줄여 쓰므로 `--no-abbrev`를 붙인다(확인). 작업 트리 쪽 객체 이름은 0으로 채워지며, 파서는 그대로 받는다(파일 목록에는 객체 이름을 쓰지 않는다).
+  - 기준 ref는 `FullRefName`으로 검증한 전체 이름만 받고 `--end-of-options` 뒤에 둔다. 끝의 `--`는 ref와 같은 이름의 파일이 경로로 읽히지 않게 한다. `FullRefName`에는 `..`가 없으므로 `<base>..HEAD`는 한 범위로만 읽힌다.
+  - `--ignore-submodules=dirty`(status와 같다): 작업 트리를 비교하면 git은 서브모듈이 더러운지 보려고 서브모듈 안에서 `status`를 실행한다. 그때 검사하지 않은 서브모듈 자체의 filter가 실행된다(확인, SEC-T4-05). 서브모듈의 커밋 변경은 그대로 나온다.
+  - untracked 파일은 git diff에 나오지 않는다. 그 워크트리의 마지막 `status` 결과에서 붙인다.
+  - 작업 트리를 읽으므로 셋 다 설정 검사 뒤에만 실행한다(`requiresInspection`). 서비스는 `status`와 같은 워크트리 소속 확인을 거친다(#226).
+  - stat만 바뀐 파일이 있어도 공통 인자 `diff.autoRefreshIndex=false`가 index 갱신 쓰기를 막는다. 이 설정을 빼면 `git diff --merge-base`도 index를 다시 쓴다(확인, SEC-T13-02).
+  - 조회는 전송을 허용하지 않으므로, partial clone에서 없는 blob이 필요하면 `partialCloneObjectMissing`이 된다(#212).
+  - 기본 기준: `refs/remotes/origin/HEAD`의 대상 → `refs/heads/main` → `refs/heads/master`. 셋 다 `refs` 결과에 있는 브랜치일 때만 쓴다. 사용자는 다른 로컬·원격 브랜치를 고를 수 있다.
+  - ahead/behind는 HEAD가 브랜치에 있을 때 `aheadBehind(local:upstream: <base>)`로 구한다.
+  - 갈라진 지점이 없으면(관련 없는 이력) git이 `fatal: no merge base found`를 낸다 → `noMergeBase`(§6).
 - **status의 `--untracked-files=all`**은 큰 저장소에서 느릴 수 있다. PB-5 측정에서 기준을 넘으면 `normal`로 바꾸고 디렉터리 단위로 표시하는 방안을 검토한다.
 
 ---
@@ -224,6 +239,7 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 | `remoteNotFound` | `returned error: 404`, `does not appear to be a git repository`, `fatal: repository '…' not found` 줄 |
 | `networkUnavailable` | `Could not resolve host`(ssh의 `Could not resolve hostname` 포함), `unable to look up`, `Connection refused`, `Connection timed out`, `Operation timed out`, `Network is unreachable`, `No route to host`, `Failed to connect to`, `Couldn't connect to server`, `Connection reset by peer` |
 | `notARepository` | `not a git repository` |
+| `noMergeBase` | `fatal: no merge base found`와 **똑같은 줄** (#157). 다른 메시지 안의 같은 문구(파일·ref 이름)는 인정하지 않는다 |
 | `configInspectionFailed` | (설정 검사 단계의 비정상 종료나 파싱 실패) |
 
 `dubiousOwnership`이면 메시지에 "앱은 `safe.directory`를 우회하지 않는다"는 안내를 붙인다.

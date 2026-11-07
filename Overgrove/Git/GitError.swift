@@ -69,6 +69,8 @@ enum GitError: Error, Sendable, Equatable {
     case networkUnavailable(detail: MaskedText)
     /// A query needed an object a partial clone does not have. Queries never lazy-fetch it (#212).
     case partialCloneObjectMissing(detail: MaskedText)
+    /// The worktree's branch shares no history with the comparison base (`fatal: no merge base found`, #157).
+    case noMergeBase
     case nonZeroExit(code: Int32, detail: MaskedText)
     case parseFailed(parser: String, offset: Int)
     case cancelled
@@ -149,6 +151,8 @@ enum GitError: Error, Sendable, Equatable {
             return .networkUnavailable(detail: detail)
         }
         if matches(["not a git repository"]) { return .notARepository(detail: detail) }
+        // git's own line only: a file or ref name in another message must not turn into this category.
+        if localLines.contains(where: { $0 == "fatal: no merge base found" }) { return .noMergeBase }
         return nil
     }
 
@@ -224,6 +228,8 @@ enum GitError: Error, Sendable, Equatable {
         case .partialCloneObjectMissing:
             "This repository is a partial clone and does not have this content locally. Overgrove does not download "
                 + "missing objects."
+        case .noMergeBase:
+            "This branch shares no history with the base branch, so there is nothing to compare."
         case .nonZeroExit(_, let detail):
             detail.summary.isEmpty ? "git reported an error." : detail.summary
         case .parseFailed:
