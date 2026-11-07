@@ -69,7 +69,7 @@ final class GitCommandTests: XCTestCase {
                 "rev-list", "--left-right", "--count", "--end-of-options",
                 "refs/remotes/origin/feat/12-x...refs/heads/feat/12-x",
             ],
-            ["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct", "refs/stash", "--"],
+            ["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct%x00%P", "refs/stash", "--"],
             [
                 "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
                 "--end-of-options", oid.hex,

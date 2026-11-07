@@ -42,13 +42,15 @@ enum AdversarialParserFixtures {
                 + "biB1c2IKZHJpdmUAAA=="
         ) ?? Data()
 
-    /// `stash list -z --format=%gd%x00%H%x00%gs%x00%ct`: `On main: 한글 🌳 line` and `On main: exp: try -dash "q"`.
+    /// `log -g -z --format=%gd%x00%H%x00%gs%x00%ct%x00%P refs/stash`: `On main: 한글 🌳 line` and `On main: exp: try -dash "q"`.
     static let stash =
         Data(
             base64Encoded:
-                "c3Rhc2hAezB9AGZiZGU1MzZkNTM3OGRiYTZjYTA4MDc2MzUzNzE5NjIxMDZjMDMwMjEAT24gbWFpbjog7ZWc6riAIPCfjLMgbGlu"
-                + "ZQAxNzkzODUzNjUyAHN0YXNoQHsxfQA1ZmEyZjc1OTQyOWM4YWEwZmQ4NjQ1MjFhNDJiYTM4ZDEwMjc3YTk1AE9uIG1haW46IGV4"
-                + "cDogdHJ5IC1kYXNoICJxIgAxNzkzODUzNjUyAA=="
+                "c3Rhc2hAezB9AGZkZmYwYmNmOTc1ZjliMzlhZWJmZGQ3NTcyNDE3OTlhMDVhYzI5YTEAT24gbWFpbjog7ZWc6riAIPCfjLMgbGlu"
+                + "ZQAxNzkzODUzNjUyAGJjZjNmMjRiNDVjODQ2NWMzOTE2MjBkZmQ3YTc1ZmU4ODlkYmI1Y2EgZjBmNGNlZTBmOTA4NTExYTg4M2Yx"
+                + "ZjliZTc0MjJmYmJiNGJiZjc5MwBzdGFzaEB7MX0ANzJmN2I3MGIwNmNjMDE2NjAzY2EwNDhiZTFjZGM4NmM0YzU1ODI4YQBPbiBt"
+                + "YWluOiBleHA6IHRyeSAtZGFzaCAicSIAMTc5Mzg1MzY1MgBiY2YzZjI0YjQ1Yzg0NjVjMzkxNjIwZGZkN2E3NWZlODg5ZGJiNWNh"
+                + "IGYwZjRjZWUwZjkwODUxMWE4ODNmMWY5YmU3NDIyZmJiYjRiYmY3OTMA"
         ) ?? Data()
 
     /// `diff-tree -r -z --raw --numstat -M HEAD~1 HEAD`: binary add `-bin.dat`, edits to `:(exclude)x` and

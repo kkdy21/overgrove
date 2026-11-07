@@ -1,9 +1,9 @@
 import Foundation
 
-/// Parses `git stash list -z --format=%gd%x00%H%x00%gs%x00%ct` (parsing-spec.md §4).
+/// Parses `git log -g -z --format=%gd%x00%H%x00%gs%x00%ct%x00%P refs/stash` (parsing-spec.md §4).
 ///
-/// Every field is NUL-terminated, so tokens are grouped by four. A malformed field or a token count that is not a
-/// multiple of four fails the whole parse: a shifted group would attach one stash's OID to another's subject.
+/// Every field is NUL-terminated, so tokens are grouped by five. A malformed field or a token count that is not a
+/// multiple of five fails the whole parse: a shifted group would attach one stash's OID to another's subject.
 ///
 /// Stashes are addressed by `%H` (the OID), never by `stash@{n}`, because `n` shifts when stashes are added or dropped.
 /// The OID is validated strictly; the subject is display-only and is decoded lossily when it is not UTF-8.
@@ -16,7 +16,7 @@ enum StashParser {
     }
 
     private static let name = "StashParser"
-    private static let fieldCount = 4
+    private static let fieldCount = 5
 
     private typealias Token = Data.SubSequence
 
@@ -48,6 +48,7 @@ enum StashParser {
         let index = try selectorIndex(fields[start], in: data)
         let oid = try stashOID(fields[start + 1], in: data)
         let date = try time(fields[start + 3], in: data)
+        let parents = try parentOIDs(fields[start + 4], in: data)
         let subject = fields[start + 2]
         let (branch, message) = split(subject: subject)
         return Stash(
@@ -56,7 +57,8 @@ enum StashParser {
             subject: String(decoding: subject, as: UTF8.self),
             branch: branch,
             message: message ?? String(decoding: subject, as: UTF8.self),
-            date: date
+            date: date,
+            parents: parents
         )
     }
 
@@ -81,6 +83,18 @@ enum StashParser {
             let oid = ObjectID(String(decoding: token, as: UTF8.self))
         else { throw ParseError(parser: name, offset: offset(of: token, in: data), reason: "invalid stash OID") }
         return oid
+    }
+
+    /// `%P`: OIDs separated by single spaces; a real stash has two or three (base, index, untracked).
+    ///
+    /// An entry that is not a stash commit (a root commit written to `refs/stash` by hand, or one with more than three
+    /// parents) yields `[]`: base and includes are unknown, but the list and the whole overview still load (security
+    /// review of #71). Bytes that are not lowercase hex still fail, since these OIDs go back to git.
+    private static func parentOIDs(_ token: Token, in data: Data) throws -> [ObjectID] {
+        if token.isEmpty { return [] }
+        let parts = token.split(separator: 0x20, omittingEmptySubsequences: false)
+        let oids = try parts.map { try stashOID($0, in: data) }
+        return oids.count <= 3 ? oids : []
     }
 
     /// `%ct`: epoch seconds, unsigned decimal.
