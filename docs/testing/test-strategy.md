@@ -37,7 +37,7 @@ flowchart TB
 | 파서·보안 유틸 단위 | `Parsing/`, `Security/`(CredentialMasker, PathValidator), `RepoConfigInspector`의 판정 로직, 명령 인자 조립 | 전체 5초 이내 | 150개 이상 | 로컬 저장 시, 모든 PR |
 | GraphEngine 단위 | 레인 계산, 병합·분기, 페이지 경계 | 전체 3초 이내 | 30개 이상 | 모든 PR |
 | 통합 / 보안 | `GitClient` + 실제 `/usr/bin/git` + 픽스처 | 전체 90초 이내 | INT 20개, SEC 50개 이상 | 모든 PR (필수 검사 `build-test`) |
-| 성능 | PERF-xx ([benchmark-plan.md](../performance/benchmark-plan.md)) | 수 분 | 8개 | 성능 관련 PR, 릴리스 전, 주간 |
+| 성능 | PERF-xx ([benchmark-plan.md](../performance/benchmark-plan.md)) | 수 분 | 9개 | 성능 관련 PR, 릴리스 전, 주간 (`perf.yml`, 선택 실행) |
 | UI 스모크 | 앱 실행, 저장소 열기, 주요 화면 전환 | 1분 이내 | 5개 이하 | 릴리스 전 (Phase 4) |
 
 ---

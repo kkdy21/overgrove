@@ -5,10 +5,11 @@ import XCTest
 
 @testable import Overgrove
 
-/// S-10 diff rendering cost (#232): parsing a patch, building rows, and the first rendered screen, for diffs from
-/// typical to the 10 MB output cap (ADR-0008). Results: docs/performance/results/2026-11-07-s10-diff-viewer.md.
+/// PERF-09 (PB-9): S-10 diff rendering cost (#232): parsing a patch, building rows, and the first rendered screen,
+/// for diffs from typical to the 10 MB output cap (ADR-0008). Results: docs/performance/results/2026-11-07-s10-diff-viewer.md.
 ///
-/// Skipped unless `OVERGROVE_BENCH_DIFF=1` (xcodebuild: `TEST_RUNNER_OVERGROVE_BENCH_DIFF=1`). Not part of CI.
+/// Skipped unless `OVERGROVE_PERF=1` or `OVERGROVE_BENCH_DIFF=1` (`PerfRun`). Up to the 10,000-line gate, parsing and
+/// rows (both off the main thread) are held to PB-9's 200 ms, and the first frame to 16 ms at every size.
 @MainActor
 final class DiffViewerBenchmarkTests: XCTestCase {
     private static let runs = 11  // the first is a warm-up and is dropped (performance-budget.md §1)
@@ -29,23 +30,15 @@ final class DiffViewerBenchmarkTests: XCTestCase {
         return Data(text.utf8)
     }
 
-    private func percentiles(_ samples: [Duration]) -> String {
-        let sorted = samples.sorted()
-        let ms = { (d: Duration) in Double(d.components.attoseconds) / 1e15 + Double(d.components.seconds) * 1000 }
-        return String(
-            format: "p50 %.1f ms, p95 %.1f ms", ms(sorted[sorted.count / 2]), ms(sorted[sorted.count * 95 / 100]))
-    }
-
-    func testDiffRenderingCost() throws {
-        guard ProcessInfo.processInfo.environment["OVERGROVE_BENCH_DIFF"] == "1" else {
-            throw XCTSkip("set OVERGROVE_BENCH_DIFF=1 to measure")
-        }
-        var report: [String] = []
+    func test_PERF_09_diffRendering() throws {
+        try PerfRun.requireSynthetic(legacy: "OVERGROVE_BENCH_DIFF")
+        var report = PerfReport(id: "PERF-09", title: "Diff viewer rendering (PB-9)")
+        report.note("git excluded; parsing and rows run off the main thread")
         // 500 lines (typical), the 10,000-line gate, and about 10 MB (the output cap).
         for lines in [500, DiffDocument.largeLineThreshold, 160_000] {
             let data = Self.patch(lines: lines)
             var parse: [Duration] = []
-            var rows: [Duration] = []
+            var opened: [Duration] = []
             var splitRows: [Duration] = []
             var screen: [Duration] = []
             for run in 0..<Self.runs {
@@ -76,15 +69,21 @@ final class DiffViewerBenchmarkTests: XCTestCase {
 
                 if run > 0 {
                     parse.append(parsed)
-                    rows.append(rowTime)
+                    opened.append(parsed + rowTime)
                     splitRows.append(splitTime)
                     screen.append(firstScreen)
                 }
             }
-            report.append(
-                "\(lines) lines, \(data.count / 1024) KiB: parse \(percentiles(parse)); unified rows \(percentiles(rows)); split rows \(percentiles(splitRows)); first frame \(percentiles(screen))"
-                    + (lines > DiffDocument.largeLineThreshold ? " (large-diff gate shown)" : ""))
+            let size = "\(lines) lines, \(data.count / 1024) KiB"
+            let isGated = lines <= DiffDocument.largeLineThreshold
+            report.record("\(size): parse", PerfSamples(parse))
+            report.record(
+                "\(size): parse + unified rows", PerfSamples(opened), budget: isGated ? .milliseconds(200) : nil,
+                budgetLabel: isGated ? "200 ms (PB-9)" : "— (large-diff gate shown first)")
+            report.record("\(size): split rows", PerfSamples(splitRows))
+            report.record(
+                "\(size): first frame", PerfSamples(screen), budget: .milliseconds(16), budgetLabel: "16 ms (PB-9)")
         }
-        print("DIFF-BENCH\n" + report.joined(separator: "\n"))
+        report.finish()
     }
 }
