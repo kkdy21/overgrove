@@ -10,7 +10,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
   - `ProcessRunner`, `GitEnvironment`, `GitCommand`·`GitClient`, `RepoConfigInspector`
   - `CredentialMasker`, `PathValidator`, `GitError`
   - 모델, 설정·버전·gh 파서
-- 이제 파서(worktree·status·stash·log·ref), GraphEngine, 픽스처 통합 테스트, 디자인 시스템이 열려 있다. 화면은 그다음이다([roadmap.md](docs/roadmap.md)의 순서). 화면 목업은 1차(#159)에 이어 패널 테마 재디자인(#166, [ADR-0014](docs/adr/0014-panel-theme-and-split-layout.md))까지 마쳤다. 모양의 기준은 [art-direction.md](docs/design/art-direction.md)다. 화면 착수 순서는 #164에서 정한다.
+- 파서·GraphEngine·픽스처·통합 테스트·디자인 시스템·보안 테스트(T1–T16)가 들어왔고, 화면은 #164 결정(B)에 따라 워크트리 검토 동선(저장소 등록 → 워크트리 목록 → WIP 상세 → Diff 뷰어 #232 → 기준 비교 #157·#158 → 보안 상태)을 먼저 만든다. 커밋 그래프(#68)는 그다음이다([roadmap.md §3](docs/roadmap.md)). 모양의 기준은 [art-direction.md](docs/design/art-direction.md)다.
 - 진행 상황은 GitHub 이슈, [보드](https://github.com/users/kkdy21/projects/4), 마일스톤이 기준이다. 선점 가능한 이슈는 보드의 "Ready to claim" 뷰에 있다.
 
 ## 0.1 "백로그 확인해서 진행해줘"
