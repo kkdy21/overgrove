@@ -87,7 +87,7 @@ enum RepoConfigInspector {
         var seenDrivers = Set<String>()
         var restoreTLS: [String] = []
         var seenTLS = Set<[UInt8]>()
-        var resetProxies: [String] = []
+        var resetProxies: [ConfigEntry] = []
         var seenProxies = Set<[UInt8]>()
         var resetCookies: [String] = []
         var seenCookies = Set<[UInt8]>()
@@ -99,12 +99,18 @@ enum RepoConfigInspector {
         }
 
         for entry in listing.entries where entry.scope.isRepositoryControlled {
-            // git splits `-c key=value` at the first "=", so such a key could inject another setting (review of #150).
-            if entry.subsection?.contains("=") == true,
+            // Keys the app overrides with `-c <same key>=…`. git splits `-c key=value` at the first "=", so such a key
+            // could inject another setting (review of #150). A subsection that was not valid UTF-8 was decoded with
+            // U+FFFD, so the override would name a different key than the one git reads (#355 review).
+            let isOverridden =
                 ["http", "credential", "filter"].contains(entry.section)
-                    || (entry.section == "remote" && entry.variable == "proxy")
-            {
-                blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
+                || (entry.section == "remote" && entry.variable == "proxy")
+            if isOverridden, let subsection = entry.subsection {
+                if subsection.contains("=") {
+                    blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
+                } else if subsection.unicodeScalars.contains("\u{FFFD}") {
+                    blockingReason = "A configuration key is not valid UTF-8 and cannot be overridden safely."
+                }
             }
             guard let (threat, handling) = classify(entry) else { continue }
             if findings.count < maximumFindings {
@@ -128,7 +134,7 @@ enum RepoConfigInspector {
                 if seenTLS.insert(Array(entry.key.utf8)).inserted { restoreTLS.append(entry.key) }
             // A remote's own proxy wins over http.proxy for that remote (#355).
             case ("http", "proxy"), ("remote", "proxy"):
-                if seenProxies.insert(Array(entry.key.utf8)).inserted { resetProxies.append(entry.key) }
+                if seenProxies.insert(Array(entry.key.utf8)).inserted { resetProxies.append(entry) }
             // Under its own key: a URL-specific value wins over the generic `-c http.cookieFile=` fetch pins (#355).
             case ("http", "cookiefile"), ("http", "savecookies"):
                 if seenCookies.insert(Array(entry.key.utf8)).inserted { resetCookies.append(entry.key) }
@@ -166,18 +172,25 @@ enum RepoConfigInspector {
             }
         }
         fetchAuthentication += restoreTLS.flatMap { ["-c", "\($0)=true"] }
-        // A repository-local proxy could receive credentials released by a trusted helper (review of #150).
-        // Re-assert the trusted value for the same key, or an empty value (no proxy). One pass collects the last
-        // trusted value per proxy key, instead of a scan of the whole listing per key.
-        var trustedProxies: [[UInt8]: String] = [:]
-        for entry in listing.entries where !entry.scope.isRepositoryControlled {
-            let key = Array(entry.key.utf8)
-            if seenProxies.contains(key) { trustedProxies[key] = entry.value ?? "" }
+        // A repository-local proxy could receive credentials released by a trusted helper (review of #150, #355).
+        // Each one is overridden with what the trusted scopes give for the same URL (`TrustedProxies`), so a company
+        // proxy keeps working; without one, an empty value (no proxy). One pass each over the listing.
+        if !resetProxies.isEmpty {
+            let trusted = TrustedProxies(listing.entries)
+            var remoteURLs: [[UInt8]: String] = [:]
+            for entry in listing.entries where entry.section == "remote" && entry.variable == "url" {
+                // git fetches from a remote's first URL.
+                guard let name = entry.subsection, let url = entry.value else { continue }
+                if remoteURLs[Array(name.utf8)] == nil { remoteURLs[Array(name.utf8)] = url }
+            }
+            for entry in resetProxies {
+                let remoteURL =
+                    entry.section == "remote" ? entry.subsection.flatMap { remoteURLs[Array($0.utf8)] } : nil
+                fetchAuthentication += ["-c", "\(entry.key)=\(trusted.value(replacing: entry, remoteURL: remoteURL))"]
+            }
         }
-        for key in resetProxies {
-            fetchAuthentication += ["-c", "\(key)=\(trustedProxies[Array(key.utf8)] ?? "")"]
-        }
-        // Off, not the trusted value: fetch never reads or writes a cookie file (`FetchCommand` pins the generic keys).
+        // Off, not a trusted value: a repository's cookie file is never read or written (`FetchCommand` also pins the
+        // generic keys; a user's own URL-specific keys stay).
         for key in resetCookies {
             fetchAuthentication += ["-c", key.hasSuffix(".savecookies") ? "\(key)=false" : "\(key)="]
         }

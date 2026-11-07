@@ -112,6 +112,26 @@ final class FetchProxyCookieSecurityTests: XCTestCase {
         }
     }
 
+    /// SEC-T11-07: the override is the user's own proxy for that URL, not an empty value, so a fetch behind a company
+    /// proxy keeps working while the repository's proxy still sees nothing.
+    func testSECT11_07_TheUsersProxyReplacesTheRepositorys() async throws {
+        let userProxy = try await LocalHTTPAuthServer.start()
+        defer { userProxy.stop() }
+        try await plainGit([
+            "config", "--file", home.appendingPathComponent(".gitconfig").path, "http.proxy",
+            "http://127.0.0.1:\(userProxy.port)",
+        ])
+        for key in ["remote.origin.proxy", "http.\(remote.url("")).proxy"] {
+            try await repository.git(["config", key, proxyURL])
+            let viaUser = userProxy.requestCount
+            let viaRepository = proxy.requestCount
+            try await appFetch()
+            XCTAssertGreaterThan(userProxy.requestCount, viaUser, "\(key): the fetch goes through the user's proxy")
+            XCTAssertEqual(proxy.requestCount, viaRepository, "\(key): never through the repository's")
+            try await repository.git(["config", "--unset", key])
+        }
+    }
+
     // MARK: - SEC-T11-08
 
     /// A repository's cookie file (generic, and under a URL, which a generic override does not reach) is not read
