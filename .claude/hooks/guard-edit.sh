@@ -10,7 +10,17 @@ input=$(cat)
 root="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 file=$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty')
 [[ -z "$file" ]] && exit 0
-rel="${file#"$root"/}"
+
+# The relative path decides which rules apply, so take it from the worktree that holds the file: a file in a linked
+# worktree outside CLAUDE_PROJECT_DIR would otherwise keep its absolute path and match no allowed folder. The checker
+# script and the gitleaks config still come from $root, the checkout this session trusts.
+file_root="$root"
+dir=$(dirname "$file")
+while [[ ! -d "$dir" && "$dir" != "/" ]]; do dir=$(dirname "$dir"); done
+if top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && [[ "$file" == "$top"/* ]]; then
+  file_root="$top"
+fi
+rel="${file#"$file_root"/}"
 
 # New text introduced by the tool call.
 content=$(printf '%s' "$input" | jq -r '
