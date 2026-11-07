@@ -197,7 +197,20 @@ extension AppState {
     var worktreeDetailModel: WorktreeDetailModel? {
         guard case .worktreeInfo(let path) = selection, let entry = entry(at: path) else { return nil }
         return WorktreeDetailModel(
-            entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date())
+            entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date(),
+            showsFullRemoteURLs: settings.showsFullRemoteURLs)
+    }
+
+    /// Sidebar REMOTE group tooltips (#86): remote name → its URL as the Show full remote URLs setting says. Built
+    /// from the masked URLs of an inspected worktree's configuration (remotes are shared by every worktree).
+    var remoteURLTooltips: [String: String] {
+        guard case .loaded(let listing) = worktreeList,
+            let inspection = listing.entries.lazy.compactMap(\.inspection).first
+        else { return [:] }
+        let full = settings.showsFullRemoteURLs
+        return Dictionary(
+            inspection.remotes.map { ($0.name.value, RemoteURLDisplay.text($0.displayURL, full: full)) },
+            uniquingKeysWith: { first, _ in first })
     }
 
     func entry(at path: GitPath) -> WorktreeListing.Entry? {

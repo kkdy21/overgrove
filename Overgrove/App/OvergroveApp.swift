@@ -1,16 +1,17 @@
 import SwiftUI
 
 /// Application entry point. Each main window (S-01) shows one repository and owns its `AppState`; only the panel
-/// layout store, which keys layouts by repository, and the registered repositories are shared (prd.md,
+/// layout store, which keys layouts by repository, the registered repositories, and the settings are shared (prd.md,
 /// interaction.md §1.1: one repository per window).
 @main
 struct OvergroveApp: App {
     private let layoutStore = PanelLayoutStore()
     private let registry = RepositoryRegistry()
+    private let settings = AppSettings()
 
     var body: some Scene {
         WindowGroup("Overgrove") {
-            MainWindowScene(layoutStore: layoutStore, registry: registry)
+            MainWindowScene(layoutStore: layoutStore, registry: registry, settings: settings)
         }
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
@@ -20,6 +21,14 @@ struct OvergroveApp: App {
             RepositoryCommands()
             NavigationCommands()
         }
+        // S-08 (⌘,), #86.
+        Settings {
+            SettingsView(
+                settings: settings, registry: registry,
+                actions: RepositoryListActions(
+                    registry: registry, registrar: .live, fetchRecords: FetchRecordStore(),
+                    loader: LiveRepositoryLoader.live))
+        }
     }
 }
 
@@ -27,8 +36,8 @@ struct OvergroveApp: App {
 struct MainWindowScene: View {
     @State private var state: AppState
 
-    init(layoutStore: PanelLayoutStore, registry: RepositoryRegistry) {
-        _state = State(initialValue: AppState(layoutStore: layoutStore, registry: registry))
+    init(layoutStore: PanelLayoutStore, registry: RepositoryRegistry, settings: AppSettings) {
+        _state = State(initialValue: AppState(layoutStore: layoutStore, registry: registry, settings: settings))
     }
 
     var body: some View {

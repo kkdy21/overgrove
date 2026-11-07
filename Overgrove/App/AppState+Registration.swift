@@ -88,6 +88,12 @@ extension AppState {
         }
     }
 
+    /// Settings › Repositories removed the open repository (#86): close it here too.
+    func closeIfUnregistered() {
+        guard let id = repository?.repository.id, registry.repository(withID: id) == nil else { return }
+        close()
+    }
+
     private func close() {
         repository = nil
         panelLayout = .default

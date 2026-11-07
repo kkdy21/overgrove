@@ -47,6 +47,8 @@ struct MainWindowView: View {
             }
             .modifier(FetchFeedback(state: state, showsDetails: $showsFetchDetails))
             .modifier(SetupAssistantPresentation(state: state, setup: state.setup, addRepository: addRepository))
+            // Settings › Repositories can remove the repository this window shows (#86).
+            .onChange(of: state.registeredRepositories.map(\.id)) { state.closeIfUnregistered() }
     }
 
     private var focusedActions: FocusedRepositoryActions {
@@ -76,6 +78,7 @@ struct MainWindowView: View {
                     hasRepository: state.repository != nil, worktreeStatus: state.worktreeList,
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
                     onSelectWorktree: state.selectWorktree, branchModel: state.branchListModel,
+                    remoteURLTooltips: state.remoteURLTooltips,
                     stashRows: state.stashes.map(StashRow.init),
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
                     onSelectStash: state.selectStash, issueModel: state.issueListModel,
