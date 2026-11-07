@@ -472,6 +472,16 @@ final class AppState {
         clearStashFile()
     }
 
+    // MARK: Branches (#72)
+
+    /// Sidebar LOCAL and REMOTE, `nil` until the list loads with refs.
+    var branchListModel: BranchListModel? {
+        guard case .loaded(let listing) = worktreeList, let refs = listing.refs else { return nil }
+        return BranchListModel(
+            refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
+            remoteNames: listing.remoteNames)
+    }
+
     // MARK: Stashes (#71)
 
     /// The repository's stashes, newest first; empty until the list loads.

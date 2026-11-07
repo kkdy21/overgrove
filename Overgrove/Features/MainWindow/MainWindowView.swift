@@ -15,7 +15,8 @@ struct MainWindowView: View {
                 SidebarPanel(
                     hasRepository: state.repository != nil, worktreeStatus: state.worktreeList,
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
-                    onSelectWorktree: state.selectWorktree, stashRows: state.stashes.map(StashRow.init),
+                    onSelectWorktree: state.selectWorktree, branchModel: state.branchListModel,
+                    stashRows: state.stashes.map(StashRow.init),
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
                     onSelectStash: state.selectStash, canCompareWorktree: { state.canCompare($0) },
                     onCompareWorktree: { state.showComparison(of: $0) })

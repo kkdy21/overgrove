@@ -48,6 +48,11 @@ struct WorktreeListing: Sendable, Equatable {
     var stashes: [Stash] = []
     /// The stash list was cut at the size limit.
     var isStashListPartial = false
+    /// Local and remote-tracking branches and tags (sidebar LOCAL / REMOTE, #72); `nil` before a service load.
+    var refs: RefParser.Listing?
+    /// The configured remote names (from the repository's inspection), to split `refs/remotes/<remote>/<branch>`
+    /// when a remote name contains `/`.
+    var remoteNames: [String] = []
 }
 
 extension WorktreeListing {
@@ -58,7 +63,8 @@ extension WorktreeListing {
                 Entry(worktree: $0.worktree, state: Self.state($0.status), inspection: $0.inspection)
             },
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
-            isStashListPartial: overview.stashes.isPartial)
+            isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
+            remoteNames: overview.inspection.remotes.map(\.name.value))
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {

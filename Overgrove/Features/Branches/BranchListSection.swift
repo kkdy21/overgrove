@@ -1,0 +1,128 @@
+import SwiftUI
+
+/// The sidebar's LOCAL or REMOTE section (information-architecture.md §4, art-direction.md §6): one-line rows,
+/// folders (`feat/`) and remotes that open and close, the checked-out `tree` mark, ahead/behind, and `gone`.
+///
+/// TODO(#68): picking a branch selects its tip commit in the graph ("Show in Graph"); until the graph exists the
+/// rows only show their details in the tooltip.
+struct BranchListSection: View {
+    let title: String
+    let count: Int
+    let nodes: [BranchNode]
+    var warning: String?
+
+    @State private var isExpanded = true
+    @State private var openFolders: Set<String> = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SidebarSectionHeader(title: title, count: count, isExpanded: $isExpanded)
+            if isExpanded {
+                if let warning {
+                    SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
+                }
+                if nodes.isEmpty {
+                    Text(title == "LOCAL" ? "No local branches" : "No remote branches")
+                        .font(Tokens.Font.callout)
+                        .foregroundStyle(Tokens.Color.textTertiary)
+                        .padding(.horizontal, Tokens.Spacing.md)
+                        .frame(height: Tokens.Size.rowSidebar)
+                }
+                // Lazy: a repository can have thousands of branches.
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(nodes) { node in nodeView(node, depth: 0) }
+                }
+            }
+        }
+    }
+
+    private func nodeView(_ node: BranchNode, depth: Int) -> AnyView {
+        switch node {
+        case .branch(let row):
+            return AnyView(BranchRowView(row: row, depth: depth, showsDate: title == "REMOTE"))
+        case .folder(let id, let name, let count, let children):
+            let isOpen = openFolders.contains(id)
+            return AnyView(
+                VStack(alignment: .leading, spacing: 0) {
+                    Button {
+                        if isOpen { openFolders.remove(id) } else { openFolders.insert(id) }
+                    } label: {
+                        HStack(spacing: Tokens.Spacing.xs) {
+                            Image(systemName: "chevron.right")
+                                .rotationEffect(.degrees(isOpen ? 90 : 0))
+                                .font(Tokens.Font.caption)
+                                .foregroundStyle(Tokens.Color.textTertiary)
+                            Image(systemName: depth == 0 && title == "REMOTE" ? "globe" : "folder")
+                                .foregroundStyle(Tokens.Color.textTertiary)
+                            Text(name).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
+                            Spacer()
+                            Text(WorktreeListModel.badgeText(count))
+                                .font(Tokens.Font.caption)
+                                .foregroundStyle(Tokens.Color.textTertiary)
+                        }
+                        .padding(.leading, Tokens.Spacing.md + CGFloat(depth) * Tokens.Spacing.lg)
+                        .padding(.trailing, Tokens.Spacing.md)
+                        .frame(height: Tokens.Size.rowSidebar)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(name), \(count) branches")
+                    .accessibilityValue(isOpen ? "expanded" : "collapsed")
+                    if isOpen {
+                        ForEach(children) { child in nodeView(child, depth: depth + 1) }
+                    }
+                })
+        }
+    }
+}
+
+private struct BranchRowView: View {
+    let row: BranchRow
+    let depth: Int
+    let showsDate: Bool
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.xs) {
+            Image(systemName: "arrow.triangle.branch").foregroundStyle(Tokens.Color.textTertiary)
+                .accessibilityHidden(true)
+            Text(row.name)
+                .font(row.isDefault ? Tokens.Font.bodyEmphasized : Tokens.Font.callout)
+                .foregroundStyle(Tokens.Color.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: Tokens.Spacing.xs)
+            if row.isUpstreamGone {
+                Text("gone").font(Tokens.Font.pill).foregroundStyle(Tokens.Color.statusPrunable)
+            }
+            if row.ahead > 0 {
+                Text("↑" + WorktreeListModel.badgeText(row.ahead)).font(Tokens.Font.pill)
+                    .foregroundStyle(Tokens.Color.statusAhead)
+            }
+            if row.behind > 0 {
+                Text("↓" + WorktreeListModel.badgeText(row.behind)).font(Tokens.Font.pill)
+                    .foregroundStyle(Tokens.Color.statusBehind)
+            }
+            if showsDate, let date = row.date {
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    Text(StatusBarItem.relative(date, now: context.date))
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.textTertiary)
+                }
+            }
+            if row.isCheckedOut {
+                Image(systemName: "tree").foregroundStyle(Tokens.Color.textSecondary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.leading, Tokens.Spacing.md + CGFloat(depth) * Tokens.Spacing.lg)
+        .padding(.trailing, Tokens.Spacing.md)
+        .frame(height: Tokens.Size.rowSidebar)
+        .help(row.help)
+        .contextMenu {
+            // TODO(#68): select the tip commit in the graph.
+            Button("Show in Graph") {}.disabled(true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.accessibilityLabel)
+    }
+}
