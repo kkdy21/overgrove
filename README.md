@@ -46,8 +46,9 @@ and want one calm window that answers *"what is going on where?"*
 It is a good fit if:
 
 - **Your Git GUI slows your Mac down.** Clients that keep file watchers running on every repository can use a lot of
-  CPU and memory once you have many worktrees open. Overgrove v0.1 has no always-on file watcher: it refreshes when the
-  window becomes active, when you press ⌘R, and after a fetch.
+  CPU and memory once you have many worktrees open. Overgrove watches files only while its window is visible, re-runs
+  `git status` only for the worktrees that changed, and rate-limits that even during a burst of file writes. A covered
+  or minimized window stops watching and costs nothing; it refreshes once when you bring it back.
 - **A tool you relied on stopped getting updates.** Overgrove is MIT-licensed, has zero third-party dependencies, and
   builds from source with Xcode alone, so it is easy to keep alive.
 - **Your current client cannot show your worktrees side by side.** Worktrees are the primary object here: each one with

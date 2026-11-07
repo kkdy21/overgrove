@@ -217,9 +217,12 @@ final class WorktreeDetailModelTests: XCTestCase {
         let model = security([
             entry(.local, "credential.https://kim:\(secret)@h.example.helper"),
             entry(.local, "http.https://kim:\(secret)@h.example.sslverify", "false"),
+            // #244: without a scheme, with and without a user name
+            entry(.local, "credential.kim:\(secret)@h2.example.helper"),
+            entry(.local, "url.\(secret)@h3.example:org.insteadof", "https://h3.example/org"),
         ])
-        let keys = model.rows.flatMap(\.details)
-        XCTAssertEqual(keys.count, 2, "\(keys)")
+        let keys = model.rows.flatMap(\.details) + model.others.map(\.key)
+        XCTAssertEqual(keys.count, 4, "\(keys)")
         XCTAssertFalse(keys.contains { $0.contains(secret) }, "\(keys)")
     }
 

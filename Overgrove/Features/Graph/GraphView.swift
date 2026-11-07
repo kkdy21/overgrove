@@ -65,6 +65,11 @@ struct GraphView: View {
                                 refsWidth: shownColumns.width(of: .refs), laneOffset: laneScroll.offset
                             )
                             .id(Self.wipRowID)
+                            // interaction.md §2: clicking the WIP row selects the worktree's changes (#311).
+                            .contentShape(Rectangle())
+                            .onTapGesture { onSelectWip?() }
+                            .accessibilityAction { onSelectWip?() }
+                            .accessibilityAddTraits(.isButton)
                             .contextMenu { wipMenu }
                             .opacity(isDimming ? Tokens.Opacity.disabled : 1)
                         }
@@ -362,6 +367,8 @@ struct GraphRefPillView: View {
     let laneColor: Color
     let laneIndex: Int
 
+    @Environment(\.colorSchemeContrast) private var contrast
+
     private var symbol: String? {
         switch pill.kind {
         case .focusedBranch, .worktreeBranch, .focusedDetached, .detachedWorktree: "tree"
@@ -382,7 +389,8 @@ struct GraphRefPillView: View {
 
     private var border: Color? {
         switch pill.kind {
-        case .worktreeBranch, .localBranch, .remoteBranch: laneColor.opacity(0.75)
+        case .worktreeBranch, .localBranch, .remoteBranch:
+            laneColor.opacity(Tokens.refMarkOpacity(contrast, normal: Tokens.Graph.refPillBorderOpacity))
         case .focusedDetached, .detachedWorktree: Tokens.Color.textTertiary
         case .focusedBranch, .tag: nil
         }
@@ -424,7 +432,9 @@ struct AIBadge: View {
         .foregroundStyle(Tokens.Color.textTertiary)
         .padding(.horizontal, 4)
         .frame(height: 15)
-        .overlay { RoundedRectangle(cornerRadius: 4).strokeBorder(Tokens.Color.textTertiary, lineWidth: 1) }
+        .controlOutline(
+            RoundedRectangle(cornerRadius: 4), normal: Tokens.Color.textTertiary, increased: Tokens.Color.textTertiary
+        )
         .accessibilityLabel("AI-assisted")
     }
 }

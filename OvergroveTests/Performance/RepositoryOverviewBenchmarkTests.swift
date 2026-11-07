@@ -17,7 +17,7 @@ final class RepositoryOverviewBenchmarkTests: XCTestCase {
     func test_PERF_01_tenWorktreeOverview() async throws {
         let root = try PerfRun.benchRepository()
         let parent = PerfRun.isolatedParentEnvironment
-        let environment = try await GitEnvironment.discover(parentEnvironment: parent)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: parent)
         let repository = Repository(
             rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false)
 
@@ -45,7 +45,7 @@ final class RepositoryOverviewBenchmarkTests: XCTestCase {
     func test_PERF_02_cachedWorktreeSwitch() async throws {
         let root = try PerfRun.benchRepository()
         let parent = PerfRun.isolatedParentEnvironment
-        let environment = try await GitEnvironment.discover(parentEnvironment: parent)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: parent)
         let service = RepositoryService(client: GitClient(environment: environment, parentEnvironment: parent))
         let repository = Repository(
             rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false)

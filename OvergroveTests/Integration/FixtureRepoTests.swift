@@ -22,7 +22,8 @@ final class FixtureRepoTests: XCTestCase {
         XCTAssertFalse(files.fileExists(atPath: fixture.canary.path), "canary/ exists only with --malicious")
         XCTAssertFalse(files.fileExists(atPath: fixture.payloads.path), "payloads/ exists only with --malicious")
 
-        let client = GitClient(environment: try await GitEnvironment.discover(), parentEnvironment: fixture.environment)
+        let client = GitClient(
+            environment: try await GitEnvironment.discoverForTesting(), parentEnvironment: fixture.environment)
         let config = try await client.run(.configList, in: fixture.repository, safety: .preInspection)
         let safety = try XCTUnwrap(RepoConfigInspector.inspect(try ConfigParser.parse(config.stdout)).safetyContext)
 

@@ -169,7 +169,15 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertTrue(inspect([entry(.global, "remote.origin.promisor", "yes")]).isPartialClone, "any scope")
         XCTAssertTrue(inspect([entry(.local, "extensions.partialclone", "origin")]).isPartialClone)
         XCTAssertFalse(inspect([entry(.local, "remote.origin.promisor", "false")]).isPartialClone)
-        XCTAssertFalse(inspect([entry(.local, "extensions.partialclone", "")]).isPartialClone)
+        // git registers a promisor remote for a filter alone, and for an empty extensions.partialclone (#317).
+        XCTAssertTrue(inspect([entry(.local, "remote.origin.partialclonefilter", "blob:limit=1m")]).isPartialClone)
+        XCTAssertTrue(inspect([entry(.global, "remote.other.partialclonefilter", nil)]).isPartialClone, "any value")
+        XCTAssertTrue(
+            inspect([
+                entry(.local, "remote.origin.promisor", "false"), entry(.local, "remote.origin.partialclonefilter", ""),
+            ]).isPartialClone, "a filter makes the remote a promisor even when promisor is false")
+        XCTAssertTrue(inspect([entry(.local, "extensions.partialclone", "")]).isPartialClone)
+        XCTAssertTrue(inspect([entry(.local, "extensions.partialclone", nil)]).isPartialClone)
         XCTAssertEqual(
             inspect([entry(.local, "remote.origin.promisor", "true")]).safetyContext?.isPartialClone, true)
     }
@@ -452,7 +460,7 @@ final class RepoConfigInspectorTests: XCTestCase {
 final class RepoConfigInspectorFixtureTests: XCTestCase {
     func testSECT4_FilterPayloadRunsWithoutNeutralizationAndNotWithIt() async throws {
         let fixture = try await makeFixture(malicious: true)
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let worktree = fixture.repository
         // Make the `*.md` files stat-dirty so every status re-reads them through `filter.fixtureproc.process`. A fresh

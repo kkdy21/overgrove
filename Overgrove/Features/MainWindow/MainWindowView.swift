@@ -53,6 +53,7 @@ struct MainWindowView: View {
                 state.autoFetch.windowActivityChanged(isActive: active == .key)
             }
             .modifier(FetchFeedback(state: state, showsDetails: $showsFetchDetails))
+            .modifier(AutoRefreshVisibility(autoRefresh: state.autoRefresh))
             .modifier(SetupAssistantPresentation(state: state, setup: state.setup, addRepository: addRepository))
             // Settings › Repositories can remove the repository this window shows (#86).
             .onChange(of: state.registeredRepositories.map(\.id)) { state.closeIfUnregistered() }
@@ -145,6 +146,7 @@ struct MainWindowView: View {
                 isAddingRepository: state.isAddingRepository,
                 repositoryActions: repositoryActions,
                 focusedWorktree: state.snapshot?.focusedWorktree,
+                focusedLaneIndex: state.worktreeListModel?.rows.first(where: \.isFocused)?.laneIndex,
                 isSidebarCollapsed: state.panelLayout.isSidebarCollapsed,
                 toggleSidebar: toggleSidebar,
                 refresh: refreshAction,
@@ -345,6 +347,17 @@ private struct SetupAssistantPresentation: ViewModifier {
     private var repositoryPath: String? {
         guard let id = state.repository?.repository.id else { return nil }
         return state.registeredRepositories.first { $0.id == id }?.displayRootPath
+    }
+}
+
+/// Auto refresh runs only while the window is visible (#119): occlusion and closing stop it.
+private struct AutoRefreshVisibility: ViewModifier {
+    let autoRefresh: AutoRefreshController
+
+    func body(content: Content) -> some View {
+        content
+            .background(WindowOcclusionObserver { autoRefresh.setVisible($0) })
+            .onDisappear { autoRefresh.setVisible(false) }
     }
 }
 

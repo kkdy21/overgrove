@@ -91,6 +91,8 @@ final class RepositoryServiceTests: XCTestCase {
         for entry in overview.entries {
             guard case .loaded(let state) = entry.status else { return XCTFail("\(entry.worktree.path.display)") }
             XCTAssertEqual(state.changedPathCount, entry.worktree.isMain ? 1 : 0, entry.worktree.path.display)
+            // #168: each status records how long it took.
+            XCTAssertNotNil(entry.statusDuration, entry.worktree.path.display)
         }
         XCTAssertEqual(
             overview.refs.branches.map(\.fullName).sorted(),
