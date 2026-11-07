@@ -91,6 +91,8 @@ struct SidebarPanel: View {
     var worktreeModel: WorktreeListModel?
     var selectedWorktree: GitPath?
     var onSelectWorktree: (GitPath) -> Void = { _ in }
+    /// LOCAL and REMOTE (#72).
+    var branchModel: BranchListModel?
     /// STASHES (#71).
     var stashRows: [StashRow] = []
     var isStashListPartial = false
@@ -105,13 +107,20 @@ struct SidebarPanel: View {
             PlaceholderField(symbol: "magnifyingglass", prompt: "Filter", shortcut: "⌥⌘F")
         } content: {
             if hasRepository {
-                // TODO(#72): LOCAL and REMOTE; TODO(#81): ISSUES.
+                // TODO(#81): ISSUES.
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         WorktreeListSection(
                             status: worktreeStatus, model: worktreeModel, selectedPath: selectedWorktree,
                             onSelect: onSelectWorktree, canCompare: canCompareWorktree,
                             onCompare: onCompareWorktree)
+                        if let branchModel {
+                            BranchListSection(
+                                title: "LOCAL", count: branchModel.localCount, nodes: branchModel.local,
+                                warning: branchModel.warning)
+                            BranchListSection(
+                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote)
+                        }
                         if case .loaded = worktreeStatus {
                             StashListSection(
                                 rows: stashRows, isPartial: isStashListPartial, selectedID: selectedStash,
@@ -128,9 +137,10 @@ struct SidebarPanel: View {
     }
 }
 
-/// Center: author filter header, column headers, and the commit graph. TODO(#68): commit graph.
+/// Center: author filter header, column headers, and the commit graph (#68).
 struct GraphPanel: View {
     let hasRepository: Bool
+    var graphStore: GraphStore?
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -153,10 +163,19 @@ struct GraphPanel: View {
             Image(systemName: "person.2").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
             Text("Commits").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
         } content: {
-            PanelEmptyState(
-                symbol: "point.3.connected.trianglepath.dotted", title: "Commit graph",
-                message: hasRepository
-                    ? "The history of every worktree appears here." : "Open a repository to see its history.")
+            switch graphStore?.status {
+            case .loaded?:
+                if let graphStore { GraphView(store: graphStore) }
+            case .loading?:
+                ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .failed(let message)?:
+                PanelEmptyState(symbol: "exclamationmark.triangle", title: "History unavailable", message: message)
+            case .idle?, nil:
+                PanelEmptyState(
+                    symbol: "point.3.connected.trianglepath.dotted", title: "Commit graph",
+                    message: hasRepository
+                        ? "The history of every worktree appears here." : "Open a repository to see its history.")
+            }
         }
     }
 }

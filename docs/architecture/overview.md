@@ -197,7 +197,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | WIP 줄 수 (`worktreeNumstat`) | 워크트리 경로 | 그 워크트리의 status를 다시 조회했을 때(status와 같은 무효화). 포커스 워크트리를 상세로 볼 때만 조회한다. → #230 |
 | stash 목록 | 저장소 | `# stash N` 헤더 값 변화, 수동 새로고침. → #88 |
 | 브랜치·ahead/behind | 저장소 | fetch 완료, 수동 새로고침, status가 보고한 브랜치 tip이 캐시와 다를 때. → #88 |
-| 그래프 페이지 | 저장소 + ref 집합 해시 | ref 집합 변경(for-each-ref 결과 해시). → #68에서 구현 |
+| 그래프 페이지 | 저장소 + ref 집합(브랜치·원격·태그 tip과 워크트리 HEAD의 정렬된 목록 그 자체, 해시 충돌 없음) + skip·limit | ref 집합이 바뀌면 새 키. 수동 새로고침(⌘R)과 `forget`이면 그 저장소 페이지를 모두 버림(목록에 없는 ref 이름공간이 움직일 수 있다). 최대 40페이지 LRU. → #68 (`RepositoryService.graphPage`, `GraphStore`) |
 | 커밋 상세 | object ID | 무효화 없음 (불변). LRU로 상한. → #69에서 구현 |
 | 이슈 목록 | 저장소 원격(owner/name) | 수동 새로고침, 5분 경과. → #81에서 구현 |
 | 기준 브랜치 비교 (`WorktreeComparison`) | 워크트리 + 기준 ref + 기준 tip + HEAD (+ 작업 트리 포함이면 그 워크트리의 status 조회 시각) | 키가 바뀌면 새 항목. 커밋만 비교하면 불변이라 status가 새로 와도 유지하고, 작업 트리 포함이면 status를 다시 조회할 때 무효. 최대 32개 LRU, `forget`이면 함께 버림. → #157 |

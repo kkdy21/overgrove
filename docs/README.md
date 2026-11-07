@@ -87,7 +87,7 @@ Overgrove/
 ├── Models/         # 값 타입 모델
 ├── Security/       # CredentialMasker, PathValidator
 ├── DesignSystem/   # 디자인 토큰의 Swift 표현, 공용 컴포넌트
-├── Features/       # Worktrees, Graph, Detail, Stash, Issues, Onboarding, Settings
+├── Features/       # Worktrees, Graph(GraphView·GraphLaneCell·GraphRowModel, #68), Detail, Stash, Issues, Onboarding, Settings
 └── Resources/      # Assets.xcassets (AppIcon, 색상 세트)
 OvergroveTests/
 ├── Support/  ├── Parsing/  ├── Security/  ├── GraphEngine/  ├── Integration/  └── Performance/
