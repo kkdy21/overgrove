@@ -35,11 +35,18 @@ struct StatusBarItem: Equatable, Identifiable {
         ghStatus: GHAuthStatus?,
         now: Date,
         hasFetchDetails: Bool = false,
-        isRefreshing: Bool = false
+        isRefreshing: Bool = false,
+        fetchRemoteLimit: FetchRemoteLimit? = nil
     ) -> [StatusBarItem] {
+        var fetch = fetchItem(fetchStatus, now: now, hasDetails: hasFetchDetails)
+        // `Fetched just now · 16 of 40 remotes` (#259); not while a new fetch runs.
+        if let fetchRemoteLimit, !fetchStatus.isFetching {
+            fetch = StatusBarItem(
+                kind: .fetch, text: fetch.text + " · " + fetchRemoteLimit.short, symbol: fetch.symbol, tone: fetch.tone)
+        }
         var items = [
             StatusBarItem(kind: .readOnly, text: "Read-only", symbol: "checkmark.shield", tone: .ok),
-            fetchItem(fetchStatus, now: now, hasDetails: hasFetchDetails),
+            fetch,
         ]
         if isRefreshing {
             items.append(StatusBarItem(kind: .refreshing, text: "Refreshing…", symbol: nil, tone: .neutral))

@@ -18,6 +18,21 @@ struct FetchFailureDetail: Equatable, Sendable, Identifiable {
     let detail: String?
 }
 
+/// More remotes are configured than one Fetch takes (`RepositoryService.defaultMaximumFetchedRemotes`, #259, T15).
+struct FetchRemoteLimit: Equatable, Sendable {
+    let fetched: Int
+    let total: Int
+
+    /// For the status bar: `16 of 40 remotes`.
+    var short: String { "\(fetched) of \(total) remotes" }
+
+    /// For the Details sheet.
+    var sentence: String {
+        "This repository has \(total) remotes. Overgrove fetched the first \(fetched), in the order of its "
+            + "configuration, and skipped the rest."
+    }
+}
+
 /// The window's fetch: the status bar field, the Fetch/Stop button, and the record kept per repository (G5).
 ///
 /// One fetch runs at a time per window, and `GitClient` runs one per repository across windows. A fetch that ends
@@ -29,6 +44,8 @@ final class FetchController {
     private(set) var status: FetchStatus = .never
     /// The failed remotes of the last fetch, for `Fetch failed — Details`. Empty otherwise.
     private(set) var failures: [FetchFailureDetail] = []
+    /// Set when the repository has more remotes than one Fetch takes (#259).
+    private(set) var remoteLimit: FetchRemoteLimit?
     /// The fetch in flight; tests await it.
     private(set) var task: Task<Void, Never>?
     /// Called on the main actor after a fetch ends, finished or stopped.
@@ -46,6 +63,9 @@ final class FetchController {
         self.now = now
     }
 
+    /// Whether there is something for the Details sheet: failed remotes or the remote-limit notice.
+    var hasDetails: Bool { !failures.isEmpty || remoteLimit != nil }
+
     /// Whether Fetch can run: a repository is open and a fetcher exists.
     var canFetch: Bool { fetcher != nil && repository != nil }
 
@@ -57,6 +77,7 @@ final class FetchController {
         generation += 1
         self.repository = repository
         failures = []
+        remoteLimit = nil
         status = repository.map(store.status(for:)) ?? .never
     }
 
@@ -67,6 +88,7 @@ final class FetchController {
         let generation = generation
         let lastFetched = status.lastFetched
         failures = []
+        remoteLimit = nil
         status = .fetching(remotes: [], since: now(), lastFetched: lastFetched)
         // Main-actor isolated, so the controller is Sendable; held until this fetch ends (the window stops it when it
         // closes, `MainWindowView`).
@@ -86,9 +108,12 @@ final class FetchController {
 
     #if DEBUG
         /// Shows `status` without fetching (previews and render tests).
-        func showForPreview(_ status: FetchStatus, failures: [FetchFailureDetail] = []) {
+        func showForPreview(
+            _ status: FetchStatus, failures: [FetchFailureDetail] = [], remoteLimit: FetchRemoteLimit? = nil
+        ) {
             self.status = status
             self.failures = failures
+            self.remoteLimit = remoteLimit
         }
     #endif
 
@@ -110,7 +135,8 @@ final class FetchController {
         switch run {
         case .cancelled:
             status = .cancelled(lastFetched: lastFetched)
-        case .finished(let failed):
+        case .finished(let failed, let limit):
+            remoteLimit = limit
             let finishedAt = now()
             store.save(
                 FetchRecord(

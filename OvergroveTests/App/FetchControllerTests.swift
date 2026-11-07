@@ -137,6 +137,29 @@ final class FetchControllerTests: XCTestCase {
         await controller.task?.value
     }
 
+    /// #259: skipped remotes are reported, and the next fetch clears the notice.
+    func testRemoteLimitIsShownUntilTheNextFetch() async {
+        let fetcher = GatedFetcher()
+        let (controller, _) = controller(fetcher)
+        controller.fetch()
+        await fetcher.waitForFetches(1)
+        let limit = FetchRemoteLimit(fetched: 16, total: 40)
+        fetcher.release(0, with: .finished(failures: [], remoteLimit: limit))
+        await controller.task?.value
+        XCTAssertEqual(controller.status, .idle(lastFetched: start), "a limited fetch still succeeded")
+        XCTAssertEqual(controller.remoteLimit, limit)
+        XCTAssertTrue(controller.hasDetails)
+        XCTAssertEqual(limit.short, "16 of 40 remotes")
+        XCTAssertTrue(limit.sentence.contains("40 remotes"))
+
+        controller.fetch()
+        XCTAssertNil(controller.remoteLimit)
+        XCTAssertFalse(controller.hasDetails)
+        await fetcher.waitForFetches(2)
+        fetcher.release(1, with: .finished(failures: []))
+        await controller.task?.value
+    }
+
     func testStopEndsAsCancelledWithoutARecord() async {
         let fetcher = GatedFetcher()
         let (controller, store) = controller(fetcher)
