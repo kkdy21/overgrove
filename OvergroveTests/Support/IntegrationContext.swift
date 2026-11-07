@@ -39,6 +39,15 @@ struct IntegrationContext {
         return output.stdout
     }
 
+    /// The fixture's main repository as the app models it (fetch is scheduled per repository).
+    var repository: Repository {
+        Repository(
+            rootURL: fixture.repository,
+            commonGitDirectoryURL: fixture.repository.appendingPathComponent(".git", isDirectory: true),
+            isBare: false
+        )
+    }
+
     func status(of worktree: URL) async throws -> WorkingState {
         try StatusParser.parse(try await run(.status, in: worktree))
     }

@@ -127,7 +127,7 @@ final class HistoryIntegrationTests: XCTestCase {
         let fixture = context.fixture
         let origin = try XCTUnwrap(RemoteName("origin"))
         let output = try await context.client.fetch(
-            .fetch(remote: origin), in: fixture.repository, safety: context.safety)
+            .fetch(remote: origin), in: context.repository, safety: context.safety)
         XCTAssertFalse(output.isTruncated)
 
         let refs = try await context.refs()
