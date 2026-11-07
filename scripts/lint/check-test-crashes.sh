@@ -14,12 +14,19 @@ root="${1:-$(cd "$(dirname "$0")/../.." && pwd)}"
 status=0
 
 while IFS= read -r -d '' path; do
-  if matches=$(grep -nE 'try!' "$root/$path"); then
-    while IFS= read -r line; do
-      echo "✋ $path:${line%%:*}: try! crashes the test host on failure" >&2
-    done <<<"$matches"
-    status=1
-  fi
+  got=0
+  matches=$(grep -nE 'try!' "$root/$path") || got=$?
+  case "$got" in
+    0)
+      while IFS= read -r line; do
+        echo "✋ $path:${line%%:*}: try! crashes the test host on failure" >&2
+      done <<<"$matches"
+      status=1 ;;
+    1) ;;
+    *)
+      echo "✋ $path: could not be read" >&2
+      status=1 ;;
+  esac
 done < <(git -C "$root" ls-files -z -- 'OvergroveTests/*.swift')
 
 if [[ $status -ne 0 ]]; then

@@ -38,6 +38,15 @@ mkdir -p "$repo/OvergroveTests"
 printf 'try! x\n' >"$repo/OvergroveTests/New.swift"
 if "$CHECK" "$repo" >/dev/null 2>&1; then echo "ok   untracked-ignored"; else echo "FAIL untracked-ignored"; fail=1; fi
 
+# A tracked file that cannot be read fails instead of passing silently.
+repo="$work/unreadable"
+git init -q "$repo"
+mkdir -p "$repo/OvergroveTests"
+printf 'x\n' >"$repo/OvergroveTests/Gone.swift"
+git -C "$repo" add -A
+rm "$repo/OvergroveTests/Gone.swift"
+if "$CHECK" "$repo" >/dev/null 2>&1; then echo "FAIL unreadable-fails"; fail=1; else echo "ok   unreadable-fails"; fi
+
 # The real repository passes.
 if "$CHECK" >/dev/null; then echo "ok   this-repository"; else echo "FAIL this-repository"; fail=1; fi
 
