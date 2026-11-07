@@ -201,7 +201,9 @@ enum PatchParser {
             var oldNumber = oldStart
             var newNumber = newStart
             var lines: [PatchLine] = []
-            lines.reserveCapacity(oldCount + newCount)
+            // The header's counts come from the repository's content; never reserve more than the input still holds
+            // (a forged `+1,999999999` header with a cut body, security review of #232, T15).
+            lines.reserveCapacity(min(oldCount + newCount, self.lines.count - index))
             while oldLeft > 0 || newLeft > 0 {
                 guard let line = next() else {
                     if truncated { break }

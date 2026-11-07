@@ -55,8 +55,9 @@ struct DiffDocument: Equatable, Sendable {
 
     /// screens.md S-10: diffs over this many lines ask before rendering.
     static let largeLineThreshold = 10_000
-    /// Characters shown per line; the rest is summarized so one huge line cannot stall layout.
-    static let maximumLineCharacters = 2_000
+    /// Unicode scalars shown per line; the rest is summarized so one huge line cannot stall layout. Counted in scalars,
+    /// not characters: one character can carry thousands of combining marks (security review of #232).
+    static let maximumLineScalars = 2_000
     /// Spaces a TAB expands to.
     static let tabWidth = 4
 
@@ -188,9 +189,11 @@ struct DiffDocument: Equatable, Sendable {
             }
         }
         let safe = PathValidator.displayable(expanded)
-        guard safe.count > maximumLineCharacters else { return safe }
-        return String(safe.prefix(maximumLineCharacters))
-            + " … (\(WipDetailModel.formatted(safe.count - maximumLineCharacters)) more characters)"
+        let scalars = safe.unicodeScalars
+        guard scalars.count > maximumLineScalars else { return safe }
+        var cut = String.UnicodeScalarView()
+        cut.append(contentsOf: scalars.prefix(maximumLineScalars))
+        return String(cut) + " … (\(WipDetailModel.formatted(scalars.count - maximumLineScalars)) more characters)"
     }
 
     private static func kind(_ kind: PatchLine.Kind) -> LineKind {

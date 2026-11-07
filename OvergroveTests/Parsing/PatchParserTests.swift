@@ -357,6 +357,14 @@ final class PatchParserTests: XCTestCase {
         XCTAssertThrowsError(try parse(String(full.prefix(full.count - 3))))
     }
 
+    /// SEC-T15-08: a hunk header claiming a billion lines over a short (cut) body reserves no more than the input.
+    func testSECT15_08_HugeHunkCountOverShortBody() throws {
+        let listing = try parse(
+            "diff --git a/f b/f\n--- /dev/null\n+++ b/f\n@@ -0,0 +1,999999999 @@\n+a\n+b\n", truncated: true)
+        XCTAssertEqual(listing.files.first?.hunks.first?.lines.count, 2)
+        XCTAssertLessThan(listing.files.first?.hunks.first?.lines.capacity ?? .max, 1_000)
+    }
+
     func testPAR_PATCH_06_EmptyOutput() throws {
         XCTAssertEqual(try parse(""), PatchParser.Listing(files: [], isPartial: false))
         XCTAssertEqual(try parse("", truncated: true).files, [])

@@ -379,11 +379,17 @@ final class AppState {
         }
         let generation = diffGeneration
         let row = wipDetailModel?.row(for: file)
-        let isSubmodule = row?.isSubmodule ?? false
+        // Fail closed: without its row the file cannot be shown to be an ordinary file.
+        let isSubmodule = row?.isSubmodule ?? true
         let source = DiffDocument.Source(label: file.group.title, kindLetter: row?.kindLetter ?? "")
         let loader = diffLoader
         let target = repository.repository
-        if diffState == nil { diffState = .loading }
+        // A different file shows a spinner, not the previous file's diff under the new name; a reload of the same
+        // file keeps the old diff on screen until the new one arrives.
+        if case .loaded(let document) = diffState, document.title == PathValidator.displayable(file.path.display) {
+        } else {
+            diffState = .loading
+        }
         diffTask = Task { [weak self] in
             let result = await loader.load(file, worktree: entry.worktree, of: target, isSubmodule: isSubmodule)
             guard let self, generation == self.diffGeneration, !Task.isCancelled else { return }

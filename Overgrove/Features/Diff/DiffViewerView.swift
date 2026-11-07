@@ -21,12 +21,18 @@ struct DiffViewerView: View {
     @AppStorage("diffViewMode") private var isSplit = false
     @State private var showsLargeDiff = false
 
+    /// The large-diff choice belongs to one document (a staged and an unstaged diff of one path are two).
+    private var documentID: UUID? {
+        if case .loaded(let document) = state { return document.id }
+        return nil
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
             content.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .onChange(of: title) { _, _ in showsLargeDiff = false }
+        .onChange(of: documentID) { _, _ in showsLargeDiff = false }
     }
 
     private var header: some View {

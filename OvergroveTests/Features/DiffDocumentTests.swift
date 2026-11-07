@@ -92,8 +92,11 @@ final class DiffDocumentTests: XCTestCase {
         XCTAssertEqual(show(Data("x\u{202E}y\u{1B}[31mz\u{2028}".utf8)), "x\\u{202E}y\\u{1B}[31mz\\u{2028}")
         XCTAssertEqual(show(Data([0x61, 0xFF, 0x62])), "a\u{FFFD}b")
         let long = show(Data(String(repeating: "x", count: 5_000).utf8))
-        XCTAssertTrue(long.hasPrefix(String(repeating: "x", count: DiffDocument.maximumLineCharacters)))
+        XCTAssertTrue(long.hasPrefix(String(repeating: "x", count: DiffDocument.maximumLineScalars)))
         XCTAssertTrue(long.hasSuffix(" … (3,000 more characters)"), long)
+        // One character with thousands of combining marks is cut by scalars too.
+        let combining = show(Data(("a" + String(repeating: "\u{301}", count: 10_000)).utf8))
+        XCTAssertLessThan(combining.unicodeScalars.count, DiffDocument.maximumLineScalars + 100)
     }
 
     func testHeaderFactsAndTitle() throws {

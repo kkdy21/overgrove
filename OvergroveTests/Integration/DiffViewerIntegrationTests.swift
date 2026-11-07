@@ -94,12 +94,60 @@ final class DiffViewerIntegrationTests: XCTestCase {
         XCTAssertEqual(typechange.files.count, 2, "a type change is two blocks")
     }
 
-    /// An untracked FIFO or a path leaving the worktree is not previewed (T14).
-    func testUntrackedThatIsNotARegularFileIsRefused() async throws {
+    /// A relative path leaving the worktree is not previewed (T14).
+    func testUntrackedPathLeavingTheWorktreeIsRefused() async throws {
         let context = try await context()
         let result = await load(context, .untracked, "../outside.txt")
         XCTAssertEqual(
             result, .unavailable("This file cannot be previewed: it is not a regular file inside the worktree."))
+    }
+
+    /// SEC-T4-08: on the malicious fixture the diff viewer's whole path (verified inspection, then the diff with that
+    /// worktree's safety) runs none of the repository's payloads, for staged, unstaged, and untracked files.
+    func testSECT4_08_DiffViewerRunsNoPayloads() async throws {
+        let fixture = try await makeFixture(malicious: true)
+        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
+        let root = try XCTUnwrap(PathValidator.canonical(fixture.repository))
+        let repository = Repository(
+            rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false)
+        let main = Worktree(
+            path: GitPath(root.path), head: nil, branch: "refs/heads/main", isMain: true, isDetached: false,
+            isBare: false, lock: .unlocked, isPrunable: false, prunableReason: nil)
+        let loader = LiveDiffLoader(client: { client })
+        try fixture.clearCanaries()
+        for (group, path) in [
+            (WorkingChangeGroup.unstaged, "src/unstaged-modified.txt"), (.staged, "src/staged-modified.txt"),
+            (.untracked, "untracked.txt"),
+        ] {
+            _ = await loader.load(
+                FileSelection(worktree: main.path, group: group, path: GitPath(path)), worktree: main, of: repository,
+                isSubmodule: false)
+        }
+        XCTAssertEqual(fixture.canaries(), [], "no payload ran")
+    }
+
+    /// SEC-T14-06: an untracked FIFO (which would stall git) and a symbolic link to a folder outside the worktree are
+    /// not previewed.
+    func testSECT14_06_UntrackedFIFOAndEscapingLinkAreNotPreviewed() async throws {
+        let context = try await context()
+        let root = URL(fileURLWithPath: context.main.path.display)
+        let fifo = root.appendingPathComponent("pipe")
+        XCTAssertEqual(mkfifo(fifo.path, 0o600), 0)
+        let outside = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "overgrove-outside-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: outside, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outside) }
+        try "secret\n".write(to: outside.appendingPathComponent("secret.txt"), atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("escape"), withDestinationURL: outside)
+
+        let refusal = DiffLoadResult.unavailable(
+            "This file cannot be previewed: it is not a regular file inside the worktree.")
+        let fifoResult = await load(context, .untracked, "pipe")
+        let escaped = await load(context, .untracked, "escape/secret.txt")
+        XCTAssertEqual(fifoResult, refusal)
+        XCTAssertEqual(escaped, refusal)
     }
 
     /// A worktree path that no longer matches the repository is not diffed.
