@@ -116,13 +116,13 @@ struct SidebarPanel: View {
 /// Center: author filter header, column headers, and the commit graph. TODO(#68): commit graph.
 struct GraphPanel: View {
     let hasRepository: Bool
-    /// A file picked in the detail panel covers the graph with its diff (S-10).
-    var selectedFile: FileSelection?
+    /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
+    var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
 
     var body: some View {
-        if let selectedFile {
-            DiffPlaceholder(file: selectedFile, onShowGraph: onShowGraph)
+        if let diff {
+            DiffViewerView(title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph)
         } else {
             graph
         }
@@ -137,32 +137,6 @@ struct GraphPanel: View {
                 symbol: "point.3.connected.trianglepath.dotted", title: "Commit graph",
                 message: hasRepository
                     ? "The history of every worktree appears here." : "Open a repository to see its history.")
-        }
-    }
-}
-
-/// Where the diff viewer (S-10) will go. TODO(#69): show the selected file's patch here.
-struct DiffPlaceholder: View {
-    let file: FileSelection
-    let onShowGraph: () -> Void
-
-    var body: some View {
-        PanelSection {
-            Button(action: onShowGraph) {
-                Label("Graph", systemImage: "chevron.left")
-            }
-            .buttonStyle(.borderless)
-            .keyboardShortcut(.cancelAction)
-            .help("Back to the graph (⎋)")
-            Text(PathValidator.displayable(file.path.display))
-                .font(Tokens.Font.headline)
-                .foregroundStyle(Tokens.Color.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.head)
-        } content: {
-            PanelEmptyState(
-                symbol: "doc.text", title: "Diff viewer",
-                message: "The \(file.group.title.lowercased()) changes of this file will appear here.")
         }
     }
 }

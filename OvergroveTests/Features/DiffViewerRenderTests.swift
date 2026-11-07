@@ -30,6 +30,25 @@ final class DiffViewerRenderTests: XCTestCase {
             source: DiffDocument.Source(label: "Staged", kindLetter: "M"))
     }
 
+    /// Renders, letting the run loop turn until `ready` holds (rows are built off the main thread) or 3 s pass.
+    private func render(
+        _ view: some View, appearance: NSAppearance, until ready: (NSBitmapImageRep) -> Bool
+    ) throws -> NSBitmapImageRep {
+        let host = NSHostingView(
+            rootView: view.frame(width: Self.size.width, height: Self.size.height).background(
+                Tokens.Color.surfaceCanvas))
+        host.appearance = appearance
+        host.frame = NSRect(origin: .zero, size: Self.size)
+        let deadline = Date().addingTimeInterval(3)
+        while true {
+            host.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            if ready(bitmap) || Date() > deadline { return bitmap }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+    }
+
     private func render(_ view: some View, appearance: NSAppearance) throws -> NSBitmapImageRep {
         let host = NSHostingView(
             rootView: view.frame(width: Self.size.width, height: Self.size.height).background(
@@ -55,19 +74,19 @@ final class DiffViewerRenderTests: XCTestCase {
             let appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
             let view = DiffViewerView(
                 title: document.title, sourceLabel: "Staged · M", state: .loaded(document), onBack: {})
-            let bitmap = try render(view, appearance: appearance)
-            let scale = CGFloat(bitmap.pixelsWide) / Self.size.width
-
             // A removed row's background reaches the right edge (rows span the width): scan the column there.
             let expected = try color("Tokens/diffRemovedBg", in: appearance)
-            let column = Int((Self.size.width - 20) * scale)
-            let found = (0..<bitmap.pixelsHigh).contains { y in
-                guard let pixel = bitmap.colorAt(x: column, y: y)?.usingColorSpace(.sRGB) else { return false }
-                return abs(pixel.redComponent - expected.redComponent) < 0.03
-                    && abs(pixel.greenComponent - expected.greenComponent) < 0.03
-                    && abs(pixel.blueComponent - expected.blueComponent) < 0.03
+            func hasRemovedRow(_ bitmap: NSBitmapImageRep) -> Bool {
+                let column = Int((Self.size.width - 20) * CGFloat(bitmap.pixelsWide) / Self.size.width)
+                return (0..<bitmap.pixelsHigh).contains { y in
+                    guard let pixel = bitmap.colorAt(x: column, y: y)?.usingColorSpace(.sRGB) else { return false }
+                    return abs(pixel.redComponent - expected.redComponent) < 0.03
+                        && abs(pixel.greenComponent - expected.greenComponent) < 0.03
+                        && abs(pixel.blueComponent - expected.blueComponent) < 0.03
+                }
             }
-            XCTAssertTrue(found, "\(name): the removed row's background reaches the right edge")
+            let bitmap = try render(view, appearance: appearance, until: hasRemovedRow)
+            XCTAssertTrue(hasRemovedRow(bitmap), "\(name): the removed row's background reaches the right edge")
 
             if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
                 let png = bitmap.representation(using: .png, properties: [:])

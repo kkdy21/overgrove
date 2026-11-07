@@ -79,10 +79,20 @@ struct DiffViewerView: View {
     }
 }
 
-/// The rows, built once per document and mode, in a lazy stack that scrolls both ways.
+/// The rows, built off the main thread once per document and mode (a 10 MB diff takes most of a second), then shown
+/// in a lazy stack that scrolls both ways.
 private struct DiffBody: View {
     let document: DiffDocument
     let isSplit: Bool
+
+    @State private var unified: [DiffDocument.Row]?
+    @State private var split: [DiffDocument.SplitRow]?
+    @State private var builtFor: UUID?
+
+    private struct BuildKey: Equatable {
+        let document: UUID
+        let isSplit: Bool
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -96,28 +106,53 @@ private struct DiffBody: View {
                     .padding(.horizontal, Tokens.Spacing.md)
                     .padding(.vertical, Tokens.Spacing.xxs)
             }
-            // Rows span at least the visible width so their backgrounds reach the edge; longer lines scroll.
-            GeometryReader { proxy in
-                ScrollView([.vertical, .horizontal]) {
-                    Group {
-                        if isSplit {
-                            let rows = document.splitRows()
-                            LazyVStack(alignment: .leading, spacing: 0) {
-                                ForEach(rows.indices, id: \.self) { index in
-                                    SplitRowView(row: rows[index]).frame(maxWidth: .infinity, alignment: .leading)
-                                }
+            if let rows = isSplit ? split.map(AnyRows.split) : unified.map(AnyRows.unified), builtFor == document.id {
+                rowsView(rows)
+            } else {
+                ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .task(id: BuildKey(document: document.id, isSplit: isSplit)) {
+            if builtFor != document.id {
+                unified = nil
+                split = nil
+                builtFor = document.id
+            }
+            let document = document
+            if isSplit, split == nil {
+                split = await Task.detached(priority: .userInitiated) { document.splitRows() }.value
+            } else if !isSplit, unified == nil {
+                unified = await Task.detached(priority: .userInitiated) { document.unifiedRows() }.value
+            }
+        }
+    }
+
+    private enum AnyRows {
+        case unified([DiffDocument.Row])
+        case split([DiffDocument.SplitRow])
+    }
+
+    /// Rows span at least the visible width so their backgrounds reach the edge; longer lines scroll.
+    private func rowsView(_ rows: AnyRows) -> some View {
+        GeometryReader { proxy in
+            ScrollView([.vertical, .horizontal]) {
+                Group {
+                    switch rows {
+                    case .split(let rows):
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(rows.indices, id: \.self) { index in
+                                SplitRowView(row: rows[index]).frame(maxWidth: .infinity, alignment: .leading)
                             }
-                        } else {
-                            let rows = document.unifiedRows()
-                            LazyVStack(alignment: .leading, spacing: 0) {
-                                ForEach(rows.indices, id: \.self) { index in
-                                    UnifiedRowView(row: rows[index]).frame(maxWidth: .infinity, alignment: .leading)
-                                }
+                        }
+                    case .unified(let rows):
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(rows.indices, id: \.self) { index in
+                                UnifiedRowView(row: rows[index]).frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
                     }
-                    .frame(minWidth: proxy.size.width, alignment: .leading)
                 }
+                .frame(minWidth: proxy.size.width, alignment: .leading)
             }
         }
     }

@@ -3,14 +3,14 @@ import Foundation
 /// What the diff viewer (S-10) shows for one file: built from a parsed patch, with every line made safe to display.
 /// Pure, so it is unit tested without views. Rows are built only when asked for, so a large diff costs nothing until
 /// the user chooses to show it.
-struct DiffDocument: Equatable {
+struct DiffDocument: Equatable, Sendable {
     /// Where the patch came from, for the header (`Staged · M`).
-    struct Source: Equatable {
+    struct Source: Equatable, Sendable {
         let label: String
         let kindLetter: String
     }
 
-    enum LineKind: Equatable {
+    enum LineKind: Equatable, Sendable {
         case context
         case added
         case removed
@@ -18,7 +18,7 @@ struct DiffDocument: Equatable {
     }
 
     /// One unified row.
-    enum Row: Equatable {
+    enum Row: Equatable, Sendable {
         case fileHeader(String)
         case hunkHeader(String)
         case line(kind: LineKind, old: Int?, new: Int?, text: String)
@@ -26,20 +26,22 @@ struct DiffDocument: Equatable {
     }
 
     /// One side of a split row.
-    struct Side: Equatable {
+    struct Side: Equatable, Sendable {
         let kind: LineKind
         let number: Int?
         let text: String
     }
 
     /// One split row: the old side on the left, the new side on the right; either may be empty.
-    enum SplitRow: Equatable {
+    enum SplitRow: Equatable, Sendable {
         case fileHeader(String)
         case hunkHeader(String)
         case pair(left: Side?, right: Side?)
         case notice(String)
     }
 
+    /// Identity for views: comparing it is O(1), unlike comparing a 10 MB patch.
+    let id = UUID()
     /// Escaped path of the file.
     let title: String
     let source: Source
@@ -69,9 +71,8 @@ struct DiffDocument: Equatable {
         facts = listing.files.flatMap(Self.facts)
     }
 
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.title == rhs.title && lhs.source == rhs.source && lhs.listing == rhs.listing
-    }
+    /// The same load: views and states compare documents often, so this must stay cheap.
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.id == rhs.id }
 
     // MARK: Rows
 
