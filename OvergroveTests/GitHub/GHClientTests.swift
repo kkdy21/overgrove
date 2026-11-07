@@ -189,6 +189,16 @@ final class GHClientTests: XCTestCase {
         XCTAssertNil(GHClient.locateExecutable(candidates: [missing, notExecutable, directory]))
     }
 
+    func testLookupFollowsSymbolicLinksAndSkipsBrokenOnes() throws {
+        let fake = try executables.fakeGH(stdout: "")
+        let link = executables.directory.appendingPathComponent("link-gh")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: fake.executable)
+        let broken = executables.directory.appendingPathComponent("broken-gh")
+        try FileManager.default.createSymbolicLink(
+            at: broken, withDestinationURL: executables.directory.appendingPathComponent("nowhere"))
+        XCTAssertEqual(GHClient.locateExecutable(candidates: [broken, link]), link)
+    }
+
     func testMissingExecutableIsNotInstalled() async throws {
         let status = try await client(nil).authStatus()
         XCTAssertEqual(status, .notInstalled)
@@ -208,6 +218,23 @@ final class GHClientTests: XCTestCase {
         let status = try await client(fake).authStatus()
         XCTAssertEqual(status, .loggedIn(login: "octo-cat"))
         XCTAssertEqual(fake.recordedArguments, GHCommand.authStatus.arguments)
+    }
+
+    func testDefaultNeutralDirectoryIsAppOwnedUnderTemporaryDirectory() {
+        let directory = GHClient.defaultNeutralDirectory
+        XCTAssertEqual(
+            directory.deletingLastPathComponent().standardizedFileURL,
+            FileManager.default.temporaryDirectory.standardizedFileURL)
+        XCTAssertEqual(directory.lastPathComponent, "io.github.kkdy21.overgrove.gh-neutral")
+    }
+
+    func testNeutralDirectoryIsCreatedPrivateOnFirstUse() async throws {
+        neutral = executables.directory.appendingPathComponent("not-yet/neutral", isDirectory: true)
+        let fake = try executables.fakeGH(stdout: loggedInJSON)
+        _ = try await client(fake).authStatus()
+        let attributes = try FileManager.default.attributesOfItem(atPath: neutral.path)
+        XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, 0o700)
+        assertRanInNeutralDirectory(fake)
     }
 
     func testRunsInTheNeutralDirectory() async throws {
@@ -248,6 +275,12 @@ final class GHClientTests: XCTestCase {
             XCTAssertEqual(detail.summary, "unknown flag: --json")
             XCTAssertEqual(error.message, "unknown flag: --json")
         }
+    }
+
+    func testAuthenticationRequiredExitWithoutJSONIsNotLoggedIn() async throws {
+        let fake = try executables.fakeGH(stdout: "", stderr: "please run:  gh auth login\n", exitCode: 4)
+        let status = try await client(fake).authStatus()
+        XCTAssertEqual(status, .notLoggedIn)
     }
 
     func testUnexpectedOutputIsParseFailed() async throws {
@@ -374,7 +407,8 @@ final class GHClientTests: XCTestCase {
             throw XCTSkip("installed gh predates `auth status --json`: \(detail.summary)")
         }
         XCTAssertEqual(status, .notLoggedIn)
-        let version = try await gh.run(.version)
-        XCTAssertTrue(String(decoding: version.stdout, as: UTF8.self).hasPrefix("gh version "))
+        let version = try await gh.version()
+        XCTAssertTrue(version.hasPrefix("gh version "), version)
+        XCTAssertFalse(version.contains("\n"))
     }
 }

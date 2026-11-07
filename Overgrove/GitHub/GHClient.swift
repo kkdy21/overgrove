@@ -11,13 +11,14 @@ struct GHOutput: Sendable, Equatable {
 ///
 /// Every gh process in the app goes through here:
 /// - the executable is looked up at fixed paths only, never through the user's PATH (ADR-0008);
-/// - the working directory is a neutral app-owned folder outside any repository, so a git that gh runs internally
-///   cannot pick up a repository's configuration (T1–T7);
+/// - the working directory is an app-owned, empty folder (`0700`) under the user's temporary directory, never a
+///   repository, so a git that gh runs internally cannot pick up a repository's configuration (T1–T7);
 /// - the environment is rebuilt from an allowlist: tokens, host and repository overrides, config directories, and
 ///   browser or editor commands from the parent never reach gh, and telemetry, prompts, and update checks are off;
 /// - commands are `GHCommand` cases only, and repository-scoped ones always pass `--repo`.
 ///
-/// The app never reads, stores, or logs a token: no command prints one, and `GHAuthParser` ignores token fields.
+/// The app never reads, stores, or logs a token: `--show-token` has no case, raw `auth status` output never leaves
+/// this actor (only the parsed `GHAuthStatus` does), and `GHAuthParser` ignores token-related fields.
 actor GHClient {
     /// Search order for gh. Homebrew on Apple silicon first, then Intel Homebrew (docs/README.md §2.1).
     static let defaultExecutableCandidates = [
@@ -43,6 +44,10 @@ actor GHClient {
         "GIT_TERMINAL_PROMPT": "0",
     ]
 
+    /// App-owned working directory for gh. Created on first use with mode `0700`.
+    static let defaultNeutralDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("io.github.kkdy21.overgrove.gh-neutral", isDirectory: true)
+
     /// gh's exit code for "this command needs authentication".
     static let authenticationRequiredExitCode: Int32 = 4
 
@@ -55,7 +60,7 @@ actor GHClient {
     init(
         runner: ProcessRunner = ProcessRunner(),
         parentEnvironment: [String: String] = ProcessInfo.processInfo.environment,
-        neutralDirectory: URL = FileManager.default.temporaryDirectory,
+        neutralDirectory: URL = GHClient.defaultNeutralDirectory,
         executableCandidates: [URL] = GHClient.defaultExecutableCandidates,
         limits: ProcessLimits = .gh
     ) {
@@ -105,9 +110,19 @@ actor GHClient {
         do {
             return try GHAuthParser.parse(result.stdout, host: GHCommand.host)
         } catch let error as ParseError {
-            if result.termination != .exited(code: 0) { throw failure(result) }
-            throw GHError(error)
+            switch failure(result) {
+            case .notLoggedIn: return .notLoggedIn
+            case let failure where result.termination != .exited(code: 0): throw failure
+            default: throw GHError(error)
+            }
         }
+    }
+
+    /// First line of `gh --version`, e.g. `gh version 2.95.0 (2026-06-17)`, for onboarding.
+    func version() async throws -> String {
+        let output = try await run(.version)
+        let text = String(decoding: output.stdout, as: UTF8.self)
+        return String(text.split(separator: "\n", omittingEmptySubsequences: true).first ?? "")
     }
 
     /// Open issues of a github.com repository (parsing-spec.md §10.2).
@@ -121,7 +136,9 @@ actor GHClient {
     }
 
     /// Runs a command that must exit 0 with complete output.
-    func run(_ command: GHCommand) async throws -> GHOutput {
+    ///
+    /// Private on purpose: callers get parsed values only, so raw gh output (including `auth status`) stays here.
+    private func run(_ command: GHCommand) async throws -> GHOutput {
         let result = try await launch(command)
         try checkLimits(result)
         guard result.termination == .exited(code: 0) else { throw failure(result) }
@@ -134,6 +151,9 @@ actor GHClient {
         guard let executable = Self.locateExecutable(candidates: executableCandidates) else {
             throw GHError.notInstalled
         }
+        // Created on demand; if this fails, the spawn below fails with ENOENT and reports `launchFailed`.
+        try? FileManager.default.createDirectory(
+            at: neutralDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         let request = ProcessRequest(
             executable: executable,
             arguments: command.arguments,
