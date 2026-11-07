@@ -50,6 +50,7 @@ struct MainWindowView: View {
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
                     onSelectStash: state.selectStash, issueModel: state.issueListModel,
                     selectedIssue: state.selectedIssueNumber, onSelectIssue: state.selectIssue,
+                    onCheckIssuesAgain: state.checkIssuesAgain,
                     canCompareWorktree: { state.canCompare($0) },
                     onCompareWorktree: { state.showComparison(of: $0) })
             } center: {
@@ -217,7 +218,7 @@ struct MainWindowView: View {
             state.showForPreview(.mockup)
             state.selectWorktree(GitPath("/tmp/dev/api-wt/42-rate-limit"))
             state.fetch.showForPreview(.idle(lastFetched: Date().addingTimeInterval(-120)))
-            state.ghStatus = .loggedIn(login: "mina-dev")
+            state.showGHStatusForPreview(.loggedIn(login: "mina-dev"))
             return state
         }
     }

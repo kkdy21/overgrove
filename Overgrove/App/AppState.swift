@@ -147,6 +147,7 @@ final class AppState {
     private let inspector: any WorktreeInspecting
     private let diffLoader: any DiffLoading
     private let stashLoader: any StashLoading
+    private let ghChecker: any GHAuthChecking
     /// The sidebar's ISSUES and S-06 (#81). gh problems stay inside it (ADR-0004 §4).
     let issuePanel: IssuePanelState
     /// S-04 (#71): the selected stash's files, and the file whose patch the center shows.
@@ -222,8 +223,12 @@ final class AppState {
     var fetchStatus: FetchStatus { fetch.status }
     /// A local refresh is running: the status bar shows `Refreshing…` (interaction.md §4).
     var isRefreshing: Bool { runningTrigger != nil }
-    /// TODO(#83): set from `GHClient.authStatus()`; `nil` until checked.
-    var ghStatus: GHAuthStatus?
+    /// The status bar's gh field (#83): checked whenever the issues load (a GitHub remote) and on Check Again; `nil`
+    /// until checked or when the check failed.
+    private(set) var ghStatus: GHAuthStatus?
+    /// The gh check in flight; tests await it.
+    private(set) var ghCheckTask: Task<Void, Never>?
+    private var ghCheckGeneration = 0
     /// TODO(#74): drives graph search.
     var searchText = ""
     /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
@@ -261,8 +266,10 @@ final class AppState {
         graphLoader: any GraphLoading = LiveGraphLoader.live,
         commitLoader: any CommitLoading = LiveCommitLoader.live,
         fetcher: (any RepositoryFetching)? = nil,
-        fetchRecords: FetchRecordStore = FetchRecordStore()
+        fetchRecords: FetchRecordStore = FetchRecordStore(),
+        ghChecker: any GHAuthChecking = LiveGHAuthChecker.live
     ) {
+        self.ghChecker = ghChecker
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
         self.layoutStore = layoutStore
@@ -335,6 +342,32 @@ final class AppState {
     func reload() {
         issuePanel.markStale()
         refresh(.user)
+    }
+
+    // MARK: GitHub CLI state (#83)
+
+    /// Reads gh's login state for the status bar. Git features never wait for it (ADR-0004 §4).
+    func checkGitHub() {
+        ghCheckTask?.cancel()
+        ghCheckGeneration += 1
+        let generation = ghCheckGeneration
+        let checker = ghChecker
+        ghCheckTask = Task { [weak self] in
+            let status = await checker.authStatus()
+            guard let self, generation == self.ghCheckGeneration, !Task.isCancelled else { return }
+            self.ghStatus = status
+        }
+    }
+
+    /// The ISSUES section's Check Again: gh's state and the issues again. Without a GitHub remote, the repository
+    /// reloads so its remotes are read again.
+    func checkIssuesAgain() {
+        guard repository != nil else { return }
+        if issuePanel.retry() {
+            checkGitHub()
+        } else {
+            reload()
+        }
     }
 
     /// The window became key (interaction.md §4): `.automatic` (debounced), once loaded and while no load runs.
@@ -446,7 +479,8 @@ final class AppState {
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
         // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
         // a failed refresh; security review of #81).
-        if isVerified { issuePanel.show(listing.githubRepository) }
+        // gh's login state is read alongside, for the status bar (#83); a repository without a GitHub remote runs no gh.
+        if isVerified, issuePanel.show(listing.githubRepository) { checkGitHub() }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
         updateGraph(listing)
         // Keep the picked file only while it is still listed in the same group.
@@ -472,6 +506,11 @@ final class AppState {
         func showForPreview(_ listing: WorktreeListing) {
             hasVerifiedListing = true
             apply(listing, isVerified: false)
+        }
+
+        /// Sets the status bar's gh field without running gh (previews and render tests).
+        func showGHStatusForPreview(_ status: GHAuthStatus?) {
+            ghStatus = status
         }
     #endif
 

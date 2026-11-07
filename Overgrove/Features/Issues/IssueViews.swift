@@ -7,6 +7,8 @@ struct IssueListSection: View {
     let model: IssueListModel
     let selectedNumber: Int?
     let onSelect: (Int) -> Void
+    /// Check Again in the degraded states (#83).
+    var onCheckAgain: () -> Void = {}
 
     @State private var isExpanded = true
 
@@ -19,6 +21,10 @@ struct IssueListSection: View {
                     SidebarNotice(symbol: notice.symbol, text: notice.text)
                         .help(notice.detail ?? notice.text)
                 }
+                if model.guidance != nil || model.canCheckAgain {
+                    IssueSetupHint(
+                        guidance: model.guidance, canCheckAgain: model.canCheckAgain, onCheckAgain: onCheckAgain)
+                }
                 // Lazy: up to 200 rows (`--limit 200`).
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(model.rows) { row in
@@ -30,6 +36,54 @@ struct IssueListSection: View {
                 }
             }
         }
+    }
+}
+
+/// Under a degraded ISSUES notice (#83): what to run in Terminal, a Copy button, and Check Again. The texts are the
+/// shared `GHStatusGuidance` (S-07 says the same); laid out narrow for the sidebar. Overgrove never runs the command.
+private struct IssueSetupHint: View {
+    let guidance: GHStatusGuidance?
+    let canCheckAgain: Bool
+    let onCheckAgain: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
+            if let message = guidance?.message {
+                Text(message)
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let command = guidance?.command {
+                HStack(spacing: Tokens.Spacing.xs) {
+                    Text("$ " + command)
+                        .font(Tokens.Font.monoSmall)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                        .padding(.horizontal, Tokens.Spacing.xs)
+                        .padding(.vertical, Tokens.Spacing.xxs)
+                        .background(
+                            RoundedRectangle(cornerRadius: Tokens.Radius.sm).strokeBorder(Tokens.Color.borderStrong))
+                    Button {
+                        // Copying to the clipboard is not a repository write (ADR-0011).
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(command, forType: .string)
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Copy")
+                    .accessibilityLabel("Copy command \(command)")
+                }
+            }
+            if canCheckAgain {
+                Button(action: onCheckAgain) { Label("Check Again", systemImage: "arrow.clockwise") }
+                    .controlSize(.small)
+            }
+        }
+        .padding(.leading, Tokens.Spacing.md + Tokens.Spacing.lg)
+        .padding(.trailing, Tokens.Spacing.md)
+        .padding(.bottom, Tokens.Spacing.xs)
     }
 }
 

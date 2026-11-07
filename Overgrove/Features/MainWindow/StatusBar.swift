@@ -106,6 +106,7 @@ struct StatusBarItem: Equatable, Identifiable {
         }
     }
 
+    /// TODO(#85): clicking it opens S-07's GitHub step.
     private static func ghItem(_ status: GHAuthStatus) -> StatusBarItem {
         switch status {
         case .loggedIn(let login):
