@@ -74,7 +74,7 @@ final class FileChangeClassifierTests: XCTestCase {
         XCTAssertEqual(classifier.classify([FileEvent(path: "/dev/api", needsRescan: true)]), classifier.everything)
     }
 
-    /// SEC-T15-16: the work per batch is bounded. A batch over the cap counts as a rescan without looking at each
+    /// SEC-T15-17: the work per batch is bounded. A batch over the cap counts as a rescan without looking at each
     /// path, and classification stops once everything is affected.
     func testOversizedBatchesAreARescan() {
         let storm = (0...FileChangeClassifier.maximumEventsPerBatch).map {

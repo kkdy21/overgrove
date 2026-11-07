@@ -324,7 +324,7 @@ final class AutoRefreshControllerTests: XCTestCase {
     }
 
     /// The live path: the stream's handler classifies off the main actor, and a burst of batches reaches the main
-    /// actor merged (T15, SEC-T15-16).
+    /// actor merged (T15, SEC-T15-17).
     func testStreamBatchesAreClassifiedOffTheMainActorAndMerged() async {
         let h = make()
         h.controller.update(classifier)
