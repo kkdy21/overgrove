@@ -70,8 +70,9 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **대응**:
   - diff를 만드는 모든 명령(`diff`, `diff-tree -p`, `stash show -p`)에 `--no-ext-diff --no-textconv`를 붙인다 (확인: 실행 안 됨).
   - numstat 계열(`diff-tree --numstat`, `stash show --numstat`)은 실험에서 textconv를 부르지 않았다. 그래도 같은 인자를 붙인다.
+  - porcelain `git diff`는 저장소의 diff 설정으로 출력 모양이 바뀐다(#239, catalog §3). `color.diff=always`가 `color.ui=never`를 이기고, `diff.noprefix`·`mnemonicPrefix`·`srcPrefix`·`dstPrefix`가 접두사를 바꾸고, `diff.suppressBlankEmpty`가 문맥 줄을 바꾸고, `diff.submodule=diff`는 서브모듈 쪽 파일 diff까지 붙인다. 화면이 patch를 잘못 읽거나 서브모듈 내용이 섞이지 않게, porcelain diff case에 `--no-color --src-prefix=a/ --dst-prefix=b/ --submodule=short`를 붙이고 공통 인자에 `-c diff.suppressBlankEmpty=false`를 둔다.
 - **잔여 위험**: 새 diff 명령을 추가할 때 인자를 빠뜨릴 수 있다. 그래서 카탈로그의 모든 diff case를 SEC-T3-02가 열거해 검사한다.
-- **검증**: SEC-T3-01 (textconv, `diff.<d>.command`, `diff.external` 픽스처 → canary 없음), SEC-T3-02 (diff 계열 case 전수 인자 검사)
+- **검증**: SEC-T3-01 (textconv, `diff.<d>.command`, `diff.external` 픽스처 → canary 없음), SEC-T3-02 (diff 계열 case 전수 인자 검사), SEC-T3-03 (저장소 diff 설정 8종을 심어도 porcelain diff 5종의 앱 출력이 바이트 단위로 같음. 대조군(고정 인자·공통 인자 없이)은 달라짐. 고정 인자를 비우면 실패함을 확인, #239)
 - **상태**: 설계 완료
 
 ### T4. clean/smudge/process 필터 실행
@@ -86,7 +87,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
     - 빈 clean은 필터를 끈다 (확인).
     - `required=true`인 상태에서 clean만 비우면 fatal이 난다 (확인, E6). 그래서 `required=false`를 함께 넣는다. SEC-T4-03이 이 사실(무력화에서 `required=false`만 빼면 status 실패)을 고정한다. 내용이 바뀐 파일은 status가 다시 해시하지 않아 이 오류가 나지 않으므로, 내용은 같고 stat만 바뀐 파일로 확인해야 한다.
   - 드라이버 이름이 허용 형식이 아니면 fail closed.
-  - 서브모듈 쪽 필터는 `--ignore-submodules=dirty`로 재귀를 막아 차단한다.
+  - 서브모듈 쪽 필터는 `--ignore-submodules=dirty`로 재귀를 막아 차단한다. status뿐 아니라 **작업 트리를 보는 diff(`worktreeDiff`)도** 같다. 경로가 서브모듈이면 미스테이지 diff가 서브모듈 안에서 `status`를 돌려 서브모듈 자체의 filter를 실행했다(확인, #239). `--cached`는 서브모듈 안을 보지 않는다. 트리끼리 비교하는 명령(stash·커밋 diff, 파일 이력)은 서브모듈 작업 트리를 보지 않는다.
 - **대안 검토**: `--attr-source=<empty tree>`(git 2.41+)는 트리의 `.gitattributes`만 막고 `.git/info/attributes`는 막지 못한다 (확인). 주 대응이 될 수 없다.
 - **잔여 위험**:
   - global 설정에 정의된 필터(예: 사용자가 설치한 Git LFS)는 신뢰 범위라 그대로 실행된다. 의도된 동작이다.
@@ -97,7 +98,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 지문은 `config --list` 실행 **전에** 찍는다.
   - 저장소가 제어하는 `include.path`·`includeIf.*.path`가 있으면 캐시하지 않는다. 포함된 파일은 지문에 없고, 작업 트리의 추적 파일일 수도 있기 때문이다(fail closed).
   - ⌘R은 그 저장소의 검사 캐시를 모두 버린다. 검사가 막히면 그 저장소의 결과 캐시도 버린다.
-- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceCacheTests.testChangedWorktreeConfigurationIsInspectedAgain`·`testChangedSharedConfigurationIsInspectedAgain`·`testRepositoryLocalIncludeIsNeverServedFromTheCache` (캐시 후 설정이 바뀌면 다시 검사해 새 드라이버가 실행되지 않음. 대조군은 낡은 검사 결과로 실행됨, #88), `RepoConfigInspectorTests.testFingerprintSeesARewriteThatRestoresSizeAndModificationTime` (크기·mtime을 되돌려도 지문이 바뀜), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨), SEC-T4-07 (연결 워크트리의 `config.worktree`가 조회를 막으면 그 워크트리만 `.inspectionBlocked`이고 status가 실행되지 않음. 워크트리 전용 드라이버는 `testLinkedWorktreeOwnConfigurationIsInspected`, #226)
+- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터: status와 `worktreeDiff`(미스테이지·스테이지) → canary 없음, 인자만 빼면 실행되는 대조군, #239), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceCacheTests.testChangedWorktreeConfigurationIsInspectedAgain`·`testChangedSharedConfigurationIsInspectedAgain`·`testRepositoryLocalIncludeIsNeverServedFromTheCache` (캐시 후 설정이 바뀌면 다시 검사해 새 드라이버가 실행되지 않음. 대조군은 낡은 검사 결과로 실행됨, #88), `RepoConfigInspectorTests.testFingerprintSeesARewriteThatRestoresSizeAndModificationTime` (크기·mtime을 되돌려도 지문이 바뀜), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨), SEC-T4-07 (연결 워크트리의 `config.worktree`가 조회를 막으면 그 워크트리만 `.inspectionBlocked`이고 status가 실행되지 않음. 워크트리 전용 드라이버는 `testLinkedWorktreeOwnConfigurationIsInspected`, #226), SEC-T4-08 (Diff 뷰어(S-10) 경로 — 소속 재확인, 그 워크트리 설정 검사, 그 safety로 `worktreeDiff`·`untrackedPreview` — 가 `--malicious` 픽스처의 staged·unstaged·untracked 파일에서 canary를 실행하지 않음, #232)
 - **상태**: 설계 완료
 
 ### T5. 전송 계층 명령 실행
@@ -260,7 +261,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 
     그래서 나열된 경로를 `realpath(3)`로 한 번 정규화해 세 명령(probe, config, status)에 같은 폴더를 쓰고, git을 실행하기 전에 파일 시스템으로 확인한다. 메인 워크트리는 `.git`이 공통 디렉터리로 이어져야 하고, 연결 워크트리는 `checkLinkedWorktree`가 `.linked`여야 한다(back-pointer 일치). 그다음 probe가 그 폴더를 워크트리 루트로, 이 저장소의 공통 디렉터리를 보고해야 한다. 하나라도 어긋나면 `.notQueried(.foreignRepository)`다.
 - **잔여 위험**: git 자체가 따라가는 경로(예: alternates 객체 저장소)는 통제하지 않는다. 읽기 전용이라 영향이 제한적이다.
-- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226)
+- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226), SEC-T14-06 (Diff 뷰어가 untracked FIFO와 워크트리 밖 폴더를 가리키는 심볼릭 링크 아래 파일을 미리보기하지 않음, #232)
 - **상태**: 설계 완료
 
 ### T15. 자원 고갈
@@ -276,7 +277,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - `fd::`는 `protocol.fd.allow=never`로 차단한다.
   - 출력 인코딩을 공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정한다. 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`(include 경유 포함)은 포맷된 출력 전체를 `-z` 구분자까지 다시 인코딩한다. JOHAB·CP1361은 메시지의 전각 문자(U+FF01…)를 NUL로 바꿔 필드를 밀고, 모든 검사를 통과하는 가짜 커밋 레코드를 만들 수 있다. UTF-16·UCS-4 등은 파싱을 실패시켜 그래프를 못 쓰게 만든다 (확인, E41, #205).
 - **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다. 커밋 객체의 `encoding` 헤더가 UCS-2·CP037·TCVN이면 git이 그 커밋의 모든 필드를 빈 값으로 출력해 그래프 페이지 전체가 파싱 실패한다(출력 인코딩 고정과 무관, #203 보안 검토). 필드가 밀리지는 않으므로 위조는 아니고, 가용성 문제로 남긴다.
-- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226)
+- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232)
 - **상태**: 설계 완료
 
 ### T16. 로그를 통한 정보 유출
@@ -354,11 +355,13 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 -c maintenance.auto=false
 -c diff.autoRefreshIndex=false
 -c color.ui=never
+-c diff.suppressBlankEmpty=false
 -c i18n.logOutputEncoding=UTF-8
 ```
 
 diff 계열 서브커맨드에는 `--no-ext-diff --no-textconv`를 붙인다.
-status에는 `--ignore-submodules=dirty`를 붙인다.
+porcelain diff(`worktreeDiff`, `worktreeNumstat`, `untrackedPreview`, `comparePatch`, `compareFiles`)에는 `--no-color --src-prefix=a/ --dst-prefix=b/ --submodule=short`를 붙인다(#239).
+status와 작업 트리를 보는 diff(`worktreeDiff`, `worktreeNumstat`, `compareFiles`, `comparePatch`)에는 `--ignore-submodules=dirty`를 붙인다.
 fetch에는 `--no-recurse-submodules --upload-pack=git-upload-pack`을 붙인다.
 
 ### 3.2 환경 변수 allowlist

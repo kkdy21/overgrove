@@ -18,7 +18,7 @@ struct MainWindowView: View {
                     onSelectWorktree: state.selectWorktree)
             } center: {
                 GraphPanel(
-                    hasRepository: state.repository != nil, selectedFile: state.selectedFile,
+                    hasRepository: state.repository != nil, diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile)
             } detail: {
                 DetailPanel(

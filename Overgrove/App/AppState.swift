@@ -117,6 +117,7 @@ final class AppState {
     private let loader: any RepositoryLoading
     private let lineCountLoader: (any LineCountLoading)?
     private let inspector: any WorktreeInspecting
+    private let diffLoader: any DiffLoading
 
     private(set) var repository: RepositoryContext?
     /// The toolbar chip and status bar fields, derived from the worktree list and the focused worktree.
@@ -126,8 +127,18 @@ final class AppState {
     /// The focused worktree (information-architecture.md §2.2). `nil` focuses the main worktree.
     private(set) var focusedWorktreePath: GitPath?
     private(set) var selection: MainSelection?
-    /// The file picked in the detail panel; the diff viewer (S-10, #69) shows it. Cleared when the focus moves.
-    private(set) var selectedFile: FileSelection?
+    /// The file picked in the detail panel; the diff viewer (S-10, #232) shows it. Cleared when the focus moves.
+    /// Every change starts (or, for `nil`, cancels) loading its diff.
+    private(set) var selectedFile: FileSelection? {
+        didSet {
+            if selectedFile != oldValue { loadDiff() }
+        }
+    }
+    /// The selected file's diff, `nil` without a selected file.
+    private(set) var diffState: DiffLoadState?
+    /// The diff load in flight; tests await it.
+    private(set) var diffTask: Task<Void, Never>?
+    private var diffGeneration = 0
     /// S-05 inspections by worktree, read when the `Worktree` segment opens; cleared on every reload.
     private(set) var worktreeInspections: [GitPath: WorktreeInspection] = [:]
     /// The S-05 inspection in flight; tests await it.
@@ -160,12 +171,14 @@ final class AppState {
     ///   - registrar: Checks a picked folder (`.live` probes it through `GitClient`).
     ///   - loader: Inspects an opened repository and loads its worktrees.
     ///   - inspector: Reads one worktree's configuration for S-05.
+    ///   - diffLoader: Loads a picked file's patch for S-10.
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
         inspector: any WorktreeInspecting = LiveWorktreeInspector.live,
+        diffLoader: any DiffLoading = LiveDiffLoader.live,
         lineCountLoader: (any LineCountLoading)? = nil
     ) {
         self.layoutStore = layoutStore
@@ -173,6 +186,7 @@ final class AppState {
         self.registrar = registrar
         self.loader = loader
         self.inspector = inspector
+        self.diffLoader = diffLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
     }
 
@@ -242,7 +256,12 @@ final class AppState {
             snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
             // Keep the picked file only while it is still listed in the same group.
             // Same rule as `selectFile`: the row must still exist and still be selectable.
-            if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true { selectedFile = nil }
+            if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true {
+                selectedFile = nil
+            } else if selectedFile != nil {
+                // Same file, new content: load its diff again.
+                loadDiff()
+            }
             // The load may have re-queried the status even if it reads the same (an edit inside a modified file).
             requestLineCounts(refresh: true)
         case .failure(.git(.cancelled)):
@@ -404,6 +423,57 @@ final class AppState {
     /// Back to the graph (`⎋`, interaction.md §3).
     func clearSelectedFile() {
         selectedFile = nil
+    }
+
+    // MARK: Diff viewer (#232)
+
+    /// What the center area shows for the selected file: its title, `Staged · M`, and the load state.
+    var diffViewer: (title: String, source: String, state: DiffLoadState)? {
+        guard let file = selectedFile, let state = diffState else { return nil }
+        let letter = wipDetailModel?.row(for: file)?.kindLetter
+        let source = file.group.title + (letter.map { " · \($0)" } ?? "")
+        let title: String
+        if case .loaded(let document) = state {
+            title = document.title
+        } else {
+            title = PathValidator.displayable(file.path.display)
+        }
+        return (title, source, state)
+    }
+
+    private func loadDiff() {
+        diffTask?.cancel()
+        diffGeneration += 1
+        guard let file = selectedFile, case .loaded(let listing) = worktreeList,
+            let entry = listing.entries.first(where: { $0.worktree.path == file.worktree }), let repository
+        else {
+            diffState = nil
+            diffTask = nil
+            return
+        }
+        let generation = diffGeneration
+        let row = wipDetailModel?.row(for: file)
+        // Fail closed: without its row the file cannot be shown to be an ordinary file.
+        let isSubmodule = row?.isSubmodule ?? true
+        let source = DiffDocument.Source(label: file.group.title, kindLetter: row?.kindLetter ?? "")
+        let loader = diffLoader
+        let target = repository.repository
+        // A different file shows a spinner, not the previous file's diff under the new name; a reload of the same
+        // file keeps the old diff on screen until the new one arrives.
+        if case .loaded(let document) = diffState, document.title == PathValidator.displayable(file.path.display) {
+        } else {
+            diffState = .loading
+        }
+        diffTask = Task { [weak self] in
+            let result = await loader.load(file, worktree: entry.worktree, of: target, isSubmodule: isSubmodule)
+            guard let self, generation == self.diffGeneration, !Task.isCancelled else { return }
+            switch result {
+            case .patch(let patch):
+                self.diffState = .loaded(DiffDocument(listing: patch, path: file.path, source: source))
+            case .unavailable(let reason):
+                self.diffState = .unavailable(reason)
+            }
+        }
     }
 
     /// A finished layout change (drag released, toggle, keyboard step). Saved for the open repository; without one

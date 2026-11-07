@@ -65,24 +65,37 @@ struct LiveWorktreeInspector: WorktreeInspecting {
         }
         let version = client.environment.version
         do {
-            // The folder was verified when the list loaded, but links can change since. Check again right before
-            // reading its configuration, with the same rule as RepositoryService (security review of #67, T14).
-            let probe = try await client.run(.probeRepository, in: directory, safety: .preInspection)
-            guard let reported = try? ProbeParser.parse(probe.stdout),
-                Self.belongs(directory, probe: reported, commonDirectory: repository.commonGitDirectoryURL)
+            guard let inspection = try await Self.verifiedInspection(at: directory, of: repository, client: client)
             else {
-                return result(
-                    nil, failure: "This folder no longer matches the repository, so it was not inspected.",
-                    version: version)
+                return result(nil, failure: Self.noLongerMatches, version: version)
             }
-            let output = try await client.run(.configList, in: directory, safety: .preInspection)
-            let listing = try ConfigParser.parse(output.stdout, truncated: output.isTruncated)
-            return result(RepoConfigInspector.inspect(listing), failure: nil, version: version)
+            return result(inspection, failure: nil, version: version)
         } catch let error as GitError {
             return result(nil, failure: PathValidator.displayable(error.message), version: version)
         } catch {
             return result(
                 nil, failure: GitError.parseFailed(parser: "ConfigParser", offset: 0).message, version: version)
+        }
+    }
+
+    static let noLongerMatches = "This folder no longer matches the repository, so it was not inspected."
+
+    /// Checks that the worktree at `directory` (canonical) still belongs to `repository`, then reads and inspects its
+    /// configuration. `nil` when it no longer belongs. Only commands allowed before inspection run (`probeRepository`,
+    /// `configList`). The folder was verified when the list loaded, but links can change since, so the check is
+    /// repeated right before every use (security review of #67, T14). Used by S-05 and the diff viewer (#232).
+    static func verifiedInspection(
+        at directory: URL, of repository: Repository, client: GitClient
+    ) async throws -> RepoConfigInspection? {
+        let probe = try await client.run(.probeRepository, in: directory, safety: .preInspection)
+        guard let reported = try? ProbeParser.parse(probe.stdout),
+            belongs(directory, probe: reported, commonDirectory: repository.commonGitDirectoryURL)
+        else { return nil }
+        let output = try await client.run(.configList, in: directory, safety: .preInspection)
+        do {
+            return RepoConfigInspector.inspect(try ConfigParser.parse(output.stdout, truncated: output.isTruncated))
+        } catch let error as ParseError {
+            throw GitError.parseFailed(parser: error.parser, offset: error.offset)
         }
     }
 
