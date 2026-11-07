@@ -81,7 +81,8 @@ Overgrove/
 │                   # FetchFailureGuidance, TransportName
 ├── GitHub/         # GHClient(actor), GHCommand(gh 명령 allowlist), GHError, GitHubRepository
 ├── Parsing/        # WorktreeParser, StatusParser, StashParser, LogParser, RevListParser, RefParser, NumstatParser,
-│                   # ConfigParser, VersionParser, GHAuthParser, IssueParser, IssueRefExtractor, FetchProgressParser
+│                   # ConfigParser, VersionParser, ProbeParser, GHAuthParser, IssueParser, IssueRefExtractor,
+│                   # FetchProgressParser
 ├── GraphEngine/    # 커밋 그래프 레인 계산 (UI 무관, 순수 로직)
 ├── Models/         # 값 타입 모델
 ├── Security/       # CredentialMasker, PathValidator

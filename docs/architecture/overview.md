@@ -84,7 +84,9 @@ flowchart TD
 | 타입 | 위치 | 책임 |
 |---|---|---|
 | `OvergroveApp` | `App/` | 진입점, 창 구성, 의존성 조립 |
-| `AppState` | `App/` | 등록된 저장소 목록, 선택된 저장소, 전역 설정, 온보딩 상태 |
+| `AppState` | `App/` | 창 하나의 상태: 열린 저장소, 패널 레이아웃, 저장소 추가·전환·제거, 알림 |
+| `RepositoryRegistry` | `App/` | 등록된 저장소 목록과 마지막 선택(모든 창이 공유). `UserDefaults`에 경로만 저장 (§8) |
+| `RepositoryRegistrar` | `App/` | 고른 폴더 → `PathValidator` → probe(`GitClient`, 검사 전 허용 명령) → 등록할 저장소. 같은 공통 git 디렉터리는 한 저장소 (§9) |
 | `RepositoryStore` | `App/` | 선택된 저장소 하나의 화면 상태: 워크트리, 상태, stash, 그래프 페이지, 선택 항목, 로딩·에러 |
 | `IssueStore` | `App/` | gh 로그인 상태, 이슈 목록, 이슈 번호 매칭 결과 |
 | `RepositoryService` | `App/` | 조회 조합: 병렬 실행, 취소, 디바운스, 캐시 |
