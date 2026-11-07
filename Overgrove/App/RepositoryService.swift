@@ -453,13 +453,16 @@ actor RepositoryService {
             }
             if let entry = fresh[path] {
                 times[path] = now
-                return RepositoryOverview.Entry(worktree: worktree, status: entry.status, inspection: entry.inspection)
+                return RepositoryOverview.Entry(
+                    worktree: worktree, status: entry.status, inspection: entry.inspection,
+                    statusDuration: entry.statusDuration)
             }
             times[path] = previous?.statusTimes[path]
             // The listed worktree is the current one; its status and inspection come from the last query.
             let last = cached[path]
             return RepositoryOverview.Entry(
-                worktree: worktree, status: last?.status ?? .failed(.cancelled), inspection: last?.inspection)
+                worktree: worktree, status: last?.status ?? .failed(.cancelled), inspection: last?.inspection,
+                statusDuration: last?.statusDuration)
         }
         let overview = RepositoryOverview(
             entries: entries, isWorktreeListPartial: isListPartial, refs: refs, stashes: stashes,
