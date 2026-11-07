@@ -22,7 +22,7 @@
 
 | 대상 | 규칙 |
 |---|---|
-| git | 기본은 `/usr/bin/git`(Xcode·CLT git으로 연결되는 shim)이다. v0.2.0에서 사용자 지정 절대 경로를 허용한다. 지정 경로는 실행 가능 여부와 `git --version` 응답을 확인한 뒤에만 쓴다. |
+| git | 기본은 `/usr/bin/git`(Xcode·CLT git으로 연결되는 shim)이다. v0.2.0에서 사용자 지정 절대 경로를 허용한다. 지정 경로는 실행 가능 여부와 `git --version` 응답을 확인한 뒤에만 쓴다. 믿는 조건(경로·소유자·권한·버전, 실패 시 fail closed)은 [ADR-0019](0019-user-chosen-git-executable.md)가 정한다. |
 | gh | `/opt/homebrew/bin/gh` → `/usr/local/bin/gh` 순서로 찾는다. PATH 검색을 하지 않는다. |
 | 최소 git 버전 | **2.36** (`worktree list -z`). 시작할 때 `git --version`을 확인하고, 미달이면 온보딩에서 안내하고 조회를 막는다. |
 
