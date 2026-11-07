@@ -3,75 +3,107 @@ import XCTest
 
 @testable import Overgrove
 
-/// PB-3 and PB-4 inputs for the commit graph (#68, #89) on the bench repository (`scripts/make-bench-repo.sh`).
+/// PERF-03 (PB-3, PB-3b) and PERF-05 (PB-4) for the commit graph (#68, #89; benchmark-plan.md §3).
 ///
-/// - PB-3: the first page (500 commits) read and parsed, nearest-rank p95 of 20 runs after a warm-up.
-/// - Paging cost: later pages with `--skip` (git walks the skipped commits again each time) at several depths.
-/// - Streaming proxy: the whole history in one process (`-n 100000`), the alternative #89 weighs.
-/// - Layout: `GraphEngine` over every page, continuing its state (per-page cost on the main actor).
-///
-/// Skipped unless `OVERGROVE_BENCH_REPO` points at a bench directory (xcodebuild:
-/// `TEST_RUNNER_OVERGROVE_BENCH_REPO=<dir>`). Not part of CI.
+/// - PERF-03 on the bench repository: the first page (500 commits) read and parsed; later pages with `--skip` at
+///   several depths; the whole history in one process (the streaming alternative #89 weighs); and `GraphEngine` over
+///   every page. A bench repository built without `--commit-graph` is held to PB-3b instead of PB-3.
+/// - PERF-05 without a repository: what a page costs the main actor while scrolling (`GraphStore.append` lays the
+///   page out), held to one 60 fps frame. The scroll hitch ratio itself needs a UI test (later).
 final class GraphBenchmarkTests: XCTestCase {
-    private func milliseconds(_ duration: Duration) -> Int {
-        Int((Double(duration.components.seconds) * 1000 + Double(duration.components.attoseconds) / 1e15).rounded())
-    }
+    private static let pageSize = 500
 
-    private func percentiles(_ samples: [Duration]) -> (Duration, Duration) {
-        let sorted = samples.sorted()
-        return (sorted[sorted.count / 2], sorted[Int((Double(sorted.count) * 0.95).rounded(.up)) - 1])
-    }
-
-    func testPB3_GraphPagesAndLayout() async throws {
-        guard let bench = ProcessInfo.processInfo.environment["OVERGROVE_BENCH_REPO"] else {
-            throw XCTSkip("set OVERGROVE_BENCH_REPO to a make-bench-repo.sh output directory")
-        }
-        let root = URL(fileURLWithPath: bench).appendingPathComponent("repo", isDirectory: true)
-        let parent = ["HOME": FileManager.default.temporaryDirectory.path]
+    /// PERF-03.
+    func test_PERF_03_graphFirstPageAndPaging() async throws {
+        let root = try PerfRun.benchRepository()
+        let parent = PerfRun.isolatedParentEnvironment
         let environment = try await GitEnvironment.discover(parentEnvironment: parent)
         let client = GitClient(environment: environment, parentEnvironment: parent)
         let listing = try await client.run(.configList, in: root, safety: .preInspection)
         let safety = try XCTUnwrap(RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
 
-        func page(skip: Int, limit: Int) async throws -> (LogParser.GraphPage, Duration) {
-            let started = ContinuousClock.now
+        func page(skip: Int, limit: Int) async throws -> LogParser.GraphPage {
             let output = try await client.run(.graphPage(skip: skip, limit: limit), in: root, safety: safety)
-            let parsed = try LogParser.parseGraph(output.stdout, truncated: output.isTruncated)
-            return (parsed, ContinuousClock.now - started)
+            return try LogParser.parseGraph(output.stdout, truncated: output.isTruncated)
         }
 
-        var report = ["git \(environment.version), \(ProcessInfo.processInfo.activeProcessorCount) cores"]
-        var firstPage: [Duration] = []
-        for run in 0..<21 {
-            let (_, elapsed) = try await page(skip: 0, limit: 500)
-            if run > 0 { firstPage.append(elapsed) }
-        }
-        let (p50, p95) = percentiles(firstPage)
-        report.append("first page (500): p50 \(milliseconds(p50)) ms, p95 \(milliseconds(p95)) ms")
-        XCTAssertLessThan(p95, .milliseconds(500), "PB-3 (git and parsing; rendering excluded)")
+        let hasCommitGraph = Self.hasCommitGraph(root.appendingPathComponent(".git"))
+        var report = PerfReport(id: "PERF-03", title: "Graph first page and paging (PB-3, PB-3b)")
+        report.note("git \(environment.version), \(ProcessInfo.processInfo.activeProcessorCount) cores")
+        report.note("commit-graph: \(hasCommitGraph ? "yes (PB-3)" : "no (PB-3b)")")
 
-        let (whole, wholeTime) = try await page(skip: 0, limit: 100_000)
-        report.append("whole history in one process: \(whole.commits.count) commits, \(milliseconds(wholeTime)) ms")
+        let first = try await PerfSamples.measure(runs: 21) { _ = try await page(skip: 0, limit: Self.pageSize) }
+        report.record(
+            "first page (\(Self.pageSize))", first, budget: hasCommitGraph ? .milliseconds(500) : .seconds(1),
+            budgetLabel: hasCommitGraph ? "500 ms (PB-3)" : "1.0 s (PB-3b)")
+
+        var whole = LogParser.GraphPage(commits: [], isPartial: false)
+        let wholeTime = try await PerfSamples.measure(runs: 1, warmUp: 0) {
+            whole = try await page(skip: 0, limit: 100_000)
+        }
+        report.record("whole history in one process (\(whole.commits.count))", value: PerfReport.format(wholeTime.p50))
 
         for depth in [500, 10_000, 40_000, 80_000] where depth < whole.commits.count {
-            var samples: [Duration] = []
-            for _ in 0..<5 { samples.append(try await page(skip: depth, limit: 500).1) }
-            let (median, _) = percentiles(samples)
-            report.append("page at skip \(depth): median \(milliseconds(median)) ms")
+            let samples = try await PerfSamples.measure(runs: 5, warmUp: 0) {
+                _ = try await page(skip: depth, limit: Self.pageSize)
+            }
+            report.record("page at skip \(depth)", value: "median \(PerfReport.format(samples.p50))")
         }
 
-        var state = GraphLayoutState.initial
-        var slowest: Duration = .zero
-        let layoutStarted = ContinuousClock.now
-        for start in stride(from: 0, to: whole.commits.count, by: 500) {
-            let slice = Array(whole.commits[start..<min(start + 500, whole.commits.count)])
-            let pageStarted = ContinuousClock.now
-            state = GraphEngine.layout(slice, continuing: state).state
-            slowest = max(slowest, ContinuousClock.now - pageStarted)
+        let layout = Self.pageLayouts(whole.commits)
+        report.record(
+            "layout per page (\(layout.samples.count) pages)", layout, budget: Self.frame,
+            budgetLabel: "16.7 ms (one frame, PB-4)", usesMaximum: true)
+        report.finish()
+    }
+
+    /// PERF-05.
+    func test_PERF_05_pageLayoutFitsAFrame() throws {
+        try PerfRun.requireSynthetic()
+        let history = GraphEngineTestSupport.benchHistory(commitCount: 100_000)
+        let layout = Self.pageLayouts(history)
+
+        var report = PerfReport(id: "PERF-05", title: "Main-actor cost of one graph page (PB-4 proxy)")
+        report.note("synthetic history of \(history.count) commits with the bench repository's lane shape")
+        report.note("the scroll hitch ratio needs a UI test (XCUITest, later)")
+        report.record(
+            "layout per page (\(layout.samples.count) pages)", layout, budget: Self.frame,
+            budgetLabel: "16.7 ms (one frame, PB-4)", usesMaximum: true)
+        report.finish()
+
+        // An Xcode baseline (`.xcbaseline`) for the deepest pages, where the most lanes have accumulated.
+        let tail = Array(history.suffix(Self.pageSize * 4))
+        let state = GraphEngine.layout(Array(history.dropLast(tail.count))).state
+        let options = XCTMeasureOptions()
+        options.iterationCount = 5
+        measure(metrics: [XCTClockMetric()], options: options) {
+            var next = state
+            for start in stride(from: 0, to: tail.count, by: Self.pageSize) {
+                next = GraphEngine.layout(Array(tail[start..<(start + Self.pageSize)]), continuing: next).state
+            }
         }
-        let layoutTotal = ContinuousClock.now - layoutStarted
-        report.append(
-            "layout of every page: total \(milliseconds(layoutTotal)) ms, slowest page \(milliseconds(slowest)) ms")
-        print("PB-3 RESULT\n" + report.joined(separator: "\n"))
+    }
+
+    /// One 60 fps frame (PB-4): the slowest page's layout must not drop a frame on its own.
+    private static let frame: Duration = .microseconds(16_667)
+
+    /// Every page laid out after the previous one, as `GraphStore` appends them.
+    private static func pageLayouts(_ commits: [CommitNode]) -> PerfSamples {
+        var state = GraphLayoutState.initial
+        var samples: [Duration] = []
+        for start in stride(from: 0, to: commits.count, by: pageSize) {
+            let slice = Array(commits[start..<min(start + pageSize, commits.count)])
+            let started = ContinuousClock.now
+            state = GraphEngine.layout(slice, continuing: state).state
+            samples.append(ContinuousClock.now - started)
+        }
+        return PerfSamples(samples)
+    }
+
+    /// `make-bench-repo.sh --commit-graph` writes one of these (benchmark-plan.md §2).
+    private static func hasCommitGraph(_ gitDirectory: URL) -> Bool {
+        let info = gitDirectory.appendingPathComponent("objects/info")
+        return FileManager.default.fileExists(atPath: info.appendingPathComponent("commit-graph").path)
+            || FileManager.default.fileExists(atPath: info.appendingPathComponent("commit-graphs").path)
     }
 }

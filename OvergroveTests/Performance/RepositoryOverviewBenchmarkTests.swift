@@ -3,59 +3,48 @@ import XCTest
 
 @testable import Overgrove
 
-/// PB-1 and PB-2 (performance-budget.md §2) on the bench repository's 10 worktrees, through `RepositoryService`.
-/// PB-1 (#87): the worktree list and every worktree's status, refs, and stash list. PB-2 (#88): switching between
-/// cached worktrees. Results: docs/performance/results/.
+/// PERF-01 (PB-1) and PERF-02 (PB-2) on the bench repository's 10 worktrees, through `RepositoryService`
+/// (benchmark-plan.md §3). PB-1 (#87): the worktree list and every worktree's status, refs, and stash list.
+/// PB-2 (#88): switching between cached worktrees. Results: docs/performance/results/.
 ///
-/// Skipped unless `OVERGROVE_BENCH_REPO` points at a `scripts/make-bench-repo.sh` output directory; with xcodebuild,
-/// pass it as `TEST_RUNNER_OVERGROVE_BENCH_REPO=<dir>`. Not part of CI: the bench repository takes minutes to build.
+/// Skipped unless `OVERGROVE_BENCH_REPO` is set (`PerfRun`). The view part of PB-1 and PB-2 (first frame) is not
+/// measured here; rendering is excluded.
 final class RepositoryOverviewBenchmarkTests: XCTestCase {
     private static let runs = 21  // the first is a warm-up and is dropped (performance-budget.md §1)
+    private static let switches = 1000
 
-    func testPB1_TenWorktreesOverview() async throws {
-        guard let bench = ProcessInfo.processInfo.environment["OVERGROVE_BENCH_REPO"] else {
-            throw XCTSkip("set OVERGROVE_BENCH_REPO to a make-bench-repo.sh output directory")
-        }
-        let root = URL(fileURLWithPath: bench).appendingPathComponent("repo", isDirectory: true)
-        let parent = ["HOME": FileManager.default.temporaryDirectory.path]
+    /// PERF-01: the first load at several query concurrency caps; the default cap is held to PB-1 (1.0 s p95).
+    func test_PERF_01_tenWorktreeOverview() async throws {
+        let root = try PerfRun.benchRepository()
+        let parent = PerfRun.isolatedParentEnvironment
         let environment = try await GitEnvironment.discover(parentEnvironment: parent)
         let repository = Repository(
             rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false)
 
-        var report = ["git \(environment.version), \(ProcessInfo.processInfo.activeProcessorCount) cores"]
+        var report = PerfReport(id: "PERF-01", title: "Ten-worktree overview (PB-1, git layer and parsing)")
+        report.note("git \(environment.version), \(ProcessInfo.processInfo.activeProcessorCount) cores")
         for cap in Array(Set([1, 4, GitClient.defaultConcurrency, 10])).sorted() {
             let client = GitClient(environment: environment, parentEnvironment: parent, maximumConcurrency: cap)
             let service = RepositoryService(client: client)
-            var samples: [Duration] = []
             var worktrees = 0
-            for run in 0..<Self.runs {
-                let started = ContinuousClock.now
-                let overview = try await service.loadOverview(of: repository)
-                let elapsed = ContinuousClock.now - started
-                worktrees = overview.entries.count
-                if run > 0 { samples.append(elapsed) }
+            let samples = try await PerfSamples.measure(runs: Self.runs) {
+                worktrees = try await service.loadOverview(of: repository).entries.count
             }
             XCTAssertEqual(worktrees, 10, "the bench repository has 10 worktrees")
-            samples.sort()
-            let p50 = samples[samples.count / 2]
-            let p95 = samples[Int((Double(samples.count) * 0.95).rounded(.up)) - 1]  // nearest rank
-            report.append("cap \(cap): p50 \(Self.milliseconds(p50)) ms, p95 \(Self.milliseconds(p95)) ms")
-            if cap == GitClient.defaultConcurrency {
-                XCTAssertLessThan(p95, .seconds(1), "PB-1 budget (git layer and parsing only; rendering excluded)")
-            }
+            let isDefault = cap == GitClient.defaultConcurrency
+            report.record(
+                "query cap \(cap)\(isDefault ? " (default)" : "")", samples, budget: isDefault ? .seconds(1) : nil,
+                budgetLabel: isDefault ? "1.0 s (PB-1)" : nil)
         }
-        print("PB-1 RESULT\n" + report.joined(separator: "\n"))
+        report.finish()
     }
 
-    /// PB-2 (performance-budget.md §2): switching between cached worktrees. The service part is the memory read
-    /// (`cachedOverview` + `snapshot(focusing:)`); the view update is measured once #65 draws the list. The background
-    /// status after the switch (`.worktreeSelected`) has its own 35 ms (p95) git budget.
-    func testPB2_CachedWorktreeSwitch() async throws {
-        guard let bench = ProcessInfo.processInfo.environment["OVERGROVE_BENCH_REPO"] else {
-            throw XCTSkip("set OVERGROVE_BENCH_REPO to a make-bench-repo.sh output directory")
-        }
-        let root = URL(fileURLWithPath: bench).appendingPathComponent("repo", isDirectory: true)
-        let parent = ["HOME": FileManager.default.temporaryDirectory.path]
+    /// PERF-02: the service part of a cached switch is the memory read (`cachedOverview` + `snapshot(focusing:)`),
+    /// held to PB-2 (100 ms). The background status after the switch (`.worktreeSelected`) has its own 35 ms (p95)
+    /// git cost (performance-budget.md PB-2), reported for reference.
+    func test_PERF_02_cachedWorktreeSwitch() async throws {
+        let root = try PerfRun.benchRepository()
+        let parent = PerfRun.isolatedParentEnvironment
         let environment = try await GitEnvironment.discover(parentEnvironment: parent)
         let service = RepositoryService(client: GitClient(environment: environment, parentEnvironment: parent))
         let repository = Repository(
@@ -66,48 +55,28 @@ final class RepositoryOverviewBenchmarkTests: XCTestCase {
         let paths = loaded.entries.map(\.worktree.path)
         XCTAssertEqual(paths.count, 10)
 
-        var reads: [Duration] = []
-        for run in 0..<Self.switches {
-            let started = ContinuousClock.now
-            let overview = await service.cachedOverview(of: repository)
-            let snapshot = overview?.snapshot(focusing: paths[run % paths.count])
-            reads.append(ContinuousClock.now - started)
+        var run = 0
+        let reads = await PerfSamples.measure(runs: Self.switches, warmUp: 0) {
+            let snapshot = await service.cachedOverview(of: repository)?.snapshot(focusing: paths[run % paths.count])
             XCTAssertNotNil(snapshot?.focusedWorktree)
+            run += 1
         }
-        var backgrounds: [Duration] = []
-        for run in 0..<Self.runs {
-            let started = ContinuousClock.now
+        run = 0
+        var failed = false
+        let refreshes = await PerfSamples.measure(runs: Self.runs) {
             let refresh = await service.refresh(repository, trigger: .worktreeSelected(paths[run % paths.count]))
-            let elapsed = ContinuousClock.now - started
-            guard case .success = refresh?.result else { return XCTFail("selection refresh failed") }
-            if run > 0 { backgrounds.append(elapsed) }
+            if case .success = refresh?.result {} else { failed = true }
+            run += 1
         }
-        let (readP50, readP95) = Self.percentiles(reads)
-        let (statusP50, statusP95) = Self.percentiles(backgrounds)
-        XCTAssertLessThan(readP95, .milliseconds(100), "PB-2 budget (memory read; view update excluded)")
-        print(
-            """
-            PB-2 RESULT
-            git \(environment.version), \(ProcessInfo.processInfo.activeProcessorCount) cores
-            cached switch (\(reads.count) reads): p50 \(Self.microseconds(readP50)) µs, p95 \(Self.microseconds(readP95)) µs
-            background selection refresh (\(backgrounds.count) runs): p50 \(Self.milliseconds(statusP50)) ms, \
-            p95 \(Self.milliseconds(statusP95)) ms
-            """)
-    }
+        XCTAssertFalse(failed, "a selection refresh failed")
 
-    private static let switches = 1000
-
-    /// Median and nearest-rank 95th percentile.
-    private static func percentiles(_ samples: [Duration]) -> (Duration, Duration) {
-        let sorted = samples.sorted()
-        return (sorted[sorted.count / 2], sorted[Int((Double(sorted.count) * 0.95).rounded(.up)) - 1])
-    }
-
-    private static func microseconds(_ duration: Duration) -> Int {
-        Int((Double(duration.components.seconds) * 1e6 + Double(duration.components.attoseconds) / 1e12).rounded())
-    }
-
-    private static func milliseconds(_ duration: Duration) -> Int {
-        Int((Double(duration.components.seconds) * 1000 + Double(duration.components.attoseconds) / 1e15).rounded())
+        var report = PerfReport(id: "PERF-02", title: "Cached worktree switch (PB-2)")
+        report.note("git \(environment.version), \(ProcessInfo.processInfo.activeProcessorCount) cores")
+        report.record(
+            "cached switch, \(reads.samples.count) reads", reads, budget: .milliseconds(100),
+            budgetLabel: "100 ms (PB-2, view excluded)")
+        // Reported against the status cost the budget assumes, not enforced: it is git time on a shared machine.
+        report.record("background selection refresh", refreshes, budgetLabel: "35 ms (status, reference)")
+        report.finish()
     }
 }
