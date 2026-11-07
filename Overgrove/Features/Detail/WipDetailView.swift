@@ -52,13 +52,29 @@ struct WipDetailView: View {
             .font(Tokens.Font.callout)
             .foregroundStyle(Tokens.Color.textSecondary)
             if model.changedFileCount > 0 {
-                Text(
-                    "\(WipDetailModel.formatted(model.changedFileCount)) changed \(model.changedFileCount == 1 ? "file" : "files")"
-                )
+                HStack(spacing: Tokens.Spacing.sm) {
+                    Text(
+                        "\(WipDetailModel.formatted(model.changedFileCount)) changed \(model.changedFileCount == 1 ? "file" : "files")"
+                    )
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    if let totals = model.lineTotals {
+                        if let fraction = totals.addedFraction {
+                            LineRatioBar(addedFraction: fraction)
+                        } else {
+                            Spacer(minLength: 0)
+                        }
+                        LineCountText(added: totals.added, deleted: totals.deleted)
+                    } else if let note = model.lineCountNote {
+                        Spacer(minLength: 0)
+                        Text(note).foregroundStyle(Tokens.Color.textTertiary)
+                    }
+                }
                 .font(Tokens.Font.caption)
-                .foregroundStyle(Tokens.Color.textTertiary)
-                // Not shown yet: the added/removed ratio bar and `+n −m` totals need `diff --numstat` queries for the
-                // focused worktree (proposed as a follow-up of #66).
+                .accessibilityElement(children: .combine)
+                .accessibilityValue(
+                    model.lineTotals.map {
+                        WipDetailModel.lineCountDescription(.lines(added: $0.added, deleted: $0.deleted))
+                    } ?? "")
             }
         }
     }
@@ -144,11 +160,14 @@ struct WipGroupCard: View {
                     .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
                     .background(Capsule().fill(Tokens.Color.surfacePanel))
                 Spacer()
+                if let totals = group.lineTotals {
+                    LineCountText(added: totals.added, deleted: totals.deleted).font(Tokens.Font.monoSmall)
+                }
             }
             .padding(.horizontal, Tokens.Spacing.sm + Tokens.Spacing.xxs)
             .frame(height: Self.headerHeight)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(group.group.title), \(group.totalCount) files")
+            .accessibilityLabel(headerLabel)
             .accessibilityAddTraits(.isHeader)
 
             ForEach(group.rows) { row in
@@ -174,6 +193,14 @@ struct WipGroupCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .strokeBorder(Tokens.Color.borderSeparator, lineWidth: 1))
+    }
+
+    private var headerLabel: String {
+        var label = "\(group.group.title), \(group.totalCount) files"
+        if let totals = group.lineTotals {
+            label += ", \(WipDetailModel.lineCountDescription(.lines(added: totals.added, deleted: totals.deleted)))"
+        }
+        return label
     }
 
     /// art-direction.md §7: card head 32, radius 8. No tokens for them.
@@ -210,6 +237,14 @@ struct WipFileRowView: View {
                     .background(Capsule().strokeBorder(Tokens.Color.borderSeparator))
             }
             Spacer(minLength: 0)
+            switch row.lineCount {
+            case .lines(let added, let deleted):
+                LineCountText(added: added, deleted: deleted).font(Tokens.Font.monoSmall).layoutPriority(1)
+            case .binary:
+                Text("binary").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary).layoutPriority(1)
+            case nil:
+                EmptyView()
+            }
         }
         .padding(.horizontal, Tokens.Spacing.sm + Tokens.Spacing.xxs)
         .frame(height: Tokens.Size.rowFile)
@@ -232,6 +267,46 @@ struct WipFileRowView: View {
 
     /// screens.md S-02: a 16pt square badge. No size token for it.
     static let badgeSize: CGFloat = 16
+}
+
+/// `+40 −8` in the diff colours; a zero side is left out (screens.md S-02). The `+`/`−` glyphs carry the meaning,
+/// not the colour (`diff.gutter-*`).
+struct LineCountText: View {
+    let added: Int
+    let deleted: Int
+
+    var body: some View {
+        let parts = WipDetailModel.lineCountText(added: added, deleted: deleted)
+        HStack(spacing: Tokens.Spacing.xs) {
+            if let text = parts.added { Text(text).foregroundStyle(Tokens.Color.diffGutterAdded) }
+            if let text = parts.deleted { Text(text).foregroundStyle(Tokens.Color.diffGutterRemoved) }
+        }
+        .lineLimit(1)
+        .fixedSize()
+        .accessibilityHidden(true)  // rows and headers carry the counts in their labels
+    }
+}
+
+/// The added/removed ratio bar under the WIP summary (art-direction.md §7: height 6, green and red).
+struct LineRatioBar: View {
+    let addedFraction: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            HStack(spacing: 0) {
+                Rectangle().fill(Tokens.Color.diffGutterAdded)
+                    .frame(width: proxy.size.width * addedFraction)
+                Rectangle().fill(Tokens.Color.diffGutterRemoved)
+            }
+            .clipShape(Capsule())
+        }
+        .frame(height: Self.height)
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
+    }
+
+    /// art-direction.md §7. No token for it.
+    static let height: CGFloat = 6
 }
 
 /// A whole-panel state: clean, missing folder, or unavailable status.

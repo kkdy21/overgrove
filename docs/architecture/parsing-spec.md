@@ -281,6 +281,14 @@ numstat 레코드만 나온다. `--include-untracked`가 있으면 untracked 부
 
 - stash 출력에도 이름 변경 numstat(`<added>\t<deleted>\t␀<old>␀<new>␀`)이 나온다. `stash show`는 `diff.renames` 기본값(켜짐)을 따른다 (확인).
 
+### 8.3 워크트리 줄 수 — `diff [--cached] --numstat -z -M` (#230)
+
+numstat 레코드만 나온다. 형식은 §8.2와 같다(`status`는 `nil`). `parseWorktreeFiles(_:excluding:truncated:)`가 읽는다.
+
+- 충돌 중인 경로는 unstaged 출력에 레코드가 두 개 나온다(확인, [git-command-catalog.md §3](git-command-catalog.md)). 호출자는 status의 conflicted 경로를 `excluding`으로 넘기고, 파서는 그 레코드를 버린다. 나머지 경로가 두 번 나오면 파싱 실패다.
+- 잘린 출력에서는 잘린 마지막 레코드만 버린다. 줄 수를 모르는 파일은 결과에 없으므로 화면에서 줄 수 없이 보인다(`isPartial`).
+- 바이너리(`-\t-`)는 `added`·`deleted`가 `nil`이다. 화면은 `binary`로 쓴다.
+
 | 테스트 | 사례 |
 |---|---|
 | PAR-NUMSTAT-01 | 추가·수정·삭제 |
@@ -288,6 +296,7 @@ numstat 레코드만 나온다. `--include-untracked`가 있으면 untracked 부
 | PAR-NUMSTAT-03 | 바이너리 `-` |
 | PAR-NUMSTAT-04 | raw + numstat 합치기, 상태 문자 |
 | PAR-NUMSTAT-05 | stash untracked 부분 |
+| PAR-NUMSTAT-06 | 워크트리 줄 수: 충돌 경로 제외, 그 밖의 중복 거부, 잘림 |
 
 ---
 

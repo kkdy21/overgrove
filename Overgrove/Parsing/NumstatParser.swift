@@ -1,7 +1,7 @@
 import Foundation
 
 /// Parses the file list of a commit (`diff-tree -r -z --raw --numstat -M`, parsing-spec.md §8.1) and of a stash
-/// (`stash show --include-untracked --numstat -z`, §8.2).
+/// (`stash show --include-untracked --numstat -z`, §8.2), and a worktree's line counts (`diff --numstat -z`, §8.3).
 ///
 /// Records are read by position, never by guessing from content: a path such as `:x` or one containing tabs cannot be
 /// mistaken for a record start. Paths stay raw bytes (`GitPath`) because they go back to git for patches. Modes, OIDs,
@@ -71,6 +71,29 @@ enum NumstatParser {
             guard seenPaths.insert(stat.path).inserted else { throw failure("duplicate path", at: stat.offset) }
             let path = GitPath(raw: Data(stat.path))
             files.append(stat.fileStat(status: nil, isFromUntracked: untrackedPaths.contains(path)))
+        }
+        return Files(files: files, isPartial: truncated)
+    }
+
+    /// `diff [--cached] --numstat -z -M` output of a worktree (§8.3, #230): numstat records only, so `status` stays
+    /// `nil`.
+    ///
+    /// An unmerged path prints two records in the unstaged output (`0 0`, then stage 2 against the worktree), so the
+    /// caller passes the status's conflicted paths as `excluding` and their records are dropped. Any other repeated
+    /// path fails the parse. Matching is by raw bytes.
+    static func parseWorktreeFiles(
+        _ data: Data,
+        excluding excluded: Set<GitPath> = [],
+        truncated: Bool = false
+    ) throws -> Files {
+        var reader = try TokenReader(data, truncated: truncated)
+        var files: [FileStat] = []
+        var seenPaths = Set<Data>()
+        while !reader.isAtEnd, let stat = try readNumstat(&reader) {
+            let path = GitPath(raw: Data(stat.path))
+            guard !excluded.contains(path) else { continue }
+            guard seenPaths.insert(stat.path).inserted else { throw failure("duplicate path", at: stat.offset) }
+            files.append(stat.fileStat(status: nil, isFromUntracked: false))
         }
         return Files(files: files, isPartial: truncated)
     }

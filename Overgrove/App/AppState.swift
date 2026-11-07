@@ -115,6 +115,7 @@ final class AppState {
     private let registry: RepositoryRegistry
     private let registrar: RepositoryRegistrar
     private let loader: any RepositoryLoading
+    private let lineCountLoader: (any LineCountLoading)?
     private let inspector: any WorktreeInspecting
 
     private(set) var repository: RepositoryContext?
@@ -137,8 +138,23 @@ final class AppState {
     private var runningTrigger: RepositoryService.Trigger?
     /// Dropping a removed repository's cache; tests await it.
     private(set) var forgetTask: Task<Void, Never>?
+    /// The selected worktree's line counts (#230), for the status they were requested with.
+    private var lineCounts: LineCountRequest?
+    /// The line count query in flight; tests await it.
+    private(set) var lineCountTask: Task<Void, Never>?
     /// Bumped on every open and close, so a load that finishes after the user moved on is dropped.
     private var loadGeneration = 0
+    /// Whether this open has shown a result the service verified (not only the cached paint). Until it has, a load
+    /// that another window superseded is retried (security review of #243).
+    private var hasVerifiedListing = false
+    /// `.user` retries after superseded loads, before the first verified result.
+    private var supersededRetries = 0
+    /// The retries ran out and the unverified cached paint was taken down: the next window activation loads
+    /// everything.
+    private var needsFullLoad = false
+    /// Bumped whenever S-05 inspections are dropped, so a late one is not stored (`loadGeneration` also moves on
+    /// background refreshes, which keep the inspections).
+    private var inspectionGeneration = 0
     /// TODO(#77): set by the fetch feature.
     var fetchStatus: FetchStatus = .never
     /// TODO(#83): set from `GHClient.authStatus()`; `nil` until checked.
@@ -159,16 +175,20 @@ final class AppState {
     ///   - registrar: Checks a picked folder (`.live` probes it through `GitClient`).
     ///   - loader: Inspects an opened repository and loads its worktrees.
     ///   - inspector: Reads one worktree's configuration for S-05.
+    ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
+    ///     it can (the live loader can); without one, the detail shows no line counts.
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
-        inspector: any WorktreeInspecting = LiveWorktreeInspector.live
+        inspector: any WorktreeInspecting = LiveWorktreeInspector.live,
+        lineCountLoader: (any LineCountLoading)? = nil
     ) {
         self.layoutStore = layoutStore
         self.registry = registry
         self.registrar = registrar
         self.loader = loader
         self.inspector = inspector
+        self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
     }
 
     /// The registered repositories, in the order they were added.
@@ -186,14 +206,21 @@ final class AppState {
         loadTask = nil
         runningTrigger = nil
         loadGeneration += 1
+        hasVerifiedListing = false
+        supersededRetries = 0
+        needsFullLoad = false
         snapshot = nil
         worktreeList = .idle
         focusedWorktreePath = nil
         selection = nil
         selectedFile = nil
+        lineCountTask?.cancel()
+        lineCountTask = nil
+        lineCounts = nil
         inspectionTask?.cancel()
         inspectionTask = nil
         worktreeInspections = [:]
+        inspectionGeneration += 1
         fetchStatus = .never
         searchText = ""
     }
@@ -210,9 +237,18 @@ final class AppState {
     /// The window became key (interaction.md §4): re-query what is stale (`.automatic`, debounced by the service).
     /// Skipped until the repository has loaded, and while another load runs.
     func windowDidBecomeActive() {
-        guard case .loaded = worktreeList, runningTrigger == nil else { return }
+        guard repository != nil, runningTrigger == nil else { return }
+        if needsFullLoad {
+            // The first load was superseded every time (another window): load everything.
+            refresh(.user)
+            return
+        }
+        guard hasVerifiedListing, case .loaded = worktreeList else { return }
         refresh(.automatic)
     }
+
+    /// Superseded first loads retried before the window falls back to Loading (the next window activation retries).
+    static let maximumSupersededRetries = 2
 
     /// Starts a refresh for `trigger` (overview.md §5 decides what it re-queries). A full refresh in flight is not
     /// replaced by a narrower one: it already brings everything.
@@ -253,9 +289,22 @@ final class AppState {
         runningTrigger = nil
         switch result {
         case .success(let listing?):
+            hasVerifiedListing = true
+            supersededRetries = 0
+            needsFullLoad = false
             apply(listing)
         case .success(nil), .failure(.git(.cancelled)):
-            break  // superseded or debounced away: keep what is shown
+            // Superseded (another window asked for the same repository) or debounced away. A verified listing stays;
+            // a cached paint is not kept as if it were current (security review of #243).
+            guard !hasVerifiedListing else { break }
+            if supersededRetries < Self.maximumSupersededRetries {
+                supersededRetries += 1
+                refresh(.user)
+            } else {
+                worktreeList = .loading
+                snapshot = nil
+                needsFullLoad = true
+            }
         case .failure(let error):
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
@@ -270,11 +319,14 @@ final class AppState {
         selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
         // Configuration may have changed since the last inspection.
         worktreeInspections = [:]
+        inspectionGeneration += 1
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
         // Keep the picked file only while it is still listed in the same group.
         // Same rule as `selectFile`: the row must still exist and still be selectable.
         if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true { selectedFile = nil }
+        // The load may have re-queried the status even if it reads the same (an edit inside a modified file).
+        requestLineCounts(refresh: true)
     }
 
     /// The sidebar row model, `nil` until the list has loaded.
@@ -286,6 +338,7 @@ final class AppState {
     #if DEBUG
         /// Shows `listing` as if it had just loaded (previews and render tests; no git).
         func showForPreview(_ listing: WorktreeListing) {
+            hasVerifiedListing = true
             apply(listing)
         }
     #endif
@@ -305,6 +358,7 @@ final class AppState {
             inspectSelectedWorktree()
         } else {
             selection = .wip(path)
+            requestLineCounts()
         }
         refresh(.worktreeSelected(path))
     }
@@ -315,6 +369,7 @@ final class AppState {
     func showChanges() {
         guard let path = selection?.worktreePath else { return }
         selection = .wip(path)
+        requestLineCounts()
     }
 
     func showWorktreeDetail() {
@@ -340,13 +395,13 @@ final class AppState {
         guard case .worktreeInfo(let path) = selection, worktreeInspections[path] == nil,
             let entry = entry(at: path), WorktreeDetailModel.shouldInspect(entry), let repository
         else { return }
-        let generation = loadGeneration
+        let generation = inspectionGeneration
         let inspector = inspector
         let target = repository.repository
         inspectionTask?.cancel()
         inspectionTask = Task { [weak self] in
             let result = await inspector.inspect(entry.worktree, of: target)
-            guard let self, generation == self.loadGeneration, !Task.isCancelled else { return }
+            guard let self, generation == self.inspectionGeneration, !Task.isCancelled else { return }
             self.worktreeInspections[path] = result
         }
     }
@@ -355,10 +410,68 @@ final class AppState {
 
     /// S-02 for the selected worktree, `nil` unless a loaded worktree's WIP is selected.
     var wipDetailModel: WipDetailModel? {
-        guard case .wip(let path) = selection, case .loaded(let listing) = worktreeList,
-            let entry = listing.entries.first(where: { $0.worktree.path == path })
-        else { return nil }
-        return WipDetailModel(entry: entry)
+        guard let entry = selectedWipEntry else { return nil }
+        let counts: WipDetailModel.LineCounts
+        if let lineCounts, case .loaded(let state) = entry.state, lineCounts.matches(entry.worktree.path, state) {
+            counts = lineCounts.result
+        } else {
+            counts = .pending
+        }
+        return WipDetailModel(entry: entry, lineCounts: counts)
+    }
+
+    private var selectedWipEntry: WorktreeListing.Entry? {
+        guard case .wip(let path) = selection, case .loaded(let listing) = worktreeList else { return nil }
+        return listing.entries.first { $0.worktree.path == path }
+    }
+
+    /// Line counts requested for one worktree's status, and what came back.
+    private struct LineCountRequest {
+        let path: GitPath
+        let state: WorkingState
+        var result: WipDetailModel.LineCounts
+
+        func matches(_ path: GitPath, _ state: WorkingState) -> Bool { self.path == path && self.state == state }
+    }
+
+    /// Queries the selected worktree's line counts unless the shown status already has them (#230). Only the
+    /// selected worktree is queried, and only once its status has loaded; the service answers from its cache until
+    /// that status is queried again.
+    /// - Parameter refresh: Ask even when the status reads the same: after a load, the service knows whether it
+    ///   re-queried that status (and runs no git if not). The current counts stay shown until the answer.
+    private func requestLineCounts(refresh: Bool = false) {
+        guard let lineCountLoader, let repository, let entry = selectedWipEntry, case .loaded(let state) = entry.state
+        else { return }
+        let path = entry.worktree.path
+        let isSameStatus = lineCounts?.matches(path, state) ?? false
+        if isSameStatus && !refresh { return }
+        lineCountTask?.cancel()
+        if !isSameStatus { lineCounts = LineCountRequest(path: path, state: state, result: .pending) }
+        guard !state.staged.isEmpty || !state.unstaged.isEmpty else {
+            lineCounts = LineCountRequest(
+                path: path, state: state,
+                result: .loaded(WorkingLineCounts(staged: [], unstaged: [], isPartial: false)))
+            return
+        }
+        let loader = lineCountLoader
+        let target = repository.repository
+        lineCountTask = Task { [weak self] in
+            let result: WipDetailModel.LineCounts
+            do throws(RepositoryLoadError) {
+                // `nil`: the service has no loaded status for it (e.g. evicted); show no counts rather than an error.
+                guard let counts = try await loader.lineCounts(target, worktree: path) else { return }
+                result = .loaded(counts)
+            } catch {
+                if error == .git(.cancelled) { return }
+                result = .failed
+            }
+            self?.finishLineCounts(result, path: path, state: state)
+        }
+    }
+
+    private func finishLineCounts(_ result: WipDetailModel.LineCounts, path: GitPath, state: WorkingState) {
+        guard !Task.isCancelled, let lineCounts, lineCounts.matches(path, state) else { return }
+        self.lineCounts?.result = result
     }
 
     /// Picks a file in the WIP detail. Paths git cannot take back (not UTF-8) are not selectable.
@@ -456,7 +569,11 @@ final class AppState {
         // Its cached results and inspections go too (`RepositoryService.forget`, overview.md §5).
         if let removed {
             let loader = loader
-            forgetTask = Task { await loader.forget(removed) }
+            forgetTask = Task { [weak self] in
+                // Added again in the meantime: its new load must not be cancelled (security review of #243).
+                guard self?.registry.repository(withID: id) == nil else { return }
+                await loader.forget(removed)
+            }
         }
     }
 

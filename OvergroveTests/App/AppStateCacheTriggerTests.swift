@@ -41,13 +41,21 @@ final class TriggerRecordingLoader: RepositoryLoading, @unchecked Sendable {
     }
 
     /// Resumes request `index` (in call order); `nil` stands for superseded or debounced away.
-    func release(_ index: Int, with listing: WorktreeListing?) {
-        let continuation = lock.withLock { waiting[index].1 }
+    func release(_ index: Int, with listing: WorktreeListing?, file: StaticString = #filePath, line: UInt = #line) {
+        let continuation = lock.withLock { index < waiting.count ? waiting[index].1 : nil }
+        guard let continuation else { return XCTFail("no request \(index)", file: file, line: line) }
         continuation.resume(returning: listing)
     }
 
-    func waitForRequests(_ count: Int) async {
-        while triggers.count < count { await Task.yield() }
+    /// Fails instead of hanging when the request never comes.
+    func waitForRequests(_ count: Int, file: StaticString = #filePath, line: UInt = #line) async {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while triggers.count < count {
+            guard ContinuousClock.now < deadline else {
+                return XCTFail("expected \(count) requests, got \(triggers)", file: file, line: line)
+            }
+            await Task.yield()
+        }
     }
 }
 
@@ -121,6 +129,73 @@ final class AppStateCacheTriggerTests: XCTestCase {
         XCTAssertEqual(state.worktreeList, .loaded(.mockup))
     }
 
+    /// Security review of #243: the cached paint is not verified. If the load after it fails (the configuration now
+    /// blocks queries), the error replaces it.
+    func testCachedPaintFollowedByAFailureShowsTheError() async {
+        let cached = WorktreeListing(entries: [WorktreeListing.mockup.entries[0]], isPartial: false)
+        let loader = BlockedAfterCacheLoader(cached: cached)
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: loader)
+        let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertEqual(state.worktreeList, .failed(message: RepositoryLoadError.blocked(reason: "filter").message))
+        XCTAssertNil(state.snapshot)
+    }
+
+    /// Security review of #243: another window's request can supersede this window's first load. The cached paint
+    /// is not kept as current: the full load is asked for again.
+    func testSupersededFirstLoadIsRetried() async {
+        let cached = WorktreeListing(entries: [WorktreeListing.mockup.entries[0]], isPartial: false)
+        let loader = TriggerRecordingLoader(cached: cached)
+        let state = makeState(loader)
+        state.reload()
+        await loader.waitForRequests(1)
+        loader.release(0, with: nil)  // superseded by another window
+        await loader.waitForRequests(2)
+        XCTAssertEqual(loader.triggers, [.user, .user])
+        loader.release(1, with: .mockup)
+        await state.loadTask?.value
+        XCTAssertEqual(state.worktreeList, .loaded(.mockup))
+
+        // Once verified, a superseded background refresh keeps the listing and is not retried.
+        state.windowDidBecomeActive()
+        await loader.waitForRequests(3)
+        loader.release(2, with: nil)
+        await state.loadTask?.value
+        XCTAssertEqual(loader.triggers, [.user, .user, .automatic])
+        XCTAssertEqual(state.worktreeList, .loaded(.mockup))
+    }
+
+    func testRepeatedlySupersededFirstLoadFallsBackToLoadingUntilActivation() async {
+        let cached = WorktreeListing(entries: [WorktreeListing.mockup.entries[0]], isPartial: false)
+        let loader = TriggerRecordingLoader(cached: cached)
+        let state = makeState(loader)
+        state.reload()
+        let attempts = 1 + AppState.maximumSupersededRetries
+        for index in 0..<attempts {
+            await loader.waitForRequests(index + 1)
+            loader.release(index, with: nil)
+        }
+        await state.loadTask?.value
+        XCTAssertEqual(loader.triggers.count, attempts)
+        XCTAssertEqual(state.worktreeList, .loading, "the unverified cached paint is taken down")
+        XCTAssertNil(state.snapshot)
+
+        state.windowDidBecomeActive()
+        await loader.waitForRequests(attempts + 1)
+        XCTAssertEqual(loader.triggers.last, .user, "activation loads everything, not .automatic")
+        loader.release(attempts, with: .mockup)
+        await state.loadTask?.value
+        XCTAssertEqual(state.worktreeList, .loaded(.mockup))
+    }
+
     // MARK: Worktree selection
 
     /// PB-2: the switch is synchronous from the listing in memory; the status refresh follows in the background.
@@ -160,6 +235,36 @@ final class AppStateCacheTriggerTests: XCTestCase {
         loader.release(1, with: .mockup)
         await state.loadTask?.value
         XCTAssertEqual(state.focusedWorktreePath, feature, "the result keeps the new focus")
+    }
+
+    /// Security review of #243: the background refresh after a selection must not drop the S-05 inspection that the
+    /// selection started; it is stored and kept until a refresh result replaces the listing.
+    func testInspectionStartedBySelectionSurvivesItsRefresh() async {
+        let loader = TriggerRecordingLoader()
+        let inspector = RecordingInspector()
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: loader, inspector: inspector)
+        let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil))
+        state.reload()
+        await loader.waitForRequests(1)
+        loader.release(0, with: .mockup)
+        await state.loadTask?.value
+        state.showWorktreeDetail()
+        await state.inspectionTask?.value
+
+        state.selectWorktree(feature)  // stays on the Worktree segment, inspects feature, refreshes in the background
+        await state.inspectionTask?.value
+        XCTAssertNotNil(state.worktreeDetailModel?.security, "the inspection is stored despite the refresh")
+        await loader.waitForRequests(2)
+        loader.release(1, with: nil)  // superseded: nothing replaces the listing, the inspection stays
+        await state.loadTask?.value
+        XCTAssertNotNil(state.worktreeDetailModel?.security)
     }
 
     func testANewerSelectionSupersedesTheLastOne() async {
@@ -289,4 +394,25 @@ private final class FailingAfterFirstLoader: RepositoryLoading, @unchecked Senda
         if call == 1 { return .mockup }
         throw .blocked(reason: "filter")
     }
+}
+
+/// Serves a cached listing, then reports that the configuration now blocks queries.
+private final class BlockedAfterCacheLoader: RepositoryLoading, @unchecked Sendable {
+    let cached: WorktreeListing
+
+    init(cached: WorktreeListing) {
+        self.cached = cached
+    }
+
+    func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing {
+        throw .blocked(reason: "filter")
+    }
+
+    func load(
+        _ repository: Repository, trigger: RepositoryService.Trigger
+    ) async throws(RepositoryLoadError) -> WorktreeListing? {
+        throw .blocked(reason: "filter")
+    }
+
+    func cachedListing(_ repository: Repository) async -> WorktreeListing? { cached }
 }
