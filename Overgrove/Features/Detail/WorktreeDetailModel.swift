@@ -285,10 +285,10 @@ struct WorktreeSecurityModel: Equatable {
     }
 
     /// `filter.lfs.process`, `remote.origin.uploadpack`: the key as git names it, with its scope. A subsection can be
-    /// a URL (`credential.https://user:token@host.helper`, `http.<url>.sslVerify`), so the key is credential-masked.
+    /// a URL, with or without a scheme (`credential.https://user:token@host.helper`, `url.user:token@host:repo.insteadof`,
+    /// `http.<url>.sslVerify`), so the key is credential-masked (#244).
     static func keyName(_ entry: ConfigEntry) -> String {
-        let key = CredentialMasker.mask(
-            [entry.section, entry.subsection, entry.variable].compactMap { $0 }.joined(separator: "."))
+        let key = CredentialMasker.maskConfigKey(entry.key)
         return entry.scope == .worktree ? "\(key) (worktree)" : key
     }
 
