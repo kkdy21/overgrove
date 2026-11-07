@@ -77,6 +77,22 @@ enum MainSelection: Equatable {
     case wip(GitPath)
 }
 
+/// The groups of the WIP detail (S-02), in display order.
+enum WorkingChangeGroup: String, CaseIterable, Sendable {
+    case conflicted
+    case staged
+    case unstaged
+    case untracked
+}
+
+/// A file picked in the detail panel: the secondary selection that drives the diff viewer (interaction.md §1,
+/// S-10, #69). `group` tells a staged diff from an unstaged one for the same `MM` path.
+struct FileSelection: Equatable, Sendable {
+    let worktree: GitPath
+    let group: WorkingChangeGroup
+    let path: GitPath
+}
+
 /// The state of one main window, which later screens plug into (#64, docs/README.md §2.2 `App/`). Each window
 /// owns one (`MainWindowScene`), so windows show different repositories independently.
 ///
@@ -99,6 +115,8 @@ final class AppState {
     /// The focused worktree (information-architecture.md §2.2). `nil` focuses the main worktree.
     private(set) var focusedWorktreePath: GitPath?
     private(set) var selection: MainSelection?
+    /// The file picked in the detail panel; the diff viewer (S-10, #69) shows it. Cleared when the focus moves.
+    private(set) var selectedFile: FileSelection?
     /// The load in flight; tests await it.
     private(set) var loadTask: Task<Void, Never>?
     /// Bumped on every open and close, so a load that finishes after the user moved on is dropped.
@@ -150,6 +168,7 @@ final class AppState {
         worktreeList = .idle
         focusedWorktreePath = nil
         selection = nil
+        selectedFile = nil
         fetchStatus = .never
         searchText = ""
     }
@@ -186,6 +205,8 @@ final class AppState {
             if case .wip(let path) = selection, path != focusedWorktreePath { selection = nil }
             selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
             snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
+            // Keep the picked file only while it is still listed in the same group.
+            if let file = selectedFile, wipDetailModel?.row(for: file) == nil { selectedFile = nil }
         case .failure(.git(.cancelled)):
             break
         case .failure(let error):
@@ -212,9 +233,31 @@ final class AppState {
     func selectWorktree(_ path: GitPath) {
         guard case .loaded(let listing) = worktreeList, listing.entries.contains(where: { $0.worktree.path == path })
         else { return }
+        if focusedWorktreePath != path { selectedFile = nil }
         focusedWorktreePath = path
         selection = .wip(path)
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: path)
+    }
+
+    // MARK: WIP detail (#66)
+
+    /// S-02 for the selected worktree, `nil` unless a loaded worktree's WIP is selected.
+    var wipDetailModel: WipDetailModel? {
+        guard case .wip(let path) = selection, case .loaded(let listing) = worktreeList,
+            let entry = listing.entries.first(where: { $0.worktree.path == path })
+        else { return nil }
+        return WipDetailModel(entry: entry)
+    }
+
+    /// Picks a file in the WIP detail. Paths git cannot take back (not UTF-8) are not selectable.
+    func selectFile(_ file: FileSelection) {
+        guard let row = wipDetailModel?.row(for: file), row.isSelectable else { return }
+        selectedFile = file
+    }
+
+    /// Back to the graph (`⎋`, interaction.md §3).
+    func clearSelectedFile() {
+        selectedFile = nil
     }
 
     /// A finished layout change (drag released, toggle, keyboard step). Saved for the open repository; without one

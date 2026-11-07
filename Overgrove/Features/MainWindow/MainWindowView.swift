@@ -17,9 +17,13 @@ struct MainWindowView: View {
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
                     onSelectWorktree: state.selectWorktree)
             } center: {
-                GraphPanel(hasRepository: state.repository != nil)
+                GraphPanel(
+                    hasRepository: state.repository != nil, selectedFile: state.selectedFile,
+                    onShowGraph: state.clearSelectedFile)
             } detail: {
-                DetailPanel(focusedWorktree: state.snapshot?.focusedWorktree)
+                DetailPanel(
+                    focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
+                    wipModel: state.wipDetailModel, selectedFile: state.selectedFile, onSelectFile: state.selectFile)
             }
             // Relative fetch times ("2 min ago") stay current without a model change.
             TimelineView(.periodic(from: .now, by: statusRefreshInterval)) { context in
