@@ -28,7 +28,7 @@ extension FocusedValues {
 }
 
 /// Navigate › Jump to HEAD `⌘J`, Show Worktree Info `⌘I`, Focus `⌘1`–`⌘4`; Edit › Copy Full Path `⌥⌘C`.
-/// `⌘F` and `⌘G` belong to search (#74).
+/// `⌘F` and `⌘G` are in `SearchCommands` (#74).
 struct NavigationCommands: Commands {
     @FocusedValue(\.navigationActions) private var actions
 

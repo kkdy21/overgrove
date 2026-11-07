@@ -16,6 +16,10 @@ struct GraphView: View {
     var onSelectWip: (() -> Void)?
     /// `⏎`: focus the detail panel.
     var onOpen: () -> Void = {}
+    /// The toolbar search (#74): rows that do not match are dimmed, not hidden, so the graph keeps its shape.
+    var search: GraphSearchResult?
+    var onFindNext: () -> Void = {}
+    var onFindPrevious: () -> Void = {}
 
     @FocusState private var hasFocus: Bool
     @Environment(\.rowMenu) private var rowMenu
@@ -25,6 +29,9 @@ struct GraphView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if let search {
+                GraphSearchBar(result: search, onPrevious: onFindPrevious, onNext: onFindNext)
+            }
             GraphColumnHeader(graphWidth: graphWidth)
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
@@ -36,6 +43,7 @@ struct GraphView: View {
                             )
                             .id(Self.wipRowID)
                             .contextMenu { wipMenu }
+                            .opacity(search == nil ? 1 : Tokens.Opacity.disabled)
                         }
                         ForEach(store.rows.indices, id: \.self) { index in
                             row(index)
@@ -124,6 +132,41 @@ struct GraphView: View {
             if let onSelectCommit { onSelectCommit(commit.oid) } else { store.select(commit.oid) }
         }
         .contextMenu { CommitRowMenu(commit: commit, onShowChanges: { select(commit.oid) }) }
+        .opacity(search.map { $0.matchSet.contains(commit.oid) ? 1 : Tokens.Opacity.disabled } ?? 1)
+    }
+}
+
+/// Under the graph header while searching: how many loaded commits match, a note that only loaded pages are searched,
+/// and previous / next (screens.md S-01, #74).
+struct GraphSearchBar: View {
+    let result: GraphSearchResult
+    let onPrevious: () -> Void
+    let onNext: () -> Void
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.sm) {
+            Image(systemName: "magnifyingglass").foregroundStyle(Tokens.Color.textTertiary).accessibilityHidden(true)
+            Text(result.summary)
+                .font(Tokens.Font.callout)
+                .foregroundStyle(Tokens.Color.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(result.summary)
+            Spacer(minLength: Tokens.Spacing.sm)
+            Button(action: onPrevious) { Image(systemName: "chevron.up") }
+                .help("Find Previous (⌘⇧G)")
+                .accessibilityLabel("Previous match")
+            Button(action: onNext) { Image(systemName: "chevron.down") }
+                .help("Find Next (⌘G)")
+                .accessibilityLabel("Next match")
+        }
+        .buttonStyle(.borderless)
+        .disabled(result.matches.isEmpty)
+        .padding(.horizontal, Tokens.Spacing.md)
+        .frame(height: Tokens.Size.columnHeader)
+        .background(Tokens.Color.surfacePanelHeader)
+        .overlay(alignment: .bottom) { Tokens.Color.borderSeparator.frame(height: 1) }
+        .accessibilityElement(children: .contain)
     }
 }
 
