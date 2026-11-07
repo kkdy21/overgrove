@@ -147,6 +147,14 @@ struct GraphPanel: View {
     var search: GraphSearchResult?
     var onFindNext: () -> Void = {}
     var onFindPrevious: () -> Void = {}
+    /// The header's author chips (#255); `nil` until the graph loads.
+    var authorSummary: GraphAuthorSummary?
+    var authorFilter: GraphAuthorSelection = .all
+    var authorMatches: Set<ObjectID>?
+    var onSelectAuthor: (GraphAuthorSelection) -> Void = { _ in }
+    /// Column widths and visibility (#255).
+    var columns: GraphColumnLayout = .default
+    var onCommitColumns: (GraphColumnLayout) -> Void = { _ in }
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -174,8 +182,20 @@ struct GraphPanel: View {
 
     private var graph: some View {
         PanelSection {
-            Image(systemName: "person.2").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
-            Text("Commits").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
+            if let authorSummary, authorSummary.hasChoices, graphStore?.status == .loaded {
+                // Wider than the panel with many long names: the row scrolls rather than squeezing the `⋯` out.
+                ScrollView(.horizontal, showsIndicators: false) {
+                    GraphAuthorFilterBar(summary: authorSummary, selection: authorFilter, onSelect: onSelectAuthor)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+            } else {
+                Image(systemName: "person.2").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
+                Text("Commits").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
+                Spacer(minLength: Tokens.Spacing.sm)
+            }
+            if graphStore?.status == .loaded {
+                GraphColumnMenu(columns: columns, onChange: onCommitColumns)
+            }
         } content: {
             switch graphStore?.status {
             case .loaded?:
@@ -183,7 +203,8 @@ struct GraphPanel: View {
                     GraphView(
                         store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits,
                         onSelectWip: onSelectWip, onOpen: onOpen, search: search, onFindNext: onFindNext,
-                        onFindPrevious: onFindPrevious)
+                        onFindPrevious: onFindPrevious, authorMatches: authorMatches, columns: columns,
+                        onCommitColumns: onCommitColumns)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
