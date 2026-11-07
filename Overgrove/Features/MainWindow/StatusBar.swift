@@ -41,7 +41,8 @@ struct StatusBarItem: Equatable, Identifiable {
             if let worktree = snapshot.focusedWorktree, worktree.hasUpstream {
                 items.append(
                     StatusBarItem(
-                        kind: .aheadBehind, text: "↑\(worktree.ahead) ↓\(worktree.behind)", symbol: nil, tone: .neutral))
+                        kind: .aheadBehind, text: "↑\(worktree.ahead) ↓\(worktree.behind)", symbol: nil, tone: .neutral)
+                )
             }
             let count = snapshot.worktreeCount
             items.append(
