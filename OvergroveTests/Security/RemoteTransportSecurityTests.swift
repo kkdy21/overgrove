@@ -34,7 +34,7 @@ final class RemoteTransportSecurityTests: XCTestCase {
     /// The app's fetch (`GitEnvironment` arguments and environment), with the canary helper on PATH as if the user
     /// had installed it next to Homebrew's tools.
     private func fetch(allowList: Bool, extraArguments: [String] = []) async throws -> ProcessResult {
-        var environment = GitEnvironment.environment(parent: ProcessInfo.processInfo.environment)
+        var environment = GitEnvironment.environment(parent: ProcessInfo.processInfo.environment, allowsTransport: true)
         environment["PATH"] = helperDirectory.path + ":" + GitEnvironment.path
         if !allowList { environment["GIT_ALLOW_PROTOCOL"] = nil }
         let arguments = repository.environment.arguments(
