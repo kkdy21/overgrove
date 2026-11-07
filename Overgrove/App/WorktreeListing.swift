@@ -32,11 +32,22 @@ struct WorktreeListing: Sendable, Equatable {
         let state: State
         /// The worktree's configuration inspection from the load (`RepositoryOverview.Entry.inspection`, #240).
         let inspection: RepoConfigInspection?
+        /// How long its last `git status` took (#168).
+        var statusDuration: Duration?
 
-        init(worktree: Worktree, state: State, inspection: RepoConfigInspection? = nil) {
+        init(
+            worktree: Worktree, state: State, inspection: RepoConfigInspection? = nil, statusDuration: Duration? = nil
+        ) {
             self.worktree = worktree
             self.state = state
             self.inspection = inspection
+            self.statusDuration = statusDuration
+        }
+
+        /// The slow-status hint for this worktree, if its last status was slow (#168).
+        var slowStatusHint: SlowStatusHint? {
+            SlowStatusHint(
+                duration: statusDuration, isConfigurationClean: inspection?.report.findings.isEmpty ?? false)
         }
     }
 
@@ -67,7 +78,9 @@ extension WorktreeListing {
     init(overview: RepositoryOverview) {
         self.init(
             entries: overview.entries.map {
-                Entry(worktree: $0.worktree, state: Self.state($0.status), inspection: $0.inspection)
+                Entry(
+                    worktree: $0.worktree, state: Self.state($0.status), inspection: $0.inspection,
+                    statusDuration: $0.statusDuration)
             },
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
