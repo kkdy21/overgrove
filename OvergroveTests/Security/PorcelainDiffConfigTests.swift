@@ -20,6 +20,13 @@ final class PorcelainDiffConfigTests: XCTestCase {
         ("diff.submodule", "log"), ("diff.submodule", "diff"),
     ]
 
+    /// Settings an older git does not know, so it cannot change the control (release notes, #99). The app's output
+    /// is still compared on every git.
+    private static let controlMinimumVersions: [String: GitVersion] = [
+        "diff.srcPrefix": GitVersion(major: 2, minor: 45, patch: 0),
+        "diff.dstPrefix": GitVersion(major: 2, minor: 45, patch: 0),
+    ]
+
     override func setUp() async throws {
         submodule = try await GitTestRepository.make()
         try submodule.write("s.txt", "s\n")
@@ -96,15 +103,26 @@ final class PorcelainDiffConfigTests: XCTestCase {
             String(decoding: baseline[0], as: UTF8.self).contains("--- a/f.txt\n+++ b/f.txt\n"), "baseline prefixes")
         XCTAssertTrue(String(decoding: baseline[1], as: UTF8.self).contains("Subproject commit"), "short submodule")
 
+        let version = repository.environment.version
+        var controlsNotRun: [String] = []
         for (key, value) in Self.settings {
             try await repository.git(["config", key, value])
             let pinned = try await app(commands)
             for (index, command) in commands.enumerated() {
                 XCTAssertEqual(pinned[index], baseline[index], "\(key)=\(value) changed \(command)")
             }
-            let unpinned = try await plain(commands)
-            XCTAssertNotEqual(unpinned, plainBaseline, "control: \(key)=\(value) changes plain git diff output")
+            if let minimum = Self.controlMinimumVersions[key], version < minimum {
+                controlsNotRun.append("\(key) (needs git \(minimum)+)")
+            } else {
+                let unpinned = try await plain(commands)
+                XCTAssertNotEqual(unpinned, plainBaseline, "control: \(key)=\(value) changes plain git diff output")
+            }
             try await repository.git(["config", "--unset", key])
+        }
+        if !controlsNotRun.isEmpty {
+            throw XCTSkip(
+                "app output checked for every setting; controls not run on git \(version): "
+                    + controlsNotRun.joined(separator: ", "))
         }
     }
 }
