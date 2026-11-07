@@ -67,6 +67,51 @@ case_ duplicate-par-row "PAR-WT-02 has more than one table row" "$base_review" "
 case_ duplicate-experiment-row "experiment E01 has more than one row" "${base_review/| E02 | c | d |/| E02 | c | d |
 | E01 | again | x |}"
 
+base_plan='# 벤치마크 계획
+
+## 3. 측정 항목 (PERF)
+
+| ID | 측정 | 연결 예산 |
+|---|---|---|
+| PERF-01 | 열기 | PB-1 |
+| PERF-02 | 전환 | PB-2 |
+
+### 3.1 지금 있는 XCTest
+
+| ID | 테스트 | 판정 |
+|---|---|---|
+| PERF-01 | `test_PERF_01_open` | a |
+| PERF-02 | `test_PERF_02_switch` | b |
+
+## 4. 기준선
+'
+
+# perf_case_ <name> <0 or expected message> <plan text> [test file text]
+perf_case_() {
+  local tree="$work/perf-$1" expected="$2" message=""
+  if [[ "$expected" != 0 ]]; then message="$expected"; expected=1; fi
+  mkdir -p "$tree/docs/design" "$tree/docs/performance" "$tree/OvergroveTests"
+  printf '%s' "$base_review" >"$tree/docs/design/security-review.md"
+  printf '%s' "$3" >"$tree/docs/performance/benchmark-plan.md"
+  printf '%s\n' "${4:-func test_PERF_01_open() {}}" >"$tree/OvergroveTests/PerfTests.swift"
+  local got=0 output
+  output=$("$CHECK" "$tree" 2>&1) || got=$?
+  if [[ "$got" == "$expected" && ( -z "$message" || "$output" == *"$message"* ) ]]; then
+    echo "ok   perf-$1"
+  else
+    echo "FAIL perf-$1: expected exit $expected${message:+ with \"$message\"}, got $got: $output"
+    fail=1
+  fi
+}
+
+perf_case_ baseline-with-3.1-repeats 0 "$base_plan"
+perf_case_ duplicate-row "PERF-02 has more than one row" "${base_plan/| PERF-02 | 전환 | PB-2 |/| PERF-02 | 전환 | PB-2 |
+| PERF-02 | 메모리 | PB-6 |}"
+perf_case_ undefined-test-name "PERF-07 is mentioned" "$base_plan" 'func test_PERF_07_memory() {}'
+perf_case_ undefined-in-doc "PERF-09 is mentioned" "${base_plan/\#\# 4. 기준선/## 4. 기준선
+
+PERF-09 결과는 여기에.}"
+
 if [[ "$fail" -ne 0 ]]; then
   echo "check-sec-ids tests failed" >&2
   exit 1
