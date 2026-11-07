@@ -40,6 +40,23 @@ final class UntrustedRepositoryTests: XCTestCase {
         XCTAssertEqual(RepositoryRegistry(defaults: defaults).repositories.map(\.isUntrusted), [true])
     }
 
+    /// One damaged entry drops only itself: the other entries and their untrusted flags survive.
+    @MainActor
+    func testADamagedEntryDoesNotDropTheOthers() throws {
+        let suite = "overgrove-untrusted-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let stored = #"""
+            [{"rootPath":"/tmp/dev/api","commonDirectoryPath":"/tmp/dev/api/.git","isUntrusted":true},
+             {"rootPath":42},
+             {"rootPath":"/tmp/dev/web","commonDirectoryPath":"/tmp/dev/web/.git"}]
+            """#
+        defaults.set(Data(stored.utf8), forKey: RepositoryRegistry.repositoriesKey)
+        let entries = RepositoryRegistry(defaults: defaults).repositories
+        XCTAssertEqual(entries.map(\.rootPath), ["/tmp/dev/api", "/tmp/dev/web"])
+        XCTAssertEqual(entries.map(\.isUntrusted), [true, false])
+    }
+
     // MARK: - Local remotes
 
     /// git's own rule (`url_is_local_not_ssh`): a URL without `://` is local unless it looks like `host:path` with no

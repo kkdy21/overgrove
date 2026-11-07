@@ -232,6 +232,9 @@ extension AppState {
     func setRepositoryUntrusted(_ isUntrusted: Bool) {
         guard let repository else { return }
         registry.setUntrusted(isUntrusted, for: repository.repository.id)
+        // A fetch reads the flag when it starts; one already running stops, so no later remote is fetched as trusted
+        // (security review of #107).
+        if isUntrusted && fetch.status.isFetching { fetch.stop() }
     }
 
     /// Sidebar REMOTE group tooltips (#86): remote name → its URL as the Show full remote URLs setting says. Built

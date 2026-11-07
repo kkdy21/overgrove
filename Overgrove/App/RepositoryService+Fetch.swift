@@ -24,10 +24,11 @@ extension RepositoryService {
     /// through configuration (`insteadOf`) is refused by git and reported the same way.
     ///
     /// - Parameters:
-    ///   - untrusted: The repository is marked untrusted (the registry's flag).
+    ///   - untrusted: The repository is marked untrusted (the registry's flag). No default, so a caller that forgets
+    ///     it does not fetch as trusted by accident (as `allowsTransport`, #215).
     ///   - onStart: Called once with the remotes about to be fetched (for `Fetching origin…`).
     func fetch(
-        _ repository: Repository, untrusted: Bool = false, onStart: @Sendable ([String]) -> Void = { _ in }
+        _ repository: Repository, untrusted: Bool, onStart: @Sendable ([String]) -> Void = { _ in }
     ) async -> FetchRun {
         let context = makeContext(repository)
         let directory = repository.rootURL ?? repository.commonGitDirectoryURL

@@ -121,7 +121,7 @@ final class RepositoryRegistry {
     }
 
     private func save() {
-        // Encoding an array of two-string structs cannot fail.
+        // Encoding an array of path strings and a flag cannot fail.
         if let data = try? JSONEncoder().encode(repositories) {
             defaults.set(data, forKey: Self.repositoriesKey)
         }
@@ -129,10 +129,22 @@ final class RepositoryRegistry {
 
     /// Corrupt data loads as empty; malformed or duplicate entries are skipped.
     private static func load(from defaults: UserDefaults) -> [RegisteredRepository] {
+        // Each entry decodes on its own, so one damaged entry drops only itself, not the others and their flags
+        // (#107).
         guard let data = defaults.data(forKey: repositoriesKey),
-            let stored = try? JSONDecoder().decode([RegisteredRepository].self, from: data)
+            let entries = try? JSONDecoder().decode([Lossy<RegisteredRepository>].self, from: data)
         else { return [] }
+        let stored = entries.compactMap(\.value)
         var seen = Set<RegisteredRepository.ID>()
         return stored.filter { $0.isWellFormed && seen.insert($0.id).inserted }
+    }
+}
+
+/// An array element that decodes to `nil` instead of failing the whole array.
+private struct Lossy<Value: Decodable>: Decodable {
+    let value: Value?
+
+    init(from decoder: any Decoder) throws {
+        value = try? Value(from: decoder)
     }
 }

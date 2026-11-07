@@ -59,6 +59,23 @@ final class AppStateFetchTests: XCTestCase {
         await state.loadTask?.value
     }
 
+    /// #107: marking the open repository untrusted (S-05) stops a fetch that started while it was trusted, so no
+    /// later remote is fetched as trusted. Marking it trusted leaves a fetch running.
+    func testMarkingUntrustedStopsARunningFetch() async {
+        let loader = TriggerRecordingLoader()
+        let fetcher = GatedFetcher()
+        let state = await loadedState(loader, fetcher: fetcher, records: FetchRecordStore(defaults: defaults))
+
+        state.fetch.fetch()
+        await fetcher.waitForFetches(1)
+        state.setRepositoryUntrusted(false)
+        XCTAssertEqual(state.fetch.task?.isCancelled, false)
+        state.setRepositoryUntrusted(true)
+        XCTAssertEqual(state.fetch.task?.isCancelled, true)
+        fetcher.release(0, with: .cancelled)
+        await state.fetch.task?.value
+    }
+
     func testRemovingARepositoryForgetsItsFetchRecord() async throws {
         let records = FetchRecordStore(defaults: defaults)
         let registry = RepositoryRegistry(defaults: defaults)
