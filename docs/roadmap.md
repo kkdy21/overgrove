@@ -69,7 +69,15 @@ Phase 3 안에서 먼저 끝내야 하는 이슈(p0, 기능 화면의 선행 조
 3. P3-FIX-01 → P3-FIX-02 → P3-SECTEST-01
 4. 그 다음 P3-UI-*, P3-SYNC-*, P3-GH-*
 
-화면 디자인은 #166에서 확정했다([art-direction.md](design/art-direction.md)). 파서·GraphEngine(P3-PARSE), 픽스처·통합 테스트(P3-FIX), 보안 테스트(P3-SECTEST), 디자인 시스템(P3-DS), fetch 계층(P3-SYNC-01·03·05)은 화면과 별개로 진행할 수 있다. 화면 착수 순서는 #164에서, 자동 새로고침을 v0.1에 넣을지는 #163에서 정한다.
+화면 디자인은 #166에서 확정했다([art-direction.md](design/art-direction.md)). 파서·GraphEngine(P3-PARSE), 픽스처·통합 테스트(P3-FIX), 보안 테스트(P3-SECTEST), 디자인 시스템(P3-DS), fetch 계층(P3-SYNC-01·03·05)은 화면과 별개로 진행할 수 있다. 자동 새로고침을 v0.1에 넣을지는 #163에서 정한다.
+
+**화면 착수 순서 (#164 결정 B, 2026-11-07).** 핵심 동선(UC-1, UC-2)에는 커밋 그래프가 필요 없으므로, 워크트리 검토 동선을 먼저 만들고 그래프는 그다음에 만든다.
+
+1. 메인 창: P3-UI-15 패널 분할 → P3-UI-01 메인 창
+2. 워크트리 검토 동선: 저장소 등록(#84) → P3-UI-02 워크트리 목록 → P3-UI-03 WIP 상세 → P3-UI-16 Diff 뷰어(S-10) → P3-UI-13·14 기준 브랜치 비교 → P3-UI-04 보안 상태
+3. 그래프 동선: P3-UI-05 커밋 그래프 → P3-UI-06 커밋 상세 → P3-UI-07·10·11, #89
+
+모두 v0.1.0에 그대로 둔다(G6 P0 유지). S-10은 P3-UI-06(#69)에서 떼어 P3-UI-16(#232)으로 만들었다.
 
 ## 4. Phase 1 — 기획
 
@@ -187,7 +195,7 @@ S-01~S-05, S-09, S-10 화면과 기준 브랜치 비교 화면(S-11, #158)을 �
 | P3-UI-03 (#66) | feat(ui): WIP detail with staged, unstaged, untracked and conflicted | feature · ui · p0 | M | P3-UI-01, P3-PARSE-03 |
 | P3-UI-04 (#67) | feat(ui): worktree detail with security status | feature · ui · p1 | M | P3-UI-01, P3-SEC-04 |
 | P3-UI-05 (#68) | feat(ui): commit graph with WIP row and paging | feature · ui · p0 | L | P3-UI-01, P3-PARSE-11 |
-| P3-UI-06 (#69) | feat(ui): commit detail and diff viewer | feature · ui · p1 | M | P3-UI-05, P3-PARSE-07 |
+| P3-UI-06 (#69) | feat(ui): commit detail and diff viewer | feature · ui · p1 | M | P3-UI-05, P3-PARSE-07, P3-UI-16 |
 | P3-UI-07 (#70) | feat(ui): file history | feature · ui · p2 | S | P3-UI-06 |
 | P3-UI-08 (#71) | feat(ui): stash list and stash detail | feature · ui · p0 | M | P3-UI-01, P3-PARSE-04, P3-PARSE-07 |
 | P3-UI-09 (#72) | feat(ui): local and remote branch lists | feature · ui · p1 | S | P3-UI-01, P3-PARSE-06 |
@@ -195,9 +203,10 @@ S-01~S-05, S-09, S-10 화면과 기준 브랜치 비교 화면(S-11, #158)을 �
 | P3-UI-11 (#74) | feat(ui): search over commits, authors, branches and issue numbers | feature · ui · p2 | S | P3-UI-05 |
 | P3-UI-12 (#75) | feat(ui): accessibility labels and VoiceOver pass | feature · ui · p1 | S | P3-UI-03, P3-UI-05 |
 | P2-08 (#29) | spike(ui): check SwiftUI feasibility of the panel theme (ADR-0014) with preview mocks | spike · ui · p1 | S | P2-01, P2-06, V1-02, V1-06 |
-| P3-UI-13 (#157) | feat(git): compare a worktree with its base branch (merge-base diff) | feature · git-core, parser · p1 | M | P3-PARSE-07 |
-| P3-UI-14 (#158) | feat(ui): PR-style changes view of a worktree against its base branch | feature · ui · p1 | M | P3-UI-06, P3-UI-13 |
+| P3-UI-13 (#157) | feat(git): compare a worktree with its base branch (merge-base diff) | feature · git-core, parser · p0 | M | P3-PARSE-07 |
+| P3-UI-14 (#158) | feat(ui): PR-style changes view of a worktree against its base branch | feature · ui · p0 | M | P3-UI-16, P3-UI-13 |
 | P3-UI-15 (#174) | feat(ui): add PanelSplitView with grips, collapse, and persisted panel widths | feature · ui · p0 | M | P3-DS-01 |
+| P3-UI-16 (#232) | feat(ui): diff viewer for worktree changes, commits and comparisons (S-10) | feature · ui · p0 | M | P3-UI-01, P3-PARSE-07 |
 
 P2-08(#29)은 #174가 같은 범위(분할 컨테이너와 성능 확인)를 구현 이슈로 정의해 닫았다(2026-11-06).
 
@@ -269,7 +278,7 @@ SEC 테스트 전체를 작성하고 CI에서 실행한다.
 | V1-02 (#159) | docs(design): reference survey and high-fidelity mockups for key screens | docs · ui · p1 | L | — |
 | V1-03 (#162) | docs: sync README, roadmap and scope with the current plan; add a Korean README | docs · docs · p1 | S | — |
 | V1-04 (#163) | decision: auto refresh in v0.1 — manual only, or watch while the window is visible? (status:needs-decision) | decision · git-core, ui · p1 | S | — |
-| V1-05 (#164) | decision: v0.1 build order — worktree review flow before the commit graph? (status:needs-decision) | decision · ui, git-core · p1 | S | — |
+| V1-05 (#164) | decision: v0.1 build order — worktree review flow before the commit graph? (결정: B, 2026-11-07) | decision · ui, git-core · p1 | S | — |
 | V1-06 (#166) | docs(design): redesign with boxed resizable panels and a vivid original lane palette | docs · ui · p0 | L | V1-02 |
 | V1-07 (#175) | docs: sync roadmap and gate log after the redesign; harden the scenario script | docs · docs · p1 | S | — |
 | V1-08 (#176) | docs(design): mockups for stash detail, issue panel, settings, and file history | docs · ui · p1 | M | V1-06 |
