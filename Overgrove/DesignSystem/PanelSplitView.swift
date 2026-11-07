@@ -310,9 +310,9 @@ private struct CollapsiblePanel: ViewModifier {
     }
 }
 
-/// An AppKit cursor rect over the divider. It takes no mouse events (`hitTest` returns nil), so SwiftUI gestures
-/// and hover still work.
-private struct CursorArea: NSViewRepresentable {
+/// An AppKit cursor rect over a divider (panels, and graph columns #255). It takes no mouse events (`hitTest`
+/// returns nil), so SwiftUI gestures and hover still work.
+struct CursorArea: NSViewRepresentable {
     let cursor: NSCursor
 
     func makeNSView(context: Context) -> CursorView {
