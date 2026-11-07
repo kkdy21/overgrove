@@ -128,27 +128,28 @@ worktree <abs path>␀HEAD <oid>␀branch refs/heads/gone␀prunable gitdir file
 
 ---
 
-## 4. StashParser — `log -g -z --ignore-missing --format=%gd%x00%H%x00%gs%x00%ct refs/stash --`
+## 4. StashParser — `log -g -z --ignore-missing --format=%gd%x00%H%x00%gs%x00%ct%x00%P refs/stash --`
 
 출력은 `stash list -z --format=…`와 같다. `stash list`는 bare 저장소에서 `this operation must be run in a work tree`로 실패하므로 같은 reflog 조회를 `log -g`로 직접 실행한다(#222).
 
-**형식.** 레코드마다 필드 4개다. 필드와 레코드 끝 모두 NUL이므로, 토큰을 4개씩 묶는다.
+**형식.** 레코드마다 필드 5개다. 필드와 레코드 끝 모두 NUL이므로, 토큰을 5개씩 묶는다.
 
 ```
-stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc…␀WIP on main: 837976f mine␀1793853652␀
+stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575abd… 8e49d42e…␀stash@{1}␀7130d8ef…␀WIP on main: 0f047e0 base2␀1793853652␀0f047e0d… 524b29ec…␀
 ```
 
 - `%gd`: `stash@{n}`. 표시와 정렬용이다. git 인자로는 `%H`(OID)를 쓴다. `stash@{n}`은 stash가 바뀌면 다른 항목을 가리키기 때문이다.
 - `%gs`: reflog 제목. `^(WIP on|On) (.+?): (.*)$`로 브랜치와 메시지를 뽑는다 (실패하면 원문 그대로 표시).
 - `%ct`: epoch 초. 상대 시간(`%cr`)은 쓰지 않고 앱에서 형식을 만든다.
-- 토큰 수가 4의 배수가 아니면 `parseFailed`다 (잘린 출력이면 마지막 묶음만 버림).
+- `%P`: 부모 OID 1–3개를 공백 하나로 나눈다. 순서대로 기준 커밋, index 커밋, untracked 커밋(`-u`/`-a`일 때만). S-04의 `Base commit`과 `Includes`가 이것을 쓴다(#71). 개수가 범위 밖이거나 OID 형식이 아니면 실패.
+- 토큰 수가 5의 배수가 아니면 `parseFailed`다 (잘린 출력이면 마지막 묶음만 버림).
 
 | 테스트 | 사례 |
 |---|---|
 | PAR-STASH-01 | `WIP on` / `On` 제목 |
 | PAR-STASH-02 | 제목에 콜론, 유니코드 |
 | PAR-STASH-03 | 빈 목록 |
-| PAR-STASH-04 | 필드 수 불일치 → 실패 |
+| PAR-STASH-04 | 필드 수 불일치, 잘못된 부모 목록 → 실패 |
 
 ---
 

@@ -136,7 +136,7 @@ final class AdversarialParserTests: XCTestCase {
         XCTAssertEqual(stashes.map(\.branch), ["main", "main"])
         XCTAssertEqual(stashes.map(\.message), ["한글 🌳 line", #"exp: try -dash "q""#])
 
-        let lineFeed = data("stash@{0}\u{0}\(oid)\u{0}On main: a\nb\u{0}1793853652\u{0}")
+        let lineFeed = data("stash@{0}\u{0}\(oid)\u{0}On main: a\nb\u{0}1793853652\u{0}\(oid)\u{0}")
         let stash = try XCTUnwrap(try StashParser.parse(lineFeed).stashes.first)
         XCTAssertNil(stash.branch, "the subject pattern does not match across a line feed")
         XCTAssertEqual(stash.message, "On main: a\nb", "shown verbatim instead")
@@ -328,7 +328,11 @@ final class AdversarialParserTests: XCTestCase {
                 try StatusParser.parse(data(statusHeader + "1 M. N... 100644 100644 100644 \(value) \(oid) p\u{0}")),
                 value
             )
-            assertFails("StashParser", try StashParser.parse(data("stash@{0}\u{0}\(value)\u{0}On m: s\u{0}1\u{0}")))
+            assertFails(
+                "StashParser", try StashParser.parse(data("stash@{0}\u{0}\(value)\u{0}On m: s\u{0}1\u{0}\(oid)\u{0}")))
+            assertFails(
+                "StashParser", try StashParser.parse(data("stash@{0}\u{0}\(oid)\u{0}On m: s\u{0}1\u{0}\(value)\u{0}")),
+                "invalid parent")
             assertFails(
                 "LogParser", try LogParser.parseGraph(data("\(value)\u{0}\u{0}t\u{0}t\u{0}1\u{0}s\u{0}\u{0}")), value)
             assertFails(
@@ -362,10 +366,13 @@ final class AdversarialParserTests: XCTestCase {
         let detail = "\(oid)\u{0}\u{0}t\u{0}t@example.com\u{0}1\u{0}t\u{0}t@example.com\u{0}1\u{0}before\u{0}after\u{0}"
         assertFails("LogParser", try LogParser.parseCommitMeta(data(detail)))
 
-        let stash = { (subject: String) in "stash@{0}\u{0}\(self.oid)\u{0}\(subject)\u{0}1793853652\u{0}" }
+        let stash = { (subject: String) in
+            "stash@{0}\u{0}\(self.oid)\u{0}\(subject)\u{0}1793853652\u{0}\(self.oid)\u{0}"
+        }
         assertFails("StashParser", try StashParser.parse(data(stash("On main: a\u{0}b") + stash("On main: c"))))
+        // Five extra NULs keep the token count a multiple of the five stash fields.
         assertFails(
-            "StashParser", try StashParser.parse(data(stash("On main: a\u{0}b\u{0}c\u{0}d\u{0}e") + stash("x"))))
+            "StashParser", try StashParser.parse(data(stash("On main: a\u{0}b\u{0}c\u{0}d\u{0}e\u{0}f") + stash("x"))))
         let ref = "refs/heads/a\u{0}b\u{0}\(oid)\u{0}\u{0}\u{0} \u{0}1\u{0}\u{0}\n"
         assertFails("RefParser", try RefParser.parse(data(ref)), "a NUL in a ref name adds a field")
     }

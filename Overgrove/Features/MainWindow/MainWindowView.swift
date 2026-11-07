@@ -15,7 +15,9 @@ struct MainWindowView: View {
                 SidebarPanel(
                     hasRepository: state.repository != nil, worktreeStatus: state.worktreeList,
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
-                    onSelectWorktree: state.selectWorktree)
+                    onSelectWorktree: state.selectWorktree, stashRows: state.stashes.map(StashRow.init),
+                    isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
+                    onSelectStash: state.selectStash)
             } center: {
                 GraphPanel(
                     hasRepository: state.repository != nil, diff: state.diffViewer,
@@ -25,7 +27,15 @@ struct MainWindowView: View {
                     focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
                     wipModel: state.wipDetailModel, worktreeModel: state.worktreeDetailModel,
                     selectedFile: state.selectedFile, onSelectFile: state.selectFile,
-                    showsWorktreeSegment: state.selection.map { if case .worktreeInfo = $0 { true } else { false } },
+                    showsWorktreeSegment: state.selection.flatMap {
+                        switch $0 {
+                        case .worktreeInfo: true
+                        case .wip: false
+                        case .stash: nil
+                        }
+                    },
+                    stashModel: state.stashDetailModel, selectedStashFile: state.selectedStashFile?.path,
+                    onSelectStashFile: state.selectStashFile,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail)
             }
             // Relative fetch times ("2 min ago") stay current without a model change.

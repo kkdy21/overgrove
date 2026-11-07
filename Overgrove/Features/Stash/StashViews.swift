@@ -1,0 +1,200 @@
+import AppKit
+import SwiftUI
+
+/// The sidebar's STASHES section (information-architecture.md §4): newest first, `No stashes` when empty.
+struct StashListSection: View {
+    let rows: [StashRow]
+    let isPartial: Bool
+    let selectedID: ObjectID?
+    let onSelect: (ObjectID) -> Void
+
+    @State private var isExpanded = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SidebarSectionHeader(title: "STASHES", count: rows.count, isExpanded: $isExpanded)
+            if isExpanded {
+                if rows.isEmpty {
+                    Text("No stashes")
+                        .font(Tokens.Font.callout)
+                        .foregroundStyle(Tokens.Color.textTertiary)
+                        .padding(.horizontal, Tokens.Spacing.md)
+                        .frame(height: Tokens.Size.rowSidebar)
+                } else {
+                    if isPartial {
+                        SidebarNotice(symbol: "exclamationmark.triangle", text: "Some stashes could not be listed.")
+                    }
+                    ForEach(rows) { row in
+                        StashRowView(row: row, isSelected: row.id == selectedID)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onSelect(row.id) }
+                            .accessibilityAction { onSelect(row.id) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct StashRowView: View {
+    let row: StashRow
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.sm) {
+            Image(systemName: "archivebox").foregroundStyle(Tokens.Color.textTertiary).accessibilityHidden(true)
+            Text(row.refName).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
+            Text(row.message).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
+                .lineLimit(1).truncationMode(.tail)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, Tokens.Spacing.sm)
+        .frame(height: Tokens.Size.rowSidebar)
+        .background {
+            if isSelected {
+                RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous).fill(Tokens.Color.surfaceSelection)
+            }
+        }
+        .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
+        .help(row.message)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.accessibilityLabel)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+/// S-04, one stash's contents (screens.md S-04). Read-only: no apply, pop, drop, or branch, not even a hint
+/// (ADR-0011). TODO(#68): clicking the base commit selects it in the graph.
+struct StashDetailView: View {
+    let model: StashDetailModel
+    let selectedFile: GitPath?
+    let onSelectFile: (FileStat) -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
+                    header
+                    info
+                    files
+                }
+                .padding(Tokens.Spacing.md)
+            }
+            Tokens.Color.borderSeparator.frame(height: 1)
+            HStack {
+                Button("Copy Ref") {
+                    // Copying to the clipboard is not a repository write (ADR-0011).
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(model.refName, forType: .string)
+                }
+                .help("Copy \(model.refName)")
+                Spacer()
+            }
+            .padding(Tokens.Spacing.sm + Tokens.Spacing.xxs)
+        }
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
+            HStack {
+                Text(model.refName).font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
+                Spacer()
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    Text(StatusBarItem.relative(model.date, now: context.date))
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.textTertiary)
+                }
+            }
+            Text(model.subject)
+                .font(Tokens.Font.callout)
+                .foregroundStyle(Tokens.Color.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var info: some View {
+        DetailCard {
+            Grid(
+                alignment: .leadingFirstTextBaseline, horizontalSpacing: Tokens.Spacing.md,
+                verticalSpacing: Tokens.Spacing.xs
+            ) {
+                if let base = model.baseCommit { infoRow("Base commit", base, mono: true) }
+                if let branch = model.branch {
+                    GridRow {
+                        Text("Branch").font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
+                        HStack(spacing: Tokens.Spacing.xs) {
+                            Text(branch).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
+                            Text("(from message)").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
+                        }
+                    }
+                }
+                infoRow("Includes", model.includes, mono: false)
+            }
+        }
+    }
+
+    private func infoRow(_ label: String, _ value: String, mono: Bool) -> some View {
+        GridRow {
+            Text(label).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
+            Text(value)
+                .font(mono ? Tokens.Font.monoSmall : Tokens.Font.callout)
+                .foregroundStyle(Tokens.Color.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+        }
+    }
+
+    @ViewBuilder
+    private var files: some View {
+        DetailCard {
+            Text(
+                "FILES (\(model.files.map { WipDetailModel.formatted($0.count) } ?? "…")\(model.isFileListPartial ? "+" : ""))"
+            )
+            .font(Tokens.Font.sectionHeader)
+            .tracking(Tokens.Font.sectionHeaderTracking)
+            .foregroundStyle(Tokens.Color.textTertiary)
+            if let rows = model.files {
+                ForEach(rows) { row in fileRow(row) }
+                if model.hasUntrackedFiles {
+                    Label("From the stash’s untracked-files commit", systemImage: "questionmark.circle")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.textTertiary)
+                }
+            } else if let reason = model.filesUnavailable {
+                Text(reason).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
+            } else {
+                ProgressView().controlSize(.small)
+            }
+        }
+    }
+
+    private func fileRow(_ row: StashDetailModel.FileRow) -> some View {
+        HStack(spacing: Tokens.Spacing.sm) {
+            (Text(row.directory).foregroundStyle(Tokens.Color.textTertiary)
+                + Text(row.fileName).foregroundStyle(Tokens.Color.textPrimary).fontWeight(.medium))
+                .font(Tokens.Font.callout)
+                .lineLimit(1)
+                .truncationMode(.head)
+            if row.isFromUntracked {
+                Image(systemName: "questionmark.circle").foregroundStyle(Tokens.Color.statusUntracked)
+                    .accessibilityLabel("from untracked files")
+            }
+            Spacer(minLength: Tokens.Spacing.xs)
+            if let change = row.lineChange {
+                Text(change).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
+            }
+        }
+        .padding(.vertical, Tokens.Spacing.xxs)
+        .padding(.horizontal, Tokens.Spacing.xs)
+        .background {
+            if selectedFile == row.file.path {
+                RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { if row.isSelectable { onSelectFile(row.file) } }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(row.isSelectable ? .isButton : [])
+        .accessibilityAction { if row.isSelectable { onSelectFile(row.file) } }
+    }
+}

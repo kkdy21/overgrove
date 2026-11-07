@@ -77,11 +77,14 @@ enum MainSelection: Equatable {
     case wip(GitPath)
     /// The worktree's facts and safety (S-05, #67): the `Worktree` segment.
     case worktreeInfo(GitPath)
+    /// A stash's contents (S-04, #71), by OID: `stash@{n}` shifts when stashes change.
+    case stash(ObjectID)
 
-    /// The worktree either segment shows.
-    var worktreePath: GitPath {
+    /// The worktree either segment shows; `nil` for a stash.
+    var worktreePath: GitPath? {
         switch self {
         case .wip(let path), .worktreeInfo(let path): path
+        case .stash: nil
         }
     }
 }
@@ -118,6 +121,15 @@ final class AppState {
     private let lineCountLoader: (any LineCountLoading)?
     private let inspector: any WorktreeInspecting
     private let diffLoader: any DiffLoading
+    private let stashLoader: any StashLoading
+    /// S-04 (#71): the selected stash's files, and the file whose patch the center shows.
+    private(set) var stashDetail: StashDetailState?
+    private(set) var selectedStashFile: FileStat?
+    private(set) var stashFileDiff: DiffLoadState?
+    /// The stash loads in flight; tests await them.
+    private(set) var stashTask: Task<Void, Never>?
+    private(set) var stashFileTask: Task<Void, Never>?
+    private var stashGeneration = 0
 
     private(set) var repository: RepositoryContext?
     /// The toolbar chip and status bar fields, derived from the worktree list and the focused worktree.
@@ -172,6 +184,7 @@ final class AppState {
     ///   - loader: Inspects an opened repository and loads its worktrees.
     ///   - inspector: Reads one worktree's configuration for S-05.
     ///   - diffLoader: Loads a picked file's patch for S-10.
+    ///   - stashLoader: Reads a stash's files and patches for S-04.
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
     init(
@@ -179,6 +192,7 @@ final class AppState {
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
         inspector: any WorktreeInspecting = LiveWorktreeInspector.live,
         diffLoader: any DiffLoading = LiveDiffLoader.live,
+        stashLoader: any StashLoading = LiveStashLoader.live,
         lineCountLoader: (any LineCountLoading)? = nil
     ) {
         self.layoutStore = layoutStore
@@ -187,6 +201,7 @@ final class AppState {
         self.loader = loader
         self.inspector = inspector
         self.diffLoader = diffLoader
+        self.stashLoader = stashLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
     }
 
@@ -209,6 +224,10 @@ final class AppState {
         focusedWorktreePath = nil
         selection = nil
         selectedFile = nil
+        stashTask?.cancel()
+        stashGeneration += 1
+        stashDetail = nil
+        clearStashFile()
         lineCountTask?.cancel()
         lineCountTask = nil
         lineCounts = nil
@@ -249,7 +268,12 @@ final class AppState {
             worktreeList = .loaded(listing)
             focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
             if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
+            // A stash that is gone (dropped or applied elsewhere) falls back to the focused worktree.
+            if case .stash(let oid) = selection, !listing.stashes.contains(where: { $0.oid == oid }) {
+                selection = nil
+            }
             selection = selection ?? focusedWorktreePath.map(MainSelection.wip)
+            if case .stash = selection { loadStash() }
             // Configuration may have changed since the last inspection.
             worktreeInspections = [:]
             if case .worktreeInfo = selection { inspectSelectedWorktree() }
@@ -423,12 +447,111 @@ final class AppState {
     /// Back to the graph (`⎋`, interaction.md §3).
     func clearSelectedFile() {
         selectedFile = nil
+        clearStashFile()
+    }
+
+    // MARK: Stashes (#71)
+
+    /// The repository's stashes, newest first; empty until the list loads.
+    var stashes: [Stash] {
+        if case .loaded(let listing) = worktreeList { return listing.stashes }
+        return []
+    }
+
+    var isStashListPartial: Bool {
+        if case .loaded(let listing) = worktreeList { return listing.isStashListPartial }
+        return false
+    }
+
+    var selectedStashOID: ObjectID? {
+        if case .stash(let oid) = selection { return oid }
+        return nil
+    }
+
+    /// S-04 for the selected stash, `nil` unless a stash is selected.
+    var stashDetailModel: StashDetailModel? {
+        guard let oid = selectedStashOID, let stash = stashes.first(where: { $0.oid == oid }) else { return nil }
+        return StashDetailModel(stash: stash, state: stashDetail ?? .loading)
+    }
+
+    /// Selecting a stash shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
+    func selectStash(_ oid: ObjectID) {
+        guard stashes.contains(where: { $0.oid == oid }) else { return }
+        selectedFile = nil
+        selection = .stash(oid)
+        loadStash()
+    }
+
+    private func loadStash() {
+        stashTask?.cancel()
+        stashFileTask?.cancel()
+        stashGeneration += 1
+        selectedStashFile = nil
+        stashFileDiff = nil
+        guard let oid = selectedStashOID, let stash = stashes.first(where: { $0.oid == oid }), let repository
+        else {
+            stashDetail = nil
+            return
+        }
+        stashDetail = .loading
+        let generation = stashGeneration
+        let loader = stashLoader
+        let target = repository.repository
+        let worktree = focusedWorktreePath.flatMap { entry(at: $0)?.worktree }
+        stashTask = Task { [weak self] in
+            let result = await loader.files(of: stash, in: target, worktree: worktree)
+            guard let self, generation == self.stashGeneration, !Task.isCancelled else { return }
+            switch result {
+            case .files(let detail): self.stashDetail = .loaded(detail)
+            case .unavailable(let reason): self.stashDetail = .unavailable(reason)
+            }
+        }
+    }
+
+    /// Picks a file in S-04; the center shows its patch (S-10).
+    func selectStashFile(_ file: FileStat) {
+        guard let oid = selectedStashOID, let stash = stashes.first(where: { $0.oid == oid }),
+            case .loaded(let detail) = stashDetail, detail.files.contains(file), file.path.isRepresentable,
+            let repository
+        else { return }
+        stashFileTask?.cancel()
+        selectedStashFile = file
+        stashFileDiff = .loading
+        let generation = stashGeneration
+        let loader = stashLoader
+        let target = repository.repository
+        let worktree = focusedWorktreePath.flatMap { entry(at: $0)?.worktree }
+        let source = DiffDocument.Source(label: stash.refName, kindLetter: file.isFromUntracked ? "?" : "")
+        stashFileTask = Task { [weak self] in
+            let result = await loader.patch(of: stash, file: file, in: target, worktree: worktree)
+            guard let self, generation == self.stashGeneration, !Task.isCancelled, self.selectedStashFile == file
+            else { return }
+            switch result {
+            case .patch(let patch):
+                self.stashFileDiff = .loaded(DiffDocument(listing: patch, path: file.path, source: source))
+            case .unavailable(let reason):
+                self.stashFileDiff = .unavailable(reason)
+            }
+        }
+    }
+
+    /// Back to the graph from a stash file's diff (`⎋`).
+    func clearStashFile() {
+        stashFileTask?.cancel()
+        selectedStashFile = nil
+        stashFileDiff = nil
     }
 
     // MARK: Diff viewer (#232)
 
     /// What the center area shows for the selected file: its title, `Staged · M`, and the load state.
     var diffViewer: (title: String, source: String, state: DiffLoadState)? {
+        if case .stash(let oid) = selection, let file = selectedStashFile, let state = stashFileDiff,
+            let stash = stashes.first(where: { $0.oid == oid })
+        {
+            let source = stash.refName + (file.isFromUntracked ? " · untracked" : "")
+            return (PathValidator.displayable(file.path.display), source, state)
+        }
         guard let file = selectedFile, let state = diffState else { return nil }
         let letter = wipDetailModel?.row(for: file)?.kindLetter
         let source = file.group.title + (letter.map { " · \($0)" } ?? "")
