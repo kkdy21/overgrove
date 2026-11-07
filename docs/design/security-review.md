@@ -91,7 +91,8 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **잔여 위험**:
   - global 설정에 정의된 필터(예: 사용자가 설치한 Git LFS)는 신뢰 범위라 그대로 실행된다. 의도된 동작이다.
   - 로컬에 정의된 LFS 필터를 무력화하면 LFS 파일이 변경으로 보일 수 있다.
-- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160)
+- **워크트리 경로는 믿지 않는다(#87, #221 보안 검토)**: `worktree list`의 경로는 저장소가 쓰는 `.git/worktrees/<id>/gitdir`에서 온다. 위조된 항목이 따로 둔 다른 저장소를 가리키면, 그 경로에서 실행한 status가 검사하지 않은 그 저장소의 filter를 실행한다(대조군으로 확인, E43). 연결 워크트리의 `config.worktree`도 메인 워크트리 검사에 나오지 않는다. 그래서 `RepositoryService`는 워크트리마다 status 전에 두 가지를 한다. `probeRepository`로 공통 git 디렉터리가 같은지 확인하고(다르면 조회하지 않음), 그 워크트리에서 `configList`를 검사해 그 워크트리의 무력화 인자로 status를 실행한다.
+- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨)
 - **상태**: 설계 완료
 
 ### T5. 전송 계층 명령 실행
@@ -462,6 +463,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E40 | 로컬 `remote.origin.fetch=+refs/heads/*:refs/heads/*` + detached HEAD, 로컬 `fetch.pruneTags=true`·`remote.origin.pruneTags=true`·`tagOpt=--tags`로 앱 fetch 인자 실행 (Apple Git 2.54.0, #209) | 고정 전: 로컬 전용 브랜치 2개 삭제, `main` 강제 이동, 로컬 태그 삭제. 명령줄 refspec + `--refmap=` + `pruneTags=false`: 로컬 브랜치·태그 불변. `--no-tags`가 없으면 원격 태그 `r1`이 `refs/tags/`에 새로 생김(기존 태그는 그대로). 로컬 `fetch.bundleURI`(평범한 bundle 파일)는 `refs/bundles/heads/*`를 쓰고, `-c fetch.bundleURI=`면 쓰지 않음 |
 | E41 | 로컬 `i18n.commitEncoding=JOHAB`(또는 `i18n.logOutputEncoding=JOHAB`) + 제목에 `！`가 든 커밋 + 그래프·커밋 상세·stash 목록 `-z` 포맷 | 일반 실행은 NUL이 늘어 필드가 밀림(그래프 6→8, 상세 2→4, stash 4→5). `-c i18n.logOutputEncoding=UTF-8`이면 정상. UTF-16 설정도 막힘. `for-each-ref`는 영향 없음 (Apple Git 2.54.0, #205) |
 | E42 | `clone --filter=blob:none`으로 만든 partial 저장소 + 로컬 `remote.origin.uploadpack` canary에서 `diff-tree -p` (Apple Git 2.50.1, #212) | fetch 목록 환경: canary 실행(lazy fetch). `GIT_NO_LAZY_FETCH=1`: 차단. `GIT_ALLOW_PROTOCOL=`(빈 값)·`=none`: `transport 'file' not allowed`로 차단. `-c remote.origin.promisor=false`·`-c remote.origin.uploadpack=git-upload-pack`: 여전히 실행. 앱의 fetch는 filter 설정이 있는 partial 저장소에서는 lazy fetch를 하지 않음. filter 없이 promisor만 있고 새 객체가 누락 blob을 delta base로 쓰면 fetch도 lazy fetch하며, `GIT_NO_LAZY_FETCH` 없이는 로컬 uploadpack이 실행됨(#213 보안 검토) |
+| E43 | 메인 저장소의 `.git/worktrees/forged/gitdir`가 clean filter canary를 둔 다른 저장소를 가리킴 / 연결 워크트리의 `config.worktree`에 filter 드라이버 (Apple Git 2.50.1, #221) | 메인 저장소의 `RepoSafetyContext`로 그 경로의 status를 실행하면 두 경우 모두 canary 실행. 경로별 `probeRepository` 확인(공통 git 디렉터리 비교)과 워크트리별 `configList` 검사를 거치면 실행 안 됨 |
 
 릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41.
 

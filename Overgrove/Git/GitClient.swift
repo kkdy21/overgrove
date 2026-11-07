@@ -78,7 +78,9 @@ struct RepoSafetyContext: Sendable, Equatable {
 /// to 120 seconds never delays a status refresh. Each run uses two file descriptors, and fan-out across many
 /// worktrees must not exhaust them. A repository fetches one remote at a time, because worktrees share its refs.
 actor GitClient {
-    static let defaultConcurrency = 4
+    /// Query processes at once: the core count, at most 8 and at least 2 (#87; measured in
+    /// docs/performance/results/2026-11-07-pb1-parallel-worktree-queries.md).
+    static let defaultConcurrency = max(2, min(ProcessInfo.processInfo.activeProcessorCount, 8))
     /// Fetch slots for the whole app (performance-budget.md §4, recommendation 8).
     static let defaultFetchConcurrency = 2
 
