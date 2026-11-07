@@ -129,6 +129,22 @@ struct TestExecutables {
         return try script("fake-ssh-\(UUID().uuidString)", body)
     }
 
+    /// A harmless payload that appends its arguments to `<canary>/<id>` and then runs `tail` (default `exit 0`).
+    /// Like the `--malicious` fixture's payloads (fixtures.md §8.1), it does nothing but record that it ran.
+    func canaryPayload(_ id: String, canary: URL, tail: String = "exit 0") throws -> URL {
+        try FileManager.default.createDirectory(at: canary, withIntermediateDirectories: true)
+        let record = canary.appendingPathComponent(id).path
+        return try script("payload-\(id)-\(UUID().uuidString)", "printf '%s\\n' \"$*\" >> '\(record)'\n\(tail)")
+    }
+
+    /// Runs its arguments as a command with stdin read from `input` (`ProcessRunner` always gives /dev/null).
+    /// Used for `git credential fill`, the stand-in for HTTP authentication (fixtures.md §8.2, M35–38).
+    func stdinWrapper(input: String) throws -> URL {
+        let file = directory.appendingPathComponent("stdin-\(UUID().uuidString)")
+        try Data(input.utf8).write(to: file)
+        return try script("with-stdin-\(UUID().uuidString)", "exec \"$@\" < '\(file.path)'")
+    }
+
     /// A stand-in for a trusted `core.sshCommand` that fails the way OpenSSH does: it writes `stderr` and exits 255,
     /// so git adds its own `fatal:` lines on top (#78). The `-G` probe fails too, as for a non-OpenSSH command.
     func failingSSH(stderr: String) throws -> URL {
