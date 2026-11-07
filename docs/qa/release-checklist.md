@@ -61,6 +61,7 @@
 - [ ] `SECURITY.md`의 지원 버전 표에 `0.1.x`가 있고, 비공개 제보 링크가 동작한다.
 - [ ] Private vulnerability reporting, secret scanning, push protection, Dependabot alerts가 켜져 있다 ([github-settings.md](../process/github-settings.md)).
 - [ ] 워크플로우의 모든 `uses:`가 40자리 SHA로 고정되어 있다 (SEC-T17-02).
+- [ ] 호환성 매트릭스의 테스트용 git tarball이 버전·SHA-256으로 고정되어 있고 빌드 전에 검증된다 (SEC-T17-04, ADR-0020).
 - [ ] 열린 Dependabot·CodeQL·secret scanning 알림이 0개다.
 - [ ] README의 보안 주의 사항이 현재 동작과 일치한다 (신뢰할 수 없는 저장소를 열 때의 보호 범위와 한계).
 - [ ] [security-review.md](../design/security-review.md) §5.2 Phase 종료 점검을 다시 확인했다.

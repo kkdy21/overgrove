@@ -53,7 +53,9 @@ jobs:
           TEST_GIT_SHA256: \"$sum\"
         run: |
           curl -sSfL -o g.tar.xz \"https://mirrors.edge.kernel.org/pub/software/scm/git/git-\${TEST_GIT_VERSION}.tar.xz\"
-          echo \"\$TEST_GIT_SHA256  g.tar.xz\" | shasum -a 256 -c -"
+          echo \"\$TEST_GIT_SHA256  g.tar.xz\" | shasum -a 256 -c -
+          tar -xJf g.tar.xz
+          make -C git install"
 
 good_dependabot="version: 2
 updates:
@@ -151,6 +153,11 @@ expect compat-other-source 1 "$(tree compat-source $compat "${good_compat/mirror
 expect compat-cache 1 "$(tree compat-cache $compat "$good_compat
       - uses: actions/cache@$sha")"
 expect compat-missing 1 "$(tree compat-missing $compat "<delete>")"
+expect compat-commented-verify 1 "$(tree compat-commented $compat "${good_compat/echo \"\$TEST_GIT_SHA256  g.tar.xz\" | shasum -a 256 -c -/# shasum -a 256 -c (disabled) TEST_GIT_SHA256}")"
+expect compat-verify-other-hash 1 "$(tree compat-other-hash $compat "${good_compat/\$TEST_GIT_SHA256  g.tar.xz/deadbeef  g.tar.xz}")"
+expect compat-verify-after-unpack 1 "$(tree compat-after $compat "${good_compat/          echo \"\$TEST_GIT_SHA256  g.tar.xz\" | shasum -a 256 -c -
+          tar -xJf g.tar.xz/          tar -xJf g.tar.xz
+          echo \"\$TEST_GIT_SHA256  g.tar.xz\" | shasum -a 256 -c -}")"
 
 # SEC-T17-03: Dependabot.
 expect dependabot-missing 1 "$(tree dependabot-missing .github/dependabot.yml "<delete>")"

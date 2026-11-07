@@ -85,7 +85,7 @@ jobs:
         run: |
           set -euo pipefail
           tarball="$RUNNER_TEMP/git-${TEST_GIT_VERSION}.tar.xz"
-          curl -sSfL --proto '=https' -o "$tarball" \
+          curl -sSfL --proto '=https' --max-time 300 --retry 3 -o "$tarball" \
             "https://mirrors.edge.kernel.org/pub/software/scm/git/git-${TEST_GIT_VERSION}.tar.xz"
           echo "${TEST_GIT_SHA256}  ${tarball}" | shasum -a 256 -c -
           mkdir -p "$RUNNER_TEMP/git-src"

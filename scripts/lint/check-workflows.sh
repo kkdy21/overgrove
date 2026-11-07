@@ -7,9 +7,10 @@
 #               - untrusted event text (PR/issue titles and bodies, comments, branch names) reaches a workflow only
 #                 through a `KEY: ${{ … }}` mapping (env, with, if), never inline in a script
 #               - the CI gitleaks download stays pinned by version and SHA-256
-#   SEC-T17-04  git-compat.yml builds its test git only from the official kernel.org tarball, pinned by version and
-#               SHA-256, verified before the build, and never cached (ADR-0020)
 #   SEC-T17-03  Dependabot updates the `github-actions` ecosystem at `/`
+#   SEC-T17-04  git-compat.yml builds its test git only from the official kernel.org tarball, pinned by version and
+#               SHA-256, checked against TEST_GIT_SHA256 on a live (uncommented) line before it is unpacked or built,
+#               and never cached (ADR-0020)
 #
 # Plain bash, grep and awk: runs in CI (macOS) and locally without extra tools.
 #
@@ -94,7 +95,13 @@ if [[ -f "$compat" ]]; then
   grep -qE 'TEST_GIT_VERSION:[[:space:]]*"?[0-9]+\.[0-9]+\.[0-9]+"?' "$compat" ||
     report "git-compat.yml: TEST_GIT_VERSION is not pinned"
   grep -qE 'TEST_GIT_SHA256:[[:space:]]*"?[0-9a-f]{64}"?' "$compat" || report "git-compat.yml: TEST_GIT_SHA256 is not pinned"
-  grep -qE '(shasum -a 256|sha256sum) -c' "$compat" || report "git-compat.yml: the git tarball is not checksum-verified"
+  # The check must be live, use the pinned hash, and come before the tarball is unpacked or built.
+  awk '
+    /^[[:space:]]*#/ { next }
+    !verify && /(shasum -a 256|sha256sum) -c/ && /TEST_GIT_SHA256/ { verify = NR }
+    !unpack && (/tar[[:space:]]+-[A-Za-z]*x/ || /(^|[[:space:]])make[[:space:]]/) { unpack = NR }
+    END { exit !(verify && (!unpack || verify < unpack)) }
+  ' "$compat" || report "git-compat.yml: the git tarball is not checked against TEST_GIT_SHA256 before it is unpacked or built"
   grep -qE 'https://mirrors\.edge\.kernel\.org/pub/software/scm/git/git-' "$compat" ||
     report "git-compat.yml: the git tarball does not come from kernel.org"
   if grep -nE '^[[:space:]-]*uses:[[:space:]]*actions/cache' "$compat" >/dev/null; then
@@ -118,6 +125,6 @@ else
 fi
 
 if [[ $status -eq 0 ]]; then
-  echo "ok  workflows: pinned actions, minimal permissions, untrusted input via env, Dependabot"
+  echo "ok  workflows: pinned actions, minimal permissions, untrusted input via env, Dependabot, pinned test git"
 fi
 exit $status
