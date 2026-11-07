@@ -211,7 +211,7 @@ refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀
 | `%(symref)` | `refs/remotes/origin/HEAD` 같은 심볼릭 ref의 대상 |
 | `%(upstream:track,nobracket)` | 빈 값, `ahead N`, `behind M`, `ahead N, behind M`, `gone` 다섯 가지(#54, Apple Git 2.54.0 확인). 빈 값은 `%(upstream)`이 있으면 "같음", 없으면 "upstream 없음"이다. upstream 없이 값이 있으면 형식 위반이다 |
 
-- refname, `%(upstream)`, `%(symref)`는 git 인자로 되돌아갈 수 있으므로 손실 디코딩하지 않는다. 올바른 UTF-8이 아니거나 `FullRefName` 검증(`-`로 시작하는 구성 요소, `..`, `.lock` 등)을 통과하지 못하면 파서 전체를 실패시킨다.
+- refname, `%(upstream)`, `%(symref)`는 git 인자로 되돌아갈 수 있으므로 손실 디코딩하지 않는다. git은 이런 이름을 허용하므로 형식 위반이 아니라 내용 문제로 다룬다. refname이나 `%(upstream)`이 올바른 UTF-8이 아니거나 `FullRefName` 검증(`-`로 시작하는 구성 요소, `..`, `.lock` 등)을 통과하지 못하면 그 레코드만 건너뛰고 `skippedRecords`를 올린다(UI는 비차단 경고). upstream이 있는 브랜치를 "upstream 없음"으로 보이지 않기 위해서다. `%(symref)`가 그렇다면 `symbolicTarget`만 비운다. 다른 필드의 형식 위반은 이 레코드에서도 전체 실패다.
 - `%(HEAD)`는 `*` 또는 공백 한 글자, 날짜는 부호 없는 10진수 또는 빈 값, 카운트는 부호 없는 10진수만 허용한다.
 - 원격 이름은 `refs/remotes/` 뒤 첫 구성 요소로 정한다. 원격 이름에 `/`가 들어간 경우는 `configList`의 원격 목록과 맞춰 보정한다.
 - 잘린 출력은 LF로 끝나지 않은 마지막 레코드만 버리고 `isPartial`을 표시한다.

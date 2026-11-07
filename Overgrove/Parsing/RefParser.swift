@@ -6,9 +6,16 @@ import Foundation
 /// committer date, symref, and `upstream:track,nobracket`. Ref names cannot contain control characters, so LF is a
 /// safe record separator.
 ///
-/// Ref names go back to git as arguments, so they are never decoded lossily: a ref name, upstream, or symref target
-/// that is not valid UTF-8 or fails `FullRefName` validation fails the whole parse, like any other malformed field.
-/// Refs outside `refs/heads/`, `refs/remotes/` and `refs/tags/` are ignored.
+/// Format violations (field count, OIDs, HEAD marker, numbers, track syntax) fail the whole parse: a shifted field
+/// would show wrong information (parsing-spec.md §1.6).
+///
+/// Ref names go back to git as arguments, so they are never decoded lossily. git allows names that cannot be passed
+/// back (invalid UTF-8, or rejected by `FullRefName`), so one hostile ref must not hide every other one:
+/// - such a ref name or upstream skips the record and counts it in `skippedRecords` (the UI shows a non-blocking
+///   warning). A branch is not shown as "no upstream" when it has one;
+/// - such a symref target becomes `symbolicTarget == nil`.
+///
+/// Refs outside `refs/heads/`, `refs/remotes/` and `refs/tags/` are ignored without being counted.
 enum RefParser {
     struct Listing: Sendable, Equatable {
         /// Local branches and remote-tracking refs, in git's order (sorted by ref name).
@@ -16,6 +23,8 @@ enum RefParser {
         let tags: [Tag]
         /// The output was cut at the size limit and the last incomplete record was dropped.
         let isPartial: Bool
+        /// Records whose ref name or upstream cannot be passed back to git losslessly.
+        let skippedRecords: Int
     }
 
     private static let name = "RefParser"
@@ -39,14 +48,16 @@ enum RefParser {
 
         var branches: [Branch] = []
         var tags: [Tag] = []
+        var skippedRecords = 0
         for line in lines {
             switch try record(line, in: data) {
             case .branch(let branch): branches.append(branch)
             case .tag(let tag): tags.append(tag)
+            case .unrepresentable: skippedRecords += 1
             case .ignored: continue
             }
         }
-        return Listing(branches: branches, tags: tags, isPartial: truncated)
+        return Listing(branches: branches, tags: tags, isPartial: truncated, skippedRecords: skippedRecords)
     }
 }
 
@@ -54,7 +65,15 @@ extension RefParser {
     private enum Record {
         case branch(Branch)
         case tag(Tag)
+        /// A ref name or upstream that cannot go back to git.
+        case unrepresentable
         case ignored
+    }
+
+    private enum Track {
+        case inSync
+        case gone
+        case counts(ahead: Int, behind: Int)
     }
 
     private static func record(_ line: Token, in data: Data) throws -> Record {
@@ -62,28 +81,38 @@ extension RefParser {
         guard fields.count == fieldCount else {
             throw ParseError(parser: name, offset: offset(of: line, in: data), reason: "expected \(fieldCount) fields")
         }
-        let refname = try refName(fields[0], reason: "invalid ref name", in: data)
+        // Format checks come first and apply to every record, including ones skipped below.
         let target = try objectID(fields[1], reason: "invalid object name", in: data)
         let peeled = fields[2].isEmpty ? nil : try objectID(fields[2], reason: "invalid peeled object name", in: data)
-        let upstream = fields[3].isEmpty ? nil : try refName(fields[3], reason: "invalid upstream", in: data)
         let isHead = try headMarker(fields[4], in: data)
         let date = try committerDate(fields[5], in: data)
-        let symref = fields[6].isEmpty ? nil : try refName(fields[6], reason: "invalid symref target", in: data)
-        let upstreamStatus = try track(fields[7], upstream: upstream, in: data)
+        let track = try track(fields[7], hasUpstream: !fields[3].isEmpty, in: data)
 
-        if refname.hasPrefix(tagsPrefix) {
-            return .tag(Tag(fullName: refname, target: target, peeledTarget: peeled, date: date))
-        }
-        let kind: Branch.Kind
-        if refname.hasPrefix(headsPrefix) {
+        let kind: Branch.Kind?
+        if fields[0].starts(with: tagsPrefix.utf8) {
+            kind = nil
+        } else if fields[0].starts(with: headsPrefix.utf8) {
             kind = .local
-        } else if refname.hasPrefix(remotesPrefix) {
+        } else if fields[0].starts(with: remotesPrefix.utf8) {
             // Remote names may contain `/`; without the configured remotes, the first component is the best guess.
-            let rest = refname.dropFirst(remotesPrefix.count)
-            kind = .remote(remote: String(rest.prefix { $0 != "/" }))
+            let rest = fields[0].dropFirst(remotesPrefix.utf8.count)
+            kind = .remote(remote: String(decoding: rest.prefix { $0 != UInt8(ascii: "/") }, as: UTF8.self))
         } else {
             return .ignored
         }
+        guard let refname = refName(fields[0]) else { return .unrepresentable }
+        guard let kind else {
+            return .tag(Tag(fullName: refname, target: target, peeledTarget: peeled, date: date))
+        }
+
+        let upstreamStatus: UpstreamStatus
+        if fields[3].isEmpty {
+            upstreamStatus = .none
+        } else {
+            guard let upstream = refName(fields[3]) else { return .unrepresentable }
+            upstreamStatus = status(track, upstream: upstream)
+        }
+        let symref = refName(fields[6])
         return .branch(
             Branch(
                 fullName: refname,
@@ -107,11 +136,9 @@ extension RefParser {
         ParseError(parser: name, offset: offset(of: token, in: data), reason: reason)
     }
 
-    /// A full ref name that can be passed back to git unchanged: valid UTF-8 and accepted by `FullRefName`.
-    private static func refName(_ token: Token, reason: String, in data: Data) throws -> String {
-        guard let text = String(data: Data(token), encoding: .utf8), FullRefName.isValid(text) else {
-            throw fail(token, reason, in: data)
-        }
+    /// A full ref name that can be passed back to git unchanged (valid UTF-8, accepted by `FullRefName`), or `nil`.
+    private static func refName(_ token: Token) -> String? {
+        guard let text = String(data: Data(token), encoding: .utf8), FullRefName.isValid(text) else { return nil }
         return text
     }
 
@@ -135,37 +162,38 @@ extension RefParser {
     }
 
     /// `%(upstream:track,nobracket)` under `LC_ALL=C`: empty, `ahead N`, `behind M`, `ahead N, behind M`, or `gone`.
-    /// An empty value means "in sync" when an upstream is set and "no upstream" otherwise.
-    private static func track(_ token: Token, upstream: String?, in data: Data) throws -> UpstreamStatus {
-        guard let upstream else {
+    /// Only a branch with an upstream has a track value; empty then means "in sync". Without an upstream the result
+    /// is unused.
+    private static func track(_ token: Token, hasUpstream: Bool, in data: Data) throws -> Track {
+        guard hasUpstream else {
             guard token.isEmpty else { throw fail(token, "track without upstream", in: data) }
-            return .none
+            return .inSync
         }
-        if token.isEmpty { return .tracking(upstream: upstream, ahead: 0, behind: 0) }
-        if token.elementsEqual("gone".utf8) { return .gone(upstream: upstream) }
+        if token.isEmpty { return .inSync }
+        if token.elementsEqual("gone".utf8) { return .gone }
 
         let invalid = fail(token, "invalid upstream track", in: data)
         let parts = token.split(separator: Data(", ".utf8), omittingEmptySubsequences: false)
-        var ahead = 0
-        var behind = 0
         switch parts.count {
         case 1:
-            if let count = count(parts[0], label: "ahead") {
-                ahead = count
-            } else if let count = count(parts[0], label: "behind") {
-                behind = count
-            } else {
-                throw invalid
-            }
+            if let ahead = count(parts[0], label: "ahead") { return .counts(ahead: ahead, behind: 0) }
+            if let behind = count(parts[0], label: "behind") { return .counts(ahead: 0, behind: behind) }
+            throw invalid
         case 2:
-            guard let aheadCount = count(parts[0], label: "ahead"), let behindCount = count(parts[1], label: "behind")
+            guard let ahead = count(parts[0], label: "ahead"), let behind = count(parts[1], label: "behind")
             else { throw invalid }
-            ahead = aheadCount
-            behind = behindCount
+            return .counts(ahead: ahead, behind: behind)
         default:
             throw invalid
         }
-        return .tracking(upstream: upstream, ahead: ahead, behind: behind)
+    }
+
+    private static func status(_ track: Track, upstream: String) -> UpstreamStatus {
+        switch track {
+        case .inSync: .tracking(upstream: upstream, ahead: 0, behind: 0)
+        case .gone: .gone(upstream: upstream)
+        case .counts(let ahead, let behind): .tracking(upstream: upstream, ahead: ahead, behind: behind)
+        }
     }
 
     /// `<label> <unsigned decimal>`, or `nil`.

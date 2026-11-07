@@ -58,6 +58,7 @@ final class RefParserTests: XCTestCase {
     func testPARREF01_HeadsRemotesTagsAndHeadMarker() throws {
         let listing = try RefParser.parse(Self.realOutput)
         XCTAssertFalse(listing.isPartial)
+        XCTAssertEqual(listing.skippedRecords, 0)
         XCTAssertEqual(
             listing.branches.map(\.fullName),
             [
@@ -103,9 +104,16 @@ final class RefParserTests: XCTestCase {
         XCTAssertEqual(head.target, ObjectID(mainOID))
     }
 
-    func testPARREF03_InvalidSymrefTargetFails() {
-        assertFails(record("refs/remotes/origin/HEAD", symref: "origin/main"), reason: "invalid symref target")
-        assertFails(record("refs/remotes/origin/HEAD", symref: "refs/remotes/-x"), reason: "invalid symref target")
+    func testPARREF03_UnrepresentableSymrefTargetBecomesNil() throws {
+        var data = Data(record("refs/remotes/origin/HEAD", symref: "origin/main").utf8)
+        data.append(Data(record("refs/remotes/up/HEAD", symref: "refs/remotes/-x").utf8))
+        var invalidUTF8 = Data(record("refs/remotes/other/HEAD", symref: "refs/remotes/other/m").utf8)
+        invalidUTF8.insert(0xFF, at: invalidUTF8.count - 2)  // inside the symref, before the empty track and LF
+        data.append(invalidUTF8)
+        let listing = try RefParser.parse(data)
+        XCTAssertEqual(listing.branches.count, 3)
+        XCTAssertEqual(listing.branches.map(\.symbolicTarget), [nil, nil, nil])
+        XCTAssertEqual(listing.skippedRecords, 0)
     }
 
     func testPARREF04_SlashAndUnicodeBranchNames() throws {
@@ -125,18 +133,31 @@ final class RefParserTests: XCTestCase {
         XCTAssertEqual(nested.shortName, "up/stream/feat/x")
     }
 
-    func testPARREF04_InvalidUTF8RefNameFails() {
-        // A ref name goes back to git as an argument, so it must not be decoded lossily.
+    func testPARREF04_InvalidUTF8RefNameIsSkippedAndCounted() throws {
+        // git allows such a name, but it must not be decoded lossily: it would name a different ref when passed back.
         var data = Data("refs/heads/bad".utf8)
         data.append(0xFF)
         data.append(Data(record("").utf8))
-        assertFails(data, reason: "invalid ref name", offset: 0)
+        data.append(Data(record("refs/heads/main").utf8))
+        let listing = try RefParser.parse(data)
+        XCTAssertEqual(listing.branches.map(\.fullName), ["refs/heads/main"])
+        XCTAssertEqual(listing.skippedRecords, 1)
     }
 
-    func testPARREF04_RefNamesThatCannotGoBackToGitFail() {
-        for name in ["refs/heads/-x", "refs/heads/a..b", "refs/heads/x.lock", "heads/main", "refs/heads/a b"] {
-            assertFails(record(name), reason: "invalid ref name", offset: 0)
-        }
+    func testPARREF04_RefNamesThatCannotGoBackToGitAreSkippedAndCounted() throws {
+        let unsafe = ["refs/heads/-x", "refs/heads/a..b", "refs/heads/x.lock", "refs/heads/a b", "refs/tags/-t"]
+        let listing = try parse(record("refs/heads/ok"), unsafe.map { record($0) }.joined(), record("refs/tags/v1"))
+        XCTAssertEqual(listing.branches.map(\.fullName), ["refs/heads/ok"])
+        XCTAssertEqual(listing.tags.map(\.fullName), ["refs/tags/v1"])
+        XCTAssertEqual(listing.skippedRecords, unsafe.count)
+    }
+
+    func testPARREF04_SkippedRecordsAreStillFormatChecked() {
+        assertFails(record("refs/heads/-x", "bad"), reason: "invalid object name")
+        assertFails(record("refs/heads/-x", head: "+"), reason: "invalid HEAD marker")
+        assertFails(
+            record("refs/heads/-x", upstream: "refs/remotes/origin/x", track: "ahead"), reason: "invalid upstream track"
+        )
     }
 
     func testPARREF05_NoUpstream() throws {
@@ -151,10 +172,18 @@ final class RefParserTests: XCTestCase {
         assertFails(record("refs/heads/x", track: "gone"), reason: "track without upstream")
     }
 
-    func testPARREF05_InvalidUpstreamFails() {
-        let line = record("refs/heads/x", upstream: "origin/x")
-        assertFails(line, reason: "invalid upstream", offset: "refs/heads/x".utf8.count + 1 + 40 + 1 + 1)
-        assertFails(record("refs/heads/x", upstream: "refs/remotes/origin/-x"), reason: "invalid upstream")
+    func testPARREF05_UnrepresentableUpstreamSkipsTheRecord() throws {
+        // Showing the branch as "no upstream" would be wrong, and its upstream cannot go back to git either.
+        var invalidUTF8 = Data(record("refs/heads/c", upstream: "refs/remotes/origin/c", track: "ahead 1").utf8)
+        let upstreamEnd = invalidUTF8.firstRange(of: Data("origin/c".utf8))!.upperBound
+        invalidUTF8.insert(0xFF, at: upstreamEnd)
+        var data = Data(record("refs/heads/a", upstream: "origin/a").utf8)
+        data.append(Data(record("refs/heads/b", upstream: "refs/remotes/origin/-b", track: "gone").utf8))
+        data.append(invalidUTF8)
+        data.append(Data(record("refs/heads/main").utf8))
+        let listing = try RefParser.parse(data)
+        XCTAssertEqual(listing.branches.map(\.fullName), ["refs/heads/main"])
+        XCTAssertEqual(listing.skippedRecords, 3)
     }
 
     // MARK: - PAR-REF-06: `%(upstream:track,nobracket)`
@@ -237,9 +266,12 @@ final class RefParserTests: XCTestCase {
     }
 
     func testOtherPrefixesAreIgnored() throws {
-        let listing = try parse(record("refs/notes/commits"), record("refs/heads/main"), record("refs/stash"))
+        let listing = try parse(
+            record("refs/notes/commits"), record("refs/heads/main"), record("refs/stash"), record("heads/main"),
+            record("refs/notes/-x"))
         XCTAssertEqual(listing.branches.map(\.fullName), ["refs/heads/main"])
         XCTAssertTrue(listing.tags.isEmpty)
+        XCTAssertEqual(listing.skippedRecords, 0, "ignored prefixes are not warnings")
     }
 
     func testEmptyOutput() throws {
@@ -247,6 +279,7 @@ final class RefParserTests: XCTestCase {
         XCTAssertTrue(listing.branches.isEmpty)
         XCTAssertTrue(listing.tags.isEmpty)
         XCTAssertFalse(listing.isPartial)
+        XCTAssertEqual(listing.skippedRecords, 0)
     }
 
     // MARK: - Truncation (parsing-spec.md §1.5)
