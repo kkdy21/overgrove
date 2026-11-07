@@ -99,8 +99,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             return ["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options"]
                 + (parent.map { [$0.hex] } ?? []) + [oid.hex] + (try Self.pathspec(path))
         case .worktreeDiff(let path, let staged):
-            return ["diff", "--no-ext-diff", "--no-textconv", "-M"] + (staged ? ["--cached"] : [])
-                + (try Self.pathspec(path))
+            // `--ignore-submodules=dirty` (as in status): for a submodule path git would otherwise run `status` inside
+            // the submodule, with the submodule's own filters, which were never inspected (#239, SEC-T4-05).
+            return ["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty"]
+                + (staged ? ["--cached"] : []) + (try Self.pathspec(path))
         case .untrackedPreview(let file):
             return ["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", file.relativePath]
         case .fileHistory(let path, let limit):

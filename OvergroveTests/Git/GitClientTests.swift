@@ -92,8 +92,8 @@ final class GitCommandTests: XCTestCase {
                 "diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", parent.hex,
                 oid.hex, "--", "-x",
             ],
-            ["diff", "--no-ext-diff", "--no-textconv", "-M", "--cached", "--", "a b.txt"],
-            ["diff", "--no-ext-diff", "--no-textconv", "-M", "--", ":(exclude)x"],
+            ["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty", "--cached", "--", "a b.txt"],
+            ["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty", "--", ":(exclude)x"],
             ["log", "--follow", "-z", ReadOnlyGitCommand.logFormat, "-n", "100", "--", "*"],
         ]
         XCTAssertEqual(allReadOnlyCommands.count, expected.count)

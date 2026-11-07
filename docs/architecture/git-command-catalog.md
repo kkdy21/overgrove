@@ -123,7 +123,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `commitMeta(oid:)` | `["log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B", "--end-of-options", "<oid>"]` | 저장소 경로 | `LogParser` → `CommitDetail` | T7, T9 |
 | `commitFiles(oid:)` | 루트·일반 커밋: `["diff-tree", "-r", "-z", "--raw", "--numstat", "-M", "--no-ext-diff", "--no-textconv", "--no-commit-id", "--root", "--end-of-options", "<oid>"]`<br>병합 커밋: `[..., "--end-of-options", "<first parent oid>", "<oid>"]` | 저장소 경로 | `NumstatParser`(raw+numstat) → `CommitDetail.files` | T3, T9 |
 | `commitPatch(oid:parent:path:)` | `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<parent oid 또는 생략>", "<oid>", "--", "<path>"]` | 저장소 경로 | 원문 패치 → S-10 | T3, T9 |
-| `worktreeDiff(path:staged:)` | `["diff", "--no-ext-diff", "--no-textconv", "-M", (staged ? "--cached" : 생략), "--", "<path>"]` | 워크트리 경로 | 원문 패치 → S-10 | T3, T9 |
+| `worktreeDiff(path:staged:)` | `["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty", (staged ? "--cached" : 생략), "--", "<path>"]` | 워크트리 경로 | 원문 패치 → S-10 | T3, T4, T9 |
 | `untrackedPreview(WorktreeFile)` | `["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", "<path>"]` (종료 코드 1이 정상) | 워크트리 경로 | 원문 패치 → S-10 | T3, T14 |
 | `fileHistory(path:limit:)` | `["log", "--follow", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "-n", "<limit>", "--", "<path>"]` | 워크트리 경로 | `LogParser` → `[FileHistoryEntry]` | T7, T9 |
 
@@ -133,6 +133,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 - **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 사이드바 LOCAL의 로컬 브랜치는 `refs`의 `%(upstream:track,nobracket)`에서 한 번에 얻고, 브랜치마다 `rev-list`를 실행하지 않는다(#54, 2026-11-06 측정 S5). `aheadBehind`는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에만 쓴다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).
 - **그래프 페이지**는 `--skip`과 `-n`으로 나눈다. 같은 ref 집합이면 순서가 결정적이라 GraphEngine이 열린 레인 상태를 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다. 10만 커밋에서 뒤쪽 페이지의 `--skip` 비용이 PB-4를 넘으면, 스트리밍 읽기 모드(한 프로세스의 출력을 페이지 단위로 소비)로 바꾼다. 이 결정은 Phase 3 성능 측정 뒤에 ADR-0010을 갱신해 남긴다.
 - **untrackedPreview**는 `PathValidator.worktreeFile`이 만든 `WorktreeFile`만 받는다(상대 경로, `..` 없음, 실제 위치가 워크트리 안, 일반 파일 또는 심볼릭 링크 — FIFO는 git을 멈추게 하므로 거부). 심볼릭 링크는 내용 대신 링크 대상 문자열만 보여 준다 (T14).
+- **작업 트리를 보는 diff는 `--ignore-submodules=dirty`를 붙인다(#239)**. 경로가 서브모듈이면 git은 서브모듈이 더러운지 보려고 서브모듈 안에서 `status`를 실행한다. 그때 서브모듈 자체의 `.git/modules/<sub>/config`에 있는 filter가 실행되는데, 설정 검사는 상위 저장소 설정만 읽는다(확인, SEC-T4-05). `status`와 `worktreeDiff`가 이 인자를 쓴다. `--cached`는 서브모듈 안을 보지 않지만 같은 인자를 붙인다. 서브모듈 커밋이 바뀐 것은 그대로 보인다. 다른 diff 계열(`stashFiles`·`stashPatch`·`commitFiles`·`commitPatch`·`fileHistory`)은 트리끼리 비교하므로 서브모듈 작업 트리를 보지 않고, `untrackedPreview`는 일반 파일·심볼릭 링크만 받는다.
 - **status의 `--untracked-files=all`**은 큰 저장소에서 느릴 수 있다. PB-5 측정에서 기준을 넘으면 `normal`로 바꾸고 디렉터리 단위로 표시하는 방안을 검토한다.
 
 ---

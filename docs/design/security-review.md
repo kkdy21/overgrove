@@ -86,7 +86,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
     - 빈 clean은 필터를 끈다 (확인).
     - `required=true`인 상태에서 clean만 비우면 fatal이 난다 (확인, E6). 그래서 `required=false`를 함께 넣는다. SEC-T4-03이 이 사실(무력화에서 `required=false`만 빼면 status 실패)을 고정한다. 내용이 바뀐 파일은 status가 다시 해시하지 않아 이 오류가 나지 않으므로, 내용은 같고 stat만 바뀐 파일로 확인해야 한다.
   - 드라이버 이름이 허용 형식이 아니면 fail closed.
-  - 서브모듈 쪽 필터는 `--ignore-submodules=dirty`로 재귀를 막아 차단한다.
+  - 서브모듈 쪽 필터는 `--ignore-submodules=dirty`로 재귀를 막아 차단한다. status뿐 아니라 **작업 트리를 보는 diff(`worktreeDiff`)도** 같다. 경로가 서브모듈이면 미스테이지 diff가 서브모듈 안에서 `status`를 돌려 서브모듈 자체의 filter를 실행했다(확인, #239). `--cached`는 서브모듈 안을 보지 않는다. 트리끼리 비교하는 명령(stash·커밋 diff, 파일 이력)은 서브모듈 작업 트리를 보지 않는다.
 - **대안 검토**: `--attr-source=<empty tree>`(git 2.41+)는 트리의 `.gitattributes`만 막고 `.git/info/attributes`는 막지 못한다 (확인). 주 대응이 될 수 없다.
 - **잔여 위험**:
   - global 설정에 정의된 필터(예: 사용자가 설치한 Git LFS)는 신뢰 범위라 그대로 실행된다. 의도된 동작이다.
@@ -97,7 +97,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 지문은 `config --list` 실행 **전에** 찍는다.
   - 저장소가 제어하는 `include.path`·`includeIf.*.path`가 있으면 캐시하지 않는다. 포함된 파일은 지문에 없고, 작업 트리의 추적 파일일 수도 있기 때문이다(fail closed).
   - ⌘R은 그 저장소의 검사 캐시를 모두 버린다. 검사가 막히면 그 저장소의 결과 캐시도 버린다.
-- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceCacheTests.testChangedWorktreeConfigurationIsInspectedAgain`·`testChangedSharedConfigurationIsInspectedAgain`·`testRepositoryLocalIncludeIsNeverServedFromTheCache` (캐시 후 설정이 바뀌면 다시 검사해 새 드라이버가 실행되지 않음. 대조군은 낡은 검사 결과로 실행됨, #88), `RepoConfigInspectorTests.testFingerprintSeesARewriteThatRestoresSizeAndModificationTime` (크기·mtime을 되돌려도 지문이 바뀜), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨), SEC-T4-07 (연결 워크트리의 `config.worktree`가 조회를 막으면 그 워크트리만 `.inspectionBlocked`이고 status가 실행되지 않음. 워크트리 전용 드라이버는 `testLinkedWorktreeOwnConfigurationIsInspected`, #226)
+- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터: status와 `worktreeDiff`(미스테이지·스테이지) → canary 없음, 인자만 빼면 실행되는 대조군, #239), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceCacheTests.testChangedWorktreeConfigurationIsInspectedAgain`·`testChangedSharedConfigurationIsInspectedAgain`·`testRepositoryLocalIncludeIsNeverServedFromTheCache` (캐시 후 설정이 바뀌면 다시 검사해 새 드라이버가 실행되지 않음. 대조군은 낡은 검사 결과로 실행됨, #88), `RepoConfigInspectorTests.testFingerprintSeesARewriteThatRestoresSizeAndModificationTime` (크기·mtime을 되돌려도 지문이 바뀜), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨), SEC-T4-07 (연결 워크트리의 `config.worktree`가 조회를 막으면 그 워크트리만 `.inspectionBlocked`이고 status가 실행되지 않음. 워크트리 전용 드라이버는 `testLinkedWorktreeOwnConfigurationIsInspected`, #226)
 - **상태**: 설계 완료
 
 ### T5. 전송 계층 명령 실행
