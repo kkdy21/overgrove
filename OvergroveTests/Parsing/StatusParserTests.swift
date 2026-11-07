@@ -38,18 +38,18 @@ final class StatusParserTests: XCTestCase {
     )!
 
     /// Real output (git 2.54.0) after a merge with both-added, both-modified, deleted-by-them and deleted-by-us.
-    private let realConflictOutput = Data(
-        ("# branch.oid 8ee7c30a2323ab1267e5af854d140e0806dc88a6\u{0}# branch.head trunk\u{0}"
-            + "u AA N... 000000 100644 100644 100644 0000000000000000000000000000000000000000 "
-            + "351be5bf6e17c59ea560546d69654115ecb2fd8d e45c9c2666d44e0327c1f9c239a74c508336053e both-added.txt\u{0}"
-            + "u UU N... 100644 100644 100644 100644 df967b96a579e45a18b8251732d16804b2e56a55 "
-            + "351be5bf6e17c59ea560546d69654115ecb2fd8d e45c9c2666d44e0327c1f9c239a74c508336053e both-modified.txt\u{0}"
-            + "u UD N... 100644 100644 000000 100644 df967b96a579e45a18b8251732d16804b2e56a55 "
-            + "351be5bf6e17c59ea560546d69654115ecb2fd8d 0000000000000000000000000000000000000000 deleted-by-them.txt\u{0}"
-            + "u DU N... 100644 000000 100644 100644 df967b96a579e45a18b8251732d16804b2e56a55 "
-            + "0000000000000000000000000000000000000000 e45c9c2666d44e0327c1f9c239a74c508336053e deleted-by-us.txt\u{0}")
-            .utf8
-    )
+    /// Typed as `String` so newer Swift type checkers do not time out on the long concatenation (#294).
+    private static let realConflictText: String =
+        "# branch.oid 8ee7c30a2323ab1267e5af854d140e0806dc88a6\u{0}# branch.head trunk\u{0}"
+        + "u AA N... 000000 100644 100644 100644 0000000000000000000000000000000000000000 "
+        + "351be5bf6e17c59ea560546d69654115ecb2fd8d e45c9c2666d44e0327c1f9c239a74c508336053e both-added.txt\u{0}"
+        + "u UU N... 100644 100644 100644 100644 df967b96a579e45a18b8251732d16804b2e56a55 "
+        + "351be5bf6e17c59ea560546d69654115ecb2fd8d e45c9c2666d44e0327c1f9c239a74c508336053e both-modified.txt\u{0}"
+        + "u UD N... 100644 100644 000000 100644 df967b96a579e45a18b8251732d16804b2e56a55 "
+        + "351be5bf6e17c59ea560546d69654115ecb2fd8d 0000000000000000000000000000000000000000 deleted-by-them.txt\u{0}"
+        + "u DU N... 100644 000000 100644 100644 df967b96a579e45a18b8251732d16804b2e56a55 "
+        + "0000000000000000000000000000000000000000 e45c9c2666d44e0327c1f9c239a74c508336053e deleted-by-us.txt\u{0}"
+    private let realConflictOutput = Data(StatusParserTests.realConflictText.utf8)
 
     /// Real output (git 2.54.0) for a submodule whose checked-out commit moved and whose files are dirty.
     /// `--ignore-submodules=dirty` hides the dirty part, so only `C` is reported.
