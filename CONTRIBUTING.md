@@ -83,6 +83,17 @@ Found something new? Open an issue with a template first (**Feature**, **Bug**, 
 `type` is one of `feat`, `fix`, `docs`, `test`, `chore`, `spike`, `refactor`, `perf`, `ci`.
 Example: `feat/12-worktree-list`.
 
+Start from an up-to-date `main`. To work on two issues at once (you may hold two claims), give each its own
+`git worktree` instead of switching branches in one folder (Overgrove will show you both side by side):
+
+```sh
+git fetch upstream
+git worktree add -b feat/12-worktree-list ../overgrove-wt/feat/12-worktree-list upstream/main
+```
+
+When you are done, `git worktree remove ../overgrove-wt/feat/12-worktree-list`. Each worktree builds into its own
+DerivedData folder, so builds and tests do not collide.
+
 ### 3. Commit
 
 We use [Conventional Commits](https://www.conventionalcommits.org/):
@@ -101,16 +112,30 @@ Refs #12
 - **Title**: Conventional Commits format, in English. It becomes the squash-commit title on `main`.
 - **Body**: fill in the template. It must contain `Closes #<n>`.
 - Keep PRs focused: one issue, one branch, one PR.
-- Parser changes must include tests. Security-relevant changes must include the `area:security` label and the security checklist.
+- Parser changes must include tests, ideally against real `git` output captured into a fixture. Security-relevant
+  changes must include the `area:security` label and the security checklist.
+- **New test IDs** (`SEC-Tn-xx` in the security review, `PAR-*` in the parsing spec) must not be taken already. Check
+  `main` *and* open PRs before picking the next number:
+
+  ```sh
+  gh pr list --repo kkdy21/overgrove --state open --json number --jq '.[].number' \
+    | xargs -I{} gh pr diff {} --repo kkdy21/overgrove | grep -o 'SEC-T15-[0-9]*' | sort -u
+  ```
+
+  `scripts/lint/check-sec-ids.sh` fails the build when an ID is defined twice. If `main` takes your number first,
+  renumber yours when you merge `main`.
 
 ### 5. Review and merge
 
 - Only the maintainer merges, and every contributor PR is reviewed first: it needs an approving review from the maintainer's account. Reviews may be AI-assisted (the `/pr-review` workflow), but the maintainer makes the call.
-- **No rebasing or force-pushing needed.** If `main` moves ahead, use the "Update branch" button or `gh pr update-branch <n>` (or merge `upstream/main`). Squash merge keeps `main` linear anyway.
+- **No rebasing or force-pushing.** If `main` moves ahead or your PR shows a conflict, merge it in: the "Update
+  branch" button, `gh pr update-branch <n>`, or `git merge upstream/main`. Run the tests again before you push the
+  merge. Squash merge keeps `main` linear anyway.
 - Keep "Allow edits by maintainers" enabled so the maintainer can update your branch.
 - Your **first** PR needs a maintainer to approve the workflow run before checks start; later PRs run automatically.
 
-- CI must pass: `gitleaks` (secret scan), `pr-policy` (title/body/branch rules), `build-test` (build and tests).
+- CI must pass. The required checks are `gitleaks` (secret scan), `pr-policy` (title, body, branch, claim, and
+  dependency rules), and `build-test`. See [What CI checks](#what-ci-checks) for everything `build-test` runs.
 - We merge with **squash merge** only. The branch is deleted after merge.
 - Review comments follow [Conventional Comments](https://conventionalcomments.org/) labels
   (`suggestion:`, `issue:`, `question:`, `nitpick:`, `praise:`) so the intent is clear.
@@ -153,8 +178,9 @@ Claude stops to ask when it needs a decision, a login, or `sudo`. It never merge
 
 ### Build and test
 
-Open `Overgrove.xcodeproj` and press ⌘U to run the tests (⌘R opens a placeholder window for now). CI runs the same
-tests with:
+Open `Overgrove.xcodeproj`, then press ⌘R to build and run the app and ⌘U to run the tests. Integration and security
+tests build throwaway repositories with `scripts/make-fixture-repo.sh` (`--malicious` adds harmless canary payloads).
+CI runs the same tests with:
 
 ```sh
 xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS' \
@@ -169,6 +195,31 @@ We use the `swift format` tool that ships with the Swift toolchain (no third-par
 swift format --in-place --recursive --configuration .swift-format Overgrove OvergroveTests
 swift format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
 ```
+
+### Before you push
+
+Run what CI runs, so the PR goes green the first time:
+
+```sh
+swift format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
+scripts/lint/check-forbidden-apis.sh
+scripts/lint/check-no-dependencies.sh
+scripts/lint/check-sec-ids.sh
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
+```
+
+If you changed design tokens or the app icon, regenerate them (`swift scripts/tokens/generate.swift`,
+`scripts/render-app-icon.sh`) and commit the result.
+
+### What CI checks
+
+| Check | What it runs |
+|---|---|
+| `gitleaks` (required) | Secret scan of the PR's commits |
+| `pr-policy` (required) | Conventional title, `Closes #n`, branch name, claim, and dependencies. A draft that builds on an unfinished issue fails here on purpose until that issue is done |
+| `build-test` (required) | Shell syntax of every script and hook; forbidden process APIs outside `Overgrove/Execution/`; no third-party dependencies; GitHub Actions pinned to full SHAs with minimal `permissions:`; secret-scanning settings; unique test IDs; the normal and malicious fixture repositories; `swift format lint`; design tokens and the app icon are up to date; the build, unit tests, and integration tests (including the minimum Git version) |
+| `codeql` | GitHub Actions workflow analysis |
+| `perf` | Opt-in performance tests; run by hand from the Actions tab or weekly on `main` |
 
 ### Rules that CI and reviewers enforce
 
