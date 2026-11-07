@@ -28,7 +28,7 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
      - 상한은 stdout 64MB·타임아웃 120초·취소다(`ProcessLimits.stream`). 스트림이 커밋 상한(10만)·출력 상한·타임아웃·실패로 일찍 멈추면, 그 뒤 페이지는 `--skip`으로 읽는다.
      - commit-graph 유무는 공통 git 디렉터리의 `objects/info/commit-graph` 또는 `commit-graphs/commit-graph-chain` 파일로 판정한다. 파일이 있으면 지금처럼 `--skip` 페이지(약 50ms)를 쓴다.
      - 화면(`GraphStore`)과 `GraphLoading` 인터페이스는 그대로다. ⌘R과 저장소 정리는 스트림을 멈추고 버린다.
-     - 스트림은 앱 전체에서 한 번에 하나만 돈다(조회 슬롯과 따로, `GitClient`의 stream 슬롯). 그래서 오래 걸리는 스트림이 status·diff 조회를 막지 않는다. 끝난 스트림의 커밋은 저장소 2개까지만 들고 있는다(PB-6).
+     - 스트림은 앱 전체에서 한 번에 하나만 돈다(조회 슬롯과 따로, `GitClient`의 stream 슬롯). 그래서 오래 걸리는 스트림이 status·diff 조회를 막지 않는다. 다른 저장소의 스트림을 시작할 때는 아직 끝나지 않은 스트림을 멈춘다. 그 스트림의 대기 중인 페이지는 `--skip`으로 읽고, 그 저장소를 다시 열면 스트림을 새로 시작한다. 그래서 새 저장소의 첫 페이지가 다른 저장소의 스트림 뒤에서(최대 120초) 기다리지 않는다. 끝난 스트림의 커밋은 저장소 2개까지만 들고 있는다(PB-6).
 4. 레인 색은 **레인이 처음 생길 때의 열 인덱스 mod 8**로 정하고, 그 레인이 끝날 때까지 바꾸지 않는다. 색은 디자인 토큰 `graph.lane.0`~`graph.lane.7`이다 ([design/design-tokens.md](../design/design-tokens.md)). 페이지를 이어 읽어도 기존 레인의 색은 유지된다.
 5. v0.1은 stash 노드를 그래프에 그리지 않는다. stash는 사이드바와 S-04에서만 보여 준다.
 6. WIP 행은 GraphEngine 밖에서, 선택한 워크트리의 HEAD 위에 가상 행으로 얹는다.

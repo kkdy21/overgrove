@@ -83,12 +83,19 @@ extension RepositoryService {
     static let maximumGraphStreams = 2
 
     /// The stream for `refSet`, started if there is none or the history moved (the old one is stopped).
+    ///
+    /// Streams share one slot (`GitClient`), so another repository's unfinished stream would make this one's first
+    /// page wait for it, up to its 120 s timeout. Starting a stream therefore stops other repositories' unfinished
+    /// streams: their waiting pages fall back to `--skip`, and they start again when their repository asks. Finished
+    /// streams stay (review of #254).
     private func graphStream(for repository: Repository, refSet: GraphRefSet) -> GraphStream {
         let id = repository.id
         if let index = graphStreams.firstIndex(where: { $0.repositoryID == id }) {
             if graphStreams[index].refSet == refSet { return graphStreams[index].stream }
             graphStreams.remove(at: index).stream.cancel()
         }
+        for entry in graphStreams where !entry.stream.hasEnded { entry.stream.cancel() }
+        graphStreams.removeAll { $0.stream.isCancelled }
         let stream = GraphStream()
         let context = makeContext(repository)
         stream.start { stream in await Self.readGraphStream(repository, into: stream, context) }

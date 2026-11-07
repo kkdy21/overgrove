@@ -35,6 +35,7 @@ final class GraphStream: @unchecked Sendable {
     private var end: End?
     private var waiters: [UUID: (needed: Int, continuation: CheckedContinuation<Void, Never>)] = [:]
     private var task: Task<Void, Never>?
+    private var cancelled = false
 
     init(maximum: Int = ReadOnlyGitCommand.maximumLimit) {
         self.maximum = maximum
@@ -52,10 +53,16 @@ final class GraphStream: @unchecked Sendable {
 
     /// Stops the process; waiting pages get `.beyond` (and read with `--skip` if they are still wanted).
     func cancel() {
-        let task = lock.withLock { self.task }
+        let task = lock.withLock {
+            cancelled = true
+            return self.task
+        }
         task?.cancel()
         finish(normally: false)
     }
+
+    /// `cancel()` was called: the stream stopped early on request, not because the history or git ended it.
+    var isCancelled: Bool { lock.withLock { cancelled } }
 
     /// A stdout chunk, in order. A parse error ends the stream early.
     func receive(_ chunk: Data) {

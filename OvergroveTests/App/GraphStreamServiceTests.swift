@@ -111,4 +111,41 @@ final class GraphStreamServiceTests: XCTestCase {
         _ = try await service.graphPage(model, skip: 0, limit: 10).get()
         XCTAssertEqual(logCalls(), 1, "a new stream after ⌘R")
     }
+
+    /// Review of #254: streams share one slot, so a stream for another repository stops this one's unfinished stream
+    /// instead of waiting behind it (up to its 120 s timeout). Its waiting page falls back to `--skip`.
+    func testAnotherRepositorysStreamDoesNotWaitBehindAnUnfinishedOne() async throws {
+        let other = try await GitTestRepository.make()
+        defer { other.remove() }
+        for index in 0..<12 {
+            try await other.git(["commit", "-q", "--allow-empty", "-m", "other \(index)"])
+        }
+        let otherModel = Repository(
+            rootURL: other.root, commonGitDirectoryURL: other.root.appendingPathComponent(".git"), isBare: false)
+        let release = markers.appendingPathComponent("release-stream")
+        let held = try executables.gitHoldingStream(
+            forwardingTo: repository.environment.executable, in: repository.root, release: release, markers: markers)
+        defer { FileManager.default.createFile(atPath: release.path, contents: nil) }
+        let service = RepositoryService(
+            client: GitClient(environment: GitEnvironment(executable: held, version: repository.environment.version)))
+        let first = await service.refresh(model, trigger: .user)
+        XCTAssertNotNil(first)
+        let second = await service.refresh(otherModel, trigger: .user)
+        XCTAssertNotNil(second)
+
+        let repository = model
+        let waiting = Task { try await service.graphPage(repository, skip: 0, limit: 10).get() }
+        let isHeld = await eventually(timeout: .seconds(10)) {
+            FileManager.default.fileExists(atPath: self.markers.appendingPathComponent("stream-held").path)
+        }
+        XCTAssertTrue(isHeld, "this repository's stream is running and holds the stream slot")
+
+        let started = ContinuousClock.now
+        let otherPage = try await service.graphPage(otherModel, skip: 0, limit: 10).get()
+        XCTAssertEqual(otherPage.commits.count, 10)
+        XCTAssertLessThan(ContinuousClock.now - started, .seconds(10), "not stuck behind the other stream")
+
+        let page = try await waiting.value
+        XCTAssertEqual(page.commits.count, 10, "the stopped stream's page came from --skip")
+    }
 }

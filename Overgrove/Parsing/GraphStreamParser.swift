@@ -8,7 +8,7 @@ import Foundation
 /// are returned, not stored.
 struct GraphStreamParser {
     private static let name = "LogParser"
-    private static let fieldsPerRecord = 7
+    private static let fieldsPerRecord = LogParser.graphFieldCount
 
     private var pending = Data()
     /// Bytes of `pending` already scanned for NULs, and the NULs among them since the last complete record.

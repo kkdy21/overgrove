@@ -59,7 +59,9 @@ enum LogParser {
     }
 
     private static let name = "LogParser"
-    private static let graphFieldCount = 7
+    /// Fields per graph record: `%H`, `%P`, `%an`, `%ae`, `%at`, `%s`, and the trailers of `ReadOnlyGitCommand.logFormat`,
+    /// each NUL-terminated with `-z`. `GraphStreamParser` cuts records with the same count (#254).
+    static let graphFieldCount = 7
     private static let detailFieldCount = 9
 
     private typealias Token = Data.SubSequence

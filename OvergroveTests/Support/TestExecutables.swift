@@ -30,6 +30,29 @@ struct TestExecutables {
             "printf 'first\\n'\nwhile [ ! -e '\(go.path)' ]; do sleep 0.02; done\nprintf 'second\\n'\nexit 0")
     }
 
+    /// Forwards to `git`, but holds the streamed graph (`--date-order` without `--skip`) run in `held` until `release`
+    /// exists, leaving `markers/stream-held` while it waits (#254: another repository's stream must not block).
+    func gitHoldingStream(forwardingTo git: URL, in held: URL, release: URL, markers: URL) throws -> URL {
+        try FileManager.default.createDirectory(at: markers, withIntermediateDirectories: true)
+        return try script(
+            "holding-git-\(UUID().uuidString)",
+            """
+            target="$(cd '\(held.path)' && pwd -P)"
+            stream=""
+            for arg in "$@"; do
+              case "$arg" in
+                --date-order) stream=1 ;;
+                --skip=*) stream="" ; skipped=1 ;;
+              esac
+            done
+            if [ -n "$stream" ] && [ -z "${skipped:-}" ] && [ "$(pwd -P)" = "$target" ]; then
+              : > '\(markers.path)/stream-held'
+              while [ ! -e '\(release.path)' ]; do sleep 0.02; done
+            fi
+            exec '\(git.path)' "$@"
+            """)
+    }
+
     /// A git stand-in for `GitClient` tests (#254): `log` prints one line and waits until `go` exists, so a stream stays
     /// running; anything else answers like `git version` at once.
     func streamingGit(go: URL) throws -> URL {
