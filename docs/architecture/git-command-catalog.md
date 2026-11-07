@@ -25,7 +25,8 @@
 
 ---
 
-- **검사 순서.** `version`, `probeRepository`, `configList`를 뺀 모든 명령은 `RepoConfigInspector` 결과(`RepoSafetyContext`)가 있어야 실행된다. `GitClient`가 강제한다.
+- **저장소 경로.** 메인 워크트리(`Repository.rootURL`)다. bare 저장소는 메인 워크트리가 없으므로(`rootURL == nil`, #222) 공통 git 디렉터리에서 실행한다. 워크트리 경로가 필요한 명령(`status`, `worktreeDiff`, `untrackedPreview`, `fileHistory`)은 `worktree list`가 나열하고 검증한 워크트리에서만 실행한다.
+- **검사 순서.** `version`, `probeGitDirectory`, `probeRepository`, `configList`를 뺀 모든 명령은 `RepoConfigInspector` 결과(`RepoSafetyContext`)가 있어야 실행된다. `GitClient`가 강제한다.
 
 ## 2. 공통 인자와 환경
 
@@ -110,14 +111,15 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | case | 서브커맨드 인자 배열 | 작업 디렉터리 | 파서 → 모델 | 위협 |
 |---|---|---|---|---|
 | `version` | `["version"]` | 중립 디렉터리(앱 임시 디렉터리) | `VersionParser` → 버전 값 | — |
-| `probeRepository` | `["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir", "--is-bare-repository"]` | 등록 경로 | 줄 단위 → `Repository` | T14 |
+| `probeGitDirectory` | `["rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir", "--is-bare-repository", "--is-inside-work-tree"]` | 등록 경로, bare 판별 시 공통 git 디렉터리 | `GitDirectoryProbeParser` → bare 여부와 git 디렉터리 (#222). `--show-toplevel`이 없어 bare 저장소와 `.git` 안에서도 성공한다 | T14 |
+| `probeRepository` | `["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir", "--is-bare-repository"]` | 등록 경로(워크트리 안일 때만), 나열된 워크트리 | 줄 단위 → `Repository` | T14 |
 | `configList` | `["config", "--list", "--show-scope", "-z", "--includes"]` | 저장소 경로 | `ConfigParser` → 보안 보고서, 원격 목록 | T4–T8 |
 | `worktreeList` | `["worktree", "list", "--porcelain", "-z"]` | 저장소 경로 | `WorktreeParser` → `[Worktree]` | — |
 | `status` | `["status", "--porcelain=v2", "-z", "--branch", "--show-stash", "--untracked-files=all", "--ignore-submodules=dirty"]` | 워크트리 경로 | `StatusParser` → `WorkingState`, `UpstreamStatus` | T1, T4 |
 | `refs` | `["for-each-ref", "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)", "refs/heads", "refs/remotes", "refs/tags"]` | 저장소 경로 | `RefParser` → `[Branch]`, `[Tag]` (로컬 브랜치의 ahead/behind 포함) | — |
 | `aheadBehind(local:upstream:)` | `["rev-list", "--left-right", "--count", "--end-of-options", "<upstream full ref>...<local full ref>"]` | 저장소 경로 | `RevListParser` → (behind, ahead) | T9 |
-| `stashList` | `["stash", "list", "-z", "--format=%gd%x00%H%x00%gs%x00%ct"]` | 저장소 경로 | `StashParser` → `[Stash]` | — |
-| `stashFiles(oid:)` | `["stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>"]` | 저장소 경로 | `NumstatParser` → `StashDetail` | T3, T9 |
+| `stashList` | `["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct", "refs/stash", "--"]` | 저장소 경로 | `StashParser` → `[Stash]`. `git stash list`가 내부에서 실행하는 reflog 조회와 같은 바이트를 내지만(Apple Git 2.50.1, git 2.54.0에서 비교), `stash list`와 달리 작업 트리가 필요 없어 bare 저장소에서도 동작한다(#222). `refs/stash`가 없으면 빈 출력이다 | T7 (공통 `-c log.showSignature=false`) |
+| `stashFiles(oid:)` | `["stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>"]` | 저장소 경로. `stash show`는 작업 트리가 필요하므로 bare 저장소에서는 검증된 링크 워크트리에서 실행한다(#222) | `NumstatParser` → `StashDetail` | T3, T9 |
 | `stashPatch(oid:path:fromUntracked:)` | 추적 파일: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>^1", "<oid>", "--", "<path>"]`<br>untracked 출신: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<oid>^3", "--", "<path>"]` | 저장소 경로 | 원문 패치 → S-10. `git stash show`는 경로 지정을 받지 않는다(#148 리뷰에서 확인) | T3, T9 |
 | `graphPage(skip:limit:)` | `["log", "--exclude=refs/stash", "--all", "--date-order", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "--skip=<n>", "-n", "<limit>"]` | 저장소 경로 | `LogParser` → `[CommitNode]`(co-author 포함, #160) → GraphEngine | T7 |
 | `commitMeta(oid:)` | `["log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B", "--end-of-options", "<oid>"]` | 저장소 경로 | `LogParser` → `CommitDetail` | T7, T9 |
