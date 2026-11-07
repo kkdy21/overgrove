@@ -24,7 +24,7 @@ struct RepoConfigInspection: Sendable, Equatable {
     /// must not be cached: `includeIf.onbranch:` depends on HEAD, and a repository-controlled include can read a file
     /// the fingerprint does not cover (#88, fail closed).
     let isCacheable: Bool
-    /// A promisor remote or `extensions.partialclone` exists in any scope (#212).
+    /// A promisor remote (by `promisor` or by a filter) or `extensions.partialclone` exists in any scope (#212, #317).
     let isPartialClone: Bool
     /// Remotes past `RepoConfigInspector.maximumRemotes`, counted but not listed (#262).
     var omittedRemotes = 0
@@ -286,14 +286,16 @@ enum RepoConfigInspector {
 }
 
 extension RepoConfigInspector {
-    /// `remote.<n>.promisor` set to anything but a clear false, or a non-empty `extensions.partialclone`, in any scope:
-    /// lazy fetch runs the repository's own uploadpack whichever scope made the remote a promisor (fail closed).
+    /// Every setting that makes git treat a remote as a promisor, in any scope: `remote.<n>.promisor` set to anything
+    /// but a clear false, any `remote.<n>.partialclonefilter` (git registers the remote for a filter alone), and any
+    /// `extensions.partialclone`, even empty (#317). Lazy fetch runs the repository's own uploadpack whichever scope
+    /// made the remote a promisor, so any of them counts (fail closed).
     static func isPartialCloneSetting(_ entry: ConfigEntry) -> Bool {
         switch (entry.section, entry.variable) {
         case ("remote", "promisor"):
             return !["false", "no", "off", "0"].contains((entry.value ?? "true").lowercased())
-        case ("extensions", "partialclone"):
-            return !(entry.value ?? "").isEmpty
+        case ("remote", "partialclonefilter"), ("extensions", "partialclone"):
+            return true
         default:
             return false
         }
