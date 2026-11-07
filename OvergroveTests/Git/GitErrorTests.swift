@@ -40,6 +40,13 @@ final class GitErrorTests: XCTestCase {
         guard case .notARepository = error else { return XCTFail("got \(String(describing: error))") }
     }
 
+    /// #157: only git's own line counts, not the same words inside another message (a file or ref name).
+    func testNoMergeBase() {
+        XCTAssertEqual(classify("fatal: no merge base found\n"), .noMergeBase)
+        XCTAssertNotEqual(classify("fatal: ambiguous argument 'fatal: no merge base found'\n"), .noMergeBase)
+        XCTAssertNotEqual(classify("remote: fatal: no merge base found\n"), .noMergeBase)
+    }
+
     func testDubiousOwnershipNeverSuggestsBypass() throws {
         // Format of git's safe.directory refusal.
         let stderr = """
@@ -278,7 +285,7 @@ final class GitErrorTests: XCTestCase {
             .hostKeyVerificationFailed(changed: false, detail: detail),
             .hostKeyVerificationFailed(changed: true, detail: detail), .accessDenied(detail: detail),
             .remoteNotFound(detail: detail), .networkUnavailable(detail: detail),
-            .partialCloneObjectMissing(detail: detail),
+            .partialCloneObjectMissing(detail: detail), .noMergeBase,
             .nonZeroExit(code: 1, detail: detail), .parseFailed(parser: "p", offset: 0),
         ]
         for error in cases {

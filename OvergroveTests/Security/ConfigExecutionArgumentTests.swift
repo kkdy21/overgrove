@@ -36,6 +36,9 @@ final class ConfigExecutionArgumentTests: XCTestCase {
             .commitPatch(oid, parent: nil, path: GitPath("a.txt")),
             .worktreeDiff(path: GitPath("a.txt"), staged: false), .worktreeDiff(path: GitPath("a.txt"), staged: true),
             .untrackedPreview(file), .fileHistory(path: GitPath("a.txt"), limit: 10),
+            .compareFiles(base: FullRefName("refs/heads/main")!, includeWorkingTree: true),
+            .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("a.txt"), includeWorkingTree: true),
+            .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 10),
         ]
     }
 
