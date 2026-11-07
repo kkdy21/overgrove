@@ -51,8 +51,9 @@ final class AutoFetchScheduler {
         loop = Task { [weak self] in
             while !Task.isCancelled {
                 do { try await sleep(interval) } catch { return }
-                guard !Task.isCancelled else { return }
-                self?.tick()
+                // The window's state is gone (closed without `stop`): end instead of sleeping forever.
+                guard !Task.isCancelled, let self else { return }
+                self.tick()
             }
         }
     }

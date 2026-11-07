@@ -86,6 +86,8 @@ final class FetchController {
 
     /// Starts fetching every remote, unless a fetch already runs (it keeps showing; interaction.md §4.2).
     func fetch() {
+        // Pressed while an auto fetch runs: it keeps running, but now ends like one the user asked for.
+        if status.isFetching { isAutomaticRun = false }
         start(automatic: false)
     }
 

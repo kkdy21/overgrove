@@ -30,7 +30,8 @@ struct MainWindowView: View {
             }
             // Coming back from an editor: re-query what is stale (interaction.md §4, `.automatic`). Auto fetch runs
             // only while the window is key (#79).
-            .onChange(of: controlActiveState) { _, active in
+            // `initial`: a window that opens already key counts as active (auto fetch ticks only while key).
+            .onChange(of: controlActiveState, initial: true) { _, active in
                 if active == .key { state.windowDidBecomeActive() }
                 state.autoFetch.windowActivityChanged(isActive: active == .key)
             }

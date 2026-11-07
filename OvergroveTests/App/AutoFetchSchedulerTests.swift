@@ -131,9 +131,10 @@ final class AutoFetchSchedulerTests: XCTestCase {
         scheduler.stop()
     }
 
-    /// Coming back after a long time fetches once; switching windows again within the interval does not, even when
-    /// the fetch failed (a failing remote is not retried on every switch).
-    func testActivationCatchUpIsBounded() async {
+    /// SEC-T15-14 (#79): auto fetch is bounded. Coming back after a long time fetches once; switching windows again
+    /// within the interval does not, even when the fetch failed (a failing remote is not retried on every switch).
+    /// Ticks never start a fetch on top of a running one (`testInactiveWindowAndRunningFetchAreSkipped`).
+    func testSECT15_14_ActivationCatchUpIsBounded() async {
         let (scheduler, settings, fetch, fetcher, _) = make()
         settings.autoFetch = true
         scheduler.windowActivityChanged(isActive: true)
@@ -172,6 +173,20 @@ final class AutoFetchSchedulerTests: XCTestCase {
         scheduler.update()
         for _ in 0..<5 { await Task.yield() }
         XCTAssertEqual(gate.pending, 0, "turning it off stops the timer")
+    }
+
+    /// Pressing Fetch while an auto fetch runs makes it end like a user's fetch (announced; security review of #79).
+    func testManualFetchDuringAnAutomaticOneIsNoLongerQuiet() async {
+        let (scheduler, settings, fetch, fetcher, _) = make()
+        settings.autoFetch = true
+        scheduler.windowActivityChanged(isActive: true)
+        await fetcher.waitForFetches(1)
+        XCTAssertTrue(fetch.isAutomaticRun)
+        fetch.fetch()
+        XCTAssertFalse(fetch.isAutomaticRun)
+        XCTAssertEqual(fetcher.count, 1, "no second fetch")
+        fetcher.release(0, with: .finished(failures: []))
+        await fetch.task?.value
     }
 
     func testNoRepositoryNoFetch() async {
