@@ -260,7 +260,7 @@ stateDiagram-v2
 - rotor 세 개를 넣었다. `Changes`는 그룹 헤더로 이동하고, 헤더는 기본 Headings rotor에도 나온다.
 - 선택 행은 `isSelected` trait를 가진다.
 - 인라인 아이콘 버튼은 `hitTarget()`(20pt)을 쓴다.
-- 대비 증가에서 컨트롤 테두리는 `Tokens.controlOutlineWidth`(1.5pt)와 `border.strong`을 쓴다.
+- 대비 증가에서 컨트롤 테두리는 `Tokens.controlOutlineWidth`(1.5pt)와 `border.strong`을 쓴다. 패널 안 칩·컨트롤은 `controlOutline(_:normal:increased:)`로 그린다(#304). 대상은 툴바 워크트리 칩, 사이드바 Filter 필드, `Changes | Worktree` 세그먼트, 태그 캡슐(`main worktree`, `submodule`, `WIP`, `renamed from …`, 이슈 상태·라벨), 이슈 번호 배지, AI 배지, 그래프 작성자 칩이다. 평소에 테두리가 없던 것은 평소 화면이 그대로다. 링크인 이슈 번호와 AI 배지는 원래 글자색 테두리를 굵기만 올린다. 그래프 ref 알약 테두리와 ref 연결선은 레인 색 100%로 그린다(평소 75%·55%).
 - 툴바의 워크트리 칩(`⌘J`), Terminal, Finder 버튼은 #73의 동작에 연결했다. Terminal은 `TerminalGuard`를 거친다.
 - 실제 VoiceOver 동작(읽는 순서, rotor 이동, 알림)은 [qa/checklist.md](../qa/checklist.md) QA-A11Y-01–11에서 사람이 확인한다(#96).
 - 새로고침이나 fetch 결과처럼 상태가 바뀌면 `AccessibilityNotification.Announcement`로 짧게 알린다. 예: `Fetch finished`, `Fetch failed: authentication`.
