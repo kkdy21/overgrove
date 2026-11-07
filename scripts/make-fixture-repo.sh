@@ -182,6 +182,8 @@ change README.md "chore: upstream-only change"
 git push -q upstream main
 git reset -q --hard HEAD~1
 git fetch -q upstream
+# upstream/HEAD symref. git 2.48 이상의 fetch만 자동으로 만들므로, 2.36 이상 어느 버전에서도 같은 ref가 되도록 직접 만든다 (#99)
+git remote set-head upstream main >/dev/null
 
 # 자격 증명이 섞인 원격 URL (마스킹 테스트용). 값은 런타임에 조합하며 실제 비밀이 아니다.
 cred_user="fixture-user"

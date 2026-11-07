@@ -38,7 +38,7 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
     /// URL (fixtures.md), shown masked. Every other row is applied.
     func testSECT11_04_NormalFixtureShowsOnlyTheMaskedRemote() async throws {
         let fixture = try await makeFixture()
-        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: fixture.environment)
         let (entry, loaded) = try await loadedEntry(fixture, environment: environment)
         let result = await inspector(environment: environment, parent: fixture.environment)
             .inspect(entry, of: repository(fixture))
@@ -68,7 +68,7 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
     /// empty: the load ran with the neutralization, and the inspector runs no command).
     func testMaliciousFixtureShowsNeutralizedKeys() async throws {
         let fixture = try await makeFixture(malicious: true)
-        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: fixture.environment)
         let (entry, _) = try await loadedEntry(fixture, environment: environment)
         let result = await inspector(environment: environment, parent: fixture.environment)
             .inspect(entry, of: repository(fixture))
@@ -128,7 +128,7 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
     /// not inspect it on its own (#240).
     func testWorktreeTheLoadDidNotInspectIsNotInspectedAgain() async throws {
         let fixture = try await makeFixture(malicious: true)
-        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: fixture.environment)
         let entry = WorktreeListing.Entry(
             worktree: worktree(fixture.repository), state: .notQueried(.foreignRepository), inspection: nil)
         let result = await inspector(environment: environment, parent: fixture.environment)

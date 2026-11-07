@@ -296,6 +296,9 @@ raw 레코드가 모두 나온 뒤 numstat 레코드가 나온다 (확인).
 - 기준 브랜치 비교(`compareFiles`, #157)의 `git diff --merge-base -z --raw --numstat -M --no-abbrev`도 같은 형식이라 `parseCommitFiles`를 그대로 쓴다.
   - `git diff --raw`는 객체 이름을 7자로 줄여 쓴다. 파서는 40·64자만 받으므로 명령에 `--no-abbrev`가 꼭 있어야 한다 (확인).
   - 작업 트리를 포함하면 작업 트리 쪽 객체 이름이 0으로 채워진다(`0000…`, 수정·추가 파일). 객체 이름은 형식만 검사하고 모델에 담지 않으므로 그대로 받는다 (Apple Git 2.50.1 확인).
+  - **작업 트리 쪽 레코드는 numstat 없이 나올 수 있다(#305, PAR-NUMSTAT-07).** 앱은 index를 쓰지 않는다(`diff.autoRefreshIndex=false`). 그래서 내용은 같고 mtime만 바뀐 파일이 index보다 오래되었으면(racily clean이 아니면) git이 해시하지 않고 raw에 넣는다(작업 트리 쪽 `0000…`, `M`). 그다음 diff 단계에서 바뀐 것이 없다고 보고 numstat은 내지 않는다(Apple Git 2.50.1 확인).
+    - 파서는 numstat과 짝이 맞지 않는 raw 레코드 가운데 **목적지 객체 이름이 0인 것만** 건너뛰고 결과에서 뺀다. 내용이 바뀌지 않았으므로 변경이 아니다.
+    - 커밋의 레코드(`diff-tree`, 객체 이름이 실제 값)는 지금처럼 numstat이 꼭 있어야 하고, 어긋나면 `parseFailed`다.
 
 ### 8.2 stash 파일 — `stash show --include-untracked --numstat -z`
 
@@ -321,6 +324,7 @@ numstat 레코드만 나온다. 형식은 §8.2와 같다(`status`는 `nil`). `p
 | PAR-NUMSTAT-04 | raw + numstat 합치기, 상태 문자 |
 | PAR-NUMSTAT-05 | stash untracked 부분 |
 | PAR-NUMSTAT-06 | 워크트리 줄 수: 충돌 경로 제외, 그 밖의 중복 거부, 잘림 |
+| PAR-NUMSTAT-07 | 작업 트리 쪽(목적지 `0000…`) raw 레코드는 numstat 없이 나오면 버림. 커밋 레코드는 여전히 짝 필수 (#305) |
 
 ---
 

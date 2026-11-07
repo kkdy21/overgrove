@@ -292,6 +292,8 @@ stateDiagram-v2
 
 상태 색 쌍 중 일부는 색각 이상 시뮬레이션에서 구분되지 않는다(초록 staged와 주황 unstaged 등). 그래서 위 보조 수단은 **선택 사항이 아니라 필수**다. 측정값은 [design-tokens.md §5](design-tokens.md#5-검증-결과)에 있다.
 
+**구현 상태 (#37)**: 상태 심볼, ahead/behind 화살표, 변경 종류 글자는 모델(`WorkingChangeGroup.symbol`, `WorktreeRow.Badge.symbol`·`text`, `FileChange.Status.code`)에서 정하고 외형·대비 값을 입력으로 받지 않는다. 그래서 Increase Contrast에서도 색만 High Contrast 변형으로 바뀌고 보조 수단은 그대로다. `NonColorCueTests`가 이 매핑을 고정하고, `TokensTests`는 4.5:1 검사 대상이 모든 상태 색과 레인 8색을 빠짐없이 덮는지 확인한다.
+
 ### 6.3 글자 크기와 확대
 
 - 모든 텍스트는 SwiftUI 텍스트 스타일(`Font.body`, `.callout` 등)로 지정한다. 포인트 크기를 직접 쓰지 않는다.

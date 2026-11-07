@@ -32,7 +32,8 @@ extension AppState {
         guard let repository else { return }
         clearSelectedFile()
         history.select(entry.id)
-        if graph.index(of: entry.id) != nil { graph.select(entry.id) }
+        // A commit the graph has not loaded leaves no other row highlighted (#311).
+        graph.select(graph.index(of: entry.id) != nil ? entry.id : nil)
         setCommitSelection(entry.id)
         commitDetail.show(entry.commit, in: repository.repository)
     }

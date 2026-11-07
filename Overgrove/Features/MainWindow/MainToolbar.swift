@@ -12,6 +12,8 @@ struct MainToolbar: ToolbarContent {
     let isAddingRepository: Bool
     let repositoryActions: RepositoryActions
     let focusedWorktree: FocusedWorktree?
+    /// The focused worktree's lane colour index, for the chip's tint (#300); `nil` keeps it neutral.
+    var focusedLaneIndex: Int?
     let isSidebarCollapsed: Bool
     let toggleSidebar: () -> Void
     /// ⌘R; `nil` (disabled) without a repository.
@@ -46,7 +48,7 @@ struct MainToolbar: ToolbarContent {
                 .foregroundStyle(Tokens.Color.textTertiary)
                 .accessibilityHidden(true)
 
-            WorktreeChip(worktree: focusedWorktree, onJumpToHead: onJumpToHead)
+            WorktreeChip(worktree: focusedWorktree, laneIndex: focusedLaneIndex, onJumpToHead: onJumpToHead)
         }
 
         ToolbarItemGroup(placement: .principal) {
@@ -170,9 +172,14 @@ struct ToolbarActionButton: View {
 }
 
 /// `[◆ feat/42-rate-limit ↑2 ⌘J]`: the focused worktree. Pressing it scrolls the graph to its HEAD (`⌘J`).
-/// TODO(#65): lane-color tint from the worktree's branch.
+///
+/// With the branch's lane colour (art-direction.md §3.4, #300) it is that colour at `focus-chip-fill-opacity` with a
+/// border at `focus-chip-border-opacity`, so the toolbar, the sidebar row, and the graph line read as one branch.
+/// Without one (detached HEAD, graph not loaded) it keeps the neutral control look.
 struct WorktreeChip: View {
     let worktree: FocusedWorktree?
+    /// The focused worktree's lane (`WorktreeRow.laneIndex`).
+    var laneIndex: Int?
     var onJumpToHead: (() -> Void)?
 
     @Environment(\.colorSchemeContrast) private var contrast
@@ -188,16 +195,15 @@ struct WorktreeChip: View {
                     if let ahead = worktree.aheadBadge {
                         Text(ahead).foregroundStyle(Tokens.Color.textSecondary)
                     }
-                    Text("⌘J").font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textTertiary)
+                    Text("⌘J").font(Tokens.Font.monoSmall).foregroundStyle(Self.hintColor(isTinted: lane != nil))
                 }
                 .padding(.horizontal, Tokens.Spacing.sm)
                 .padding(.vertical, Tokens.Spacing.xxs)
-                // Neutral until #65 supplies the branch's lane color (14% fill, 45% border, art-direction §3.4).
-                .background(Tokens.Color.surfaceControl, in: Capsule())
-                .overlay(
-                    Capsule().strokeBorder(
-                        contrast == .increased ? Tokens.Color.borderStrong : Tokens.Color.borderSeparator,
-                        lineWidth: Tokens.controlOutlineWidth(contrast)))
+                .background(
+                    lane.map { $0.opacity(Tokens.Graph.focusChipFillOpacity) } ?? Tokens.Color.surfaceControl,
+                    in: Capsule()
+                )
+                .overlay(Capsule().strokeBorder(border, lineWidth: Tokens.controlOutlineWidth(contrast)))
             }
             .buttonStyle(.borderless)
             .disabled(onJumpToHead == nil)
@@ -205,6 +211,25 @@ struct WorktreeChip: View {
             .accessibilityLabel(worktree.accessibilityLabel)
             .accessibilityHint("Jump to HEAD")
         }
+    }
+
+    private var lane: Color? {
+        laneIndex.map { Tokens.Color.graphLanes[$0 % Tokens.Color.graphLanes.count] }
+    }
+
+    /// Lane colour at the token opacity (full under Increase Contrast, like other lane marks, #304), else the control
+    /// outline.
+    private var border: Color {
+        if let lane {
+            return lane.opacity(Tokens.refMarkOpacity(contrast, normal: Tokens.Graph.focusChipBorderOpacity))
+        }
+        return contrast == .increased ? Tokens.Color.borderStrong : Tokens.Color.borderSeparator
+    }
+
+    /// The `⌘J` hint: `text.secondary` on a lane tint, where `text.tertiary` falls below 4.5:1 for some lanes in light
+    /// mode (colorcheck, #300); `text.tertiary` on the neutral chip.
+    static func hintColor(isTinted: Bool) -> Color {
+        isTinted ? Tokens.Color.textSecondary : Tokens.Color.textTertiary
     }
 }
 
