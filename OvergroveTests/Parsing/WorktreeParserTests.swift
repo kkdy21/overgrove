@@ -239,7 +239,19 @@ final class WorktreeParserTests: XCTestCase {
     func testPARWT09_RealGitUnbornWorktrees() async throws {
         let repository = try await GitTestRepository.make()
         defer { repository.remove() }
-        try await repository.git(["worktree", "add", "-q", "--orphan", "-b", "newbr", "wt-unborn"])
+        if repository.environment.version >= GitVersion(major: 2, minor: 42, patch: 0) {
+            try await repository.git(["worktree", "add", "-q", "--orphan", "-b", "newbr", "wt-unborn"])
+        } else {
+            // `worktree add --orphan` arrived in git 2.42 (#99). The same state by hand: a worktree on a commit kept
+            // outside any branch the main repository has, then its HEAD pointed at a branch that does not exist.
+            let tree = try await repository.git(["mktree"])
+            let treeID = String(decoding: tree.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+            let commit = try await repository.git(["commit-tree", "-m", "seed", treeID])
+            let commitID = String(decoding: commit.stdout, as: UTF8.self).trimmingCharacters(
+                in: .whitespacesAndNewlines)
+            try await repository.git(["worktree", "add", "-q", "--detach", "wt-unborn", commitID])
+            try await repository.git(["-C", "wt-unborn", "symbolic-ref", "HEAD", "refs/heads/newbr"])
+        }
         let result = try await repository.git(["worktree", "list", "--porcelain", "-z"])
         let worktrees = try WorktreeParser.parse(result.stdout).worktrees
         XCTAssertEqual(worktrees.count, 2)

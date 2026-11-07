@@ -26,7 +26,7 @@ enum TerminalGuard {
         var seen = Set<String>()
         // Every finding: what the app overrides or ignores for its own commands, the shell's git still applies.
         let keys = report.findings
-            .map { PathValidator.displayable(CredentialMasker.mask($0.entry.key)) }
+            .map { PathValidator.displayable(CredentialMasker.maskConfigKey($0.entry.key)) }
             .filter { seen.insert($0).inserted }
         reasons += keys.prefix(maximumListedKeys)
         let more = keys.count - min(keys.count, maximumListedKeys) + report.omittedFindings

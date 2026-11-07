@@ -17,7 +17,7 @@ final class GraphBenchmarkTests: XCTestCase {
     func test_PERF_03_graphFirstPageAndPaging() async throws {
         let root = try PerfRun.benchRepository()
         let parent = PerfRun.isolatedParentEnvironment
-        let environment = try await GitEnvironment.discover(parentEnvironment: parent)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: parent)
         let client = GitClient(environment: environment, parentEnvironment: parent)
         let listing = try await client.run(.configList, in: root, safety: .preInspection)
         let safety = try XCTUnwrap(RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)

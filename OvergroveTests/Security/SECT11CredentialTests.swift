@@ -48,7 +48,7 @@ final class SECT11CredentialTests: XCTestCase {
     /// themselves do not exist yet, so this checks the model they will render.
     func testSECT11_04_RemoteURLShownWithoutCredentials() async throws {
         let fixture = try await makeFixture()
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let listing = try await client.run(.configList, in: fixture.repository, safety: .preInspection)
         let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout))
