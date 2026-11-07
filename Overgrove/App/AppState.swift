@@ -120,6 +120,11 @@ final class AppState {
     var sidebarFilterFocusRequest = 0
     /// The last search over the loaded graph, reused until the query or the loaded pages change.
     @ObservationIgnored var searchCache: (key: SearchCacheKey, result: GraphSearchResult)?
+    /// The graph's author filter chip (#255): rows by other authors are dimmed; with a search both must match.
+    var authorFilter: GraphAuthorSelection = .all
+    /// The author chips and the picked chip's commits over the loaded pages, reused until the pages change.
+    @ObservationIgnored var authorSummaryCache: (key: GraphHistoryKey, summary: GraphAuthorSummary)?
+    @ObservationIgnored var authorFilterCache: (key: GraphHistoryKey, result: GraphAuthorFilterResult)?
     /// `⌘1`–`⌘4` asked for a panel (interaction.md §1.2, #73); the panel's list takes keyboard focus when it changes.
     var panelFocusRequest: PanelFocusRequest?
     /// The pasteboard and Finder for row menus and copy commands (#73); tests put a recorder here.
@@ -129,6 +134,8 @@ final class AppState {
     /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
     /// repository by `commitPanelLayout`.
     var panelLayout: PanelLayout = .default
+    /// The graph's column widths and visibility (#255), saved per repository by `commitGraphColumns`.
+    var graphColumns: GraphColumnLayout = .default
     /// Shown as the window's alert; cleared when dismissed.
     var alert: AppAlert?
     /// True while a picked folder is being checked.
@@ -234,6 +241,7 @@ final class AppState {
     func open(_ context: RepositoryContext) {
         repository = context
         panelLayout = layoutStore.layout(for: context.repository.id)
+        graphColumns = layoutStore.columns(for: context.repository.id)
         clearRepositoryData()
     }
 
@@ -269,6 +277,7 @@ final class AppState {
         inspectionGeneration += 1
         fetch.open(repository?.repository)
         searchText = ""
+        authorFilter = .all
         sidebarFilter = ""
         issuePanel.clear()
         graph.clear()

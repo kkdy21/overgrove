@@ -126,6 +126,11 @@ final class GraphStore {
         selected = oid
     }
 
+    /// The lane colour of a loaded commit (`color.graph.lane.<n>`): the sidebar tints worktree tiles with it (#255).
+    func laneIndex(of oid: ObjectID) -> Int? {
+        index(of: oid).map { rows[$0].colorIndex }
+    }
+
     /// The view showed row `index`: load the next page when it is near the end.
     func rowAppeared(_ index: Int) {
         guard index >= rows.count - Self.prefetchDistance else { return }
