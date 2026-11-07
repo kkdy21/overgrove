@@ -1,6 +1,6 @@
 # GitHub 저장소 설정
 
-> 상태: Accepted · 관련: [ADR-0012](../adr/0012-solo-maintainer-merge-policy.md), [`scripts/github/`](../../scripts/github/)
+> 상태: Accepted · 관련: [ADR-0012](../adr/0012-solo-maintainer-merge-policy.md), [ADR-0016](../adr/0016-board-status-automation.md), [`scripts/github/`](../../scripts/github/)
 
 저장소 설정은 **스크립트로 재현할 수 있게** 관리한다. 웹 UI에서 바꾼 설정은 스크립트와 이 문서에 반영한다.
 
@@ -11,6 +11,8 @@
 | `scripts/github/apply-repo-settings.sh` | 기능, 머지 정책, 토픽, 보안 기능, Actions 제한, 마일스톤, 라벨, 룰셋 | 저장소 admin |
 | `scripts/github/sync-labels.sh [--prune]` | `.github/labels.json` → 라벨 생성·갱신(·삭제) | repo |
 | `scripts/github/setup-project.sh` | Projects v2 보드 생성, 필드, Status 옵션, 저장소 연결 | `project` scope (`gh auth refresh -s project`) |
+| `scripts/github/board-sync.sh {issue <n>\|pr <n>\|dependents <n>\|reconcile} [--dry-run]` | 보드 Status를 이슈·PR·선점 상태에 맞춘다(ADR-0016). 워크플로우가 쓰고, 토큰이 없을 때는 메인테이너가 직접 돌린다 | `project` scope |
+| `scripts/github/board-sync-rules.test.sh` | 보드 Status 규칙(`board-status.jq`)을 가짜 이슈로 검사한다. CI `build-test`에서도 돈다 | 없음(네트워크 안 씀) |
 
 모든 스크립트는 여러 번 실행해도 결과가 같다(idempotent).
 
@@ -68,6 +70,23 @@
 | `claim-expiry.yml` | 30분마다, 수동 실행(dry-run 가능) | `issues: write` | PR 없이 5시간 지난 선점 해제, 담당자 없는 이슈에 PR 선착순 지정 (`scripts/github/claim-expiry.sh`) |
 | `dependency-closed.yml` | 메인테이너가 이슈를 닫을 때 | `pull-requests: write` | 그 이슈에 의존하는 열린 PR에 댓글로 알림(완료면 main 합치기 안내, 완료가 아니면 메인테이너 결정 요청) |
 
+### 보드 자동화 (ADR-0016)
+
+| 워크플로우 | 트리거 | 권한 | 하는 일 |
+|---|---|---|---|
+| `board-sync.yml` | 이슈 이벤트(열림·닫힘·다시 열림·담당자·라벨·마일스톤·본문 수정), `pull_request_target`(열림·다시 열림·Ready·Draft 전환·닫힘), 수동 실행(전체 정리, dry-run 가능) | `contents: read` + `PROJECT_TOKEN` | 그 이슈(PR이면 브랜치 이름의 이슈)의 Status를 다시 계산한다. 닫힌 이슈면 그 이슈에 의존하던 이슈도 다시 계산한다. 메인테이너가 아닌 사람의 이벤트는 동시성 그룹 하나를 공유한다 |
+| `issue-claim.yml` (마지막 단계) | `/claim`·`/unclaim` 처리 직후 | `PROJECT_TOKEN` | 그 이슈의 Status를 다시 계산한다 |
+| `claim-expiry.yml` (마지막 단계) | 30분마다 | `PROJECT_TOKEN` | 보드 전체를 다시 맞춘다(`reconcile`) |
+
+- 규칙은 [development-workflow.md §2.1](development-workflow.md#21-보드-자동화), 로직은 `scripts/github/board-sync.sh`에 있다.
+- 선점 봇의 담당자 변경은 `GITHUB_TOKEN`으로 만든 이벤트라 `board-sync.yml`을 실행하지 않는다. 그래서 두 봇이 스크립트를 직접 부른다.
+- `PROJECT_TOKEN`이 없으면 세 곳 모두 경고만 남기고 성공한다. 그동안은 메인테이너가 로컬에서 맞춘다.
+  ```sh
+  scripts/github/board-sync.sh reconcile --dry-run   # 바뀔 내용만 보기
+  scripts/github/board-sync.sh reconcile             # 적용 (gh에 project scope 필요)
+  ```
+- `pull_request_target`에서도 기본 브랜치만 체크아웃하고 PR 코드는 실행하지 않는다. 이벤트에서는 이슈·PR 번호만 쓴다.
+
 세 워크플로우는 PR 코드를 체크아웃하거나 실행하지 않는다. 댓글 본문은 `env`로만 받아 첫 단어를 고정 문자열과 비교한다. `dependency-closed.yml`은 PR·이슈 본문을 API로 읽어 이슈 번호만 뽑는다.
 
 ### 마일스톤
@@ -79,11 +98,19 @@
 API로 설정할 수 없어서 한 번은 직접 해야 한다.
 
 1. **Projects 보드 뷰**: "Overgrove Roadmap" 프로젝트 → New view → Board → Group by **Status**. 열 순서는 Backlog → Ready → In progress → In review → Done.
-2. **보드 자동화**: 프로젝트 → Workflows에서 아래 세 가지를 설정한다.
-   - "Auto-add to project": 필터 `repo:kkdy21/overgrove is:issue,pr`
-   - "Item closed" → Done
-   - "Pull request merged" → Done
-3. **Discussions 카테고리**: 기본 카테고리를 그대로 쓴다([discussions.md](discussions.md)). 첫 공지글 하나를 Announcements에 고정(pin)한다.
+2. **보드 자동화 토큰 `PROJECT_TOKEN`** (ADR-0016). 이것이 없으면 보드 Status가 자동으로 바뀌지 않는다.
+   0. **권장: 전용 머신 계정.** 새 GitHub 계정(예: `overgrove-board-bot`)을 만들고, 보드 #4 → ⋯ → Settings → Manage access에서 그 계정을 **Write**로 초대한다. 아래 1~2단계를 그 계정으로 한다. 토큰이 새도 영향이 보드 #4로 한정되고, API 한도도 메인테이너 계정과 분리된다. 메인테이너 계정으로 만들면 메인테이너가 쓸 수 있는 모든 보드(조직 보드 포함)가 토큰의 범위가 된다.
+   1. github.com → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → Generate new token (classic)
+   2. Note `overgrove board-sync`, Expiration 90일, scope는 **`project` 하나만** 고른다(`repo`, `workflow`는 고르지 않는다)
+   3. 토큰을 등록한다. 값은 화면에 붙여 넣기만 하고 파일이나 채팅에 남기지 않는다.
+      ```sh
+      gh secret set PROJECT_TOKEN --repo kkdy21/overgrove   # 실행 후 토큰을 붙여 넣는다
+      ```
+   4. 확인: Actions → `board-sync` → Run workflow(dry-run 켬) → 로그 끝에 `checked N issue(s)`가 나오면 된다
+   5. 만료 1주 전에 같은 방법으로 새 토큰을 만들어 덮어쓴다. 메인테이너의 `gh` 로그인 토큰을 넣지 않는다(권한이 너무 넓다)
+3. **보드 내장 Workflows**: `board-sync`가 같은 일을 하므로 켜지 않아도 된다. 켠다면 "Item closed → Done"만 둔다. "Auto-add to project"는 PR까지 넣지 않도록 `is:issue`로 둔다.
+4. **"Ready to claim" 뷰 필터**: `status:Ready no:assignee -label:"type:epic"`. Status 동기화가 잠시 늦어도 담당자가 있는 이슈는 뷰에서 빠진다.
+5. **Discussions 카테고리**: 기본 카테고리를 그대로 쓴다([discussions.md](discussions.md)). 첫 공지글 하나를 Announcements에 고정(pin)한다.
 
 ## 4. 확인 방법
 

@@ -31,6 +31,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Process: the project board follows issues, pull requests, and claims automatically (`board-sync`, ADR-0016), and
+  running several maintainer sessions in parallel has explicit rules (separate worktrees, assign before starting).
+
 - Design: the main window uses its own panel theme — three rounded, resizable, independently scrolling panels with
   grab handles, an original high-chroma lane palette, avatar graph nodes, and a Refs column. Adds the art direction
   document and ADR-0014, re-validates every color token, and redraws all mockups (#166).

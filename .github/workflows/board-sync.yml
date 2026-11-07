@@ -1,0 +1,70 @@
+# Keeps the project board Status in step with issues and pull requests (ADR-0016). Logic: scripts/github/board-sync.sh
+#
+# Security notes (T17):
+#   - Uses PROJECT_TOKEN, a classic personal access token with only the `project` scope. Without it the job logs a
+#     warning and changes nothing (docs/process/github-settings.md §3).
+#   - `pull_request_target` runs this file from the default branch with secrets, so it checks out the default branch
+#     (trusted code) and never the pull request's code. Only issue and PR numbers from the event are used; titles and
+#     bodies are read through the API and only scanned for issue numbers.
+#   - Events made with GITHUB_TOKEN (the claim bots) do not start workflows. issue-claim.yml and claim-expiry.yml run
+#     the same script themselves, and claim-expiry.yml reconciles the whole board every 30 minutes.
+#   - Abuse limits: events from anyone but the owner share one concurrency group (one running, one pending), so issue or
+#     PR spam cannot run many syncs at once. PR body edits are not a trigger; the 30-minute reconcile picks them up.
+#     A pull request only moves the issue named in its `<type>/<n>-<slug>` branch, and only if its author holds the
+#     issue or nobody does (scripts/github/board-status.jq).
+name: board-sync
+
+on:
+  issues:
+    types: [opened, reopened, closed, assigned, unassigned, labeled, unlabeled, milestoned, demilestoned, edited]
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, converted_to_draft, closed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only print what would change"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: ${{ github.event.sender.login == github.repository_owner && format('board-sync-{0}', github.event.issue.number || github.event.pull_request.number || 'reconcile') || 'board-sync-external' }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Sync board status
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          ISSUE: ${{ github.event.issue.number }}
+          PR: ${{ github.event.pull_request.number }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::warning title=board-sync::PROJECT_TOKEN is not set, so the board was not updated (docs/process/github-settings.md §3)."
+            exit 0
+          fi
+          case "$EVENT" in
+            issues)
+              # A closed issue also re-checks the issues that depend on it.
+              scripts/github/board-sync.sh issue "$ISSUE" $DRY_RUN
+              ;;
+            pull_request_target)
+              scripts/github/board-sync.sh pr "$PR" $DRY_RUN
+              ;;
+            workflow_dispatch)
+              scripts/github/board-sync.sh reconcile $DRY_RUN
+              ;;
+          esac

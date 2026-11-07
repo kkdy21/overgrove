@@ -270,11 +270,19 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 외부 패키지 0개 (ADR-0006)
   - GitHub Actions는 전체 커밋 SHA로 고정하고 Dependabot으로 갱신한다.
   - 워크플로우 `permissions:`는 최소로 둔다.
-  - `pull_request_target`은 쓰지 않는다.
+  - `pull_request_target`은 보드 동기화(`board-sync.yml`, ADR-0016) 한 곳에서만 쓴다. 지키는 조건은 다음과 같다.
+    - 기본 브랜치만 체크아웃하고(`persist-credentials: false`) PR 코드는 체크아웃하거나 실행하지 않는다.
+    - 이벤트에서는 이슈·PR 번호만 쓴다.
+    - 메인테이너가 아닌 사람의 이벤트는 동시성 그룹 하나를 공유한다.
+    - PR은 자기 브랜치 이름의 이슈를, 그 이슈를 가진 사람이 낸 경우에만 움직인다.
+  - 보드 토큰 `PROJECT_TOKEN`은 `project` scope 하나만 가진 classic token이다. 보드 #4에만 쓰기 권한이 있는 전용 머신 계정의 토큰을 권장한다.
   - PR 제목·본문 같은 신뢰할 수 없는 값은 `env:`로만 넘긴다.
   - CI의 gitleaks는 버전과 SHA-256을 고정해 받는다.
-- **잔여 위험**: Apple 툴체인과 GitHub 러너 이미지는 신뢰한다.
-- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정), SEC-T17-03 (Dependabot 설정 존재)
+- **잔여 위험**:
+  - Apple 툴체인과 GitHub 러너 이미지는 신뢰한다.
+  - 보드 토큰이 새면 그 계정이 쓸 수 있는 모든 Projects 보드가 바뀔 수 있다. 메인테이너 계정 토큰이면 메인테이너가 속한 조직의 보드도 포함된다. 저장소 코드와 이슈는 영향이 없다.
+  - `pull_request_target`은 첫 기여자 승인 없이 실행된다. 외부 사용자가 이벤트를 많이 만들면 토큰 계정의 API 한도를 쓸 수 있다. 공유 동시성 그룹으로 상한을 둔다.
+- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정), SEC-T17-03 (Dependabot 설정 존재), 보드 상태 규칙은 `scripts/github/board-sync-rules.test.sh`(CI `build-test`)
 - **상태**: 적용됨 (저장소 셋업: 워크플로우와 Dependabot). SEC-T17-01은 Phase 3에서 CI에 추가
 
 ### T18. 공개 저장소에 비밀 정보·개인 경로 커밋
@@ -426,7 +434,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | `fetch --no-auto-maintenance` 도입 버전 | 2.29 전후로 추정 | 쓰지 않음 (config로 대체) |
 | 실제 HTTPS fetch에서 `sslVerify` 덮어쓰기 효과 | `--get-urlmatch` 결과로 추정 | 자체 서명 인증서 로컬 서버 통합 테스트 (선택) |
 | `ssh -o BatchMode=yes`가 호스트 키 확인 프롬프트를 막는지 | ssh 문서상 그렇다고 추정 | 수동 QA |
-| unborn 브랜치 워크트리의 `worktree list` 출력 | `HEAD` 0 OID로 추정 | PAR-WT-09 |
+| unborn 브랜치 워크트리의 `worktree list` 출력 | **확인됨**: `HEAD` 0 OID + `branch` (Apple Git 2.54.0) | PAR-WT-09 (실제 git 테스트 포함) |
 | 서브모듈 내부 `filter`가 상위 status에서 실행되는 조건 | 재귀하면 실행 가능하다고 추정 (fsmonitor는 확인) | SEC-T4-05 (재귀를 막으므로 결과와 무관하게 안전) |
 
 ---

@@ -1,5 +1,7 @@
 # Releases expired issue claims and applies "first PR wins" (ADR-0013). Logic: scripts/github/claim-expiry.sh
 # Runs on the default branch only (schedule), checks out trusted base-repository code, never PR code.
+# Then reconciles the project board (ADR-0016) with PROJECT_TOKEN (project scope only), because claims released here
+# use GITHUB_TOKEN and do not start board-sync.yml.
 name: claim-expiry
 
 on:
@@ -39,3 +41,16 @@ jobs:
           MAX_CLAIMS: "2"
           DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: scripts/github/claim-expiry.sh $DRY_RUN
+      - name: Reconcile board status
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::notice title=board-sync::PROJECT_TOKEN is not set, so the board was not reconciled."
+            exit 0
+          fi
+          scripts/github/board-sync.sh reconcile $DRY_RUN
