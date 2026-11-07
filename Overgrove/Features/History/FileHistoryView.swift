@@ -173,7 +173,7 @@ private struct FileHistoryRowView: View {
                         .lineLimit(1)
                         .truncationMode(.head)
                         .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
-                        .overlay(Capsule().strokeBorder(Tokens.Color.borderSeparator))
+                        .controlOutline(Capsule())
                         .help("renamed from \(renamedFrom)")
                 }
                 if row.text.isAIAssisted { AIBadge() }

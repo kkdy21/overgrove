@@ -11,11 +11,18 @@ struct RepositoryOverview: Sendable, Equatable {
         /// (#240). Set for `.loaded` and `.notQueried(.inspectionBlocked)`; `nil` when the worktree was never
         /// inspected (prunable, foreign, a probe that failed, …). S-05 shows it instead of inspecting again.
         let inspection: RepoConfigInspection?
+        /// How long `git status` took (the command and its parsing), for the slow-status hint (#168). `nil` when
+        /// status did not run.
+        var statusDuration: Duration?
 
-        init(worktree: Worktree, status: Status, inspection: RepoConfigInspection? = nil) {
+        init(
+            worktree: Worktree, status: Status, inspection: RepoConfigInspection? = nil,
+            statusDuration: Duration? = nil
+        ) {
             self.worktree = worktree
             self.status = status
             self.inspection = inspection
+            self.statusDuration = statusDuration
         }
     }
 

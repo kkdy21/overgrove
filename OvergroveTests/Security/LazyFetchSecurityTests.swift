@@ -141,7 +141,7 @@ final class LazyFetchSecurityTests: XCTestCase {
     // MARK: - Fetch (security review of #213)
 
     /// During fetch, a lazy fetch for a missing delta base would run the repository's uploadpack, and only
-    /// GIT_NO_LAZY_FETCH can turn it off. On older git the app refuses to fetch a partial clone at all (SEC-T5-17).
+    /// GIT_NO_LAZY_FETCH can turn it off. On older git the app refuses to fetch a partial clone at all (SEC-T5-18).
     func testOldGitRefusesToFetchAPartialClone() async throws {
         let uploadPack = try executables.canaryProgram(named: "uploadpack", canary: canary)
         try await partial.git(["config", "remote.origin.uploadpack", uploadPack.path])
@@ -184,7 +184,7 @@ final class LazyFetchSecurityTests: XCTestCase {
     }
 }
 
-/// SEC-T5-17 (#317, security review of #213): during fetch, received objects that use a blob the partial clone lacks
+/// SEC-T5-18 (#317, security review of #213): during fetch, received objects that use a blob the partial clone lacks
 /// as a delta base make git lazy-fetch that blob. The lazy fetch does not get the app's pinned `--upload-pack`, so it
 /// runs the repository's own `remote.<n>.uploadpack`. Only a git whose `GIT_NO_LAZY_FETCH` covers this path stops it,
 /// so the app fetches a partial clone only from `GitEnvironment.lazyFetchControlVersion` on.
@@ -330,18 +330,18 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
     }
 
     /// A small pack: git resolves the delta in `unpack-objects`.
-    func testSECT5_17_FetchRunsNoRepositoryUploadPack_unpackObjects() async throws {
+    func testSECT5_18_FetchRunsNoRepositoryUploadPack_unpackObjects() async throws {
         try await assertFetchRunsNoUploadPack(unpackLimit: nil, path: "unpack-objects")
     }
 
     /// The repository's own `fetch.unpackLimit` sends every pack through `index-pack`, which looks up delta bases in
     /// another way.
-    func testSECT5_17_FetchRunsNoRepositoryUploadPack_indexPack() async throws {
+    func testSECT5_18_FetchRunsNoRepositoryUploadPack_indexPack() async throws {
         try await assertFetchRunsNoUploadPack(unpackLimit: "1", path: "index-pack")
     }
 
     /// #317: a clone whose remote is a promisor only through its filter is a partial clone too.
-    func testSECT5_17_FetchRunsNoRepositoryUploadPack_filterOnly() async throws {
+    func testSECT5_18_FetchRunsNoRepositoryUploadPack_filterOnly() async throws {
         try await assertFetchRunsNoUploadPack(unpackLimit: nil, path: "filter only, unpack-objects", filterOnly: true)
         try clearCanaries()
         for name in ["control", "app"] {
@@ -352,7 +352,7 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
 
     /// #317, defense in depth: a `.promisor` pack marks a partial clone even when no setting git reads names a promisor
     /// remote, so the gate does not depend only on following git's list of promisor settings.
-    func testSECT5_17_PromisorPackAloneClosesTheGate() async throws {
+    func testSECT5_18_PromisorPackAloneClosesTheGate() async throws {
         let plain = try await GitTestRepository.make()
         defer { plain.remove() }
         try plain.write("a.txt", "a\n")
@@ -421,7 +421,7 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
     /// to 2.39.4, 2.40.2, 2.41.1, 2.42.2, and 2.43.4. 2.44.0 predates the variable, and 2.45.0 has it only for other
     /// lazy fetches. Comparing versions, the newest-line release 2.45.1 is the threshold; older fixed releases are
     /// refused too, on the safe side.
-    func testSECT5_17_ControlVersionBoundary() async throws {
+    func testSECT5_18_ControlVersionBoundary() async throws {
         let clone = try await freshPartialClone("boundary", unpackLimit: nil)
         let (safety, repository) = (clone.safety, clone.repository)
         XCTAssertEqual(GitEnvironment.lazyFetchControlVersion, GitVersion(major: 2, minor: 45, patch: 1))

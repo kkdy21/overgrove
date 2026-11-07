@@ -232,6 +232,7 @@ struct SidebarFilterField: View {
         .padding(.horizontal, Tokens.Spacing.sm)
         .frame(height: Tokens.Size.rowSidebar)
         .background(Tokens.Color.surfaceControl, in: RoundedRectangle(cornerRadius: Tokens.Radius.md))
+        .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.md), normal: nil)
         .onChange(of: focusRequest) { _, _ in isFocused = true }
     }
 }

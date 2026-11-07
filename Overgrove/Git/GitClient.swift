@@ -167,7 +167,7 @@ actor GitClient {
         }
         // During fetch, a lazy fetch (e.g. for a missing delta base) runs the repository's own uploadpack, which the
         // pinned --upload-pack does not cover. Only GIT_NO_LAZY_FETCH turns it off (lazyFetchControlVersion); fetch keeps
-        // its transports, so on older git a partial clone fails closed (security review of #213, SEC-T5-17).
+        // its transports, so on older git a partial clone fails closed (security review of #213, SEC-T5-18).
         // A `.promisor` pack is an independent sign of a partial clone, so the gate does not rest only on the list of
         // settings that make a remote a promisor (#317, defense in depth).
         let isPartialClone =

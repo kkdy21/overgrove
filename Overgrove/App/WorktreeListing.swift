@@ -32,11 +32,28 @@ struct WorktreeListing: Sendable, Equatable {
         let state: State
         /// The worktree's configuration inspection from the load (`RepositoryOverview.Entry.inspection`, #240).
         let inspection: RepoConfigInspection?
+        /// How long its last `git status` took (#168).
+        var statusDuration: Duration?
 
-        init(worktree: Worktree, state: State, inspection: RepoConfigInspection? = nil) {
+        init(
+            worktree: Worktree, state: State, inspection: RepoConfigInspection? = nil, statusDuration: Duration? = nil
+        ) {
             self.worktree = worktree
             self.state = state
             self.inspection = inspection
+            self.statusDuration = statusDuration
+        }
+
+        /// The slow-status hint for this worktree, if its last status was slow (#168). Without S-05's hook check it
+        /// never offers a command (the status bar shows only its text).
+        var slowStatusHint: SlowStatusHint? {
+            slowStatusHint(hookExecutables: nil)
+        }
+
+        /// - Parameter hookExecutables: S-05's hooks check; `nil` when unknown, which offers no command.
+        func slowStatusHint(hookExecutables: [String]?) -> SlowStatusHint? {
+            let clean = (inspection?.report.findings.isEmpty ?? false) && (hookExecutables?.isEmpty ?? false)
+            return SlowStatusHint(duration: statusDuration, isConfigurationClean: clean)
         }
     }
 
@@ -67,7 +84,9 @@ extension WorktreeListing {
     init(overview: RepositoryOverview) {
         self.init(
             entries: overview.entries.map {
-                Entry(worktree: $0.worktree, state: Self.state($0.status), inspection: $0.inspection)
+                Entry(
+                    worktree: $0.worktree, state: Self.state($0.status), inspection: $0.inspection,
+                    statusDuration: $0.statusDuration)
             },
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
