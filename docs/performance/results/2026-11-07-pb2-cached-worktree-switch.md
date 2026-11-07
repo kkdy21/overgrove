@@ -11,7 +11,7 @@ PB-2는 사이드바에서 다른 워크트리를 고른 시점부터 상세 패
 
 [PB-1 측정](2026-11-07-pb1-parallel-worktree-queries.md)과 같다. Apple M1 8코어, git 2.50.1, `make-bench-repo.sh --commit-graph`(커밋 약 8.6만, 파일 1만, 워크트리 10개). 다른 에이전트 세션들이 같은 장비에서 빌드·테스트를 함께 돌렸다. 측정 테스트는 `OvergroveTests/Performance/RepositoryOverviewBenchmarkTests.testPB2_CachedWorktreeSwitch`이고, `TEST_RUNNER_OVERGROVE_BENCH_REPO=<dir>`일 때만 실행된다.
 
-## 결과 (3회)
+## 결과 (5회: #226 병합 전 3회, 병합 후 2회)
 
 | 구간 | p50 | p95 | 예산 |
 |---|---|---|---|
@@ -20,7 +20,7 @@ PB-2는 사이드바에서 다른 워크트리를 고른 시점부터 상세 패
 
 - **캐시 읽기는 PB-2 예산의 0.02% 미만이다.** 100ms는 사실상 전부 뷰 갱신에 쓸 수 있다. 화면이 생기면(#65) 첫 프레임까지를 다시 잰다.
 - **선택 새로고침은 35ms 안이다.** 실행하는 git은 probe(`rev-parse`)와 `status` 두 개다. 캐시가 없으면 여기에 `config --list`, `worktree list`, `for-each-ref`, `stash list`가 더해진다.
-- 같은 실행에서 PB-1(첫 로드, 캐시 없음)은 기본 한도 8에서 p95 141–165ms였다. 이제 저장소 자체의 설정 검사(§3.2 3단계)도 포함한다.
+- 같은 실행에서 PB-1(첫 로드, 캐시 없음)은 기본 한도 8에서 p95 140–165ms였다. 이제 저장소 자체의 설정 검사(§3.2 3단계)와 워크트리 소속 확인(#226, 파일 시스템 검사)도 포함한다. 소속 확인을 더해도 차이는 잡음 안이었다.
 
 ## 결정
 
