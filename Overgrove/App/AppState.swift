@@ -229,6 +229,8 @@ final class AppState {
     /// The gh check in flight; tests await it.
     private(set) var ghCheckTask: Task<Void, Never>?
     private var ghCheckGeneration = 0
+    /// A gh login check is running.
+    private(set) var isCheckingGitHub = false
     /// TODO(#74): drives graph search.
     var searchText = ""
     /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
@@ -352,17 +354,20 @@ final class AppState {
         ghCheckGeneration += 1
         let generation = ghCheckGeneration
         let checker = ghChecker
+        isCheckingGitHub = true
         ghCheckTask = Task { [weak self] in
             let status = await checker.authStatus()
             guard let self, generation == self.ghCheckGeneration, !Task.isCancelled else { return }
             self.ghStatus = status
+            self.isCheckingGitHub = false
         }
     }
 
     /// The ISSUES section's Check Again: gh's state and the issues again. Without a GitHub remote, the repository
     /// reloads so its remotes are read again.
     func checkIssuesAgain() {
-        guard repository != nil else { return }
+        // Pressing it again while gh is still running does not start more gh processes (security review of #83).
+        guard repository != nil, !issuePanel.isLoading, !isCheckingGitHub else { return }
         if issuePanel.retry() {
             checkGitHub()
         } else {

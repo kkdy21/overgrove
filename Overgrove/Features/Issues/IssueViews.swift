@@ -23,7 +23,8 @@ struct IssueListSection: View {
                 }
                 if model.guidance != nil || model.canCheckAgain {
                     IssueSetupHint(
-                        guidance: model.guidance, canCheckAgain: model.canCheckAgain, onCheckAgain: onCheckAgain)
+                        guidance: model.guidance, canCheckAgain: model.canCheckAgain, isChecking: model.isLoading,
+                        onCheckAgain: onCheckAgain)
                 }
                 // Lazy: up to 200 rows (`--limit 200`).
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -44,6 +45,7 @@ struct IssueListSection: View {
 private struct IssueSetupHint: View {
     let guidance: GHStatusGuidance?
     let canCheckAgain: Bool
+    var isChecking = false
     let onCheckAgain: () -> Void
 
     var body: some View {
@@ -79,6 +81,7 @@ private struct IssueSetupHint: View {
             if canCheckAgain {
                 Button(action: onCheckAgain) { Label("Check Again", systemImage: "arrow.clockwise") }
                     .controlSize(.small)
+                    .disabled(isChecking)
             }
         }
         .padding(.leading, Tokens.Spacing.md + Tokens.Spacing.lg)
