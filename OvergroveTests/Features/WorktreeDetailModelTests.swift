@@ -37,6 +37,17 @@ final class WorktreeDetailModelTests: XCTestCase {
         WorktreeSecurityModel(inspection(entries, hooks: hooks))
     }
 
+    /// #262: a very large configuration shortens the report and the remote list, and S-05 says so.
+    func testShortenedReportIsAnnounced() {
+        let remotes = (0..<(RepoConfigInspector.maximumRemotes + 2)).map {
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "r\($0)", variable: "url", value: "https://x.invalid")
+        }
+        let note = security(remotes).limitNote
+        XCTAssertEqual(note, "This configuration is very large: 2 more remotes are not listed.")
+        XCTAssertNil(security([]).limitNote)
+    }
+
     private func row(_ title: String, in model: WorktreeSecurityModel) throws -> WorktreeSecurityModel.Row {
         try XCTUnwrap(model.rows.first { $0.title == title }, title)
     }
