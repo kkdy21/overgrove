@@ -125,6 +125,7 @@ final class WriteProtectionTests: XCTestCase {
             (.worktreeDiff(path: GitPath("src/staged-modified.txt"), staged: true), repo),
             (.worktreeDiff(path: GitPath("src/unstaged-modified.txt"), staged: false), repo),
             (.worktreeDiff(path: GitPath("docs/manual.md"), staged: false), repo),
+            (.worktreeNumstat(staged: true), repo), (.worktreeNumstat(staged: false), repo),
             (.untrackedPreview(untracked), repo), (.fileHistory(path: GitPath("docs/manual.md"), limit: 100), repo),
             (.compareFiles(base: FullRefName("refs/remotes/origin/main")!, includeWorkingTree: true), repo),
             (.compareFiles(base: FullRefName("refs/remotes/origin/main")!, includeWorkingTree: false), repo),
@@ -137,6 +138,8 @@ final class WriteProtectionTests: XCTestCase {
             (.status, fixture.worktree("wt-behind")),
             (.worktreeDiff(path: GitPath("docs/guide.md"), staged: false), fixture.worktree("wt-behind")),
             (.fileHistory(path: GitPath("docs/manual.md"), limit: 10), fixture.worktree("wt-behind")),
+            (.worktreeNumstat(staged: false), fixture.worktree("wt-behind")),
+            (.worktreeNumstat(staged: false), fixture.worktree("wt-conflict")),
         ]
         for (command, directory) in queries {
             _ = try await context.run(command, in: directory ?? repo)
@@ -208,6 +211,34 @@ final class WriteProtectionTests: XCTestCase {
         XCTAssertNotEqual(
             try IndexState(try XCTUnwrap(indexes["repo"])), before["repo"],
             "control: without the setting the comparison rewrites the index")
+    }
+
+    /// SEC-T13-02, worktree numstat (#230): the whole-worktree `git diff --numstat` meets every stat-dirty file, so it
+    /// would refresh the index the same way. The common setting stops it; the control without it rewrites the index.
+    func testSECT13_02_WorktreeNumstatOfAStatDirtyFileKeepsTheIndex() async throws {
+        let (context, indexes, before) = try await staleStatFixture()
+        let numstat = ReadOnlyGitCommand.worktreeNumstat(staged: false)
+        let output = try await context.run(numstat)
+        let files = try NumstatParser.parseWorktreeFiles(output).files
+        XCTAssertFalse(files.contains { $0.path == GitPath("docs/manual.md") }, "unchanged content has no record")
+        _ = try await context.run(numstat, in: context.fixture.worktree("wt-behind"))
+        _ = try await context.run(.worktreeNumstat(staged: true))
+        try assertUnchanged(indexes, since: before, after: "worktreeNumstat with a stat-dirty file")
+
+        let control = try await ProcessRunner().run(
+            ProcessRequest(
+                executable: context.environment.executable,
+                arguments: Self.removingSetting("diff.autoRefreshIndex=false", from: GitEnvironment.commonArguments)
+                    + context.safety.neutralization + (try numstat.subcommandArguments()),
+                environment: GitEnvironment.environment(parent: context.fixture.environment),
+                currentDirectory: context.fixture.repository,
+                limits: .query
+            )
+        )
+        XCTAssertEqual(control.termination, .exited(code: 0))
+        XCTAssertNotEqual(
+            try IndexState(try XCTUnwrap(indexes["repo"])), before["repo"],
+            "control: without the setting git diff --numstat rewrites the index")
     }
 
     /// `arguments` without one `-c <setting>` pair.

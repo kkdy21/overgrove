@@ -122,6 +122,10 @@ struct CanaryHarness {
                 "commitPatch src/stash-target.txt"),
             query(.worktreeDiff(path: GitPath("src/unstaged-modified.txt"), staged: false), "worktreeDiff unstaged"),
             query(.worktreeDiff(path: GitPath("src/staged-modified.txt"), staged: true), "worktreeDiff staged"),
+            query(.worktreeNumstat(staged: false), "worktreeNumstat unstaged"),
+            query(.worktreeNumstat(staged: true), "worktreeNumstat staged"),
+            query(
+                .worktreeNumstat(staged: false), in: fixture.worktree("wt-conflict"), "worktreeNumstat (wt-conflict)"),
             query(.untrackedPreview(untracked), "untrackedPreview untracked.txt"),
             query(.fileHistory(path: GitPath("docs/manual.md"), limit: 100), "fileHistory docs/manual.md"),
             // The merge-base comparison (#157) reads the working tree, so the touched filter targets are re-hashed.
@@ -148,7 +152,8 @@ struct CanaryHarness {
     enum CaseName: String, CaseIterable {
         case version, probeGitDirectory, probeRepository, configList, worktreeList, status, refs, aheadBehind
         case stashList, stashFiles
-        case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, untrackedPreview, fileHistory
+        case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, worktreeNumstat
+        case untrackedPreview, fileHistory
         case compareFiles, comparePatch, commitsAhead
     }
 
@@ -170,6 +175,7 @@ struct CanaryHarness {
         case .commitFiles: .commitFiles
         case .commitPatch: .commitPatch
         case .worktreeDiff: .worktreeDiff
+        case .worktreeNumstat: .worktreeNumstat
         case .untrackedPreview: .untrackedPreview
         case .fileHistory: .fileHistory
         case .compareFiles: .compareFiles
