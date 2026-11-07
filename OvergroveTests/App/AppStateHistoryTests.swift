@@ -85,6 +85,16 @@ final class AppStateHistoryTests: XCTestCase {
         XCTAssertFalse(state.history.isOpen)
     }
 
+    /// The file row menu's Show History (#73's `FileRowMenu`) opens S-09 in the row's worktree.
+    func testRowMenuShowHistory() async {
+        let loader = StubFileHistoryLoader([FileHistoryStoreTests.page(0..<1)])
+        let state = await loadedState(loader)
+        state.rowMenuActions.showHistory(GitPath("/tmp/dev/api-wt/login"), GitPath("src/a.swift"))
+        await state.history.task?.value
+        XCTAssertTrue(state.history.isOpen)
+        XCTAssertEqual(loader.requests.first?.key.worktree, GitPath("/tmp/dev/api-wt/login"))
+    }
+
     func testWorktreeSelectionAndAnotherRepositoryClose() async {
         let state = await loadedState(StubFileHistoryLoader([FileHistoryStoreTests.page(0..<1)]))
         state.showHistory(of: GitPath("Status.swift"))

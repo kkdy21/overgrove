@@ -14,6 +14,12 @@ struct MainWindowView: View {
     var body: some View {
         window
             .focusedSceneValue(\.repositoryActions, focusedActions)
+            .focusedSceneValue(\.navigationActions, navigationActions)
+            .onExitCommand(perform: state.escape)
+            // `⌘C` with no text selected copies what the selection names (interaction.md §3.1).
+            .onCopyCommand {
+                state.selectionCopyText.map { [NSItemProvider(object: RowActions.clipboardText($0) as NSString)] } ?? []
+            }
             .sheet(isPresented: $isManagingRepositories) {
                 ManageRepositoriesView(
                     model: repositoryMenu, isAdding: state.isAddingRepository, actions: repositoryActions,
@@ -21,6 +27,16 @@ struct MainWindowView: View {
             }
             .alert(item: $state.alert) { alert in
                 Alert(title: Text(alert.title), message: Text(alert.message))
+            }
+            .alert(
+                "Open in Terminal?", isPresented: terminalConfirmationShown, presenting: state.terminalConfirmation
+            ) { _ in
+                Button("Open Anyway", action: state.confirmOpenTerminal)
+                // Cancel is the default button (`⏎`) as well as `⎋`.
+                Button("Cancel", role: .cancel) { state.terminalConfirmation = nil }
+                    .keyboardShortcut(.defaultAction)
+            } message: { confirmation in
+                Text(confirmation.message)
             }
             .task { state.restoreLastSelected() }
             // A closed window cannot show Stop: its fetch is stopped (security review of #77, T15).
@@ -31,6 +47,8 @@ struct MainWindowView: View {
             }
             .modifier(FetchFeedback(state: state, showsDetails: $showsFetchDetails))
             .modifier(SetupAssistantPresentation(state: state, setup: state.setup, addRepository: addRepository))
+            // Settings › Repositories can remove the repository this window shows (#86).
+            .onChange(of: state.registeredRepositories.map(\.id)) { state.closeIfUnregistered() }
     }
 
     private var focusedActions: FocusedRepositoryActions {
@@ -40,6 +58,19 @@ struct MainWindowView: View {
             fetch: state.fetch.fetch, stopFetch: state.fetch.stop, openSetup: state.setup.present)
     }
 
+    private var terminalConfirmationShown: Binding<Bool> {
+        Binding(
+            get: { state.terminalConfirmation != nil },
+            set: { if !$0 { state.terminalConfirmation = nil } })
+    }
+
+    private var navigationActions: FocusedNavigationActions {
+        FocusedNavigationActions(
+            canJumpToHead: state.canJumpToHead, jumpToHead: state.jumpToHead,
+            canToggleWorktreeInfo: state.canToggleWorktreeInfo, toggleWorktreeInfo: state.toggleWorktreeInfo,
+            focus: state.focus, fullPath: state.fullPathToCopy, copy: state.copy)
+    }
+
     private var window: some View {
         VStack(spacing: 0) {
             PanelSplitView(layout: $state.panelLayout, onCommit: state.commitPanelLayout) {
@@ -47,6 +78,7 @@ struct MainWindowView: View {
                     hasRepository: state.repository != nil, worktreeStatus: state.worktreeList,
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
                     onSelectWorktree: state.selectWorktree, branchModel: state.branchListModel,
+                    remoteURLTooltips: state.remoteURLTooltips,
                     stashRows: state.stashes.map(StashRow.init),
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
                     onSelectStash: state.selectStash, issueModel: state.issueListModel,
@@ -58,6 +90,7 @@ struct MainWindowView: View {
                 GraphPanel(
                     hasRepository: state.repository != nil, graphStore: state.graph,
                     highlightedCommits: state.highlightedCommits, onSelectCommit: state.selectCommit,
+                    onSelectWip: state.selectFocusedWip, onOpen: { state.focus(.detail) },
                     diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile,
                     onShowDiffHistory: state.shownFileHistoryTarget == nil ? nil : { state.showHistoryOfShownFile() },
@@ -83,9 +116,7 @@ struct MainWindowView: View {
                     onSelectLinkedWorktree: state.selectWorktree, onSelectLinkedCommit: state.selectLinkedCommit,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
                     comparisonList: comparisonList,
-                    onCompare: state.canCompare() ? { state.showComparison() } : nil,
-                    onShowWipHistory: { state.showHistory(of: $0.path, in: $0.worktree) },
-                    onShowHistory: { state.showHistory(of: $0) })
+                    onCompare: state.canCompare() ? { state.showComparison() } : nil)
             }
             statusBar
         }
@@ -93,6 +124,8 @@ struct MainWindowView: View {
         .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
         // `#n` badges on worktree, branch, and graph rows (#82).
         .environment(\.issueBadges, state.issueBadgeContext)
+        .environment(\.rowMenu, state.rowMenuActions)
+        .environment(\.panelFocusRequest, state.panelFocusRequest)
         .toolbar {
             MainToolbar(
                 repository: state.repository,

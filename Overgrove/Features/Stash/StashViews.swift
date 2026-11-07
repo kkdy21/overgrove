@@ -31,6 +31,7 @@ struct StashListSection: View {
                                 .contentShape(Rectangle())
                                 .onTapGesture { onSelect(row.id) }
                                 .accessibilityAction { onSelect(row.id) }
+                                .contextMenu { StashRowMenu(row: row, onShowChanges: { onSelect(row.id) }) }
                         }
                     }
                 }
@@ -72,8 +73,6 @@ struct StashDetailView: View {
     let model: StashDetailModel
     let selectedFile: GitPath?
     let onSelectFile: (FileStat) -> Void
-    /// `Show History` in a file's menu (S-09, #70).
-    var onShowHistory: ((GitPath) -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -202,9 +201,27 @@ struct StashDetailView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelectFile(row.file) } }
+        .contextMenu {
+            FileRowMenu(
+                worktree: nil, path: row.file.path, showDiff: { if row.isSelectable { onSelectFile(row.file) } })
+        }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(row.isSelectable ? .isButton : [])
         .accessibilityAction { if row.isSelectable { onSelectFile(row.file) } }
-        .showHistoryMenu(row.file.path, action: onShowHistory)
+    }
+}
+
+/// A stash row's menu (interaction.md §5): show and copy only. Apply, pop, and drop are never offered.
+private struct StashRowMenu: View {
+    let row: StashRow
+    let onShowChanges: () -> Void
+
+    @Environment(\.rowMenu) private var actions
+
+    var body: some View {
+        Button("Show Changes", action: onShowChanges)
+        Divider()
+        Button("Copy Ref") { actions.copy(row.refName) }
+        Button("Copy SHA") { actions.copy(row.id.hex) }
     }
 }

@@ -11,8 +11,6 @@ struct WipDetailView: View {
     let model: WipDetailModel
     let selectedFile: FileSelection?
     let onSelect: (FileSelection) -> Void
-    /// `Show History` in a file's menu (S-09, #70): the path in this worktree.
-    var onShowHistory: ((FileSelection) -> Void)?
 
     @FocusState private var hasFocus: Bool
 
@@ -89,16 +87,13 @@ struct WipDetailView: View {
                 ForEach(groups) { group in
                     WipGroupCard(
                         group: group, selectedPath: selectedPath(in: group.group), isListFocused: hasFocus,
-                        onSelect: { row in select(row) },
-                        onShowHistory: onShowHistory.map { show in
-                            { row in show(FileSelection(worktree: model.worktreePath, group: row.group, path: row.path))
-                            }
-                        })
+                        onSelect: { row in select(row) }, worktree: model.worktreePath)
                 }
             }
             .focusable()
             .focused($hasFocus)
             .focusEffectDisabled()
+            .focusOnRequest([.detail], $hasFocus)
             .onKeyPress(keys: [.upArrow, .downArrow]) { press in
                 move(groups: groups, down: press.key == .downArrow)
             }
@@ -152,7 +147,8 @@ struct WipGroupCard: View {
     let selectedPath: GitPath?
     let isListFocused: Bool
     let onSelect: (WipFileRow) -> Void
-    var onShowHistory: ((WipFileRow) -> Void)?
+    /// The worktree the rows are in, for the file row menu (#73); `nil` hides the menu.
+    var worktree: GitPath?
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: 0) {
@@ -184,7 +180,11 @@ struct WipGroupCard: View {
                 .contentShape(Rectangle())
                 .onTapGesture { onSelect(row) }
                 .accessibilityAction { onSelect(row) }
-                .showHistoryMenu(row.path, action: onShowHistory.map { show in { _ in show(row) } })
+                .contextMenu {
+                    if let worktree {
+                        FileRowMenu(worktree: worktree, path: row.path, showDiff: { onSelect(row) })
+                    }
+                }
             }
             if let note = group.limitNote {
                 Text(note)

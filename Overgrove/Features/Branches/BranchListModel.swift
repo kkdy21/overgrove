@@ -22,6 +22,10 @@ struct BranchRow: Identifiable, Equatable {
     let issueNumber: Int?
     let help: String
     let accessibilityLabel: String
+    /// The tip commit, for Show in Graph (#73).
+    var tip: ObjectID?
+    /// The configured upstream's short name (`origin/main`), escaped, for Copy Upstream Name (#73).
+    var upstreamName: String?
 }
 
 /// A row or a folder of rows (`feat/`, a remote) in the sidebar tree.
@@ -182,7 +186,8 @@ struct BranchListModel: Equatable {
             id: branch.fullName, name: display, fullDisplayName: full, isCheckedOut: isCheckedOut, isDefault: isDefault,
             ahead: upstream.ahead, behind: upstream.behind, isUpstreamGone: isGone, date: branch.committerDate,
             issueNumber: issueNumber, help: help.joined(separator: "\n"),
-            accessibilityLabel: label.joined(separator: ", "))
+            accessibilityLabel: label.joined(separator: ", "), tip: branch.target,
+            upstreamName: branch.upstream.map { PathValidator.displayable(Self.short($0)) })
     }
 
     /// `refs/remotes/origin/main` → `origin/main`.
@@ -202,6 +207,6 @@ extension BranchRow {
             id: id, name: name, fullDisplayName: fullDisplayName, isCheckedOut: isCheckedOut, isDefault: isDefault,
             ahead: ahead, behind: behind, isUpstreamGone: isUpstreamGone, date: date, issueNumber: issueNumber,
             help: help,
-            accessibilityLabel: accessibilityLabel)
+            accessibilityLabel: accessibilityLabel, tip: tip, upstreamName: upstreamName)
     }
 }

@@ -114,6 +114,8 @@ struct FileHistoryView: View {
             .focusable()
             .focused($isFocused)
             .focusEffectDisabled()
+            // ⌘2 focuses the center, which is S-09 while it covers the graph (interaction.md §3.1).
+            .focusOnRequest([.center], $isFocused)
             .onKeyPress(.return) { open() }
             .onKeyPress(.downArrow) { move(by: 1, proxy: proxy) }
             .onKeyPress(.upArrow) { move(by: -1, proxy: proxy) }

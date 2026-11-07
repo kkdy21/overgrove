@@ -3,13 +3,14 @@ import SwiftUI
 /// The sidebar's LOCAL or REMOTE section (information-architecture.md §4, art-direction.md §6): one-line rows,
 /// folders (`feat/`) and remotes that open and close, the checked-out `tree` mark, ahead/behind, and `gone`.
 ///
-/// TODO(#68): picking a branch selects its tip commit in the graph ("Show in Graph"); until the graph exists the
-/// rows only show their details in the tooltip.
+/// A row's menu shows its tip in the graph and copies its names (#73).
 struct BranchListSection: View {
     let title: String
     let count: Int
     let nodes: [BranchNode]
     var warning: String?
+    /// Tooltips for folder rows by id; REMOTE uses it for each remote's URL (Settings › Show full remote URLs, #86).
+    var folderHelp: [String: String] = [:]
 
     @State private var isExpanded = true
     @State private var openFolders: Set<String> = []
@@ -70,6 +71,7 @@ struct BranchListSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(folderHelp[id] ?? "")
         .accessibilityLabel(name + ", \(count) branches")
         .accessibilityValue(isOpen ? "expanded" : "collapsed")
     }
@@ -117,12 +119,25 @@ private struct BranchRowView: View {
         .padding(.trailing, Tokens.Spacing.md)
         .frame(height: Tokens.Size.rowSidebar)
         .help(row.help)
-        .contextMenu {
-            // TODO(#68): select the tip commit in the graph.
-            Button("Show in Graph") {}.disabled(true)
-        }
+        .contextMenu { BranchRowMenu(row: row) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
         .issueBadgeAction(row.issueNumber)
+    }
+}
+
+/// A branch row's menu (interaction.md §5): show and copy only.
+private struct BranchRowMenu: View {
+    let row: BranchRow
+
+    @Environment(\.rowMenu) private var actions
+
+    var body: some View {
+        Button("Show in Graph") { if let tip = row.tip { actions.showCommit(tip) } }
+            .disabled(row.tip == nil)
+        Divider()
+        Button("Copy Name") { actions.copy(row.fullDisplayName) }
+        Button("Copy Upstream Name") { if let upstream = row.upstreamName { actions.copy(upstream) } }
+            .disabled(row.upstreamName == nil)
     }
 }

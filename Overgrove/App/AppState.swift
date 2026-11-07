@@ -23,6 +23,8 @@ final class AppState {
     let issuePanel: IssuePanelState
     /// The setup assistant (S-07, #85): git and GitHub CLI checks, first run and Help › Setup Assistant….
     let setup: SetupAssistantState
+    /// App preferences shared by every window (S-08, #86).
+    let settings: AppSettings
     /// S-04 (#71): the selected stash's files, and the file whose patch the center shows.
     var stashDetail: StashDetailState?
     var selectedStashFile: FileStat?
@@ -108,6 +110,12 @@ final class AppState {
     var isCheckingGitHub = false
     /// TODO(#74): drives graph search.
     var searchText = ""
+    /// `⌘1`–`⌘4` asked for a panel (interaction.md §1.2, #73); the panel's list takes keyboard focus when it changes.
+    var panelFocusRequest: PanelFocusRequest?
+    /// The pasteboard and Finder for row menus and copy commands (#73); tests put a recorder here.
+    var rowActions: any RowActionPerforming = LiveRowActions.shared
+    /// Open in Terminal waiting for "Open Anyway" (`TerminalGuard`, #73).
+    var terminalConfirmation: TerminalConfirmation?
     /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
     /// repository by `commitPanelLayout`.
     var panelLayout: PanelLayout = .default
@@ -163,6 +171,7 @@ final class AppState {
     ///   - fetchRecords: The last fetch of each repository (`UserDefaults`).
     ///   - gitChecker, ghChecker: The setup assistant's git and GitHub CLI checks (S-07); `ghChecker` also feeds the
     ///     status bar's gh field (#83).
+    ///   - settings: App preferences (S-08); shared by every window. A fresh one from `UserDefaults` if `nil`.
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
@@ -178,7 +187,8 @@ final class AppState {
         fetcher: (any RepositoryFetching)? = nil,
         fetchRecords: FetchRecordStore = FetchRecordStore(),
         gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
-        ghChecker: any GHAuthChecking = LiveGHAuthChecker.live
+        ghChecker: any GHAuthChecking = LiveGHAuthChecker.live,
+        settings: AppSettings? = nil
     ) {
         self.ghChecker = ghChecker
         self.graph = GraphStore(loader: graphLoader)
@@ -193,6 +203,7 @@ final class AppState {
         self.stashLoader = stashLoader
         issuePanel = IssuePanelState(loader: issueLoader)
         setup = SetupAssistantState(gitChecker: gitChecker, ghChecker: ghChecker)
+        self.settings = settings ?? AppSettings()
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)

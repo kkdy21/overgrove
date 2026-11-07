@@ -93,6 +93,8 @@ struct SidebarPanel: View {
     var onSelectWorktree: (GitPath) -> Void = { _ in }
     /// LOCAL and REMOTE (#72).
     var branchModel: BranchListModel?
+    /// Remote name → URL text for the REMOTE group tooltips (#86).
+    var remoteURLTooltips: [String: String] = [:]
     /// STASHES (#71).
     var stashRows: [StashRow] = []
     var isStashListPartial = false
@@ -123,7 +125,8 @@ struct SidebarPanel: View {
                                 title: "LOCAL", count: branchModel.localCount, nodes: branchModel.local,
                                 warning: branchModel.warning)
                             BranchListSection(
-                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote)
+                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote,
+                                folderHelp: Self.remoteFolderHelp(remoteURLTooltips))
                         }
                         if case .loaded = worktreeStatus {
                             StashListSection(
@@ -153,6 +156,8 @@ struct GraphPanel: View {
     /// Commits outlined for the selected issue (#82).
     var highlightedCommits: Set<ObjectID> = []
     var onSelectCommit: ((ObjectID) -> Void)?
+    var onSelectWip: (() -> Void)?
+    var onOpen: () -> Void = {}
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -186,7 +191,9 @@ struct GraphPanel: View {
             switch graphStore?.status {
             case .loaded?:
                 if let graphStore {
-                    GraphView(store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits)
+                    GraphView(
+                        store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits,
+                        onSelectWip: onSelectWip, onOpen: onOpen)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -233,9 +240,6 @@ struct DetailPanel: View {
     var comparisonList: ComparisonListView?
     /// S-05's `Compare with Base…` (#158); `nil` disables it.
     var onCompare: (() -> Void)?
-    /// `Show History` in a file's menu: S-02 (in its worktree), S-03 and S-04 (in the focused worktree) (#70).
-    var onShowWipHistory: ((FileSelection) -> Void)?
-    var onShowHistory: ((GitPath) -> Void)?
 
     private var title: String {
         if let commitModel { return "Commit \(commitModel.shortSHA)" }
@@ -263,21 +267,17 @@ struct DetailPanel: View {
                 CommitDetailView(
                     model: commitModel, laneIndex: commitLane, selectedFile: selectedCommitFile,
                     onSelectFile: onSelectCommitFile, onSelectParent: onSelectParent,
-                    onShowAllFiles: onShowAllCommitFiles, onShowHistory: onShowHistory)
+                    onShowAllFiles: onShowAllCommitFiles)
             } else if let issueModel {
                 IssueDetailView(
                     model: issueModel, onSelectWorktree: onSelectLinkedWorktree,
                     onSelectCommit: onSelectLinkedCommit)
             } else if let stashModel {
-                StashDetailView(
-                    model: stashModel, selectedFile: selectedStashFile, onSelectFile: onSelectStashFile,
-                    onShowHistory: onShowHistory)
+                StashDetailView(model: stashModel, selectedFile: selectedStashFile, onSelectFile: onSelectStashFile)
             } else if let worktreeModel {
                 WorktreeDetailView(model: worktreeModel, onCompare: onCompare)
             } else if let wipModel {
-                WipDetailView(
-                    model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile,
-                    onShowHistory: onShowWipHistory)
+                WipDetailView(model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile)
             } else if worktreeStatus == .loading {
                 ProgressView().controlSize(.small)
             } else {
@@ -286,5 +286,12 @@ struct DetailPanel: View {
                     message: "Changes in the focused worktree or the selected commit appear here.")
             }
         }
+    }
+}
+
+extension SidebarPanel {
+    /// REMOTE folder ids are `remote:<name>` (`BranchListModel`); the tooltip is `origin — github.com/acme/api`.
+    static func remoteFolderHelp(_ urls: [String: String]) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: urls.map { ("remote:\($0.key)", "\($0.key) — \($0.value)") })
     }
 }

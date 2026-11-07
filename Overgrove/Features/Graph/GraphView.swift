@@ -2,6 +2,9 @@ import SwiftUI
 
 /// The commit graph (S-01 center, #68): column header, the WIP row, and one fixed-height row per commit in a lazy
 /// stack, so only visible rows are built (PB-4). The next page loads as the end comes into view.
+///
+/// Keyboard (interaction.md §3.1, #73): `↑`/`↓` move the selection, `⌘↑` goes to the WIP row (or the first commit),
+/// `⌘↓` to the last loaded commit, `⏎` moves focus to the detail panel, and `⌘J` scrolls to HEAD.
 struct GraphView: View {
     let store: GraphStore
     /// A row was clicked (S-03, #69); without one, the row is only highlighted.
@@ -9,6 +12,13 @@ struct GraphView: View {
     var now = Date()
     /// Tips of the selected issue's linked branches: outlined, not selected (information-architecture.md §3.2, #82).
     var highlighted: Set<ObjectID> = []
+    /// `⌘↑` with a WIP row: the focused worktree's changes.
+    var onSelectWip: (() -> Void)?
+    /// `⏎`: focus the detail panel.
+    var onOpen: () -> Void = {}
+
+    @FocusState private var hasFocus: Bool
+    @Environment(\.rowMenu) private var rowMenu
 
     private var graphWidth: CGFloat { GraphGeometry.width(lanes: store.laneCount) }
     private var headIndex: Int? { store.head.flatMap(store.index(of:)) }
@@ -16,24 +26,83 @@ struct GraphView: View {
     var body: some View {
         VStack(spacing: 0) {
             GraphColumnHeader(graphWidth: graphWidth)
-            ScrollView(.vertical) {
-                LazyVStack(spacing: 0) {
-                    if let wip = store.wip {
-                        GraphWipRowView(
-                            wip: wip, column: headIndex.map { store.rows[$0].column } ?? 0, hasLine: headIndex != nil,
-                            graphWidth: graphWidth)
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        if let wip = store.wip {
+                            GraphWipRowView(
+                                wip: wip, column: headIndex.map { store.rows[$0].column } ?? 0,
+                                hasLine: headIndex != nil, graphWidth: graphWidth
+                            )
+                            .id(Self.wipRowID)
+                            .contextMenu { wipMenu }
+                        }
+                        ForEach(store.rows.indices, id: \.self) { index in
+                            row(index)
+                                .onAppear { store.rowAppeared(index) }
+                        }
+                        if store.isLoadingMore {
+                            ProgressView().controlSize(.small).frame(height: GraphGeometry.rowHeight)
+                        }
                     }
-                    ForEach(store.rows.indices, id: \.self) { index in
-                        row(index)
-                            .onAppear { store.rowAppeared(index) }
-                    }
-                    if store.isLoadingMore {
-                        ProgressView().controlSize(.small).frame(height: GraphGeometry.rowHeight)
-                    }
+                }
+                .onChange(of: store.scrollTarget) { _, target in
+                    guard let target, let index = store.index(of: target.oid) else { return }
+                    proxy.scrollTo(index, anchor: .center)
                 }
             }
         }
         .background(Tokens.Color.surfaceCanvas)
+        .focusable()
+        .focused($hasFocus)
+        .focusEffectDisabled()
+        .focusOnRequest([.center], $hasFocus)
+        .onKeyPress(keys: [.upArrow, .downArrow]) { press in
+            move(down: press.key == .downArrow, toEnd: press.modifiers.contains(.command))
+        }
+        .onKeyPress(.return) {
+            onOpen()
+            return .handled
+        }
+    }
+
+    /// The WIP row's id in the scroll view; commit rows use their index.
+    private static let wipRowID = -1
+
+    @ViewBuilder
+    private var wipMenu: some View {
+        if let path = rowMenu.focusedWorktree {
+            Button("Show Changes") { rowMenu.showWorktreeChanges(path) }
+            Button("Show Worktree Info") { rowMenu.showWorktreeInfo(path) }
+        }
+    }
+
+    private func select(_ oid: ObjectID) {
+        if let onSelectCommit { onSelectCommit(oid) } else { store.select(oid) }
+        store.scroll(to: oid)
+    }
+
+    private func move(down: Bool, toEnd: Bool) -> KeyPress.Result {
+        guard !store.commits.isEmpty else { return .ignored }
+        let current = store.selected.flatMap(store.index(of:))
+        if toEnd {
+            if down {
+                select(store.commits[store.commits.count - 1].oid)
+            } else if store.wip != nil, let onSelectWip {
+                onSelectWip()
+            } else {
+                select(store.commits[0].oid)
+            }
+            return .handled
+        }
+        let next: Int =
+            if let current {
+                min(max(current + (down ? 1 : -1), 0), store.commits.count - 1)
+            } else {
+                down ? 0 : store.commits.count - 1
+            }
+        if next != current { select(store.commits[next].oid) }
+        return .handled
     }
 
     private func row(_ index: Int) -> some View {
@@ -49,10 +118,12 @@ struct GraphView: View {
         return GraphCommitRowView(
             commit: commit, row: graphRow, outgoing: outgoing, pills: store.pills[commit.oid] ?? [],
             isHead: commit.oid == store.head, isSelected: commit.oid == store.selected,
-            isHighlighted: highlighted.contains(commit.oid), wipLine: wipLine, graphWidth: graphWidth, now: now
+            isHighlighted: highlighted.contains(commit.oid), wipLine: wipLine, graphWidth: graphWidth, now: now,
+            isListFocused: hasFocus
         ) {
             if let onSelectCommit { onSelectCommit(commit.oid) } else { store.select(commit.oid) }
         }
+        .contextMenu { CommitRowMenu(commit: commit, onShowChanges: { select(commit.oid) }) }
     }
 }
 
@@ -91,6 +162,9 @@ struct GraphCommitRowView: View {
     let wipLine: GraphWipLine
     let graphWidth: CGFloat
     let now: Date
+    /// The selection is lane colour at 16% while the graph has keyboard focus and 10% when it does not
+    /// (interaction.md §1.2: inactive selection is dimmer).
+    var isListFocused = true
     let onSelect: () -> Void
 
     @Environment(\.issueBadges) private var issues
@@ -126,7 +200,9 @@ struct GraphCommitRowView: View {
             cell(text.shortSHA, width: Tokens.Size.columnShaIdeal, color: tertiary, font: Tokens.Font.monoSmall)
         }
         .frame(height: GraphGeometry.rowHeight)
-        .background(isSelected ? lane.opacity(0.16) : (isHighlighted ? lane.opacity(0.06) : Color.clear))
+        .background(
+            isSelected ? lane.opacity(isListFocused ? 0.16 : 0.10) : (isHighlighted ? lane.opacity(0.06) : Color.clear)
+        )
         .overlay(alignment: .leading) {
             if isSelected { Rectangle().fill(lane).frame(width: 3) }
         }
@@ -292,5 +368,21 @@ struct GraphWipRowView: View {
         .background(Tokens.Color.surfaceWipRow)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Uncommitted changes in \(wip.folderName): \(wip.summary)")
+    }
+}
+
+/// A commit row's menu (interaction.md §5): copy and show only.
+struct CommitRowMenu: View {
+    let commit: CommitNode
+    let onShowChanges: () -> Void
+
+    @Environment(\.rowMenu) private var actions
+
+    var body: some View {
+        Button("Show Changes", action: onShowChanges)
+        Divider()
+        Button("Copy SHA") { actions.copy(commit.oid.hex) }
+        Button("Copy Short SHA") { actions.copy(commit.oid.short) }
+        Button("Copy Message") { actions.copyMessage(actions.commitMessage(commit)) }
     }
 }

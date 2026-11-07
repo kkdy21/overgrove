@@ -11,8 +11,6 @@ struct CommitDetailView: View {
     let onSelectFile: (FileStat) -> Void
     var onSelectParent: (ObjectID) -> Void = { _ in }
     var onShowAllFiles: () -> Void = {}
-    /// `Show History` in a file's menu (S-09, #70).
-    var onShowHistory: ((GitPath) -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -221,10 +219,13 @@ struct CommitDetailView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelectFile(row.stat) } }
+        .contextMenu {
+            FileRowMenu(
+                worktree: nil, path: row.stat.path, showDiff: { if row.isSelectable { onSelectFile(row.stat) } })
+        }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(row.isSelectable ? .isButton : [])
         .accessibilityAction { if row.isSelectable { onSelectFile(row.stat) } }
-        .showHistoryMenu(row.stat.path, action: onShowHistory)
     }
 }
 
