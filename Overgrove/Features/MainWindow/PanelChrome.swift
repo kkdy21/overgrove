@@ -104,6 +104,7 @@ struct SidebarPanel: View {
     var issueModel: IssueListModel?
     var selectedIssue: Int?
     var onSelectIssue: (Int) -> Void = { _ in }
+    var onCheckIssuesAgain: () -> Void = {}
     var canCompareWorktree: (GitPath) -> Bool = { _ in false }
     var onCompareWorktree: (GitPath) -> Void = { _ in }
 
@@ -133,7 +134,9 @@ struct SidebarPanel: View {
                                 onSelect: onSelectStash)
                         }
                         if let issueModel {
-                            IssueListSection(model: issueModel, selectedNumber: selectedIssue, onSelect: onSelectIssue)
+                            IssueListSection(
+                                model: issueModel, selectedNumber: selectedIssue, onSelect: onSelectIssue,
+                                onCheckAgain: onCheckIssuesAgain)
                         }
                     }
                 }

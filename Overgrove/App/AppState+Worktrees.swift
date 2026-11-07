@@ -121,7 +121,8 @@ extension AppState {
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
         // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
         // a failed refresh; security review of #81).
-        if isVerified { issuePanel.show(listing.githubRepository) }
+        // gh's login state is read alongside, for the status bar (#83); a repository without a GitHub remote runs no gh.
+        if isVerified, issuePanel.show(listing.githubRepository) { checkGitHub() }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
         updateGraph(listing)
         // Keep the picked file only while it is still listed in the same group.

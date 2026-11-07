@@ -18,9 +18,9 @@ enum RemoteURLDisplay {
     /// after a real scheme (`git@evil:x/https://github.com/…` is scp-style to `evil`), and remote-helper URLs
     /// (`ext::…`, `<transport>::<address>`) are never shortened.
     static func short(_ url: String) -> String {
-        guard !url.contains("::") else { return url }
-        if let separator = url.range(of: "://") {
-            guard isScheme(url[..<separator.lowerBound]) else { return url }
+        // `<transport>::<address>` (git's remote-helper syntax, `ext::…`): shown whole.
+        if let helper = url.range(of: "::"), isScheme(url[..<helper.lowerBound]) { return url }
+        if let separator = url.range(of: "://"), isScheme(url[..<separator.lowerBound]) {
             var rest = url[separator.upperBound...]
             // userinfo (masked) ends at the last `@` before the first `/`.
             let authorityEnd = rest.firstIndex(of: "/") ?? rest.endIndex

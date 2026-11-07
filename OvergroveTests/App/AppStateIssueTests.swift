@@ -23,6 +23,46 @@ final class StubIssueLoader: IssueLoading, @unchecked Sendable {
     }
 }
 
+/// Answers gh login checks with queued results and counts them.
+final class QueuedGHAuthChecker: GHAuthChecking, @unchecked Sendable {
+    private let lock = NSLock()
+    private var results: [GHAuthStatus?]
+    private var count = 0
+
+    init(_ results: [GHAuthStatus?]) {
+        self.results = results
+    }
+
+    var checks: Int { lock.withLock { count } }
+
+    func authStatus() async -> GHAuthStatus? {
+        lock.withLock {
+            count += 1
+            return results.count > 1 ? results.removeFirst() : results[0]
+        }
+    }
+}
+
+/// Counts full loads and answers each with the next listing (the last one repeats).
+final class SequenceRepositoryLoader: RepositoryLoading, @unchecked Sendable {
+    private let lock = NSLock()
+    private var listings: [WorktreeListing]
+    private var count = 0
+
+    init(_ listings: [WorktreeListing]) {
+        self.listings = listings
+    }
+
+    var loads: Int { lock.withLock { count } }
+
+    func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing {
+        lock.withLock {
+            count += 1
+            return listings.count > 1 ? listings.removeFirst() : listings[0]
+        }
+    }
+}
+
 /// `AppState` issue flows (#81).
 @MainActor
 final class AppStateIssueTests: XCTestCase {
@@ -41,13 +81,14 @@ final class AppStateIssueTests: XCTestCase {
     }
 
     private func loadedState(
-        _ loader: StubIssueLoader, repository: GitHubRepository? = IssueModelsTests.repository
+        _ loader: StubIssueLoader, repository: GitHubRepository? = IssueModelsTests.repository,
+        ghChecker: QueuedGHAuthChecker = QueuedGHAuthChecker([.loggedIn(login: "octocat")])
     ) async -> AppState {
         var listing = WorktreeListing.mockup
         listing.githubRepository = repository
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: StubRepositoryLoader(result: .success(listing)), issueLoader: loader)
+            loader: StubRepositoryLoader(result: .success(listing)), issueLoader: loader, ghChecker: ghChecker)
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(
@@ -57,6 +98,7 @@ final class AppStateIssueTests: XCTestCase {
         state.reload()
         await state.loadTask?.value
         await state.issuePanel.task?.value
+        await state.ghCheckTask?.value
         return state
     }
 
@@ -130,7 +172,7 @@ final class AppStateIssueTests: XCTestCase {
         let repositoryLoader = CachedFailingLoader(first: verified, cached: cached)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: repositoryLoader, issueLoader: loader)
+            loader: repositoryLoader, issueLoader: loader, ghChecker: QueuedGHAuthChecker([nil]))
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(
@@ -144,6 +186,10 @@ final class AppStateIssueTests: XCTestCase {
             await state.issuePanel.task?.value
         }
         XCTAssertEqual(loader.requests, ["team/app"], "the cached paint's remote is never asked about")
+        // Check Again after the failed refresh asks about the last verified repository only.
+        state.checkIssuesAgain()
+        await state.issuePanel.task?.value
+        XCTAssertEqual(loader.requests, ["team/app", "team/app"])
     }
 
     /// #82: the mockup's `feat/42-rate-limit` worktree links issue 42; badges know the fetched numbers.
@@ -160,6 +206,94 @@ final class AppStateIssueTests: XCTestCase {
         badges.select(42)
         XCTAssertEqual(state.issueDetailModel?.linkedWorktrees.map(\.title), ["feat/42-rate-limit"])
         XCTAssertTrue(state.highlightedCommits.isEmpty, "the mockup has no refs, so no branch tips")
+    }
+
+    // MARK: Degraded mode (#83)
+
+    func testStatusBarShowsGhStateAlongsideTheIssues() async {
+        let checker = QueuedGHAuthChecker([.loggedIn(login: "octocat")])
+        let state = await loadedState(StubIssueLoader([.issues([first])]), ghChecker: checker)
+        XCTAssertEqual(state.ghStatus, .loggedIn(login: "octocat"))
+        XCTAssertEqual(checker.checks, 1)
+        // Without a GitHub remote no gh runs at all.
+        let none = QueuedGHAuthChecker([.notInstalled])
+        let plain = await loadedState(StubIssueLoader([.issues([])]), repository: nil, ghChecker: none)
+        XCTAssertEqual(none.checks, 0)
+        XCTAssertNil(plain.ghStatus)
+    }
+
+    /// Git features do not depend on gh: the worktree list, the WIP detail, and the branches load as usual.
+    func testGitWorksWithoutGh() async {
+        for result in [IssueLoadResult.notInstalled, .notLoggedIn] {
+            let state = await loadedState(
+                StubIssueLoader([result]),
+                ghChecker: QueuedGHAuthChecker([result == .notInstalled ? .notInstalled : .notLoggedIn]))
+            XCTAssertNotNil(state.worktreeListModel)
+            XCTAssertNotNil(state.wipDetailModel)
+            XCTAssertEqual(state.issueListModel.guidance?.isOK, false)
+            XCTAssertEqual(state.ghStatus, result == .notInstalled ? .notInstalled : .notLoggedIn)
+        }
+    }
+
+    func testCheckAgainRetriesGhAndTheIssues() async {
+        let loader = StubIssueLoader([.notLoggedIn, .issues([first])])
+        let checker = QueuedGHAuthChecker([.notLoggedIn, .loggedIn(login: "octocat")])
+        let state = await loadedState(loader, ghChecker: checker)
+        XCTAssertEqual(state.issueListModel.guidance?.command, "gh auth login")
+
+        state.checkIssuesAgain()
+        await state.issuePanel.task?.value
+        await state.ghCheckTask?.value
+        XCTAssertEqual(loader.requests.count, 2)
+        XCTAssertEqual(checker.checks, 2)
+        XCTAssertEqual(state.issueListModel.rows.map(\.id), [12])
+        XCTAssertNil(state.issueListModel.guidance)
+        XCTAssertEqual(state.ghStatus, .loggedIn(login: "octocat"))
+    }
+
+    /// SEC-T15-13: pressing Check Again repeatedly while gh runs starts no further gh processes.
+    func testCheckAgainDoesNotPileUpGh() async {
+        let loader = StubIssueLoader([.notLoggedIn])
+        let checker = QueuedGHAuthChecker([.notLoggedIn])
+        let state = await loadedState(loader, ghChecker: checker)
+        state.checkIssuesAgain()
+        state.checkIssuesAgain()
+        state.checkIssuesAgain()
+        await state.issuePanel.task?.value
+        await state.ghCheckTask?.value
+        XCTAssertEqual(loader.requests.count, 2, "the first load and one Check Again")
+        XCTAssertEqual(checker.checks, 2)
+        XCTAssertFalse(state.isCheckingGitHub)
+        state.checkIssuesAgain()
+        await state.issuePanel.task?.value
+        XCTAssertEqual(loader.requests.count, 3, "available again once gh finished")
+    }
+
+    /// No GitHub remote: Check Again reloads the repository so newly added remotes are read.
+    func testCheckAgainWithoutARemoteReloadsTheRepository() async {
+        var withRemote = WorktreeListing.mockup
+        withRemote.githubRepository = IssueModelsTests.repository
+        let repositoryLoader = SequenceRepositoryLoader([.mockup, withRemote])
+        let issues = StubIssueLoader([.issues([first])])
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: repositoryLoader, issueLoader: issues, ghChecker: QueuedGHAuthChecker([.loggedIn(login: "o")]))
+        let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertEqual(state.issueListModel.notice?.text, "No GitHub remote")
+
+        state.checkIssuesAgain()
+        await state.loadTask?.value
+        await state.issuePanel.task?.value
+        XCTAssertEqual(repositoryLoader.loads, 2)
+        XCTAssertEqual(issues.requests, ["team/app"])
+        XCTAssertEqual(state.issueListModel.rows.map(\.id), [12])
     }
 
     func testOpeningAnotherRepositoryClearsTheIssues() async {

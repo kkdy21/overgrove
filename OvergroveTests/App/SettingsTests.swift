@@ -82,10 +82,11 @@ final class RemoteURLDisplayTests: XCTestCase {
         // Remote helpers are shown whole.
         let helper = "ext::sh -c x https://***@github.com/acme/api"
         XCTAssertEqual(RemoteURLDisplay.short(helper), helper)
-        XCTAssertEqual(RemoteURLDisplay.short("persistent-https::https://github.com/a/b"), "persistent-https::https://github.com/a/b")
+        let transport = "persistent-https::https://github.com/a/b"
+        XCTAssertEqual(RemoteURLDisplay.short(transport), transport)
         // Not a scheme before `://`.
-        XCTAssertEqual(RemoteURLDisplay.short("1http://github.com/a"), "1http://github.com/a")
-        XCTAssertEqual(RemoteURLDisplay.short("ht tp://github.com/a"), "ht tp://github.com/a")
+        XCTAssertEqual(RemoteURLDisplay.short("1http://github.com/a"), "1http/github.com/a", "git: scp-style to 1http")
+        XCTAssertEqual(RemoteURLDisplay.short("/ht tp://github.com/a"), "/ht tp://github.com/a")
     }
 
     func testAuthorityEdgeCases() {
