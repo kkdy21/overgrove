@@ -6,9 +6,40 @@ enum GraphGeometry {
     static let rowHeight = Tokens.Size.rowGraph
     static let lane = Tokens.Size.graphLaneWidth
 
-    /// Lane count × 20 + 14, at most `size.graph-max-lanes-visible` lanes (wider graphs are clipped for now).
+    /// The Graph column as drawn: lane count × 20 + 14, at most `size.graph-max-lanes-visible` lanes. Wider graphs
+    /// scroll sideways inside it (interaction.md §2.1, #255).
     static func width(lanes: Int) -> CGFloat {
         CGFloat(min(max(lanes, 1), Tokens.Size.graphMaxLanesVisible)) * lane + inset * 2
+    }
+
+    /// Every lane: what the column would need to show them all.
+    static func contentWidth(lanes: Int) -> CGFloat {
+        CGFloat(max(lanes, 1)) * lane + inset * 2
+    }
+
+    /// How far the lanes can scroll sideways: 0 up to `size.graph-max-lanes-visible` lanes.
+    static func maxOffset(lanes: Int) -> CGFloat {
+        contentWidth(lanes: lanes) - width(lanes: lanes)
+    }
+
+    static func clampOffset(_ offset: CGFloat, lanes: Int) -> CGFloat {
+        guard offset.isFinite else { return 0 }
+        return min(max(offset, 0), maxOffset(lanes: lanes))
+    }
+
+    /// The offset that brings `column`'s node fully into view, moving as little as possible (the selection moved
+    /// to a commit in a lane scrolled out of sight).
+    static func revealing(_ column: Int, offset: CGFloat, lanes: Int) -> CGFloat {
+        let visible = width(lanes: lanes)
+        let left = x(column) - lane / 2 - inset
+        let right = x(column) + lane / 2 + inset
+        var next = clampOffset(offset, lanes: lanes)
+        if left < next {
+            next = left
+        } else if right > next + visible {
+            next = right - visible
+        }
+        return clampOffset(next, lanes: lanes)
     }
 
     static func x(_ column: Int) -> CGFloat {
