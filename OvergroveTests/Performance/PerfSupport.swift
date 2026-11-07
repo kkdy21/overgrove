@@ -8,7 +8,7 @@ import XCTest
 ///
 /// | Variable | Effect |
 /// |---|---|
-/// | `OVERGROVE_BENCH_REPO=<dir>` | A `scripts/make-bench-repo.sh` output directory: runs PERF-01, -02, -03 |
+/// | `OVERGROVE_BENCH_REPO=<dir>` | A `scripts/make-bench-repo.sh` output directory: runs PERF-01, -02, -03, -11, -12 |
 /// | `OVERGROVE_PERF=1` | Runs the synthetic PERF tests (PERF-05, PERF-09) |
 /// | `OVERGROVE_PERF_REPORT_ONLY=1` | Budgets are reported, not enforced (CI runners) |
 /// | `OVERGROVE_PERF_REPORT_DIR=<dir>` | Each test also writes its result table to `<dir>/PERF-nn.md` |
