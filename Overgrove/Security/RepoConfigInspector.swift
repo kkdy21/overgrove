@@ -16,7 +16,8 @@ struct RepoConfigInspection: Sendable, Equatable {
     let report: RepoSecurityReport
     /// `-c` arguments for every git command in this repository (filter drivers, T4).
     let neutralization: [String]
-    /// `-c` arguments for `git fetch` only: credential helper reset and trusted re-insertion (T6), TLS restore (T11).
+    /// `-c` arguments for `git fetch` only: credential helper reset and trusted re-insertion (T6), TLS restore, proxy
+    /// and cookie resets (T11).
     let fetchAuthentication: [String]
     /// `core.sshCommand` from a trusted scope; repository-local values are ignored (T5).
     let trustedSSHCommand: String?
@@ -55,7 +56,8 @@ enum RepoConfigInspector {
     /// - Filter drivers beyond this cannot all be neutralized: each adds eight arguments to every git command, and the
     ///   command line would outgrow the argument limit. Queries stop (fail closed).
     static let maximumNeutralizedDrivers = 256
-    /// Fetch-only overrides (`http.<url>.sslVerify`, `http.<url>.proxy`) beyond this disable fetch; queries go on.
+    /// Fetch-only overrides (`http.<url>.sslVerify`, `.proxy`, `.cookieFile`, `.saveCookies`, `remote.<name>.proxy`)
+    /// beyond this disable fetch; queries go on.
     static let maximumFetchOverrides = 256
     /// Remotes listed (configuration order). Fetch uses fewer still (`maximumFetchedRemotes`, #259); the rest are
     /// counted in `omittedRemotes`. Remotes never affect neutralization, so this is not fail closed.
@@ -78,13 +80,17 @@ enum RepoConfigInspector {
         var findings: [RepoSecurityReport.Finding] = []
         var omittedFindings = 0
         var blockingReason: String?
-        // Arrays keep first-seen order (it becomes argument order); the sets make each check O(1) (#262).
+        // Arrays keep first-seen order (it becomes argument order); the sets make each check O(1) (#262). Keys are
+        // compared as bytes: git keeps canonically equivalent subsections apart, but `String` equality would fold
+        // them, and one of the two would miss its reset (#355).
         var neutralizedDrivers: [String] = []
         var seenDrivers = Set<String>()
         var restoreTLS: [String] = []
-        var seenTLS = Set<String>()
+        var seenTLS = Set<[UInt8]>()
         var resetProxies: [String] = []
-        var seenProxies = Set<String>()
+        var seenProxies = Set<[UInt8]>()
+        var resetCookies: [String] = []
+        var seenCookies = Set<[UInt8]>()
         var hasUntrustedHelper = false
         var fetchBlockingReason: String?
 
@@ -94,7 +100,10 @@ enum RepoConfigInspector {
 
         for entry in listing.entries where entry.scope.isRepositoryControlled {
             // git splits `-c key=value` at the first "=", so such a key could inject another setting (review of #150).
-            if entry.subsection?.contains("=") == true, ["http", "credential", "filter"].contains(entry.section) {
+            if entry.subsection?.contains("=") == true,
+                ["http", "credential", "filter"].contains(entry.section)
+                    || (entry.section == "remote" && entry.variable == "proxy")
+            {
                 blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
             }
             guard let (threat, handling) = classify(entry) else { continue }
@@ -116,9 +125,13 @@ enum RepoConfigInspector {
                 hasUntrustedHelper = true
             case ("http", "sslverify"):
                 // Always force true: git accepts many spellings of false (0k, 0x0, -0, …), so never guess.
-                if seenTLS.insert(entry.key).inserted { restoreTLS.append(entry.key) }
-            case ("http", "proxy"):
-                if seenProxies.insert(entry.key).inserted { resetProxies.append(entry.key) }
+                if seenTLS.insert(Array(entry.key.utf8)).inserted { restoreTLS.append(entry.key) }
+            // A remote's own proxy wins over http.proxy for that remote (#355).
+            case ("http", "proxy"), ("remote", "proxy"):
+                if seenProxies.insert(Array(entry.key.utf8)).inserted { resetProxies.append(entry.key) }
+            // Under its own key: a URL-specific value wins over the generic `-c http.cookieFile=` fetch pins (#355).
+            case ("http", "cookiefile"), ("http", "savecookies"):
+                if seenCookies.insert(Array(entry.key.utf8)).inserted { resetCookies.append(entry.key) }
             case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"):
                 fetchBlockingReason = "This repository sets its own TLS certificate files; fetching is disabled."
             default:
@@ -131,7 +144,7 @@ enum RepoConfigInspector {
                 "This repository defines \(neutralizedDrivers.count) filter drivers, more than Overgrove can "
                 + "neutralize (\(maximumNeutralizedDrivers))."
         }
-        if restoreTLS.count + resetProxies.count > maximumFetchOverrides {
+        if restoreTLS.count + resetProxies.count + resetCookies.count > maximumFetchOverrides {
             fetchBlockingReason =
                 "This repository sets TLS or proxy options for too many URLs to override; fetching is disabled."
         }
@@ -156,13 +169,17 @@ enum RepoConfigInspector {
         // A repository-local proxy could receive credentials released by a trusted helper (review of #150).
         // Re-assert the trusted value for the same key, or an empty value (no proxy). One pass collects the last
         // trusted value per proxy key, instead of a scan of the whole listing per key.
-        var trustedProxies: [String: String] = [:]
-        for entry in listing.entries
-        where !entry.scope.isRepositoryControlled && seenProxies.contains(entry.key) {
-            trustedProxies[entry.key] = entry.value ?? ""
+        var trustedProxies: [[UInt8]: String] = [:]
+        for entry in listing.entries where !entry.scope.isRepositoryControlled {
+            let key = Array(entry.key.utf8)
+            if seenProxies.contains(key) { trustedProxies[key] = entry.value ?? "" }
         }
         for key in resetProxies {
-            fetchAuthentication += ["-c", "\(key)=\(trustedProxies[key] ?? "")"]
+            fetchAuthentication += ["-c", "\(key)=\(trustedProxies[Array(key.utf8)] ?? "")"]
+        }
+        // Off, not the trusted value: fetch never reads or writes a cookie file (`FetchCommand` pins the generic keys).
+        for key in resetCookies {
+            fetchAuthentication += ["-c", key.hasSuffix(".savecookies") ? "\(key)=false" : "\(key)="]
         }
 
         let trustedSSHCommand =
@@ -254,6 +271,8 @@ enum RepoConfigInspector {
             return ("T14", .reported)
         case "remote":
             if variable == "uploadpack" { return ("T5", .neutralized) }
+            // Wins over http.proxy for this remote; reset for fetch like it (#355).
+            if variable == "proxy" { return ("T11", .neutralized) }
             // Settings that would widen what fetch writes; the pinned fetch arguments override them (#209).
             if variable == "fetch", let remote = entry.subsection, writesOutsideRemoteNamespace(value, remote: remote) {
                 return ("T13", .neutralized)
@@ -268,7 +287,7 @@ enum RepoConfigInspector {
             if variable == "url", TransportName.remoteHelper(forURL: value) != nil { return ("T5", .reported) }
             return nil
         case "http":
-            if variable == "sslverify" || variable == "proxy" { return ("T11", .neutralized) }
+            if ["sslverify", "proxy", "cookiefile", "savecookies"].contains(variable) { return ("T11", .neutralized) }
             if ["sslcainfo", "sslcapath", "sslcert", "sslkey"].contains(variable) { return ("T11", .warned) }
             return nil
         case "diff" where variable == "external" || variable == "textconv" || variable == "command":

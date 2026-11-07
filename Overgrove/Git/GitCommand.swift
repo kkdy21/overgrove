@@ -263,6 +263,9 @@ enum FetchCommand: Sendable, Hashable {
                 // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.40+, #99);
                 // older git ignores the key (security review of #210).
                 "-c", "fetch.bundleURI=",
+                // A cookie file is read into every request, and with saveCookies written back: any path the user can
+                // write. Fetch never needs one. URL-specific keys win over these, so the inspector resets them (#355).
+                "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
             ]
         }
     }

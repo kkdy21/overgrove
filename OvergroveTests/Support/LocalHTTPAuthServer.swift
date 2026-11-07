@@ -11,12 +11,19 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "overgrove.tests.http-auth")
     private let lock = NSLock()
     private var requests = 0
+    private var heads: [String] = []
 
     /// The bound loopback port.
     let port: UInt16
 
     /// Complete requests (headers received) answered so far.
     var requestCount: Int { lock.withLock { requests } }
+
+    /// The request line and headers of each complete request, oldest first (at most `maximumHeads`, each cut to
+    /// 16 KiB). A test checks what git sent, e.g. whether a proxy saw `Authorization` or a server saw a cookie.
+    var requestHeads: [String] { lock.withLock { heads } }
+
+    static let maximumHeads = 64
 
     /// `http://127.0.0.1:<port>/<path>`.
     func url(_ path: String = "repo.git", userInfo: String? = nil) -> String {
@@ -103,7 +110,13 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
                 return
             }
             // Count only complete requests: a connection closed before its headers is not a request.
-            if headersEnded { lock.withLock { requests += 1 } }
+            if let end = request.range(of: Data("\r\n\r\n".utf8)) {
+                let head = String(decoding: request[..<end.lowerBound].prefix(16 * 1024), as: UTF8.self)
+                lock.withLock {
+                    requests += 1
+                    if heads.count < Self.maximumHeads { heads.append(head) }
+                }
+            }
             let response = """
                 HTTP/1.1 401 Unauthorized\r
                 WWW-Authenticate: Basic realm="overgrove-test"\r

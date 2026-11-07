@@ -212,6 +212,7 @@ final class GitCommandTests: XCTestCase {
             [
                 "-c", "fetch.pruneTags=false", "-c", "remote.team/fork.v2.pruneTags=false",
                 "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=",
+                "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
             ]
         )
     }

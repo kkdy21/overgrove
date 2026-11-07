@@ -109,6 +109,67 @@ final class RepoConfigInspectorTests: XCTestCase {
     func testKeysContainingEqualsBlock() {
         XCTAssertTrue(inspect([entry(.local, "http.https://example.com/a.b=c.sslverify", "false")]).report.isBlocked)
         XCTAssertTrue(inspect([entry(.local, "credential.https://x=y.helper", "!evil")]).report.isBlocked)
+        // `-c remote.a=b.proxy=` would set `remote.a` instead (#355).
+        XCTAssertTrue(inspect([entry(.local, "remote.a=b.proxy", "http://evil.invalid")]).report.isBlocked)
+        XCTAssertFalse(inspect([entry(.local, "remote.a=b.url", "https://x.invalid/r")]).report.isBlocked)
+    }
+
+    /// #355: `remote.<name>.proxy` wins over `http.proxy` for that remote, so a repository's value is reset the same
+    /// way: to the trusted value for the same key, else to nothing.
+    func testLocalRemoteProxyIsReplacedWithTheTrustedValueOrNothing() {
+        let result = inspect([
+            entry(.global, "remote.origin.proxy", "http://corp-proxy:3128"),
+            entry(.local, "remote.origin.proxy", "http://evil.invalid:8080"),
+            entry(.local, "remote.fork.proxy", "http://evil.invalid:8080"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            ["-c", "remote.origin.proxy=http://corp-proxy:3128", "-c", "remote.fork.proxy="])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T11", "T11"])
+        XCTAssertEqual(result.report.findings.map(\.handling), [.neutralized, .neutralized])
+        XCTAssertTrue(result.neutralization.isEmpty, "queries open no connection")
+    }
+
+    /// #355: a repository's cookie file would be read (and with `saveCookies`, written) by fetch. A URL-specific key
+    /// wins over the generic `-c http.cookieFile=` that fetch pins, so each one is reset under its own key.
+    func testLocalCookieSettingsAreTurnedOffUnderTheirOwnKeys() {
+        let result = inspect([
+            entry(.local, "http.cookiefile", "/tmp/cookies.txt"),
+            entry(.local, "http.https://x.invalid.cookiefile", "/tmp/cookies.txt"),
+            entry(.worktree, "http.https://x.invalid.savecookies", "true"),
+            entry(.global, "http.https://y.invalid.cookiefile", "/tmp/trusted.txt"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            [
+                "-c", "http.cookiefile=", "-c", "http.https://x.invalid.cookiefile=",
+                "-c", "http.https://x.invalid.savecookies=false",
+            ],
+            "a user's own (global) setting is left alone")
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T11", "T11", "T11"])
+        XCTAssertNil(result.fetchBlockingReason)
+    }
+
+    /// #355: git keeps canonically equivalent subsections apart (bytes), but Swift `String` equality would fold them,
+    /// so one of two such keys could be left out of the reset. Compared as bytes here for the same reason.
+    func testCanonicallyEquivalentURLKeysAreEachReset() {
+        let composed = "https://caf\u{E9}.invalid"
+        let decomposed = "https://cafe\u{301}.invalid"
+        let result = inspect([
+            entry(.local, "http.\(composed).sslverify", "false"),
+            entry(.local, "http.\(decomposed).sslverify", "false"),
+            entry(.local, "http.\(composed).proxy", "http://evil.invalid"),
+            entry(.local, "http.\(decomposed).proxy", "http://evil.invalid"),
+            entry(.global, "http.\(decomposed).proxy", "http://trusted.invalid"),
+            entry(.local, "http.\(composed).cookiefile", "/tmp/c"),
+            entry(.local, "http.\(decomposed).cookiefile", "/tmp/c"),
+        ])
+        let expected = [
+            "-c", "http.\(composed).sslverify=true", "-c", "http.\(decomposed).sslverify=true",
+            "-c", "http.\(composed).proxy=", "-c", "http.\(decomposed).proxy=http://trusted.invalid",
+            "-c", "http.\(composed).cookiefile=", "-c", "http.\(decomposed).cookiefile=",
+        ]
+        XCTAssertEqual(result.fetchAuthentication.map { Array($0.utf8) }, expected.map { Array($0.utf8) })
     }
 
     func testIncludeIfOnBranchIsNotCacheable() async {
