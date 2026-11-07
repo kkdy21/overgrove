@@ -350,15 +350,27 @@ worktrees/wt-no-upstream   staged=0 unstaged=0 untracked=0 conflicted=0
 |---|---|---|
 | `Canary.all` | `OvergroveTests/Support/Canary.swift` | §8.1의 canary 목록(ID, 위협, 심는 방법). 픽스처가 실제로 심은 canary와 다르면 `testCatalogMatchesTheFixturePayloads`가 실패한다 |
 | `fixture.assertNoCanaries(after:)` | 같은 파일 | `canary/`에 파일이 있으면 실패한다. 메시지에 실행한 명령, canary마다 위협 ID·심는 방법·실행 횟수·페이로드가 받은 인자를 쓴다 |
-| `fixture.canaryRecords()`, `clearCanaries()` | 같은 파일 | canary 내용 읽기, 단계 사이 비우기 |
-| `CanaryHarness` | `OvergroveTests/Support/CanaryHarness.swift` | 앱과 같은 경로로 실행한다: `configList` → `RepoConfigInspector` → `RepoSafetyContext` → `GitClient`. `queries()`는 `ReadOnlyGitCommand`의 모든 case와 `fetch origin`을 페이로드에 닿는 대상(속성이 걸린 `.txt`, 가짜 서명 커밋, alternates가 있는 origin)으로 만든다. case가 늘면 `caseName(_:)`의 exhaustive switch 때문에 빌드가 깨진다 |
-| `harness.runPlain(_:)` | 같은 파일 | 대조군. 같은 서브커맨드 인자를 보안 인자·무력화 인자·환경 allowlist 없이 실행한다 |
+| `fixture.assertNoNewCanaries(since:after:)` | 같은 파일 | 직전 스냅숏 대비 새로 생기거나 늘어난 canary만 그 명령의 탓으로 보고 실패한다. 지우지 않으므로 늦게 쓰인 기록도 다음 검사에서 잡힌다 |
+| `fixture.canaryRecords()`, `clearCanaries()` | 같은 파일 | canary 내용 읽기, 대조군 단계 사이 비우기 |
+| `CanaryHarness` | `OvergroveTests/Support/CanaryHarness.swift` | 앱과 같은 경로로 실행한다: `configList` → `RepoConfigInspector` → `RepoSafetyContext` → `GitClient`. `queries()`는 `ReadOnlyGitCommand`의 모든 case와 `fetch origin`을 페이로드에 닿는 대상(속성이 걸린 `.txt`, mtime만 바꾼 `docs/manual.md`, 가짜 서명 커밋, alternates가 있는 origin, 충돌 중인 워크트리)으로 만든다. `CaseName`(`CaseIterable`)과 exhaustive switch 때문에 command case가 늘면 빌드가 깨지고, 값을 추가하면 `queries()`가 그 명령을 실행할 때까지 INT-19가 실패한다 |
+| `harness.runPlain(_:dropping:)` | 같은 파일 | 대조군. 같은 서브커맨드 인자를 공통 `-c` 인자·무력화 인자·환경 allowlist 없이 실행한다. 서브커맨드 인자는 앱과 같고, `dropping`으로 `--no-textconv` 같은 서브커맨드 단계의 보안 인자도 뺄 수 있다 |
 
 테스트(`OvergroveTests/Security/CanaryHarnessTests.swift`):
-- **INT-19**: 모든 명령을 하나씩 실행하고 매번 `canary/`가 비어 있는지 본다. 명령이 실패해도 실패로 본다. 실패한 명령은 페이로드가 도는 경로까지 가지 않았을 수 있기 때문이다.
-- **대조군**: plain 실행에서 status·워크트리 diff는 `T1-fsmonitor`·`T4-filter-clean`, graphPage는 `T7-gpg-program`, `fetch origin`은 `T5-alternateRefsCommand`를 실제로 남겨야 한다(§8.2 plain 열, Apple Git 2.50.1 실측). 이 테스트가 깨지면 픽스처가 고장 난 것이고, INT-19의 통과는 의미가 없다.
-- 무력화 인자를 빼는 변형으로 INT-19가 `T4-filter-clean`을 잡아내는 것을 확인했다(#61 작업 중 수동 확인).
-- T8(auto maintenance, `GIT_TRACE` 판정), ssh·git·ext·redirected 원격 fetch, 인증 경로(T6)는 이 도구 위에서 SEC 매트릭스(#92, #93)가 다룬다.
+- **INT-19**: `canary/`가 빈 디렉터리로 있는지 먼저 확인한 뒤, 모든 명령을 하나씩 실행하고 매번 스냅숏 차이로 판정한다. 마지막에 전체를 한 번 더 본다. 명령이 실패해도 실패로 본다. 실패한 명령은 페이로드가 도는 경로까지 가지 않았을 수 있기 때문이다.
+- **대조군**: plain 실행에서 아래 canary가 실제로 생겨야 한다. Apple Git 2.50.1 실측이며 §8.2와 맞는다. 이 테스트가 깨지면 픽스처가 고장 난 것이고, INT-19의 통과는 의미가 없다.
+
+  | 대상 | 뺀 인자 | 기대 canary | §8.2 근거 |
+  |---|---|---|---|
+  | status (main) | — | `T1-fsmonitor`, `T4-filter-process` (process 필터가 실패해 status가 중단되므로 clean 실행 여부는 순서에 달림) | M01 |
+  | worktreeDiff unstaged | — | `T1-fsmonitor`, `T4-filter-clean` | M04 |
+  | worktreeDiff unstaged | `--no-ext-diff`, `--no-textconv` | `T3-external-diff`, `T4-filter-smudge` | M04 |
+  | worktreeDiff unstaged | `--no-textconv` | `T3-textconv`, `T4-filter-smudge` | M09 |
+  | graphPage | — | `T7-gpg-program` | M12 |
+  | fetch origin | — | `T5-alternateRefsCommand`, `T2-hook-reference-transaction` | M23 |
+  | fetch origin | `--upload-pack=git-upload-pack` | `T5-uploadpack` | M20 |
+
+- 무력화 인자를 빼는 변형으로 INT-19가 status, worktreeDiff, untrackedPreview를 각각 잡아내는 것을 확인했다(#61 작업 중 수동 확인).
+- **INT-19가 닿는 canary**: T1, T2(fetch의 `reference-transaction`), T3(textconv·external), T4(clean·smudge·process), T5(uploadpack·alternateRefs), T7. 모두 대조군으로 실제 실행 경로임을 확인한다. **닿지 않는 것**: 인덱스 쓰기 hook(`post-index-change` 등, 앱 명령은 `--no-optional-locks`로 인덱스를 쓰지 않음), auto gc hook(`pre-auto-gc`), T5의 ssh·git·ext·redirected 원격 fetch, T6 인증 경로, T8(auto maintenance, `GIT_TRACE` 판정). 이것들은 이 도구 위에서 SEC 매트릭스(#92, #93)가 다룬다.
 
 ## 10. 확장 규칙
 

@@ -7,9 +7,10 @@ import XCTest
 /// (docs/testing/fixtures.md §8, INT-19, security-review.md T1–T7).
 ///
 /// The hardened path is exactly the app's: `GitClient` with the `RepoSafetyContext` that `RepoConfigInspector`
-/// derives from the fixture's own `config --list`. `plainRun` is the negative control: the same subcommand arguments
-/// with none of the hardening (no common `-c` arguments, no neutralization, no environment allowlist), which must
-/// make the payloads fire. Without that control a broken fixture would let every canary check pass silently.
+/// derives from the fixture's own `config --list`. `runPlain` is the negative control: the same subcommand arguments
+/// without the common `-c` arguments, the neutralization, and the environment allowlist (and optionally without
+/// subcommand-level safety flags such as `--no-textconv`), which must make the payloads fire. Without that control a
+/// broken fixture would let every canary check pass silently.
 struct CanaryHarness {
     /// One command to run, with the directory it runs in.
     struct Query: Sendable, CustomStringConvertible {
@@ -48,8 +49,22 @@ struct CanaryHarness {
         guard let safety = inspection.safetyContext else {
             throw HarnessError.inspectionBlocked(inspection.report)
         }
+        try markForRehash(fixture)
         return CanaryHarness(
             fixture: fixture, environment: environment, client: client, inspection: inspection, safety: safety)
+    }
+
+    /// Files whose content is unchanged but whose mtime differs from the index, so the next status re-hashes them
+    /// through their filter: `src/filter-target.txt` (clean, done by the script) and `docs/manual.md`
+    /// (`*.md filter=fixtureproc`, the long-running process filter, T4).
+    static let rehashTargets = ["docs/manual.md"]
+
+    private static func markForRehash(_ fixture: FixtureRepo) throws {
+        for path in rehashTargets {
+            try FileManager.default.setAttributes(
+                [.modificationDate: Date(timeIntervalSince1970: 1_767_225_600)],
+                ofItemAtPath: fixture.repository.appendingPathComponent(path).path)
+        }
     }
 
     enum HarnessError: Error {
@@ -83,7 +98,7 @@ struct CanaryHarness {
             query(.probeRepository, "probeRepository"),
             query(.configList, "configList"),
             query(.worktreeList, "worktreeList"),
-            query(.status, "status (main worktree: modified .txt files, touched filter target)"),
+            query(.status, "status (main worktree: modified .txt files, touched clean and process filter targets)"),
             query(.status, in: fixture.worktree("wt-conflict"), "status (wt-conflict: unmerged index)"),
             query(.refs, "refs"),
             query(
@@ -113,36 +128,35 @@ struct CanaryHarness {
         return queries
     }
 
-    /// Case names that `queries()` covers. Exhaustive on purpose: adding a `ReadOnlyGitCommand` case breaks the
-    /// build here until the harness runs it too.
-    static func caseName(_ command: ReadOnlyGitCommand) -> String {
-        switch command {
-        case .version: "version"
-        case .probeRepository: "probeRepository"
-        case .configList: "configList"
-        case .worktreeList: "worktreeList"
-        case .status: "status"
-        case .refs: "refs"
-        case .aheadBehind: "aheadBehind"
-        case .stashList: "stashList"
-        case .stashFiles: "stashFiles"
-        case .stashPatch: "stashPatch"
-        case .graphPage: "graphPage"
-        case .commitMeta: "commitMeta"
-        case .commitFiles: "commitFiles"
-        case .commitPatch: "commitPatch"
-        case .worktreeDiff: "worktreeDiff"
-        case .untrackedPreview: "untrackedPreview"
-        case .fileHistory: "fileHistory"
-        }
+    /// One value per `ReadOnlyGitCommand` case. `caseName(_:)` is an exhaustive switch, so a new command case breaks
+    /// the build until it gets a value here; a new value enlarges `allCases`, so INT-19 then fails until `queries()`
+    /// runs that command.
+    enum CaseName: String, CaseIterable {
+        case version, probeRepository, configList, worktreeList, status, refs, aheadBehind, stashList, stashFiles
+        case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, untrackedPreview, fileHistory
     }
 
-    /// Every case name of `ReadOnlyGitCommand`; keep in sync with `caseName(_:)`.
-    static let allCaseNames: Set<String> = [
-        "version", "probeRepository", "configList", "worktreeList", "status", "refs", "aheadBehind", "stashList",
-        "stashFiles", "stashPatch", "graphPage", "commitMeta", "commitFiles", "commitPatch", "worktreeDiff",
-        "untrackedPreview", "fileHistory",
-    ]
+    static func caseName(_ command: ReadOnlyGitCommand) -> CaseName {
+        switch command {
+        case .version: .version
+        case .probeRepository: .probeRepository
+        case .configList: .configList
+        case .worktreeList: .worktreeList
+        case .status: .status
+        case .refs: .refs
+        case .aheadBehind: .aheadBehind
+        case .stashList: .stashList
+        case .stashFiles: .stashFiles
+        case .stashPatch: .stashPatch
+        case .graphPage: .graphPage
+        case .commitMeta: .commitMeta
+        case .commitFiles: .commitFiles
+        case .commitPatch: .commitPatch
+        case .worktreeDiff: .worktreeDiff
+        case .untrackedPreview: .untrackedPreview
+        case .fileHistory: .fileHistory
+        }
+    }
 
     // MARK: Running
 
@@ -160,12 +174,19 @@ struct CanaryHarness {
 
     /// Negative control: the same subcommand with plain git, as a typical client runs it. Only the fixture's isolated
     /// HOME and a fixed PATH are set, and system/global configuration is off, so the repository's own configuration
-    /// is the only thing that differs from a clean run.
-    func runPlain(_ query: Query) async throws -> ProcessResult {
-        try await ProcessRunner().run(
+    /// is the only thing that differs from a clean run. (The hardened run reads system configuration like the app
+    /// does; HOME is isolated in both, so global configuration is empty either way.)
+    ///
+    /// - Parameter dropping: Subcommand-level safety flags to remove as well, e.g. `--no-textconv`, to prove that
+    ///   those flags (not the absence of a code path) are what stop a payload.
+    func runPlain(_ query: Query, dropping: Set<String> = []) async throws -> ProcessResult {
+        let arguments = try query.subcommandArguments()
+        let missing = dropping.subtracting(arguments)
+        guard missing.isEmpty else { throw HarnessError.unresolved("\(query) has no \(missing.sorted())") }
+        return try await ProcessRunner().run(
             ProcessRequest(
                 executable: environment.executable,
-                arguments: try query.subcommandArguments(),
+                arguments: arguments.filter { !dropping.contains($0) },
                 environment: [
                     "HOME": fixture.home.path,
                     "PATH": GitEnvironment.path,

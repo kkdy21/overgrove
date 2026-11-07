@@ -74,6 +74,23 @@ extension FixtureRepo {
         XCTFail(Self.canaryFailureMessage(action: action, records: records), file: file, line: line)
     }
 
+    /// Fails when a canary appeared or grew since `previous`, attributing it to `action`, and returns the new
+    /// snapshot. Nothing is deleted, so a payload that writes late still shows up at the next check.
+    @discardableResult
+    func assertNoNewCanaries(
+        since previous: [String: String],
+        after action: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> [String: String] {
+        let current = canaryRecords()
+        let changed = current.filter { previous[$0.key] != $0.value }
+        if !changed.isEmpty {
+            XCTFail(Self.canaryFailureMessage(action: action, records: changed), file: file, line: line)
+        }
+        return current
+    }
+
     /// Exposed for testing the message itself.
     static func canaryFailureMessage(action: String, records: [String: String]) -> String {
         let lines = records.keys.sorted().map { id in
