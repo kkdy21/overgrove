@@ -293,7 +293,9 @@ final class RepoConfigInspectorTests: XCTestCase {
         let result = inspect(entries)
         let elapsed = clock.now - started
 
-        XCTAssertLessThan(elapsed, .seconds(3), "400,000 entries took \(elapsed)")
+        // Linear code takes ~1.5 s in a local Debug build and ~3 s on a busy CI runner; the quadratic code this guards
+        // against took minutes. 20 s separates the two without failing on runner variance (#279).
+        XCTAssertLessThan(elapsed, .seconds(20), "400,000 entries took \(elapsed)")
         XCTAssertEqual(result.remotes.count, RepoConfigInspector.maximumRemotes)
         XCTAssertEqual(result.remotes.first?.name.value, "r0")
         XCTAssertEqual(result.omittedRemotes, 100_000 - RepoConfigInspector.maximumRemotes)
