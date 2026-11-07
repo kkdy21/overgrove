@@ -27,11 +27,14 @@ actor RepositoryService {
         case worktreeSelected(GitPath)
         /// A fetch finished: the worktree list, every status (ahead/behind), and the refs. Debounced.
         case fetchCompleted
+        /// Files changed on disk (auto refresh, #119): only these worktrees' statuses, plus the refs or the worktree
+        /// list when they changed. Not debounced here; the watcher batches and rate-limits its requests.
+        case filesChanged(worktrees: Set<GitPath>, refs: Bool, worktreeList: Bool)
 
         var isDebounced: Bool {
             switch self {
             case .automatic, .fetchCompleted: true
-            case .user, .worktreeSelected: false
+            case .user, .worktreeSelected, .filesChanged: false
             }
         }
     }
@@ -267,6 +270,7 @@ actor RepositoryService {
         enum Statuses: Sendable {
             case all
             case only(GitPath)
+            case some(Set<GitPath>)
             case olderThan(Duration)
         }
 
@@ -287,6 +291,8 @@ actor RepositoryService {
                 )
             case (.worktreeSelected(let path), true):
                 (worktreeList, statuses, refs, stashes) = (false, .only(path), false, false)
+            case (.filesChanged(let worktrees, let changedRefs, let changedList), true):
+                (worktreeList, statuses, refs, stashes) = (changedList, .some(worktrees), changedRefs, false)
             }
         }
     }
@@ -376,9 +382,13 @@ actor RepositoryService {
             let worktrees = previous.overview.entries.map(\.worktree)
             // A selection the cached list does not know needs the current list.
             let isKnown: Bool
-            if case .only(let path) = plan.statuses {
+            switch plan.statuses {
+            case .only(let path):
                 isKnown = worktrees.contains { $0.path == path }
-            } else {
+            case .some(let paths):
+                let listed = Set(worktrees.map(\.path))
+                isKnown = paths.allSatisfy(listed.contains)
+            case .all, .olderThan:
                 isKnown = true
             }
             if isKnown { return (worktrees, previous.overview.isWorktreeListPartial) }
@@ -399,6 +409,7 @@ actor RepositoryService {
         switch plan.statuses {
         case .all: return true
         case .only(let path): return worktree.path == path
+        case .some(let paths): return paths.contains(worktree.path)
         case .olderThan(let age): return now - queried >= age
         }
     }
