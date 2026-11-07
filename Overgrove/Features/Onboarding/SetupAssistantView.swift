@@ -50,10 +50,11 @@ struct SetupAssistantView: View {
 
     private var header: some View {
         VStack(spacing: Tokens.Spacing.sm) {
-            // TODO(brand mark): the mockup's mark has no asset yet; an SF Symbol stands in.
-            Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: Self.markSize))
-                .foregroundStyle(Tokens.Color.accent)
+            // design/icon/mark.svg as the Mark asset (iconography.md §6.1, #38).
+            Image("Mark")
+                .resizable()
+                .scaledToFit()
+                .frame(height: Self.markHeight)
                 .accessibilityHidden(true)
             Text("Welcome to Overgrove").font(Tokens.Font.largeTitle)
             Text("See every worktree of a repository at a glance.")
@@ -133,7 +134,7 @@ struct SetupAssistantView: View {
 
     /// No size tokens for the assistant panel; values from the S-07 mockup.
     static let width: CGFloat = 640
-    static let markSize: CGFloat = 44
+    static let markHeight: CGFloat = 64
 }
 
 /// One numbered card: a check mark when done, otherwise the step number.

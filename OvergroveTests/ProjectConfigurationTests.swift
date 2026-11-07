@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 
 @testable import Overgrove
@@ -17,5 +18,12 @@ final class ProjectConfigurationTests: XCTestCase {
         // The app reads repositories anywhere on disk (HANDOFF §4), so it must not run sandboxed.
         let containerPath = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"]
         XCTAssertNil(containerPath)
+    }
+
+    /// #38: the app icon comes from AppIcon.appiconset (scripts/render-app-icon.sh), and the mark is an asset (S-07).
+    func testAppIconAndMarkAreInTheAssetCatalog() throws {
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "CFBundleIconName") as? String, "AppIcon")
+        let mark = try XCTUnwrap(NSImage(named: "Mark"), "Mark.imageset")
+        XCTAssertGreaterThan(mark.size.width, 0)
     }
 }
