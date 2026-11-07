@@ -245,22 +245,28 @@ actor LiveGitClient {
 
     private var cached: GitClient?
     private var cachedService: RepositoryService?
+    /// Bumped by `reset()`. A discovery that started before a reset is not cached, so a git chosen earlier never
+    /// outlives the change (the actor is re-entered while `resolve` runs).
+    private var generation = 0
 
     func client() async throws -> GitClient {
         if let cached { return cached }
+        let started = generation
         // `UserDefaults` is documented as thread-safe; the stored values are untrusted and checked by `resolve`.
-        let defaults = UserDefaults.standard
         let environment = try await GitEnvironment.resolve(
-            chosenPath: defaults.string(forKey: AppSettings.gitExecutablePathKey),
-            protectedDirectories: GitExecutablePolicy.protectedDirectories(
-                for: RepositoryRegistry.load(from: defaults)))
+            chosenPath: UserDefaults.standard.string(forKey: AppSettings.gitExecutablePathKey),
+            protectedDirectories: {
+                GitExecutablePolicy.protectedDirectories(for: RepositoryRegistry.load(from: .standard))
+            })
         let client = GitClient(environment: environment)
+        guard started == generation else { return try await self.client() }
         cached = client
         return client
     }
 
     /// Forgets the client and service, so the next use discovers git again (after the Settings choice changed).
     func reset() {
+        generation += 1
         cached = nil
         cachedService = nil
     }

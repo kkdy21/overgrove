@@ -44,7 +44,7 @@ final class GitExecutableRenderTests: XCTestCase {
         let settings = AppSettings(defaults: defaults)
         settings.gitExecutablePath = chosen
         return GitExecutableSettingsModel(
-            settings: settings, protectedDirectories: { [] }, resolve: { path, _ in try resolve(path) },
+            settings: settings, repositories: { [] }, resolve: { path, _ in try resolve(path) },
             isAppleSigned: { _ in signed }, resetSharedClient: {})
     }
 

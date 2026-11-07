@@ -32,7 +32,7 @@ final class GitExecutableSettingsModelTests: XCTestCase {
         resolve: @escaping @Sendable (String?) throws -> GitEnvironment
     ) -> GitExecutableSettingsModel {
         GitExecutableSettingsModel(
-            settings: settings, protectedDirectories: { [] },
+            settings: settings, repositories: { [] },
             resolve: { path, _ in
                 calls.resolved.append(path)
                 return try resolve(path)
@@ -140,10 +140,11 @@ final class GitExecutableSettingsModelTests: XCTestCase {
         await model.refresh()
         XCTAssertEqual(model.state, .rejected(path: "/opt/homebrew/bin/git", reason: "No file exists at that path."))
         XCTAssertFalse(model.isDefault)
+        XCTAssertEqual(calls.resets, 1, "a refused stored choice drops the shared client, so queries really stop")
 
         await model.useDefault()
         XCTAssertNil(settings.gitExecutablePath)
-        XCTAssertEqual(calls.resets, 1)
+        XCTAssertEqual(calls.resets, 2)
         guard case .ready(let report) = model.state else { return XCTFail("got \(model.state)") }
         XCTAssertNil(report.entered)
     }

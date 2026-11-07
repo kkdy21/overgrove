@@ -132,42 +132,44 @@ struct GitEnvironment: Sendable, Equatable {
 
     /// The git to use: the one chosen in Settings when it passes ADR-0019's rules, else the default (#106).
     ///
-    /// A chosen git is checked on every call. If it fails, this throws `chosenExecutableRejected` (or the version
-    /// error) and never falls back to the default git (fail closed). The `/usr/bin/git` shim means the default.
+    /// A chosen git is checked on every call. If it fails any rule or its `git version` check, this throws
+    /// `chosenExecutableRejected` with the reason and never falls back to the default git (fail closed). The
+    /// `/usr/bin/git` shim means the default.
     ///
-    /// - Parameter protectedDirectories: `GitExecutablePolicy.protectedDirectories(for:)` of the registered
-    ///   repositories, read now.
+    /// - Parameter protectedDirectories: Called only for a chosen git, so the default git reads no repository file
+    ///   (`GitExecutablePolicy.protectedDirectories(for:)` of the registered repositories).
     static func resolve(
         chosenPath: String?,
-        protectedDirectories: [URL],
+        protectedDirectories: @Sendable () -> [URL],
         runner: ProcessRunner = ProcessRunner(),
         parentEnvironment: [String: String] = ProcessInfo.processInfo.environment,
         developerDirectory: (() async -> URL?)? = nil
     ) async throws -> GitEnvironment {
-        guard let chosenPath, !chosenPath.isEmpty else {
+        guard let chosenPath, !chosenPath.isEmpty, !GitExecutablePolicy.isShim(chosenPath) else {
             return try await discover(
                 runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
         }
         let shown = PathValidator.displayable(chosenPath)
-        let outcome: GitExecutablePolicy.Outcome
+        let resolved: URL
         do {
-            outcome = try GitExecutablePolicy.check(path: chosenPath, protectedDirectories: protectedDirectories)
+            switch try GitExecutablePolicy.check(path: chosenPath, protectedDirectories: protectedDirectories()) {
+            case .useDefault:
+                return try await discover(
+                    runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
+            case .chosen(_, let real):
+                resolved = real
+            }
         } catch let rejection as GitExecutablePolicy.Rejection {
             throw GitError.chosenExecutableRejected(path: shown, reason: rejection.message)
         }
-        switch outcome {
-        case .useDefault:
-            return try await discover(
-                runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
-        case .chosen(_, let resolved):
-            do {
-                // The real file that passed the rules, so a link swapped afterwards does not change what runs.
-                return try await probe(executable: resolved, runner: runner, parentEnvironment: parentEnvironment)
-            } catch GitError.executableNotFound {
-                throw GitError.chosenExecutableRejected(path: shown, reason: "The file can no longer be run.")
-            } catch GitError.launchFailed(let code) {
-                throw GitError.chosenExecutableRejected(path: shown, reason: "It could not be started (error \(code)).")
-            }
+        do {
+            // The real file that passed the rules, so a link swapped afterwards does not change what runs.
+            return try await probe(executable: resolved, runner: runner, parentEnvironment: parentEnvironment)
+        } catch GitError.cancelled {
+            throw GitError.cancelled
+        } catch let error as GitError {
+            // Too old, not git, or failing to run: the same refusal, so Use Default is offered (ADR-0019 §4).
+            throw GitError.chosenExecutableRejected(path: shown, reason: error.message)
         }
     }
 

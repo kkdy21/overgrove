@@ -32,7 +32,9 @@ enum GitExecutableState: Equatable, Sendable {
 @MainActor
 @Observable
 final class GitExecutableSettingsModel {
-    typealias Resolve = @Sendable (_ chosenPath: String?, _ protectedDirectories: [URL]) async throws -> GitEnvironment
+    typealias Resolve =
+        @Sendable (_ chosenPath: String?, _ protectedDirectories: @escaping @Sendable () -> [URL]) async throws
+        -> GitEnvironment
 
     private(set) var state: GitExecutableState = .checking
     /// Why the last Choose… was not saved; cleared by the next refresh or choice.
@@ -40,14 +42,16 @@ final class GitExecutableSettingsModel {
     private(set) var isWorking = false
 
     @ObservationIgnored private let settings: AppSettings
-    @ObservationIgnored private let protectedDirectories: @MainActor () -> [URL]
+    /// The registered repositories, read on the main actor; their directories are worked out off it, and only for a
+    /// chosen git.
+    @ObservationIgnored private let repositories: @MainActor () -> [RegisteredRepository]
     @ObservationIgnored private let resolve: Resolve
     @ObservationIgnored private let isAppleSigned: @Sendable (URL) -> Bool
     @ObservationIgnored private let resetSharedClient: @Sendable () async -> Void
 
     init(
         settings: AppSettings,
-        protectedDirectories: @escaping @MainActor () -> [URL],
+        repositories: @escaping @MainActor () -> [RegisteredRepository],
         resolve: @escaping Resolve = { path, protected in
             try await GitEnvironment.resolve(chosenPath: path, protectedDirectories: protected)
         },
@@ -55,7 +59,7 @@ final class GitExecutableSettingsModel {
         resetSharedClient: @escaping @Sendable () async -> Void = GitExecutableSettingsModel.resetLiveClient
     ) {
         self.settings = settings
-        self.protectedDirectories = protectedDirectories
+        self.repositories = repositories
         self.resolve = resolve
         self.isAppleSigned = isAppleSigned
         self.resetSharedClient = resetSharedClient
@@ -63,9 +67,7 @@ final class GitExecutableSettingsModel {
 
     /// The app's model: registered repositories (and their worktrees) are protected.
     convenience init(settings: AppSettings, registry: RepositoryRegistry) {
-        self.init(
-            settings: settings,
-            protectedDirectories: { GitExecutablePolicy.protectedDirectories(for: registry.repositories) })
+        self.init(settings: settings, repositories: { registry.repositories })
     }
 
     var isDefault: Bool { settings.gitExecutablePath == nil }
@@ -75,10 +77,16 @@ final class GitExecutableSettingsModel {
         await LiveGitClient.shared.reset()
     }
 
-    /// Checks the stored choice (or the default) again, as every discovery does.
+    /// Checks the stored choice (or the default) again, as every discovery does. A stored choice that now fails also
+    /// drops the shared client, so queries really stop as the screen says (ADR-0019 §4).
     func refresh() async {
         choiceError = nil
         state = await evaluate(settings.gitExecutablePath)
+        switch state {
+        case .rejected: await resetSharedClient()
+        case .failed where !isDefault: await resetSharedClient()
+        default: break
+        }
     }
 
     /// Choose…: saves `path` only if it passes. The `/usr/bin/git` shim stands for the default.
@@ -113,9 +121,9 @@ final class GitExecutableSettingsModel {
     }
 
     private func evaluate(_ path: String?) async -> GitExecutableState {
-        let protected = protectedDirectories()
+        let snapshot = repositories()
         do {
-            let environment = try await resolve(path, protected)
+            let environment = try await resolve(path) { GitExecutablePolicy.protectedDirectories(for: snapshot) }
             let signed = isAppleSigned
             let isSigned = await Task.detached { signed(environment.executable) }.value
             return .ready(
