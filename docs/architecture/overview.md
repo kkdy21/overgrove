@@ -214,6 +214,8 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 
 fetch 실패는 `authenticationFailed`, `networkUnavailable`, `timeout`, 그 밖(`nonZeroExit`, `transportNotAllowed`, `blockedBySecurityPolicy`)으로 분류한다. **분류는 이 에러 모델이 맡는다.** 화면(S-01 상태바, S-05)은 분류 결과와 메시지를 표시만 하고, stderr를 직접 해석하지 않는다.
 
+gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다: `notInstalled`, `notLoggedIn`(종료 코드 4), `launchFailed`, `invalidArgument`, `timeout`, `outputTruncated`(잘린 JSON은 해석하지 않으므로 실패), `nonZeroExit`, `parseFailed`, `cancelled`. gh 문제는 이슈 패널만 끄고 Git 조회에는 영향을 주지 않는다 (ADR-0004 §4). 로그인 상태 조회(`authStatus()`)에서 gh가 없거나 로그인하지 않은 것은 에러가 아니라 `GHAuthStatus` 값이다. 상세는 [git-command-catalog.md §5](git-command-catalog.md).
+
 ### 6.2 메시지 원칙
 
 - v0.1 UI는 영어만 쓴다(ADR-0005). 위 표의 메시지는 의미 요약이며, 실제 문구는 `Overgrove/Git/GitError.swift`의 `message`가 원본이다.
