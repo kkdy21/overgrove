@@ -5,12 +5,17 @@ import Foundation
 /// when it changes, the graph starts over.
 ///
 /// The match is by namespace. A ref the parser skips (`RefParser.Listing.skippedRecords`, e.g. a non-UTF-8 name) or
-/// one past a truncated listing is still walked but not in the key, so moving only that ref does not invalidate
-/// cached pages (security review of #308, low: display only).
+/// one past a truncated ref or worktree listing is still walked but not in the key, so the key cannot see it move.
+/// Such a set is therefore never used to cache pages (`isComplete`, #333).
 ///
 /// The exact sorted list is the identity, not a hash of it, so two different ref sets can never share cached pages.
 struct GraphRefSet: Sendable, Hashable {
     let tips: [String]
+
+    /// Every ref `graphPage` walks is in `tips`: nothing was skipped or cut off. Only then can pages be cached by it.
+    static func isComplete(refs: RefParser.Listing, isWorktreeListPartial: Bool) -> Bool {
+        refs.skippedRecords == 0 && !refs.isPartial && !isWorktreeListPartial
+    }
 
     init(refs: RefParser.Listing, worktrees: [Worktree]) {
         var tips = refs.branches.map { "\($0.fullName) \($0.target.hex)" }
@@ -44,6 +49,7 @@ extension RepositoryService {
     /// Commits `skip ..< skip + limit` of `log --date-order` over branches, remote-tracking refs, tags, and worktree
     /// HEADs (the refs `GraphRefSet` keys on, #308), with the refs of the cached
     /// overview (loading it first when nothing is cached). Pages are cached by ref set; ⌘R and `forget` drop them.
+    /// A ref set that misses refs (`GraphRefSet.isComplete`) is not cached: every page is read again (#333).
     func graphPage(_ repository: Repository, skip: Int, limit: Int) async -> Result<GraphPageSnapshot, GitError> {
         if cachedOverview(of: repository) == nil {
             guard let refresh = await refresh(repository, trigger: .user) else { return .failure(.cancelled) }
@@ -58,11 +64,13 @@ extension RepositoryService {
                 commits: page.commits, isPartial: page.isPartial, refSet: refSet, refs: overview.refs,
                 worktrees: worktrees)
         }
-        if let cached = graphPages.value(for: key) { return .success(snapshot(cached)) }
+        let isCacheable = GraphRefSet.isComplete(
+            refs: overview.refs, isWorktreeListPartial: overview.isWorktreeListPartial)
+        if isCacheable, let cached = graphPages.value(for: key) { return .success(snapshot(cached)) }
 
         switch await Self.readGraphPage(repository, skip: skip, limit: limit, makeContext(repository)) {
         case .success(let page):
-            graphPages.insert(page, for: key)
+            if isCacheable { graphPages.insert(page, for: key) }
             return .success(snapshot(page))
         case .failure(let error):
             return .failure(error)
