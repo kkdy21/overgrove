@@ -210,6 +210,10 @@ final class WipDetailModelTests: XCTestCase {
             .unavailable(
                 "This worktree entry points at a folder that belongs to another repository, so Overgrove does not query it."
             ))
+        guard case .unavailable = entry(.notQueried(.duplicate)).content,
+            case .unavailable(let limited) = entry(.notQueried(.limit)).content
+        else { return XCTFail("expected unavailable") }
+        XCTAssertTrue(limited.contains("\(RepositoryService.defaultMaximumQueriedWorktrees)"))
         guard case .unavailable(let blocked) = entry(.notQueried(.inspectionBlocked("x\u{202E}"))).content else {
             return XCTFail("expected unavailable")
         }

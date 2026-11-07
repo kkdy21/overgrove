@@ -211,6 +211,11 @@ struct WipDetailModel: Equatable {
             "This worktree entry points at a folder that belongs to another repository, so Overgrove does not query it."
         case .inspectionBlocked(let reason):
             "Overgrove stopped querying this worktree for safety. \(PathValidator.displayable(reason))"
+        case .duplicate:
+            "Another worktree entry leads to this folder; its changes are shown under that entry."
+        case .limit:
+            "This repository lists more than \(RepositoryService.defaultMaximumQueriedWorktrees) worktrees. Overgrove "
+                + "loads the changes of the first \(RepositoryService.defaultMaximumQueriedWorktrees)."
         }
     }
 
