@@ -6,7 +6,7 @@ import XCTest
 /// S-09's real path (#70): verified worktree → its inspection → `fileHistory` → `LogParser.parseFileHistory`.
 final class FileHistoryIntegrationTests: XCTestCase {
     private func loader(_ fixture: FixtureRepo) async throws -> (LiveFileHistoryLoader, FileHistoryTarget) {
-        let environment = try await GitEnvironment.discover(parentEnvironment: fixture.environment)
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: fixture.environment)
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let root = try XCTUnwrap(PathValidator.canonical(fixture.repository))
         let target = FileHistoryTarget(
