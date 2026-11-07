@@ -170,7 +170,7 @@ stateDiagram-v2
 | 성공 | `↓ Fetch` | `Fetched just now`, 이후 상대 시각 |
 | 실패 | `↓ Fetch` | `⚠ Fetch failed — Details`. 마지막 성공 시각도 남긴다: `Last fetched 2 h ago · last attempt failed` |
 
-실패 문구는 마스킹한 stderr의 패턴으로 분류한다. 분류 규칙은 [architecture/overview.md](../architecture/overview.md)의 에러 모델을 따른다.
+실패 문구는 마스킹한 stderr의 패턴으로 분류한다. 분류 규칙은 [architecture/overview.md](../architecture/overview.md)의 에러 모델을 따른다. 아래 표의 요약 문구, 안내, 복사 가능한 명령은 `FetchFailureGuidance`(#78)가 만든다. 인증 분류는 HTTPS 자격 증명, SSH 키, 호스트 키(처음 봄 / 바뀜), 접근 거부로 다시 나뉜다.
 
 | 분류 | 요약 문구 | Details에 넣는 안내 |
 |---|---|---|

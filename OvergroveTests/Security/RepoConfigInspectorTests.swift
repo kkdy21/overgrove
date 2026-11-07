@@ -128,6 +128,39 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertNil(inspect([entry(.local, "core.sshcommand", "evil")]).trustedSSHCommand)
     }
 
+    /// #209 (T13): settings that would widen what fetch writes are reported; the pinned fetch arguments override them.
+    func testFetchScopeSettingsAreReported() {
+        let neutralized = [
+            entry(.local, "remote.origin.fetch", "+refs/heads/*:refs/heads/*"),
+            entry(.local, "remote.origin.fetch", "+refs/*:refs/*"),
+            entry(.local, "remote.origin.fetch", "refs/heads/main:refs/remotes/upstream/main"),
+            entry(.local, "fetch.prunetags", "true"),
+            entry(.local, "fetch.bundleuri", "file:///tmp/evil.bundle"),
+            entry(.local, "remote.origin.prunetags", "true"),
+            entry(.local, "remote.origin.tagopt", "--tags"),
+        ]
+        for sample in neutralized {
+            let findings = inspect([sample]).report.findings
+            XCTAssertEqual(findings.map(\.handling), [.neutralized], "\(sample.key)=\(sample.value ?? "")")
+            XCTAssertEqual(findings.map(\.threat), ["T13"], sample.key)
+        }
+        let mirror = inspect([entry(.local, "remote.origin.mirror", "true")]).report.findings
+        XCTAssertEqual(mirror.map(\.handling), [.reported])
+        XCTAssertEqual(mirror.map(\.threat), ["T13"])
+
+        // The default refspec, extra refspecs that stay inside the remote's namespace, and FETCH_HEAD-only refspecs.
+        let ordinary = [
+            "+refs/heads/*:refs/remotes/origin/*", "refs/heads/*:refs/remotes/origin/*",
+            "+refs/pull/*/head:refs/remotes/origin/pr/*", "refs/heads/main", "^refs/heads/skip",
+        ]
+        for refspec in ordinary {
+            XCTAssertTrue(inspect([entry(.local, "remote.origin.fetch", refspec)]).report.findings.isEmpty, refspec)
+        }
+        XCTAssertTrue(
+            inspect([entry(.global, "remote.origin.fetch", "+refs/heads/*:refs/heads/*")]).report.findings.isEmpty,
+            "trusted scopes are not reported")
+    }
+
     func testReportHandling() {
         let samples: [(ConfigEntry, RepoSecurityReport.Handling)] = [
             (entry(.local, "core.fsmonitor", "x"), .reported), (entry(.local, "core.hookspath", "x"), .reported),
@@ -150,6 +183,41 @@ final class RepoConfigInspectorTests: XCTestCase {
             inspect([entry(.local, "core.pager", "less"), entry(.local, "user.name", "me")]).report.findings.isEmpty)
         XCTAssertTrue(
             inspect([entry(.global, "core.fsmonitor", "x")]).report.findings.isEmpty, "trusted scopes are not reported")
+    }
+
+    /// A repository can make fetch run any installed `git-remote-<helper>`; `GIT_ALLOW_PROTOCOL` blocks it, and the
+    /// report tells the user why (#161, T5).
+    func testRemoteHelpersChosenByTheRepositoryAreReported() {
+        let helperURLs = [
+            "evilhelper::payload", "codecommit::us-east-1://repo", "hg::https://example.com/r", "ext::sh -c x",
+            "fd::3", "Git-Remote+x.y::z", "C::x", "1abc::x", "::x",
+            // An unknown `<scheme>://` also runs `git-remote-<scheme>` (security review of #191).
+            "evilhelper://x", "EvilHelper://x", "codecommit://repo", "s3+https://bucket/r",
+        ]
+        for url in helperURLs {
+            let findings = inspect([entry(.local, "remote.origin.url", url)]).report.findings
+            XCTAssertEqual(findings.map(\.handling), [.reported], url)
+            XCTAssertEqual(findings.map(\.threat), ["T5"], url)
+        }
+        let vcs = inspect([entry(.worktree, "remote.origin.vcs", "evilhelper")]).report.findings
+        XCTAssertEqual(vcs.map(\.handling), [.reported])
+        XCTAssertEqual(vcs.map(\.threat), ["T5"])
+
+        // git only treats `<scheme chars>::` at the very start as a helper (transport.c: is_urlschemechar), and
+        // handles these schemes itself or with its own bundled helpers.
+        let ordinaryURLs = [
+            "https://github.com/o/r.git", "HTTPS://github.com/o/r.git", "http://example.com/r", "git://example.com/r",
+            "ssh://git@example.com/a::b", "git+ssh://example.com/r", "ssh+git://example.com/r", "ftp://example.com/r",
+            "ftps://example.com/r", "file:///tmp/r", "git@github.com:o/r.git", "example.com:a://b", "/srv/repos/a::b",
+            "../relative::x", "-x::y", "a b::c", "+x://y",
+        ]
+        for url in ordinaryURLs {
+            XCTAssertTrue(inspect([entry(.local, "remote.origin.url", url)]).report.findings.isEmpty, url)
+        }
+        XCTAssertTrue(
+            inspect([entry(.global, "remote.origin.url", "codecommit::us-east-1://repo")]).report.findings.isEmpty,
+            "trusted scopes are not reported"
+        )
     }
 
     func testRemotesAreMaskedAndValidated() {
@@ -181,10 +249,9 @@ final class RepoConfigInspectorTests: XCTestCase {
 /// End to end against the malicious fixture (docs/testing/fixtures.md §8): SEC-T4-01/02/03.
 final class RepoConfigInspectorFixtureTests: XCTestCase {
     func testSECT4_FilterPayloadRunsWithoutNeutralizationAndNotWithIt() async throws {
-        let fixture = try await FixtureRepo.make(malicious: true)
-        defer { fixture.remove() }
+        let fixture = try await makeFixture(malicious: true)
         let environment = try await GitEnvironment.discover()
-        let client = GitClient(environment: environment)
+        let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let worktree = fixture.repository
 
         // Inspect the repository's own configuration.

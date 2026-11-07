@@ -34,17 +34,18 @@
 | 인자 | 목적 | 위협 |
 |---|---|---|
 | `--no-pager` | 페이저 실행 방지 | T10 |
-| `--no-optional-locks` | 조회 중 `index.lock`을 잡지 않음, index 갱신 쓰기 방지 | T13 |
+| `--no-optional-locks` | 조회 중 `index.lock`을 잡지 않음, index 갱신 쓰기 방지. `git diff`의 자동 refresh는 막지 못한다(`diff.autoRefreshIndex` 행 참고) | T13 |
 | `--literal-pathspecs` | `:(exclude)`, glob 등 pathspec 매직을 끔 | T9 |
 | `-c core.fsmonitor=false` | fsmonitor 훅 실행 방지. 서브프로세스(서브모듈)에도 전파됨 (확인) | T1 |
 | `-c core.hooksPath=/dev/null` | 모든 훅 실행 방지 (fetch의 `reference-transaction` 포함, 확인) | T2 |
 | `-c core.askPass=` | 로컬 `core.askPass` 실행 방지 (확인) | T12 |
-| `-c protocol.ext.allow=never` | `ext::` 원격과 `insteadOf`로 바꿔치기한 `ext::` 차단 (확인) | T5 |
+| `-c protocol.ext.allow=never` | `ext::` 원격과 `insteadOf`로 바꿔치기한 `ext::` 차단 (확인). `GIT_ALLOW_PROTOCOL`(§2.4)과 겹치는 심층 방어 | T5 |
 | `-c protocol.fd.allow=never` | `fd::` 원격 차단. 기본값에서는 허용되고 정지를 일으킴 (확인) | T5, T15 |
 | `-c core.alternateRefsCommand=` | `objects/info/alternates`가 있는 저장소를 fetch할 때 로컬 `core.alternateRefsCommand`가 실행되는 것을 막음. 빈 값으로 덮어도 fetch는 성공 (확인: [fixtures.md §8](../testing/fixtures.md)) | T5 |
 | `-c log.showSignature=false` | 로컬 `log.showSignature=true`로 인한 `gpg.program` 실행 방지 (확인) | T7 |
 | `-c gc.auto=0` | 자동 gc 방지 | T8 |
 | `-c maintenance.auto=false` | fetch 뒤 `git maintenance run --auto` 실행 방지 (확인) | T8 |
+| `-c diff.autoRefreshIndex=false` | `git diff`가 stat만 바뀐 경로를 diff할 때 index를 새로 고쳐 쓰는 것을 막음. `--no-optional-locks`·`GIT_OPTIONAL_LOCKS=0`은 이 쓰기를 막지 못한다. patch 출력은 그대로다 (확인, #208) | T13 |
 | `-c color.ui=never` | 출력에 ANSI 코드가 섞이지 않게 함 | 파싱 안정성 |
 
 diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)에는 서브커맨드 인자로 `--no-ext-diff --no-textconv`를 반드시 붙인다 (T3). `git diff`는 기본으로 외부 diff 드라이버를 실행한다 (확인).
@@ -83,6 +84,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `GIT_PAGER`, `PAGER` | `cat` | 모든 git |
 | `GIT_ASKPASS`, `SSH_ASKPASS` | 빈 문자열 | 모든 git (빈 `GIT_ASKPASS`는 `core.askPass`보다 우선해 실행을 막음, 확인) |
 | `GIT_PROXY_COMMAND` | 빈 문자열 | 모든 git (로컬 `core.gitProxy` 무력화, 확인) |
+| `GIT_ALLOW_PROTOCOL` | `https:ssh:git:file:http` | 모든 git (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
 | `GIT_SSH_COMMAND` | 신뢰 scope의 `core.sshCommand` 값, 없으면 `ssh -o BatchMode=yes` | 모든 git (환경 변수가 로컬 설정보다 우선, 확인) |
 | `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK` | 부모 값 그대로 | 모든 git |
 | `PATH` | `/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin` | 모든 git |
@@ -110,23 +112,23 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `configList` | `["config", "--list", "--show-scope", "-z", "--includes"]` | 저장소 경로 | `ConfigParser` → 보안 보고서, 원격 목록 | T4–T8 |
 | `worktreeList` | `["worktree", "list", "--porcelain", "-z"]` | 저장소 경로 | `WorktreeParser` → `[Worktree]` | — |
 | `status` | `["status", "--porcelain=v2", "-z", "--branch", "--show-stash", "--untracked-files=all", "--ignore-submodules=dirty"]` | 워크트리 경로 | `StatusParser` → `WorkingState`, `UpstreamStatus` | T1, T4 |
-| `refs` | `["for-each-ref", "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)", "refs/heads", "refs/remotes", "refs/tags"]` | 저장소 경로 | `RefParser` → `[Branch]` | — |
+| `refs` | `["for-each-ref", "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)", "refs/heads", "refs/remotes", "refs/tags"]` | 저장소 경로 | `RefParser` → `[Branch]`, `[Tag]` (로컬 브랜치의 ahead/behind 포함) | — |
 | `aheadBehind(local:upstream:)` | `["rev-list", "--left-right", "--count", "--end-of-options", "<upstream full ref>...<local full ref>"]` | 저장소 경로 | `RevListParser` → (behind, ahead) | T9 |
 | `stashList` | `["stash", "list", "-z", "--format=%gd%x00%H%x00%gs%x00%ct"]` | 저장소 경로 | `StashParser` → `[Stash]` | — |
 | `stashFiles(oid:)` | `["stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>"]` | 저장소 경로 | `NumstatParser` → `StashDetail` | T3, T9 |
 | `stashPatch(oid:path:fromUntracked:)` | 추적 파일: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>^1", "<oid>", "--", "<path>"]`<br>untracked 출신: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<oid>^3", "--", "<path>"]` | 저장소 경로 | 원문 패치 → S-10. `git stash show`는 경로 지정을 받지 않는다(#148 리뷰에서 확인) | T3, T9 |
-| `graphPage(skip:limit:)` | `["log", "--exclude=refs/stash", "--all", "--date-order", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s", "--skip=<n>", "-n", "<limit>"]` | 저장소 경로 | `LogParser` → `[CommitNode]` → GraphEngine | T7 |
+| `graphPage(skip:limit:)` | `["log", "--exclude=refs/stash", "--all", "--date-order", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "--skip=<n>", "-n", "<limit>"]` | 저장소 경로 | `LogParser` → `[CommitNode]`(co-author 포함, #160) → GraphEngine | T7 |
 | `commitMeta(oid:)` | `["log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B", "--end-of-options", "<oid>"]` | 저장소 경로 | `LogParser` → `CommitDetail` | T7, T9 |
 | `commitFiles(oid:)` | 루트·일반 커밋: `["diff-tree", "-r", "-z", "--raw", "--numstat", "-M", "--no-ext-diff", "--no-textconv", "--no-commit-id", "--root", "--end-of-options", "<oid>"]`<br>병합 커밋: `[..., "--end-of-options", "<first parent oid>", "<oid>"]` | 저장소 경로 | `NumstatParser`(raw+numstat) → `CommitDetail.files` | T3, T9 |
 | `commitPatch(oid:parent:path:)` | `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<parent oid 또는 생략>", "<oid>", "--", "<path>"]` | 저장소 경로 | 원문 패치 → S-10 | T3, T9 |
 | `worktreeDiff(path:staged:)` | `["diff", "--no-ext-diff", "--no-textconv", "-M", (staged ? "--cached" : 생략), "--", "<path>"]` | 워크트리 경로 | 원문 패치 → S-10 | T3, T9 |
 | `untrackedPreview(WorktreeFile)` | `["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", "<path>"]` (종료 코드 1이 정상) | 워크트리 경로 | 원문 패치 → S-10 | T3, T14 |
-| `fileHistory(path:limit:)` | `["log", "--follow", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s", "-n", "<limit>", "--", "<path>"]` | 워크트리 경로 | `LogParser` → `[FileHistoryEntry]` | T7, T9 |
+| `fileHistory(path:limit:)` | `["log", "--follow", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "-n", "<limit>", "--", "<path>"]` | 워크트리 경로 | `LogParser` → `[FileHistoryEntry]` | T7, T9 |
 
 보충 규칙:
 
 - **원격 이름과 URL**은 `configList` 결과의 `remote.<name>.url`에서 얻는다. 별도 명령을 쓰지 않는다. URL은 표시 전에 `CredentialMasker`를 거친다.
-- **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 체크아웃되지 않은 로컬 브랜치(사이드바 LOCAL)만 `aheadBehind`를 필요할 때 실행한다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).
+- **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 사이드바 LOCAL의 로컬 브랜치는 `refs`의 `%(upstream:track,nobracket)`에서 한 번에 얻고, 브랜치마다 `rev-list`를 실행하지 않는다(#54, 2026-11-06 측정 S5). `aheadBehind`는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에만 쓴다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).
 - **그래프 페이지**는 `--skip`과 `-n`으로 나눈다. 같은 ref 집합이면 순서가 결정적이라 GraphEngine이 열린 레인 상태를 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다. 10만 커밋에서 뒤쪽 페이지의 `--skip` 비용이 PB-4를 넘으면, 스트리밍 읽기 모드(한 프로세스의 출력을 페이지 단위로 소비)로 바꾼다. 이 결정은 Phase 3 성능 측정 뒤에 ADR-0010을 갱신해 남긴다.
 - **untrackedPreview**는 `PathValidator.worktreeFile`이 만든 `WorktreeFile`만 받는다(상대 경로, `..` 없음, 실제 위치가 워크트리 안, 일반 파일 또는 심볼릭 링크 — FIFO는 git을 멈추게 하므로 거부). 심볼릭 링크는 내용 대신 링크 대상 문자열만 보여 준다 (T14).
 - **status의 `--untracked-files=all`**은 큰 저장소에서 느릴 수 있다. PB-5 측정에서 기준을 넘으면 `normal`로 바꾸고 디렉터리 단위로 표시하는 방안을 검토한다.
@@ -137,12 +139,23 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 | case | 서브커맨드 인자 배열 | 작업 디렉터리 | 비고 | 위협 |
 |---|---|---|---|---|
-| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--upload-pack=git-upload-pack", "--end-of-options", "<remote name>"]` | 저장소 경로 | §2.3 인증 인자 포함. 타임아웃 120초 | T2, T5, T6, T8, T11, T12 |
+| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI=`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
 
 - 원격마다 따로 실행한다 (`--all`을 쓰지 않음). 원격별로 인증 실패를 구분해 보여 주려는 것이다. 참고로 `--all`도 `--upload-pack`을 원격별 하위 fetch에 전달하는 것은 확인했다.
 - `--upload-pack=git-upload-pack`은 로컬 `remote.<n>.uploadpack`을 무력화한다. `-c remote.<n>.uploadpack=`로는 무력화되지 않는다 (확인).
-- `--prune`은 원격 추적 ref(`refs/remotes/*`)만 지운다. 로컬 브랜치와 태그는 건드리지 않는다. 앱이 허용하는 쓰기는 이것뿐이다.
-- `--progress`의 stderr 진행 메시지(`Receiving objects:  45% (...)`)는 `LC_ALL=C`에서 영어로 고정된다. 진행률 표시에 쓰고, 파싱에 실패하면 무시한다.
+- **쓰는 범위를 명령줄에 고정한다(#209).** 앱의 fetch가 쓰는 ref는 `refs/remotes/<remote name>/*`뿐이다. 앱이 허용하는 쓰기는 이것과 `FETCH_HEAD`, 객체뿐이다. 저장소 설정으로는 이 범위를 넓힐 수 없다.
+  - 고정하지 않으면 저장소 설정이 범위를 넓힌다(Apple Git 2.54.0 확인, security-review.md E40). 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`가 있고 HEAD가 detached면 fetch가 로컬 전용 브랜치를 지우고 `main`을 강제로 되돌린다. 로컬 `fetch.pruneTags`·`remote.<n>.pruneTags`는 `--prune`과 함께 로컬 태그를 지운다.
+  - refspec `+refs/heads/*:refs/remotes/<remote name>/*`를 명령줄에 준다. `--refmap=`(빈 값)은 설정된 refspec으로 원격 추적 ref를 덤으로 갱신하는 동작을 끈다.
+  - `--prune`은 명령줄 refspec의 대상(`refs/remotes/<remote name>/*`) 안에서만 지운다.
+  - `--no-tags`: 태그를 가져오지 않는다. 로컬 `remote.<n>.tagOpt=--tags`도 덮는다. 그래서 원격에만 있는 새 태그는 v0.1에서 보이지 않는다. 태그 자동 추적을 켜면 새 태그가 `refs/tags/*`에 생긴다. 기존 태그를 바꾸거나 지우지는 않지만, "원격 추적 ref만 쓴다"는 원칙을 깨므로 끈다.
+  - fetch 전용 `-c`(`FetchCommand.configurationOverrides()`, 인자 순서 `[common] [neutralization] [fetch auth] [fetch overrides] fetch …`의 네 번째). 인증 인자 뒤에 두므로 로컬 값을 이긴다.
+    - `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false`: 이중 방어.
+    - `-c fetch.writeCommitGraph=false`: fetch 뒤 commit-graph 파일 쓰기를 끈다.
+    - `-c fetch.bundleURI=`: 로컬 `fetch.bundleURI`(git 2.42+)가 있으면 fetch가 그 URI(원격이 아닌 임의 위치)에서 bundle을 받아 `refs/bundles/*`를 쓴다. bundle list가 `creationToken`을 쓰면 `.git/config`에 `fetch.bundleCreationToken`까지 기록한다(#210 보안 검토, 확인). 빈 값이면 꺼진다. 2.42 미만 git은 이 키를 무시한다.
+  - `RepoConfigInspector`는 로컬 `remote.<n>.fetch`(대상이 `refs/remotes/<n>/` 밖), `fetch.pruneTags`, `remote.<n>.pruneTags`, `remote.<n>.tagOpt`, `fetch.bundleURI`, `remote.<n>.mirror`를 보고한다(SEC-T13-04).
+  - 남는 한계: 설정 파일을 직접 고치면 원격 `a`와 `a/b`를 함께 둘 수 있다. 이때 `a`를 fetch하면 `--prune`이 `refs/remotes/a/b/*`를 지운다. 고정 전에도 같았고 피해는 `refs/remotes` 안으로 한정되며 다시 fetch하면 복구된다(#210 보안 검토).
+- `--progress`의 stderr 진행 메시지(`Receiving objects:  45% (...)`)는 `LC_ALL=C`에서 영어로 고정된다. git이 실행되는 동안 `FetchProgressParser`가 읽어 진행률로 쓰고, 파싱에 실패하면 무시한다([parsing-spec.md §11.4](parsing-spec.md)). `remote:` 줄은 서버가 쓰므로 단계와 숫자만 꺼내고 문자열은 넘기지 않는다.
+- 실행 방식(`GitClient.fetch`, #76): 저장소당 하나씩(`Repository.id` 기준) 요청 순서대로, 앱 전체에서 동시에 최대 2개. 조회 슬롯(4개)과 따로 센다. Task를 취소하면 프로세스 그룹을 종료하고(SIGTERM → 2초 → SIGKILL) `GitError.cancelled`, 120초가 지나면 `GitError.timeout`을 던진다.
 - 원격 이름은 `configList`에서 얻은 값만 쓴다. `[A-Za-z0-9._/-]{1,100}` 형식이고 `-`로 시작하지 않아야 한다.
 
 ---
@@ -152,7 +165,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 공통 규칙 (ADR-0004):
 
 - 실행 파일은 `/opt/homebrew/bin/gh`, `/usr/local/bin/gh` 순서로 찾는다.
-- 작업 디렉터리는 **저장소 밖**의 중립 디렉터리다. 앱 전용 임시 디렉터리를 쓴다. `gh`가 내부적으로 실행하는 git이 저장소 설정을 읽지 않게 하려는 것이다.
+- 작업 디렉터리는 **저장소 밖**의 중립 디렉터리다. 앱 전용 임시 디렉터리(`<사용자 임시 디렉터리>/io.github.kkdy21.overgrove.gh-neutral`, 모드 `0700`, 처음 쓸 때 만듦)를 쓴다. `gh`가 내부적으로 실행하는 git이 저장소 설정을 읽지 않게 하려는 것이다.
 - `--repo OWNER/NAME`을 항상 명시한다. OWNER는 `[A-Za-z0-9-]{1,39}`이고 `-`로 시작하지 않는다. NAME은 `[A-Za-z0-9._-]{1,100}`이다.
 - 환경 변수 allowlist는 다음과 같다. `GH_TOKEN`, `GITHUB_TOKEN`, `GH_HOST`, `GH_REPO`, `GH_ENTERPRISE_TOKEN`, `GH_CONFIG_DIR`, `BROWSER`, `GH_BROWSER`, `EDITOR`는 전달하지 않는다.
 
@@ -169,6 +182,17 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
 | `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
 
+실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
+
+- 실행 파일은 위 두 경로를 순서대로 보고, 실행 가능한 일반 파일(심볼릭 링크는 따라감)인 첫 경로를 쓴다. 호출할 때마다 다시 찾으므로 앱 실행 중에 gh를 설치해도 반영된다. 둘 다 없으면 `authStatus()`는 `GHAuthStatus.notInstalled`를 돌려주고, 그 밖의 명령은 `GHError.notInstalled`를 던진다.
+- 작업 디렉터리는 위의 앱 전용 중립 디렉터리다. 비어 있고 저장소가 아니다. 만들지 못하면 실행이 `launchFailed`로 실패한다.
+- 원본 출력은 `GHClient` 밖으로 나가지 않는다. 호출자는 파싱된 값(`GHAuthStatus`, `[Issue]`, 버전 첫 줄)만 받는다.
+- 실행 제한은 §2.5의 gh 값이다. 타임아웃과 stdout 잘림은 종료 코드와 관계없이 실패(`timeout`, `outputTruncated`)로 본다. 잘린 JSON은 해석하지 않는다.
+- `authStatus`: 판단은 JSON으로만 한다. JSON이 아니면 종료 코드 4는 `GHAuthStatus.notLoggedIn`, 그 밖의 0이 아닌 코드는 `nonZeroExit`(예: `--json`을 모르는 옛 gh의 `unknown flag: --json`), 0은 `parseFailed`다.
+- 그 밖의 명령은 종료 코드 0만 성공이다. 종료 코드 4(gh의 "인증 필요")는 `GHError.notLoggedIn`, 나머지는 마스킹한 stderr를 담은 `nonZeroExit`다.
+- 에러 타입은 `GitError`와 따로 둔 `GHError`다. gh 문제는 이슈 패널만 끄기 때문이다 (ADR-0004 §4). 사용자에게는 `gh auth login`, `brew install gh`를 복사 가능한 명령으로만 보여 준다.
+- `XDG_CONFIG_HOME`도 전달하지 않는다. gh는 `~/.config/gh`의 설정을 읽는다. 셸에서만 `XDG_CONFIG_HOME`이나 `GH_CONFIG_DIR`을 바꿔 쓰는 사용자는 앱에서 로그인하지 않은 것으로 보인다 (의도된 동작, T10 잔여 위험과 같음).
+
 GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 때만 `OWNER/NAME`을 뽑는다. 그 밖의 호스트는 이슈 패널을 끄고 "github.com 원격 없음"을 보여 준다.
 
 - `https://github.com/OWNER/NAME(.git)?`
@@ -181,16 +205,27 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 `LC_ALL=C` 기준이다. 대소문자를 구분하지 않고 부분 일치로 찾는다. 검사는 마스킹한 stderr에 한다.
 
+- **`remote:`로 시작하는 줄은 보지 않는다(#78).** HTTP 전송에서 서버가 쓴 글은 `remote:` 줄로 온다. 서버가 분류를 고르거나, 다른 분류로 실제 오류를 가리지 못하게 하려는 것이다. 로컬 git과 ssh가 쓴 줄만 본다.
+- ssh 전송에서는 서버의 stderr가 접두사 없이 그대로 온다. 그래서 악성 ssh 서버는 분류를 고를 수 있다. 다만 화면 문구는 모두 앱이 쓴 것이고(`FetchFailureGuidance`), 서버가 쓴 글은 마스킹한 Details에만 나온다. 이 위험은 받아들인다.
+- 아래 표의 순서대로 검사한다. 더 구체적인 원인이 이긴다. 바뀐 호스트 키 경고는 맨 먼저 본다. 로컬 ssh만 찍는 배너라서, ssh가 경고 뒤에도 연결을 이어 가게 설정된 경우 서버가 다른 분류 문구를 써서 경고를 가리지 못하게 하려는 것이다(#200 보안 검토).
+
 | 분류 (GitError) | 패턴 |
 |---|---|
-| `authenticationFailed` | `Authentication failed`, `could not read Username`, `could not read Password`, `terminal prompts disabled`, `Permission denied (publickey`, `Host key verification failed`, `Invalid username or password` |
-| `networkUnavailable` | `Could not resolve host`, `unable to look up`, `Connection refused`, `Connection timed out`, `Operation timed out`, `Network is unreachable` |
-| `notARepository` | `not a git repository` |
+| `hostKeyVerificationFailed(changed: true)` | `REMOTE HOST IDENTIFICATION HAS CHANGED` (OpenSSH 경고 배너) |
 | `dubiousOwnership` | `detected dubious ownership` |
-| `blockedBySecurityPolicy` | `transport 'ext' not allowed`, `transport 'fd' not allowed` |
+| `transportNotAllowed(transport)` | `fatal: transport '<이름>' not allowed`로 **시작하는 줄** (`GIT_ALLOW_PROTOCOL` 밖의 전송, `ext`, `fd`). `remote:` 줄은 인정하지 않는다. 이름은 `[A-Za-z0-9][A-Za-z0-9+.-]*`이고 64자 이하일 때만 메시지에 넣는다 |
+| `hostKeyVerificationFailed(changed: false)` | `Host key verification failed` |
+| `sshAuthenticationFailed` | `Permission denied (` + OpenSSH 방식 이름(`publickey`, `password`, `keyboard-interactive`, `hostbased`, `gssapi`). 방식 목록이 없는 로컬 파일 오류(`Permission denied`)는 해당하지 않는다 |
+| `authenticationFailed` | `Authentication failed`, `could not read Username`, `could not read Password`, `terminal prompts disabled`, `Invalid username or password`, `returned error: 401` |
+| `accessDenied` | `returned error: 403` |
+| `remoteNotFound` | `returned error: 404`, `does not appear to be a git repository`, `fatal: repository '…' not found` 줄 |
+| `networkUnavailable` | `Could not resolve host`(ssh의 `Could not resolve hostname` 포함), `unable to look up`, `Connection refused`, `Connection timed out`, `Operation timed out`, `Network is unreachable`, `No route to host`, `Failed to connect to`, `Couldn't connect to server`, `Connection reset by peer` |
+| `notARepository` | `not a git repository` |
 | `configInspectionFailed` | (설정 검사 단계의 비정상 종료나 파싱 실패) |
 
 `dubiousOwnership`이면 메시지에 "앱은 `safe.directory`를 우회하지 않는다"는 안내를 붙인다.
+
+예시 문자열은 Apple Git 2.54.0에서 로컬 HTTP 서버(401/403/404/500), 없는 로컬 경로, 닫힌 로컬 포트로 채집했다(`GitErrorTests`). DNS 실패와 경로 없음 문구는 네트워크가 필요해 OpenSSH 문구를 그대로 썼다.
 
 ---
 

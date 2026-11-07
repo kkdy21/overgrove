@@ -3,7 +3,7 @@ import Foundation
 /// The git executable and the hardened invocation context every git call uses
 /// (docs/design/security-review.md §3.1–§3.2, git-command-catalog.md §1–§2, ADR-0008).
 ///
-/// Final argument order: `git [common] [neutralization] [fetch auth] <subcommand ...>`. `GitClient` assembles it with
+/// Final argument order: `git [common] [neutralization] [fetch auth] [fetch overrides] <subcommand ...>`. `GitClient` assembles it with
 /// `arguments(for:neutralization:fetchAuthentication:)`; `GitCommand` cases only define the subcommand part.
 struct GitEnvironment: Sendable, Equatable {
     /// Common safety arguments placed before every subcommand (security-review.md §3.1).
@@ -20,6 +20,8 @@ struct GitEnvironment: Sendable, Equatable {
         "-c", "log.showSignature=false",
         "-c", "gc.auto=0",
         "-c", "maintenance.auto=false",
+        // `git diff` refreshes and rewrites the index for stat-dirty paths despite --no-optional-locks (#208).
+        "-c", "diff.autoRefreshIndex=false",
         "-c", "color.ui=never",
     ]
 
@@ -29,6 +31,14 @@ struct GitEnvironment: Sendable, Equatable {
     /// Used when no trusted `core.sshCommand` exists: never prompt (host keys, passphrases) in the background.
     static let defaultSSHCommand = "ssh -o BatchMode=yes"
 
+    /// Transports git may use, as `GIT_ALLOW_PROTOCOL` (security-review.md §3.2, #161).
+    ///
+    /// The variable acts like `protocol.allow=never` with only these set to `always`, and it overrides every config
+    /// value, including a repository's own `protocol.<name>.allow=always`. So a repository cannot make fetch run an
+    /// installed `git-remote-<helper>` through a `<helper>::` URL, `remote.<n>.vcs`, or `url.<base>.insteadOf` (T5).
+    /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
+    static let allowedProtocols = "https:ssh:git:file:http"
+
     /// Parent variables that are passed through unchanged. Everything else is dropped (T10).
     static let passthroughVariables = ["HOME", "USER", "LOGNAME", "TMPDIR", "SSH_AUTH_SOCK"]
 
@@ -36,7 +46,8 @@ struct GitEnvironment: Sendable, Equatable {
     let version: GitVersion
 
     /// The complete child environment (security-review.md §3.2). Nothing else from `parent` reaches git, so
-    /// `GIT_DIR`, `GIT_CONFIG_*`, `GIT_SSH_COMMAND`, `GIT_EXEC_PATH`, `DYLD_*`, and the user's PATH are ignored.
+    /// `GIT_DIR`, `GIT_CONFIG_*`, `GIT_SSH_COMMAND`, `GIT_EXEC_PATH`, `GIT_ALLOW_PROTOCOL`, `DYLD_*`, and the user's
+    /// PATH are ignored.
     ///
     /// - Parameter trustedSSHCommand: `core.sshCommand` from a trusted scope (system, global, Apple built-in), as
     ///   found by `RepoConfigInspector`. Repository-local values are never passed here (T5).
@@ -51,6 +62,7 @@ struct GitEnvironment: Sendable, Equatable {
             "GIT_ASKPASS": "",
             "SSH_ASKPASS": "",
             "GIT_PROXY_COMMAND": "",
+            "GIT_ALLOW_PROTOCOL": allowedProtocols,
             "GIT_SSH_COMMAND": trustedSSHCommand ?? defaultSSHCommand,
             "PATH": path,
         ]
@@ -60,13 +72,15 @@ struct GitEnvironment: Sendable, Equatable {
         return environment
     }
 
-    /// `git [common] [neutralization] [fetch auth] <subcommand ...>` (git-command-catalog.md §1).
+    /// `git [common] [neutralization] [fetch auth] [fetch overrides] <subcommand ...>` (git-command-catalog.md §1).
+    /// Later `-c` values win, so the fetch overrides come last before the subcommand (#209).
     func arguments(
         for subcommand: [String],
         neutralization: [String] = [],
-        fetchAuthentication: [String] = []
+        fetchAuthentication: [String] = [],
+        fetchOverrides: [String] = []
     ) -> [String] {
-        Self.commonArguments + neutralization + fetchAuthentication + subcommand
+        Self.commonArguments + neutralization + fetchAuthentication + fetchOverrides + subcommand
     }
 
     // MARK: Discovery

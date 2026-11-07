@@ -52,7 +52,7 @@ final class GitCommandTests: XCTestCase {
             ],
             [
                 "for-each-ref",
-                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)",
+                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)",
                 "refs/heads", "refs/remotes", "refs/tags",
             ],
             [
@@ -106,8 +106,22 @@ final class GitCommandTests: XCTestCase {
                 fetchAuthentication: ["-c", "credential.helper="]
             ),
             common + [
-                "-c", "credential.helper=", "fetch", "--prune", "--no-recurse-submodules", "--progress",
-                "--upload-pack=git-upload-pack", "--end-of-options", "origin",
+                "-c", "credential.helper=", "fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags",
+                "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "origin",
+                "+refs/heads/*:refs/remotes/origin/*",
+            ]
+        )
+    }
+
+    /// #209: the refspec and prune scope are pinned, so repository configuration cannot make fetch write local refs.
+    func testSECT13_04_FetchPinsItsRefspecAndPruneScope() {
+        let fetch = FetchCommand.fetch(remote: RemoteName("team/fork.v2")!)
+        XCTAssertEqual(fetch.subcommandArguments().last, "+refs/heads/*:refs/remotes/team/fork.v2/*")
+        XCTAssertEqual(
+            fetch.configurationOverrides(),
+            [
+                "-c", "fetch.pruneTags=false", "-c", "remote.team/fork.v2.pruneTags=false",
+                "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=",
             ]
         )
     }
@@ -294,7 +308,9 @@ final class FetchBlockingTests: XCTestCase {
         )
         do {
             _ = try await client.fetch(
-                .fetch(remote: RemoteName("origin")!), in: URL(fileURLWithPath: "/tmp"), safety: safety)
+                .fetch(remote: RemoteName("origin")!),
+                in: Repository(rootURL: nil, commonGitDirectoryURL: URL(fileURLWithPath: "/tmp"), isBare: true),
+                safety: safety)
             XCTFail("expected configInspectionFailed")
         } catch let error as GitError {
             XCTAssertEqual(error, .configInspectionFailed(reason: "local CA"))

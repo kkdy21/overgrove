@@ -45,6 +45,6 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
 
 ## 후속 작업
 
-- [ ] GraphEngine 구현과 GRA 테스트 (Phase 3 파서·모델 Epic)
+- [x] GraphEngine 구현과 GRA 테스트 (#59). 레인은 옆으로 옮기지 않고 빈 열을 다음 새 레인이 재사용한다. 그래서 선은 항상 곧고, 색(생성 열 mod 8)은 수명 동안 그대로다
 - [ ] 10만 커밋에서 첫 페이지 지연 측정 PERF-xx ([performance/benchmark-plan.md](../performance/benchmark-plan.md))
 - [ ] 페이지 방식 재검토: commit-graph가 없으면 `graphPage(skip:limit:)`가 페이지마다 약 400ms 든다. 프로세스 하나로 전체를 스트리밍하며 점진 렌더링하는 방식(첫 500개 약 400ms, 전체 약 560ms 실측)과 비교해 Phase 3에서 결정한다

@@ -30,6 +30,7 @@ final class GitEnvironmentTests: XCTestCase {
         "HOME": "/Users/example",
         "TMPDIR": "/tmp/example/",
         "SSH_AUTH_SOCK": "/tmp/agent.sock",
+        "GIT_ALLOW_PROTOCOL": "evilhelper:ext:https",
     ]
 
     func testSECT10_01_DangerousParentVariablesNeverReachGit() {
@@ -49,6 +50,23 @@ final class GitEnvironmentTests: XCTestCase {
         XCTAssertEqual(environment["GIT_ASKPASS"], "")
         XCTAssertEqual(environment["GIT_PROXY_COMMAND"], "")
         XCTAssertEqual(environment["LC_ALL"], "C")
+        XCTAssertEqual(
+            environment["GIT_ALLOW_PROTOCOL"], "https:ssh:git:file:http", "the parent's transport list is ignored")
+    }
+
+    func testOnlyBuiltInTransportsAreAllowed() {
+        // Snapshot of security-review.md §3.2; change both together. Remote helpers chosen by a repository
+        // (`<helper>::` URLs, `remote.<n>.vcs`, `insteadOf`) are refused even with `protocol.<helper>.allow=always` (T5).
+        XCTAssertEqual(GitEnvironment.allowedProtocols, "https:ssh:git:file:http")
+        XCTAssertEqual(GitEnvironment.environment(parent: [:])["GIT_ALLOW_PROTOCOL"], GitEnvironment.allowedProtocols)
+        XCTAssertEqual(
+            GitEnvironment.environment(parent: [:], trustedSSHCommand: "ssh -i ~/.ssh/work")["GIT_ALLOW_PROTOCOL"],
+            GitEnvironment.allowedProtocols
+        )
+        let transports = GitEnvironment.allowedProtocols.split(separator: ":")
+        for blocked in ["ext", "fd"] {
+            XCTAssertFalse(transports.contains(Substring(blocked)), blocked)
+        }
     }
 
     func testSECT10_01_ChildSeesOnlyTheAllowlist() async throws {
@@ -86,7 +104,7 @@ final class GitEnvironmentTests: XCTestCase {
                 "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.askPass=",
                 "-c", "protocol.ext.allow=never", "-c", "protocol.fd.allow=never", "-c", "core.alternateRefsCommand=",
                 "-c", "log.showSignature=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
-                "-c", "color.ui=never",
+                "-c", "diff.autoRefreshIndex=false", "-c", "color.ui=never",
             ]
         )
     }

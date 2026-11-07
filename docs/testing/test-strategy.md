@@ -53,7 +53,7 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 
 | 접두사 | 범위 | 원본 목록 | 비고 |
 |---|---|---|---|
-| `PAR-{파서}-{nn}` | 파서 단위 | [parsing-spec.md](../architecture/parsing-spec.md) 각 절의 표 | 파서 이름: `WT`, `STATUS`, `STASH`, `LOG`, `REF`, `REVLIST`, `NUMSTAT`, `CONFIG`, `GH`, `ISSUE`, `VER` |
+| `PAR-{파서}-{nn}` | 파서 단위 | [parsing-spec.md](../architecture/parsing-spec.md) 각 절의 표 | 파서 이름: `WT`, `STATUS`, `STASH`, `LOG`, `REF`, `REVLIST`, `NUMSTAT`, `CONFIG`, `GH`, `ISSUE`, `VER`, `FETCH`, 교차 파서 속성 `PROP` |
 | `GRA-{nn}` | GraphEngine | 이 문서 §4.2 | |
 | `INT-{nn}` | 통합 | [fixtures.md §7](fixtures.md) | |
 | `SEC-T{n}-{nn}` | 보안 | [security-review.md §2](../design/security-review.md) 각 위협의 "검증" 항목 | 위협 하나에 테스트 1개 이상 |
@@ -126,9 +126,9 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 5. **대조군을 함께 둔다.** 같은 픽스처에서 보안 인자 없이 실행하면 canary가 생기는지 확인하는 테스트를 하나씩 둔다. 이름은 `test_SEC_T4_00_control_…`로 붙인다. 대조군이 실패하면 픽스처나 git 동작이 바뀐 것이므로 보안 테스트가 헛돌고 있다는 뜻이다.
    - 대조군 실행은 앱의 `GitClient`를 거치지 않는 테스트 전용 실행기로 한다. 실행기는 `OvergroveTests/Support/`에 둔다.
 6. **인자 스냅샷.** 모든 `GitCommand` case의 최종 인자 배열(공통 인자 포함)을 문자열로 고정해 비교한다 (SEC-T9-01). 새 case를 추가하면 스냅샷도 갱신해야 하므로 리뷰에서 바로 보인다.
-7. **정적 검사.** `scripts/lint/check-forbidden-apis.sh`가 다음을 막는다 (SEC-T13-03, SEC-T7-02).
-   - `Overgrove/Execution/` 밖의 `Process`, `NSTask`, `posix_spawn`
-   - 소스 안의 `%G` 포맷 문자열
+7. **정적 검사.**
+   - `scripts/lint/check-forbidden-apis.sh`가 `Overgrove/Execution/` 밖의 `Process`, `NSTask`, `posix_spawn`을 막는다 (SEC-T13-03).
+   - 서명 포맷(`%G?`, `%GS` 등)은 테스트 `ConfigExecutionArgumentTests.testSECT7_02_NoSignatureFormatInSources`가 막는다. 소스의 코드 줄(주석 제외)과 모든 명령의 최종 인자 배열을 검사한다 (SEC-T7-02).
 
 실측으로 확인한 보안 인자별 효과는 [fixtures.md §8.2](fixtures.md)에 있다. 원안(HANDOFF §6.2)의 인자만으로는 T4, T5, T6, T7, T8이 막히지 않는다는 사실이 SEC 테스트를 반드시 실제 git으로 돌려야 하는 이유다.
 
@@ -177,6 +177,7 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 | 픽스처 스모크 | `make-fixture-repo.sh` 일반·악성 생성 성공 | 동일 |
 | 포맷·린트 | 건너뜀 (소스 없음) | `swift format lint --strict` |
 | 빌드·테스트 | 건너뜀 (Xcode 프로젝트 없음) | `xcodebuild test`: 단위 + GraphEngine + 통합 + 보안 |
+| 통합 보고 | — | 테스트가 쓴 git(`$DEVELOPER_DIR/usr/bin/git`)과 PATH git 버전, 통합 스위트 결과를 job summary에 남긴다. `*IntegrationTests` 스위트가 하나도 돌지 않았으면 실패한다 (#63) |
 
 - 성능 테스트(PERF)는 필수 검사에 넣지 않는다. CI 러너의 성능이 들쭉날쭉하기 때문이다.
   - 대신 `perf` 라벨이 붙은 PR과 주간 예약 실행에서 돌리고 결과를 아티팩트로 남긴다.

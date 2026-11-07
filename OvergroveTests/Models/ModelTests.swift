@@ -99,14 +99,17 @@ final class ModelBehaviorTests: XCTestCase {
 
     func testRefShortNames() {
         let local = Branch(
-            fullName: "refs/heads/main", kind: .local, target: oid, upstream: "refs/remotes/origin/main",
-            isHead: true, committerDate: nil, symbolicTarget: nil
+            fullName: "refs/heads/main", kind: .local, target: oid,
+            upstreamStatus: .tracking(upstream: "refs/remotes/origin/main", ahead: 0, behind: 0), isHead: true,
+            committerDate: nil, symbolicTarget: nil
         )
         let remote = Branch(
-            fullName: "refs/remotes/origin/main", kind: .remote(remote: "origin"), target: oid, upstream: nil,
-            isHead: false, committerDate: nil, symbolicTarget: nil
+            fullName: "refs/remotes/origin/main", kind: .remote(remote: "origin"), target: oid,
+            upstreamStatus: .none, isHead: false, committerDate: nil, symbolicTarget: nil
         )
         XCTAssertEqual(local.shortName, "main")
+        XCTAssertEqual(local.upstream, "refs/remotes/origin/main")
+        XCTAssertNil(remote.upstream)
         XCTAssertEqual(remote.shortName, "origin/main")
         let peeled = ObjectID(String(repeating: "cd", count: 20))!
         let tag = Tag(fullName: "refs/tags/v1.0", target: oid, peeledTarget: peeled, date: nil)

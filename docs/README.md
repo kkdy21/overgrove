@@ -77,10 +77,11 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 Overgrove/
 ├── App/            # 진입점(OvergroveApp), AppState, 의존성 조립
 ├── Execution/      # ProcessRunner — 앱 전체에서 Process를 만드는 유일한 곳
-├── Git/            # GitClient(actor), GitCommand(ReadOnlyGitCommand, FetchCommand), GitEnvironment, RepoConfigInspector, GitError
-├── GitHub/         # GHClient(actor), GHAuthStatus, gh 명령 allowlist
+├── Git/            # GitClient(actor), GitCommand(ReadOnlyGitCommand, FetchCommand), GitEnvironment, RepoConfigInspector, GitError,
+│                   # FetchFailureGuidance, TransportName
+├── GitHub/         # GHClient(actor), GHCommand(gh 명령 allowlist), GHError, GitHubRepository
 ├── Parsing/        # WorktreeParser, StatusParser, StashParser, LogParser, RevListParser, RefParser, NumstatParser,
-│                   # ConfigParser, VersionParser, GHAuthParser, IssueParser, IssueRefExtractor
+│                   # ConfigParser, VersionParser, GHAuthParser, IssueParser, IssueRefExtractor, FetchProgressParser
 ├── GraphEngine/    # 커밋 그래프 레인 계산 (UI 무관, 순수 로직)
 ├── Models/         # 값 타입 모델
 ├── Security/       # CredentialMasker, PathValidator
@@ -97,7 +98,7 @@ OvergroveTests/
 
 `Repository`, `Worktree`, `WorkingState`, `FileChange`, `UpstreamStatus`, `Stash`, `StashDetail`, `CommitNode`, `CommitDetail`, `FileHistoryEntry`, `Branch`, `Issue`, `GHAuthStatus`, `FetchRecord`, `GitPath`(raw 바이트 + 표시 문자열), `ConfigEntry`, `RepoSecurityReport`
 
-보조 타입: `ObjectID`(SHA-1·SHA-256 검증), `ConflictKind`(unmerged XY 7종), `FileStat`(커밋·stash 파일 통계), `Tag`, `GitVersion`(최소 2.36 판정). 정의는 `Overgrove/Models/`에 있다. 파서 실패는 `Overgrove/Parsing/ParseError`로 내고, `GitError`가 `parseFailed`로 감싼다.
+보조 타입: `ObjectID`(SHA-1·SHA-256 검증), `ConflictKind`(unmerged XY 7종), `FileStat`(커밋·stash 파일 통계), `Tag`, `GitVersion`(최소 2.36 판정), `GitHubRepository`(`--repo`용 검증된 `OWNER/NAME`, `Overgrove/GitHub/`), `FetchProgress`(fetch 진행 단계와 숫자), `AIAgentRule`(co-author 트레일러로 AI 작성 커밋 판정, #160). 정의는 `Overgrove/Models/`에 있다. 파서 실패는 `Overgrove/Parsing/ParseError`로 내고, `GitError`가 `parseFailed`로 감싼다.
 
 ### 2.4 위협 ID (상세: design/security-review.md)
 

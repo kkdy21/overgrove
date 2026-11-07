@@ -152,12 +152,13 @@ stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc�
 
 ## 5. LogParser
 
-### 5.1 그래프·파일 이력 — `%H%x00%P%x00%an%x00%ae%x00%at%x00%s` + `-z`
+### 5.1 그래프·파일 이력 — `%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)` + `-z`
 
-레코드마다 필드 6개, 토큰을 6개씩 묶는다.
+레코드마다 필드 7개, 토큰을 7개씩 묶는다.
 
 ```
-2f833676…␀837976f6… eecf7339…␀t␀t@example.com␀1793853652␀Merge branch 'other'␀
+2f833676…␀837976f6… eecf7339…␀t␀t@example.com␀1793853652␀Merge branch 'other'␀␀
+306f57fa…␀␀t␀t@example.com␀1793853652␀human and AI␀Claude Opus 5.5 <noreply@anthropic.com>␟Alice <alice@example.com>␀
 ```
 
 | 필드 | 규칙 |
@@ -166,7 +167,8 @@ stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc�
 | `%P` | 공백으로 나눈 OID 목록. 루트 커밋은 빈 문자열, 병합은 2개, octopus는 3개 이상 |
 | `%an`, `%ae` | 표시용 문자열 |
 | `%at` | epoch 초 |
-| `%s` | 제목. 커밋 메시지에 NUL이 있어도 git이 NUL 앞에서 자르므로 필드 구조는 깨지지 않는다 (`hash-object --literally`로 만든 객체로 확인) |
+| `%s` | 제목. 커밋 메시지에 NUL이 있으면 git이 NUL 앞에서 자른다 (`hash-object --literally`로 만든 객체로 확인). 단, 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`이 출력 전체를 다시 인코딩하면 메시지 텍스트가 NUL로 바뀌어 필드가 밀릴 수 있다. 공통 인자로 출력 인코딩을 고정해 막는다 (#205) |
+| `%(trailers:…)` | `Co-authored-by` 트레일러 값. 키는 대소문자를 가리지 않고, 여러 줄로 접힌 값은 `unfold`로 한 줄이 된다. 값 사이는 U+001F(`␟`), 없으면 빈 필드. 본문 중간의 `Co-authored-by:` 줄은 트레일러가 아니다. 표시용이라 손실 디코딩하고 빈 값은 버린다 → `CommitNode.coAuthors`. AI 배지는 `AIAgentRule`(알려진 에이전트 이메일·GitHub bot 접미사, 설정으로 확장)로 판정한다. 저장소 로컬 `trailer.<key>.cmd`/`.command`는 pretty 형식에서 실행되지 않는다 (E39, SEC-T4-06). 표시 범위 한계: 로컬 `trailer.<x>.key=Co-authored-by`(git은 키를 접두사로 맞춤), `trailer.separators`, `core.commentChar`/`commentString`으로 어떤 줄이 co-author인지 바뀔 수 있다. 값 안의 U+001F는 co-author를 하나 더 만든다. 모두 표시에만 영향을 주고 아무것도 실행되지 않는다. 화면은 값의 제어·bidi 문자를 제목·이름과 같은 방식으로 처리한다 |
 
 - `--graph`는 쓰지 않는다. 레인은 GraphEngine이 `%P`로 계산한다 (ADR-0010).
 - `--exclude=refs/stash --all`로 stash 커밋을 뺀다 (확인).
@@ -186,16 +188,19 @@ stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc�
 | PAR-LOG-06 | 잘못된 OID → 실패 |
 | PAR-LOG-07 | 잘린 마지막 레코드 버림 |
 | PAR-LOG-08 | NUL이 들어간 커밋 메시지 (literally 객체) |
+| PAR-LOG-09 | co-author 트레일러: 없음, 여러 개(대소문자 섞임), 사람+AI, 접힌 값, 본문 중간 줄 |
 
 ---
 
-## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)`
+## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)`
 
-**형식.** 레코드는 LF로 끝나고, 필드 7개는 NUL로 나눈다. refname에는 제어 문자가 들어갈 수 없으므로(`check-ref-format` 규칙) LF 구분이 안전하다.
+**형식.** 레코드는 LF로 끝나고, 필드 8개는 NUL로 나눈다. refname에는 제어 문자가 들어갈 수 없으므로(`check-ref-format` 규칙) LF 구분이 안전하다. 예시는 Apple Git 2.54.0, `LC_ALL=C` 출력이다.
 
 ```
-refs/heads/main␀837976f6…␀␀refs/remotes/origin/main␀*␀1793853652␀
-refs/tags/v1␀e4850abd…␀eee6163d…␀␀ ␀…␀
+refs/heads/both␀2880404c…␀␀refs/remotes/origin/both␀ ␀1793853652␀␀ahead 1, behind 2
+refs/heads/main␀9692941d…␀␀refs/remotes/origin/main␀*␀1793853652␀␀
+refs/remotes/origin/HEAD␀9692941d…␀␀␀ ␀1793853652␀refs/remotes/origin/main␀
+refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀
 ```
 
 | 필드 | 규칙 |
@@ -207,6 +212,13 @@ refs/tags/v1␀e4850abd…␀eee6163d…␀␀ ␀…␀
 | `%(HEAD)` | `*`(메인 워크트리가 체크아웃한 브랜치) 또는 공백 |
 | `%(committerdate:unix)` | epoch 초. 태그는 비어 있을 수 있음 |
 | `%(symref)` | `refs/remotes/origin/HEAD` 같은 심볼릭 ref의 대상 |
+| `%(upstream:track,nobracket)` | 빈 값, `ahead N`, `behind M`, `ahead N, behind M`, `gone` 다섯 가지(#54, Apple Git 2.54.0 확인). 빈 값은 `%(upstream)`이 있으면 "같음", 없으면 "upstream 없음"이다. upstream 없이 값이 있으면 형식 위반이다 |
+
+- refname, `%(upstream)`, `%(symref)`는 git 인자로 되돌아갈 수 있으므로 손실 디코딩하지 않는다. git은 이런 이름을 허용하므로 형식 위반이 아니라 내용 문제로 다룬다. refname이나 `%(upstream)`이 올바른 UTF-8이 아니거나 `FullRefName` 검증(`-`로 시작하는 구성 요소, `..`, `.lock` 등)을 통과하지 못하면 그 레코드만 건너뛰고 `skippedRecords`를 올린다(UI는 비차단 경고). upstream이 있는 브랜치를 "upstream 없음"으로 보이지 않기 위해서다. `%(symref)`가 그렇다면 `symbolicTarget`만 비운다. 다른 필드의 형식 위반은 이 레코드에서도 전체 실패다.
+- `%(HEAD)`는 `*` 또는 공백 한 글자, 날짜는 부호 없는 10진수 또는 빈 값, 카운트는 부호 없는 10진수만 허용한다.
+- 원격 이름은 `refs/remotes/` 뒤 첫 구성 요소로 정한다. 원격 이름에 `/`가 들어간 경우는 `configList`의 원격 목록과 맞춰 보정한다.
+- 잘린 출력은 LF로 끝나지 않은 마지막 레코드만 버리고 `isPartial`을 표시한다.
+- 결과 모델: `Branch.upstreamStatus`(`UpstreamStatus`)가 ahead/behind를 담는다. upstream 이름은 전체 ref 이름이다. 사이드바 LOCAL의 `↑n ↓n`은 이 값을 쓰고, 브랜치마다 `rev-list`를 실행하지 않는다(#167 S5).
 
 연결 워크트리에서 체크아웃한 브랜치는 `WorktreeParser` 결과의 `branch`와 맞춰 표시한다.
 
@@ -217,12 +229,15 @@ refs/tags/v1␀e4850abd…␀eee6163d…␀␀ ␀…␀
 | PAR-REF-03 | `origin/HEAD` symref |
 | PAR-REF-04 | 슬래시·유니코드 브랜치명 |
 | PAR-REF-05 | upstream 없음 |
+| PAR-REF-06 | `%(upstream:track,nobracket)` 다섯 경우, 형식 위반 → 실패 |
 
 ---
 
 ## 7. RevListParser — `rev-list --left-right --count A...B`
 
 출력은 `<left>\t<right>\n` 한 줄이다. `<upstream>...<local>` 순서로 부르므로 left가 behind, right가 ahead다 (확인: `0\t1` ↔ `branch.ab +1 -0`).
+
+한 줄이 아니거나, 탭이 없거나, 부호 없는 10진수가 아니면 실패한다. 출력이 몇 바이트뿐이라 잘린 결과는 믿을 수 없으므로 잘림도 실패로 다룬다. 사이드바 LOCAL은 §6의 track 필드를 쓰므로, 이 파서는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에 쓴다.
 
 | 테스트 | 사례 |
 |---|---|
@@ -368,6 +383,34 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | PAR-ISSUE-02 | 제목의 `#n`, 오탐(`C#`, `#define`) 배제 |
 | PAR-ISSUE-03 | 트레일러 |
 
+### 11.4 FetchProgressParser — `fetch --progress` stderr (#76)
+
+git이 실행되는 동안 stderr 조각을 순서대로 받아 `FetchProgress`(단계, 완료 수, 전체 수, 완료 여부)를 만든다. 형식은 Apple Git 2.54.0에서 채집했다.
+
+```
+remote: Enumerating objects: 304, done.        ⏎
+remote: Counting objects:  50% (152/304)        ␍
+Receiving objects: 100% (202/202), 304.96 KiB | 76.24 MiB/s, done.⏎
+Resolving deltas: 100% (102/102), completed with 102 local objects.⏎
+```
+
+- `\r`와 `\n` 모두 줄 끝이다. git은 같은 줄을 `\r`로 다시 쓰고, 단계가 끝나면 `\n`을 쓴다.
+- `remote: ` 접두사와 줄 끝의 공백 채움을 떼고, 다음 다섯 단계만 읽는다: `Enumerating objects`(개수만), `Counting objects`, `Compressing objects`, `Receiving objects`, `Resolving deltas`.
+- 비율 형식은 `<p>% (<n>/<total>)`이다. `p ≤ 100`, `n ≤ total`, ASCII 숫자 15자리 이하만 받는다. `)` 뒤에는 아무것도 없거나 `, `로 시작하는 꼬리(처리량, `done.`)만 올 수 있다. 완료는 `, done.`으로 끝나거나 `, completed with `로 시작하는 꼬리로 판단한다.
+- 그 밖의 줄(`From …`, ref 갱신 줄, `remote: Total …`, 알 수 없는 단계)과 형식이 어긋난 줄은 조용히 무시한다. 진행률은 표시용이고, `remote:` 줄은 서버가 쓰기 때문이다. 문자열은 결과에 담지 않는다.
+- 줄 길이 상한은 1024바이트다. 넘으면 그 줄의 나머지를 버리고 다음 줄부터 다시 읽는다.
+- 직전과 같은 갱신(처리량만 바뀐 경우)은 다시 내보내지 않는다.
+- 어떤 단계가 나오는지는 팩 크기와 속도에 따라 다르다. 작은 팩은 `Receiving objects`를 건너뛰기도 한다.
+
+| 테스트 | 사례 |
+|---|---|
+| PAR-FETCH-01 | 실제 출력의 모든 단계가 순서대로 나옴 (중간에 끼어든 `remote: Total` 포함) |
+| PAR-FETCH-02 | 바이트 단위로 나눠 넣어도 결과가 같음 |
+| PAR-FETCH-03 | 진행률이 아닌 줄 무시 |
+| PAR-FETCH-04 | 형식이 어긋난 숫자(100% 초과, `n > total`, 음수, 전각 숫자, 오버플로, 뒤에 붙은 제어 문자) 무시 |
+| PAR-FETCH-05 | 상한을 넘는 줄을 버린 뒤 다시 읽음 |
+| PAR-FETCH-06 | 같은 갱신은 한 번만 |
+
 ---
 
 ## 12. 경계 사례 요약
@@ -386,3 +429,11 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | 매우 긴 출력 잘림 | 마지막 레코드 버림, `isPartial` | PAR-*-잘림 항목 |
 | SHA-256 저장소 | 64자리 OID 허용 | PAR-LOG-04 |
 | 커밋 메시지의 NUL | git이 NUL 앞에서 자름 | PAR-LOG-08 |
+
+교차 파서 적대적 테스트는 `AdversarialParserTests`(위 표의 각 행을 실제 git 출력과 함께 모든 해당 파서로 확인)와 `ParserPropertyTests`에 있다 (#58). 속성 테스트는 아래 ID를 쓴다.
+
+| 테스트 | 속성 |
+|---|---|
+| PAR-PROP-01 | 실제 출력을 모든 바이트 위치에서 자른다. `truncated`면 `isPartial`이고 레코드는 전체 결과의 앞부분이다. 아니면 토큰 중간에서 잘린 출력은 `ParseError`, 레코드 경계에서 잘린 출력은 앞부분이다 |
+| PAR-PROP-02 | 고정 시드로 실제 출력을 무작위 변형한다. 결과를 내거나 그 파서의 `ParseError`(입력 범위 안의 offset)를 던진다. 크래시·무한 루프·다른 에러 타입은 없다 |
+| PAR-PROP-03 | `startIndex`가 0이 아닌 `Data` 슬라이스도 사본과 같은 결과·에러를 낸다 |

@@ -1,4 +1,6 @@
-/// A branch's relation to its upstream (status headers, parsing-spec.md §3.1; rev-list counts, §7).
+/// A branch's relation to its upstream (status headers, parsing-spec.md §3.1; `for-each-ref` track, §6).
+///
+/// The upstream name is what the source printed: `origin/main` from status, `refs/remotes/origin/main` from refs.
 enum UpstreamStatus: Sendable, Hashable {
     /// No upstream is configured.
     case none

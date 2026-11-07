@@ -35,7 +35,11 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case worktree
     }
 
-    static let logFormat = "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s"
+    /// Graph and file history (parsing-spec.md §5.1). The last field lists `Co-authored-by` trailer values (matched
+    /// case-insensitively, folded lines unfolded) separated by U+001F (#160). No `%G` placeholder: those run
+    /// `gpg.program` (T7).
+    static let logFormat =
+        "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)"
 
     /// Subcommand arguments. Throws `GitError.invalidArgument` for values that cannot be passed losslessly.
     func subcommandArguments() throws -> [String] {
@@ -58,7 +62,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .refs:
             return [
                 "for-each-ref",
-                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)",
+                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)",
                 "refs/heads", "refs/remotes", "refs/tags",
             ]
         case .aheadBehind(let local, let upstream):
@@ -139,7 +143,14 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     private static func clampLimit(_ limit: Int) -> Int { min(max(limit, 1), 100_000) }
 }
 
-/// The only command that touches a remote (git-command-catalog.md §4). It updates remote-tracking refs only.
+/// The only command that touches a remote (git-command-catalog.md §4). It writes `refs/remotes/<remote>/*` only.
+///
+/// What fetch writes is pinned on the command line, because a repository's own configuration could otherwise widen
+/// it (#209, T13): a local `remote.<n>.fetch=+refs/heads/*:refs/heads/*` made fetch delete local branches and
+/// force-move `main` (with a detached HEAD), and `fetch.pruneTags` deleted local tags.
+/// - The refspec is given explicitly, and `--refmap=` stops git from also applying the configured refspecs.
+/// - `--no-tags`: no tag is written, so `refs/tags/*` stays the user's (it also overrides `remote.<n>.tagOpt`).
+/// - `--prune` then only prunes inside the given refspec's destination, `refs/remotes/<remote>/*`.
 enum FetchCommand: Sendable, Hashable {
     case fetch(remote: RemoteName)
 
@@ -147,8 +158,30 @@ enum FetchCommand: Sendable, Hashable {
         switch self {
         case .fetch(let remote):
             [
-                "fetch", "--prune", "--no-recurse-submodules", "--progress", "--upload-pack=git-upload-pack",
-                "--end-of-options", remote.value,
+                "fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags",
+                "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", remote.value, refspec,
+            ]
+        }
+    }
+
+    /// The only refspec fetch uses: every branch of the remote into its own remote-tracking namespace.
+    var refspec: String {
+        switch self {
+        case .fetch(let remote): "+refs/heads/*:refs/remotes/\(remote.value)/*"
+        }
+    }
+
+    /// `-c` overrides placed after the repository's neutralization and fetch authentication, so they win over local
+    /// values (git-command-catalog.md §4). The remote name is validated (`[A-Za-z0-9._/-]`), so the key is unambiguous.
+    func configurationOverrides() -> [String] {
+        switch self {
+        case .fetch(let remote):
+            [
+                "-c", "fetch.pruneTags=false", "-c", "remote.\(remote.value).pruneTags=false",
+                "-c", "fetch.writeCommitGraph=false",
+                // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.42+);
+                // older git ignores the key (security review of #210).
+                "-c", "fetch.bundleURI=",
             ]
         }
     }
