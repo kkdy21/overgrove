@@ -97,6 +97,7 @@ extension AppState {
     private func close() {
         repository = nil
         panelLayout = .default
+        graphColumns = .default
         clearRepositoryData()
     }
 
