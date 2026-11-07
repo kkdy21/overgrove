@@ -9,6 +9,7 @@ struct MainWindowView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.controlActiveState) private var controlActiveState
     @State private var isManagingRepositories = false
+    @State private var showsFetchDetails = false
 
     var body: some View {
         window
@@ -22,16 +23,20 @@ struct MainWindowView: View {
                 Alert(title: Text(alert.title), message: Text(alert.message))
             }
             .task { state.restoreLastSelected() }
+            // A closed window cannot show Stop: its fetch is stopped (security review of #77, T15).
+            .onDisappear { state.fetch.stop() }
             // Coming back from an editor: re-query what is stale (interaction.md §4, `.automatic`).
             .onChange(of: controlActiveState) { _, active in
                 if active == .key { state.windowDidBecomeActive() }
             }
+            .modifier(FetchFeedback(state: state, showsDetails: $showsFetchDetails))
     }
 
     private var focusedActions: FocusedRepositoryActions {
         FocusedRepositoryActions(
             isAdding: state.isAddingRepository, add: addRepository, canRefresh: state.repository != nil,
-            refresh: state.reload)
+            refresh: state.reload, canFetch: state.fetch.canFetch, isFetching: state.fetchStatus.isFetching,
+            fetch: state.fetch.fetch, stopFetch: state.fetch.stop)
     }
 
     private var window: some View {
@@ -71,13 +76,7 @@ struct MainWindowView: View {
                     comparisonList: comparisonList,
                     onCompare: state.canCompare() ? { state.showComparison() } : nil)
             }
-            // Relative fetch times ("2 min ago") stay current without a model change.
-            TimelineView(.periodic(from: .now, by: statusRefreshInterval)) { context in
-                StatusBar(
-                    items: StatusBarItem.items(
-                        snapshot: state.snapshot, fetchStatus: state.fetchStatus, ghStatus: state.ghStatus,
-                        now: context.date))
-            }
+            statusBar
         }
         // Under the toolbar too, so the title bar area is `surface.window` like the status bar (art-direction §3).
         .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
@@ -93,7 +92,9 @@ struct MainWindowView: View {
                 isSidebarCollapsed: state.panelLayout.isSidebarCollapsed,
                 toggleSidebar: toggleSidebar,
                 refresh: refreshAction,
-                onCompare: state.canCompare() ? { state.showComparison() } : nil
+                onCompare: state.canCompare() ? { state.showComparison() } : nil,
+                onFetch: fetchAction,
+                isFetching: state.fetchStatus.isFetching
             )
         }
         .toolbarBackground(Tokens.Color.surfaceWindow, for: .windowToolbar)
@@ -101,6 +102,25 @@ struct MainWindowView: View {
         // TODO(#74): filter the graph by message, author, SHA, ref, or #issue; ⌘G / ⌘⇧G between matches.
         .searchable(text: $state.searchText, placement: .toolbar, prompt: "Search commits, authors, refs, #issues")
         .navigationTitle(state.repository?.name ?? "Overgrove")
+    }
+
+    /// Relative fetch times ("2 min ago") stay current without a model change.
+    private var statusBar: some View {
+        TimelineView(.periodic(from: .now, by: statusRefreshInterval)) { context in
+            StatusBar(
+                items: StatusBarItem.items(
+                    snapshot: state.snapshot, fetchStatus: state.fetchStatus, ghStatus: state.ghStatus,
+                    now: context.date, hasFetchDetails: !state.fetch.failures.isEmpty,
+                    isRefreshing: state.isRefreshing, fetchRemoteLimit: state.fetch.remoteLimit),
+                onFetchDetails: state.fetch.hasDetails ? { showsFetchDetails = true } : nil)
+        }
+    }
+
+    /// Fetch, or Stop while fetching; disabled without a repository.
+    private var fetchAction: (() -> Void)? {
+        guard state.fetch.canFetch else { return nil }
+        let fetch = state.fetch
+        return { fetch.status.isFetching ? fetch.stop() : fetch.fetch() }
     }
 
     /// ⌘R from the toolbar; disabled without a repository.
@@ -191,7 +211,7 @@ struct MainWindowView: View {
                     owner: "acme"))
             state.showForPreview(.mockup)
             state.selectWorktree(GitPath("/tmp/dev/api-wt/42-rate-limit"))
-            state.fetchStatus = .idle(lastFetched: Date().addingTimeInterval(-120))
+            state.fetch.showForPreview(.idle(lastFetched: Date().addingTimeInterval(-120)))
             state.ghStatus = .loggedIn(login: "mina-dev")
             return state
         }
@@ -206,3 +226,23 @@ struct MainWindowView: View {
             .frame(width: 1440, height: 900)
     }
 #endif
+
+/// The fetch failure Details sheet and the VoiceOver announcement when a fetch ends (#77).
+private struct FetchFeedback: ViewModifier {
+    let state: AppState
+    @Binding var showsDetails: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showsDetails) {
+                FetchFailureDetailsView(
+                    failures: state.fetch.failures, remoteLimit: state.fetch.remoteLimit,
+                    dismiss: { showsDetails = false })
+            }
+            .onChange(of: state.fetchStatus) { old, new in
+                if let text = FetchAnnouncement.text(from: old, to: new) {
+                    AccessibilityNotification.Announcement(text).post()
+                }
+            }
+    }
+}

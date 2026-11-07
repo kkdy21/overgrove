@@ -132,6 +132,8 @@ struct WorktreeDetailModel: Equatable {
         switch status {
         case .never: "Never fetched"
         case .idle(let last): StatusBarItem.relative(last, now: now)
+        case .estimated(let last): StatusBarItem.relative(last, now: now) + " (estimated)"
+        case .cancelled(let last): last.map { StatusBarItem.relative($0, now: now) } ?? "Never fetched"
         case .fetching(_, _, let last):
             last.map { StatusBarItem.relative($0, now: now) + ", fetching now" } ?? "Fetching now"
         case .failed(let last):

@@ -58,7 +58,7 @@ final class IssueLinkTests: XCTestCase {
         XCTAssertFalse(index.links(5).branches[0].title.unicodeScalars.contains("\u{202E}"))
     }
 
-    /// SEC-T15-10: a remote that pushes thousands of `feat/1-*` refs keeps LINKED (and the graph outline) small.
+    /// SEC-T15-11: a remote that pushes thousands of `feat/1-*` refs keeps LINKED (and the graph outline) small.
     func testLinksPerIssueAreLimited() {
         let many =
             (0..<500).map { Self.branch("refs/remotes/origin/feat/1-\($0)", .remote(remote: "origin")) }

@@ -329,6 +329,9 @@ gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다:
   - 마지막 fetch 시각(`FetchRecord`)
 - 토큰, 비밀번호, 원격 URL 원문 등 비밀 값은 저장하지 않는다. Keychain도 쓰지 않는다.
 - 마지막 fetch 시각은 앱이 실행한 fetch의 완료 시각을 기록한다. 기록이 없으면 `<common-dir>/FETCH_HEAD`의 수정 시각을 대신 보여 주고, 화면에 "추정"으로 표시한다.
+  - 구현(#77): `FetchRecordStore`가 저장소 ID마다 마지막 시도(`FetchRecord`: 완료 시각, 성공 여부, 앱이 쓴 요약)와 마지막 성공 시각을 JSON 하나로 저장한다. 요약은 `FetchFailureGuidance`의 문구라 검증된 원격 이름과 호스트 이름이 들어갈 수 있다. 원격 URL 원문, 자격 증명, stderr는 저장하지 않는다. 저장소를 제거하면 그 기록도 지운다. 사용자가 멈춘 fetch는 기록하지 않는다.
+  - `FETCH_HEAD`는 심볼릭 링크를 따라가지 않고(`attributesOfItem`은 링크 자체를 본다) 일반 파일일 때만 쓴다. 시각은 저장소가 정할 수 있는 값이므로 "추정"으로만 보여 준다.
+  - fetch(`RepositoryService.fetch`)는 먼저 설정을 검사한다(지문이 같으면 캐시). 그다음 원격을 하나씩 그 검사의 안전 컨텍스트로 가져온다. 실패는 `FetchFailureGuidance`로 바꾼다. 검사가 조회를 막으면 git을 실행하지 않고 모든 원격을 막힘으로 보고한다. fetch가 끝나면(멈춤 포함) `.fetchCompleted`로 워크트리 목록, status(ahead/behind), refs를 다시 조회한다(§5).
 
 ---
 

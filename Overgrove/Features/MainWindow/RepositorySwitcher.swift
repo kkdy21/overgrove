@@ -173,9 +173,15 @@ struct FocusedRepositoryActions: Equatable {
     /// Whether a repository is open, so Refresh has something to do.
     var canRefresh = false
     var refresh: @MainActor () -> Void = {}
+    /// Fetch `⌘⇧R` and Stop `⌘.` (Repository menu, #77).
+    var canFetch = false
+    var isFetching = false
+    var fetch: @MainActor () -> Void = {}
+    var stopFetch: @MainActor () -> Void = {}
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.isAdding == rhs.isAdding && lhs.canRefresh == rhs.canRefresh
+        lhs.isAdding == rhs.isAdding && lhs.canRefresh == rhs.canRefresh && lhs.canFetch == rhs.canFetch
+            && lhs.isFetching == rhs.isFetching
     }
 }
 
@@ -186,8 +192,8 @@ extension FocusedValues {
     }
 }
 
-/// File › Add Repository… `⌘O` (interaction.md §3, the standard Open shortcut) and View › Refresh `⌘R` (local git
-/// queries only, no network; #243).
+/// File › Add Repository… `⌘O` (interaction.md §3, the standard Open shortcut), View › Refresh `⌘R` (local git
+/// queries only, no network; #243), and Repository › Fetch `⌘⇧R` / Stop `⌘.` (#77).
 struct RepositoryCommands: Commands {
     @FocusedValue(\.repositoryActions) private var actions
 
@@ -202,6 +208,15 @@ struct RepositoryCommands: Commands {
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(actions?.canRefresh != true)
             Divider()
+        }
+        // Repository › Fetch `⌘⇧R` and Stop `⌘.` (interaction.md §3.1). Fetch is the app's only network command.
+        CommandMenu("Repository") {
+            Button("Fetch") { actions?.fetch() }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(actions?.canFetch != true || actions?.isFetching == true)
+            Button("Stop") { actions?.stopFetch() }
+                .keyboardShortcut(".", modifiers: .command)
+                .disabled(actions?.isFetching != true)
         }
     }
 }
