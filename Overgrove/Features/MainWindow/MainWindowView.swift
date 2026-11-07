@@ -107,8 +107,8 @@ struct MainWindowView: View {
                 items: StatusBarItem.items(
                     snapshot: state.snapshot, fetchStatus: state.fetchStatus, ghStatus: state.ghStatus,
                     now: context.date, hasFetchDetails: !state.fetch.failures.isEmpty,
-                    isRefreshing: state.isRefreshing),
-                onFetchDetails: state.fetch.failures.isEmpty ? nil : { showsFetchDetails = true })
+                    isRefreshing: state.isRefreshing, fetchRemoteLimit: state.fetch.remoteLimit),
+                onFetchDetails: state.fetch.hasDetails ? { showsFetchDetails = true } : nil)
         }
     }
 
@@ -231,7 +231,9 @@ private struct FetchFeedback: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showsDetails) {
-                FetchFailureDetailsView(failures: state.fetch.failures, dismiss: { showsDetails = false })
+                FetchFailureDetailsView(
+                    failures: state.fetch.failures, remoteLimit: state.fetch.remoteLimit,
+                    dismiss: { showsDetails = false })
             }
             .onChange(of: state.fetchStatus) { old, new in
                 if let text = FetchAnnouncement.text(from: old, to: new) {

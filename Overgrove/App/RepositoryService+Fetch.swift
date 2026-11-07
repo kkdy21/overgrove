@@ -2,15 +2,16 @@ import Foundation
 
 /// How one Fetch (every remote of a repository) ended (interaction.md §4.2, #77).
 enum FetchRun: Sendable, Equatable {
-    /// Every remote was tried; `failures` lists the ones that failed, empty when all succeeded.
-    case finished(failures: [FetchFailureGuidance])
+    /// The remotes were tried; `failures` lists the ones that failed, empty when all succeeded. `remoteLimit` is set
+    /// when configured remotes past `maximumFetchedRemotes` were skipped (#259).
+    case finished(failures: [FetchFailureGuidance], remoteLimit: FetchRemoteLimit? = nil)
     /// The user stopped it. Remotes fetched before the stop keep their new refs.
     case cancelled
 }
 
 /// Fetch for the toolbar button and `⌘⇧R` (#77) on top of `GitClient.fetch` (#76).
 extension RepositoryService {
-    /// Fetches every remote of `repository`, one after another (`GitClient` runs one fetch per repository at a time
+    /// Fetches the remotes of `repository` (the first `maximumFetchedRemotes`), one after another (`GitClient` runs one fetch per repository at a time
     /// anyway, and reports per remote; git-command-catalog.md §4).
     ///
     /// The configuration is inspected first, from the cache while its files are unchanged, so the fetch runs with
@@ -28,15 +29,20 @@ extension RepositoryService {
         } catch {
             return Self.isCancellation(error) ? .cancelled : .finished(failures: [Self.unreadable(error)])
         }
-        let remotes = inspection.remotes
-        guard !remotes.isEmpty else { return .finished(failures: [.noRemotes]) }
+        guard !inspection.remotes.isEmpty else { return .finished(failures: [.noRemotes]) }
+        // The first remotes in configuration order, at most `maximumFetchedRemotes` (#259, T15).
+        let remotes = Array(inspection.remotes.prefix(maximumFetchedRemotes))
+        let limit =
+            remotes.count < inspection.remotes.count
+            ? FetchRemoteLimit(fetched: remotes.count, total: inspection.remotes.count) : nil
         onStart(remotes.map(\.name.value))
         // Stopped during the inspection: not a failure to report (security review of #77).
         if Task.isCancelled { return .cancelled }
 
         guard let safety = inspection.safetyContext else {
             let blocked = GitError.configInspectionFailed(reason: inspection.report.blockingReason ?? "")
-            return .finished(failures: remotes.compactMap { Self.guidance(blocked, $0, inspection.report) })
+            return .finished(
+                failures: remotes.compactMap { Self.guidance(blocked, $0, inspection.report) }, remoteLimit: limit)
         }
         var failures: [FetchFailureGuidance] = []
         for remote in remotes {
@@ -49,7 +55,7 @@ extension RepositoryService {
                 if let guidance = Self.guidance(gitError, remote, inspection.report) { failures.append(guidance) }
             }
         }
-        return .finished(failures: failures)
+        return .finished(failures: failures, remoteLimit: limit)
     }
 
     private static func guidance(
