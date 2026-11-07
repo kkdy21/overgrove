@@ -160,7 +160,7 @@ struct SecurityScenario {
             arguments,
             in: repository,
             environment: GitEnvironment.environment(
-                parent: parentEnvironment, trustedSSHCommand: safety.trustedSSHCommand),
+                parent: parentEnvironment, trustedSSHCommand: safety.trustedSSHCommand, allowsTransport: true),
             stdin: input,
             limits: .query
         )

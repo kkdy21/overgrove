@@ -96,6 +96,23 @@ final class GitErrorTests: XCTestCase {
         guard case .transportNotAllowed("hg", _) = try XCTUnwrap(classify(stderr)) else { return XCTFail() }
     }
 
+    /// #212: a query that needs an object a partial clone lacks. Real Apple Git 2.50.1 stderr, with
+    /// GIT_NO_LAZY_FETCH (2.44+) and with only the empty transport list (what older git reports).
+    func testPartialCloneObjectMissing() throws {
+        let samples = [
+            "warning: lazy fetching disabled; some objects may not be available\n"
+                + "fatal: could not fetch 5626abf0f72e58d7a153368ba57db4c673c0e171 from promisor remote\n",
+            "fatal: transport 'file' not allowed\n"
+                + "fatal: could not fetch 5626abf0f72e58d7a153368ba57db4c673c0e171 from promisor remote\n",
+        ]
+        for sample in samples {
+            let error = try XCTUnwrap(classify(sample))
+            guard case .partialCloneObjectMissing = error else { return XCTFail("got \(error)") }
+            XCTAssertTrue(error.message.contains("partial clone"), error.message)
+            XCTAssertNotNil(error.detail)
+        }
+    }
+
     func testRemoteHelperFailureIsNotATransportBlock() {
         // A helper that ran and failed (no GIT_ALLOW_PROTOCOL) must not be mistaken for a block.
         guard case .nonZeroExit = classify("fatal: remote helper 'evilhelper' aborted session\n") else {
@@ -261,6 +278,7 @@ final class GitErrorTests: XCTestCase {
             .hostKeyVerificationFailed(changed: false, detail: detail),
             .hostKeyVerificationFailed(changed: true, detail: detail), .accessDenied(detail: detail),
             .remoteNotFound(detail: detail), .networkUnavailable(detail: detail),
+            .partialCloneObjectMissing(detail: detail),
             .nonZeroExit(code: 1, detail: detail), .parseFailed(parser: "p", offset: 0),
         ]
         for error in cases {

@@ -23,6 +23,8 @@ struct RepoConfigInspection: Sendable, Equatable {
     /// False when the effective configuration can change without any config file changing
     /// (`includeIf.onbranch:` depends on HEAD), so the inspection must not be cached.
     let isCacheable: Bool
+    /// A promisor remote or `extensions.partialclone` exists in any scope (#212).
+    let isPartialClone: Bool
 
     /// Arguments for `GitClient`. `nil` when the report blocks queries (fail closed).
     var safetyContext: RepoSafetyContext? {
@@ -31,7 +33,8 @@ struct RepoConfigInspection: Sendable, Equatable {
             inspectedNeutralization: neutralization,
             fetchAuthentication: fetchAuthentication,
             trustedSSHCommand: trustedSSHCommand,
-            fetchBlockingReason: fetchBlockingReason
+            fetchBlockingReason: fetchBlockingReason,
+            isPartialClone: isPartialClone
         )
     }
 }
@@ -132,7 +135,8 @@ enum RepoConfigInspector {
             trustedSSHCommand: trustedSSHCommand,
             remotes: remotes,
             fetchBlockingReason: fetchBlockingReason,
-            isCacheable: !dependsOnHEAD
+            isCacheable: !dependsOnHEAD,
+            isPartialClone: listing.entries.contains(where: isPartialCloneSetting)
         )
     }
 
@@ -165,6 +169,8 @@ enum RepoConfigInspector {
                 return ("T13", .neutralized)
             }
             if variable == "prunetags" || variable == "tagopt" { return ("T13", .neutralized) }
+            // Partial clone: reads lazy-fetch from the promisor remote. Queries allow no transport (#212).
+            if variable == "promisor" || variable == "partialclonefilter" { return ("T5", .neutralized) }
             if variable == "mirror" { return ("T13", .reported) }
             // A remote helper chosen by the repository. `GIT_ALLOW_PROTOCOL` refuses it at fetch time (#161).
             if variable == "vcs" { return ("T5", .reported) }
@@ -178,6 +184,8 @@ enum RepoConfigInspector {
             return ("T3", .reported)
         case "diff" where variable == "orderfile":
             return ("T15", .warned)
+        case "extensions" where variable == "partialclone":
+            return ("T5", .neutralized)
         case "fetch" where variable == "prunetags" || variable == "bundleuri":
             return ("T13", .neutralized)
         case "gpg" where variable == "program":
@@ -210,6 +218,19 @@ enum RepoConfigInspector {
 }
 
 extension RepoConfigInspector {
+    /// `remote.<n>.promisor` set to anything but a clear false, or a non-empty `extensions.partialclone`, in any scope:
+    /// lazy fetch runs the repository's own uploadpack whichever scope made the remote a promisor (fail closed).
+    static func isPartialCloneSetting(_ entry: ConfigEntry) -> Bool {
+        switch (entry.section, entry.variable) {
+        case ("remote", "promisor"):
+            return !["false", "no", "off", "0"].contains((entry.value ?? "true").lowercased())
+        case ("extensions", "partialclone"):
+            return !(entry.value ?? "").isEmpty
+        default:
+            return false
+        }
+    }
+
     /// Whether a fetch refspec writes outside `refs/remotes/<remote>/`. A refspec without a destination only fills
     /// `FETCH_HEAD`, and a negative refspec (`^…`) writes nothing.
     static func writesOutsideRemoteNamespace(_ refspec: String, remote: String) -> Bool {

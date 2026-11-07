@@ -34,7 +34,7 @@ final class GitEnvironmentTests: XCTestCase {
     ]
 
     func testSECT10_01_DangerousParentVariablesNeverReachGit() {
-        let environment = GitEnvironment.environment(parent: hostileParent)
+        let environment = GitEnvironment.environment(parent: hostileParent, allowsTransport: true)
         for key in [
             "GIT_DIR", "GIT_WORK_TREE", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0",
             "GIT_CONFIG_VALUE_0", "GIT_EXEC_PATH", "GIT_EXTERNAL_DIFF", "DYLD_INSERT_LIBRARIES",
@@ -54,13 +54,40 @@ final class GitEnvironmentTests: XCTestCase {
             environment["GIT_ALLOW_PROTOCOL"], "https:ssh:git:file:http", "the parent's transport list is ignored")
     }
 
+    /// #212: queries never use a transport, so a promisor remote cannot make them lazy-fetch (and run the
+    /// repository's uploadpack or credential helper). An empty allow list refuses every transport on every
+    /// supported git; GIT_NO_LAZY_FETCH (git 2.44+) is a second layer for all commands.
+    func testQueriesAllowNoTransport() {
+        let query = GitEnvironment.environment(parent: hostileParent, allowsTransport: false)
+        XCTAssertEqual(query["GIT_ALLOW_PROTOCOL"], "", "an empty list allows nothing")
+        XCTAssertEqual(query["GIT_NO_LAZY_FETCH"], "1")
+        let fetch = GitEnvironment.environment(parent: hostileParent, allowsTransport: true)
+        XCTAssertEqual(fetch["GIT_ALLOW_PROTOCOL"], GitEnvironment.allowedProtocols)
+        XCTAssertEqual(fetch["GIT_NO_LAZY_FETCH"], "1")
+        XCTAssertEqual(
+            Set(query.keys), Set(fetch.keys), "the same variables; only the transport list differs")
+    }
+
+    /// #215: a caller that does not choose gets no transport (secure default).
+    func testDefaultAllowsNoTransport() {
+        XCTAssertEqual(GitEnvironment.environment(parent: [:])["GIT_ALLOW_PROTOCOL"], "")
+        XCTAssertEqual(GitEnvironment.environment(parent: hostileParent)["GIT_ALLOW_PROTOCOL"], "")
+        XCTAssertEqual(
+            GitEnvironment.environment(parent: [:], trustedSSHCommand: "ssh -i ~/.ssh/work")["GIT_ALLOW_PROTOCOL"], "")
+        XCTAssertEqual(
+            GitEnvironment.environment(parent: [:]), GitEnvironment.environment(parent: [:], allowsTransport: false))
+    }
+
     func testOnlyBuiltInTransportsAreAllowed() {
         // Snapshot of security-review.md §3.2; change both together. Remote helpers chosen by a repository
         // (`<helper>::` URLs, `remote.<n>.vcs`, `insteadOf`) are refused even with `protocol.<helper>.allow=always` (T5).
         XCTAssertEqual(GitEnvironment.allowedProtocols, "https:ssh:git:file:http")
-        XCTAssertEqual(GitEnvironment.environment(parent: [:])["GIT_ALLOW_PROTOCOL"], GitEnvironment.allowedProtocols)
         XCTAssertEqual(
-            GitEnvironment.environment(parent: [:], trustedSSHCommand: "ssh -i ~/.ssh/work")["GIT_ALLOW_PROTOCOL"],
+            GitEnvironment.environment(parent: [:], allowsTransport: true)["GIT_ALLOW_PROTOCOL"],
+            GitEnvironment.allowedProtocols)
+        XCTAssertEqual(
+            GitEnvironment.environment(parent: [:], trustedSSHCommand: "ssh -i ~/.ssh/work", allowsTransport: true)[
+                "GIT_ALLOW_PROTOCOL"],
             GitEnvironment.allowedProtocols
         )
         let transports = GitEnvironment.allowedProtocols.split(separator: ":")

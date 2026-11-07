@@ -107,6 +107,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   | `fd::` URL | 기본 허용이며 fetch가 정지함 |
   | 로컬 `core.alternateRefsCommand` + `objects/info/alternates` | alternates가 있는 저장소의 fetch에서 실행 (테스트 fork 실측, [fixtures.md §8](../testing/fixtures.md)) |
   | `<helper>::<주소>` URL, git이 직접 처리하지 않는 `<scheme>://` URL, `remote.<n>.vcs`, `insteadOf`로 바꿔치기한 URL | 사용자가 설치한 `git-remote-<helper>`(`hg`, `gcrypt`, `codecommit` 등)를 **저장소가 고른 인자로** 실행. 로컬 `protocol.<helper>.allow=always`가 있으면 명령줄 `-c protocol.allow=never`로도 막히지 않음 (이름별 키가 일반 키보다 우선, #161 실측) |
+  | **조회 명령의 lazy fetch** (partial clone: 로컬 `remote.<n>.promisor`·`partialclonefilter` 또는 처음부터 partial로 배포된 저장소) | 내용이 필요한 조회(diff, numstat, `log --follow`)가 누락 객체를 promisor 원격에서 가져오며 로컬 `remote.<n>.uploadpack`을 실행. https 원격이면 401 뒤 로컬 `credential.helper`도 실행. 조회에는 fetch의 `--upload-pack` 고정·인증 재설정이 없음 (#210 보안 검토, #212 실측) |
 
 - **시나리오**: 사용자가 Fetch를 누르면 원격 설정에 숨긴 명령이 실행된다.
 - **대응**:
@@ -114,6 +115,9 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **환경 변수 `GIT_PROXY_COMMAND=`(빈 값)**: 로컬 `core.gitProxy` 무력화 (확인).
   - **`fetch --upload-pack=git-upload-pack`**: 로컬 uploadpack 무력화 (확인).
   - **환경 변수 `GIT_ALLOW_PROTOCOL=https:ssh:git:file:http`**: 내장 전송만 허용한다. `protocol.allow=never`에 목록의 전송만 `always`로 둔 것처럼 동작하고, 저장소의 `protocol.<이름>.allow=always`를 포함한 모든 설정보다 우선한다. 저장소가 고른 원격 helper(`<helper>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기)는 `transport '<이름>' not allowed`로 실행 전에 거부된다 (확인, E34–E38). 거부는 `GitError.transportNotAllowed`로 분류해 이유를 보여 준다.
+  - **조회는 전송을 쓰지 않는다(#212)**: `GitClient.run`의 환경은 `GIT_ALLOW_PROTOCOL=`(빈 값)이다. 이것이 `GitEnvironment.environment`의 기본값이고, 전송은 `GitClient.fetch`만 `allowsTransport: true`로 연다(#215). 빈 목록은 모든 전송을 원격 helper·uploadpack·credential helper 실행 전에 거부한다(`transport 'file' not allowed`, 확인 E42). git의 protocol policy(2.12+)라서 최소 지원 2.36부터 모든 버전에 적용된다(소스 기준, 2.36–2.43은 직접 실행하지 못함). 모든 명령에 `GIT_NO_LAZY_FETCH=1`(2.44+, 그 전에는 무시됨)을 두 번째 층으로 둔다. `-c remote.<n>.promisor=false`와 `-c remote.<n>.uploadpack=…`로는 막히지 않는다(로컬 값이 이김, 확인). fetch만 `https:ssh:git:file:http` 목록을 쓴다.
+  - **fetch 중의 lazy fetch(#213 보안 검토)**: fetch도 받은 객체가 로컬에 없는 blob을 delta base로 쓰면 lazy fetch를 하며, 이때는 고정한 `--upload-pack`이 적용되지 않아 로컬 uploadpack이 실행된다(filter 설정 없이 promisor만 있는 저장소, 실측). git 2.44+는 `GIT_NO_LAZY_FETCH`로 막혀 fetch가 안전하게 실패한다. **2.44 미만에서는 partial clone(어느 scope든 `remote.<n>.promisor`·`extensions.partialclone`)의 fetch를 거부한다**(`RepoSafetyContext.isPartialClone`, `configInspectionFailed`).
+  - 대가: 사용자가 직접 만든 partial clone에서 누락 객체가 필요한 조회(과거 커밋 diff, `fileHistory`)는 실패한다. partial 서브모듈이 있는 상위 저장소의 status도 실패할 수 있다(실측). 안전한 방향의 실패이고 메시지로 알린다.
   - **공통 인자 `-c protocol.ext.allow=never -c protocol.fd.allow=never`**: `ext::`와 `insteadOf` 바꿔치기, `fd::` 차단 (확인). `GIT_ALLOW_PROTOCOL`과 겹치지만 심층 방어로 유지한다.
   - **공통 인자 `-c core.alternateRefsCommand=`(빈 값)**: alternates 경로 무력화. 빈 값이어도 fetch는 성공한다 (확인).
   - fetch는 `--no-recurse-submodules`로 서브모듈 원격에 연결하지 않는다.
@@ -126,7 +130,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
     - 그래서 `git` 명령은 `RepoSecurityReport`에 항목이 없을 때만 복사용으로 제시하고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다.
     - 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan … | ssh-keygen -lf -`, `ssh-keygen -F`)만 제시한다.
     - 남는 위험: `.git/hooks`와 `pager.*`는 설정 보고에 나오지 않으므로, 보고가 깨끗해도 터미널 git이 이것들을 실행할 수 있다. 안내 문구가 이를 경고한다.
-- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL)
+- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행)
 - **상태**: 설계 완료
 
 ### T6. 저장소 로컬 `credential.helper` 실행
@@ -138,7 +142,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   2. 그 뒤에 신뢰 scope의 `credential.*helper` 항목을 **원래 순서와 키 그대로** 다시 넣는다. Apple 내장 `osxkeychain`과 `gh auth setup-git` 형식의 URL별 항목이 이렇게 복원된다 (확인).
   3. 순서가 중요하다. URL별 빈 값을 신뢰 helper보다 뒤에 넣으면 신뢰 helper까지 지워진다 (확인). 그래서 항상 "초기화 → 재삽입" 순서를 지킨다.
 - **잔여 위험**: 신뢰 scope의 helper 자체가 위험하면 막지 못한다 (위협 모델 밖).
-- **검증**: SEC-T6-01 (로컬 generic helper → canary 없음), SEC-T6-02 (로컬 URL별·와일드카드 helper → canary 없음), SEC-T6-03 (신뢰 global helper와 URL별 helper가 순서대로 실행됨)
+- **검증**: SEC-T6-01 (로컬 generic helper → canary 없음), SEC-T6-02 (로컬 URL별·와일드카드 helper → canary 없음), SEC-T6-03 (신뢰 global helper와 URL별 helper가 순서대로 실행됨), SEC-T6-04 (https promisor 원격의 lazy fetch: 앱 조회는 로컬 helper를 실행하지 않고 서버에 요청도 보내지 않음, 대조군은 401 뒤 helper 실행, #212)
 - **상태**: 설계 완료
 
 ### T7. 서명 검증 프로그램 실행
@@ -350,7 +354,8 @@ fetch에는 `--no-recurse-submodules --upload-pack=git-upload-pack`을 붙인다
 | `GIT_PAGER`, `PAGER` | `cat` |
 | `GIT_ASKPASS`, `SSH_ASKPASS` | 빈 문자열 |
 | `GIT_PROXY_COMMAND` | 빈 문자열 |
-| `GIT_ALLOW_PROTOCOL` | `https:ssh:git:file:http` (내장 전송만, 부모 값은 무시) |
+| `GIT_ALLOW_PROTOCOL` | 기본·조회: 빈 값(전송 없음, lazy fetch 차단, #212). fetch만 명시적으로 `https:ssh:git:file:http`(내장 전송만). 기본값이 "전송 없음"이라 고르지 않은 호출부는 네트워크를 쓰지 못한다(#215). 부모 값은 무시 |
+| `GIT_NO_LAZY_FETCH` | `1` (모든 명령, git 2.44+에서 promisor lazy fetch 금지, #212) |
 | `GIT_SSH_COMMAND` | 신뢰 scope `core.sshCommand` 또는 `ssh -o BatchMode=yes` |
 | `PATH` | `/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin` |
 | `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK` | 부모 값 |
@@ -378,6 +383,7 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^protocol\.(.+\.)?allow$` | 전송 | 보고 (`GIT_ALLOW_PROTOCOL`이 모든 값보다 우선, `ext`·`fd`는 공통 인자로도 never) | T5 |
 | `^remote\..+\.url$` (값이 `<helper>::`로 시작: `^([A-Za-z0-9][A-Za-z0-9+.-]*)?::`, `ext::`·`fd::` 포함. 또는 `<scheme>://`인데 scheme이 `http`·`https`·`ftp`·`ftps`·`git`·`ssh`·`git+ssh`·`ssh+git`·`file`이 아님, 대소문자 무시) | 전송 | 보고 (`GIT_ALLOW_PROTOCOL`로 차단됨, #161, `TransportName`) | T5 |
 | `^remote\..+\.vcs$` | 전송 | 보고 (원격 helper 지정, `GIT_ALLOW_PROTOCOL`로 차단됨, #161) | T5 |
+| `^remote\..+\.(promisor\|partialclonefilter)$`, `^extensions\.partialclone$` | 전송 | **무력화**: 조회는 전송을 쓰지 않음(빈 `GIT_ALLOW_PROTOCOL`, `GIT_NO_LAZY_FETCH=1`). 누락 객체가 필요한 조회는 실패한다. fetch는 git 2.44+에서만 허용(그 전에는 partial clone fetch 거부) (#212) | T5 |
 | `^remote\.<n>\.fetch$` (대상이 `refs/remotes/<n>/` 밖. 대상 없는 refspec과 `^` negative refspec 제외) | 쓰기 | **무력화**: fetch는 명령줄 refspec + `--refmap=`만 쓴다 (#209) | T13 |
 | `^fetch\.prunetags$`, `^remote\..+\.prunetags$`, `^remote\..+\.tagopt$` | 쓰기 | **무력화**: `-c …pruneTags=false`, `--no-tags` (#209) | T13 |
 | `^fetch\.bundleuri$` | 쓰기·전송 | **무력화**: `-c fetch.bundleURI=` (임의 URI에서 bundle을 받아 `refs/bundles/*`를 쓰는 것을 막음, #210 보안 검토) | T13 |
@@ -451,6 +457,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E39 | 로컬 `trailer.<key>.{cmd,command}`, `trailer.where/ifexists/ifmissing`, `include.path`로 넣은 `trailer.*.command` + 그래프 포맷 `%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)` | 실행 안 됨(pretty 형식은 트레일러를 읽기만 함). 같은 설정에서 `interpret-trailers --trailer`는 실행됨. `trailer.<x>.key`·`trailer.separators`·`core.commentChar`는 어떤 줄이 co-author인지만 바꾼다 (#160 보안 검토) |
 | E40 | 로컬 `remote.origin.fetch=+refs/heads/*:refs/heads/*` + detached HEAD, 로컬 `fetch.pruneTags=true`·`remote.origin.pruneTags=true`·`tagOpt=--tags`로 앱 fetch 인자 실행 (Apple Git 2.54.0, #209) | 고정 전: 로컬 전용 브랜치 2개 삭제, `main` 강제 이동, 로컬 태그 삭제. 명령줄 refspec + `--refmap=` + `pruneTags=false`: 로컬 브랜치·태그 불변. `--no-tags`가 없으면 원격 태그 `r1`이 `refs/tags/`에 새로 생김(기존 태그는 그대로). 로컬 `fetch.bundleURI`(평범한 bundle 파일)는 `refs/bundles/heads/*`를 쓰고, `-c fetch.bundleURI=`면 쓰지 않음 |
 | E41 | 로컬 `i18n.commitEncoding=JOHAB`(또는 `i18n.logOutputEncoding=JOHAB`) + 제목에 `！`가 든 커밋 + 그래프·커밋 상세·stash 목록 `-z` 포맷 | 일반 실행은 NUL이 늘어 필드가 밀림(그래프 6→8, 상세 2→4, stash 4→5). `-c i18n.logOutputEncoding=UTF-8`이면 정상. UTF-16 설정도 막힘. `for-each-ref`는 영향 없음 (Apple Git 2.54.0, #205) |
+| E42 | `clone --filter=blob:none`으로 만든 partial 저장소 + 로컬 `remote.origin.uploadpack` canary에서 `diff-tree -p` (Apple Git 2.50.1, #212) | fetch 목록 환경: canary 실행(lazy fetch). `GIT_NO_LAZY_FETCH=1`: 차단. `GIT_ALLOW_PROTOCOL=`(빈 값)·`=none`: `transport 'file' not allowed`로 차단. `-c remote.origin.promisor=false`·`-c remote.origin.uploadpack=git-upload-pack`: 여전히 실행. 앱의 fetch는 filter 설정이 있는 partial 저장소에서는 lazy fetch를 하지 않음. filter 없이 promisor만 있고 새 객체가 누락 blob을 delta base로 쓰면 fetch도 lazy fetch하며, `GIT_NO_LAZY_FETCH` 없이는 로컬 uploadpack이 실행됨(#213 보안 검토) |
 
 릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41.
 

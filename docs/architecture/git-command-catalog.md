@@ -85,7 +85,8 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `GIT_PAGER`, `PAGER` | `cat` | 모든 git |
 | `GIT_ASKPASS`, `SSH_ASKPASS` | 빈 문자열 | 모든 git (빈 `GIT_ASKPASS`는 `core.askPass`보다 우선해 실행을 막음, 확인) |
 | `GIT_PROXY_COMMAND` | 빈 문자열 | 모든 git (로컬 `core.gitProxy` 무력화, 확인) |
-| `GIT_ALLOW_PROTOCOL` | `https:ssh:git:file:http` | 모든 git (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
+| `GIT_ALLOW_PROTOCOL` | fetch: `https:ssh:git:file:http`. 조회·기본값: 빈 값 | 조회(`GitClient.run`)는 전송을 쓰지 않는다. partial clone에서 누락 객체가 필요한 조회가 promisor 원격으로 lazy fetch하며 저장소의 uploadpack·credential helper를 실행하는 것을 막는다(#212). fetch는 (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
+| `GIT_NO_LAZY_FETCH` | `1` | 모든 git (git 2.44+에서 promisor lazy fetch 금지, #212). 그 전 버전은 무시한다. 조회는 빈 `GIT_ALLOW_PROTOCOL`이 막고, fetch는 전송이 필요하므로 git 2.44 미만에서 partial clone이면 `GitClient.fetch`가 실행을 거부한다(fetch 중 lazy fetch가 로컬 uploadpack을 실행하기 때문, #213 보안 검토) |
 | `GIT_SSH_COMMAND` | 신뢰 scope의 `core.sshCommand` 값, 없으면 `ssh -o BatchMode=yes` | 모든 git (환경 변수가 로컬 설정보다 우선, 확인) |
 | `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK` | 부모 값 그대로 | 모든 git |
 | `PATH` | `/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin` | 모든 git |
@@ -214,6 +215,7 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 |---|---|
 | `hostKeyVerificationFailed(changed: true)` | `REMOTE HOST IDENTIFICATION HAS CHANGED` (OpenSSH 경고 배너) |
 | `dubiousOwnership` | `detected dubious ownership` |
+| `partialCloneObjectMissing` | `lazy fetching disabled`, `from promisor remote`. 전송 거부보다 먼저 본다: git 2.44 미만에서는 막힌 lazy fetch가 `transport 'file' not allowed`도 함께 낸다 (#212) |
 | `transportNotAllowed(transport)` | `fatal: transport '<이름>' not allowed`로 **시작하는 줄** (`GIT_ALLOW_PROTOCOL` 밖의 전송, `ext`, `fd`). `remote:` 줄은 인정하지 않는다. 이름은 `[A-Za-z0-9][A-Za-z0-9+.-]*`이고 64자 이하일 때만 메시지에 넣는다 |
 | `hostKeyVerificationFailed(changed: false)` | `Host key verification failed` |
 | `sshAuthenticationFailed` | `Permission denied (` + OpenSSH 방식 이름(`publickey`, `password`, `keyboard-interactive`, `hostbased`, `gssapi`). 방식 목록이 없는 로컬 파일 오류(`Permission denied`)는 해당하지 않는다 |
