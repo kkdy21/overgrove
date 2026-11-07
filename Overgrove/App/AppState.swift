@@ -214,7 +214,6 @@ final class AppState {
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
         autoRefresh.request = { [weak self] change in self?.requestAutoRefresh(change) ?? false }
-        autoRefresh.onReappear = { [weak self] in self?.refreshAfterReappearing() }
     }
 
     /// The registered repositories, in the order they were added.

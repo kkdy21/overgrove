@@ -78,6 +78,31 @@ final class AutoRefreshIntegrationTests: XCTestCase {
         XCTAssertTrue(calls().contains("for-each-ref"))
     }
 
+    /// `.filesChanged` never replaces a running load (another window's ⌘R, say): it is refused, and the load finishes.
+    func testFilesChangedNeverReplacesARunningLoad() async throws {
+        let context = try await IntegrationContext.make(fixture: try await makeFixture())
+        let service = try service(context)
+        let first = try overview(await service.refresh(context.repository, trigger: .user))
+        let release = markers.appendingPathComponent("release")
+        try FileManager.default.removeItem(at: release)
+
+        let repository = context.repository
+        let user = Task { await service.refresh(repository, trigger: .user) }
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !(try FileManager.default.contentsOfDirectory(atPath: markers.path).contains { $0.hasPrefix("started-") })
+        {
+            guard ContinuousClock.now < deadline else { return XCTFail("the load never reached status") }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        let worktrees = Set(first.entries.map(\.worktree.path))
+        let refused = await service.refresh(
+            repository, trigger: .filesChanged(worktrees: worktrees, refs: true, worktreeList: true))
+        XCTAssertNil(refused, "refused while another load runs")
+
+        FileManager.default.createFile(atPath: release.path, contents: nil)
+        _ = try overview(await user.value)
+    }
+
     /// No feedback loop: a full load and a `.filesChanged` refresh of every worktree write nothing the watcher acts
     /// on (#211: queries never write the index). Control: a real edit is seen.
     func testOwnQueriesProduceNoRelevantEvents() async throws {

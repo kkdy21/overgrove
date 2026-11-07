@@ -59,7 +59,8 @@ final class FileChangeClassifierTests: XCTestCase {
         }
     }
 
-    /// Untrusted paths: prefix tricks, relative paths, dot segments, and a linked worktree's `.git` file.
+    /// SEC-T14-09: FSEvents paths are untrusted strings. Prefix tricks, relative paths, dot segments, and a linked
+    /// worktree's `.git` file affect nothing.
     func testHostilePaths() {
         for path in [
             "/dev/api-other/x", "/dev/apix", "dev/api/src/a", "", "/dev/api/../etc/passwd",
@@ -71,6 +72,30 @@ final class FileChangeClassifierTests: XCTestCase {
 
     func testRescanMeansEverything() {
         XCTAssertEqual(classifier.classify([FileEvent(path: "/dev/api", needsRescan: true)]), classifier.everything)
+    }
+
+    /// SEC-T15-15: the work per batch is bounded. A batch over the cap counts as a rescan without looking at each
+    /// path, and classification stops once everything is affected.
+    func testOversizedBatchesAreARescan() {
+        let storm = (0...FileChangeClassifier.maximumEventsPerBatch).map {
+            FileEvent(path: "/dev/api/node_modules/f\($0)")
+        }
+        XCTAssertEqual(classifier.classify(storm), classifier.everything)
+        let atCap = Array(storm.dropLast())
+        XCTAssertEqual(classifier.classify(atCap), FileChangeSet(worktrees: [main]))
+        XCTAssertEqual(
+            classifier.classify([FileEvent(path: "/dev/api/.git/config"), FileEvent(path: "/dev/api/x")]),
+            classifier.everything)
+    }
+
+    /// The deepest folder wins whatever order the worktrees come in.
+    func testDeepestFolderWinsInAnyOrder() {
+        let reversed = FileChangeClassifier(
+            commonDirectory: classifier.commonDirectory, worktrees: classifier.worktrees.reversed())
+        XCTAssertEqual(
+            reversed.classify([FileEvent(path: "/dev/api/.claude/worktrees/agent/x")]),
+            FileChangeSet(worktrees: [nested]))
+        XCTAssertEqual(reversed.classify([FileEvent(path: "/dev/api/.claude/x")]), FileChangeSet(worktrees: [main]))
     }
 
     func testWatchedPaths() {

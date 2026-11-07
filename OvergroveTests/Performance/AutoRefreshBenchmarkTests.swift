@@ -51,10 +51,15 @@ final class AutoRefreshBenchmarkTests: XCTestCase {
                     trigger: .filesChanged(
                         worktrees: change.worktrees, refs: change.refs, worktreeList: change.worktreeList))
                 durations.append(ContinuousClock.now - started)
-                let succeeded: Bool = if case .success = result?.result { true } else { false }
+                let outcome: AutoRefreshController.LoadOutcome =
+                    switch result?.result {
+                    case .success: .succeeded
+                    case .failure: .failed
+                    case nil: .superseded
+                    }
                 controller?.loadFinished(
                     .filesChanged(worktrees: change.worktrees, refs: change.refs, worktreeList: change.worktreeList),
-                    succeeded: succeeded)
+                    outcome: outcome)
             }
             return true
         }

@@ -9,11 +9,4 @@ extension AppState {
         refresh(.filesChanged(worktrees: change.worktrees, refs: change.refs, worktreeList: change.worktreeList))
         return true
     }
-
-    /// The window became visible again: nothing was watched while it was hidden, so refresh once (`.automatic`
-    /// re-queries the worktree list and every status older than `statusFreshness`).
-    func refreshAfterReappearing() {
-        guard repository != nil, runningTrigger == nil, hasVerifiedListing else { return }
-        refresh(.automatic)
-    }
 }

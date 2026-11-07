@@ -13,7 +13,7 @@ final class FakeFileWatcher: FileEventWatching, @unchecked Sendable {
     }
 
     private let lock = NSLock()
-    private var watches: [(paths: [String], subscription: Subscription)] = []
+    private var watches: [(paths: [String], subscription: Subscription, handler: @Sendable ([FileEvent]) -> Void)] = []
 
     var watchedPaths: [[String]] { lock.withLock { watches.map(\.paths) } }
     var activeCount: Int { lock.withLock { watches.filter { !$0.subscription.isStopped }.count } }
@@ -22,8 +22,14 @@ final class FakeFileWatcher: FileEventWatching, @unchecked Sendable {
         _ paths: [String], latency: TimeInterval, handler: @escaping @Sendable ([FileEvent]) -> Void
     ) -> any FileEventSubscription {
         let subscription = Subscription()
-        lock.withLock { watches.append((paths, subscription)) }
+        lock.withLock { watches.append((paths, subscription, handler)) }
         return subscription
+    }
+
+    /// Delivers a batch through the latest stream's handler, as FSEvents would on its own queue.
+    func deliver(_ events: [FileEvent]) {
+        let handler = lock.withLock { watches.last?.handler }
+        handler?(events)
     }
 }
 
@@ -190,7 +196,8 @@ final class AutoRefreshControllerTests: XCTestCase {
         for index in 0..<500 { h.controller.handle(event("/dev/api/node_modules/f\(index)")) }
         XCTAssertEqual(h.gate.pending, 0, "nothing scheduled while one runs")
         h.clock.advance(.seconds(5))
-        h.controller.loadFinished(.filesChanged(worktrees: [main], refs: false, worktreeList: false), succeeded: true)
+        h.controller.loadFinished(
+            .filesChanged(worktrees: [main], refs: false, worktreeList: false), outcome: .succeeded)
         await h.gate.waitForSleepers(1)
         // Gap: max(2 s, 5 s × 10) = 50 s after the first start, which was 5 s ago.
         XCTAssertEqual(h.gate.requested.last, .seconds(45))
@@ -232,7 +239,7 @@ final class AutoRefreshControllerTests: XCTestCase {
         XCTAssertEqual(h.controller.pending, FileChangeSet(worktrees: [lane]), "kept")
 
         h.requests.accepts = true
-        h.controller.loadFinished(.user, succeeded: true)  // the other load ended
+        h.controller.loadFinished(.user, outcome: .succeeded)  // the other load ended
         await h.gate.waitForSleepers(1)
         h.gate.tick()
         await waitUntil { !h.requests.sent.isEmpty }
@@ -243,18 +250,102 @@ final class AutoRefreshControllerTests: XCTestCase {
         XCTAssertEqual(h.controller.pending, FileChangeSet(worktrees: [lane]))
     }
 
-    func testHiddenEventsAreIgnoredAndReappearingRefreshesOnce() {
+    /// Hidden: nothing is watched. Visible again: everything is pending once, through the debounce and the gap, so
+    /// flipping visibility cannot stack refreshes.
+    func testHiddenEventsAreIgnoredAndReappearingRefreshesOnce() async {
         let h = make()
-        var reappeared = 0
-        h.controller.onReappear = { reappeared += 1 }
         h.controller.update(classifier)
         h.controller.setVisible(true)
-        XCTAssertEqual(reappeared, 0, "the first appearance is the initial load")
+        XCTAssertTrue(h.controller.pending.isEmpty, "the first appearance is the initial load")
         h.controller.setVisible(false)
         h.controller.handle(event("/dev/api/a"))
         XCTAssertTrue(h.controller.pending.isEmpty, "nothing is watched while hidden")
         h.controller.setVisible(true)
         h.controller.setVisible(true)
-        XCTAssertEqual(reappeared, 1)
+        XCTAssertEqual(h.controller.pending, classifier.everything)
+        for _ in 0..<5 {
+            h.controller.setVisible(false)
+            h.controller.setVisible(true)
+        }
+        await h.gate.waitForSleepers(1)
+        h.clock.advance(.seconds(1))
+        h.gate.tick()
+        await waitUntil { h.requests.sent.count == 1 }
+        XCTAssertEqual(h.requests.sent, [classifier.everything], "six reappearances, one request")
+    }
+
+    /// Security review of #119: closing the repository while a request runs must not leave it in flight forever (its
+    /// load never reports back once the generation moved on).
+    func testClosingTheRepositoryClearsTheRequestInFlight() async {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        h.controller.handle(event("/dev/api/a"))
+        await h.gate.waitForSleepers(1)
+        h.clock.advance(.seconds(1))
+        h.gate.tick()
+        await waitUntil { h.requests.sent.count == 1 }
+
+        h.controller.update(nil)  // closed; the running load is dropped without `loadFinished`
+        h.controller.update(classifier)
+        h.controller.handle(event("/dev/api-wt/lane/b"))
+        await h.gate.waitForSleepers(1)
+        XCTAssertEqual(h.gate.requested.last, .seconds(1), "no gap carried over from the old repository")
+        h.clock.advance(.seconds(1))
+        h.gate.tick()
+        await waitUntil { h.requests.sent.count == 2 }
+        XCTAssertEqual(h.requests.sent.last, FileChangeSet(worktrees: [lane]))
+    }
+
+    /// A failed request is dropped, not retried every gap (a repository that keeps failing would be re-queried
+    /// forever); a superseded one comes back.
+    func testFailedRequestsAreDroppedAndSupersededOnesKept() async {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        h.controller.handle(event("/dev/api/a"))
+        await h.gate.waitForSleepers(1)
+        h.clock.advance(.seconds(1))
+        h.gate.tick()
+        await waitUntil { h.requests.sent.count == 1 }
+        h.controller.loadFinished(
+            .filesChanged(worktrees: [main], refs: false, worktreeList: false), outcome: .failed)
+        XCTAssertTrue(h.controller.pending.isEmpty)
+        XCTAssertEqual(h.gate.pending, 0, "nothing scheduled")
+
+        h.controller.handle(event("/dev/api/b"))
+        await h.gate.waitForSleepers(1)
+        h.clock.advance(.seconds(2))
+        h.gate.tick()
+        await waitUntil { h.requests.sent.count == 2 }
+        h.controller.loadFinished(
+            .filesChanged(worktrees: [main], refs: false, worktreeList: false), outcome: .superseded)
+        XCTAssertEqual(h.controller.pending, FileChangeSet(worktrees: [main]))
+    }
+
+    /// The live path: the stream's handler classifies off the main actor, and a burst of batches reaches the main
+    /// actor merged (T15, SEC-T15-15).
+    func testStreamBatchesAreClassifiedOffTheMainActorAndMerged() async {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        let watcher = h.watcher
+        await Task.detached {
+            for index in 0..<200 { watcher.deliver([FileEvent(path: "/dev/api/node_modules/f\(index)")]) }
+            watcher.deliver([FileEvent(path: "/dev/api-wt/lane/x")])
+            watcher.deliver([FileEvent(path: "/dev/api/.git/objects/ab/cd")])
+        }.value
+        await waitUntil { h.controller.pending == FileChangeSet(worktrees: [main, lane]) }
+        await h.gate.waitForSleepers(1)
+        h.clock.advance(.seconds(1))
+        h.gate.tick()
+        await waitUntil { h.requests.sent.count == 1 }
+        XCTAssertEqual(h.requests.sent, [FileChangeSet(worktrees: [main, lane])])
+
+        // A stopped stream's late batch is ignored.
+        h.controller.update(nil)
+        watcher.deliver([FileEvent(path: "/dev/api/late")])
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertTrue(h.controller.pending.isEmpty)
     }
 }

@@ -146,6 +146,9 @@ actor RepositoryService {
     /// away, or cancelled by the caller; otherwise the result tagged with its generation.
     func refresh(_ repository: Repository, trigger: Trigger) async -> Refresh? {
         let id = repository.id
+        // A file-change refresh never replaces a load already running for this repository, from this window or
+        // another one (#119): it returns `nil` like a superseded request, and the controller sends it again later.
+        if case .filesChanged = trigger, running[id] != nil { return nil }
         let generation = (latestGeneration[id] ?? 0) + 1
         latestGeneration[id] = generation
         running[id]?.task.cancel()  // superseded: stop its git processes now

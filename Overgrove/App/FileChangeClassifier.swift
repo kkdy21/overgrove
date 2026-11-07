@@ -42,25 +42,50 @@ struct FileChangeClassifier: Equatable, Sendable {
         let folder: String
         /// `<common>` for the main worktree, `<common>/worktrees/<id>` for a linked one (canonical).
         let gitDirectory: String
+        /// `folder` split once, so each event costs one comparison per worktree.
+        fileprivate let folderComponents: [Substring]
+
+        init(path: GitPath, folder: String, gitDirectory: String) {
+            self.path = path
+            self.folder = folder
+            self.gitDirectory = gitDirectory
+            folderComponents = FileChangeClassifier.components(folder)
+        }
     }
+
+    /// A batch larger than this is treated as a rescan: the work per batch stays bounded however many files a tool
+    /// rewrites at once (T15, SEC-T15-15).
+    static let maximumEventsPerBatch = 10_000
 
     let commonDirectory: String
     let worktrees: [WatchedWorktree]
+    private let commonComponents: [Substring]
+    /// Deepest folder first, so the first match is the innermost worktree (a worktree can sit inside another one).
+    private let byDepth: [WatchedWorktree]
+
+    init(commonDirectory: String, worktrees: [WatchedWorktree]) {
+        self.commonDirectory = commonDirectory
+        self.worktrees = worktrees
+        commonComponents = Self.components(commonDirectory)
+        byDepth = worktrees.filter { !$0.folderComponents.isEmpty }.sorted {
+            ($0.folderComponents.count, $0.folder) > ($1.folderComponents.count, $1.folder)
+        }
+    }
 
     /// Folders to give FSEvents: every worktree folder and the shared git directory.
     var watchedPaths: [String] {
         Array(Set(worktrees.map(\.folder) + [commonDirectory])).sorted()
     }
 
+    /// Runs on the stream's queue, off the main actor. Stops early once everything is affected.
     func classify(_ events: [FileEvent]) -> FileChangeSet {
+        let everything = everything
+        guard events.count <= Self.maximumEventsPerBatch else { return everything }
         var change = FileChangeSet()
         for event in events {
-            if event.needsRescan {
-                // The system lost the detail: assume everything under that root changed.
-                change.merge(everything)
-                continue
-            }
-            change.merge(classify(path: event.path))
+            // A rescan: the system lost the detail, so assume everything under that root changed.
+            change.merge(event.needsRescan ? everything : classify(path: event.path))
+            if change == everything { break }
         }
         return change
     }
@@ -73,16 +98,14 @@ struct FileChangeClassifier: Equatable, Sendable {
     private func classify(path: String) -> FileChangeSet {
         let components = Self.components(path)
         guard !components.isEmpty else { return FileChangeSet() }
-        if let relative = Self.relative(components, to: commonDirectory) {
-            return classifyGitDirectory(relative)
+        if let relative = Self.relative(components, to: commonComponents) {
+            return classifyGitDirectory(Array(relative))
         }
-        // The deepest worktree folder that contains the path (a worktree can sit inside another one).
-        let matches = worktrees.compactMap { worktree -> (WatchedWorktree, [Substring])? in
-            Self.relative(components, to: worktree.folder).map { (worktree, $0) }
-        }
-        guard let (worktree, relative) = matches.max(by: { $0.0.folder.count < $1.0.folder.count }) else {
-            return FileChangeSet()
-        }
+        guard
+            let (worktree, relative) = byDepth.lazy.compactMap({ worktree in
+                Self.relative(components, to: worktree.folderComponents).map { (worktree, $0) }
+            }).first
+        else { return FileChangeSet() }
         // A linked worktree's `.git` file, or a nested repository's git directory: not this worktree's files.
         if relative.first == ".git" { return FileChangeSet() }
         return FileChangeSet(worktrees: [worktree.path])
@@ -121,7 +144,7 @@ struct FileChangeClassifier: Equatable, Sendable {
     }
 
     /// Path components of an absolute path; empty for anything else. `.` and `..` make the path unusable.
-    private static func components(_ path: String) -> [Substring] {
+    fileprivate static func components(_ path: String) -> [Substring] {
         guard path.hasPrefix("/") else { return [] }
         let parts = path.split(separator: "/", omittingEmptySubsequences: true)
         guard !parts.contains(where: { $0 == "." || $0 == ".." }) else { return [] }
@@ -129,12 +152,9 @@ struct FileChangeClassifier: Equatable, Sendable {
     }
 
     /// The components below `root` (empty for the root itself), or `nil` when the path is not inside it.
-    private static func relative(_ components: [Substring], to root: String) -> [Substring]? {
-        let rootComponents = Self.components(root)
-        guard !rootComponents.isEmpty, components.count >= rootComponents.count,
-            Array(components.prefix(rootComponents.count)) == rootComponents
-        else { return nil }
-        return Array(components.dropFirst(rootComponents.count))
+    private static func relative(_ components: [Substring], to root: [Substring]) -> ArraySlice<Substring>? {
+        guard !root.isEmpty, components.count >= root.count, components.starts(with: root) else { return nil }
+        return components.dropFirst(root.count)
     }
 }
 

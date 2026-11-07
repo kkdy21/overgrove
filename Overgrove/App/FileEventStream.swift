@@ -27,17 +27,44 @@ struct LiveFileEventWatcher: FileEventWatching {
     }
 }
 
+/// What the C callback reaches through the stream's `info` pointer. The stream retains it (the context's retain and
+/// release callbacks), so a callback already queued when `stop()` runs still finds it alive; once stopped it delivers
+/// nothing (security review of #119: no use after free).
+private final class FSEventsHandlerBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isStopped = false
+    private let handler: @Sendable ([FileEvent]) -> Void
+
+    init(_ handler: @escaping @Sendable ([FileEvent]) -> Void) { self.handler = handler }
+
+    func stop() { lock.withLock { isStopped = true } }
+
+    func deliver(_ events: [FileEvent]) {
+        guard !lock.withLock({ isStopped }) else { return }
+        handler(events)
+    }
+}
+
 final class FSEventsSubscription: FileEventSubscription, @unchecked Sendable {
     private let lock = NSLock()
     private var stream: FSEventStreamRef?
     private let queue = DispatchQueue(label: "overgrove.fsevents")
-    fileprivate let handler: @Sendable ([FileEvent]) -> Void
+    private let box: FSEventsHandlerBox
 
     init(paths: [String], latency: TimeInterval, handler: @escaping @Sendable ([FileEvent]) -> Void) {
-        self.handler = handler
+        box = FSEventsHandlerBox(handler)
         guard !paths.isEmpty else { return }
         var context = FSEventStreamContext(
-            version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil,
+            version: 0, info: Unmanaged.passUnretained(box).toOpaque(),
+            retain: { info in
+                guard let info else { return nil }
+                _ = Unmanaged<FSEventsHandlerBox>.fromOpaque(info).retain()
+                return info
+            },
+            release: { info in
+                guard let info else { return }
+                Unmanaged<FSEventsHandlerBox>.fromOpaque(info).release()
+            },
             copyDescription: nil)
         let flags = FSEventStreamCreateFlags(
             kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents
@@ -57,6 +84,7 @@ final class FSEventsSubscription: FileEventSubscription, @unchecked Sendable {
     }
 
     func stop() {
+        box.stop()
         let current = lock.withLock {
             defer { stream = nil }
             return stream
@@ -77,7 +105,7 @@ private func fsEventsCallback(
     _ ids: UnsafePointer<FSEventStreamEventId>
 ) {
     guard let info else { return }
-    let subscription = Unmanaged<FSEventsSubscription>.fromOpaque(info).takeUnretainedValue()
+    let box = Unmanaged<FSEventsHandlerBox>.fromOpaque(info).takeUnretainedValue()
     let array = Unmanaged<CFArray>.fromOpaque(paths).takeUnretainedValue() as NSArray
     let rescan = FSEventStreamEventFlags(
         kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged)
@@ -87,5 +115,5 @@ private func fsEventsCallback(
         guard let path = array[index] as? String else { continue }
         events.append(FileEvent(path: path, needsRescan: flags[index] & rescan != 0))
     }
-    subscription.handler(events)
+    box.deliver(events)
 }

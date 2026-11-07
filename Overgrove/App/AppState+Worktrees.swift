@@ -69,8 +69,13 @@ extension AppState {
         runningTrigger = nil
         defer {
             if let finished {
-                let succeeded: Bool = if case .success(.some) = result { true } else { false }
-                autoRefresh.loadFinished(finished, succeeded: succeeded)
+                let outcome: AutoRefreshController.LoadOutcome =
+                    switch result {
+                    case .success(.some): .succeeded
+                    case .success(nil), .failure(.git(.cancelled)): .superseded
+                    case .failure: .failed
+                    }
+                autoRefresh.loadFinished(finished, outcome: outcome)
             }
         }
         switch result {
