@@ -202,7 +202,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | 이슈 목록 | 저장소 원격(owner/name) | 수동 새로고침, 5분 경과. → #81에서 구현 |
 | 기준 브랜치 비교 (`WorktreeComparison`) | 워크트리 + 기준 ref + 기준 tip + HEAD (+ 작업 트리 포함이면 그 워크트리의 status 조회 시각) | 키가 바뀌면 새 항목. 커밋만 비교하면 불변이라 status가 새로 와도 유지하고, 작업 트리 포함이면 status를 다시 조회할 때 무효. 최대 32개 LRU, `forget`이면 함께 버림. → #157 |
 
-위 캐시는 모두 메모리에만 있다. 실행 간 디스크 캐시는 사이드바 워크트리 요약 스냅샷 하나로 정했다. 표시 전용이고 보안 판단에 쓰지 않는다([ADR-0018](../adr/0018-launch-snapshot-disk-cache.md), 구현 #109, Proposed).
+위 캐시는 모두 메모리에만 있다. 실행 간 디스크 캐시는 사이드바 워크트리 요약 스냅샷 하나로 정했다. 표시 전용이고 보안 판단에 쓰지 않는다([ADR-0018](../adr/0018-launch-snapshot-disk-cache.md), 구현 #109).
 
 #88이 구현한 행은 `RepositoryService` 안에 있다.
 - **결과 캐시**: 저장소마다 마지막 `RepositoryOverview`와 워크트리별 마지막 status 조회 시각을 메모리에 둔다. `cachedOverview(of:)`는 git 없이 돌려준다(PB-2: 먼저 그리고, 뒤에서 새로고침). 저장소는 최대 8개(`defaultCachedRepositories`)이고, 넘으면 가장 오래 쓰지 않은 저장소를 버린다(`BoundedCache`). 저장소를 제거하면 `forget(_:)`으로 함께 버린다.

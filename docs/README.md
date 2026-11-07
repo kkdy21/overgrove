@@ -149,7 +149,7 @@ OvergroveTests/
 | 0015 | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |
 | 0016 | 보드 Status는 워크플로우가 project 전용 토큰으로 맞춘다 | Accepted |
 | 0017 | 디자인 토큰은 Swift 스크립트로 Asset Catalog와 Swift 상수를 생성해 커밋 | Accepted |
-| 0018 | 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 | Proposed |
+| 0018 | 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 | Accepted |
 
 ### 2.6 테스트 ID
 

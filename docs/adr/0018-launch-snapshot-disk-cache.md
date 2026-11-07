@@ -1,6 +1,6 @@
 # ADR-0018: 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 둔다
 
-> 상태: Proposed · 날짜: 2026-11-08 · 관련: #328, #109, ADR-0008, ADR-0009, [overview.md §5·§8](../architecture/overview.md#5-캐시와-무효화), [security-review.md T19](../design/security-review.md#t19-디스크에-남는-저장소-데이터), [performance-budget.md PB-1](../performance/performance-budget.md)
+> 상태: Accepted · 날짜: 2026-11-08 · 관련: #328, #109, ADR-0008, ADR-0009, [overview.md §5·§8](../architecture/overview.md#5-캐시와-무효화), [security-review.md T19](../design/security-review.md#t19-디스크에-남는-저장소-데이터), [performance-budget.md PB-1](../performance/performance-budget.md)
 
 ## 맥락
 
