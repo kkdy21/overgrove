@@ -32,7 +32,7 @@ struct FetchFailureGuidance: Sendable, Equatable {
         case unknown
     }
 
-    /// `nil` only for `noRemotes`.
+    /// `nil` for `noRemotes` and an unreadable configuration.
     let remote: RemoteName?
     let reason: Reason
     /// One line for the status bar, e.g. `Authentication failed for origin`.
@@ -74,6 +74,20 @@ struct FetchFailureGuidance: Sendable, Equatable {
         commands: [],
         detail: nil
     )
+
+    /// Shown when the repository's configuration could not be read before fetching, so no remote is known (#77). No
+    /// command is offered: nothing is known about the repository's settings.
+    init(configurationError error: GitError) {
+        self.init(
+            remote: nil,
+            reason: .unknown,
+            summary: "Could not read the repository's configuration",
+            guidance: "Overgrove could not read this repository's configuration, so it did not fetch. Refresh (⌘R) "
+                + "to try again.",
+            commands: [],
+            detail: error.detail
+        )
+    }
 
     /// Guidance for a failed fetch of `remote`. `nil` for cancellation, which is not a failure (interaction.md §4.2).
     ///

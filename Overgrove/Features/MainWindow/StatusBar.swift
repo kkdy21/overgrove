@@ -5,6 +5,8 @@ struct StatusBarItem: Equatable, Identifiable {
     enum Kind: Equatable, Sendable {
         case readOnly
         case fetch
+        /// `Refreshing…` with a small spinner while local data reloads (interaction.md §4).
+        case refreshing
         case aheadBehind
         case worktrees
         case prunable
@@ -31,12 +33,17 @@ struct StatusBarItem: Equatable, Identifiable {
         snapshot: RepositorySnapshot?,
         fetchStatus: FetchStatus,
         ghStatus: GHAuthStatus?,
-        now: Date
+        now: Date,
+        hasFetchDetails: Bool = false,
+        isRefreshing: Bool = false
     ) -> [StatusBarItem] {
         var items = [
             StatusBarItem(kind: .readOnly, text: "Read-only", symbol: "checkmark.shield", tone: .ok),
-            fetchItem(fetchStatus, now: now),
+            fetchItem(fetchStatus, now: now, hasDetails: hasFetchDetails),
         ]
+        if isRefreshing {
+            items.append(StatusBarItem(kind: .refreshing, text: "Refreshing…", symbol: nil, tone: .neutral))
+        }
         if let snapshot {
             if let worktree = snapshot.focusedWorktree, worktree.hasUpstream {
                 items.append(
@@ -62,21 +69,33 @@ struct StatusBarItem: Equatable, Identifiable {
         return items
     }
 
-    private static func fetchItem(_ status: FetchStatus, now: Date) -> StatusBarItem {
+    private static func fetchItem(_ status: FetchStatus, now: Date, hasDetails: Bool) -> StatusBarItem {
         switch status {
         case .never:
             return StatusBarItem(kind: .fetch, text: "Never fetched", symbol: "arrow.clockwise", tone: .neutral)
         case .idle(let last):
             return StatusBarItem(
                 kind: .fetch, text: "Fetched \(relative(last, now: now))", symbol: "arrow.clockwise", tone: .neutral)
+        case .estimated(let last):
+            return StatusBarItem(
+                kind: .fetch, text: "Fetched \(relative(last, now: now)) (estimated)", symbol: "arrow.clockwise",
+                tone: .neutral)
         case .fetching(let remotes, let since, _):
-            let what = remotes.count == 1 ? remotes[0] : "\(remotes.count) remotes"
+            let what: String
+            switch remotes.count {
+            case 0: what = ""
+            case 1: what = " " + remotes[0]
+            default: what = " \(remotes.count) remotes"
+            }
             let seconds = max(0, Int(now.timeIntervalSince(since)))
             return StatusBarItem(
-                kind: .fetch, text: "Fetching \(what)… \(seconds) s", symbol: "arrow.down.circle", tone: .neutral)
+                kind: .fetch, text: "Fetching\(what)… \(seconds) s", symbol: "arrow.down.circle", tone: .neutral)
         case .failed(let last):
-            let text = last.map { "Last fetched \(relative($0, now: now)) · last attempt failed" } ?? "Fetch failed"
+            var text = last.map { "Last fetched \(relative($0, now: now)) · last attempt failed" } ?? "Fetch failed"
+            if hasDetails { text += " — Details" }
             return StatusBarItem(kind: .fetch, text: text, symbol: "exclamationmark.triangle", tone: .warning)
+        case .cancelled:
+            return StatusBarItem(kind: .fetch, text: "Fetch cancelled", symbol: "arrow.clockwise", tone: .neutral)
         }
     }
 
@@ -108,6 +127,8 @@ struct StatusBarItem: Equatable, Identifiable {
 /// The bar at the bottom of the main window: `surface.window`, `size.status-bar` high.
 struct StatusBar: View {
     let items: [StatusBarItem]
+    /// Opens the fetch failure details (`Fetch failed — Details`); `nil` makes the fetch field plain text.
+    var onFetchDetails: (() -> Void)?
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.sm) {
@@ -133,15 +154,30 @@ struct StatusBar: View {
                     .frame(width: Self.separatorDiameter, height: Self.separatorDiameter)
                     .accessibilityHidden(true)
             }
-            // Leading fields put the icon first; the trailing gh status puts it last (`gh: @login ✓`, §3.5).
-            HStack(spacing: Tokens.Spacing.xs) {
-                if !item.isTrailing { icon(item) }
-                Text(item.text)
-                if item.isTrailing { icon(item) }
+            if item.kind == .fetch, let onFetchDetails {
+                Button(action: onFetchDetails) { field(item) }
+                    .buttonStyle(.plain)
+                    .help("Show why the fetch failed")
+                    .accessibilityHint("Shows why the fetch failed and what to do")
+            } else {
+                field(item)
             }
-            .foregroundStyle(item.tone == .warning ? color(for: .warning) : Tokens.Color.textSecondary)
-            .accessibilityElement(children: .combine)
         }
+    }
+
+    /// Leading fields put the icon first; the trailing gh status puts it last (`gh: @login ✓`, §3.5).
+    private func field(_ item: StatusBarItem) -> some View {
+        HStack(spacing: Tokens.Spacing.xs) {
+            if item.kind == .refreshing {
+                ProgressView().controlSize(.mini).accessibilityHidden(true)
+            } else if !item.isTrailing {
+                icon(item)
+            }
+            Text(item.text)
+            if item.isTrailing { icon(item) }
+        }
+        .foregroundStyle(item.tone == .warning ? color(for: .warning) : Tokens.Color.textSecondary)
+        .accessibilityElement(children: .combine)
     }
 
     @ViewBuilder
