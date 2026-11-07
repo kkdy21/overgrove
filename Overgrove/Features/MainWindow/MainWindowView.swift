@@ -23,6 +23,8 @@ struct MainWindowView: View {
                 Alert(title: Text(alert.title), message: Text(alert.message))
             }
             .task { state.restoreLastSelected() }
+            // A closed window cannot show Stop: its fetch is stopped (security review of #77, T15).
+            .onDisappear { state.fetch.stop() }
             // Coming back from an editor: re-query what is stale (interaction.md §4, `.automatic`).
             .onChange(of: controlActiveState) { _, active in
                 if active == .key { state.windowDidBecomeActive() }

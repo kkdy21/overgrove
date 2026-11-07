@@ -68,7 +68,8 @@ final class FetchController {
         let lastFetched = status.lastFetched
         failures = []
         status = .fetching(remotes: [], since: now(), lastFetched: lastFetched)
-        // Main-actor isolated, so the controller is Sendable; held only until this fetch ends.
+        // Main-actor isolated, so the controller is Sendable; held until this fetch ends (the window stops it when it
+        // closes, `MainWindowView`).
         let onStart: @Sendable ([String]) -> Void = { remotes in
             Task { @MainActor in self.started(remotes, generation: generation) }
         }

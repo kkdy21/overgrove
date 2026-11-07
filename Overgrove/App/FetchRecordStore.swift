@@ -2,7 +2,8 @@ import Foundation
 
 /// The last fetch of each repository, kept in `UserDefaults` (overview.md §8, G5, #77): the last attempt and the last
 /// success, so a failed attempt can still say when the repository was last fetched. Only times, the outcome, and the
-/// app-written summary are stored; never a URL, stderr, or anything else from the remote.
+/// app-written summary are stored (it may name the validated remote name and host, never credentials); never a URL
+/// or stderr.
 final class FetchRecordStore: @unchecked Sendable {
     struct Entry: Equatable, Sendable {
         let last: FetchRecord

@@ -31,6 +31,8 @@ extension RepositoryService {
         let remotes = inspection.remotes
         guard !remotes.isEmpty else { return .finished(failures: [.noRemotes]) }
         onStart(remotes.map(\.name.value))
+        // Stopped during the inspection: not a failure to report (security review of #77).
+        if Task.isCancelled { return .cancelled }
 
         guard let safety = inspection.safetyContext else {
             let blocked = GitError.configInspectionFailed(reason: inspection.report.blockingReason ?? "")

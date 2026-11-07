@@ -88,6 +88,22 @@ final class RepositoryServiceFetchTests: XCTestCase {
         XCTAssertFalse(fetched, "git fetch did not run")
     }
 
+    /// Fail closed for fetch only: a repository-local TLS setting (`fetchBlockingReason`) stops git before it runs,
+    /// and no command is offered (#200).
+    func testFetchBlockingConfigurationFetchesNothing() async throws {
+        try await repository.git(["remote", "add", "origin", origin.path])
+        try await repository.git(["push", "-q", "origin", "main"])
+        try await repository.git(["update-ref", "-d", "refs/remotes/origin/main"])
+        try await repository.git(["config", "http.sslCAInfo", "/tmp/overgrove-not-a-real-ca.pem"])
+
+        let run = await service().fetch(model)
+        guard case .finished(let failures) = run else { return XCTFail("\(run)") }
+        XCTAssertEqual(failures.map(\.reason), [.blockedByConfiguration])
+        XCTAssertEqual(failures.first?.commands, [])
+        let fetched = try await hasRef("refs/remotes/origin/main")
+        XCTAssertFalse(fetched, "git fetch did not run")
+    }
+
     func testCancelledBeforeStartingIsCancelled() async throws {
         try await repository.git(["remote", "add", "origin", origin.path])
         let service = service()
