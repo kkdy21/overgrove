@@ -27,12 +27,16 @@ is_allowed() {
 
 report() { echo "✋ $1: process creation / shell use is only allowed in ${ALLOWED_PREFIXES[*]}" >&2; }
 
+# Blanks lines whose first non-blank characters are `//` (line and doc comments), keeping line numbers, so prose such
+# as `// MARK: - Process cap` does not trip the check (#223). Code followed by a trailing comment is still checked.
+strip_comments() { sed -E 's#^[[:space:]]*//.*$##'; }
+
 status=0
 if [[ "${1:-}" == "--stdin" ]]; then
   path="${2:?--stdin needs a PATH}"
   [[ "$path" == *.swift ]] || exit 0
   is_allowed "$path" && exit 0
-  if matches=$(grep -nE "$PATTERN"); then
+  if matches=$(strip_comments | grep -nE "$PATTERN"); then
     report "$path"; printf '%s\n' "$matches" | sed 's/^/    /' >&2; status=1
   fi
   exit $status
@@ -57,7 +61,7 @@ fi
 for f in "${files[@]}"; do
   [[ "$f" == *.swift && -f "$f" ]] || continue
   is_allowed "$f" && continue
-  if matches=$(grep -nE "$PATTERN" "$f"); then
+  if matches=$(strip_comments < "$f" | grep -nE "$PATTERN"); then
     report "$f"; printf '%s\n' "$matches" | sed 's/^/    /' >&2; status=1
   fi
 done
