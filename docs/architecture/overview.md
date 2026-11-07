@@ -119,8 +119,9 @@ sequenceDiagram
     participant Parser
 
     View->>Store: intent(.selectWorktree(id))
-    Store->>Store: selection 갱신, 캐시 있으면 즉시 표시
-    Store->>Svc: refreshStatus(worktree)
+    Store->>Svc: cachedOverview(repo)
+    Store->>Store: selection 갱신, 캐시 있으면 즉시 표시 (PB-2)
+    Store->>Svc: refresh(repo, .worktreeSelected(path))
     Svc->>Git: run(.status(path))
     Git->>Git: 설정 검사 결과 확인 (캐시)
     Git->>PR: run(executable, args, env, cwd, limits)
@@ -177,8 +178,8 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
     2. `probeRepository`가 그 폴더를 워크트리 루트로, 이 저장소의 공통 git 디렉터리를 보고하는지 본다(`core.worktree`가 다른 곳을 가리키면 어긋난다). 1·2가 어긋나면 `.notQueried(.foreignRepository)`다.
     3. 그 워크트리에서 `configList`를 검사해 그 워크트리의 `RepoSafetyContext`로 status를 실행한다(연결 워크트리의 `config.worktree`는 메인 검사에 나오지 않는다). 검사가 막으면 `.notQueried(.inspectionBlocked)`다.
   - 같은 경로는 한 번만 나열하고(`entries`의 경로는 고유하다), 다른 경로가 같은 폴더로 이어지면 한 번만 조회한다(`.duplicate`). 한 번에 status를 실행하는 워크트리는 최대 64개이고 나머지는 `.notQueried(.limit)`다(`RepositoryOverview.isQueryLimited`, security-review.md T15).
-  - `refresh(_:safety:trigger:)`는 저장소마다 세대 번호를 매긴다. 새 요청은 진행 중인 요청을 취소한다(git 프로세스 종료). 최신 세대가 아닌 결과와 취소된 결과는 `nil`로 버린다. 그래서 Store는 받은 결과를 그대로 반영하면 된다.
-  - 자동 요청(`.automatic`)은 300ms(`debounceInterval`) 동안 기다리고, 그 사이 더 새 요청이 오면 실행하지 않는다. 사용자 요청(`.user`, ⌘R·저장소 선택)은 기다리지 않고 기다리던 자동 요청을 대체한다.
+  - `refresh(_:trigger:)`는 저장소마다 세대 번호를 매긴다. 새 요청은 진행 중인 요청을 취소한다(git 프로세스 종료). 최신 세대가 아닌 결과와 취소된 결과는 `nil`로 버린다. 그래서 Store는 받은 결과를 그대로 반영하면 된다.
+  - 자동 요청(`.automatic` 창 활성화, `.fetchCompleted`)은 300ms(`debounceInterval`) 동안 기다리고, 그 사이 더 새 요청이 오면 실행하지 않는다. 사용자 요청(`.user` ⌘R·저장소 선택, `.worktreeSelected`)은 기다리지 않고 기다리던 자동 요청을 대체한다. 무엇을 다시 조회하는지는 §5다.
   - 화면 쪽은 `RepositoryOverview.snapshot(focusing:)`으로 `AppState.snapshot`을 채운다(#65에서 연결).
 - **fetch**는 저장소당 한 번에 하나만 실행한다. 기준은 `Repository.id`(공통 git 디렉터리)라서 같은 저장소의 워크트리끼리도 겹치지 않는다. 원격별 fetch를 연달아 요청하면 `GitClient`가 요청 순서대로 하나씩 실행하고, 기다리는 동안에는 fetch 슬롯을 잡지 않는다. 사용자가 진행 중에 다시 누르면 화면 쪽(Store/Service)이 무시하고 진행 상태를 보여 준다.
 - **fetch 진행률**: `GitClient.fetch(progress:)`가 stderr의 `--progress` 메시지를 `FetchProgressParser`로 읽어 단계와 숫자만 담은 `FetchProgress`로 넘긴다([parsing-spec.md §11.4](parsing-spec.md)). 콜백은 백그라운드 큐에서 불리므로 UI 상태는 메인 액터로 옮겨 바꾼다. 취소는 Task 취소(⌘.)로 하고, 120초가 지나면 `GitError.timeout`이 된다.
@@ -189,15 +190,39 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 
 | 캐시 | 키 | 무효화 조건 |
 |---|---|---|
-| git 실행 파일·버전 | 앱 실행 | 설정에서 git 경로 변경 (v0.2.0) |
-| 설정 검사 결과 (`RepoConfigInspector`) | 저장소 common dir | `.git/config`, `config.worktree`, include 대상 파일의 mtime 변경, 수동 새로고침 |
-| 워크트리 목록 | 저장소 | 수동 새로고침, fetch 완료, 창 활성화 |
-| `WorkingState` (status) | 워크트리 경로 | 수동 새로고침, 워크트리 선택, 창 활성화(마지막 조회 후 5초 이상) |
-| stash 목록 | 저장소 | `# stash N` 헤더 값 변화, 수동 새로고침 |
-| 브랜치·ahead/behind | 저장소 | fetch 완료, 수동 새로고침 |
-| 그래프 페이지 | 저장소 + ref 집합 해시 | ref 집합 변경(for-each-ref 결과 해시) |
-| 커밋 상세 | object ID | 무효화 없음 (불변) |
-| 이슈 목록 | 저장소 원격(owner/name) | 수동 새로고침, 5분 경과 |
+| git 실행 파일·버전 | 앱 실행 | 설정에서 git 경로 변경 (v0.2.0). → `LiveGitClient.shared`가 앱 실행당 한 번 `GitEnvironment.discover` |
+| 설정 검사 결과 (`RepoConfigInspector`) | 저장소 + 워크트리 폴더 | 그 폴더에서 git이 읽는 설정 파일의 변경, 수동 새로고침. → #88 |
+| 워크트리 목록 | 저장소 | 수동 새로고침, fetch 완료, 창 활성화. → #88 |
+| `WorkingState` (status) | 워크트리 경로 | 수동 새로고침, 워크트리 선택, 창 활성화(마지막 조회 후 5초 이상), fetch 완료. → #88 |
+| stash 목록 | 저장소 | `# stash N` 헤더 값 변화, 수동 새로고침. → #88 |
+| 브랜치·ahead/behind | 저장소 | fetch 완료, 수동 새로고침, status가 보고한 브랜치 tip이 캐시와 다를 때. → #88 |
+| 그래프 페이지 | 저장소 + ref 집합 해시 | ref 집합 변경(for-each-ref 결과 해시). → #68에서 구현 |
+| 커밋 상세 | object ID | 무효화 없음 (불변). LRU로 상한. → #69에서 구현 |
+| 이슈 목록 | 저장소 원격(owner/name) | 수동 새로고침, 5분 경과. → #81에서 구현 |
+
+#88이 구현한 행은 `RepositoryService` 안에 있다.
+- **결과 캐시**: 저장소마다 마지막 `RepositoryOverview`와 워크트리별 마지막 status 조회 시각을 메모리에 둔다. `cachedOverview(of:)`는 git 없이 돌려준다(PB-2: 먼저 그리고, 뒤에서 새로고침). 저장소는 최대 8개(`defaultCachedRepositories`)이고, 넘으면 가장 오래 쓰지 않은 저장소를 버린다(`BoundedCache`). 저장소를 제거하면 `forget(_:)`으로 함께 버린다.
+- **트리거별 재조회** (`refresh(_:trigger:)`):
+
+  | 트리거 | 설정 검사 | 워크트리 목록 | status | refs | stash |
+  |---|---|---|---|---|---|
+  | `.user` (⌘R, 저장소 열기) | 모두 버리고 다시 | 조회 | 전부 | 조회 | 조회 |
+  | `.worktreeSelected(path)` | 지문이 같으면 캐시 | 캐시 | 그 워크트리만 | 파생 | 파생 |
+  | `.automatic` (창 활성화) | 지문이 같으면 캐시 | 조회 | 5초 이상 지난 것 | 파생 | 파생 |
+  | `.fetchCompleted` | 지문이 같으면 캐시 | 조회 | 전부(ahead/behind) | 조회 | 파생 |
+
+  - 캐시가 없으면 어느 트리거든 전부 조회한다.
+  - 처음 보는 워크트리는 항상 조회한다.
+  - "파생"은 이번에 받은 결과로 판단한다는 뜻이다. status·워크트리 목록의 브랜치 tip이 캐시한 refs와 다르면 refs를 다시 조회하고, `# stash N`이 캐시한 stash 수와 다르면 stash 목록을 다시 조회한다.
+  - fetch 완료 때 status도 다시 조회한다. 워크트리 행의 ahead/behind가 status에서 오기 때문이다(표의 "브랜치·ahead/behind" 행).
+  - 실패한 새로고침(예: 설정이 이제 조회를 막음)은 그 저장소의 캐시를 버린다. 막히기 전 결과를 계속 보여 주지 않는다.
+- **설정 검사 캐시** (`RepoConfigInspectionCache`, 최대 256개):
+  - 키는 저장소 ID + 워크트리 폴더다. 연결 워크트리마다 `config.worktree`가 다르기 때문이다.
+  - 지문은 `stat(2)`의 장치·inode·크기·mtime·ctime이다. 대상 파일은 공통 `config`, 두 `config.worktree`, 그 워크트리의 `commondir`, `.git` 항목이다. 사용자 공간에서 mtime은 되돌릴 수 있지만 ctime은 되돌릴 수 없다. 장치·inode는 다른 파일로 바꿔 넣은 경우를 잡는다.
+  - 지문은 `config --list`를 실행하기 **전에** 찍는다. 그래서 읽는 도중 바뀐 파일은 다음 조회에서 다시 검사한다.
+  - 저장소가 제어하는(local·worktree 범위) `include.path`·`includeIf.*.path`가 있으면 캐시하지 않는다. 표의 원래 규칙은 "include 대상 파일의 mtime"이었지만, git은 상대·중첩 include를 포함한 파일 기준으로 해석하고 목록에는 그 파일 이름이 없다. 그래서 대상을 정확히 찍을 수 없어 fail closed로 바꿨다. `includeIf.onbranch:`도 HEAD에 따라 달라지므로 캐시하지 않는다(기존).
+  - probe(같은 저장소인지 확인)는 캐시하지 않는다. 비용이 작고 #226의 소속 확인을 매번 새로 하기 위해서다.
+  - 전역·시스템 설정은 지문에 넣지 않는다. 신뢰하는 범위라 무력화 판단에 영향이 없고, 바뀌면 ⌘R로 다시 검사한다.
 
 - 캐시는 메모리에만 둔다. 앱을 다시 실행하면 처음부터 다시 조회한다. 디스크 캐시는 v0.2.0에서 검토한다.
 - 파일 시스템 감시(FSEvents) 기반 자동 새로고침은 `later` 범위다. v0.1.0은 창 활성화와 수동 새로고침으로 갱신한다.

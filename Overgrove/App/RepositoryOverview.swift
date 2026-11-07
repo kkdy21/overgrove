@@ -36,8 +36,12 @@ struct RepositoryOverview: Sendable, Equatable {
 
     /// In `worktree list` order: the main worktree first. Paths are unique (a repeated path is listed once).
     let entries: [Entry]
+    /// `worktree list` output was cut at the size limit; the last record was dropped (parsing-spec.md §1.5).
+    let isWorktreeListPartial: Bool
     let refs: RefParser.Listing
     let stashes: StashParser.Listing
+    /// The repository's own configuration inspection (main worktree): security report, remotes, fetch blocking.
+    let inspection: RepoConfigInspection
 
     /// Some listed worktrees were not queried because of the limit; the UI says so (#226).
     var isQueryLimited: Bool {

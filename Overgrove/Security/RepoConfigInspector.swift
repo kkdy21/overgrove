@@ -20,8 +20,9 @@ struct RepoConfigInspection: Sendable, Equatable {
     let remotes: [Remote]
     /// Set when queries are fine but `git fetch` must not run (e.g. a repository-local CA or client certificate).
     let fetchBlockingReason: String?
-    /// False when the effective configuration can change without any config file changing
-    /// (`includeIf.onbranch:` depends on HEAD), so the inspection must not be cached.
+    /// False when the effective configuration can change without any stamped config file changing, so the inspection
+    /// must not be cached: `includeIf.onbranch:` depends on HEAD, and a repository-controlled include can read a file
+    /// the fingerprint does not cover (#88, fail closed).
     let isCacheable: Bool
     /// A promisor remote or `extensions.partialclone` exists in any scope (#212).
     let isPartialClone: Bool
@@ -127,6 +128,12 @@ enum RepoConfigInspector {
         let dependsOnHEAD = listing.entries.contains {
             $0.section == "includeif" && ($0.subsection?.lowercased().hasPrefix("onbranch:") ?? false)
         }
+        // git resolves relative and nested include paths against the including file, which the listing does not
+        // name, so the included files cannot be stamped reliably (#88).
+        let readsUnstampedFiles = listing.entries.contains {
+            $0.scope.isRepositoryControlled && ["include", "includeif"].contains($0.section.lowercased())
+                && $0.variable.lowercased() == "path"
+        }
 
         return RepoConfigInspection(
             report: RepoSecurityReport(findings: findings, blockingReason: blockingReason),
@@ -135,7 +142,7 @@ enum RepoConfigInspector {
             trustedSSHCommand: trustedSSHCommand,
             remotes: remotes,
             fetchBlockingReason: fetchBlockingReason,
-            isCacheable: !dependsOnHEAD,
+            isCacheable: !dependsOnHEAD && !readsUnstampedFiles,
             isPartialClone: listing.entries.contains(where: isPartialCloneSetting)
         )
     }
@@ -241,40 +248,74 @@ extension RepoConfigInspector {
     }
 }
 
-/// Caches inspections per repository until one of its configuration files changes (modification time or size).
+/// Caches inspections per directory until one of its configuration files changes (#88, overview.md §5).
+///
+/// Keys are chosen by the caller (`RepositoryService` uses the repository ID and the worktree path, so a repository's
+/// entries can be dropped together). The cache is bounded: the least recently used entry is evicted.
 actor RepoConfigInspectionCache {
+    /// File identity and change times from `stat(2)` for every configuration file git reads in a directory.
+    ///
+    /// The status change time (`st_ctime`) moves on every write and cannot be set from user space, unlike the
+    /// modification time (`touch -m`, archive extraction); the device and inode catch a file replaced by another.
     struct Fingerprint: Sendable, Equatable {
-        fileprivate let stamps: [String: [Double]]
+        private struct Stamp: Sendable, Equatable {
+            let device: Int64
+            let inode: UInt64
+            let size: Int64
+            let modified: [Int64]
+            let changed: [Int64]
+        }
 
-        /// Stamps the given files; missing files are recorded as absent, so creating one invalidates the cache.
+        private let stamps: [String: Stamp?]
+
+        /// Stamps the given files, following symbolic links as git does; missing files are recorded as absent, so
+        /// creating one invalidates the cache.
         static func make(_ files: [URL]) -> Fingerprint {
-            var stamps: [String: [Double]] = [:]
+            var stamps: [String: Stamp?] = [:]
             for file in files {
-                let attributes = try? FileManager.default.attributesOfItem(atPath: file.path)
-                let modified = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? -1
-                let size = (attributes?[.size] as? NSNumber)?.doubleValue ?? -1
-                stamps[file.path] = [modified, size]
+                var info = stat()
+                guard stat(file.path, &info) == 0 else {
+                    stamps[file.path] = .some(nil)
+                    continue
+                }
+                stamps[file.path] = Stamp(
+                    device: Int64(info.st_dev),
+                    inode: UInt64(info.st_ino),
+                    size: Int64(info.st_size),
+                    modified: [Int64(info.st_mtimespec.tv_sec), Int64(info.st_mtimespec.tv_nsec)],
+                    changed: [Int64(info.st_ctimespec.tv_sec), Int64(info.st_ctimespec.tv_nsec)]
+                )
             }
             return Fingerprint(stamps: stamps)
         }
     }
 
-    private var entries: [String: (Fingerprint, RepoConfigInspection)] = [:]
+    static let defaultCapacity = 256
 
-    func inspection(for repositoryID: String, fingerprint: Fingerprint) -> RepoConfigInspection? {
-        guard let (stored, inspection) = entries[repositoryID], stored == fingerprint else { return nil }
-        return inspection
+    private var entries: BoundedCache<String, (fingerprint: Fingerprint, inspection: RepoConfigInspection)>
+
+    init(capacity: Int = RepoConfigInspectionCache.defaultCapacity) {
+        entries = BoundedCache(capacity: capacity)
     }
 
-    func store(_ inspection: RepoConfigInspection, for repositoryID: String, fingerprint: Fingerprint) {
+    func inspection(for key: String, fingerprint: Fingerprint) -> RepoConfigInspection? {
+        guard let stored = entries.value(for: key), stored.fingerprint == fingerprint else { return nil }
+        return stored.inspection
+    }
+
+    func store(_ inspection: RepoConfigInspection, for key: String, fingerprint: Fingerprint) {
         guard inspection.isCacheable else {
-            entries[repositoryID] = nil
+            entries.removeValue(for: key)
             return
         }
-        entries[repositoryID] = (fingerprint, inspection)
+        entries.insert((fingerprint, inspection), for: key)
     }
 
-    func invalidate(_ repositoryID: String) {
-        entries[repositoryID] = nil
+    func invalidate(_ key: String) {
+        entries.removeValue(for: key)
+    }
+
+    func invalidate(keysWithPrefix prefix: String) {
+        entries.removeAll { $0.hasPrefix(prefix) }
     }
 }

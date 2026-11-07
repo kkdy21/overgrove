@@ -50,6 +50,8 @@ HANDOFF G9의 "체감상 즉시"를 측정 가능한 수치로 바꾼 문서다.
 
 git 계층: 해당 없음. 백그라운드 status는 35ms (p95)다.
 
+측정(#88): 서비스 쪽 캐시 읽기(`cachedOverview` + `snapshot`)는 p95 15µs, 선택 직후 백그라운드 새로고침(probe + status)은 p95 29ms다([results/2026-11-07-pb2-cached-worktree-switch.md](results/2026-11-07-pb2-cached-worktree-switch.md)). 뷰 갱신을 포함한 첫 프레임은 워크트리 목록 화면(#65)에서 다시 잰다.
+
 **판단**: 현실적이다. git을 기다리지 않는다는 것이 이 예산의 전제다. 전환할 때 동기적으로 git을 부르면 위반이다.
 
 ### PB-3 그래프 첫 페이지(500개) 표시 — **500ms (p95, commit-graph 있음)** / **1.0초 (p95, commit-graph 없음, 보조 예산 PB-3b 제안)**

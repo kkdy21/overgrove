@@ -153,8 +153,10 @@ final class WorktreeListModelTests: XCTestCase {
         ]
         let overview = RepositoryOverview(
             entries: zip(worktrees, statuses).map { RepositoryOverview.Entry(worktree: $0, status: $1) },
+            isWorktreeListPartial: true,
             refs: RefParser.Listing(branches: [], tags: [], isPartial: false, skippedRecords: 0),
-            stashes: StashParser.Listing(stashes: [], isPartial: false))
+            stashes: StashParser.Listing(stashes: [], isPartial: false),
+            inspection: RepoConfigInspector.inspect(ConfigParser.Listing(entries: [], isPartial: false)))
         XCTAssertEqual(
             WorktreeListing(overview: overview).entries.map(\.state),
             [
@@ -162,6 +164,7 @@ final class WorktreeListModelTests: XCTestCase {
                 .notQueried(.foreignRepository), .notQueried(.inspectionBlocked("reason")), .missing,
             ])
         XCTAssertEqual(WorktreeListing(overview: overview).entries.map(\.worktree), worktrees)
+        XCTAssertTrue(WorktreeListing(overview: overview).isPartial, "a truncated worktree list is reported (#88)")
     }
 
     func testBareEntriesAreHidden() {
