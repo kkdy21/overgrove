@@ -18,9 +18,16 @@ struct SearchCacheKey: Equatable {
 
 /// Toolbar search over the loaded graph and the sidebar filter (#74, screens.md S-01). In memory: no git runs.
 extension AppState {
-    /// The search over the loaded pages, `nil` without a query. Reused until the query, the history, or the refs
-    /// change; a new page only adds its own commits (security review of #74, T15).
+    /// The search over the loaded pages, `nil` without a query. With an author chip picked (#255) only commits that
+    /// match both count, so the summary and ⌘G follow the rows that stay bright.
     var graphSearch: GraphSearchResult? {
+        guard let result = unfilteredGraphSearch else { return nil }
+        return graphAuthorFilter.map { result.restricted(to: $0.matchSet) } ?? result
+    }
+
+    /// The search alone. Reused until the query, the history, or the refs change; a new page only adds its own
+    /// commits (security review of #74, T15).
+    private var unfilteredGraphSearch: GraphSearchResult? {
         guard let query = GraphSearchQuery(searchText), graph.status == .loaded else { return nil }
         let key = SearchCacheKey(
             query: query, commitCount: graph.commits.count, newest: graph.commits.first?.oid,
