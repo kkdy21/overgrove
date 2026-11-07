@@ -102,18 +102,21 @@ final class GitCommandTests: XCTestCase {
             ["log", "--follow", "-z", ReadOnlyGitCommand.logFormat, "-n", "100", "--", "*"],
             [
                 "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
-                "--merge-base", "--end-of-options", "refs/remotes/origin/main", "HEAD", "--",
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", "refs/remotes/origin/main", "HEAD",
+                "--",
             ],
             [
                 "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
-                "--merge-base", "--end-of-options", "refs/heads/main", "--",
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", "refs/heads/main", "--",
             ],
             [
-                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--merge-base", "--end-of-options",
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options",
                 "refs/heads/main", "HEAD", "--", "-x",
             ],
             [
-                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--merge-base", "--end-of-options",
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options",
                 "refs/heads/main", "--", "a.txt",
             ],
             [

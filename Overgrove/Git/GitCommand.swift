@@ -115,15 +115,17 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             return ["log", "--follow", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit))]
                 + (try Self.pathspec(path))
         case .compareFiles(let base, let includeWorkingTree):
-            // `--no-abbrev`: `git diff --raw` abbreviates object names, unlike `diff-tree`. The trailing `--` keeps a
-            // file named like the ref from being read as a path.
+            // `--no-abbrev`: `git diff --raw` abbreviates object names, unlike `diff-tree`. `--ignore-submodules=dirty`
+            // (as in status): otherwise git runs `status` inside each submodule, whose own filters were never
+            // inspected (SEC-T4-05). The trailing `--` keeps a file named like the ref from being read as a path.
             return [
                 "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
-                "--merge-base", "--end-of-options", base.value,
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", base.value,
             ] + (includeWorkingTree ? [] : ["HEAD"]) + ["--"]
         case .comparePatch(let base, let path, let includeWorkingTree):
             return [
-                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--merge-base", "--end-of-options", base.value,
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options", base.value,
             ]
                 + (includeWorkingTree ? [] : ["HEAD"]) + (try Self.pathspec(path))
         case .commitsAhead(let base, let limit):
