@@ -92,6 +92,12 @@ private struct SubmoduleRowView: View {
                     .foregroundStyle(Tokens.Color.textTertiary)
             }
             Spacer(minLength: Tokens.Spacing.sm)
+            if row.tone == .attention {
+                Image(systemName: "exclamationmark.shield")
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.statusPrunable)
+                    .accessibilityHidden(true)
+            }
             Text(row.badge)
                 .font(Tokens.Font.caption)
                 .foregroundStyle(tint)
@@ -109,7 +115,7 @@ private struct SubmoduleRowView: View {
         switch row.tone {
         case .quiet: Tokens.Color.textTertiary
         case .changed: Tokens.Color.statusUnstaged
-        case .attention: Tokens.Color.statusPrunable
+        case .attention: Tokens.Color.textSecondary
         }
     }
 }
