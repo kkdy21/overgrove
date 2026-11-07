@@ -223,7 +223,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **대응**:
   - **컴파일 타임 allowlist**: `ReadOnlyGitCommand`와 `FetchCommand` case만 존재한다. 쓰기 명령은 타입이 없다 ([카탈로그 §7](../architecture/git-command-catalog.md)).
   - **프로세스 생성 위치 제한**: `Overgrove/Execution/` 밖에서 `Process`를 만들면 안 된다. `scripts/lint/check-forbidden-apis.sh`가 pre-commit hook, Claude Code hook, CI에서 검사한다.
-  - **index 쓰기 방지**: `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`으로 조회 중 `index.lock`을 잡지 않는다.
+  - **index 쓰기 방지**: `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`으로 조회 중 `index.lock`을 잡지 않는다. `git diff`는 이 설정을 무시하고 stat만 바뀐 경로의 index를 새로 고쳐 쓰므로, 공통 인자 `-c diff.autoRefreshIndex=false`로 막는다 (확인, #208). 이 인자는 diff 계열이 아닌 명령에는 영향이 없어 공통 인자에 둔다.
   - **허용된 쓰기**: fetch가 만드는 쓰기(원격 추적 ref, `FETCH_HEAD`, 객체)와 `--prune`의 원격 추적 ref 삭제뿐이다.
 - **잔여 위험**: 낮음.
 - **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변), SEC-T13-03 (금지 API 정적 검사)
@@ -328,6 +328,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 -c log.showSignature=false
 -c gc.auto=0
 -c maintenance.auto=false
+-c diff.autoRefreshIndex=false
 -c color.ui=never
 ```
 
