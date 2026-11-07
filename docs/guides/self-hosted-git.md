@@ -11,12 +11,12 @@ Overgrove opens repositories it may not trust. So it runs Git in a hardened way,
 | What | What Overgrove does | What it means for you |
 |---|---|---|
 | Prompts | `GIT_TERMINAL_PROMPT=0` and empty `GIT_ASKPASS`/`SSH_ASKPASS` | Nothing can ask you for a password, passphrase, or host key. Credentials must already be stored |
-| HTTPS credentials | Uses the credential helpers from your **system and global** Git configuration (for example `osxkeychain` or Git Credential Manager). A repository's own `credential.helper` is ignored | Store the token once with Terminal (below) |
-| SSH | Runs `ssh -o BatchMode=yes`, or your **global** `core.sshCommand` if you set one. A repository's own `core.sshCommand` is ignored. Your `~/.ssh/config` and the SSH agent (`SSH_AUTH_SOCK`) are used as usual | Keys must be in the agent or the macOS keychain, and the host must already be in `known_hosts` |
+| HTTPS credentials | Uses the credential helpers from your **system and global** Git configuration (including `~/.config/git/config`, files they include, and Apple Git's built-in settings), for example `osxkeychain` or Git Credential Manager. A repository's own `credential.helper` is ignored | Store the token once with Terminal (below) |
+| SSH | Runs `ssh -o BatchMode=yes`, or your **system or global** `core.sshCommand` if you set one. A repository's own `core.sshCommand` is ignored. Your `~/.ssh/config` and the SSH agent (`SSH_AUTH_SOCK`) are used as usual | Keys must be in the agent or the macOS keychain, and the host must already be in `known_hosts` |
 | Environment | Only a short allowlist reaches Git (`HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK`, plus fixed values). Your shell's other variables do not | `HTTPS_PROXY`, `GIT_SSH_COMMAND`, and similar shell variables have no effect. Put settings in your global Git config instead |
 | Transports | Only Git's built-in transports: `https`, `http`, `ssh`, `git`, `file` | `ftp://`/`ftps://` remotes and custom remote helpers cannot be fetched (see [Limits](#limits)) |
 | TLS | A repository cannot turn off certificate checks. If its own config sets a CA or client certificate, Fetch is turned off for that repository | Set CAs and client certificates in your global config |
-| Time limit | A fetch is stopped after 120 seconds | Very large first fetches are better done once in Terminal |
+| Time limit | A fetch is stopped after 120 seconds | Very large first fetches are better done once in Terminal, in a repository you trust |
 
 Viewing worktrees, history, and diffs never uses the network, so none of this affects them.
 
@@ -26,10 +26,10 @@ Viewing worktrees, history, and diffs never uses the network, so none of this af
 
 Overgrove uses the token your credential helper has stored. Store it once:
 
-1. Check that a helper is set: `git config --show-origin --get-all credential.helper`.
+1. Check that a helper is set. Run this outside any repository (for example in your home folder), so no repository's settings apply: `git --no-pager config --show-origin --get-all credential.helper`.
    - Apple's Git (Xcode or Command Line Tools) sets `osxkeychain` in its system config.
    - Git Credential Manager (`brew install --cask git-credential-manager`) adds itself to your global config.
-2. In Terminal, in a repository you trust, run `git fetch` once. Enter your user name and the token (personal access token or app password) when Git asks. The helper saves it in the keychain.
+2. Let Git ask for the token once, in Terminal, outside any repository: `git ls-remote https://git.example.com/team/app.git` (use your remote's URL). Enter your user name and the token (personal access token or app password) when Git asks. The helper saves it in the keychain. Running `git fetch` in a repository you trust works too.
 3. Fetch in Overgrove.
 
 If you use several accounts on one host, give each a URL-specific helper or user name in your **global** config, for example `git config --global credential.https://git.example.com.username alice`.
@@ -40,7 +40,13 @@ If the token expires, Fetch fails with "Authentication failed". Repeat step 2 to
 
 1. **Add the host key once.** Overgrove cannot answer the "Are you sure you want to continue connecting?" question.
    - Connect once in Terminal (`ssh -T git@git.example.com`), check the fingerprint with your server admin, and accept it.
-   - Or add it explicitly: `ssh-keyscan -p 22 git.example.com >> ~/.ssh/known_hosts`. Then compare `ssh-keygen -lf ~/.ssh/known_hosts` with the fingerprint your admin publishes.
+   - Or fetch the key, compare it **before** you trust it, then add it:
+
+     ```sh
+     ssh-keyscan -p 22 git.example.com > /tmp/host-key
+     ssh-keygen -lf /tmp/host-key          # compare with the fingerprint your admin publishes
+     cat /tmp/host-key >> ~/.ssh/known_hosts   # only if it matches
+     ```
 2. **Load your key without a passphrase prompt.** Run `ssh-add --apple-use-keychain ~/.ssh/id_ed25519`. To load it automatically, add this to `~/.ssh/config`:
 
    ```
@@ -100,15 +106,15 @@ Overgrove shows the reason in the status bar (`Fetch failed — Details`). The d
 
 | Overgrove says | Usual cause | What to do |
 |---|---|---|
-| Authentication failed | No stored credentials, or an expired token | [HTTPS with a token](#https-with-a-token) |
-| The SSH key was rejected | The key is not in the agent, or the server does not know it | [SSH](#ssh), step 2. Check with `ssh-add -l` |
-| The host key is not trusted yet / has changed | The host is not in `known_hosts`, or its key changed | [SSH](#ssh), step 1. If the key **changed** unexpectedly, ask your admin before accepting it |
-| Access was denied | The account cannot read the repository | Check your access, or set the right user name for that host |
-| Could not reach the host | Network, VPN, or proxy | [Proxies](#proxies). Check VPN |
-| Fetch timed out | Slow link or a very large repository | Fetch once in Terminal |
-| The repository was not found | Wrong URL, or a private repository you cannot see | Check `git remote -v` |
-| Overgrove does not fetch this remote | `ftp://`, `ftps://`, or a custom remote helper | See [Limits](#limits) |
-| Fetching is turned off for this repository | The repository's own config sets a CA, client certificate, or similar | [A private certificate authority](#a-private-certificate-authority) |
+| Authentication failed for … | No stored credentials, or an expired token | [HTTPS with a token](#https-with-a-token) |
+| The SSH key was rejected for … | The key is not in the agent, or the server does not know it | [SSH](#ssh), step 2. Check with `ssh-add -l` |
+| The SSH host key of … is not trusted yet / has changed | The host is not in `known_hosts`, or its key changed | [SSH](#ssh), step 1. If the key **changed** unexpectedly, ask your admin before accepting it |
+| Access to … was denied | The account cannot read the repository | Check your access, or set the right user name for that host |
+| Could not reach … | Network, VPN, or proxy | [Proxies](#proxies). Check VPN |
+| Fetch timed out after … s | Slow link or a very large repository | Fetch once in Terminal, in a repository you trust |
+| The repository for … was not found | Wrong URL, or a private repository you cannot see | Check the URL with `git --no-pager remote -v`, in a repository you trust |
+| Overgrove does not fetch … | `ftp://`, `ftps://`, or a custom remote helper | See [Limits](#limits) |
+| Fetching … is turned off for this repository | The repository's own config sets a CA, client certificate, or similar; or a partial clone with Git older than 2.44 | [A private certificate authority](#a-private-certificate-authority), [Limits](#limits) |
 
 ## Limits
 

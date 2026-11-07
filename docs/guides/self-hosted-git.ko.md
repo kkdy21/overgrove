@@ -11,12 +11,12 @@ Overgrove는 신뢰할 수 없는 저장소도 연다. 그래서 Git을 보안�
 | 항목 | Overgrove가 하는 일 | 사용자에게 의미하는 것 |
 |---|---|---|
 | 프롬프트 | `GIT_TERMINAL_PROMPT=0`, 빈 `GIT_ASKPASS`·`SSH_ASKPASS` | 비밀번호, 암호문, 호스트 키를 묻는 창이 뜨지 않는다. 자격 증명이 미리 저장되어 있어야 한다 |
-| HTTPS 자격 증명 | **system·global** Git 설정의 credential helper(예: `osxkeychain`, Git Credential Manager)를 쓴다. 저장소 자체의 `credential.helper`는 무시한다 | 터미널에서 토큰을 한 번 저장한다(아래) |
-| SSH | `ssh -o BatchMode=yes`를 실행한다. **global** `core.sshCommand`가 있으면 그것을 쓴다. 저장소 자체의 `core.sshCommand`는 무시한다. `~/.ssh/config`와 SSH agent(`SSH_AUTH_SOCK`)는 평소대로 쓰인다 | 키가 agent나 macOS 키체인에 있어야 하고, 호스트가 `known_hosts`에 미리 있어야 한다 |
+| HTTPS 자격 증명 | **system·global** Git 설정(`~/.config/git/config`, 그 설정이 include한 파일, Apple Git 내장 설정 포함)의 credential helper(예: `osxkeychain`, Git Credential Manager)를 쓴다. 저장소 자체의 `credential.helper`는 무시한다 | 터미널에서 토큰을 한 번 저장한다(아래) |
+| SSH | `ssh -o BatchMode=yes`를 실행한다. **system·global** `core.sshCommand`가 있으면 그것을 쓴다. 저장소 자체의 `core.sshCommand`는 무시한다. `~/.ssh/config`와 SSH agent(`SSH_AUTH_SOCK`)는 평소대로 쓰인다 | 키가 agent나 macOS 키체인에 있어야 하고, 호스트가 `known_hosts`에 미리 있어야 한다 |
 | 환경 변수 | 짧은 허용 목록만 Git에 전달한다(`HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK`과 고정값). 셸의 다른 변수는 전달하지 않는다 | `HTTPS_PROXY`, `GIT_SSH_COMMAND` 같은 셸 변수는 효과가 없다. 설정은 global Git 설정에 둔다 |
 | 전송 | Git 내장 전송만 쓴다: `https`, `http`, `ssh`, `git`, `file` | `ftp://`·`ftps://` 원격과 커스텀 원격 helper는 fetch할 수 없다([한계](#한계)) |
 | TLS | 저장소가 인증서 검사를 끌 수 없다. 저장소 자체 설정에 CA나 클라이언트 인증서가 있으면 그 저장소의 Fetch를 끈다 | CA와 클라이언트 인증서는 global 설정에 둔다 |
-| 시간 제한 | fetch는 120초가 지나면 멈춘다 | 아주 큰 첫 fetch는 터미널에서 한 번 하는 편이 낫다 |
+| 시간 제한 | fetch는 120초가 지나면 멈춘다 | 아주 큰 첫 fetch는 신뢰하는 저장소라면 터미널에서 한 번 하는 편이 낫다 |
 
 워크트리, 이력, diff 보기는 네트워크를 쓰지 않으므로 위 내용과 관계없다.
 
@@ -26,10 +26,10 @@ Overgrove는 신뢰할 수 없는 저장소도 연다. 그래서 Git을 보안�
 
 Overgrove는 credential helper가 저장한 토큰을 쓴다. 한 번 저장한다.
 
-1. helper가 설정되어 있는지 확인한다: `git config --show-origin --get-all credential.helper`
+1. helper가 설정되어 있는지 확인한다. 저장소 설정이 끼어들지 않게 저장소 밖(예: 홈 폴더)에서 실행한다: `git --no-pager config --show-origin --get-all credential.helper`
    - Apple의 Git(Xcode나 Command Line Tools)은 system 설정에 `osxkeychain`을 둔다.
    - Git Credential Manager(`brew install --cask git-credential-manager`)는 global 설정에 자신을 추가한다.
-2. 신뢰하는 저장소에서 터미널로 `git fetch`를 한 번 실행한다. Git이 물으면 사용자 이름과 토큰(개인 액세스 토큰이나 앱 비밀번호)을 입력한다. helper가 키체인에 저장한다.
+2. 저장소 밖에서 터미널로 Git이 토큰을 한 번 묻게 한다: `git ls-remote https://git.example.com/team/app.git`(원격 URL로 바꾼다). Git이 물으면 사용자 이름과 토큰(개인 액세스 토큰이나 앱 비밀번호)을 입력한다. helper가 키체인에 저장한다. 신뢰하는 저장소에서 `git fetch`를 해도 된다.
 3. Overgrove에서 Fetch한다.
 
 한 호스트에서 계정을 여러 개 쓰면 **global** 설정에 URL별 helper나 사용자 이름을 둔다. 예: `git config --global credential.https://git.example.com.username alice`
@@ -40,7 +40,13 @@ Overgrove는 credential helper가 저장한 토큰을 쓴다. 한 번 저장한�
 
 1. **호스트 키를 한 번 등록한다.** Overgrove는 "Are you sure you want to continue connecting?"에 답할 수 없다.
    - 터미널에서 한 번 접속하고(`ssh -T git@git.example.com`), 서버 관리자에게 받은 지문과 비교한 뒤 수락한다.
-   - 또는 직접 추가한다: `ssh-keyscan -p 22 git.example.com >> ~/.ssh/known_hosts`. 그다음 `ssh-keygen -lf ~/.ssh/known_hosts`의 지문을 관리자가 공개한 지문과 비교한다.
+   - 또는 키를 받아서 신뢰하기 **전에** 비교한 뒤 추가한다.
+
+     ```sh
+     ssh-keyscan -p 22 git.example.com > /tmp/host-key
+     ssh-keygen -lf /tmp/host-key          # 관리자가 공개한 지문과 비교
+     cat /tmp/host-key >> ~/.ssh/known_hosts   # 일치할 때만
+     ```
 2. **암호문을 묻지 않게 키를 올린다.** `ssh-add --apple-use-keychain ~/.ssh/id_ed25519`를 실행한다. 자동으로 올리려면 `~/.ssh/config`에 다음을 둔다.
 
    ```
@@ -100,15 +106,15 @@ Overgrove는 상태바(`Fetch failed — Details`)에 이유를 보여 준다. D
 
 | Overgrove의 문구 | 흔한 원인 | 할 일 |
 |---|---|---|
-| Authentication failed | 저장된 자격 증명이 없거나 토큰이 만료됨 | [HTTPS와 토큰](#https와-토큰) |
-| The SSH key was rejected | 키가 agent에 없거나 서버가 키를 모름 | [SSH](#ssh) 2단계. `ssh-add -l`로 확인 |
+| Authentication failed for … | 저장된 자격 증명이 없거나 토큰이 만료됨 | [HTTPS와 토큰](#https와-토큰) |
+| The SSH key was rejected for … | 키가 agent에 없거나 서버가 키를 모름 | [SSH](#ssh) 2단계. `ssh-add -l`로 확인 |
 | The SSH host key … is not trusted yet / has changed | 호스트가 `known_hosts`에 없거나 키가 바뀜 | [SSH](#ssh) 1단계. 키가 예상 없이 **바뀌었으면** 수락하기 전에 관리자에게 확인 |
-| Access … was denied | 그 계정이 저장소를 읽을 수 없음 | 권한 확인, 또는 그 호스트의 사용자 이름 설정 |
+| Access to … was denied | 그 계정이 저장소를 읽을 수 없음 | 권한 확인, 또는 그 호스트의 사용자 이름 설정 |
 | Could not reach … | 네트워크, VPN, 프록시 | [프록시](#프록시). VPN 확인 |
-| Fetch timed out | 느린 연결이나 아주 큰 저장소 | 터미널에서 한 번 fetch |
-| The repository … was not found | 잘못된 URL, 또는 볼 수 없는 비공개 저장소 | `git remote -v` 확인 |
+| Fetch timed out after … s | 느린 연결이나 아주 큰 저장소 | 신뢰하는 저장소에서 터미널로 한 번 fetch |
+| The repository for … was not found | 잘못된 URL, 또는 볼 수 없는 비공개 저장소 | 신뢰하는 저장소에서 `git --no-pager remote -v`로 URL 확인 |
 | Overgrove does not fetch … | `ftp://`, `ftps://`, 커스텀 원격 helper | [한계](#한계) |
-| Fetching … is turned off for this repository | 저장소 자체 설정에 CA·클라이언트 인증서 등이 있음 | [사설 인증 기관(CA)](#사설-인증-기관ca) |
+| Fetching … is turned off for this repository | 저장소 자체 설정에 CA·클라이언트 인증서 등이 있음, 또는 Git 2.44 미만의 partial clone | [사설 인증 기관(CA)](#사설-인증-기관ca), [한계](#한계) |
 
 ## 한계
 
