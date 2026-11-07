@@ -181,10 +181,9 @@ final class RepoConfigInspectorTests: XCTestCase {
 /// End to end against the malicious fixture (docs/testing/fixtures.md §8): SEC-T4-01/02/03.
 final class RepoConfigInspectorFixtureTests: XCTestCase {
     func testSECT4_FilterPayloadRunsWithoutNeutralizationAndNotWithIt() async throws {
-        let fixture = try await FixtureRepo.make(malicious: true)
-        defer { fixture.remove() }
+        let fixture = try await makeFixture(malicious: true)
         let environment = try await GitEnvironment.discover()
-        let client = GitClient(environment: environment)
+        let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let worktree = fixture.repository
 
         // Inspect the repository's own configuration.
