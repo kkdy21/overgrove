@@ -95,6 +95,7 @@ struct CanaryHarness {
         }
         let queries: [Query] = [
             query(.version, "version"),
+            query(.probeGitDirectory, "probeGitDirectory"),
             query(.probeRepository, "probeRepository"),
             query(.configList, "configList"),
             query(.worktreeList, "worktreeList"),
@@ -127,6 +128,19 @@ struct CanaryHarness {
                 .worktreeNumstat(staged: false), in: fixture.worktree("wt-conflict"), "worktreeNumstat (wt-conflict)"),
             query(.untrackedPreview(untracked), "untrackedPreview untracked.txt"),
             query(.fileHistory(path: GitPath("docs/manual.md"), limit: 100), "fileHistory docs/manual.md"),
+            // The merge-base comparison (#157) reads the working tree, so the touched filter targets are re-hashed.
+            query(
+                .compareFiles(base: try ref("refs/remotes/origin/main"), includeWorkingTree: true),
+                "compareFiles origin/main + working tree"),
+            query(
+                .compareFiles(base: try ref("refs/heads/malicious/signed"), includeWorkingTree: false),
+                "compareFiles malicious/signed (committed)"),
+            query(
+                .comparePatch(
+                    base: try ref("refs/remotes/origin/main"), path: GitPath("src/unstaged-modified.txt"),
+                    includeWorkingTree: true),
+                "comparePatch src/unstaged-modified.txt + working tree"),
+            query(.commitsAhead(base: try ref("refs/heads/malicious/signed"), limit: 100), "commitsAhead"),
             Query(kind: .fetch(.fetch(remote: try remote("origin"))), directory: repo, label: "fetch origin"),
         ]
         return queries
@@ -136,14 +150,17 @@ struct CanaryHarness {
     /// the build until it gets a value here; a new value enlarges `allCases`, so INT-19 then fails until `queries()`
     /// runs that command.
     enum CaseName: String, CaseIterable {
-        case version, probeRepository, configList, worktreeList, status, refs, aheadBehind, stashList, stashFiles
+        case version, probeGitDirectory, probeRepository, configList, worktreeList, status, refs, aheadBehind
+        case stashList, stashFiles
         case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, worktreeNumstat
         case untrackedPreview, fileHistory
+        case compareFiles, comparePatch, commitsAhead
     }
 
     static func caseName(_ command: ReadOnlyGitCommand) -> CaseName {
         switch command {
         case .version: .version
+        case .probeGitDirectory: .probeGitDirectory
         case .probeRepository: .probeRepository
         case .configList: .configList
         case .worktreeList: .worktreeList
@@ -161,6 +178,9 @@ struct CanaryHarness {
         case .worktreeNumstat: .worktreeNumstat
         case .untrackedPreview: .untrackedPreview
         case .fileHistory: .fileHistory
+        case .compareFiles: .compareFiles
+        case .comparePatch: .comparePatch
+        case .commitsAhead: .commitsAhead
         }
     }
 

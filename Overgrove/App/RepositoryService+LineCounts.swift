@@ -3,7 +3,8 @@ import Foundation
 /// The WIP detail's per-file line counts (screens.md S-02, #230), queried for one worktree when its detail is shown.
 extension RepositoryService {
     /// Staged and unstaged numstat of `worktree`, in parallel, after the same checks as its status (`prepare`).
-    /// Returns `nil` when the worktree is not queried (foreign, blocked by its configuration, gone).
+    /// Returns `nil` when the worktree is not queried (foreign, blocked by its configuration, gone); a failed check
+    /// (cancelled, timed out) throws.
     ///
     /// `state` is the cached status the counts go with: its conflicted paths are dropped from the output, since git
     /// prints them twice and the screen shows no counts for them (parsing-spec.md §8.3).
@@ -16,7 +17,15 @@ extension RepositoryService {
         guard worktree.path.isRepresentable, !worktree.isBare, let folder = PathValidator.canonical(listed) else {
             return nil
         }
-        guard case .ready(let safety) = try await prepare(worktree, at: folder, context) else { return nil }
+        let safety: RepoSafetyContext
+        switch await prepare(worktree, at: folder, context) {
+        case .ready(_, let checked):
+            safety = checked
+        case .refused(.failed(let error)) where error != .worktreeMissing(path: folder.path):
+            throw error  // cancelled, timed out, …: the caller tells these from "not queried"
+        case .refused:
+            return nil
+        }
 
         let client = context.client
         async let stagedOutput = client.run(.worktreeNumstat(staged: true), in: folder, safety: safety)
