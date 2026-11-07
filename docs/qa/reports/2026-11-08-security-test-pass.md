@@ -147,7 +147,7 @@ security-review.md가 정의한 SEC 테스트 전부의 결과와 T1–T18 잔�
 | T11 자격 증명 노출 | 새 토큰 형식 미검출 가능 | **유지.** 후속 #244(스킴 없는 config subsection의 접두어 없는 토큰 마스킹)가 열려 있다 |
 | T12 프롬프트 대기 | 신뢰 sshCommand에 BatchMode 없으면 타임아웃까지 대기 | **유지.** BatchMode의 호스트 키 프롬프트 차단은 §4.2의 "확인하지 못한 것"이다. 수동 QA로 확인한다 |
 | T13 쓰기 명령 | 낮음. #208·#209 수정 | **해소 확인.** #211(index 재작성 차단, SEC-T13-02)과 #209(SEC-T13-04)가 CI에서 통과했다 |
-| T14 범위 이탈 | alternates, Open in Terminal 셸 | **갱신.** 행 메뉴(SEC-T14-07)와 `TerminalGuard`(SEC-T14-08)를 반영했다. 새 잔여 위험은 §5.2 |
+| T14 범위 이탈 | alternates, Open in Terminal 셸 | **갱신.** 행 메뉴(SEC-T14-07)와 `TerminalGuard`(SEC-T14-08)를 반영했다. 새 잔여 위험(§5.2)은 #278에서 **해소**했다(SEC-T14-10) |
 | T15 자원 고갈 | 느린 저장소, UCS-2 등 `encoding` 헤더 커밋으로 그래프 페이지 파싱 실패 | **유지.** 해소된 것: 설정 검사 작업량 상한(#262, SEC-T15-12), 워크트리 개수 상한(#226, SEC-T15-07). index가 오래된 상태의 느린 status는 PB-5 밖 시나리오로, #168이 안내한다 |
 | T16 로그 | 개발 장비의 private 로그 | **유지.** QA-SEC-06으로 수동 확인한다 |
 | T17 공급망 | Apple·러너 이미지 신뢰, 보드 토큰 범위, `pull_request_target` 이벤트 남용 | **유지.** 새 워크플로 `perf.yml`(#271)은 SHA 고정, `contents: read`, PR 이벤트 없음으로 `check-workflows.sh`를 통과한다 |
@@ -155,7 +155,7 @@ security-review.md가 정의한 SEC 테스트 전부의 결과와 T1–T18 잔�
 
 ### 5.2 새로 찾은 잔여 위험
 
-**Open in Terminal 확인 조건이 앱이 실행하지 않는 키를 보지 못한다 (T14, #73 후속).**
+**Open in Terminal 확인 조건이 앱이 실행하지 않는 키를 보지 못한다 (T14, #73 후속) — #278(PR #281)에서 해소.** 검사기가 아래 키들을 T14로 보고하고, `TerminalGuard`는 모든 finding을 확인 사유로 쓴다(SEC-T14-10). 아래는 발견 당시의 기록이다.
 - `TerminalGuard`는 설정 검사의 T1–T7 finding, 차단, 실행 가능한 hook을 본다. 그런데 `RepoConfigInspector`는 앱이 실행하지 않는 키를 보고 대상에 넣지 않는다. 해당하는 키는 `core.pager`·`pager.<cmd>`, `core.editor`·`sequence.editor`, `!`로 시작하는 `alias.*`다.
 - threat가 없는 finding(`submodule.<n>.update=!cmd`, `uploadpack.packObjectsHook`)도 확인 조건에서 빠진다.
 - 프롬프트 플러그인의 `git status`는 이 키들을 쓰지 않는다. 하지만 사용자가 그 터미널에서 `git log`(pager), `git commit`(editor), `git submodule update`를 직접 실행하면 저장소가 정한 명령이 돈다. 확인 창은 뜨지 않았다.
@@ -186,4 +186,4 @@ CI로 볼 수 없어 사람이 확인하는 항목이다. Phase 4 QA(#96)와 함
 | #153 | T10 | 셸 프록시 환경 변수 전달 여부 결정 |
 | #108 | T1·T4 | 서브모듈 상태를 안전하게 조회 |
 | #34 | T17 | CodeQL Swift 분석 |
-| (제안) | T14 | §5.2: 앱이 실행하지 않는 실행 키 보고와 Open in Terminal 확인 조건 확대 |
+| ~~(제안)~~ #278 | T14 | §5.2: 앱이 실행하지 않는 실행 키 보고와 Open in Terminal 확인 조건 확대. 해소 (PR #281) |
