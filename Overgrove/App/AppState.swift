@@ -100,14 +100,16 @@ enum MainSelection: Equatable {
     case worktreeInfo(GitPath)
     /// A stash's contents (S-04, #71), by OID: `stash@{n}` shifts when stashes change.
     case stash(ObjectID)
+    /// A commit picked in the graph (S-03, #69).
+    case commit(ObjectID)
     /// An issue (S-06, #81), by number.
     case issue(Int)
 
-    /// The worktree either segment shows; `nil` for a stash or an issue.
+    /// The worktree either segment shows; `nil` for a stash, a commit, or an issue.
     var worktreePath: GitPath? {
         switch self {
         case .wip(let path), .worktreeInfo(let path): path
-        case .stash, .issue: nil
+        case .stash, .commit, .issue: nil
         }
     }
 }
@@ -160,6 +162,8 @@ final class AppState {
     private let comparisonLoader: any ComparisonLoading
     /// The commit graph of the open repository (S-01 center, #68).
     let graph: GraphStore
+    /// S-03 for the selected commit and the patch of a file picked in it (#69).
+    let commitDetail: CommitDetailStore
     /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
     private(set) var comparison: ComparisonSession?
     /// The comparison (and its patch) in flight; tests await them.
@@ -255,10 +259,12 @@ final class AppState {
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
         lineCountLoader: (any LineCountLoading)? = nil,
         graphLoader: any GraphLoading = LiveGraphLoader.live,
+        commitLoader: any CommitLoading = LiveCommitLoader.live,
         fetcher: (any RepositoryFetching)? = nil,
         fetchRecords: FetchRecordStore = FetchRecordStore()
     ) {
         self.graph = GraphStore(loader: graphLoader)
+        self.commitDetail = CommitDetailStore(loader: commitLoader)
         self.layoutStore = layoutStore
         self.registry = registry
         self.registrar = registrar
@@ -296,6 +302,7 @@ final class AppState {
         snapshot = nil
         worktreeList = .idle
         branchListModel = nil
+        issueLinks = .empty
         focusedWorktreePath = nil
         selection = nil
         selectedFile = nil
@@ -317,6 +324,7 @@ final class AppState {
         searchText = ""
         issuePanel.clear()
         graph.clear()
+        commitDetail.clear()
     }
 
     // MARK: Worktrees (#65)
@@ -422,6 +430,7 @@ final class AppState {
     private func apply(_ listing: WorktreeListing, isVerified: Bool) {
         worktreeList = .loaded(listing)
         branchListModel = Self.branchModel(listing)
+        issueLinks = IssueLinkIndex(listing: listing)
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
         if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
         // A stash that is gone (dropped or applied elsewhere) falls back to the focused worktree.
@@ -472,6 +481,8 @@ final class AppState {
     func selectWorktree(_ path: GitPath) {
         guard case .loaded(let listing) = worktreeList, listing.entries.contains(where: { $0.worktree.path == path })
         else { return }
+        graph.select(nil)
+        commitDetail.clearFile()
         if focusedWorktreePath != path {
             selectedFile = nil
             // S-11 belongs to one worktree.
@@ -612,6 +623,7 @@ final class AppState {
     func clearSelectedFile() {
         selectedFile = nil
         clearStashFile()
+        commitDetail.clearFile()
     }
 
     // MARK: Branches (#72)
@@ -630,8 +642,66 @@ final class AppState {
     // MARK: Issues (#81)
 
     /// The sidebar's ISSUES section.
+    /// Worktrees and branches named for issues (#82), built once per listing.
+    private(set) var issueLinks: IssueLinkIndex = .empty
+
     var issueListModel: IssueListModel {
-        IssueListModel(content: issuePanel.content, isLoading: issuePanel.isLoading)
+        IssueListModel(content: issuePanel.content, isLoading: issuePanel.isLoading, links: issueLinks)
+    }
+
+    /// What `#n` badges need (#82): the fetched numbers are links, the rest grey.
+    var issueBadgeContext: IssueBadgeContext {
+        IssueBadgeContext(
+            known: issuePanel.knownNumbers, repository: issuePanel.repository?.slug, titles: issuePanel.titles,
+            select: { [weak self] in self?.selectIssue($0) })
+    }
+
+    /// The selected issue's linked branch tips, outlined in the graph without selecting them
+    /// (information-architecture.md §3.2).
+    var highlightedCommits: Set<ObjectID> {
+        guard let number = selectedIssueNumber else { return [] }
+        return Set(issueLinks.links(number).branches.map(\.target))
+    }
+
+    /// The newest commits whose subject names `number`. Cached and extended page by page, so a render does not rescan
+    /// every loaded commit (security review of #82, T15).
+    @ObservationIgnored private var commitLinkCache: CommitLinkCache?
+
+    private struct CommitLinkCache {
+        let number: Int
+        let repository: String?
+        let first: ObjectID?
+        var scanned: Int
+        var found: [CommitLink]
+    }
+
+    private func linkedCommits(_ number: Int, repository: String?) -> [CommitLink] {
+        let commits = graph.commits
+        var entry = CommitLinkCache(
+            number: number, repository: repository, first: commits.first?.oid, scanned: 0, found: [])
+        if let cached = commitLinkCache, cached.number == number, cached.repository == repository,
+            cached.first == commits.first?.oid, cached.scanned <= commits.count
+        {
+            entry = cached
+        }
+        if entry.found.count < CommitLink.limit, entry.scanned < commits.count {
+            entry.found += CommitLink.latest(
+                CommitLink.limit - entry.found.count, linkedTo: number, in: commits[entry.scanned...],
+                repository: repository)
+            entry.scanned = commits.count
+        }
+        commitLinkCache = entry
+        return entry.found
+    }
+
+    /// A LINKED branch tip or commit: selected in the graph and shown in S-03.
+    func selectLinkedCommit(_ oid: ObjectID) {
+        // A loaded commit opens S-03 (#69); a tip beyond the loaded pages is only highlighted.
+        if graph.index(of: oid) != nil {
+            selectCommit(oid)
+        } else {
+            graph.select(oid)
+        }
     }
 
     var selectedIssueNumber: Int? {
@@ -643,7 +713,10 @@ final class AppState {
     var issueDetailModel: IssueDetailModel? {
         guard let number = selectedIssueNumber, let issue = issuePanel.issues.first(where: { $0.number == number })
         else { return nil }
-        return IssueDetailModel(issue, repository: issuePanel.repository)
+        let repository = issuePanel.repository
+        return IssueDetailModel(
+            issue, repository: repository, links: issueLinks.links(number),
+            commits: linkedCommits(number, repository: repository?.slug))
     }
 
     /// Selecting an issue shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
@@ -684,11 +757,17 @@ final class AppState {
         return StashDetailModel(stash: stash, state: stashDetail ?? .loading)
     }
 
+    /// Marks a commit as the detail panel's subject (`AppState+Commit.swift`, which cannot write `selection`).
+    func setCommitSelection(_ oid: ObjectID) {
+        selection = .commit(oid)
+    }
+
     /// Selecting a stash shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
     func selectStash(_ oid: ObjectID) {
         guard stashes.contains(where: { $0.oid == oid }) else { return }
         selectedFile = nil
         closeComparison()
+        graph.select(nil)
         selection = .stash(oid)
         loadStash()
     }
@@ -888,6 +967,7 @@ final class AppState {
 
     /// What the center area shows for the selected file: its title, `Staged · M`, and the load state.
     var diffViewer: (title: String, source: String, state: DiffLoadState)? {
+        if let commitFile = commitFileDiff { return commitFile }
         if case .stash(let oid) = selection, let file = selectedStashFile, let state = stashFileDiff,
             let stash = stashes.first(where: { $0.oid == oid })
         {

@@ -19,7 +19,18 @@ final class IssuePanelState {
     private let loader: any IssueLoading
 
     /// `nil` until the repository's remotes are known.
-    private(set) var content: IssueListContent?
+    private(set) var content: IssueListContent? {
+        didSet {
+            let issues = self.issues
+            knownNumbers = Set(issues.map(\.number))
+            titles = Dictionary(
+                issues.map { ($0.number, PathValidator.displayable($0.title)) }, uniquingKeysWith: { first, _ in first }
+            )
+        }
+    }
+    /// The fetched issue numbers and their escaped titles, built once per load for the `#n` badges (#82).
+    private(set) var knownNumbers: Set<Int> = []
+    private(set) var titles: [Int: String] = [:]
     private(set) var isLoading = false
     /// The github.com repository the issues are read from, shown on S-06 so the user sees where they come from.
     private(set) var repository: GitHubRepository?

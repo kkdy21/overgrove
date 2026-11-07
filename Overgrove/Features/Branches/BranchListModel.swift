@@ -18,6 +18,8 @@ struct BranchRow: Identifiable, Equatable {
     let isUpstreamGone: Bool
     /// The tip commit's committer date (remote rows show it relative).
     let date: Date?
+    /// The issue a local branch names (`feat/12-x`, #82); remote rows show none (information-architecture.md §4.3).
+    let issueNumber: Int?
     let help: String
     let accessibilityLabel: String
 }
@@ -158,6 +160,7 @@ struct BranchListModel: Equatable {
         let full = PathValidator.displayable(branch.shortName)
         let upstream = branch.upstreamStatus
         let isGone: Bool = if case .gone = upstream { true } else { false }
+        let issueNumber = branch.kind == .local ? IssueRefExtractor.issueNumber(inBranch: branch.fullName) : nil
         var help = [full]
         switch upstream {
         case .tracking(let name, let ahead, let behind):
@@ -174,10 +177,12 @@ struct BranchListModel: Equatable {
         if upstream.ahead > 0 { label.append("\(upstream.ahead) ahead") }
         if upstream.behind > 0 { label.append("\(upstream.behind) behind") }
         if isGone { label.append("upstream gone") }
+        if let issueNumber { label.append("issue \(issueNumber)") }
         return BranchRow(
             id: branch.fullName, name: display, fullDisplayName: full, isCheckedOut: isCheckedOut, isDefault: isDefault,
             ahead: upstream.ahead, behind: upstream.behind, isUpstreamGone: isGone, date: branch.committerDate,
-            help: help.joined(separator: "\n"), accessibilityLabel: label.joined(separator: ", "))
+            issueNumber: issueNumber, help: help.joined(separator: "\n"),
+            accessibilityLabel: label.joined(separator: ", "))
     }
 
     /// `refs/remotes/origin/main` → `origin/main`.
@@ -195,7 +200,8 @@ extension BranchRow {
     fileprivate func renamed(_ name: String) -> BranchRow {
         BranchRow(
             id: id, name: name, fullDisplayName: fullDisplayName, isCheckedOut: isCheckedOut, isDefault: isDefault,
-            ahead: ahead, behind: behind, isUpstreamGone: isUpstreamGone, date: date, help: help,
+            ahead: ahead, behind: behind, isUpstreamGone: isUpstreamGone, date: date, issueNumber: issueNumber,
+            help: help,
             accessibilityLabel: accessibilityLabel)
     }
 }

@@ -4,7 +4,11 @@ import SwiftUI
 /// stack, so only visible rows are built (PB-4). The next page loads as the end comes into view.
 struct GraphView: View {
     let store: GraphStore
+    /// A row was clicked (S-03, #69); without one, the row is only highlighted.
+    var onSelectCommit: ((ObjectID) -> Void)?
     var now = Date()
+    /// Tips of the selected issue's linked branches: outlined, not selected (information-architecture.md §3.2, #82).
+    var highlighted: Set<ObjectID> = []
 
     private var graphWidth: CGFloat { GraphGeometry.width(lanes: store.laneCount) }
     private var headIndex: Int? { store.head.flatMap(store.index(of:)) }
@@ -44,10 +48,10 @@ struct GraphView: View {
             }
         return GraphCommitRowView(
             commit: commit, row: graphRow, outgoing: outgoing, pills: store.pills[commit.oid] ?? [],
-            isHead: commit.oid == store.head, isSelected: commit.oid == store.selected, wipLine: wipLine,
-            graphWidth: graphWidth, now: now
+            isHead: commit.oid == store.head, isSelected: commit.oid == store.selected,
+            isHighlighted: highlighted.contains(commit.oid), wipLine: wipLine, graphWidth: graphWidth, now: now
         ) {
-            store.select(commit.oid)
+            if let onSelectCommit { onSelectCommit(commit.oid) } else { store.select(commit.oid) }
         }
     }
 }
@@ -83,15 +87,27 @@ struct GraphCommitRowView: View {
     let pills: [GraphRefPill]
     let isHead: Bool
     let isSelected: Bool
+    var isHighlighted = false
     let wipLine: GraphWipLine
     let graphWidth: CGFloat
     let now: Date
     let onSelect: () -> Void
 
+    @Environment(\.issueBadges) private var issues
+
+    /// Issue pills after the subject: only numbers in the fetched list (#82). Unknown `#n` stay plain subject text;
+    /// most of them are pull request numbers from squash merges (`(#251)`), not issues.
+    private func linkedIssues() -> [Int] {
+        CommitLink.issueNumbers(in: commit.subject, repository: issues.repository)
+            .filter(issues.isKnown).prefix(2).map { $0 }
+    }
+
     private var lane: Color { Tokens.Color.graphLanes[row.colorIndex % Tokens.Color.graphLanes.count] }
 
     var body: some View {
         let text = GraphCommitText(commit, now: now)
+        // Once per body: it scans the subject.
+        let linkedIssues = linkedIssues()
         HStack(spacing: 0) {
             GraphRefsCell(pills: pills, laneColor: lane, laneIndex: row.colorIndex)
                 .frame(width: Tokens.Size.columnRefsIdeal, alignment: .trailing)
@@ -100,6 +116,7 @@ struct GraphCommitRowView: View {
                 initials: text.initials, avatarIndex: text.avatarIndex, wipLine: wipLine, width: graphWidth)
             HStack(spacing: Tokens.Spacing.xs) {
                 Text(text.subject).font(Tokens.Font.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
+                ForEach(linkedIssues, id: \.self) { IssueNumberBadge(number: $0) }
                 if text.isAIAssisted { AIBadge() }
             }
             .padding(.horizontal, Tokens.Spacing.sm)
@@ -109,21 +126,35 @@ struct GraphCommitRowView: View {
             cell(text.shortSHA, width: Tokens.Size.columnShaIdeal, color: tertiary, font: Tokens.Font.monoSmall)
         }
         .frame(height: GraphGeometry.rowHeight)
-        .background(isSelected ? lane.opacity(0.16) : Color.clear)
+        .background(isSelected ? lane.opacity(0.16) : (isHighlighted ? lane.opacity(0.06) : Color.clear))
         .overlay(alignment: .leading) {
             if isSelected { Rectangle().fill(lane).frame(width: 3) }
+        }
+        .overlay {
+            if isHighlighted && !isSelected {
+                RoundedRectangle(cornerRadius: Tokens.Radius.sm)
+                    .strokeBorder(lane, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
+                    .padding(1)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            [
-                text.subject, text.isAIAssisted ? "AI-assisted" : nil, "by \(text.author)", text.absoluteDate,
-                pills.first.map { "ref \($0.title)" },
-            ]
-            .compactMap { $0 }.joined(separator: ", ")
-        )
+        .accessibilityLabel(accessibilityText(text, linkedIssues: linkedIssues))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .issueBadgeAction(linkedIssues.first)
+    }
+
+    private func accessibilityText(_ text: GraphCommitText, linkedIssues: [Int]) -> String {
+        var parts: [String] = [text.subject]
+        if text.isAIAssisted { parts.append("AI-assisted") }
+        parts.append("by \(text.author)")
+        parts.append(text.absoluteDate)
+        if let pill = pills.first { parts.append("ref \(pill.title)") }
+        let issueList = linkedIssues.map(String.init).joined(separator: ", ")
+        if !issueList.isEmpty { parts.append("issue \(issueList)") }
+        if isHighlighted { parts.append("linked to the selected issue") }
+        return parts.joined(separator: ", ")
     }
 
     /// Tertiary text turns secondary on a selected row (screens.md S-01).

@@ -54,7 +54,9 @@ struct MainWindowView: View {
                     onCompareWorktree: { state.showComparison(of: $0) })
             } center: {
                 GraphPanel(
-                    hasRepository: state.repository != nil, graphStore: state.graph, diff: state.diffViewer,
+                    hasRepository: state.repository != nil, graphStore: state.graph,
+                    highlightedCommits: state.highlightedCommits, onSelectCommit: state.selectCommit,
+                    diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
             } detail: {
                 DetailPanel(
@@ -65,11 +67,16 @@ struct MainWindowView: View {
                         switch $0 {
                         case .worktreeInfo: true
                         case .wip: false
-                        case .stash, .issue: nil
+                        case .stash, .commit, .issue: nil
                         }
                     },
+                    commitModel: state.commitDetailModel, commitLane: state.selectedCommitLane,
+                    selectedCommitFile: state.commitDetail.selectedFile?.path,
+                    onSelectCommitFile: state.selectCommitFile, onSelectParent: state.selectCommit,
+                    onShowAllCommitFiles: state.showAllCommitFiles,
                     stashModel: state.stashDetailModel, selectedStashFile: state.selectedStashFile?.path,
                     onSelectStashFile: state.selectStashFile, issueModel: state.issueDetailModel,
+                    onSelectLinkedWorktree: state.selectWorktree, onSelectLinkedCommit: state.selectLinkedCommit,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
                     comparisonList: comparisonList,
                     onCompare: state.canCompare() ? { state.showComparison() } : nil)
@@ -78,6 +85,8 @@ struct MainWindowView: View {
         }
         // Under the toolbar too, so the title bar area is `surface.window` like the status bar (art-direction §3).
         .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
+        // `#n` badges on worktree, branch, and graph rows (#82).
+        .environment(\.issueBadges, state.issueBadgeContext)
         .toolbar {
             MainToolbar(
                 repository: state.repository,
