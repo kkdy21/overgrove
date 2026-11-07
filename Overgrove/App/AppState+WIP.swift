@@ -140,4 +140,12 @@ extension AppState {
             layoutStore.save(layout, for: repository.repository.id)
         }
     }
+
+    /// A finished column change (divider released or double-clicked, `⋯` menu). Saved for the open repository.
+    func commitGraphColumns(_ columns: GraphColumnLayout) {
+        graphColumns = columns
+        if let repository {
+            layoutStore.save(columns, for: repository.repository.id)
+        }
+    }
 }

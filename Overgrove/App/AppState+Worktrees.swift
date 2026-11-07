@@ -140,7 +140,8 @@ extension AppState {
     /// The sidebar row model, `nil` until the list has loaded.
     var worktreeListModel: WorktreeListModel? {
         guard case .loaded(let listing) = worktreeList else { return nil }
-        return WorktreeListModel(listing: listing, focused: focusedWorktreePath)
+        let graph = graph
+        return WorktreeListModel(listing: listing, focused: focusedWorktreePath, laneIndex: graph.laneIndex(of:))
     }
 
     #if DEBUG
