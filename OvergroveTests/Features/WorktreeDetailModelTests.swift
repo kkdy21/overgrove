@@ -172,6 +172,17 @@ final class WorktreeDetailModelTests: XCTestCase {
         XCTAssertEqual(try row("Filters neutralized", in: model).details, ["filter.lfs\\u{202E}x.process"])
     }
 
+    /// A URL subsection with credentials (`credential.<url>.helper`, `http.<url>.sslverify`) is masked in the key.
+    func testURLSubsectionsAreMasked() throws {
+        let model = security([
+            entry(.local, "credential.https://kim:\(secret)@h.example.helper"),
+            entry(.local, "http.https://kim:\(secret)@h.example.sslverify", "false"),
+        ])
+        let keys = model.rows.flatMap(\.details)
+        XCTAssertEqual(keys.count, 2, "\(keys)")
+        XCTAssertFalse(keys.contains { $0.contains(secret) }, "\(keys)")
+    }
+
     func testWorktreeScopeIsNamed() throws {
         let model = security([entry(.worktree, "core.fsmonitor")])
         XCTAssertEqual(try row("fsmonitor disabled", in: model).details, ["core.fsmonitor (worktree)"])
