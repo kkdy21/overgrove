@@ -60,7 +60,7 @@ git 계층: 해당 없음. 백그라운드 status는 35ms (p95)다.
 
 - **시작**: 저장소 열기 직후 또는 그래프 탭 진입 시점.
 - **끝**: 그래프 영역에 커밋 500개 중 화면에 보이는 행과 레인이 그려진 첫 프레임.
-- **포함**: `log --exclude=refs/stash --all --date-order -z`, 파싱, 레인 계산(GraphEngine), 렌더링.
+- **포함**: `log --branches --remotes --tags --exclude=refs/* --all --date-order -z`(#308), 파싱, 레인 계산(GraphEngine), 렌더링.
 - 측정(#68): 첫 페이지 git+파싱 p95 약 50ms(commit-graph 있음), 약 450ms(없음). 페이지당 레이아웃은 5ms 이하다. 페이지 방식 근거는 [results/2026-11-07-pb3-graph-paging.md](results/2026-11-07-pb3-graph-paging.md), 결정은 #89에서 한다.
 
 | git 계층 실측 (p95) | commit-graph 있음 | commit-graph 없음 |

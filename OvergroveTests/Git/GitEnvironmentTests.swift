@@ -56,7 +56,7 @@ final class GitEnvironmentTests: XCTestCase {
 
     /// #212: queries never use a transport, so a promisor remote cannot make them lazy-fetch (and run the
     /// repository's uploadpack or credential helper). An empty allow list refuses every transport on every
-    /// supported git; GIT_NO_LAZY_FETCH (git 2.44+) is a second layer for all commands.
+    /// supported git; GIT_NO_LAZY_FETCH is a second layer for all commands (complete from the May 2024 releases, #317).
     func testQueriesAllowNoTransport() {
         let query = GitEnvironment.environment(parent: hostileParent, allowsTransport: false)
         XCTAssertEqual(query["GIT_ALLOW_PROTOCOL"], "", "an empty list allows nothing")
@@ -129,10 +129,13 @@ final class GitEnvironmentTests: XCTestCase {
             [
                 "--no-pager", "--no-optional-locks", "--literal-pathspecs",
                 "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "core.askPass=",
-                "-c", "protocol.ext.allow=never", "-c", "protocol.fd.allow=never", "-c", "core.alternateRefsCommand=",
+                "-c", "protocol.ext.allow=never", "-c", "protocol.fd.allow=never",
+                "-c", "alias.remote-https=", "-c", "alias.remote-ssh=", "-c", "alias.remote-git=",
+                "-c", "alias.remote-file=", "-c", "alias.remote-http=", "-c", "help.autocorrect=0",
+                "-c", "core.alternateRefsCommand=",
                 "-c", "log.showSignature=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
                 "-c", "diff.autoRefreshIndex=false", "-c", "color.ui=never", "-c", "diff.suppressBlankEmpty=false",
-                "-c", "i18n.logOutputEncoding=UTF-8",
+                "-c", "i18n.logOutputEncoding=UTF-8", "-c", "log.follow=false",
             ]
         )
     }

@@ -1,8 +1,12 @@
 import Foundation
 
 /// The refs a graph page was read with (ADR-0010 §3, overview.md §5): every branch, remote-tracking branch, and tag
-/// tip, and every worktree's HEAD (`log --all` follows all of them). Pages continue only within one ref set; when it
-/// changes, the graph starts over.
+/// tip, and every worktree's HEAD: the namespaces `graphPage` walks (#308). Pages continue only within one ref set;
+/// when it changes, the graph starts over.
+///
+/// The match is by namespace. A ref the parser skips (`RefParser.Listing.skippedRecords`, e.g. a non-UTF-8 name) or
+/// one past a truncated listing is still walked but not in the key, so moving only that ref does not invalidate
+/// cached pages (security review of #308, low: display only).
 ///
 /// The exact sorted list is the identity, not a hash of it, so two different ref sets can never share cached pages.
 struct GraphRefSet: Sendable, Hashable {
@@ -37,7 +41,8 @@ struct GraphPageSnapshot: Sendable, Equatable {
 /// Commit graph pages (#68, ADR-0010 §3). Paging is `--skip`/`-n` (git-command-catalog.md §3) until #89 decides
 /// between that and streaming; `GraphLoading` keeps the choice behind one interface.
 extension RepositoryService {
-    /// Commits `skip ..< skip + limit` of `log --all --date-order` (refs/stash excluded), with the refs of the cached
+    /// Commits `skip ..< skip + limit` of `log --date-order` over branches, remote-tracking refs, tags, and worktree
+    /// HEADs (the refs `GraphRefSet` keys on, #308), with the refs of the cached
     /// overview (loading it first when nothing is cached). Pages are cached by ref set; ⌘R and `forget` drop them.
     func graphPage(_ repository: Repository, skip: Int, limit: Int) async -> Result<GraphPageSnapshot, GitError> {
         if cachedOverview(of: repository) == nil {

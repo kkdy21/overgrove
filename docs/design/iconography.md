@@ -1,6 +1,6 @@
 # 아이콘과 심볼 (Iconography)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), 심볼 추가 (#166) · 관련: [`design/icon/`](../../design/icon/), [art-direction.md](art-direction.md), [design-tokens.md](design-tokens.md), [interaction.md §6](interaction.md#6-접근성), [screens.md](screens.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 심볼 추가 (#166), 심볼 가용성 확인 (#40), Icon Composer 대체 확인 (#39) · 관련: [`design/icon/`](../../design/icon/), [art-direction.md](art-direction.md), [design-tokens.md](design-tokens.md), [interaction.md §6](interaction.md#6-접근성), [screens.md](screens.md)
 
 ---
 
@@ -127,8 +127,96 @@ SVG는 사람이 읽을 수 있는 형태로 유지한다. 작은 생성 스크�
 
 **워크트리 타일 (#166).** 사이드바 워크트리 행, 상세 패널 머리, 툴바 포커스 칩에서는 `tree.fill`을 둥근 사각형 타일 안에 둔다. 타일은 그 브랜치 레인 색 18%로 채우고 심볼은 레인 색이다. detached와 prunable 워크트리는 중립 색(`text.secondary`) 타일에 `tree`를 쓴다. 규칙은 [art-direction.md §6](art-direction.md#6-사이드바)에 있다.
 
-- 최소 지원 OS(macOS 14)에서 쓸 수 있는 SF Symbols 5 이름만 고른다. Phase 3 첫 UI 이슈에서 SF Symbols 앱으로 이름과 가용 OS를 확인하고, 없는 이름은 이 표를 고친다.
+- 최소 지원 OS(macOS 14)에서 쓸 수 있는 SF Symbols 5 이름만 고른다. 확인 결과와 방법은 §5.4에 있다.
 - 다른 Git 클라이언트나 GitHub의 고유 아이콘(Octicons 등)을 흉내 내지 않는다.
+
+### 5.4 가용성 확인 (#40)
+
+2026-11-08에 앱 코드와 이 문서·[screens.md](screens.md)가 쓰는 SF Symbol 이름을 모두 모아 확인했다. **모두 macOS 14.0 이하에서 나온 심볼이다. 없는 심볼이 없어서 대체한 것도 없다.**
+
+- **방법.** `NSImage(systemSymbolName:)`는 테스트를 돌리는 macOS에 심볼이 있는지만 알려 준다. 최소 지원 OS의 가용성은 시스템의 SF Symbols 메타데이터(`/System/Library/CoreServices/CoreGlyphs.bundle/Contents/Resources/name_availability.plist`)로 판단한다. 이 파일은 심볼 이름을 그 심볼이 추가된 SF Symbols 릴리스(`2023` 등)에, 릴리스를 처음 지원하는 macOS(2023 → 14.0)에 대응시킨다.
+- **자동 확인.** `SFSymbolAvailabilityTests`가 같은 방법으로 검사한다. 최소 OS는 `Config/Base.xcconfig`의 `MACOSX_DEPLOYMENT_TARGET`에서 읽는다.
+  - 심볼 API(`Image(systemName:)`, `Label(_:systemImage:)`, `NSImage(systemSymbolName:)`)에 넘긴 이름은 실제 심볼이어야 한다(오타 방지).
+  - 앱 코드의 문자열 중 심볼 이름인 것과 이 문서·screens.md의 심볼은 모두 최소 OS에서 나와 있어야 한다.
+  - 설정 도우미의 `1.circle`~`3.circle`처럼 이름을 조립하는 곳은 따로 적어 검사한다.
+  - 메타데이터가 없는 시스템에서는 건너뛴다.
+- **새 심볼을 쓸 때.** 테스트가 실패하면 SF Symbols 앱에서 최소 OS에 있는 비슷한 심볼을 골라 코드와 §5 표를 고친다. 대체한 경우 아래 표에 원래 이름과 대체 이름을 함께 적는다.
+- **최소 OS에 가까운 심볼.** `network.slash`(macOS 14.0), `tree`·`tree.fill`(macOS 13.0). 최소 지원 OS를 낮추면 먼저 이 셋을 확인한다.
+
+<details>
+<summary>확인한 심볼 67개 (처음 나온 macOS)</summary>
+
+| 심볼 | 처음 나온 macOS (SF Symbols) | 앱 | 명세 |
+|---|---|---|---|
+| `1.circle` | 10.15 (2019) | ✓ |  |
+| `2.circle` | 10.15 (2019) | ✓ |  |
+| `3.circle` | 10.15 (2019) | ✓ |  |
+| `archivebox` | 10.15 (2019) | ✓ |  |
+| `arrow.clockwise` | 10.15 (2019) | ✓ | ✓ |
+| `arrow.down` | 10.15 (2019) |  | ✓ |
+| `arrow.down.circle` | 10.15 (2019) | ✓ | ✓ |
+| `arrow.left.arrow.right` | 11.0 (2020) |  | ✓ |
+| `arrow.triangle.branch` | 11.0 (2020) | ✓ | ✓ |
+| `arrow.up` | 10.15 (2019) |  | ✓ |
+| `arrow.up.right.square` | 10.15 (2019) |  | ✓ |
+| `checkmark.circle` | 10.15 (2019) | ✓ | ✓ |
+| `checkmark.circle.fill` | 10.15 (2019) | ✓ | ✓ |
+| `checkmark.seal` | 10.15 (2019) | ✓ | ✓ |
+| `checkmark.shield` | 10.15 (2019) | ✓ | ✓ |
+| `chevron.down` | 10.15 (2019) | ✓ |  |
+| `chevron.left` | 10.15 (2019) | ✓ |  |
+| `chevron.right` | 10.15 (2019) | ✓ |  |
+| `chevron.up` | 10.15 (2019) | ✓ |  |
+| `circle.dashed` | 11.0 (2020) | ✓ |  |
+| `circle.fill` | 10.15 (2019) |  | ✓ |
+| `clock` | 10.15 (2019) | ✓ |  |
+| `command` | 10.15 (2019) | ✓ |  |
+| `doc.on.doc` | 10.15 (2019) | ✓ | ✓ |
+| `doc.text` | 10.15 (2019) | ✓ |  |
+| `doc.text.magnifyingglass` | 10.15 (2019) | ✓ |  |
+| `ellipsis` | 10.15 (2019) | ✓ | ✓ |
+| `exclamationmark.shield` | 10.15 (2019) | ✓ | ✓ |
+| `exclamationmark.triangle` | 10.15 (2019) | ✓ | ✓ |
+| `exclamationmark.triangle.fill` | 10.15 (2019) | ✓ | ✓ |
+| `folder` | 10.15 (2019) | ✓ | ✓ |
+| `gearshape` | 11.0 (2020) | ✓ |  |
+| `globe` | 10.15 (2019) | ✓ |  |
+| `info.circle` | 10.15 (2019) | ✓ |  |
+| `list.bullet` | 10.15 (2019) | ✓ |  |
+| `lock` | 10.15 (2019) | ✓ |  |
+| `lock.fill` | 10.15 (2019) | ✓ | ✓ |
+| `magnifyingglass` | 10.15 (2019) | ✓ | ✓ |
+| `network` | 11.0 (2020) | ✓ | ✓ |
+| `network.slash` | 14.0 (2023) | ✓ |  |
+| `number.circle` | 10.15 (2019) | ✓ | ✓ |
+| `pencil` | 10.15 (2019) | ✓ | ✓ |
+| `person.2` | 10.15 (2019) | ✓ | ✓ |
+| `person.crop.circle.badge.checkmark` | 10.15 (2019) | ✓ | ✓ |
+| `person.crop.circle.badge.exclamationmark` | 11.0 (2020) | ✓ |  |
+| `person.crop.circle.badge.questionmark` | 11.0 (2020) | ✓ | ✓ |
+| `person.crop.circle.badge.xmark` | 10.15 (2019) | ✓ | ✓ |
+| `plus.forwardslash.minus` | 12.0 (2021) | ✓ | ✓ |
+| `plusminus` | 10.15 (2019) |  | ✓ |
+| `point.3.connected.trianglepath.dotted` | 12.0 (2021) | ✓ |  |
+| `questionmark` | 10.15 (2019) |  | ✓ |
+| `questionmark.circle` | 10.15 (2019) | ✓ | ✓ |
+| `questionmark.folder` | 11.0 (2020) | ✓ | ✓ |
+| `scissors` | 10.15 (2019) | ✓ |  |
+| `sidebar.left` | 10.15 (2019) | ✓ | ✓ |
+| `sidebar.right` | 10.15 (2019) |  | ✓ |
+| `smallcircle.filled.circle` | 12.0 (2021) | ✓ |  |
+| `sparkles` | 10.15 (2019) | ✓ | ✓ |
+| `stop.fill` | 10.15 (2019) | ✓ | ✓ |
+| `tag` | 10.15 (2019) | ✓ | ✓ |
+| `terminal` | 11.0 (2020) | ✓ | ✓ |
+| `tray.full` | 10.15 (2019) |  | ✓ |
+| `tree` | 13.0 (2022.1) | ✓ | ✓ |
+| `tree.fill` | 13.0 (2022.1) | ✓ | ✓ |
+| `xmark.circle.fill` | 10.15 (2019) | ✓ |  |
+| `xmark.octagon` | 10.15 (2019) | ✓ |  |
+| `xmark.shield` | 10.15 (2019) | ✓ |  |
+
+</details>
 
 ---
 
@@ -161,12 +249,15 @@ SVG는 사람이 읽을 수 있는 형태로 유지한다. 작은 생성 스크�
 
 - 최신 Xcode는 레이어로 구성한 `.icon` 파일(Icon Composer)을 지원한다. 이 형식을 쓰면 최신 macOS에서 시스템이 유리 재질 효과와 다크·틴트 변형을 입힌다.
 - 레이어 원본은 `app-icon-background.svg`와 `app-icon-foreground.svg`다. 전경 레이어는 그림자 없이 둔다. 시스템이 깊이 효과를 더하기 때문이다.
-- **Phase 3에서 확인할 것**
-  1. `.icon` 파일과 `AppIcon.appiconset`을 함께 두었을 때 macOS 14~15에서 PNG 세트가 쓰이는지 (최소 지원 OS 유지)
-  2. 다크·틴트 모양에서 크림색 가지 선과 수관의 대비가 유지되는지
-  3. 레이어를 SVG 그대로 넣을 수 있는지, PNG로 바꿔야 하는지
-
-  확인 결과는 이 절에 적고, 구성이 복잡해지면 ADR로 남긴다.
+- **확인 결과 (#39, 2026-11-08, Xcode 27.2 `actool` 27.2, macOS 26)**
+  - 방법: 스크래치 디렉터리에서 `AppIcon.appiconset`(커밋한 PNG 세트)과 레이어 두 장으로 만든 `AppIcon.icon`을 `xcrun actool --platform macosx --minimum-deployment-target 14.0 --app-icon AppIcon`으로 컴파일했다. 세 경우(둘 다, `.icon`만, PNG 세트만)의 산출물 `AppIcon.icns`, `Assets.car`(`assetutil --info`), 부분 Info.plist를 비교했다. 이 Mac은 macOS 26이라 macOS 14 화면은 직접 보지 못했다. 산출물로 판단하고, 실기기 확인은 수동 QA(#96)에 맡긴다.
+  1. **둘을 함께 두면 PNG 세트는 쓰이지 않는다.** `actool`이 경고 없이 `.icon`을 평면 이미지로 렌더링해 `AppIcon.icns`와 `Assets.car`의 일반 아이콘 이미지(7장)를 만든다. 이 결과는 `.icon`만 둔 경우와 바이트 단위로 같다. PNG 세트의 이름을 바꿔도(`AppIconLegacy`) 같다. Info.plist에는 `CFBundleIconFile`과 `CFBundleIconName`이 모두 `AppIcon`으로 들어가므로, macOS 14~15는 이 평면 렌더링을 보여 준다. 그 모양은 `icon.json`의 반투명·크기 설정에 따라 우리 PNG 디자인과 달라진다(시험한 설정에서는 전경이 작고 흐려졌다).
+  2. 다크·틴트 모양: `Assets.car`에 Aqua·DarkAqua·Tintable 레이어 묶음이 생기는 것까지 확인했다. 실제 대비는 macOS 26 실기기에서 `.icon`을 도입할 때 본다.
+  3. 레이어는 SVG 그대로 들어간다(`Assets.car`에 Vector로 저장).
+- **결정: v0.1은 PNG 세트만 쓴다. `.icon`은 넣지 않는다.**
+  - `.icon`을 넣으면 최소 지원 OS(macOS 14, ADR-0003)의 아이콘이 우리가 검토한 PNG 디자인이 아니라 `actool`의 평면 렌더링으로 바뀐다. `actool` 27.2에서는 운영체제별로 PNG와 `.icon`을 나눠 쓰는 방법을 찾지 못했다(이름을 달리해도 PNG 세트는 쓰이지 않는다).
+  - 다시 검토하는 조건: 최소 지원 OS가 macOS 26 이상이 될 때, 또는 Icon Composer로 만든 `.icon`의 평면 렌더링(macOS 14~15에서 보일 모양)을 앱 아이콘으로 승인할 때. 그때는 PNG 세트를 빼고 `.icon` 하나로 바꾼다. README·문서용 `preview.png`와 `mark.svg`는 그대로 둔다.
+  - 레이어 원본(`app-icon-background.svg`, `app-icon-foreground.svg`)은 그때를 위해 유지한다.
 
 ### 6.3 README와 문서
 

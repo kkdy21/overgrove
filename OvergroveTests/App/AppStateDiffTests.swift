@@ -56,7 +56,7 @@ final class AppStateDiffTests: XCTestCase {
     }
 
     private var patch: PatchParser.Listing {
-        try! PatchParser.parse(Data("diff --git a/s b/s\n--- a/s\n+++ b/s\n@@ -1 +1 @@\n-a\n+b\n".utf8))
+        TestFixtures.patch("diff --git a/s b/s\n--- a/s\n+++ b/s\n@@ -1 +1 @@\n-a\n+b\n")
     }
 
     func testPickingAFileLoadsItsDiff() async {

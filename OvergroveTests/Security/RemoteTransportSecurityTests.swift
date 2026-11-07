@@ -163,7 +163,9 @@ final class RemoteTransportSecurityTests: XCTestCase {
     func testGitClientFetchReportsTheBlockedTransport() async throws {
         try await repository.git(["remote", "add", "origin", "\(helper)::payload"])
         let client = GitClient(environment: repository.environment)
-        let safety = RepoSafetyContext(inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
+        // Past the remote form check (#350, SEC-T5-20), so the refusal comes from GIT_ALLOW_PROTOCOL.
+        let safety = RepoSafetyContext(
+            inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil, fetchableRemotes: ["origin"])
         do {
             let target = Repository(
                 rootURL: repository.root, commonGitDirectoryURL: repository.root.appendingPathComponent(".git"),
