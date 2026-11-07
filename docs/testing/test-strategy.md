@@ -177,6 +177,7 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 | 픽스처 스모크 | `make-fixture-repo.sh` 일반·악성 생성 성공 | 동일 |
 | 포맷·린트 | 건너뜀 (소스 없음) | `swift format lint --strict` |
 | 빌드·테스트 | 건너뜀 (Xcode 프로젝트 없음) | `xcodebuild test`: 단위 + GraphEngine + 통합 + 보안 |
+| 통합 보고 | — | 테스트가 쓴 git(`$DEVELOPER_DIR/usr/bin/git`)과 PATH git 버전, 통합 스위트 결과를 job summary에 남긴다. `*IntegrationTests` 스위트가 하나도 돌지 않았으면 실패한다 (#63) |
 
 - 성능 테스트(PERF)는 필수 검사에 넣지 않는다. CI 러너의 성능이 들쭉날쭉하기 때문이다.
   - 대신 `perf` 라벨이 붙은 PR과 주간 예약 실행에서 돌리고 결과를 아티팩트로 남긴다.
