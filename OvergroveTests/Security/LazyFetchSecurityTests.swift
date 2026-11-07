@@ -137,6 +137,41 @@ final class LazyFetchSecurityTests: XCTestCase {
         XCTAssertEqual(server.requestCount, requestsBefore, "a query must not contact the remote at all")
     }
 
+    // MARK: - Fetch (security review of #213)
+
+    /// During fetch, a lazy fetch for a missing delta base would run the repository's uploadpack, and only git 2.44+
+    /// can turn it off. On older git the app refuses to fetch a partial clone at all.
+    func testOldGitRefusesToFetchAPartialClone() async throws {
+        let uploadPack = try executables.canaryProgram(named: "uploadpack", canary: canary)
+        try await partial.git(["config", "remote.origin.uploadpack", uploadPack.path])
+        let listing = try await GitClient(environment: partial.environment)
+            .run(.configList, in: partial.root, safety: .preInspection)
+        let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout))
+        XCTAssertTrue(inspection.isPartialClone)
+        let inspected = try XCTUnwrap(inspection.safetyContext)
+        XCTAssertTrue(inspected.isPartialClone)
+        let repository = Repository(
+            rootURL: partial.root, commonGitDirectoryURL: partial.root.appendingPathComponent(".git"), isBare: false)
+
+        let oldGit = GitEnvironment(
+            executable: partial.environment.executable, version: GitVersion(major: 2, minor: 43, patch: 9))
+        do {
+            _ = try await GitClient(environment: oldGit).fetch(
+                .fetch(remote: RemoteName("origin")!), in: repository, safety: inspected)
+            XCTFail("git 2.43 cannot turn off lazy fetching, so fetch must be refused")
+        } catch let error as GitError {
+            guard case .configInspectionFailed(let reason) = error else { return XCTFail("got \(error)") }
+            XCTAssertTrue(reason.contains("partial clone"), reason)
+        }
+        XCTAssertEqual(canaries(), [])
+
+        // With a git that honors GIT_NO_LAZY_FETCH, fetch runs; its own upload-pack is pinned.
+        XCTAssertGreaterThanOrEqual(partial.environment.version, GitEnvironment.lazyFetchControlVersion)
+        _ = try await GitClient(environment: partial.environment).fetch(
+            .fetch(remote: RemoteName("origin")!), in: repository, safety: inspected)
+        XCTAssertEqual(canaries(), [], "the repository's uploadpack does not run")
+    }
+
     // MARK: - Unaffected
 
     func testQueriesThatNeedNoMissingObjectStillWork() async throws {

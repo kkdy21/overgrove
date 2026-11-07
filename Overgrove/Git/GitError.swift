@@ -223,7 +223,7 @@ enum GitError: Error, Sendable, Equatable {
             "The remote could not be reached."
         case .partialCloneObjectMissing:
             "This repository is a partial clone and does not have this content locally. Overgrove does not download "
-                + "missing objects while browsing."
+                + "missing objects."
         case .nonZeroExit(_, let detail):
             detail.summary.isEmpty ? "git reported an error." : detail.summary
         case .parseFailed:

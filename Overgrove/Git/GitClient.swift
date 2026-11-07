@@ -21,27 +21,33 @@ struct RepoSafetyContext: Sendable, Equatable {
     let isInspected: Bool
     /// Set when the repository's configuration makes fetching unsafe; queries still run.
     let fetchBlockingReason: String?
+    /// The repository is a partial clone (a promisor remote). Fetch must not run on git that cannot turn off lazy
+    /// fetching (#212).
+    let isPartialClone: Bool
 
     static let preInspection = RepoSafetyContext(
         neutralization: [],
         fetchAuthentication: [],
         trustedSSHCommand: nil,
         isInspected: false,
-        fetchBlockingReason: nil
+        fetchBlockingReason: nil,
+        isPartialClone: false
     )
 
     init(
         inspectedNeutralization: [String],
         fetchAuthentication: [String],
         trustedSSHCommand: String?,
-        fetchBlockingReason: String? = nil
+        fetchBlockingReason: String? = nil,
+        isPartialClone: Bool = false
     ) {
         self.init(
             neutralization: inspectedNeutralization,
             fetchAuthentication: fetchAuthentication,
             trustedSSHCommand: trustedSSHCommand,
             isInspected: true,
-            fetchBlockingReason: fetchBlockingReason
+            fetchBlockingReason: fetchBlockingReason,
+            isPartialClone: isPartialClone
         )
     }
 
@@ -50,13 +56,15 @@ struct RepoSafetyContext: Sendable, Equatable {
         fetchAuthentication: [String],
         trustedSSHCommand: String?,
         isInspected: Bool,
-        fetchBlockingReason: String?
+        fetchBlockingReason: String?,
+        isPartialClone: Bool
     ) {
         self.neutralization = neutralization
         self.fetchAuthentication = fetchAuthentication
         self.trustedSSHCommand = trustedSSHCommand
         self.isInspected = isInspected
         self.fetchBlockingReason = fetchBlockingReason
+        self.isPartialClone = isPartialClone
     }
 }
 
@@ -153,6 +161,14 @@ actor GitClient {
     ) async throws -> GitOutput {
         guard safety.isInspected else {
             throw GitError.configInspectionFailed(reason: "repository configuration has not been inspected")
+        }
+        // During fetch, a lazy fetch (e.g. for a missing delta base) runs the repository's own uploadpack, which the
+        // pinned --upload-pack does not cover. Only git 2.44+ can turn it off (GIT_NO_LAZY_FETCH); fetch keeps its
+        // transports, so on older git a partial clone fails closed (security review of #213).
+        if safety.isPartialClone && environment.version < GitEnvironment.lazyFetchControlVersion {
+            throw GitError.configInspectionFailed(
+                reason: "This repository is a partial clone. Fetching it safely needs git "
+                    + "\(GitEnvironment.lazyFetchControlVersion) or later; fetching is disabled.")
         }
         if let reason = safety.fetchBlockingReason {
             throw GitError.configInspectionFailed(reason: reason)

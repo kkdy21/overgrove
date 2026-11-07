@@ -162,6 +162,18 @@ final class RepoConfigInspectorTests: XCTestCase {
     }
 
     /// #212 (T5): partial clone settings make reads lazy-fetch from a promisor remote. Queries allow no transport.
+    func testPartialCloneIsDetectedInAnyScope() {
+        XCTAssertFalse(inspect([]).isPartialClone)
+        XCTAssertTrue(inspect([entry(.local, "remote.origin.promisor", "true")]).isPartialClone)
+        XCTAssertTrue(inspect([entry(.local, "remote.origin.promisor", nil)]).isPartialClone, "valueless means true")
+        XCTAssertTrue(inspect([entry(.global, "remote.origin.promisor", "yes")]).isPartialClone, "any scope")
+        XCTAssertTrue(inspect([entry(.local, "extensions.partialclone", "origin")]).isPartialClone)
+        XCTAssertFalse(inspect([entry(.local, "remote.origin.promisor", "false")]).isPartialClone)
+        XCTAssertFalse(inspect([entry(.local, "extensions.partialclone", "")]).isPartialClone)
+        XCTAssertEqual(
+            inspect([entry(.local, "remote.origin.promisor", "true")]).safetyContext?.isPartialClone, true)
+    }
+
     func testPartialCloneSettingsAreReported() {
         let samples = [
             entry(.local, "remote.origin.promisor", "true"),

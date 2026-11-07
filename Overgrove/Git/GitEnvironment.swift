@@ -43,6 +43,9 @@ struct GitEnvironment: Sendable, Equatable {
     /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
     static let allowedProtocols = "https:ssh:git:file:http"
 
+    /// The first git that honors `GIT_NO_LAZY_FETCH` (#212). Older git cannot turn off lazy fetching during fetch.
+    static let lazyFetchControlVersion = GitVersion(major: 2, minor: 44, patch: 0)
+
     /// Parent variables that are passed through unchanged. Everything else is dropped (T10).
     static let passthroughVariables = ["HOME", "USER", "LOGNAME", "TMPDIR", "SSH_AUTH_SOCK"]
 
