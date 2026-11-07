@@ -53,7 +53,7 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 
 | 접두사 | 범위 | 원본 목록 | 비고 |
 |---|---|---|---|
-| `PAR-{파서}-{nn}` | 파서 단위 | [parsing-spec.md](../architecture/parsing-spec.md) 각 절의 표 | 파서 이름: `WT`, `STATUS`, `STASH`, `LOG`, `REF`, `REVLIST`, `NUMSTAT`, `CONFIG`, `GH`, `ISSUE`, `VER`, `FETCH`, 교차 파서 속성 `PROP` |
+| `PAR-{파서}-{nn}` | 파서 단위 | [parsing-spec.md](../architecture/parsing-spec.md) 각 절의 표 | 파서 이름: `WT`, `STATUS`, `STASH`, `LOG`, `REF`, `REVLIST`, `NUMSTAT`, `CONFIG`, `GH`, `ISSUE`, `VER`, `FETCH`, `SUBMOD`(#108), 교차 파서 속성 `PROP` |
 | `GRA-{nn}` | GraphEngine | 이 문서 §4.2 | |
 | `INT-{nn}` | 통합 | [fixtures.md §7](fixtures.md) | |
 | `SEC-T{n}-{nn}` | 보안 | [security-review.md §2](../design/security-review.md) 각 위협의 "검증" 항목 | 위협 하나에 테스트 1개 이상 |

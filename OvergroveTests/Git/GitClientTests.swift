@@ -22,13 +22,14 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("-x"), includeWorkingTree: false),
     .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("a.txt"), includeWorkingTree: true),
     .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 500),
+    .submodulePaths,
 ]
 
 /// SEC-T9-01, SEC-T13-01 (docs/design/security-review.md) and catalog §3–§4.
 final class GitCommandTests: XCTestCase {
     func testSECT13_01_OnlyReadOnlySubcommandsExist() throws {
         let allowed: [String: Set<String>?] = [
-            "version": nil, "rev-parse": nil, "config": ["--list"], "worktree": ["list"], "status": nil,
+            "version": nil, "rev-parse": nil, "config": ["--list", "--file"], "worktree": ["list"], "status": nil,
             "for-each-ref": nil, "rev-list": nil, "stash": ["list", "show"], "log": nil, "diff-tree": nil, "diff": nil,
         ]
         for command in allReadOnlyCommands {
@@ -155,6 +156,7 @@ final class GitCommandTests: XCTestCase {
                 "log", "-z", ReadOnlyGitCommand.logFormat, "-n", "500", "--end-of-options", "refs/heads/main..HEAD",
                 "--",
             ],
+            ["config", "--file", ".gitmodules", "--no-includes", "-z", "--get-regexp", "^submodule\\..*\\.path$"],
         ]
         XCTAssertEqual(allReadOnlyCommands.count, expected.count)
         for (command, subcommand) in zip(allReadOnlyCommands, expected) {

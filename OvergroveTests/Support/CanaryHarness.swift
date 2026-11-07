@@ -145,6 +145,7 @@ struct CanaryHarness {
                     includeWorkingTree: true),
                 "comparePatch src/unstaged-modified.txt + working tree"),
             query(.commitsAhead(base: try ref("refs/heads/malicious/signed"), limit: 100), "commitsAhead"),
+            query(.submodulePaths, "submodulePaths"),
             Query(kind: .fetch(.fetch(remote: try remote("origin"))), directory: repo, label: "fetch origin"),
         ]
         return queries
@@ -158,7 +159,7 @@ struct CanaryHarness {
         case stashList, stashFiles
         case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, worktreeNumstat
         case untrackedPreview, fileHistory
-        case compareFiles, comparePatch, commitsAhead
+        case compareFiles, comparePatch, commitsAhead, submodulePaths
     }
 
     static func caseName(_ command: ReadOnlyGitCommand) -> CaseName {
@@ -185,6 +186,7 @@ struct CanaryHarness {
         case .compareFiles: .compareFiles
         case .comparePatch: .comparePatch
         case .commitsAhead: .commitsAhead
+        case .submodulePaths: .submodulePaths
         }
     }
 

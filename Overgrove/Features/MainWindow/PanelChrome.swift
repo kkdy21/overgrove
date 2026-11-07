@@ -225,6 +225,8 @@ struct DetailPanel: View {
     let focusedWorktree: FocusedWorktree?
     var worktreeStatus: WorktreeListStatus = .idle
     var wipModel: WipDetailModel?
+    /// S-02's Submodules card (#108).
+    var submoduleSection: SubmoduleSectionModel?
     var worktreeModel: WorktreeDetailModel?
     var selectedFile: FileSelection?
     var onSelectFile: (FileSelection) -> Void = { _ in }
@@ -288,7 +290,8 @@ struct DetailPanel: View {
             } else if let worktreeModel {
                 WorktreeDetailView(model: worktreeModel, onCompare: onCompare)
             } else if let wipModel {
-                WipDetailView(model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile)
+                WipDetailView(
+                    model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile, submodules: submoduleSection)
             } else if worktreeStatus == .loading {
                 ProgressView().controlSize(.small)
             } else {
