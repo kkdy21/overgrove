@@ -50,6 +50,25 @@ final class RemoteFormSecurityTests: XCTestCase {
         for url in notBuiltIn { XCTAssertFalse(TransportName.isBuiltInFetchForm(url), url) }
     }
 
+    /// A rewrite is judged without joining base and URL; the result must equal judging the joined text.
+    func testSplitFormEqualsJoinedForm() {
+        let parts = [
+            "", "s", "ssh", "ssh:", "ssh::", "ssh:/", "ssh://", ":", "::", ":/", "://", "/", "a+b", "+a", "1", "x",
+            "SSH", "https", "evil", ".", "-", "é", "git@host:", "a b",
+        ]
+        for head in parts {
+            for url in parts.flatMap({ first in parts.map { first + $0 } }) {
+                let scanned = TransportName.ScannedBytes(url)
+                for start in 0...url.utf8.count {
+                    let tail = String(decoding: Array(url.utf8)[start...], as: UTF8.self)
+                    XCTAssertEqual(
+                        TransportName.isBuiltInFetchForm(TransportName.ScannedBytes(head), scanned, from: start),
+                        TransportName.isBuiltInFetchForm(head + tail), "\(head) + \(url)[\(start)...]")
+                }
+            }
+        }
+    }
+
     private func inspect(_ entries: [(ConfigEntry.Scope, String, String?, String, String?)]) -> RepoConfigInspection {
         RepoConfigInspector.inspect(
             ConfigParser.Listing(
@@ -119,12 +138,11 @@ final class RemoteFormSecurityTests: XCTestCase {
         XCTAssertEqual(fetchable(builtInRewrite), ["origin"], "push rewrites and non-matching prefixes do not count")
     }
 
-    /// Bounds (#262, T15): checking is at most remotes × URLs per remote × rewrites. Past a bound fetch is refused,
-    /// queries go on.
+    /// Bounds (#262, T15). Past any bound fetch is refused; queries go on.
     func testCheckingIsBounded() {
-        var many: [(ConfigEntry.Scope, String, String?, String, String?)] = [
+        let origin: (ConfigEntry.Scope, String, String?, String, String?) =
             (.local, "remote", "origin", "url", "https://github.com/acme/api.git")
-        ]
+        var many = [origin]
         for index in 0...RepoConfigInspector.maximumInsteadOfRewrites {
             many.append((.local, "url", "https://mirror\(index).example/", "insteadof", "https://other\(index)/"))
         }
@@ -132,11 +150,74 @@ final class RemoteFormSecurityTests: XCTestCase {
         XCTAssertEqual(fetchable(inspection), [])
         XCTAssertNotNil(inspection.safetyContext, "queries still run")
 
-        var urls: [(ConfigEntry.Scope, String, String?, String, String?)] = []
-        for _ in 0...RepoConfigInspector.maximumURLsPerRemote {
-            urls.append((.local, "remote", "origin", "url", "https://github.com/acme/api.git"))
-        }
+        let urls = Array(repeating: origin, count: RepoConfigInspector.maximumURLsPerRemote + 1)
         XCTAssertEqual(fetchable(inspect(urls)), [])
+        XCTAssertEqual(fetchable(inspect(Array(urls.dropLast()))), ["origin"])
+
+        let remotes = (0...RepoConfigInspector.maximumCheckedRemotes).map {
+            (ConfigEntry.Scope.local, "remote", "r\($0)" as String?, "url", "https://example.com/\($0).git" as String?)
+        }
+        let checked = inspect(remotes)
+        XCTAssertEqual(checked.remotes.count, RepoConfigInspector.maximumCheckedRemotes + 1, "all listed")
+        XCTAssertEqual(fetchable(checked).count, RepoConfigInspector.maximumCheckedRemotes, "the last is not checked")
+        XCTAssertFalse(fetchable(checked).contains("r\(RepoConfigInspector.maximumCheckedRemotes)"))
+
+        let long = "https://example.com/" + String(repeating: "a", count: RepoConfigInspector.maximumCheckedLength)
+        XCTAssertEqual(fetchable(inspect([(.local, "remote", "origin", "url", long)])), [])
+        let longRewrite = inspect([origin, (.global, "url", long, "insteadof", "https://elsewhere/")])
+        XCTAssertEqual(fetchable(longRewrite), [], "an unchecked rewrite refuses every remote")
+    }
+
+    /// An empty URL value clears the remote's URL list on newer git, which then reads legacy remote files the
+    /// inspection does not see.
+    func testAnEmptyURLIsRefused() {
+        XCTAssertEqual(
+            fetchable(
+                inspect([
+                    (.local, "remote", "origin", "url", "https://github.com/acme/api.git"),
+                    (.local, "remote", "origin", "url", ""),
+                ])), [])
+        XCTAssertEqual(fetchable(inspect([(.local, "remote", "origin", "url", nil)])), [])
+    }
+
+    /// git compares the raw bytes; the listing decodes invalid UTF-8 lossily, so such values are not checked.
+    func testInvalidUTF8IsNotChecked() throws {
+        func listing(_ entries: [[UInt8]]) throws -> ConfigParser.Listing {
+            var data = Data()
+            for entry in entries { data.append(contentsOf: Array("local".utf8) + [0] + entry + [0]) }
+            return try ConfigParser.parse(data)
+        }
+        // A rewrite whose prefix is one byte of a two-byte character: git turns `é…` into `ssh::\xA9…`.
+        let rewrite = try listing([
+            Array("url.ssh::.insteadof\n".utf8) + [0xC3],
+            Array("remote.origin.url\n".utf8) + [0xC3, 0xA9] + Array("x".utf8),
+        ])
+        XCTAssertEqual(RepoConfigInspector.inspect(rewrite).safetyContext?.fetchableRemotes, [])
+        let url = try listing([Array("remote.origin.url\n".utf8) + [0xFF] + Array("x".utf8)])
+        XCTAssertEqual(RepoConfigInspector.inspect(url).safetyContext?.fetchableRemotes, [])
+    }
+
+    /// SEC-T15-12 for the remote form check: the most expensive checkable listing stays fast, however many remotes it
+    /// adds. Every rewrite matches every URL (empty prefix) and passes, so none short-circuits, and each rewritten URL
+    /// is one long run of scheme characters. The listing is about 10 MB, the stdout cap of `config --list`.
+    func testSECT15_12_RemoteFormCheckIsBounded() {
+        var entries: [(ConfigEntry.Scope, String, String?, String, String?)] = []
+        for index in 0..<RepoConfigInspector.maximumInsteadOfRewrites {
+            let base = String(repeating: "a", count: RepoConfigInspector.maximumCheckedLength - 4) + "\(index + 1000)"
+            entries.append((.local, "url", base, "insteadof", ""))
+        }
+        let url = String(repeating: "b", count: RepoConfigInspector.maximumCheckedLength)
+        for index in 0..<2_500 {
+            for _ in 0..<RepoConfigInspector.maximumURLsPerRemote {
+                entries.append((.local, "remote", "r\(index)", "url", url))
+            }
+        }
+        let clock = ContinuousClock()
+        let started = clock.now
+        let result = inspect(entries)
+        let elapsed = clock.now - started
+        XCTAssertLessThan(elapsed, .seconds(20), "\(entries.count) entries took \(elapsed)")
+        XCTAssertEqual(fetchable(result).count, RepoConfigInspector.maximumCheckedRemotes, "paths: all checked pass")
     }
 
     // MARK: - SEC-T5-20: refused before git starts
@@ -161,7 +242,9 @@ final class RemoteFormSecurityTests: XCTestCase {
         var arguments: [String] = []
         var index = 0
         while index < full.count {
-            if full[index] == "-c", index + 1 < full.count, full[index + 1].hasPrefix("alias.remote-") {
+            if full[index] == "-c", index + 1 < full.count,
+                GitEnvironment.remoteHelperArguments.contains(full[index + 1])
+            {
                 index += 2
                 continue
             }
@@ -264,9 +347,28 @@ final class RemoteFormSecurityTests: XCTestCase {
         }
     }
 
+    /// The same with a second fallback the repository can turn on: a correction of the missing command name.
+    func testSECT5_21_CommonArgumentsNeutralizeTheCorrection() async throws {
+        try await repository.git(["remote", "add", "origin", "git::touch \(canary.path)/corrected-ran"])
+        try await repository.git(["config", "help.autocorrect", "1"])
+        _ = try await runWithoutNeutralization()
+        XCTAssertEqual(canaryNames, ["corrected-ran"], "control: the canary must be reachable")
+        try FileManager.default.removeItem(at: canary.appendingPathComponent("corrected-ran"))
+
+        let safety = RepoSafetyContext(
+            inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil, fetchableRemotes: ["origin"])
+        do {
+            _ = try await GitClient(environment: repository.environment)
+                .fetch(.fetch(remote: origin), in: target(), safety: safety)
+            XCTFail("fetch must fail")
+        } catch is GitError {}
+        XCTAssertEqual(canaryNames, [])
+    }
+
     func testNeutralizingArgumentsCoverEveryAllowedTransport() {
         let names = GitEnvironment.allowedProtocols.split(separator: ":").map { "alias.remote-\($0)=" }
-        XCTAssertEqual(GitEnvironment.remoteHelperArguments, names.flatMap { ["-c", $0] })
+        XCTAssertEqual(
+            GitEnvironment.remoteHelperArguments, (names + ["help.autocorrect=0"]).flatMap { ["-c", $0] })
         for pair in stride(from: 0, to: GitEnvironment.remoteHelperArguments.count, by: 2) {
             let slice = Array(GitEnvironment.remoteHelperArguments[pair...pair + 1])
             XCTAssertTrue(

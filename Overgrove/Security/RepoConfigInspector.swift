@@ -62,11 +62,17 @@ enum RepoConfigInspector {
     static let maximumRemotes = 1_000
     /// Findings kept for the report (S-05); the rest are counted in `omittedFindings`.
     static let maximumFindings = 1_000
-    /// `url.<base>.insteadOf` rewrites checked against remote URLs (#350). Beyond this no remote is fetchable;
-    /// queries go on.
+    /// Bounds on the remote form check (#350, T15). Past any of them a remote is not fetchable; queries go on.
+    /// - Remotes checked, the first in configuration order. More than one Fetch takes
+    ///   (`RepositoryService.defaultMaximumFetchedRemotes`).
+    static let maximumCheckedRemotes = 32
+    /// - URLs per remote. Beyond this the remote is not fetchable.
+    static let maximumURLsPerRemote = 4
+    /// - `url.<base>.insteadOf` rewrites. Beyond this no remote is fetchable.
     static let maximumInsteadOfRewrites = 256
-    /// URLs per remote checked (#350). A remote with more is not fetchable.
-    static let maximumURLsPerRemote = 16
+    /// - Bytes in a URL, a rewrite's base, or its prefix. A longer URL is not fetchable; a longer rewrite makes no
+    ///   remote fetchable.
+    static let maximumCheckedLength = 1_024
 
     static func inspect(_ listing: ConfigParser.Listing) -> RepoConfigInspection {
         var findings: [RepoSecurityReport.Finding] = []
@@ -164,22 +170,25 @@ enum RepoConfigInspector {
                 !$0.scope.isRepositoryControlled && $0.section == "core" && $0.variable == "sshcommand"
             }?.value
 
-        let nonBuiltInRemotes = nonBuiltInRemoteNames(listing)
-        var remotes: [RepoConfigInspection.Remote] = []
+        var listedRemotes: [(name: RemoteName, url: String)] = []
         var seenRemotes = Set<String>()
         var omittedRemotes = 0
         for entry in listing.entries where entry.section == "remote" && entry.variable == "url" {
             guard let subsection = entry.subsection, let name = RemoteName(subsection), let url = entry.value,
                 seenRemotes.insert(name.value).inserted
             else { continue }
-            guard remotes.count < maximumRemotes else {
+            guard listedRemotes.count < maximumRemotes else {
                 omittedRemotes += 1
                 continue
             }
-            remotes.append(
-                .init(
-                    name: name, url: url, displayURL: CredentialMasker.mask(url),
-                    isBuiltInTransport: !nonBuiltInRemotes.contains(name.value)))
+            listedRemotes.append((name, url))
+        }
+        let builtInRemotes = builtInRemoteNames(
+            listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
+        let remotes = listedRemotes.map {
+            RepoConfigInspection.Remote(
+                name: $0.name, url: $0.url, displayURL: CredentialMasker.mask($0.url),
+                isBuiltInTransport: builtInRemotes.contains($0.name.value))
         }
 
         let dependsOnHEAD = listing.entries.contains {
@@ -253,8 +262,8 @@ enum RepoConfigInspector {
             // Partial clone: reads lazy-fetch from the promisor remote. Queries allow no transport (#212).
             if variable == "promisor" || variable == "partialclonefilter" { return ("T5", .neutralized) }
             if variable == "mirror" { return ("T13", .reported) }
-            // A remote helper chosen by the repository. Fetch refuses the remote before git starts (#350), and
-            // `GIT_ALLOW_PROTOCOL` refuses it at fetch time (#161).
+            // A remote helper chosen by the repository. Fetch refuses the remote before git starts (#350);
+            // `GIT_ALLOW_PROTOCOL` refuses helpers outside the allowed transports (#161).
             if variable == "vcs" { return ("T5", .reported) }
             if variable == "url", TransportName.remoteHelper(forURL: value) != nil { return ("T5", .reported) }
             return nil
@@ -300,53 +309,77 @@ enum RepoConfigInspector {
 }
 
 extension RepoConfigInspector {
-    /// Remotes that fetch must not run because they are not in a built-in transport form (#350, T5), whatever the
-    /// scope of the setting: any `remote.<n>.vcs` (even empty), or a URL that is not `isBuiltInFetchForm` as written
-    /// or after a `url.<base>.insteadOf` rewrite. git applies only the longest matching rewrite; every match is
-    /// checked here, which can only refuse more. A key without a value counts as an empty prefix, which matches every
-    /// URL. Work is bounded (#262, T15): past `maximumInsteadOfRewrites` every remote is refused, and so is a remote
-    /// with more than `maximumURLsPerRemote` URLs.
-    static func nonBuiltInRemoteNames(_ listing: ConfigParser.Listing) -> Set<String> {
-        var rewrites: [(base: String, prefix: String)] = []
-        var urls: [String: [String]] = [:]
+    /// The remotes among `candidates` that fetch may run: every URL is in a built-in transport form, as written and
+    /// after a `url.<base>.insteadOf` rewrite, and no `remote.<n>.vcs` is set, whatever the scope of the setting
+    /// (#350, T5). Fail closed: anything that cannot be checked like git leaves the remote out.
+    ///
+    /// - git applies only the longest matching rewrite; every match is checked here, which can only refuse more. A key
+    ///   without a value counts as an empty prefix, which matches every URL.
+    /// - An empty URL value is refused: on newer git it clears the remote's URL list, and git then reads legacy
+    ///   remote files this inspection does not see.
+    /// - Values are compared as bytes, as git does. The listing decodes invalid UTF-8 lossily, so a value with a
+    ///   replacement character is not checked: such a URL is refused, and such a rewrite refuses every remote.
+    /// - Work is bounded (#262, T15): at most `candidates` × `maximumURLsPerRemote` × `maximumInsteadOfRewrites`
+    ///   checks of at most `maximumCheckedLength` bytes each, plus one pass over the listing.
+    static func builtInRemoteNames(_ listing: ConfigParser.Listing, among candidates: [String]) -> Set<String> {
+        let checked = Set(candidates)
+        var rewrites: [(base: TransportName.ScannedBytes, prefix: [UInt8])] = []
+        var areRewritesCheckable = true
+        var urls: [String: [TransportName.ScannedBytes]] = [:]
         var refused = Set<String>()
-        var tooManyRewrites = false
         for entry in listing.entries {
             switch (entry.section, entry.variable) {
             case ("url", "insteadof"):
-                if rewrites.count < maximumInsteadOfRewrites {
-                    rewrites.append((entry.subsection ?? "", entry.value ?? ""))
+                let base = entry.subsection ?? ""
+                let prefix = entry.value ?? ""
+                if rewrites.count < maximumInsteadOfRewrites, isCheckable(base), isCheckable(prefix) {
+                    rewrites.append((TransportName.ScannedBytes(base), Array(prefix.utf8)))
                 } else {
-                    tooManyRewrites = true
+                    areRewritesCheckable = false
                 }
             case ("remote", "vcs"):
-                if let name = entry.subsection { refused.insert(name) }
+                if let name = entry.subsection, checked.contains(name) { refused.insert(name) }
             case ("remote", "url"):
-                guard let name = entry.subsection, !refused.contains(name) else { continue }
-                if urls[name, default: []].count < maximumURLsPerRemote {
-                    urls[name, default: []].append(entry.value ?? "")
-                } else {
+                guard let name = entry.subsection, checked.contains(name), !refused.contains(name) else { continue }
+                let url = entry.value ?? ""
+                if url.isEmpty || !isCheckable(url) || urls[name, default: []].count >= maximumURLsPerRemote {
                     refused.insert(name)
+                    urls[name] = nil
+                } else {
+                    urls[name, default: []].append(TransportName.ScannedBytes(url))
                 }
             default:
                 continue
             }
         }
+        guard areRewritesCheckable else { return [] }
+        let empty = TransportName.ScannedBytes("")
+        var builtIn = Set<String>()
         for (name, values) in urls where !refused.contains(name) {
-            let isBuiltIn =
-                !tooManyRewrites
-                && values.allSatisfy { url in
-                    TransportName.isBuiltInFetchForm(url)
-                        && rewrites.allSatisfy { rewrite in
-                            // Bytes, as git compares (`String.hasPrefix` follows canonical equivalence).
-                            guard url.utf8.starts(with: rewrite.prefix.utf8) else { return true }
-                            let tail = String(decoding: url.utf8.dropFirst(rewrite.prefix.utf8.count), as: UTF8.self)
-                            return TransportName.isBuiltInFetchForm(rewrite.base + tail)
-                        }
-                }
-            if !isBuiltIn { refused.insert(name) }
+            let isBuiltIn = values.allSatisfy { url in
+                TransportName.isBuiltInFetchForm(empty, url, from: 0)
+                    && rewrites.allSatisfy { rewrite in
+                        !hasPrefix(url.bytes, rewrite.prefix)
+                            || TransportName.isBuiltInFetchForm(rewrite.base, url, from: rewrite.prefix.count)
+                    }
+            }
+            if isBuiltIn { builtIn.insert(name) }
         }
-        return refused
+        return builtIn
+    }
+
+    /// git's `starts_with` on bytes.
+    private static func hasPrefix(_ bytes: [UInt8], _ prefix: [UInt8]) -> Bool {
+        guard !prefix.isEmpty else { return true }
+        guard prefix.count <= bytes.count else { return false }
+        return bytes.withUnsafeBufferPointer { whole in
+            prefix.withUnsafeBufferPointer { start in memcmp(whole.baseAddress, start.baseAddress, prefix.count) == 0 }
+        }
+    }
+
+    /// Short enough to check, and decoded without loss, so its bytes are the ones git compares.
+    private static func isCheckable(_ value: String) -> Bool {
+        value.utf8.count <= maximumCheckedLength && !value.unicodeScalars.contains("\u{FFFD}")
     }
 
     /// Every setting that makes git treat a remote as a promisor, in any scope: `remote.<n>.promisor` set to anything

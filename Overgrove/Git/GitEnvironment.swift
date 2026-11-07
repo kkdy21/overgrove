@@ -16,12 +16,13 @@ struct GitEnvironment: Sendable, Equatable {
         "-c", "core.askPass=",
         "-c", "protocol.ext.allow=never",
         "-c", "protocol.fd.allow=never",
-        // Remote helpers named after the allowed transports resolve only to git's own programs (#350, T5).
+        // Related repository settings are neutralized (#350, T5).
         "-c", "alias.remote-https=",
         "-c", "alias.remote-ssh=",
         "-c", "alias.remote-git=",
         "-c", "alias.remote-file=",
         "-c", "alias.remote-http=",
+        "-c", "help.autocorrect=0",
         "-c", "core.alternateRefsCommand=",
         "-c", "log.showSignature=false",
         "-c", "gc.auto=0",
@@ -38,11 +39,10 @@ struct GitEnvironment: Sendable, Equatable {
         "-c", "i18n.logOutputEncoding=UTF-8",
     ]
 
-    /// The common arguments that neutralize repository settings for remote helpers named after the transports in
-    /// `allowedProtocols` (#350). Part of `commonArguments`; a test keeps the two in step.
-    static let remoteHelperArguments: [String] = allowedProtocols.split(separator: ":").flatMap {
-        ["-c", "alias.remote-\($0)="]
-    }
+    /// The neutralizing arguments of #350: one per allowed transport, and one more. Part of `commonArguments`; a test
+    /// keeps the two in step.
+    static let remoteHelperArguments: [String] =
+        allowedProtocols.split(separator: ":").flatMap { ["-c", "alias.remote-\($0)="] } + ["-c", "help.autocorrect=0"]
 
     /// Fixed search path for the child; the user's shell PATH is never used (SEC-T10-02).
     static let path = "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin"
