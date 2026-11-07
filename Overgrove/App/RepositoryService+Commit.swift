@@ -21,11 +21,12 @@ extension RepositoryService {
 
     /// One file's patch in the commit, against `parent` (the first parent for merges; `nil` for a root commit).
     func commitPatch(
-        _ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath
+        _ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath, originalPath: GitPath? = nil
     ) async -> Result<PatchParser.Listing, GitError> {
         await Self.run(repository, makeContext(repository)) { client, directory, safety in
             let output = try await client.run(
-                .commitPatch(commit, parent: parent, path: path), in: directory, safety: safety)
+                .commitPatch(commit, parent: parent, path: path, originalPath: originalPath), in: directory,
+                safety: safety)
             return try PatchParser.parse(output.stdout, truncated: output.isTruncated)
         }
     }
