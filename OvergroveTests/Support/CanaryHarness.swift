@@ -123,6 +123,19 @@ struct CanaryHarness {
             query(.worktreeDiff(path: GitPath("src/staged-modified.txt"), staged: true), "worktreeDiff staged"),
             query(.untrackedPreview(untracked), "untrackedPreview untracked.txt"),
             query(.fileHistory(path: GitPath("docs/manual.md"), limit: 100), "fileHistory docs/manual.md"),
+            // The merge-base comparison (#157) reads the working tree, so the touched filter targets are re-hashed.
+            query(
+                .compareFiles(base: try ref("refs/remotes/origin/main"), includeWorkingTree: true),
+                "compareFiles origin/main + working tree"),
+            query(
+                .compareFiles(base: try ref("refs/heads/malicious/signed"), includeWorkingTree: false),
+                "compareFiles malicious/signed (committed)"),
+            query(
+                .comparePatch(
+                    base: try ref("refs/remotes/origin/main"), path: GitPath("src/unstaged-modified.txt"),
+                    includeWorkingTree: true),
+                "comparePatch src/unstaged-modified.txt + working tree"),
+            query(.commitsAhead(base: try ref("refs/heads/malicious/signed"), limit: 100), "commitsAhead"),
             Query(kind: .fetch(.fetch(remote: try remote("origin"))), directory: repo, label: "fetch origin"),
         ]
         return queries
@@ -134,6 +147,7 @@ struct CanaryHarness {
     enum CaseName: String, CaseIterable {
         case version, probeRepository, configList, worktreeList, status, refs, aheadBehind, stashList, stashFiles
         case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, untrackedPreview, fileHistory
+        case compareFiles, comparePatch, commitsAhead
     }
 
     static func caseName(_ command: ReadOnlyGitCommand) -> CaseName {
@@ -155,6 +169,9 @@ struct CanaryHarness {
         case .worktreeDiff: .worktreeDiff
         case .untrackedPreview: .untrackedPreview
         case .fileHistory: .fileHistory
+        case .compareFiles: .compareFiles
+        case .comparePatch: .comparePatch
+        case .commitsAhead: .commitsAhead
         }
     }
 

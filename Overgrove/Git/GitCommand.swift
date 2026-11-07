@@ -25,6 +25,14 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// Diff of an untracked file against /dev/null. Only a `WorktreeFile` (checked by `PathValidator`) is accepted.
     case untrackedPreview(WorktreeFile)
     case fileHistory(path: GitPath, limit: Int)
+    /// Files changed in the worktree since it branched off `base` (the merge-base, like a pull request's "Files
+    /// changed", #157). With `includeWorkingTree`, uncommitted tracked changes count too; untracked files come from
+    /// `status`.
+    case compareFiles(base: FullRefName, includeWorkingTree: Bool)
+    /// Patch of one file in the same comparison.
+    case comparePatch(base: FullRefName, path: GitPath, includeWorkingTree: Bool)
+    /// Commits on HEAD that `base` does not have (`<base>..HEAD`), newest first.
+    case commitsAhead(base: FullRefName, limit: Int)
 
     enum Location: Sendable, Equatable {
         /// An app-owned temporary directory outside any repository.
@@ -106,6 +114,26 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .fileHistory(let path, let limit):
             return ["log", "--follow", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit))]
                 + (try Self.pathspec(path))
+        case .compareFiles(let base, let includeWorkingTree):
+            // `--no-abbrev`: `git diff --raw` abbreviates object names, unlike `diff-tree`. `--ignore-submodules=dirty`
+            // (as in status): otherwise git runs `status` inside each submodule, whose own filters were never
+            // inspected (SEC-T4-05). The trailing `--` keeps a file named like the ref from being read as a path.
+            return [
+                "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",
+                "--ignore-submodules=dirty", "--merge-base", "--end-of-options", base.value,
+            ] + (includeWorkingTree ? [] : ["HEAD"]) + ["--"]
+        case .comparePatch(let base, let path, let includeWorkingTree):
+            return [
+                "diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--merge-base",
+                "--end-of-options", base.value,
+            ]
+                + (includeWorkingTree ? [] : ["HEAD"]) + (try Self.pathspec(path))
+        case .commitsAhead(let base, let limit):
+            // `FullRefName` has no `..`, so `<base>..HEAD` is one unambiguous range.
+            return [
+                "log", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit)), "--end-of-options",
+                "\(base.value)..HEAD", "--",
+            ]
         }
     }
 
@@ -122,7 +150,8 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         switch self {
         case .version: .neutral
         case .probeRepository: .registeredPath
-        case .status, .worktreeDiff, .untrackedPreview, .fileHistory: .worktree
+        case .status, .worktreeDiff, .untrackedPreview, .fileHistory, .compareFiles, .comparePatch, .commitsAhead:
+            .worktree
         default: .repository
         }
     }
