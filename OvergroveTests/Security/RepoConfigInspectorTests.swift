@@ -169,7 +169,15 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertTrue(inspect([entry(.global, "remote.origin.promisor", "yes")]).isPartialClone, "any scope")
         XCTAssertTrue(inspect([entry(.local, "extensions.partialclone", "origin")]).isPartialClone)
         XCTAssertFalse(inspect([entry(.local, "remote.origin.promisor", "false")]).isPartialClone)
-        XCTAssertFalse(inspect([entry(.local, "extensions.partialclone", "")]).isPartialClone)
+        // git registers a promisor remote for a filter alone, and for an empty extensions.partialclone (#317).
+        XCTAssertTrue(inspect([entry(.local, "remote.origin.partialclonefilter", "blob:limit=1m")]).isPartialClone)
+        XCTAssertTrue(inspect([entry(.global, "remote.other.partialclonefilter", nil)]).isPartialClone, "any value")
+        XCTAssertTrue(
+            inspect([
+                entry(.local, "remote.origin.promisor", "false"), entry(.local, "remote.origin.partialclonefilter", ""),
+            ]).isPartialClone, "a filter makes the remote a promisor even when promisor is false")
+        XCTAssertTrue(inspect([entry(.local, "extensions.partialclone", "")]).isPartialClone)
+        XCTAssertTrue(inspect([entry(.local, "extensions.partialclone", nil)]).isPartialClone)
         XCTAssertEqual(
             inspect([entry(.local, "remote.origin.promisor", "true")]).safetyContext?.isPartialClone, true)
     }

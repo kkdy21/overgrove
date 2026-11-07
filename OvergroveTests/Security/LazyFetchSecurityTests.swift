@@ -226,14 +226,24 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
     /// A fresh partial clone of "one" (promisor, no filter, local uploadpack canary). On the remote, "two" (branch
     /// `next`) stores its blob as a delta against the blob the clone lacks. Every fetch attempt gets its own clone: a failed fetch can leave the
     /// commit and tree behind, and the next fetch would then finish without resolving the delta at all.
-    private func freshPartialClone(_ name: String, unpackLimit: String?) async throws -> PartialClone {
+    private func freshPartialClone(
+        _ name: String, unpackLimit: String?, filterOnly: Bool = false
+    ) async throws -> PartialClone {
         let clone = executables.directory.appendingPathComponent(name, isDirectory: true)
         try await source.git([
             "clone", "-q", "--filter=blob:none", "--no-checkout", "--single-branch", "--branch", "main",
             "file://" + bare.path, clone.path,
         ])
         let repository = GitTestRepository(root: clone, environment: source.environment)
-        try await repository.git(["config", "--unset", "remote.origin.partialclonefilter"])
+        if filterOnly {
+            // No promisor key: a filter alone makes git treat the remote as a promisor (#317). A filter that sends
+            // blobs lets the new blob arrive as a delta.
+            try await repository.git(["config", "--unset", "remote.origin.promisor"])
+            try await repository.git(["config", "--unset-all", "extensions.partialclone"], allowFailure: true)
+            try await repository.git(["config", "remote.origin.partialclonefilter", "blob:limit=1m"])
+        } else {
+            try await repository.git(["config", "--unset", "remote.origin.partialclonefilter"])
+        }
         if let unpackLimit { try await repository.git(["config", "fetch.unpackLimit", unpackLimit]) }
         let uploadPack = try executables.canaryProgram(named: "uploadpack", canary: canary)
         try await repository.git(["config", "remote.origin.uploadpack", uploadPack.path])
@@ -285,8 +295,10 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
     }
 
     /// Control on one fresh clone, the app's fetch on another.
-    private func assertFetchRunsNoUploadPack(unpackLimit: String?, path: String) async throws {
-        let control = try await freshPartialClone("control", unpackLimit: unpackLimit)
+    private func assertFetchRunsNoUploadPack(
+        unpackLimit: String?, path: String, filterOnly: Bool = false
+    ) async throws {
+        let control = try await freshPartialClone("control", unpackLimit: unpackLimit, filterOnly: filterOnly)
         let result = try await fetchWithoutLazyFetchControl(control)
         XCTAssertEqual(canaries(), ["uploadpack"], "control (\(path)): the fetch must lazy-fetch")
         XCTAssertNotEqual(result.termination, .exited(code: 0), "control (\(path)) cannot finish the fetch")
@@ -294,7 +306,7 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
         XCTAssertEqual(afterControl, control.before, "control (\(path)) leaves the repository as it was")
         try clearCanaries()
 
-        let app = try await freshPartialClone("app", unpackLimit: unpackLimit)
+        let app = try await freshPartialClone("app", unpackLimit: unpackLimit, filterOnly: filterOnly)
         let version = app.git.environment.version
         do {
             _ = try await GitClient(environment: app.git.environment).fetch(
@@ -326,6 +338,77 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
     /// another way.
     func testSECT5_17_FetchRunsNoRepositoryUploadPack_indexPack() async throws {
         try await assertFetchRunsNoUploadPack(unpackLimit: "1", path: "index-pack")
+    }
+
+    /// #317: a clone whose remote is a promisor only through its filter is a partial clone too.
+    func testSECT5_17_FetchRunsNoRepositoryUploadPack_filterOnly() async throws {
+        try await assertFetchRunsNoUploadPack(unpackLimit: nil, path: "filter only, unpack-objects", filterOnly: true)
+        try clearCanaries()
+        for name in ["control", "app"] {
+            try FileManager.default.removeItem(at: executables.directory.appendingPathComponent(name))
+        }
+        try await assertFetchRunsNoUploadPack(unpackLimit: "1", path: "filter only, index-pack", filterOnly: true)
+    }
+
+    /// #317, defense in depth: a `.promisor` pack marks a partial clone even when no setting git reads names a promisor
+    /// remote, so the gate does not depend only on following git's list of promisor settings.
+    func testSECT5_17_PromisorPackAloneClosesTheGate() async throws {
+        let plain = try await GitTestRepository.make()
+        defer { plain.remove() }
+        try plain.write("a.txt", "a\n")
+        try await plain.git(["add", "a.txt"])
+        try await plain.git(["commit", "-q", "-m", "one"])
+        let repository = Repository(
+            rootURL: plain.root, commonGitDirectoryURL: plain.root.appendingPathComponent(".git"), isBare: false)
+        let listing = try await GitClient(environment: plain.environment)
+            .run(.configList, in: plain.root, safety: .preInspection)
+        let safety = try XCTUnwrap(RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
+        XCTAssertFalse(safety.isPartialClone, "no promisor setting")
+        XCTAssertFalse(GitClient.hasPromisorPack(commonDirectory: repository.commonGitDirectoryURL))
+
+        let pack = repository.commonGitDirectoryURL.appendingPathComponent("objects/pack", isDirectory: true)
+        try FileManager.default.createDirectory(at: pack, withIntermediateDirectories: true)
+        try Data().write(to: pack.appendingPathComponent("pack-\(String(repeating: "0", count: 40)).promisor"))
+        XCTAssertTrue(GitClient.hasPromisorPack(commonDirectory: repository.commonGitDirectoryURL))
+
+        let old = GitEnvironment(
+            executable: plain.environment.executable, version: GitVersion(major: 2, minor: 45, patch: 0))
+        do {
+            _ = try await GitClient(environment: old).fetch(fetch, in: repository, safety: safety)
+            XCTFail("a promisor pack must close the gate on git 2.45.0")
+        } catch let error as GitError {
+            guard case .configInspectionFailed(let reason) = error else { return XCTFail("got \(error)") }
+            XCTAssertTrue(reason.contains("partial clone"), reason)
+        }
+    }
+
+    /// What cannot be listed without following a link, or past the scan limit, counts as a promisor pack (fail closed).
+    func testPromisorPackScanFailsClosed() throws {
+        let root = executables.directory.appendingPathComponent("scan", isDirectory: true)
+        let elsewhere = executables.directory.appendingPathComponent("elsewhere", isDirectory: true)
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true)
+
+        XCTAssertFalse(
+            GitClient.hasPromisorPack(commonDirectory: root), "no objects directory: nothing to fetch lazily")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("objects"), withDestinationURL: elsewhere)
+        XCTAssertTrue(GitClient.hasPromisorPack(commonDirectory: root), "a linked objects directory is not followed")
+
+        try FileManager.default.removeItem(at: root.appendingPathComponent("objects"))
+        let objects = root.appendingPathComponent("objects", isDirectory: true)
+        try FileManager.default.createDirectory(at: objects, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(
+            at: objects.appendingPathComponent("pack"), withDestinationURL: elsewhere)
+        XCTAssertTrue(GitClient.hasPromisorPack(commonDirectory: root), "a linked pack directory is not followed")
+
+        try FileManager.default.removeItem(at: objects.appendingPathComponent("pack"))
+        let pack = objects.appendingPathComponent("pack", isDirectory: true)
+        try FileManager.default.createDirectory(at: pack, withIntermediateDirectories: true)
+        try Data().write(to: pack.appendingPathComponent("pack-a.pack"))
+        try Data().write(to: pack.appendingPathComponent("pack-a.idx"))
+        XCTAssertFalse(GitClient.hasPromisorPack(commonDirectory: root))
+        XCTAssertTrue(GitClient.hasPromisorPack(commonDirectory: root, scanLimit: 1), "past the scan limit")
     }
 
     /// The May 2024 security releases made GIT_NO_LAZY_FETCH stop this lazy fetch: 2.45.1 and 2.44.1, with backports
