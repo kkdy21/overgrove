@@ -21,7 +21,8 @@ final class SECT10EnvironmentTests: XCTestCase {
     private var canary: URL!
 
     private let inspected = RepoSafetyContext(
-        inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
+        inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil,
+        fetchableRemotes: ["origin", "unreachable"])
 
     override func setUp() async throws {
         executables = try TestExecutables()

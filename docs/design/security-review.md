@@ -127,6 +127,8 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **fetch 중의 lazy fetch(#213 보안 검토)**: fetch도 받은 객체가 로컬에 없는 blob을 delta base로 쓰면 lazy fetch를 하며, 이때는 고정한 `--upload-pack`이 적용되지 않아 로컬 uploadpack이 실행된다(filter 설정 없이 promisor만 있는 저장소, 실측). `GIT_NO_LAZY_FETCH`를 지원하는 git은 이것으로 막혀 fetch가 안전하게 실패한다. **`lazyFetchControlVersion`(2.45.1) 미만에서는 partial clone의 fetch를 거부한다**(`configInspectionFailed`). partial clone 판정은 두 신호 중 하나다. ① git이 원격을 promisor로 다루게 하는 설정 전부: 어느 scope든 `remote.<n>.promisor`, `remote.<n>.partialclonefilter`(값 무관), `extensions.partialclone`(빈 값 포함)(`RepoSafetyContext.isPartialClone`). ② 독립 신호로, 공통 git 디렉터리의 `objects/pack`에 `.promisor` 파일이 있는 경우(`GitClient.hasPromisorPack`). ②는 이름만 읽고 링크는 따라가지 않는다. 링크, 읽을 수 없는 폴더, 폴더가 아닌 것, 스캔 상한 초과처럼 판단할 수 없으면 partial clone으로 본다. 폴더가 없을 때만 pack이 없다고 본다. 설정 목록이 git 내부를 따라가는 방식이라 빠질 수 있어서 둔 심층 방어다(#317). 기준은 원래 2.44.0이었다. 하지만 2.44.0과 2.45.0은 보안 릴리스보다 먼저 나와 fetch 중의 lazy fetch를 막지 못한다. 그래서 기준을 2.45.1로 고쳤다(#317, SEC-T5-18). 같은 이슈에서 git이 promisor로 다루는 설정 키 하나가 판정에서 빠져 있던 것도 고쳤다(①). 버전 비교라서 고쳐진 2.44.1과 백포트된 2.39.4–2.43.x도 거부하는데, 안전한 쪽으로 남긴 것이다.
   - 대가: 사용자가 직접 만든 partial clone에서 누락 객체가 필요한 조회(과거 커밋 diff, `fileHistory`)는 실패한다. partial 서브모듈이 있는 상위 저장소의 status도 실패할 수 있다(실측). 안전한 방향의 실패이고 메시지로 알린다.
   - **공통 인자 `-c protocol.ext.allow=never -c protocol.fd.allow=never`**: `ext::`와 `insteadOf` 바꿔치기, `fd::` 차단 (확인). `GIT_ALLOW_PROTOCOL`과 겹치지만 심층 방어로 유지한다.
+  - **fetch 전 원격 형태 검사(#350)**: 내장 전송(https, ssh, git, file) 형태가 아닌 원격은 fetch 전에 거부한다. `<이름>::<주소>` URL, git이 직접 처리하지 않거나 대소문자가 다른 `<scheme>://`, `remote.<n>.vcs`, `insteadOf`로 바꾼 결과가 내장 형태가 아닌 URL이 해당한다. 검사는 `RepoConfigInspector`가 하고 `GitClient.fetch`가 통과한 원격만 실행한다(`fetchableRemotes`, 기본값은 비어 있음). 상세 규칙은 [git-command-catalog.md §4](../architecture/git-command-catalog.md#4-fetchcommand).
+  - **공통 인자 `-c alias.remote-<이름>=`(허용 목록의 전송 이름마다, #350)**: 관련 저장소 설정을 무력화하는 심층 방어. 원격 형태 검사를 거치지 않고 fetch가 시작되더라도 효과가 있다(확인: git 2.36.6, Apple Git 2.54.0, Homebrew 2.54.0).
   - **공통 인자 `-c core.alternateRefsCommand=`(빈 값)**: alternates 경로 무력화. 빈 값이어도 fetch는 성공한다 (확인).
   - fetch는 `--no-recurse-submodules`로 서브모듈 원격에 연결하지 않는다.
 - **잔여 위험**:
@@ -138,7 +140,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
     - 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan … | ssh-keygen -lf -`, `ssh-keygen -F`)만 제시한다.
     - 남는 위험: `.git/hooks`는 설정 보고에 나오지 않으므로, 보고가 깨끗해도 터미널 git이 hook을 실행할 수 있다. 안내 문구가 이를 경고한다.
     - 두 번째 경로는 느린 status 안내(`SlowStatusHint`, #168)다. 저장소가 status를 일부러 느리게 만들어 안내를 띄울 수 있고, 권하는 `git status`는 index를 다시 써서 `post-index-change` hook을 실행할 수 있다. 그래서 설정 보고에 항목이 없고 **S-05의 hook 검사(`hookExecutables`)가 비어 있을 때만** 복사용 명령을 제시한다. 검사 결과가 없으면(상태바) 명령을 제시하지 않는다. 문구는 FetchFailureGuidance처럼 hook과 설정을 경고한다(SEC-T5-17). pager·editor·`!` alias는 #278부터 보고에 나온다.
-- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-17 (느린 status 안내는 설정 보고에 항목이 없고 hook 실행 파일이 없을 때만 `git status`를 제시하고, 항목·hook이 있거나 검사 결과가 없으면 명령이 없음, #168), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행), SEC-T5-18 (partial clone fetch: `lazyFetchControlVersion` 경계 2.45.0 거부·2.45.1 허용, 두 가지 pack 처리 경로와 promisor 설정 두 종류에서 앱 fetch 뒤 canary 없음, 대조군은 실행하되 저장소는 그대로. 설정이 없어도 `.promisor` pack이 있으면 거부, 판단할 수 없는 pack 폴더는 fail closed. `OVERGROVE_TEST_GIT`로 git 2.36·2.44.0·2.45.0을 주면 거부 경로를 실제 git으로 확인한다)
+- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-17 (느린 status 안내는 설정 보고에 항목이 없고 hook 실행 파일이 없을 때만 `git status`를 제시하고, 항목·hook이 있거나 검사 결과가 없으면 명령이 없음, #168), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행), SEC-T5-20 (내장 전송 형태가 아닌 원격: `<이름>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기를 앱 fetch가 git 실행 전에 거부하고 canary 없음, 대조군은 실행. `RepositoryService`는 원격별 실패로 보고, #350), SEC-T5-21 (원격 형태 검사를 우회해도 공통 인자만으로 canary 없음, 대조군은 실행, #350. 두 테스트 모두 git 2.36.6·Apple Git·Homebrew git에서 확인), SEC-T5-18 (partial clone fetch: `lazyFetchControlVersion` 경계 2.45.0 거부·2.45.1 허용, 두 가지 pack 처리 경로와 promisor 설정 두 종류에서 앱 fetch 뒤 canary 없음, 대조군은 실행하되 저장소는 그대로. 설정이 없어도 `.promisor` pack이 있으면 거부, 판단할 수 없는 pack 폴더는 fail closed. `OVERGROVE_TEST_GIT`로 git 2.36·2.44.0·2.45.0을 주면 거부 경로를 실제 git으로 확인한다)
 - **상태**: 설계 완료
 
 ### T6. 저장소 로컬 `credential.helper` 실행
@@ -379,6 +381,11 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 -c core.askPass=
 -c protocol.ext.allow=never
 -c protocol.fd.allow=never
+-c alias.remote-https=
+-c alias.remote-ssh=
+-c alias.remote-git=
+-c alias.remote-file=
+-c alias.remote-http=
 -c core.alternateRefsCommand=
 -c log.showSignature=false
 -c gc.auto=0

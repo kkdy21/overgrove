@@ -42,6 +42,7 @@
 | `-c core.askPass=` | 로컬 `core.askPass` 실행 방지 (확인) | T12 |
 | `-c protocol.ext.allow=never` | `ext::` 원격과 `insteadOf`로 바꿔치기한 `ext::` 차단 (확인). `GIT_ALLOW_PROTOCOL`(§2.4)과 겹치는 심층 방어 | T5 |
 | `-c protocol.fd.allow=never` | `fd::` 원격 차단. 기본값에서는 허용되고 정지를 일으킴 (확인) | T5, T15 |
+| `-c alias.remote-https= -c alias.remote-ssh= -c alias.remote-git= -c alias.remote-file= -c alias.remote-http=` | `GIT_ALLOW_PROTOCOL`(§2.4)이 허용하는 전송 이름의 원격 helper에 관한 저장소 설정 무력화. fetch 전 원격 형태 검사(§4)와 겹치는 심층 방어 (#350, git 2.36.6·Apple Git 2.54.0·Homebrew 2.54.0 확인) | T5 |
 | `-c core.alternateRefsCommand=` | `objects/info/alternates`가 있는 저장소를 fetch할 때 로컬 `core.alternateRefsCommand`가 실행되는 것을 막음. 빈 값으로 덮어도 fetch는 성공 (확인: [fixtures.md §8](../testing/fixtures.md)) | T5 |
 | `-c log.showSignature=false` | 로컬 `log.showSignature=true`로 인한 `gpg.program` 실행 방지 (확인) | T7 |
 | `-c gc.auto=0` | 자동 gc 방지 | T8 |
@@ -198,6 +199,11 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 - `--progress`의 stderr 진행 메시지(`Receiving objects:  45% (...)`)는 `LC_ALL=C`에서 영어로 고정된다. git이 실행되는 동안 `FetchProgressParser`가 읽어 진행률로 쓰고, 파싱에 실패하면 무시한다([parsing-spec.md §11.4](parsing-spec.md)). `remote:` 줄은 서버가 쓰므로 단계와 숫자만 꺼내고 문자열은 넘기지 않는다.
 - 실행 방식(`GitClient.fetch`, #76): 저장소당 하나씩(`Repository.id` 기준) 요청 순서대로, 앱 전체에서 동시에 최대 2개. 조회 슬롯(4개)과 따로 센다. Task를 취소하면 프로세스 그룹을 종료하고(SIGTERM → 2초 → SIGKILL) `GitError.cancelled`, 120초가 지나면 `GitError.timeout`을 던진다.
 - 원격 이름은 `configList`에서 얻은 값만 쓴다. `[A-Za-z0-9._/-]{1,100}` 형식이고 `-`로 시작하지 않아야 한다.
+- **내장 전송 형태의 원격만 fetch한다(#350).** `RepoConfigInspector`가 원격마다 형태를 검사하고, `GitClient.fetch`는 검사를 통과한 원격(`RepoSafetyContext.fetchableRemotes`)이 아니면 git을 실행하기 전에 `configInspectionFailed`로 거부한다. 검사에서 빠진 원격(`remote.<n>.url`이 없거나 `maximumRemotes`를 넘은 것)도 거부한다.
+  - 내장 형태: `https`·`http`·`ssh`·`git`·`file`·`git+ssh`·`ssh+git`의 `<scheme>://`(git처럼 대소문자 구분), scp 형식 주소, 경로(`TransportName.isBuiltInFetchForm`, git의 transport.c와 같은 규칙으로 바이트 단위 비교).
+  - 거부: `<이름>::<주소>` 형식 전부(빈 이름 포함), 그 밖의 scheme, `ftp(s)`, 어느 scope든 `remote.<n>.vcs`(빈 값 포함), `url.<base>.insteadOf`로 바꾸면 내장 형태가 아닌 URL. 원격의 URL 값은 첫 값만이 아니라 전부 검사하고, 바꾸기 규칙은 git이 고르는 가장 긴 것만이 아니라 맞는 것 전부를 검사한다(더 많이 거부할 뿐이다). 값 없는 `insteadOf` 키는 빈 접두사로 보고 모든 URL에 맞춘다.
+  - 상한(T15): 바꾸기 규칙이 `maximumInsteadOfRewrites`(256)를 넘으면 모든 원격, URL이 `maximumURLsPerRemote`(16)를 넘는 원격은 fetch하지 않는다. 조회는 계속한다.
+  - `GIT_ALLOW_PROTOCOL`(§2.4)과 공통 인자(§2.1)가 그 아래 층으로 남는다.
 
 ---
 
