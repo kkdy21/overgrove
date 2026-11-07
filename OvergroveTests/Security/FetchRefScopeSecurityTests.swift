@@ -101,7 +101,8 @@ final class FetchRefScopeSecurityTests: XCTestCase {
             ProcessRequest(
                 executable: local.environment.executable,
                 arguments: local.environment.arguments(for: unpinned, fetchAuthentication: safety.fetchAuthentication),
-                environment: GitEnvironment.environment(parent: [:]), currentDirectory: local.root, limits: .fetch))
+                environment: GitEnvironment.environment(parent: [:], allowsTransport: true),
+                currentDirectory: local.root, limits: .fetch))
         let control = try await localRefs()
         XCTAssertFalse(control.contains { $0.hasPrefix("refs/heads/local-only-1 ") }, "control: branch deleted")
         XCTAssertFalse(control.contains { $0.hasPrefix("refs/tags/local-tag ") }, "control: tag pruned")

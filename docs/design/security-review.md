@@ -115,7 +115,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **환경 변수 `GIT_PROXY_COMMAND=`(빈 값)**: 로컬 `core.gitProxy` 무력화 (확인).
   - **`fetch --upload-pack=git-upload-pack`**: 로컬 uploadpack 무력화 (확인).
   - **환경 변수 `GIT_ALLOW_PROTOCOL=https:ssh:git:file:http`**: 내장 전송만 허용한다. `protocol.allow=never`에 목록의 전송만 `always`로 둔 것처럼 동작하고, 저장소의 `protocol.<이름>.allow=always`를 포함한 모든 설정보다 우선한다. 저장소가 고른 원격 helper(`<helper>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기)는 `transport '<이름>' not allowed`로 실행 전에 거부된다 (확인, E34–E38). 거부는 `GitError.transportNotAllowed`로 분류해 이유를 보여 준다.
-  - **조회는 전송을 쓰지 않는다(#212)**: `GitClient.run`의 환경은 `GIT_ALLOW_PROTOCOL=`(빈 값)이다. 빈 목록은 모든 전송을 원격 helper·uploadpack·credential helper 실행 전에 거부한다(`transport 'file' not allowed`, 확인 E42). git의 protocol policy(2.12+)라서 최소 지원 2.36부터 모든 버전에 적용된다(소스 기준, 2.36–2.43은 직접 실행하지 못함). 모든 명령에 `GIT_NO_LAZY_FETCH=1`(2.44+, 그 전에는 무시됨)을 두 번째 층으로 둔다. `-c remote.<n>.promisor=false`와 `-c remote.<n>.uploadpack=…`로는 막히지 않는다(로컬 값이 이김, 확인). fetch만 `https:ssh:git:file:http` 목록을 쓴다.
+  - **조회는 전송을 쓰지 않는다(#212)**: `GitClient.run`의 환경은 `GIT_ALLOW_PROTOCOL=`(빈 값)이다. 이것이 `GitEnvironment.environment`의 기본값이고, 전송은 `GitClient.fetch`만 `allowsTransport: true`로 연다(#215). 빈 목록은 모든 전송을 원격 helper·uploadpack·credential helper 실행 전에 거부한다(`transport 'file' not allowed`, 확인 E42). git의 protocol policy(2.12+)라서 최소 지원 2.36부터 모든 버전에 적용된다(소스 기준, 2.36–2.43은 직접 실행하지 못함). 모든 명령에 `GIT_NO_LAZY_FETCH=1`(2.44+, 그 전에는 무시됨)을 두 번째 층으로 둔다. `-c remote.<n>.promisor=false`와 `-c remote.<n>.uploadpack=…`로는 막히지 않는다(로컬 값이 이김, 확인). fetch만 `https:ssh:git:file:http` 목록을 쓴다.
   - **fetch 중의 lazy fetch(#213 보안 검토)**: fetch도 받은 객체가 로컬에 없는 blob을 delta base로 쓰면 lazy fetch를 하며, 이때는 고정한 `--upload-pack`이 적용되지 않아 로컬 uploadpack이 실행된다(filter 설정 없이 promisor만 있는 저장소, 실측). git 2.44+는 `GIT_NO_LAZY_FETCH`로 막혀 fetch가 안전하게 실패한다. **2.44 미만에서는 partial clone(어느 scope든 `remote.<n>.promisor`·`extensions.partialclone`)의 fetch를 거부한다**(`RepoSafetyContext.isPartialClone`, `configInspectionFailed`).
   - 대가: 사용자가 직접 만든 partial clone에서 누락 객체가 필요한 조회(과거 커밋 diff, `fileHistory`)는 실패한다. partial 서브모듈이 있는 상위 저장소의 status도 실패할 수 있다(실측). 안전한 방향의 실패이고 메시지로 알린다.
   - **공통 인자 `-c protocol.ext.allow=never -c protocol.fd.allow=never`**: `ext::`와 `insteadOf` 바꿔치기, `fd::` 차단 (확인). `GIT_ALLOW_PROTOCOL`과 겹치지만 심층 방어로 유지한다.
@@ -358,7 +358,7 @@ fetch에는 `--no-recurse-submodules --upload-pack=git-upload-pack`을 붙인다
 | `GIT_PAGER`, `PAGER` | `cat` |
 | `GIT_ASKPASS`, `SSH_ASKPASS` | 빈 문자열 |
 | `GIT_PROXY_COMMAND` | 빈 문자열 |
-| `GIT_ALLOW_PROTOCOL` | fetch: `https:ssh:git:file:http` (내장 전송만). 조회: 빈 값(전송 없음, lazy fetch 차단, #212). 부모 값은 무시 |
+| `GIT_ALLOW_PROTOCOL` | 기본·조회: 빈 값(전송 없음, lazy fetch 차단, #212). fetch만 명시적으로 `https:ssh:git:file:http`(내장 전송만). 기본값이 "전송 없음"이라 고르지 않은 호출부는 네트워크를 쓰지 못한다(#215). 부모 값은 무시 |
 | `GIT_NO_LAZY_FETCH` | `1` (모든 명령, git 2.44+에서 promisor lazy fetch 금지, #212) |
 | `GIT_SSH_COMMAND` | 신뢰 scope `core.sshCommand` 또는 `ssh -o BatchMode=yes` |
 | `PATH` | `/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin` |

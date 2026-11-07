@@ -128,7 +128,7 @@ final class SECT10EnvironmentTests: XCTestCase {
         let fetch = FetchCommand.fetch(remote: RemoteName("origin")!)
 
         // Control: with that PATH in the child, git runs the fake ssh, so the canary is reachable.
-        var leaky = GitEnvironment.environment(parent: [:])
+        var leaky = GitEnvironment.environment(parent: [:], allowsTransport: true)
         leaky["PATH"] = bin.path + ":" + GitEnvironment.path
         _ = try await ProcessRunner().run(
             ProcessRequest(
