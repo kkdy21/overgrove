@@ -120,7 +120,8 @@ v0.1.0을 앞두고 fetch 경로에서 출시 전 결함이 연달아 나왔다(
 | 2.48 | `remote.<n>.serverOption` | 저장소가 정한 문자열을 그 원격 서버로 보냄 | fetch | 같은 서버로만 감. 조치 불필요 |
 | 2.46 | `http.proactiveAuth` | 401 없이 자격 증명 전송 | fetch | 같은 호스트로만 감. 프록시와 겹치는 부분은 #355 |
 | 2.54 | 설정형 hook, `reference-transaction`의 preparing 단계 | 실행 | fetch | #354 |
-| 2.42·2.41·2.49 등 | `gc.recentObjectsHook`, `sendemail.headerCmd`, `mergetool/difftool.guiDefault`, `help.autoCorrect` | 실행 | 터미널에서만 | Terminal 가드(T14) 범위. 별도 조치 없음 |
+| 2.49 | `help.autoCorrect` | 실행 | fetch 경로와 터미널 | fetch 경로는 #350(#351)에서 `-c help.autocorrect=0`으로 무력화. 그 밖은 Terminal 가드(T14) 범위 |
+| 2.42·2.41 등 | `gc.recentObjectsHook`, `sendemail.headerCmd`, `mergetool/difftool.guiDefault` | 실행 | 터미널에서만 | Terminal 가드(T14) 범위. `gc.recentObjectsHook`은 #356에서 검사 목록에 추가 |
 
 ## 7. 독립 점검 (security-reviewer)
 
