@@ -268,6 +268,41 @@ final class NumstatParserTests: XCTestCase {
         assertCommitFails(unexpectedRename, reason: "numstat record does not match raw record")
     }
 
+    // MARK: - PAR-NUMSTAT-07 working-tree records numstat leaves out (#305)
+
+    /// Real output (Apple Git 2.50.1) of `git -c diff.autoRefreshIndex=false diff -z --raw --numstat -M --no-abbrev
+    /// main` with `same.txt` only touched (content unchanged, index not racy) and `edit.txt` edited. git lists the
+    /// stat-dirty file in `--raw` with a zero working-tree object name, then finds no change and prints no numstat for
+    /// it. Compare with base (S-11) failed on any such file.
+    func testPARNUMSTAT07_StatDirtyWorkingTreeFileWithoutNumstatIsDropped() throws {
+        let input = data(
+            ":100644 100644 61780798228d17af2d34fce4cfbdf35556832472 \(zeroOID) M\u{0}edit.txt\u{0}"
+                + ":100644 100644 78981922613b2afb6025042ff6bd878ac1994e85 \(zeroOID) M\u{0}same.txt\u{0}"
+                + "1\t0\tedit.txt\u{0}")
+        let files = try NumstatParser.parseCommitFiles(input).files
+        XCTAssertEqual(paths(files), ["edit.txt"], "the unchanged file is not a change")
+        XCTAssertEqual(try file("edit.txt", in: files).added, 1)
+    }
+
+    func testPARNUMSTAT07_StatDirtyRecordsAnywhereAreDropped() throws {
+        let worktree = "\(blobA) \(zeroOID)"
+        let input = data(
+            raw("M", "a", oids: worktree) + raw("M", "b") + raw("M", "c", oids: worktree)
+                + raw("M", "d", oids: worktree)
+                + numstat("1", "0", "b") + numstat("2", "1", "c"))
+        let files = try NumstatParser.parseCommitFiles(input).files
+        XCTAssertEqual(paths(files), ["b", "c"])
+    }
+
+    /// Only a working-tree record (zero destination object name) may go without numstat; a commit's records never do.
+    func testPARNUMSTAT07_CommitRecordsStillNeedNumstat() {
+        let input = data(raw("M", "a") + raw("M", "b") + numstat("1", "0", "b"))
+        assertCommitFails(
+            input, reason: "numstat record does not match raw record", offset: 2 * raw("M", "a").utf8.count)
+        let trailing = data(raw("M", "a") + raw("M", "b") + numstat("1", "0", "a"))
+        assertCommitFails(trailing, reason: "raw record without numstat record", offset: raw("M", "a").utf8.count)
+    }
+
     func testPARNUMSTAT04_DuplicatePathFails() {
         let input = data(raw("M", "a") + raw("M", "a") + numstat("1", "0", "a") + numstat("1", "0", "a"))
         assertCommitFails(input, reason: "duplicate path", offset: raw("M", "a").utf8.count)
