@@ -14,6 +14,8 @@ struct MainToolbar: ToolbarContent {
     let focusedWorktree: FocusedWorktree?
     let isSidebarCollapsed: Bool
     let toggleSidebar: () -> Void
+    /// ⌘R; `nil` (disabled) without a repository.
+    var refresh: (() -> Void)?
     /// Compare with base (`⌘⇧B`, #158); `nil` disables the button.
     var onCompare: (() -> Void)?
 
@@ -51,7 +53,9 @@ struct MainToolbar: ToolbarContent {
                         )
                         .keyboardShortcut("b", modifiers: [.command, .shift])
                     } else {
-                        ToolbarActionButton(title: action.title, symbol: action.symbol, help: action.help)
+                        ToolbarActionButton(
+                            title: action.title, symbol: action.symbol, help: action.help,
+                            action: action == .refresh ? refresh : nil)
                     }
                 }
             }
@@ -106,7 +110,6 @@ enum ToolbarAction: CaseIterable, Hashable {
         switch self {
         // TODO(#77): fetch all remotes; becomes Stop while running.
         case .fetch: "Fetch all remotes (⌘⇧R)"
-        // TODO(#65): reload local git data, no network.
         case .refresh: "Refresh local data (⌘R)"
         case .compare: "Compare with base branch (⌘⇧B)"
         // TODO(#73): Open in Terminal / Reveal in Finder for the focused worktree (interaction.md §5 rules).

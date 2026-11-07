@@ -166,12 +166,17 @@ private struct RepositoryActionsKey: FocusedValueKey {
     typealias Value = FocusedRepositoryActions
 }
 
-/// The focused window's Add Repository… for the File menu.
+/// The focused window's Add Repository… (File menu) and Refresh (View menu).
 struct FocusedRepositoryActions: Equatable {
     let isAdding: Bool
     let add: @MainActor () -> Void
+    /// Whether a repository is open, so Refresh has something to do.
+    var canRefresh = false
+    var refresh: @MainActor () -> Void = {}
 
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.isAdding == rhs.isAdding }
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.isAdding == rhs.isAdding && lhs.canRefresh == rhs.canRefresh
+    }
 }
 
 extension FocusedValues {
@@ -181,7 +186,8 @@ extension FocusedValues {
     }
 }
 
-/// File › Add Repository… `⌘O` (interaction.md §3, the standard Open shortcut).
+/// File › Add Repository… `⌘O` (interaction.md §3, the standard Open shortcut) and View › Refresh `⌘R` (local git
+/// queries only, no network; #243).
 struct RepositoryCommands: Commands {
     @FocusedValue(\.repositoryActions) private var actions
 
@@ -190,6 +196,12 @@ struct RepositoryCommands: Commands {
             Button("Add Repository…") { actions?.add() }
                 .keyboardShortcut("o", modifiers: .command)
                 .disabled(actions == nil || actions?.isAdding == true)
+        }
+        CommandGroup(before: .sidebar) {
+            Button("Refresh") { actions?.refresh() }
+                .keyboardShortcut("r", modifiers: .command)
+                .disabled(actions?.canRefresh != true)
+            Divider()
         }
     }
 }

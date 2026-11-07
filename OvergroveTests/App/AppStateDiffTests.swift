@@ -119,7 +119,9 @@ final class AppStateDiffTests: XCTestCase {
         state.selectFile(FileSelection(worktree: feature, group: .staged, path: GitPath("staged0.swift")))
         state.selectFile(FileSelection(worktree: feature, group: .staged, path: GitPath("staged1.swift")))
         await state.diffTask?.value
-        XCTAssertEqual(loader.requests.last?.0.path, GitPath("staged1.swift"))
+        // Both loads may run; each records itself off the main actor, so the recording order is not defined. What
+        // matters is that the second file was asked for and that only its diff is shown.
+        XCTAssertTrue(loader.requests.contains { $0.0.path == GitPath("staged1.swift") })
         guard case .loaded(let document) = state.diffState else { return XCTFail("not loaded") }
         XCTAssertEqual(document.title, "staged1.swift")
     }
