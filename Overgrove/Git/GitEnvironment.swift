@@ -23,6 +23,10 @@ struct GitEnvironment: Sendable, Equatable {
         // `git diff` refreshes and rewrites the index for stat-dirty paths despite --no-optional-locks (#208).
         "-c", "diff.autoRefreshIndex=false",
         "-c", "color.ui=never",
+        // A repository's i18n.logOutputEncoding or i18n.commitEncoding re-encodes the whole formatted output, `-z`
+        // separators included, and some encodings (JOHAB, CP1361) turn message text into NUL bytes that shift fields
+        // (#205). Pinning the output to UTF-8 overrides both.
+        "-c", "i18n.logOutputEncoding=UTF-8",
     ]
 
     /// Fixed search path for the child; the user's shell PATH is never used (SEC-T10-02).

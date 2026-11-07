@@ -47,6 +47,7 @@
 | `-c maintenance.auto=false` | fetch 뒤 `git maintenance run --auto` 실행 방지 (확인) | T8 |
 | `-c diff.autoRefreshIndex=false` | `git diff`가 stat만 바뀐 경로를 diff할 때 index를 새로 고쳐 쓰는 것을 막음. `--no-optional-locks`·`GIT_OPTIONAL_LOCKS=0`은 이 쓰기를 막지 못한다. patch 출력은 그대로다 (확인, #208) | T13 |
 | `-c color.ui=never` | 출력에 ANSI 코드가 섞이지 않게 함 | 파싱 안정성 |
+| `-c i18n.logOutputEncoding=UTF-8` | 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`이 포맷된 출력 전체(`-z` 구분자 포함)를 다시 인코딩하지 못하게 함. JOHAB·CP1361은 메시지의 전각 문자를 NUL로 바꿔 필드를 밀고 가짜 레코드를 만든다 (확인, E41, #205) | T15, 파싱 무결성 |
 
 diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)에는 서브커맨드 인자로 `--no-ext-diff --no-textconv`를 반드시 붙인다 (T3). `git diff`는 기본으로 외부 diff 드라이버를 실행한다 (확인).
 

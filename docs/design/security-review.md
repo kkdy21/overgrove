@@ -257,8 +257,9 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 그래프는 페이지 단위로 불러온다.
   - 파서는 잘린 입력을 안전하게 처리한다.
   - `fd::`는 `protocol.fd.allow=never`로 차단한다.
-- **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다.
-- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리)
+  - 출력 인코딩을 공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정한다. 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`(include 경유 포함)은 포맷된 출력 전체를 `-z` 구분자까지 다시 인코딩한다. JOHAB·CP1361은 메시지의 전각 문자(U+FF01…)를 NUL로 바꿔 필드를 밀고, 모든 검사를 통과하는 가짜 커밋 레코드를 만들 수 있다. UTF-16·UCS-4 등은 파싱을 실패시켜 그래프를 못 쓰게 만든다 (확인, E41, #205).
+- **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다. 커밋 객체의 `encoding` 헤더가 UCS-2·CP037·TCVN이면 git이 그 커밋의 모든 필드를 빈 값으로 출력해 그래프 페이지 전체가 파싱 실패한다(출력 인코딩 고정과 무관, #203 보안 검토). 필드가 밀리지는 않으므로 위조는 아니고, 가용성 문제로 남긴다.
+- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록 필드가 밀리지 않음. 대조군은 밀림)
 - **상태**: 설계 완료
 
 ### T16. 로그를 통한 정보 유출
@@ -332,6 +333,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 -c maintenance.auto=false
 -c diff.autoRefreshIndex=false
 -c color.ui=never
+-c i18n.logOutputEncoding=UTF-8
 ```
 
 diff 계열 서브커맨드에는 `--no-ext-diff --no-textconv`를 붙인다.
@@ -393,6 +395,7 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^core\.alternaterefscommand$` | 실행 | 보고 (alternates가 있으면 fetch에서 실행됨, 공통 인자 `-c core.alternateRefsCommand=`로 차단) | T5 |
 | `^uploadpack\.packobjectshook$` | 실행 | 보고 (조회·fetch에서는 실행되지 않음, 의심 신호) | — |
 | `^safe\.directory$` | 구성 | 보고 (local scope에서는 git이 무시함, 의심 신호) | — |
+| `^i18n\.(logoutputencoding\|commitencoding)$` | 출력 | 보고 (공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정, #205) | T15 |
 | `^core\.pager$`, `^pager\..+` | 실행 | 무시 (`--no-pager`) | T10 |
 
 필터 드라이버 이름이 `^[A-Za-z0-9._-]{1,64}$`를 벗어나면 무력화 인자를 안전하게 만들 수 없다. 이때는 조회를 막는다 (fail closed).
@@ -447,6 +450,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E38 | `1abc::x`, `::x`(빈 이름), `evilhelper://x`, `EvilHelper://x` | 모두 `git-remote-<이름>`이 실행됨(대소문자를 구분하지 않는 볼륨에서는 `EvilHelper`도 `git-remote-evilhelper`를 찾음). `GIT_ALLOW_PROTOCOL`이면 모두 차단. `ftp://`·`ftps://`는 git 내장(curl)이지만 목록에 없어 `transport 'ftp' not allowed` (#191 보안 검토) |
 | E39 | 로컬 `trailer.<key>.{cmd,command}`, `trailer.where/ifexists/ifmissing`, `include.path`로 넣은 `trailer.*.command` + 그래프 포맷 `%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)` | 실행 안 됨(pretty 형식은 트레일러를 읽기만 함). 같은 설정에서 `interpret-trailers --trailer`는 실행됨. `trailer.<x>.key`·`trailer.separators`·`core.commentChar`는 어떤 줄이 co-author인지만 바꾼다 (#160 보안 검토) |
 | E40 | 로컬 `remote.origin.fetch=+refs/heads/*:refs/heads/*` + detached HEAD, 로컬 `fetch.pruneTags=true`·`remote.origin.pruneTags=true`·`tagOpt=--tags`로 앱 fetch 인자 실행 (Apple Git 2.54.0, #209) | 고정 전: 로컬 전용 브랜치 2개 삭제, `main` 강제 이동, 로컬 태그 삭제. 명령줄 refspec + `--refmap=` + `pruneTags=false`: 로컬 브랜치·태그 불변. `--no-tags`가 없으면 원격 태그 `r1`이 `refs/tags/`에 새로 생김(기존 태그는 그대로). 로컬 `fetch.bundleURI`(평범한 bundle 파일)는 `refs/bundles/heads/*`를 쓰고, `-c fetch.bundleURI=`면 쓰지 않음 |
+| E41 | 로컬 `i18n.commitEncoding=JOHAB`(또는 `i18n.logOutputEncoding=JOHAB`) + 제목에 `！`가 든 커밋 + 그래프·커밋 상세·stash 목록 `-z` 포맷 | 일반 실행은 NUL이 늘어 필드가 밀림(그래프 6→8, 상세 2→4, stash 4→5). `-c i18n.logOutputEncoding=UTF-8`이면 정상. UTF-16 설정도 막힘. `for-each-ref`는 영향 없음 (Apple Git 2.54.0, #205) |
 
 릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41.
 
