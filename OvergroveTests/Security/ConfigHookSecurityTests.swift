@@ -198,7 +198,13 @@ final class ConfigHookSecurityTests: XCTestCase {
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: canary.path), [])
 
         guard local.environment.version >= GitVersion.configDefinedHooks else { return }
+        // Setup git has no hook neutralization, so this ref update runs the hooks itself: clear what it wrote, so the
+        // control below is judged on its own.
         try await local.git(["update-ref", "-d", "refs/remotes/origin/main"])
+        for name in try FileManager.default.contentsOfDirectory(atPath: canary.path) {
+            try FileManager.default.removeItem(at: canary.appendingPathComponent(name))
+        }
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: canary.path), [])
         let control = RepoSafetyContext(
             inspectedNeutralization: Self.droppingHookArguments(safety.neutralization),
             fetchAuthentication: safety.fetchAuthentication, trustedSSHCommand: safety.trustedSSHCommand)
