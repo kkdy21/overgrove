@@ -232,7 +232,7 @@ stateDiagram-v2
 **보안 조건** ([security-review.md](security-review.md)):
 
 - **Reveal in Finder** — 경로를 `PathValidator`로 확인한다. 실제 경로가 저장소(또는 워크트리) 밖이면 열지 않고 `This path points outside the repository`를 보여 준다 (T14). `NSWorkspace.activateFileViewerSelecting`을 쓰고 파일을 실행하지 않는다.
-- **Open in Terminal** — `NSWorkspace`로 Terminal.app에 폴더 URL을 넘긴다. 셸 문자열을 만들지 않으므로 `Overgrove/Execution/` 규칙과 충돌하지 않는다. 그 워크트리의 설정을 검사하지 못했거나 코드를 실행하는 설정·hook이 있으면 먼저 `Open in Terminal?` 확인을 받는다. 버튼은 `Open Anyway`와 `Cancel`(기본)이다(security-review.md T14, #73). 사용자 지정 터미널(iTerm, Ghostty 등)은 `later`.
+- **Open in Terminal** — `NSWorkspace`로 Terminal.app에 폴더 URL을 넘긴다. 셸 문자열을 만들지 않으므로 `Overgrove/Execution/` 규칙과 충돌하지 않는다. 그 워크트리의 설정을 검사하지 못했거나, 검사 결과에 항목이 하나라도 있거나(사용자가 칠 git의 pager·editor·`!` alias 포함, #278), 실행 가능한 hook이 있으면 먼저 `Open in Terminal?` 확인을 받는다. 버튼은 `Open Anyway`와 `Cancel`(기본)이다(security-review.md T14, #73). 사용자 지정 터미널(iTerm, Ghostty 등)은 `later`.
 - **Open With… / 기본 앱으로 열기는 넣지 않는다.** 저장소 안의 `.command`, `.app`, 스크립트를 실행할 수 있기 때문이다.
 - **Copy Remote URL** — 항상 자격 증명을 제거한 URL을 복사한다. "Show full remote URLs" 설정을 켜도 마찬가지다 (T11).
 - **Open in Browser** — `https://` URL만 연다.
