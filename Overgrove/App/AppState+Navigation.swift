@@ -22,6 +22,8 @@ extension AppState {
 
     func jumpToHead() {
         guard let head = graph.head, graph.index(of: head) != nil else { return }
+        // The graph shows again, as for a search match (#311).
+        history.close()
         selectCommit(head)
         graph.scroll(to: head)
     }
@@ -55,6 +57,9 @@ extension AppState {
     func escape() {
         if !searchText.isEmpty {
             searchText = ""
+        } else if case .worktreeInfo = selection {
+            // S-05 back to Changes (§3.1 ③); `selectWorktree` keeps the segment on purpose (#311).
+            showChanges()
         } else if let path = focusedWorktreePath, selection != .wip(path) {
             selectFocusedWip()
         }

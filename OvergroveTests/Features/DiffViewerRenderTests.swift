@@ -26,7 +26,7 @@ final class DiffViewerRenderTests: XCTestCase {
 
             """
         return DiffDocument(
-            listing: try! PatchParser.parse(Data(patch.utf8)), path: GitPath("Sources/Parsing/Status.swift"),
+            listing: TestFixtures.patch(patch), path: GitPath("Sources/Parsing/Status.swift"),
             source: DiffDocument.Source(label: "Staged", kindLetter: "M"))
     }
 

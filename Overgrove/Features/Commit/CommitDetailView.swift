@@ -81,7 +81,9 @@ struct CommitDetailView: View {
                                 Image(systemName: "sparkles").font(.system(size: 9, weight: .semibold))
                                     .foregroundStyle(Tokens.Color.textTertiary)
                                     .frame(width: 16, height: 16)
-                                    .overlay { Circle().strokeBorder(Tokens.Color.textTertiary, lineWidth: 1) }
+                                    .controlOutline(
+                                        Circle(), normal: Tokens.Color.textTertiary,
+                                        increased: Tokens.Color.textTertiary)
                             }
                             Text(coAuthor.title).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
                                 .lineLimit(1).truncationMode(.middle)

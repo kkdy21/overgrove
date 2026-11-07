@@ -152,7 +152,7 @@ xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'pla
 
 - **Skills** (`.claude/skills/`): `onboard`, `issue-new`, `issue-triage`, `issue-start`, `pr-open`, `pr-review`, `adr-new`, `phase-gate`, `discussion-to-issue`
 - **Agents** (`.claude/agents/`):
-  - `security-reviewer`: 위협 모델 T1–T18 기준 검토
+  - `security-reviewer`: 위협 모델 T1–T19 기준 검토
   - `scope-guard`: 범위·비목표·ADR 위반 검토
   - `parser-test-designer`: 적대적 파서 테스트 설계
 - **Hooks** (`.claude/hooks/`):

@@ -113,8 +113,13 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             let revisions = fromUntracked ? ["\(oid.hex)^3"] : ["\(oid.hex)^1", oid.hex]
             return options + ["--end-of-options"] + revisions + (try Self.pathspec(path))
         case .graphPage(let skip, let limit):
+            // Branches, remote-tracking refs, tags, and every worktree's HEAD (#308): `--all` with `refs/*` excluded
+            // adds only the HEADs. Notes, `refs/prefetch` (`git maintenance`), `refs/original` (filter-branch),
+            // `refs/stash`, and other namespaces (`refs/pull`) are not walked: they have no ref pill and are not in the
+            // page cache key (`GraphRefSet`).
             return [
-                "log", "--exclude=refs/stash", "--all", "--date-order", "-z", Self.logFormat,
+                "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z",
+                Self.logFormat,
                 "--skip=\(max(0, skip))", "-n", String(Self.clampLimit(limit)),
             ]
         case .commitMeta(let oid):
@@ -245,7 +250,7 @@ enum FetchCommand: Sendable, Hashable {
             [
                 "-c", "fetch.pruneTags=false", "-c", "remote.\(remote.value).pruneTags=false",
                 "-c", "fetch.writeCommitGraph=false",
-                // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.42+);
+                // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.40+, #99);
                 // older git ignores the key (security review of #210).
                 "-c", "fetch.bundleURI=",
             ]

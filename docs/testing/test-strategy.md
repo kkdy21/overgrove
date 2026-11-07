@@ -70,6 +70,8 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 
 번호는 한 번 쓰면 재사용하지 않는다. 테스트를 지우면 원본 표에 "폐기"로 남긴다.
 
+**테스트 호스트를 멈추지 않는다 (#312)**: 테스트와 픽스처에 `try!`를 쓰지 않는다. 던지면 한 테스트가 실패하는 대신 테스트 호스트가 `swift_unexpectedError`로 멈추고, 그 뒤 테스트는 결과를 남기지 못한다. throwing 테스트의 `try`, `XCTUnwrap`, 또는 `XCTFail`을 부르는 `TestFixtures`(`OvergroveTests/Support/TestFixtures.swift`)를 쓴다. `scripts/lint/check-test-crashes.sh`가 CI `build-test`에서 확인한다.
+
 ---
 
 ## 4. 층별 지침
@@ -111,7 +113,9 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 - 픽스처는 [fixtures.md](fixtures.md)를 따른다. 기대값은 fixtures.md의 표를 코드 상수로 옮긴 것이다.
 - git 실행 파일은 앱과 같은 방식으로 정한다 (ADR-0008).
   - CI의 git 버전을 테스트 로그 첫 줄에 출력한다.
-  - 최소 지원 버전(2.36)에서의 실행은 Phase 4 호환성 매트릭스 이슈에서 다룬다.
+  - 다른 git으로 돌릴 때는 `OVERGROVE_TEST_GIT=<git 실행 파일의 절대 경로>`를 준다(xcodebuild에서는 `TEST_RUNNER_` 접두사). 테스트는 `GitEnvironment.discover` 대신 `GitEnvironment.discoverForTesting`(`OvergroveTests/Support/TestGit.swift`)으로 git을 찾는다. `OVERGROVE_TEST_GIT_VERSION=<x.y.z>`를 함께 주면 실제 버전이 다를 때 실패한다. 앱의 탐색과 환경 변수 allowlist는 그대로다(#99).
+  - 옛 git에 없는 기능에 기대는 대조군은 실제 `git version`으로 판정해 건너뛰고, XCTSkip 메시지에 필요한 최소 버전을 적는다. 방어 assertion은 모든 버전에서 실행한다.
+  - 최소 지원 버전(2.36)을 포함한 로컬 매트릭스 결과는 [git 호환성 보고서](../qa/reports/2026-11-08-git-compatibility.md)에 있다. CI 매트릭스는 #292에서 다룬다.
 
 ### 4.4 보안 (`OvergroveTests/Security/`)
 
@@ -209,4 +213,4 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 ## 10. 결정이 필요한 것
 
 - XCUITest를 CI에서 돌릴지(러너에서 화면 권한 문제가 생길 수 있음). 지금은 릴리스 전 수동 실행으로 둔다. Phase 4에서 `type:spike` 이슈로 확인한다.
-- 최소 git 버전(2.36) 호환성 매트릭스를 CI에서 어떻게 만들지. Homebrew에서 특정 버전을 받는 것은 외부 의존성 문제가 있으므로 별도 ADR이 필요하다.
+- 최소 git 버전(2.36) 호환성 매트릭스를 CI에서 어떻게 만들지. Homebrew에서 특정 버전을 받는 것은 외부 의존성 문제가 있으므로 별도 ADR이 필요하다. 로컬 검증은 #99에서 했고, CI 매트릭스와 ADR은 #292에서 다룬다.

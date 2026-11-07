@@ -48,7 +48,7 @@ final class HistoryIntegrationTests: XCTestCase {
         let stashes = try StashParser.parse(try await context.run(.stashList)).stashes
 
         // INT-07
-        XCTAssertEqual(graph.count, 21, "--exclude=refs/stash --all")
+        XCTAssertEqual(graph.count, 21, "branches, remotes, tags, worktree HEADs; no stash")
         XCTAssertTrue(Set(graph.map(\.oid)).isDisjoint(with: stashes.map(\.oid)), "no stash commits in the graph")
         XCTAssertEqual(graph.filter(\.isMerge).map(\.oid.short), ["0cbcd45"])
         let merge = try context.commit("0cbcd45", in: graph)
@@ -166,7 +166,7 @@ final class HistoryIntegrationTests: XCTestCase {
 
     /// INT-20: the git the app runs parses as a supported version.
     func testINT20_InstalledGitVersionIsSupported() async throws {
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let client = GitClient(environment: environment)
         let output = try await client.run(.version, in: nil, safety: .preInspection)
         let version = try VersionParser.parse(output.stdout)

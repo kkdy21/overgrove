@@ -23,7 +23,7 @@ final class StubStashLoader: StashLoading, @unchecked Sendable {
         -> DiffLoadResult
     {
         lock.withLock { patchCalls.append(file.path) }
-        return .patch(try! PatchParser.parse(Data("diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-x\n+y\n".utf8)))
+        return .patch(TestFixtures.patch("diff --git a/a b/a\n--- a/a\n+++ b/a\n@@ -1 +1 @@\n-x\n+y\n"))
     }
 }
 

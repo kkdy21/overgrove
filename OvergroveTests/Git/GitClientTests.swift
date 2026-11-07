@@ -84,7 +84,8 @@ final class GitCommandTests: XCTestCase {
                 "--", "new.txt",
             ],
             [
-                "log", "--exclude=refs/stash", "--all", "--date-order", "-z", ReadOnlyGitCommand.logFormat,
+                "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z",
+                ReadOnlyGitCommand.logFormat,
                 "--skip=500", "-n", "500",
             ],
             [
@@ -358,7 +359,7 @@ final class WorktreeFileTests: XCTestCase {
 
 final class FetchBlockingTests: XCTestCase {
     func testFetchIsRefusedWhenTheRepositoryBlocksIt() async throws {
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let client = GitClient(environment: environment)
         let safety = RepoSafetyContext(
             inspectedNeutralization: [],

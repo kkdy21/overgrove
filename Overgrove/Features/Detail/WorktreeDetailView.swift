@@ -21,7 +21,7 @@ struct WorktreeDetailView: View {
                     SlowStatusCard(hint: slow)
                 }
                 if let security = model.security {
-                    SecurityCard(model: security)
+                    SecurityCard(model: security, report: model.securityReport)
                 } else if let reason = model.securityUnavailable {
                     DetailCard {
                         Text("Security").font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textPrimary)
@@ -114,7 +114,10 @@ private struct InfoCard: View {
 
 private struct SecurityCard: View {
     let model: WorktreeSecurityModel
+    /// `Copy Report` (#110); `nil` hides the button.
+    var report: SecurityReport.Source?
     @State private var expanded: Set<String> = []
+    @Environment(\.rowMenu) private var actions
 
     var body: some View {
         DetailCard {
@@ -125,6 +128,18 @@ private struct SecurityCard: View {
                     Text(header(now: context.date))
                         .font(Tokens.Font.caption)
                         .foregroundStyle(Tokens.Color.textTertiary)
+                }
+                if let report {
+                    Button {
+                        // Line breaks kept; every other control character escaped (`RowActions.clipboardText`).
+                        actions.copyMessage(SecurityReport.text(report))
+                    } label: {
+                        Image(systemName: "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .hitTarget()
+                    .help("Copy Report: key names and results only, without values, paths, or remote URLs")
+                    .accessibilityLabel("Copy security report")
                 }
             }
             if let reason = model.blockingReason {
@@ -280,6 +295,8 @@ struct DetailSegmentPicker: View {
         .pickerStyle(.segmented)
         .labelsHidden()
         .fixedSize()
+        // The panel theme's outline under Increase Contrast (#304); AppKit draws the rest of the control.
+        .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.sm), normal: nil)
     }
 }
 

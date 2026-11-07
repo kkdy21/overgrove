@@ -50,7 +50,7 @@ scripts/make-fixture-repo.sh --force <dir>       # 비어 있지 않은 <dir>을
 
 ## 2. 이력과 참조
 
-### 2.1 커밋 그래프 (main 기준, `--exclude=refs/stash --all` 21개)
+### 2.1 커밋 그래프 (main 기준, 브랜치·원격·태그·워크트리 HEAD 21개, #308)
 
 ```
 * e4bd61e feat: local-only change on main              (main, origin/main 보다 1개 앞)
@@ -91,7 +91,7 @@ scripts/make-fixture-repo.sh --force <dir>       # 비어 있지 않은 <dir>을
 | `v0.0.1` | 주석 태그 (`337f477`을 가리킴) | PAR-REF-02 |
 | `light-tag` | 경량 태그 (`4202323`) | PAR-REF-01 |
 | `refs/remotes/upstream/main` | `5606cda chore: upstream-only change` (로컬에 없는 커밋) | INT-04, INT-11 |
-| `refs/remotes/upstream/HEAD` | `refs/remotes/upstream/main`을 가리키는 symref. git 2.48 이상의 fetch가 자동으로 만든다. `origin/HEAD`는 없다 (push로만 채웠기 때문) | PAR-REF-03 |
+| `refs/remotes/upstream/HEAD` | `refs/remotes/upstream/main`을 가리키는 symref. git 2.48 이상의 fetch는 자동으로 만들지만 그 미만은 만들지 않으므로, 스크립트가 `git remote set-head upstream main`으로 직접 만든다(#99). `origin/HEAD`는 없다 (push로만 채웠기 때문) | PAR-REF-03 |
 | `refs/stash` | stash 2개 (§2.4) | PAR-STASH-01, INT-05 |
 | 원격 `mirror` | `https://<user>:<pass>@example.invalid/overgrove-fixture.git`. 사용자명과 비밀번호는 스크립트가 런타임에 조합한 가짜 값이다. `remote.mirror.skipFetchAll=true` | SEC-T11-01, SEC-T11-04, INT-13 |
 
@@ -102,7 +102,7 @@ scripts/make-fixture-repo.sh --force <dir>       # 비어 있지 않은 <dir>을
 | `stash@{0}` | `On feat/ahead: fixture: with untracked` | 추적 파일 1개 수정 + 미추적 파일 1개 (`-u`). `--include-untracked` numstat에 `stash-untracked.txt`가 나온다 | PAR-STASH-01, PAR-NUMSTAT-05, INT-05 |
 | `stash@{1}` | `On main: fixture: tracked change` | `src/stash-target.txt` 1줄 추가 | PAR-STASH-01, INT-06 |
 
-**주의 (실측).** `git log --all`은 `refs/stash`를 따라가므로 stash 커밋과 그 index·untracked 부모 커밋이 그래프에 섞인다. 그래서 `--all`로 세면 24개, `--exclude=refs/stash --all`로 세면 21개다. 병합 커밋 수도 `--all`이면 2개(stash 커밋 포함), 제외하면 1개다. 그래프 조회는 반드시 `--exclude=refs/stash`를 쓴다 (ADR-0010, INT-07).
+**주의 (실측).** `git log --all`은 `refs/stash`를 따라가므로 stash 커밋과 그 index·untracked 부모 커밋이 그래프에 섞인다. 그래서 `--all`로 세면 24개, `--exclude=refs/stash --all`로 세면 21개다. 병합 커밋 수도 `--all`이면 2개(stash 커밋 포함), 제외하면 1개다. 그래프 조회는 `--all` 대신 `--branches --remotes --tags --exclude=refs/* --all`을 쓴다. stash·notes·prefetch·`refs/original`을 따라가지 않고, 브랜치·원격·태그와 워크트리 HEAD만 따라간다 (ADR-0010, INT-07, #308).
 
 ---
 
