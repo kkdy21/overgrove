@@ -33,6 +33,8 @@ struct WorktreeRow: Identifiable, Equatable {
     let help: String
     /// VoiceOver reads every badge, shown or not (interaction.md §6.1).
     let accessibilityLabel: String
+    /// The checked-out branch's short name, escaped, for Copy Branch Name (#73); `nil` when detached or unborn.
+    var branchName: String?
 }
 
 /// The WORKTREES section built from a load. Pure, so it is unit tested without views.
@@ -134,7 +136,8 @@ struct WorktreeListModel: Equatable {
             help: help(worktree: worktree, path: path, state: state, note: noteHelp),
             accessibilityLabel: accessibilityLabel(
                 title: title, worktree: worktree, isFocused: isFocused, missing: missing, note: note, state: state)
-                + (issueNumber.map { ", issue \($0)" } ?? ""))
+                + (issueNumber.map { ", issue \($0)" } ?? ""),
+            branchName: worktree.branchShortName.map(PathValidator.displayable))
     }
 
     /// §4.4. Detached comes from `worktree list` (no `branch` attribute), not from the status header.

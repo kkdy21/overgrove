@@ -25,7 +25,7 @@ struct WorktreeDetailModel: Equatable {
 
     init(
         entry: WorktreeListing.Entry, inspection: WorktreeInspection?, fetchStatus: FetchStatus, now: Date,
-        home: String = NSHomeDirectory()
+        home: String = NSHomeDirectory(), showsFullRemoteURLs: Bool = false
     ) {
         let worktree = entry.worktree
         let state: WorkingState? = if case .loaded(let state) = entry.state { state } else { nil }
@@ -71,7 +71,7 @@ struct WorktreeDetailModel: Equatable {
 
         switch entry.state {
         case .loaded, .notQueried(.inspectionBlocked):
-            security = inspection.map(WorktreeSecurityModel.init)
+            security = inspection.map { WorktreeSecurityModel($0, showsFullRemoteURLs: showsFullRemoteURLs) }
             securityUnavailable = nil
         case .missing:
             security = nil
@@ -194,7 +194,8 @@ struct WorktreeSecurityModel: Equatable {
     let rows: [Row]
     let others: [OtherFinding]
 
-    init(_ result: WorktreeInspection) {
+    /// - Parameter showsFullRemoteURLs: Settings › Show full remote URLs (#86); host and path otherwise.
+    init(_ result: WorktreeInspection, showsFullRemoteURLs: Bool = false) {
         inspectedAt = result.inspectedAt
         gitVersion = result.gitVersion.map { "git \($0)" }
         let inspection = result.inspection
@@ -264,7 +265,7 @@ struct WorktreeSecurityModel: Equatable {
                 {
                     var masked = row(
                         "Remote URL credentials masked", unknown: false,
-                        details: Self.remotesWithCredentials(inspection))
+                        details: Self.remotesWithCredentials(inspection, full: showsFullRemoteURLs))
                     if !masked.details.isEmpty {
                         masked.advice = "Remove the credentials from the URL and let a credential helper store them."
                     }
@@ -296,10 +297,11 @@ struct WorktreeSecurityModel: Equatable {
         }
     }
 
-    /// `origin: https://***@example.com/repo.git`. Only masked URLs are shown (T11).
-    static func remotesWithCredentials(_ inspection: RepoConfigInspection) -> [String] {
+    /// `origin: example.com/repo`, or with the full-URL setting `origin: https://***@example.com/repo.git`. Only
+    /// masked URLs are used (T11, #86).
+    static func remotesWithCredentials(_ inspection: RepoConfigInspection, full: Bool = false) -> [String] {
         inspection.remotes.filter { $0.displayURL != $0.url }.map {
-            "\(PathValidator.displayable($0.name.value)): \(PathValidator.displayable($0.displayURL))"
+            "\(PathValidator.displayable($0.name.value)): \(RemoteURLDisplay.text($0.displayURL, full: full))"
         }
     }
 

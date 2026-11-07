@@ -93,6 +93,8 @@ struct SidebarPanel: View {
     var onSelectWorktree: (GitPath) -> Void = { _ in }
     /// LOCAL and REMOTE (#72).
     var branchModel: BranchListModel?
+    /// Remote name → URL text for the REMOTE group tooltips (#86).
+    var remoteURLTooltips: [String: String] = [:]
     /// STASHES (#71).
     var stashRows: [StashRow] = []
     var isStashListPartial = false
@@ -123,7 +125,8 @@ struct SidebarPanel: View {
                                 title: "LOCAL", count: branchModel.localCount, nodes: branchModel.local,
                                 warning: branchModel.warning)
                             BranchListSection(
-                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote)
+                                title: "REMOTE", count: branchModel.remoteCount, nodes: branchModel.remote,
+                                folderHelp: Self.remoteFolderHelp(remoteURLTooltips))
                         }
                         if case .loaded = worktreeStatus {
                             StashListSection(
@@ -153,6 +156,8 @@ struct GraphPanel: View {
     /// Commits outlined for the selected issue (#82).
     var highlightedCommits: Set<ObjectID> = []
     var onSelectCommit: ((ObjectID) -> Void)?
+    var onSelectWip: (() -> Void)?
+    var onOpen: () -> Void = {}
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -178,7 +183,9 @@ struct GraphPanel: View {
             switch graphStore?.status {
             case .loaded?:
                 if let graphStore {
-                    GraphView(store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits)
+                    GraphView(
+                        store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits,
+                        onSelectWip: onSelectWip, onOpen: onOpen)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -271,5 +278,12 @@ struct DetailPanel: View {
                     message: "Changes in the focused worktree or the selected commit appear here.")
             }
         }
+    }
+}
+
+extension SidebarPanel {
+    /// REMOTE folder ids are `remote:<name>` (`BranchListModel`); the tooltip is `origin — github.com/acme/api`.
+    static func remoteFolderHelp(_ urls: [String: String]) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: urls.map { ("remote:\($0.key)", "\($0.key) — \($0.value)") })
     }
 }

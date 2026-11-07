@@ -52,8 +52,14 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
         XCTAssertEqual(model.rows.count, 8)
         let flagged = model.rows.filter { $0.mark != .applied }
         XCTAssertEqual(flagged.map(\.title), ["Remote URL credentials masked"], "\(flagged)")
-        XCTAssertEqual(flagged.first?.details, ["mirror: https://***@example.invalid/overgrove-fixture.git"])
         let raw = try XCTUnwrap(result.inspection?.remotes.first { $0.name.value == "mirror" }?.url)
+        // Host and path by default; the full masked URL with Settings › Show full remote URLs (#86).
+        XCTAssertEqual(flagged.first?.details, ["mirror: example.invalid/overgrove-fixture"])
+        let full = WorktreeSecurityModel(result, showsFullRemoteURLs: true)
+        XCTAssertEqual(
+            full.rows.first { $0.title == "Remote URL credentials masked" }?.details,
+            ["mirror: https://***@example.invalid/overgrove-fixture.git"])
+        XCTAssertFalse(full.rows.flatMap(\.details).contains(raw))
         XCTAssertNotEqual(raw, "https://***@example.invalid/overgrove-fixture.git", "the raw URL has the secret")
         XCTAssertFalse(model.rows.flatMap(\.details).contains(raw))
     }
