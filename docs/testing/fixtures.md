@@ -372,6 +372,26 @@ worktrees/wt-no-upstream   staged=0 unstaged=0 untracked=0 conflicted=0
 - 무력화 인자를 빼는 변형으로 INT-19가 status, worktreeDiff, untrackedPreview를 각각 잡아내는 것을 확인했다(#61 작업 중 수동 확인).
 - **INT-19가 닿는 canary**: T1, T2(fetch의 `reference-transaction`), T3(textconv·external), T4(clean·smudge·process), T5(uploadpack·alternateRefs), T7. 모두 대조군으로 실제 실행 경로임을 확인한다. **닿지 않는 것**: 인덱스 쓰기 hook(`post-index-change` 등, 앱 명령은 `--no-optional-locks`로 인덱스를 쓰지 않음), auto gc hook(`pre-auto-gc`), T5의 ssh·git·ext·redirected 원격 fetch, T6 인증 경로, T8(auto maintenance, `GIT_TRACE` 판정). 이것들은 이 도구 위에서 SEC 매트릭스(#92, #93)가 다룬다.
 
+### 9.2 통합 테스트 (#62)
+
+일반 픽스처에 대해 앱과 같은 경로(`IntegrationContext`: `configList` → `RepoConfigInspector` → `RepoSafetyContext` → `GitClient`, `fixture.environment`)로 실행하고, 파서 결과를 이 문서의 표와 비교한다. status는 Overgrove 인자 없이 실행한 기본 git(`git status --porcelain`, `IntegrationContext.plainGit`)의 분류 개수와도 비교한다(D2의 독립 기준). 테스트마다 픽스처를 하나씩 만든다(9개 테스트, 약 15초).
+
+| 테스트 | 파일 | INT / 완료 기준 |
+|---|---|---|
+| `testINT01_WorktreeListHasEveryKind` | `Integration/WorktreeStatusIntegrationTests.swift` | INT-01, 14, 15, 16 (D1) |
+| `testINT02_MainWorktreeStatusMatchesTheFixtureTable` | 같은 파일 | INT-02, 17, 18 (D2) |
+| `testINT03_ConflictWorktree` | 같은 파일 | INT-03 |
+| `testD2_EveryWorktreeMatchesStockGitAndAheadBehind` | 같은 파일 | D2, INT-04, 16 |
+| `testINT05_StashesWithFileSummaries` | `Integration/HistoryIntegrationTests.swift` | INT-05, 06 (D3) |
+| `testINT07_GraphCommitDetailsAndFileHistory` | 같은 파일 | INT-07, 08, 09 |
+| `testINT11_Refs` | 같은 파일 | INT-11 |
+| `testINT12_FetchThenAheadBehindAgrees` | 같은 파일 | INT-12 (D4) |
+| `testINT20_InstalledGitVersionIsSupported` | 같은 파일 | INT-20 |
+
+- INT-14의 "status를 호출하지 않음"은 화면 계층의 동작이다. 여기서는 그 근거인 "경로가 없는 워크트리의 status는 `GitError.worktreeMissing`으로 실패한다"를 확인한다.
+- D4의 "마지막 fetch 시각 표시"는 `FetchRecord`를 만드는 계층(화면·저장소 상태)이 생길 때 다룬다. 여기서는 fetch 뒤 ahead/behind가 status(`branch.ab`), `for-each-ref`(`upstream:track`), `rev-list` 세 곳에서 일치함을 확인한다. upstream 이름은 출처마다 형식이 다르다(status는 `origin/main`, `for-each-ref`는 `refs/remotes/origin/main`).
+- 다루지 않는 것: INT-10(특수 파일명 diff·이력, SEC-T9-03과 함께 #93), INT-13(UI 모델의 원격 URL 마스킹, S-05 화면), INT-19(#61에서 구현).
+
 ## 10. 확장 규칙
 
 1. 상태를 추가하면 §2–§6 표와 §7 INT 목록에 행을 추가하고 테스트 ID를 붙인다.
