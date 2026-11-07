@@ -65,6 +65,11 @@ struct GraphView: View {
                                 refsWidth: shownColumns.width(of: .refs), laneOffset: laneScroll.offset
                             )
                             .id(Self.wipRowID)
+                            // interaction.md §2: clicking the WIP row selects the worktree's changes (#311).
+                            .contentShape(Rectangle())
+                            .onTapGesture { onSelectWip?() }
+                            .accessibilityAction { onSelectWip?() }
+                            .accessibilityAddTraits(.isButton)
                             .contextMenu { wipMenu }
                             .opacity(isDimming ? Tokens.Opacity.disabled : 1)
                         }
