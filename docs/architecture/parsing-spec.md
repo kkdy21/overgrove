@@ -386,3 +386,11 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | 매우 긴 출력 잘림 | 마지막 레코드 버림, `isPartial` | PAR-*-잘림 항목 |
 | SHA-256 저장소 | 64자리 OID 허용 | PAR-LOG-04 |
 | 커밋 메시지의 NUL | git이 NUL 앞에서 자름 | PAR-LOG-08 |
+
+교차 파서 적대적 테스트는 `AdversarialParserTests`(위 표의 각 행을 실제 git 출력과 함께 모든 해당 파서로 확인)와 `ParserPropertyTests`에 있다 (#58). 속성 테스트는 아래 ID를 쓴다.
+
+| 테스트 | 속성 |
+|---|---|
+| PAR-PROP-01 | 실제 출력을 모든 바이트 위치에서 자른다. `truncated`면 `isPartial`이고 레코드는 전체 결과의 앞부분이다. 아니면 토큰 중간에서 잘린 출력은 `ParseError`, 레코드 경계에서 잘린 출력은 앞부분이다 |
+| PAR-PROP-02 | 고정 시드로 실제 출력을 무작위 변형한다. 결과를 내거나 그 파서의 `ParseError`(입력 범위 안의 offset)를 던진다. 크래시·무한 루프·다른 에러 타입은 없다 |
+| PAR-PROP-03 | `startIndex`가 0이 아닌 `Data` 슬라이스도 사본과 같은 결과·에러를 낸다 |
