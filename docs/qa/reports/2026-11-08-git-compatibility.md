@@ -1,6 +1,6 @@
 # git 호환성 매트릭스 보고 (2026-11-08)
 
-> 상태: 보고 · 관련: #99, ADR-0008, [security-review.md](../../design/security-review.md) §4 (E44–E46), [test-strategy.md](../../testing/test-strategy.md) §4.3, 후속 #292 (CI 매트릭스), #303 (2.36 오류 분류), #294 (Xcode 27.2 빌드 오류)
+> 상태: 보고 · 관련: #99, ADR-0008, [security-review.md](../../design/security-review.md) §4 (E44–E46), [test-strategy.md](../../testing/test-strategy.md) §4.3, 후속 #292 (CI 매트릭스), #303 (2.36 오류 분류), #294 (Xcode 27.2 빌드 오류, #296으로 해결)
 
 Phase 2의 보안 실험은 모두 Apple Git 2.50.1에서 했다. 최소 지원 버전 git 2.36에서도 같은지 확인하려고, 같은 테스트 전체를 여러 git으로 돌렸다.
 
@@ -19,7 +19,7 @@ Phase 2의 보안 실험은 모두 Apple Git 2.50.1에서 했다. 최소 지원 
 | 항목 | 값 |
 |---|---|
 | 장비 | Apple M1 Pro, 10코어, 32GB, macOS 26.6.2 (25G83) |
-| Xcode | 27.2 (27B52). 테스트 타깃이 이 Xcode에서 컴파일되지 않는 문제(`StatusParserTests.swift`의 긴 문자열 연결)가 있었다. 커밋하지 않은 임시 패치로 빌드했고, 오류는 #294로 고친다 |
+| Xcode | 27.2 (27B52). 테스트 타깃이 이 Xcode에서 컴파일되지 않는 문제(`StatusParserTests.swift`의 긴 문자열 연결)가 있었다. 매트릭스 실행은 커밋하지 않은 임시 패치로 빌드했다. 이 오류는 #294로 등록해 #296에서 고쳤다(머지 후 임시 패치 없이 다시 빌드해 확인) |
 | 커밋 | `test/99-git-compat-matrix` (기준 `main` `2658427`) |
 | 테스트 | `xcodebuild test-without-building`으로 `OvergroveTests` 전체(1145개)를 돌렸다. INT·SEC만이 아니라 PAR·앱 테스트도 같은 git으로 돈다 |
 | git 선택 | `TEST_RUNNER_OVERGROVE_TEST_GIT=<git 절대 경로>`, `TEST_RUNNER_OVERGROVE_TEST_GIT_VERSION=<x.y.z>` (`OvergroveTests/Support/TestGit.swift`). 기대 버전과 실제 `git version`이 다르면 git 탐색이 실패하므로 엉뚱한 git으로 통과할 수 없다. `TestGitOverrideTests.testThisRunUsesTheRequestedGit`가 각 실행에서 버전을 확인했다 |
@@ -127,4 +127,3 @@ TEST_RUNNER_OVERGROVE_TEST_GIT=~/tmp/git-2.36/bin/git TEST_RUNNER_OVERGROVE_TEST
 
 - **#292**: CI에서 매트릭스를 돌린다. 2.36을 소스에서 빌드하는 것은 외부 의존성 문제라 ADR이 먼저 필요하다. 이 보고서의 `OVERGROVE_TEST_GIT` override와 빌드 명령을 그대로 쓸 수 있다.
 - **#303**: 2.36의 lazy fetch stderr를 `partialCloneObjectMissing`으로 분류한다. 채집한 stderr를 픽스처로 쓴다.
-- **#294**: Xcode 27.2에서 테스트 타깃이 컴파일되지 않는 문제.
