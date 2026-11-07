@@ -94,4 +94,29 @@ final class WorktreeListIntegrationTests: XCTestCase {
         XCTAssertEqual(
             WorktreeListModel(listing: listing, focused: nil).rows.last?.subtitle, "Not part of this repository")
     }
+
+    /// #243: the live loader's cache paths on the fixture. After a load the cached listing is served without git; a
+    /// worktree selection refreshes that worktree's status and picks up a change; `forget` empties the cache.
+    func testCachedListingSelectionRefreshAndForget() async throws {
+        let context = try await IntegrationContext.make(fixture: try await makeFixture())
+        let loader = loader(context)
+        let none = await loader.cachedListing(context.repository)
+        XCTAssertNil(none, "nothing cached before a load")
+
+        let listing = try await loader.load(context.repository)
+        let cached = await loader.cachedListing(context.repository)
+        XCTAssertEqual(cached, listing)
+
+        let ahead = context.fixture.worktree("wt-ahead")
+        try "new\n".write(to: ahead.appendingPathComponent("selected-new.txt"), atomically: true, encoding: .utf8)
+        let path = GitPath(ahead.path)
+        let refreshed = try await loader.load(context.repository, trigger: .worktreeSelected(path))
+        let entry = try XCTUnwrap(refreshed?.entries.first { $0.worktree.path == path })
+        guard case .loaded(let state) = entry.state else { return XCTFail("\(entry.state)") }
+        XCTAssertTrue(state.untracked.contains { $0.path == GitPath("selected-new.txt") })
+
+        await loader.forget(context.repository)
+        let forgotten = await loader.cachedListing(context.repository)
+        XCTAssertNil(forgotten)
+    }
 }
