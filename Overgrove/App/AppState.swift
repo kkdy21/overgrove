@@ -340,7 +340,7 @@ final class AppState {
         let target = repository.repository
         inspectionTask?.cancel()
         inspectionTask = Task { [weak self] in
-            let result = await inspector.inspect(entry.worktree, of: target)
+            let result = await inspector.inspect(entry, of: target)
             guard let self, generation == self.loadGeneration, !Task.isCancelled else { return }
             self.worktreeInspections[path] = result
         }

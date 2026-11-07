@@ -10,8 +10,8 @@ final class RecordingInspector: WorktreeInspecting, @unchecked Sendable {
 
     var paths: [GitPath] { lock.withLock { inspected } }
 
-    func inspect(_ worktree: Worktree, of repository: Repository) async -> WorktreeInspection {
-        lock.withLock { inspected.append(worktree.path) }
+    func inspect(_ entry: WorktreeListing.Entry, of repository: Repository) async -> WorktreeInspection {
+        lock.withLock { inspected.append(entry.worktree.path) }
         return WorktreeInspection(
             inspection: RepoConfigInspector.inspect(ConfigParser.Listing(entries: [], isPartial: false)),
             failure: nil, inspectedAt: Date(), gitVersion: GitVersion(major: 2, minor: 50, patch: 1),
