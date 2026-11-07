@@ -116,13 +116,13 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `stashList` | `["stash", "list", "-z", "--format=%gd%x00%H%x00%gs%x00%ct"]` | 저장소 경로 | `StashParser` → `[Stash]` | — |
 | `stashFiles(oid:)` | `["stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>"]` | 저장소 경로 | `NumstatParser` → `StashDetail` | T3, T9 |
 | `stashPatch(oid:path:fromUntracked:)` | 추적 파일: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>^1", "<oid>", "--", "<path>"]`<br>untracked 출신: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<oid>^3", "--", "<path>"]` | 저장소 경로 | 원문 패치 → S-10. `git stash show`는 경로 지정을 받지 않는다(#148 리뷰에서 확인) | T3, T9 |
-| `graphPage(skip:limit:)` | `["log", "--exclude=refs/stash", "--all", "--date-order", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s", "--skip=<n>", "-n", "<limit>"]` | 저장소 경로 | `LogParser` → `[CommitNode]` → GraphEngine | T7 |
+| `graphPage(skip:limit:)` | `["log", "--exclude=refs/stash", "--all", "--date-order", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "--skip=<n>", "-n", "<limit>"]` | 저장소 경로 | `LogParser` → `[CommitNode]`(co-author 포함, #160) → GraphEngine | T7 |
 | `commitMeta(oid:)` | `["log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B", "--end-of-options", "<oid>"]` | 저장소 경로 | `LogParser` → `CommitDetail` | T7, T9 |
 | `commitFiles(oid:)` | 루트·일반 커밋: `["diff-tree", "-r", "-z", "--raw", "--numstat", "-M", "--no-ext-diff", "--no-textconv", "--no-commit-id", "--root", "--end-of-options", "<oid>"]`<br>병합 커밋: `[..., "--end-of-options", "<first parent oid>", "<oid>"]` | 저장소 경로 | `NumstatParser`(raw+numstat) → `CommitDetail.files` | T3, T9 |
 | `commitPatch(oid:parent:path:)` | `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<parent oid 또는 생략>", "<oid>", "--", "<path>"]` | 저장소 경로 | 원문 패치 → S-10 | T3, T9 |
 | `worktreeDiff(path:staged:)` | `["diff", "--no-ext-diff", "--no-textconv", "-M", (staged ? "--cached" : 생략), "--", "<path>"]` | 워크트리 경로 | 원문 패치 → S-10 | T3, T9 |
 | `untrackedPreview(WorktreeFile)` | `["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--", "/dev/null", "<path>"]` (종료 코드 1이 정상) | 워크트리 경로 | 원문 패치 → S-10 | T3, T14 |
-| `fileHistory(path:limit:)` | `["log", "--follow", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s", "-n", "<limit>", "--", "<path>"]` | 워크트리 경로 | `LogParser` → `[FileHistoryEntry]` | T7, T9 |
+| `fileHistory(path:limit:)` | `["log", "--follow", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "-n", "<limit>", "--", "<path>"]` | 워크트리 경로 | `LogParser` → `[FileHistoryEntry]` | T7, T9 |
 
 보충 규칙:
 

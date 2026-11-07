@@ -152,12 +152,13 @@ stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc�
 
 ## 5. LogParser
 
-### 5.1 그래프·파일 이력 — `%H%x00%P%x00%an%x00%ae%x00%at%x00%s` + `-z`
+### 5.1 그래프·파일 이력 — `%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)` + `-z`
 
-레코드마다 필드 6개, 토큰을 6개씩 묶는다.
+레코드마다 필드 7개, 토큰을 7개씩 묶는다.
 
 ```
-2f833676…␀837976f6… eecf7339…␀t␀t@example.com␀1793853652␀Merge branch 'other'␀
+2f833676…␀837976f6… eecf7339…␀t␀t@example.com␀1793853652␀Merge branch 'other'␀␀
+306f57fa…␀␀t␀t@example.com␀1793853652␀human and AI␀Claude Opus 5.5 <noreply@anthropic.com>␟Alice <alice@example.com>␀
 ```
 
 | 필드 | 규칙 |
@@ -167,6 +168,7 @@ stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc�
 | `%an`, `%ae` | 표시용 문자열 |
 | `%at` | epoch 초 |
 | `%s` | 제목. 커밋 메시지에 NUL이 있어도 git이 NUL 앞에서 자르므로 필드 구조는 깨지지 않는다 (`hash-object --literally`로 만든 객체로 확인) |
+| `%(trailers:…)` | `Co-authored-by` 트레일러 값. 키는 대소문자를 가리지 않고, 여러 줄로 접힌 값은 `unfold`로 한 줄이 된다. 값 사이는 U+001F(`␟`), 없으면 빈 필드. 본문 중간의 `Co-authored-by:` 줄은 트레일러가 아니다. 표시용이라 손실 디코딩하고 빈 값은 버린다 → `CommitNode.coAuthors`. AI 배지는 `AIAgentRule`(알려진 에이전트 이메일·GitHub bot 접미사, 설정으로 확장)로 판정한다. 저장소 로컬 `trailer.<key>.cmd`/`.command`는 pretty 형식에서 실행되지 않는다 (Apple Git 2.54.0 확인, #160) |
 
 - `--graph`는 쓰지 않는다. 레인은 GraphEngine이 `%P`로 계산한다 (ADR-0010).
 - `--exclude=refs/stash --all`로 stash 커밋을 뺀다 (확인).
@@ -186,6 +188,7 @@ stash@{0}␀18351f0f…␀On main: exp: try␀1793853652␀stash@{1}␀1f9538bc�
 | PAR-LOG-06 | 잘못된 OID → 실패 |
 | PAR-LOG-07 | 잘린 마지막 레코드 버림 |
 | PAR-LOG-08 | NUL이 들어간 커밋 메시지 (literally 객체) |
+| PAR-LOG-09 | co-author 트레일러: 없음, 여러 개(대소문자 섞임), 사람+AI, 접힌 값, 본문 중간 줄 |
 
 ---
 
