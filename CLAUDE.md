@@ -139,6 +139,7 @@ scripts/make-fixture-repo.sh --malicious <dir>           # 보안 테스트용 �
 scripts/make-bench-repo.sh <dir>                         # 성능 측정용 대형 저장소
 scripts/measure-git-baseline.sh <bench-dir>              # git 계층 기준 성능 측정
 scripts/lint/check-forbidden-apis.sh                     # 프로세스 API 사용 위치 검사
+scripts/lint/check-no-dependencies.sh                    # 외부 의존성(SPM·CocoaPods·Carthage) 없음 검사
 gitleaks git --no-banner --redact -v .                   # 비밀 정보 검사 (전체 이력)
 swift format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
 # Phase 3 이후
