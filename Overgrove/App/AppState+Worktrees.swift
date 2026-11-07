@@ -157,6 +157,8 @@ extension AppState {
     func selectWorktree(_ path: GitPath) {
         guard case .loaded(let listing) = worktreeList, listing.entries.contains(where: { $0.worktree.path == path })
         else { return }
+        // The center goes back to the graph (information-architecture.md §2.2), so an open file history closes.
+        history.close()
         graph.select(nil)
         commitDetail.clearFile()
         if focusedWorktreePath != path {

@@ -16,7 +16,7 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .worktreeDiff(path: GitPath(":(exclude)x"), staged: false), .worktreeNumstat(staged: true),
     .worktreeNumstat(staged: false),
     .fileHistory(path: GitPath("*"), limit: 100),
-    .fileHistory(path: GitPath("-x"), follow: false, skip: 500, limit: 500),
+    .fileHistory(path: GitPath("-x"), follow: false, limit: 1_000),
     .compareFiles(base: FullRefName("refs/remotes/origin/main")!, includeWorkingTree: false),
     .compareFiles(base: FullRefName("refs/heads/main")!, includeWorkingTree: true),
     .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("-x"), includeWorkingTree: false),
@@ -122,12 +122,11 @@ final class GitCommandTests: XCTestCase {
             ],
             [
                 "log", "--follow", "-z", ReadOnlyGitCommand.logFormat, "--numstat", "--no-ext-diff", "--no-textconv",
-                "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--skip=0", "-n", "100", "--",
-                "*",
+                "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "-n", "100", "--", "*",
             ],
             [
                 "log", "-z", ReadOnlyGitCommand.logFormat, "--numstat", "--no-ext-diff", "--no-textconv", "--no-color",
-                "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--skip=500", "-n", "500", "--", "-x",
+                "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "-n", "1000", "--", "-x",
             ],
             [
                 "diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv",

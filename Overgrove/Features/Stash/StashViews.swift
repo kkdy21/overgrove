@@ -72,6 +72,8 @@ struct StashDetailView: View {
     let model: StashDetailModel
     let selectedFile: GitPath?
     let onSelectFile: (FileStat) -> Void
+    /// `Show History` in a file's menu (S-09, #70).
+    var onShowHistory: ((GitPath) -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -203,5 +205,6 @@ struct StashDetailView: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(row.isSelectable ? .isButton : [])
         .accessibilityAction { if row.isSelectable { onSelectFile(row.file) } }
+        .showHistoryMenu(row.file.path, action: onShowHistory)
     }
 }

@@ -108,7 +108,8 @@ final class ConfigExecutionArgumentTests: XCTestCase {
     }
 
     /// SEC-T3-02: every case that can produce a diff disables external diff drivers and textconv, and the log-based
-    /// cases never ask for a patch.
+    /// cases never ask for a patch. A log case may ask for `--numstat` (file history, #70) only with both flags; it then
+    /// counts as a diff case.
     func testSECT3_02_EveryDiffCaseDisablesExternalDiffAndTextconv() throws {
         // Every subcommand is classified, so a new one (`show`, `diff-index`, …) fails here until it is reviewed.
         let known: Set<String> = [
@@ -121,19 +122,20 @@ final class ConfigExecutionArgumentTests: XCTestCase {
             XCTAssertTrue(known.contains(arguments.first ?? ""), "\(command): unreviewed subcommand")
             let isDiff =
                 ["diff", "diff-tree"].contains(arguments.first) || arguments.starts(with: ["stash", "show"])
+                || (arguments.first == "log" && arguments.contains("--numstat"))
             if isDiff {
                 diffCases += 1
                 XCTAssertTrue(arguments.contains("--no-ext-diff"), "\(command)")
                 XCTAssertTrue(arguments.contains("--no-textconv"), "\(command)")
             }
             if arguments.first == "log" {
-                for patchOption in ["-p", "-u", "--patch", "--patch-with-stat", "--cc", "-c", "--stat", "--numstat"] {
+                for patchOption in ["-p", "-u", "--patch", "--patch-with-stat", "--cc", "-c", "--stat"] {
                     XCTAssertFalse(arguments.contains(patchOption), "\(command) must not show a patch")
                 }
             }
         }
         XCTAssertGreaterThanOrEqual(
-            diffCases, 11, "stashFiles, stashPatch×2, commitFiles×2, commitPatch×2, diff×2, numstat×2…")
+            diffCases, 12, "stashFiles, stashPatch×2, commitFiles×2, commitPatch×2, diff×2, numstat×2, fileHistory…")
     }
 
     /// SEC-T7-02: no source file uses a signature format (`%G?`, `%GS`, `%GK`, `%GF`, `%GP`, `%GT`, …), which runs
