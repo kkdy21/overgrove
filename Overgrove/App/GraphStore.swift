@@ -56,6 +56,8 @@ final class GraphStore {
     private(set) var isLoadingMore = false
     /// No more commits: the last page was short, or output was cut (pages after it would not line up).
     private(set) var isComplete = false
+    /// Columns used by the loaded rows, for the Graph column width.
+    private(set) var laneCount = 0
 
     private let loader: any GraphLoading
     private var repository: Repository?
@@ -67,6 +69,8 @@ final class GraphStore {
     private var indexByOID: [ObjectID: Int] = [:]
     private var generation = 0
     private var task: Task<Void, Never>?
+    /// The pending first-page read only checks whether the history moved (`refresh`).
+    private var isChecking = false
 
     init(loader: any GraphLoading = LiveGraphLoader.live) {
         self.loader = loader
@@ -80,6 +84,22 @@ final class GraphStore {
         self.repository = repository
         self.focus = focus
         restart()
+    }
+
+    /// The repository was refreshed: keep what is shown when the first page still has the same ref set, start over
+    /// when it moved. Pages are cached by ref set, so an unchanged history reads nothing new.
+    func refresh(focus: WorktreeListing.Entry?) {
+        self.focus = focus
+        decorate()
+        guard status == .loaded else {
+            if repository != nil { restart() }
+            return
+        }
+        task?.cancel()
+        generation += 1
+        isLoadingMore = false
+        isChecking = true
+        fetch(skip: 0)
     }
 
     /// The focused worktree changed (or its status did): only decorations change, the history stays.
@@ -116,6 +136,8 @@ final class GraphStore {
         refSet = nil
         isComplete = false
         isLoadingMore = false
+        isChecking = false
+        laneCount = 0
         selected = nil
     }
 
@@ -149,10 +171,21 @@ final class GraphStore {
         switch result {
         case .failure(.cancelled):
             return
+        case .failure where isChecking:
+            isChecking = false  // keep what is shown; the next refresh checks again
         case .failure(let error):
             if skip == 0 { status = .failed(PathValidator.displayable(error.message)) }
         // A later page failing keeps what is shown; scrolling to the end tries again.
         case .success(let page):
+            if isChecking {
+                isChecking = false
+                guard page.refSet != refSet else { return }  // nothing moved: keep rows, selection, and scroll
+                let selection = selected
+                reset()
+                append(page)
+                selected = selection.flatMap { indexByOID[$0] == nil ? nil : $0 }
+                return
+            }
             if skip > 0, page.refSet != refSet {
                 restart()  // the history moved since the first page
                 return
@@ -166,6 +199,9 @@ final class GraphStore {
         for (offset, commit) in page.commits.enumerated() { indexByOID[commit.oid] = commits.count + offset }
         commits += page.commits
         rows += laid.rows
+        for row in laid.rows {
+            laneCount = max(laneCount, row.column + 1, (row.incoming.map { max($0.from, $0.to) }.max() ?? -1) + 1)
+        }
         layoutState = laid.state
         pendingSegments = laid.state.pendingSegments
         isComplete = page.isPartial || page.commits.count < Self.pageSize

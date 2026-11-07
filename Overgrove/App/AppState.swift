@@ -119,6 +119,8 @@ final class AppState {
     private let inspector: any WorktreeInspecting
     private let diffLoader: any DiffLoading
     private let comparisonLoader: any ComparisonLoading
+    /// The commit graph of the open repository (S-01 center, #68).
+    let graph: GraphStore
     /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
     private(set) var comparison: ComparisonSession?
     /// The comparison (and its patch) in flight; tests await them.
@@ -182,6 +184,7 @@ final class AppState {
     ///   - inspector: Reads one worktree's configuration for S-05.
     ///   - diffLoader: Loads a picked file's patch for S-10.
     ///   - comparisonLoader: Compares a worktree with its base branch for S-11.
+    ///   - graphLoader: Reads commit graph pages for the center panel (#68).
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
     init(
@@ -190,8 +193,10 @@ final class AppState {
         inspector: any WorktreeInspecting = LiveWorktreeInspector.live,
         diffLoader: any DiffLoading = LiveDiffLoader.live,
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
-        lineCountLoader: (any LineCountLoading)? = nil
+        lineCountLoader: (any LineCountLoading)? = nil,
+        graphLoader: any GraphLoading = LiveGraphLoader.live
     ) {
+        self.graph = GraphStore(loader: graphLoader)
         self.layoutStore = layoutStore
         self.registry = registry
         self.registrar = registrar
@@ -231,6 +236,7 @@ final class AppState {
         worktreeInspections = [:]
         fetchStatus = .never
         searchText = ""
+        graph.clear()
     }
 
     // MARK: Worktrees (#65)
@@ -268,6 +274,7 @@ final class AppState {
             worktreeInspections = [:]
             if case .worktreeInfo = selection { inspectSelectedWorktree() }
             snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
+            updateGraph(listing)
             // Keep the picked file only while it is still listed in the same group.
             // Same rule as `selectFile`: the row must still exist and still be selectable.
             if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true {
@@ -284,6 +291,16 @@ final class AppState {
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
             snapshot = nil
+        }
+    }
+
+    /// First load reads the graph; later loads keep it unless the history moved (GraphStore.refresh).
+    private func updateGraph(_ listing: WorktreeListing) {
+        let focus = listing.entries.first { $0.worktree.path == focusedWorktreePath }
+        if graph.status == .idle, let repository {
+            graph.load(repository.repository, focus: focus)
+        } else {
+            graph.refresh(focus: focus)
         }
     }
 
@@ -311,6 +328,7 @@ final class AppState {
         }
         focusedWorktreePath = path
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: path)
+        graph.setFocus(listing.entries.first { $0.worktree.path == path })
         // The segment the user chose stays when they move to another worktree; `Changes` is the default.
         if case .worktreeInfo = selection {
             selection = .worktreeInfo(path)
