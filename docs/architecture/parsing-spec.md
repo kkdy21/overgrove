@@ -250,12 +250,16 @@ raw 레코드가 모두 나온 뒤 numstat 레코드가 나온다 (확인).
 
 - raw 구간은 토큰이 `:`로 시작하는 동안 이어진다.
 - 두 구간은 새 경로 기준으로 합친다. 상태 문자(A, M, D, R, C, T)는 raw에서, 줄 수는 numstat에서 가져온다.
+  - numstat 레코드는 raw 레코드와 같은 순서로 하나씩 나온다. 타입 변경(`T`)도 numstat 레코드는 하나다 (확인). 순서·개수·경로가 어긋나면 `parseFailed`.
+  - 잘린 출력에서 numstat이 잘려 나간 파일은 버린다. 줄 수를 모르는데 `nil`로 두면 바이너리로 보이기 때문이다.
 - 루트 커밋은 `--root`가 있어야 파일 목록이 나온다 (확인).
 - 병합 커밋은 첫 부모를 명시해 두 트리를 비교한다. 기본 동작은 파일 목록을 내지 않는다 (확인).
 
 ### 8.2 stash 파일 — `stash show --include-untracked --numstat -z`
 
-numstat 레코드만 나온다. `--include-untracked`가 있으면 untracked 부분 파일도 포함된다 (git 2.32+, 확인). untracked 출신 파일인지는 stash 커밋의 세 번째 부모(`%P`)에 있는지로 구분한다. 이 판별 방법은 Phase 3에서 PAR-NUMSTAT-05로 확정한다.
+numstat 레코드만 나온다. `--include-untracked`가 있으면 untracked 부분 파일도 포함된다 (git 2.32+, 확인). untracked 출신 파일인지는 stash 커밋의 세 번째 부모(`%P`)에 있는지로 구분한다. 세 번째 부모는 untracked 트리만 담은 루트 커밋이라서 `commitFiles(<stash>^3)`의 파일 목록이 곧 untracked 파일 목록이다. 이 경로 집합을 `parseStashFiles(untrackedPaths:)`에 넘기고 raw 바이트로 비교한다 (PAR-NUMSTAT-05, Apple Git 2.50.1 확인).
+
+- stash 출력에도 이름 변경 numstat(`<added>\t<deleted>\t␀<old>␀<new>␀`)이 나온다. `stash show`는 `diff.renames` 기본값(켜짐)을 따른다 (확인).
 
 | 테스트 | 사례 |
 |---|---|
