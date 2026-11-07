@@ -6,7 +6,8 @@ import Foundation
 ///
 /// The match is by namespace. A ref the parser skips (`RefParser.Listing.skippedRecords`, e.g. a non-UTF-8 name) or
 /// one past a truncated ref or worktree listing is still walked but not in the key, so the key cannot see it move.
-/// Such a set is therefore never used to cache pages (`isComplete`, #333).
+/// Such a set is therefore never used to cache pages, and `GraphStore` treats every refresh with it as a move and
+/// starts over from the first page (`isComplete`, #333). That costs the scroll position in those rare repositories.
 ///
 /// The exact sorted list is the identity, not a hash of it, so two different ref sets can never share cached pages.
 struct GraphRefSet: Sendable, Hashable {
@@ -41,6 +42,9 @@ struct GraphPageSnapshot: Sendable, Equatable {
     let refSet: GraphRefSet
     let refs: RefParser.Listing
     let worktrees: [Worktree]
+    /// `refSet` holds every ref the page walked (`GraphRefSet.isComplete`). When it does not, an unchanged `refSet`
+    /// does not mean an unchanged history, and `GraphStore` starts over on every refresh (#333).
+    var isRefSetComplete = true
 }
 
 /// Commit graph pages (#68, ADR-0010 §3). Paging is `--skip`/`-n` (git-command-catalog.md §3) until #89 decides
@@ -59,13 +63,13 @@ extension RepositoryService {
         let worktrees = overview.entries.map(\.worktree)
         let refSet = GraphRefSet(refs: overview.refs, worktrees: worktrees)
         let key = GraphPageKey(repositoryID: repository.id, refSet: refSet, skip: skip, limit: limit)
+        let isCacheable = GraphRefSet.isComplete(
+            refs: overview.refs, isWorktreeListPartial: overview.isWorktreeListPartial)
         func snapshot(_ page: LogParser.GraphPage) -> GraphPageSnapshot {
             GraphPageSnapshot(
                 commits: page.commits, isPartial: page.isPartial, refSet: refSet, refs: overview.refs,
-                worktrees: worktrees)
+                worktrees: worktrees, isRefSetComplete: isCacheable)
         }
-        let isCacheable = GraphRefSet.isComplete(
-            refs: overview.refs, isWorktreeListPartial: overview.isWorktreeListPartial)
         if isCacheable, let cached = graphPages.value(for: key) { return .success(snapshot(cached)) }
 
         switch await Self.readGraphPage(repository, skip: skip, limit: limit, makeContext(repository)) {
