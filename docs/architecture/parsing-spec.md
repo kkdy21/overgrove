@@ -453,6 +453,34 @@ Resolving deltas: 100% (102/102), completed with 102 local objects.⏎
 
 ---
 
+### 11.5 PatchParser — 파일 하나의 원문 패치 (S-10, #232)
+
+입력은 `worktreeDiff(path:staged:)`, `untrackedPreview(WorktreeFile)`, `commitPatch`, `stashPatch`의 stdout이다. 모두 경로 하나만 지정한다. 줄은 LF로 나눈다.
+
+- **파일 블록.** `diff --git `으로 시작한다. 타입 변경(파일 → 심볼릭 링크)은 같은 경로가 삭제·추가 두 블록으로 나오므로 블록을 여러 개 받는다. `diff --cc `·`diff --combined `(충돌 파일의 결합 diff)는 `isCombined`로 표시하고 본문은 읽지 않는다(다음 블록까지 건너뜀).
+- **헤더 줄.** `old mode`, `new mode`, `new file mode`, `deleted file mode`(6자리 8진수), `similarity index`·`dissimilarity index`(`n%`), `rename from`·`rename to`·`copy from`·`copy to`, `index <oid>..<oid>[ <mode>]`, `--- `·`+++ `, `Binary files … differ`. 알 수 없는 헤더 줄은 무시한다(상위 호환).
+- **헤더의 경로.** git은 특수 문자가 든 경로를 C 스타일 따옴표로 감싼다(`"tab\there"`, `\303\251` 같은 8진수 바이트). 따옴표를 풀어 바이트로 되돌리고 `GitPath`로 만든다. 따옴표가 맞지 않으면 실패.
+- **hunk.** `@@ -a[,b] +c[,d] @@[ 문맥]`. 숫자는 10진수, 개수를 생략하면 1이다. 본문은 **헤더의 개수를 다 채울 때까지** ` `(문맥)·`+`·`-`로 시작하는 줄이고, `\`로 시작하는 줄(`\ No newline at end of file`)은 개수에 세지 않는다. 그래서 `+diff --git`, `-@@ -1 +1 @@` 같은 파일 내용은 헤더로 오인되지 않는다. 개수를 채운 뒤에는 `\` 줄 하나, 다음 hunk 헤더, 다음 파일 블록, 입력 끝만 올 수 있고 그 밖은 실패한다. 개수가 남았는데 다른 줄이 오면 실패한다.
+- **줄 번호.** 이전 쪽은 `a`부터, 이후 쪽은 `c`부터 센다. 문맥 줄은 양쪽, `-`는 이전, `+`는 이후만 번호를 가진다.
+- **내용.** 줄 내용은 바이트 그대로 둔다(UTF-8이 아니어도, CR이 있어도). 화면에 낼 때 이스케이프한다(제어·bidi 문자, 긴 줄 자르기).
+- **서브모듈.** 모드 `160000`(`index … 160000` 또는 mode 줄)이고 본문이 `Subproject commit <oid>`이면 `submodule(old:new:)`로 요약한다.
+- **바이너리.** `Binary files … differ`면 `isBinary`. 크기는 diff 출력에 없어서 표시하지 않는다.
+- **커밋 OID 줄.** `diff-tree`에 커밋을 하나만 주면(루트 커밋, untracked stash 부모) 맨 앞에 그 커밋의 OID 한 줄을 찍는다. 첫 줄에서만 건너뛴다.
+- **`* Unmerged path <경로>`.** 충돌 경로에 `diff --cached`(그리고 일부 unmerged 상태)가 패치 대신 내는 한 줄. 충돌 파일 블록(`isUnmerged`)으로 받는다.
+- **`\` 줄 위치.** 내용 줄 바로 뒤에만 올 수 있다. hunk 첫 줄이거나 두 번 연속이면 실패한다. 바이너리 블록 뒤의 hunk도 실패한다.
+- **설정이 바꾼 출력.** 저장소 설정(`color.diff=always`, `diff.noprefix`, `diff.mnemonicPrefix`, `diff.submodule=log|diff`)은 `git diff` 출력 모양을 바꾼다. 이를 막는 인자는 #239가 카탈로그에 고정한다. 파서는 엄격하게 두어 ANSI 코드·`Submodule …` 줄이 오면 실패한다(잘못 읽어 보여 주지 않음). `diff.suppressBlankEmpty`가 만든 빈 줄은 개수 안에서 빈 문맥 줄로 받는다.
+- **빈 출력.** 변경이 없으면(파일이 원래대로 돌아옴) 블록 0개.
+- **잘린 출력.** 마지막 미완성 줄을 버리고, 끝나지 않은 hunk는 받은 줄까지만 두고 `isPartial`.
+
+| 테스트 | 사례 |
+|---|---|
+| PAR-PATCH-01 | 수정·추가·삭제 파일, 여러 hunk, 문맥 개수 생략, `-0,0`/`+0,0` |
+| PAR-PATCH-02 | 헤더를 흉내 내는 내용 줄(`+diff --git`, `-@@`, `++++ b/x`), 개수 불일치·남는 줄은 실패 |
+| PAR-PATCH-03 | 따옴표 경로(탭, LF, 8진수 UTF-8, 비UTF-8), `-`로 시작하는 이름, rename/copy와 similarity |
+| PAR-PATCH-04 | 모드만 변경, 타입 변경(블록 2개), 바이너리, 서브모듈, 심볼릭 링크, 결합 diff |
+| PAR-PATCH-05 | `\ No newline at end of file` 양쪽, CRLF, 비UTF-8 내용, 매우 긴 줄 |
+| PAR-PATCH-06 | 잘림: 줄 중간, hunk 헤더 중간, hunk 본문 중간. 빈 출력 |
+
 ## 12. 경계 사례 요약
 
 | 경계 사례 | 처리 | 테스트 |
