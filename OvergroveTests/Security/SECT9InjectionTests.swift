@@ -68,7 +68,7 @@ final class SECT9InjectionTests: XCTestCase {
     /// INT-10 (fixtures.md §5, §9.2): every special file name in the fixture works with diff and file history.
     func testINT10_FixtureSpecialFileNames() async throws {
         let fixture = try await makeFixture()
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
         let repo = fixture.repository
         let listing = try await client.run(.configList, in: repo, safety: .preInspection)

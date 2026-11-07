@@ -165,10 +165,20 @@ final class LazyFetchSecurityTests: XCTestCase {
         }
         XCTAssertEqual(canaries(), [])
 
-        // With a git that honors GIT_NO_LAZY_FETCH, fetch runs; its own upload-pack is pinned.
-        XCTAssertGreaterThanOrEqual(partial.environment.version, GitEnvironment.lazyFetchControlVersion)
-        _ = try await GitClient(environment: partial.environment).fetch(
-            .fetch(remote: RemoteName("origin")!), in: repository, safety: inspected)
+        // The real git (#99): one that honors GIT_NO_LAZY_FETCH fetches with its own upload-pack pinned; an older one
+        // (2.36–2.43) is refused like the stand-in above.
+        let real = GitClient(environment: partial.environment)
+        if partial.environment.version >= GitEnvironment.lazyFetchControlVersion {
+            _ = try await real.fetch(.fetch(remote: RemoteName("origin")!), in: repository, safety: inspected)
+        } else {
+            do {
+                _ = try await real.fetch(.fetch(remote: RemoteName("origin")!), in: repository, safety: inspected)
+                XCTFail("git \(partial.environment.version) cannot turn off lazy fetching, so fetch must be refused")
+            } catch let error as GitError {
+                guard case .configInspectionFailed(let reason) = error else { return XCTFail("got \(error)") }
+                XCTAssertTrue(reason.contains("partial clone"), reason)
+            }
+        }
         XCTAssertEqual(canaries(), [], "the repository's uploadpack does not run")
     }
 

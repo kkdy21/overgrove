@@ -146,8 +146,22 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⌘R` | 전체 | 항상 실행 |
 | fetch 완료 | 브랜치, upstream 비교, 그래프 | |
 | 설정 변경 (untracked 표시 등) | 영향받는 워크트리 status | |
+| 파일이 바뀜 (창이 보이는 동안) | 바뀐 워크트리의 status, 필요하면 refs·워크트리 목록 | 자동 새로고침, 아래 |
+| 창이 다시 보임 (가려짐·최소화 뒤) | 창 활성화와 같음 | 한 번 |
 
-- 파일 시스템 감시(FSEvents)로 자동 새로고침하는 기능은 `later`다. IDE에서 파일을 고치고 Overgrove로 돌아오면 창 활성화로 갱신된다.
+**자동 새로고침 (#119, #163 결정 B).** 창이 화면에 보이는 동안(`NSWindow.occlusionState`)만 FSEvents로 감시한다.
+- **감시 범위**: #226으로 검증된 워크트리 폴더들과 공통 git 디렉터리. 공통 디렉터리 안에서는 `HEAD`·`index`(메인 워크트리), `refs/`·`packed-refs`(refs), `worktrees/<id>/HEAD|index`(그 연결 워크트리), `worktrees/<id>` 자체와 `gitdir`·`locked`(워크트리 목록), `config`(전부)만 반영한다. `objects/`, `logs/`, `FETCH_HEAD`, `ORIG_HEAD`, hooks 등은 무시한다. 그래서 fetch나 gc가 모든 status를 다시 돌리지 않는다. 시스템이 세부를 잃었다고 알리면(rescan) 전부 다시 조회한다.
+- **경로**: 이벤트 경로는 신뢰하지 않는 문자열이다. 검증된 폴더와 경로 구성 요소로만 비교하고, 디스크에서 읽지 않는다. 폴더 밖의 경로는 버린다. 워크트리가 다른 워크트리 안에 있으면 가장 깊은 폴더에 속한다.
+- **묶음과 상한**:
+  - 이벤트 지연 1초. 마지막 이벤트 후 1초 디바운스한다. 이벤트가 계속 오더라도 첫 변경 후 최대 5초 안에는 요청한다(쉬지 않고 쓰는 에이전트를 지켜볼 때도 화면이 따라온다).
+  - 한 번에 하나만 요청하고, 그동안 온 변경은 끝난 뒤 한 번에 보낸다.
+  - 재실행 간격은 max(2초, 마지막 소요 시간 × 10)이다. 5초짜리 status도 50초에 한 번, 한 코어의 약 10%로 묶인다.
+  - 요청은 `.filesChanged` 트리거 하나로, 바뀐 워크트리들의 status만 다시 조회한다(필요하면 refs·목록도).
+  - 분류는 스트림 큐에서 하고 메인 액터로는 묶은 변경만 넘긴다. 한 묶음이 10,000개를 넘으면 경로를 보지 않고 rescan으로 친다(SEC-T15-17).
+- **되먹임 없음**: 앱의 git 조회는 index를 쓰지 않으므로(#211) 자기 이벤트로 다시 새로고침하지 않는다. 실제 FSEvents로 검증한다.
+- 가려지거나 최소화되면 스트림을 멈춘다(비용 0). 다시 보이면 모든 워크트리·refs·목록을 한 번 대기열에 넣는다. 같은 디바운스와 재실행 간격을 거치므로, Spaces를 오가며 여러 번 보였다 가려져도 요청은 하나다.
+- 다른 로드(⌘R, 선택, 다른 창의 로드)가 도는 동안에는 보내지 않고, 끝나면 보낸다. 대체된 요청은 다시 보내고, 실패한 요청은 버린다(오류는 화면에 남고, 다음 변경이나 ⌘R이 다시 시도한다).
+- 측정: PERF-10(파일 6,000개를 8초 동안 쓰는 동안 새로고침 3회, status 3회, git CPU 약 0.7%, [결과](../performance/results/2026-11-07-perf10-auto-refresh-storm.md)).
 - **화면을 막지 않는다.** 새로고침 중에도 이전 데이터를 그대로 보여 주고 상태바에 `Refreshing…`과 작은 스피너만 둔다. 워크트리 하나의 status가 500ms를 넘기면 그 행에만 작은 스피너를 붙인다.
 - 결과가 오면 제자리에서 바꾼다. 정렬이 안정적이므로 행이 튀지 않는다. 배지 수가 바뀌면 `motion.duration-fast` 동안 옅게 페이드한다. Reduce Motion이면 애니메이션을 끈다.
 - 실패하면 이전 데이터를 `opacity.stale`로 흐리게 두고, 상태바에 `Refresh failed — Details`를 띄운다.
@@ -260,7 +274,7 @@ stateDiagram-v2
 - rotor 세 개를 넣었다. `Changes`는 그룹 헤더로 이동하고, 헤더는 기본 Headings rotor에도 나온다.
 - 선택 행은 `isSelected` trait를 가진다.
 - 인라인 아이콘 버튼은 `hitTarget()`(20pt)을 쓴다.
-- 대비 증가에서 컨트롤 테두리는 `Tokens.controlOutlineWidth`(1.5pt)와 `border.strong`을 쓴다.
+- 대비 증가에서 컨트롤 테두리는 `Tokens.controlOutlineWidth`(1.5pt)와 `border.strong`을 쓴다. 패널 안 칩·컨트롤은 `controlOutline(_:normal:increased:)`로 그린다(#304). 대상은 툴바 워크트리 칩, 사이드바 Filter 필드, `Changes | Worktree` 세그먼트, 태그 캡슐(`main worktree`, `submodule`, `WIP`, `renamed from …`, 이슈 상태·라벨), 이슈 번호 배지, AI 배지, 그래프 작성자 칩이다. 평소에 테두리가 없던 것은 평소 화면이 그대로다. 링크인 이슈 번호와 AI 배지는 원래 글자색 테두리를 굵기만 올린다. 그래프 ref 알약 테두리와 ref 연결선은 레인 색 100%로 그린다(평소 75%·55%).
 - 툴바의 워크트리 칩(`⌘J`), Terminal, Finder 버튼은 #73의 동작에 연결했다. Terminal은 `TerminalGuard`를 거친다.
 - 실제 VoiceOver 동작(읽는 순서, rotor 이동, 알림)은 [qa/checklist.md](../qa/checklist.md) QA-A11Y-01–11에서 사람이 확인한다(#96).
 - 새로고침이나 fetch 결과처럼 상태가 바뀌면 `AccessibilityNotification.Announcement`로 짧게 알린다. 예: `Fetch finished`, `Fetch failed: authentication`.
