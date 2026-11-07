@@ -216,21 +216,14 @@ struct GraphCommitRowView: View {
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText(text, linkedIssues: linkedIssues))
+        .accessibilityLabel(
+            GraphRowAccessibility.label(
+                commit: commit, text: text, pills: pills, isHead: isHead, linkedIssues: linkedIssues,
+                isHighlighted: isHighlighted, now: now)
+        )
+        .accessibilityHint(GraphRowAccessibility.hint(commit))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .issueBadgeAction(linkedIssues.first)
-    }
-
-    private func accessibilityText(_ text: GraphCommitText, linkedIssues: [Int]) -> String {
-        var parts: [String] = [text.subject]
-        if text.isAIAssisted { parts.append("AI-assisted") }
-        parts.append("by \(text.author)")
-        parts.append(text.absoluteDate)
-        if let pill = pills.first { parts.append("ref \(pill.title)") }
-        let issueList = linkedIssues.map(String.init).joined(separator: ", ")
-        if !issueList.isEmpty { parts.append("issue \(issueList)") }
-        if isHighlighted { parts.append("linked to the selected issue") }
-        return parts.joined(separator: ", ")
     }
 
     /// Tertiary text turns secondary on a selected row (screens.md S-01).
@@ -367,7 +360,7 @@ struct GraphWipRowView: View {
         .frame(height: GraphGeometry.rowHeight)
         .background(Tokens.Color.surfaceWipRow)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Uncommitted changes in \(wip.folderName): \(wip.summary)")
+        .accessibilityLabel(wip.accessibilityLabel)
     }
 }
 

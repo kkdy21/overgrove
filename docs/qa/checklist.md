@@ -111,11 +111,17 @@ Phase 4 QA 이슈 본문에 이 목록을 복사해서 쓴다. 항목마다 결�
 
 | ID | 확인 | 기대 결과 | 자동화 |
 |---|---|---|---|
-| QA-A11Y-01 | VoiceOver로 사이드바 → 그래프 → 상세 이동 | 각 행이 의미 있는 레이블로 읽힌다 (예: "feat/ahead, 변경 0, 앞섬 2") | — |
+| QA-A11Y-01 | VoiceOver로 사이드바 → 그래프 → 상세 이동 | 각 행이 의미 있는 레이블로 읽힌다 (예: "feat/ahead, 변경 0, 앞섬 2") | 레이블 문자열: `AccessibilityLabelTests`, `WorktreeListModelTests`, `BranchListModelTests`, `WipDetailModelTests` (#75). 실제로 읽히는지는 수동 |
 | QA-A11Y-02 | 키보드만으로 주요 흐름 (Tab, ⌘1–⌘4, ↑/↓, ⏎, ⎋) | 마우스 없이 모든 화면에 도달한다. 포커스가 항상 보인다 | — |
 | QA-A11Y-03 | 손쉬운 사용 › 디스플레이 › 대비 증가, 투명도 줄이기 🌗 | 상태 구분이 유지되고 텍스트 대비가 부족하지 않다 | — |
 | QA-A11Y-04 | 동작 줄이기 켜기 | 불필요한 애니메이션이 사라진다 | — |
 | QA-A11Y-05 | Accessibility Inspector 감사 | 경고 0개 또는 사유가 기록된 경고만 남는다 | — |
+| QA-A11Y-06 | VoiceOver 로터(VO-U): 사이드바에서 `Worktrees`, S-02에서 `Changes`·`Conflicted Files` | 항목 이름이 읽히고 고른 행으로 이동한다. S-02는 긴 목록(lazy)의 화면 밖 행으로도 이동하는지 본다 | — |
+| QA-A11Y-07 | 그래프 커밋 행에서 VoiceOver 읽기 | `Commit <SHA>, 제목, 작성자, 2 hours ago, branches …, HEAD of worktree …`, merge면 `merge commit, 2 parents`. 잠시 뒤 힌트로 절대 날짜. WIP 행은 `Uncommitted changes in …: 3 staged, …` | `AccessibilityLabelTests` (문자열) |
+| QA-A11Y-08 | 행 컨텍스트 메뉴를 VoiceOver로 열기(VO-Shift-M): 커밋·파일·워크트리·브랜치·stash·이슈 | 보기·복사 항목만 있고 모두 실행된다. 같은 동작이 키보드 명령(⌘C, ⌥⌘C, ⌘J, ⌘I)으로도 된다 | `AppStateNavigationTests` (동작) |
+| QA-A11Y-09 | fetch 성공·실패 | `Fetch finished` / `Fetch failed: …` 알림이 VoiceOver로 들린다 | `FetchAnnouncement` 문자열 테스트 |
+| QA-A11Y-10 | 검사되지 않았거나 실행 설정이 있는 워크트리에서 Open in Terminal(툴바 또는 행 메뉴) | 확인 창이 VoiceOver로 읽히고, `⏎`·`⎋` 모두 Cancel이다 | `TerminalGuardTests` (판정) |
+| QA-A11Y-11 | 대비 증가에서 툴바의 워크트리 칩 | 테두리가 `border.strong` 1.5pt로 바뀐다 | `AccessibilityLabelTests` (두께 값) |
 
 ## 다크 모드와 외관 (DM)
 
