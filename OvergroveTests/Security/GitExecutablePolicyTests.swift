@@ -448,9 +448,9 @@ final class GitExecutableResolveTests: XCTestCase {
         XCTAssertEqual(Set(protected), [common.path, good.path])
     }
 
-    /// No choice, no protected directories: discovery for the default git reads no repository file (a hostile
+    /// SEC-T10-06: no choice, no protected directories: discovery for the default git reads no repository file (a hostile
     /// repository cannot slow down every user).
-    func testNoChoiceReadsNoRepositoryFiles() async throws {
+    func testSECT10_06_NoChoiceReadsNoRepositoryFiles() async throws {
         let fallback = try executables.fakeDeveloperDirectory(versionLine: "git version 2.54.0")
         let reads = DefaultLookup()
         _ = try await GitEnvironment.resolve(
