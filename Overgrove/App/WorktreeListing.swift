@@ -36,13 +36,10 @@ struct WorktreeListing: Sendable, Equatable {
 
 extension WorktreeListing {
     /// The sidebar's view of a `RepositoryService` load.
-    ///
-    /// `RepositoryOverview` does not carry `WorktreeParser.Listing.isPartial` yet, so a truncated worktree list is not
-    /// reported here (asked of #88).
     init(overview: RepositoryOverview) {
         self.init(
             entries: overview.entries.map { Entry(worktree: $0.worktree, state: Self.state($0.status)) },
-            isPartial: false)
+            isPartial: overview.isWorktreeListPartial)
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {
@@ -81,8 +78,8 @@ protocol RepositoryLoading: Sendable {
     func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing
 }
 
-/// The app's loader: `configList` → `RepoConfigInspector` → `RepoSafetyContext` → `RepositoryService` (#87), which
-/// lists the worktrees and checks and queries each one.
+/// The app's loader: `RepositoryService` (#87, #88) inspects the repository's configuration (cached until a
+/// configuration file changes), lists the worktrees, and checks and queries each one.
 struct LiveRepositoryLoader: RepositoryLoading {
     /// The shared client and service; tests pass ones with a fixture's environment.
     let services: @Sendable () async throws -> (GitClient, RepositoryService)
@@ -91,25 +88,20 @@ struct LiveRepositoryLoader: RepositoryLoading {
 
     func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing {
         do {
-            let (client, service) = try await services()
-            let directory = repository.rootURL ?? repository.commonGitDirectoryURL
-            let config = try await client.run(.configList, in: directory, safety: .preInspection)
-            let listing: ConfigParser.Listing
-            do {
-                listing = try ConfigParser.parse(config.stdout, truncated: config.isTruncated)
-            } catch let error as ParseError {
-                throw GitError.parseFailed(parser: error.parser, offset: error.offset)
-            }
-            let inspection = RepoConfigInspector.inspect(listing)
-            guard let safety = inspection.safetyContext else {
-                throw RepositoryLoadError.blocked(reason: inspection.report.blockingReason ?? "")
-            }
+            let (_, service) = try await services()
             // Opening or selecting a repository is a user request: no debounce (interaction.md).
-            guard let refresh = await service.refresh(repository, safety: safety, trigger: .user) else {
+            guard let refresh = await service.refresh(repository, trigger: .user) else {
                 // Superseded by a newer request for the same repository, or cancelled.
                 throw GitError.cancelled
             }
-            return WorktreeListing(overview: try refresh.result.get())
+            switch refresh.result {
+            case .success(let overview):
+                return WorktreeListing(overview: overview)
+            case .failure(.configInspectionFailed(let reason)):
+                throw RepositoryLoadError.blocked(reason: reason)
+            case .failure(let error):
+                throw error
+            }
         } catch let error as RepositoryLoadError {
             throw error
         } catch let error as GitError {
