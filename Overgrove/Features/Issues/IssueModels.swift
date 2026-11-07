@@ -46,10 +46,15 @@ struct IssueListModel: Equatable {
     /// `nil` when the list is not available (no count in the header).
     let count: Int?
     let notice: Notice?
+    /// What to run in Terminal when gh is missing or logged out (shared with S-07, #85). Overgrove never runs it.
+    private(set) var guidance: GHStatusGuidance?
+    /// Check Again is offered: every state except a loaded list.
+    let canCheckAgain: Bool
     let isLoading: Bool
 
     init(content: IssueListContent?, isLoading: Bool, links: IssueLinkIndex = .empty) {
         self.isLoading = isLoading
+        canCheckAgain = Self.offersCheckAgain(content)
         switch content {
         case nil:
             rows = []
@@ -64,21 +69,24 @@ struct IssueListModel: Equatable {
                 .map { IssueRow($0.issue, linkKind: $0.kind) }
             count = issues.count
             notice = issues.isEmpty ? Notice(symbol: "checkmark.circle", text: "No open issues", detail: nil) : nil
-        // TODO(#83): guidance for these states (copyable `gh auth login`, Check again, S-07).
+        // Degraded states (#83): Git features are unaffected; only this section explains and offers Check Again.
         case .noGitHubRemote:
             rows = []
             count = nil
-            notice = Notice(symbol: "network.slash", text: "No GitHub remote", detail: nil)
+            notice = Notice(
+                symbol: "network.slash", text: "No GitHub remote",
+                detail: "Issues appear for repositories with a github.com remote.")
         case .notInstalled:
             rows = []
             count = nil
             notice = Notice(symbol: "exclamationmark.triangle", text: "GitHub CLI not installed", detail: nil)
+            guidance = GHStatusGuidance(status: .notInstalled)
         case .notLoggedIn:
             rows = []
             count = nil
             notice = Notice(
-                symbol: "person.crop.circle.badge.exclamationmark", text: "Not logged in to GitHub",
-                detail: "Run gh auth login in Terminal.")
+                symbol: "person.crop.circle.badge.exclamationmark", text: "Not logged in to GitHub", detail: nil)
+            guidance = GHStatusGuidance(status: .notLoggedIn)
         case .failed(let repository, let detail):
             rows = []
             count = nil
@@ -155,5 +163,14 @@ struct IssueDetailModel: Equatable {
             GitHubRepository(owner: String(path[1]), name: String(path[2])) != nil
         else { return nil }
         return issue.url
+    }
+}
+
+extension IssueListModel {
+    fileprivate static func offersCheckAgain(_ content: IssueListContent?) -> Bool {
+        switch content {
+        case .noGitHubRemote, .notInstalled, .notLoggedIn, .failed: true
+        case .loaded, nil: false
+        }
     }
 }

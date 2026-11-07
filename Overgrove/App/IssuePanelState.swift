@@ -51,18 +51,31 @@ final class IssuePanelState {
         return []
     }
 
-    /// The repository's remotes are known (a verified listing). Loads when the repository changed or ⌘R asked.
-    func show(_ repository: GitHubRepository?) {
+    /// The repository's remotes are known (a verified listing). Loads when the repository changed or ⌘R asked;
+    /// returns whether it started a load.
+    @discardableResult
+    func show(_ repository: GitHubRepository?) -> Bool {
         guard let repository else {
             cancel()
             self.repository = nil
             content = .noGitHubRemote
-            return
+            return false
         }
-        guard repository != self.repository || isStale else { return }
+        guard repository != self.repository || isStale else { return false }
         self.repository = repository
         isStale = false
         load(repository)
+        return true
+    }
+
+    /// Check Again (#83): reads the same repository's issues again. `false` without one (no GitHub remote): the
+    /// caller reloads the repository so its remotes are read again.
+    @discardableResult
+    func retry() -> Bool {
+        guard let repository else { return false }
+        isStale = false
+        load(repository)
+        return true
     }
 
     /// ⌘R: the next `show` loads again even for the same repository.

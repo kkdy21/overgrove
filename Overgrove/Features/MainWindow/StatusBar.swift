@@ -136,6 +136,8 @@ struct StatusBar: View {
     let items: [StatusBarItem]
     /// Opens the fetch failure details (`Fetch failed — Details`); `nil` makes the fetch field plain text.
     var onFetchDetails: (() -> Void)?
+    /// Opens the setup assistant's GitHub step (S-07, #83); `nil` makes the gh field plain text.
+    var onGitHubSetup: (() -> Void)?
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.sm) {
@@ -166,6 +168,11 @@ struct StatusBar: View {
                     .buttonStyle(.plain)
                     .help("Show why the fetch failed")
                     .accessibilityHint("Shows why the fetch failed and what to do")
+            } else if item.kind == .gh, let onGitHubSetup {
+                Button(action: onGitHubSetup) { field(item) }
+                    .buttonStyle(.plain)
+                    .help("GitHub CLI setup")
+                    .accessibilityHint("Opens the setup assistant")
             } else {
                 field(item)
             }

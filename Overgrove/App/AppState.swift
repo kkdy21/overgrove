@@ -18,6 +18,7 @@ final class AppState {
     let inspector: any WorktreeInspecting
     let diffLoader: any DiffLoading
     let stashLoader: any StashLoading
+    let ghChecker: any GHAuthChecking
     /// The sidebar's ISSUES and S-06 (#81). gh problems stay inside it (ADR-0004 §4).
     let issuePanel: IssuePanelState
     /// The setup assistant (S-07, #85): git and GitHub CLI checks, first run and Help › Setup Assistant….
@@ -95,8 +96,14 @@ final class AppState {
     var fetchStatus: FetchStatus { fetch.status }
     /// A local refresh is running: the status bar shows `Refreshing…` (interaction.md §4).
     var isRefreshing: Bool { runningTrigger != nil }
-    /// TODO(#83): set from `GHClient.authStatus()`; `nil` until checked.
+    /// The status bar's gh field (#83): checked whenever the issues load (a GitHub remote) and on Check Again; `nil`
+    /// until checked or when the check failed.
     var ghStatus: GHAuthStatus?
+    /// The gh check in flight; tests await it.
+    var ghCheckTask: Task<Void, Never>?
+    var ghCheckGeneration = 0
+    /// A gh login check is running.
+    var isCheckingGitHub = false
     /// TODO(#74): drives graph search.
     var searchText = ""
     /// `⌘1`–`⌘4` asked for a panel (interaction.md §1.2, #73); the panel's list takes keyboard focus when it changes.
@@ -157,7 +164,8 @@ final class AppState {
     ///     it can (the live loader can); without one, the detail shows no line counts.
     ///   - fetcher: Fetches the open repository's remotes. Defaults to `loader` when it can; without one, Fetch is off.
     ///   - fetchRecords: The last fetch of each repository (`UserDefaults`).
-    ///   - gitChecker, ghChecker: The setup assistant's git and GitHub CLI checks (S-07).
+    ///   - gitChecker, ghChecker: The setup assistant's git and GitHub CLI checks (S-07); `ghChecker` also feeds the
+    ///     status bar's gh field (#83).
     init(
         layoutStore: PanelLayoutStore, registry: RepositoryRegistry, registrar: RepositoryRegistrar = .live,
         loader: any RepositoryLoading = LiveRepositoryLoader.live,
@@ -174,6 +182,7 @@ final class AppState {
         gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
         ghChecker: any GHAuthChecking = LiveGHAuthChecker.live
     ) {
+        self.ghChecker = ghChecker
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
         self.layoutStore = layoutStore

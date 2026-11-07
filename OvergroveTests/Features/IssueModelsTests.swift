@@ -55,6 +55,22 @@ final class IssueModelsTests: XCTestCase {
         XCTAssertTrue(IssueListModel(content: nil, isLoading: true).isLoading)
     }
 
+    /// #83: gh missing or logged out says what to run (copy only) and offers Check Again; a list does not.
+    func testDegradedStatesGuideAndOfferCheckAgain() {
+        let loggedOut = IssueListModel(content: .notLoggedIn, isLoading: false)
+        XCTAssertEqual(loggedOut.guidance?.command, "gh auth login")
+        XCTAssertTrue(loggedOut.canCheckAgain)
+        XCTAssertEqual(IssueListModel(content: .notInstalled, isLoading: false).guidance?.command, "brew install gh")
+        let failed = IssueListModel(content: .failed(repository: Self.repository, detail: "x"), isLoading: false)
+        XCTAssertNil(failed.guidance)
+        XCTAssertTrue(failed.canCheckAgain)
+        XCTAssertTrue(IssueListModel(content: .noGitHubRemote, isLoading: false).canCheckAgain)
+        let loaded = IssueListModel(content: .loaded(repository: Self.repository, issues: []), isLoading: false)
+        XCTAssertFalse(loaded.canCheckAgain)
+        XCTAssertNil(loaded.guidance)
+        XCTAssertFalse(IssueListModel(content: nil, isLoading: true).canCheckAgain)
+    }
+
     /// Titles, labels, and logins come from GitHub: control and bidi characters are escaped (display spoofing).
     func testRepositoryStringsAreEscaped() {
         let issue = Self.issue(
