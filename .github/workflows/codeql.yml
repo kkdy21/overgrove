@@ -1,6 +1,7 @@
-# CodeQL static analysis.
-# Now: GitHub Actions workflows (`actions` language).
-# Phase 3 follow-up: add `swift` (macOS runner, manual build) once Overgrove.xcodeproj exists.
+# CodeQL static analysis (T17, #34).
+# - `actions`: every pull request, push to main, weekly, and on demand (Ubuntu, no build).
+# - `swift`: push to main, weekly, and on demand only. Swift needs a traced `xcodebuild build` on a macOS runner,
+#   which costs about ten times an Ubuntu minute, so pull requests skip it. Not a required check (#34).
 name: codeql
 
 on:
@@ -38,3 +39,48 @@ jobs:
       - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: /language:${{ matrix.language }}
+
+  analyze-swift:
+    name: analyze (swift)
+    if: github.event_name != 'pull_request'
+    runs-on: macos-26
+    timeout-minutes: 45
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    env:
+      XCODE_MAJOR: "26"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          xcode=$(ls -d /Applications/Xcode_${XCODE_MAJOR}*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -z "$xcode" ]; then
+            echo "::error::No Xcode ${XCODE_MAJOR}.x on this runner image."; exit 1
+          fi
+          echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
+          echo "Selected $xcode"
+
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: swift
+          build-mode: manual
+
+      # The app target only: tests are not shipped code. A clean build so every file is traced.
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild clean build \
+            -project Overgrove.xcodeproj \
+            -scheme Overgrove \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO
+
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:swift
