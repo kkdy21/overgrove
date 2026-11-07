@@ -106,6 +106,8 @@ TEST_RUNNER_OVERGROVE_TEST_GIT=~/tmp/git-2.36/bin/git TEST_RUNNER_OVERGROVE_TEST
 
 버전 판정은 모두 테스트가 실제로 실행한 git의 `git version`(`GitEnvironment.version`)으로 한다.
 
+XCTSkip은 방어 assertion이 모두 실행된 뒤에 던진다. assertion이 이미 실패한 상태에서 XCTSkip을 던지면 XCTest는 그 테스트를 skipped가 아니라 **failed**로 집계한다. Xcode 27.2에서 임시 테스트로 확인했다(`XCTAssertEqual(1, 2)` 뒤 `throw XCTSkip`). 따라서 옛 git에서 방어가 깨져도 건너뜀으로 묻히지 않는다.
+
 ### 4.2 앱 동작 차이: partial clone 쿼리의 오류 분류 (#303)
 
 - **상황**: partial clone(`--filter=blob:none`)에서 없는 blob이 필요한 쿼리(`commitPatch` 등)를 실행한다.
