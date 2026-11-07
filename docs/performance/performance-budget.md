@@ -128,6 +128,7 @@ docs/README.md §2.8에는 없는 항목이다. 승인되면 공통 규약에 �
 | PB-7 | 파일 이력(S-09) 첫 100개 표시 | 1.0초 | `log --follow -n 100` 392ms (graph 있음), 675ms (없음). follow 없이는 25ms / 153ms |
 | PB-8 | 커밋·stash 상세(S-03, S-04) 파일 목록 표시 | 200ms | `show --numstat` 17ms, `stash show --numstat` 19ms |
 | PB-9 | Diff 뷰어(S-10)에서 파일 하나의 diff 표시(1만 줄 이하) | 200ms, 메인 스레드 첫 프레임 16ms | 1만 줄: 파싱 14ms + 행 55ms(메인 스레드 밖), 첫 프레임 9ms ([결과](results/2026-11-07-s10-diff-viewer.md)) |
+| PB-10 | 자동 새로고침(#119) 중 파일 쓰기 폭주 | 새로고침 요청 ≤ 경과 시간/2초 + 1, 그동안 git CPU ≤ 한 코어의 10% | 파일 6,000개를 8초 동안: 요청 3회(상한 9), status 3회, git CPU 0.7% (PERF-10, [결과](results/2026-11-07-perf10-auto-refresh-storm.md)) |
 
 ---
 
