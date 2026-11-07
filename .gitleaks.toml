@@ -20,7 +20,12 @@ useDefault = true
 [[rules]]
 id = "personal-home-path"
 description = "Absolute path inside a personal home directory (/Users/<name>/ or /home/<name>/)"
-regex = '''(?:/Users|/home)/[A-Za-z0-9._-]+/'''
+# The reported secret is `<name>/`, not the whole path: gitleaks' default global allowlist (kept by useDefault)
+# allows secrets that look like `/home/...` system paths, which silently disabled the /home half of this rule, and
+# its repeated-letter regex would allow a one-letter name. The rule allowlist below still checks the whole match
+# (#95, SEC-T18-02; scripts/lint/check-secret-scanning.test.sh).
+regex = '''(?:/Users|/home)/([A-Za-z0-9._-]+/)'''
+secretGroup = 1
 keywords = ["/users/", "/home/"]
 
   [[rules.allowlists]]
