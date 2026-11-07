@@ -15,6 +15,7 @@ struct WorktreeListSection: View {
 
     @State private var isExpanded = true
     @FocusState private var hasFocus: Bool
+    @Namespace private var rotor
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -56,7 +57,12 @@ struct WorktreeListSection: View {
                             row: row, canCompare: canCompare(row.id), onCompare: { onCompare(row.id) })
                     }
                     .accessibilityAction { onSelect(row.id) }
+                    .accessibilityRotorEntry(id: row.id, in: rotor)
             }
+        }
+        // VoiceOver's rotor jumps between worktrees (interaction.md §6.1).
+        .accessibilityRotor("Worktrees") {
+            ForEach(model.rows) { row in AccessibilityRotorEntry(Text(row.title), id: row.id, in: rotor) }
         }
         .focusable()
         .focused($hasFocus)

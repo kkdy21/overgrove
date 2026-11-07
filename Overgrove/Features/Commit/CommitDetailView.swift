@@ -223,8 +223,11 @@ struct CommitDetailView: View {
             FileRowMenu(
                 worktree: nil, path: row.stat.path, showDiff: { if row.isSelectable { onSelectFile(row.stat) } })
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(row.isSelectable ? .isButton : [])
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.accessibilityLabel)
+        .accessibilityAddTraits(
+            selectedFile == row.stat.path ? [.isButton, .isSelected] : (row.isSelectable ? .isButton : [])
+        )
         .accessibilityAction { if row.isSelectable { onSelectFile(row.stat) } }
     }
 }

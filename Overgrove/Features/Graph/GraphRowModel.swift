@@ -100,6 +100,8 @@ struct GraphWipRow: Sendable, Equatable {
     let summary: String
     /// The commit the dashed line runs to; `nil` on an unborn branch.
     let head: ObjectID?
+    /// `Uncommitted changes in api-wt: 3 staged, 2 unstaged` (interaction.md §6.1).
+    var accessibilityLabel = ""
 
     static func make(worktree: Worktree, state: WorkingState) -> GraphWipRow? {
         guard !state.isClean else { return nil }
@@ -110,8 +112,10 @@ struct GraphWipRow: Sendable, Equatable {
         var summary = "WIP" + (parts.isEmpty ? "" : " " + parts.joined(separator: " · "))
         if !state.conflicted.isEmpty { summary = "⚠ \(state.conflicted.count) conflicted · " + summary }
         let folder = (worktree.path.display as NSString).lastPathComponent
+        let folderName = PathValidator.displayable(folder)
         return GraphWipRow(
-            folderName: PathValidator.displayable(folder), summary: summary, head: state.headCommit ?? worktree.head)
+            folderName: folderName, summary: summary, head: state.headCommit ?? worktree.head,
+            accessibilityLabel: GraphRowAccessibility.wipLabel(folderName: folderName, state: state))
     }
 }
 
@@ -157,4 +161,91 @@ struct GraphCommitText: Sendable, Equatable {
         default: return "\(seconds / (365 * 86_400))y"
         }
     }
+}
+
+/// What VoiceOver reads for a graph row (interaction.md §6.1, #75). The lane drawing is hidden; everything it shows
+/// that matters (refs, HEAD, merge) is read as words.
+enum GraphRowAccessibility {
+    /// `Commit a1b2c3d, feat: add status parser, Ko, 2 hours ago, branches feat/12 and origin/feat/12, HEAD of
+    /// worktree feat/12, merge commit, 2 parents`.
+    static func label(
+        commit: CommitNode, text: GraphCommitText, pills: [GraphRefPill], isHead: Bool, linkedIssues: [Int] = [],
+        isHighlighted: Bool = false, now: Date
+    ) -> String {
+        var parts = ["Commit \(text.shortSHA)", text.subject]
+        if text.isAIAssisted { parts.append("AI-assisted") }
+        parts.append(text.author)
+        parts.append(relative(commit.authorDate, now: now))
+        parts += refs(pills)
+        if isHead {
+            let focused = pills.first { $0.kind == .focusedBranch || $0.kind == .focusedDetached }
+            parts.append(focused.map { "HEAD of worktree \($0.title)" } ?? "HEAD of the focused worktree")
+        }
+        if commit.isMerge { parts.append("merge commit, \(commit.parents.count) parents") }
+        if !linkedIssues.isEmpty { parts.append("issue " + linkedIssues.map(String.init).joined(separator: ", ")) }
+        if isHighlighted { parts.append("linked to the selected issue") }
+        return parts.joined(separator: ", ")
+    }
+
+    /// The absolute date, read after a pause (`3 November 2026 at 14:22`).
+    static func hint(_ commit: CommitNode) -> String {
+        absolute.string(from: commit.authorDate)
+    }
+
+    /// `Uncommitted changes in api-wt: 3 staged, 2 unstaged, 1 untracked, 1 conflicted`.
+    static func wipLabel(folderName: String, state: WorkingState) -> String {
+        let counts = [
+            (state.staged.count, "staged"), (state.unstaged.count, "unstaged"),
+            (state.untracked.count, "untracked"), (state.conflicted.count, "conflicted"),
+        ]
+        .filter { $0.0 > 0 }.map { "\($0.0) \($0.1)" }
+        return "Uncommitted changes in \(folderName): " + counts.joined(separator: ", ")
+    }
+
+    /// `branches feat/12 and origin/feat/12`, `tag v1.0`, `detached worktree review`.
+    static func refs(_ pills: [GraphRefPill]) -> [String] {
+        var branches: [String] = []
+        var tags: [String] = []
+        var detached: [String] = []
+        for pill in pills {
+            switch pill.kind {
+            case .focusedBranch, .worktreeBranch, .localBranch:
+                branches.append(pill.title)
+                if pill.hasMatchingRemote { branches.append("origin/" + pill.title) }
+            case .remoteBranch: branches.append(pill.title)
+            case .tag: tags.append(pill.title)
+            case .focusedDetached, .detachedWorktree: detached.append(pill.title)
+            }
+        }
+        return [
+            list(branches, one: "branch", many: "branches"), list(tags, one: "tag", many: "tags"),
+            list(detached, one: "detached worktree", many: "detached worktrees"),
+        ].compactMap { $0 }
+    }
+
+    private static func list(_ names: [String], one: String, many: String) -> String? {
+        guard let last = names.last else { return nil }
+        let joined = names.count == 1 ? last : names.dropLast().joined(separator: ", ") + " and " + last
+        return "\(names.count == 1 ? one : many) \(joined)"
+    }
+
+    /// `2 hours ago`, spelled out for speech.
+    static func relative(_ date: Date, now: Date) -> String {
+        relativeFormatter.localizedString(for: min(date, now), relativeTo: now)
+    }
+
+    nonisolated(unsafe) private static let relativeFormatter: RelativeDateTimeFormatter = {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.unitsStyle = .full
+        return formatter
+    }()
+
+    private static let absolute: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateStyle = .long
+        formatter.timeStyle = .short
+        return formatter
+    }()
 }
