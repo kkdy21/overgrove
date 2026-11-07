@@ -364,20 +364,17 @@ extension GitClient {
     static let maximumPackScan = 10_000
 
     /// Whether `<common dir>/objects/pack` holds a `.promisor` file, which git writes for packs fetched from a promisor
-    /// remote (#317). Only names are read, never contents, and no process runs. A linked `objects` or `objects/pack`
-    /// is not followed, and more than `scanLimit` entries are not read; both count as a promisor pack, because
-    /// over-reporting only keeps an older git from fetching. A missing `objects` directory holds nothing to fetch.
+    /// remote (#317). Only names are read, never contents, and no process runs. Anything that cannot be decided counts
+    /// as a promisor pack, because over-reporting only keeps an older git from fetching: a linked, unreadable, or
+    /// non-directory `objects` or `objects/pack` (not followed), and more than `scanLimit` entries. Only a missing
+    /// `objects` or `objects/pack` means no pack. Names match case-insensitively, as git finds them on APFS.
     static func hasPromisorPack(commonDirectory: URL, scanLimit: Int = maximumPackScan) -> Bool {
         let objects = commonDirectory.appendingPathComponent("objects", isDirectory: true)
         let pack = objects.appendingPathComponent("pack", isDirectory: true)
         for directory in [objects, pack] {
             var info = stat()
-            guard lstat(directory.path, &info) == 0 else { return false }
-            switch info.st_mode & S_IFMT {
-            case S_IFDIR: continue
-            case S_IFLNK: return true
-            default: return false
-            }
+            guard lstat(directory.path, &info) == 0 else { return errno != ENOENT }
+            guard info.st_mode & S_IFMT == S_IFDIR else { return true }
         }
         guard let stream = opendir(pack.path) else { return true }
         defer { closedir(stream) }
@@ -388,7 +385,7 @@ extension GitClient {
             let name = withUnsafeBytes(of: entry.pointee.d_name) { raw in
                 String(decoding: raw.prefix(Int(entry.pointee.d_namlen)), as: UTF8.self)
             }
-            if name.hasSuffix(".promisor") { return true }
+            if name.lowercased().hasSuffix(".promisor") { return true }
         }
         return false
     }

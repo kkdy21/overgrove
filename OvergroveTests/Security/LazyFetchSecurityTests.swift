@@ -401,6 +401,10 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
         try FileManager.default.createSymbolicLink(
             at: objects.appendingPathComponent("pack"), withDestinationURL: elsewhere)
         XCTAssertTrue(GitClient.hasPromisorPack(commonDirectory: root), "a linked pack directory is not followed")
+        try FileManager.default.removeItem(at: objects.appendingPathComponent("pack"))
+        XCTAssertFalse(GitClient.hasPromisorPack(commonDirectory: root), "no pack directory: no pack")
+        try Data().write(to: objects.appendingPathComponent("pack"))
+        XCTAssertTrue(GitClient.hasPromisorPack(commonDirectory: root), "a pack that is not a directory")
 
         try FileManager.default.removeItem(at: objects.appendingPathComponent("pack"))
         let pack = objects.appendingPathComponent("pack", isDirectory: true)
@@ -409,6 +413,8 @@ final class PartialCloneFetchSecurityTests: XCTestCase {
         try Data().write(to: pack.appendingPathComponent("pack-a.idx"))
         XCTAssertFalse(GitClient.hasPromisorPack(commonDirectory: root))
         XCTAssertTrue(GitClient.hasPromisorPack(commonDirectory: root, scanLimit: 1), "past the scan limit")
+        try Data().write(to: pack.appendingPathComponent("pack-a.PROMISOR"))
+        XCTAssertTrue(GitClient.hasPromisorPack(commonDirectory: root), "case-insensitive, as git finds it on APFS")
     }
 
     /// The May 2024 security releases made GIT_NO_LAZY_FETCH stop this lazy fetch: 2.45.1 and 2.44.1, with backports
