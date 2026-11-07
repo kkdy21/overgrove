@@ -224,12 +224,9 @@ final class BareRepositoryRegistrationTests: XCTestCase {
         let layout = try await makeLayout()
         let repository = try await registrar(layout.environment).register(layout.bare).entry.repository
         let client = GitClient(environment: layout.environment)
-        let config = try await client.run(.configList, in: repository.commonGitDirectoryURL, safety: .preInspection)
-        let safety = try XCTUnwrap(
-            RepoConfigInspector.inspect(try ConfigParser.parse(config.stdout, truncated: config.isTruncated))
-                .safetyContext)
 
-        let overview = try await RepositoryService(client: client).loadOverview(of: repository, safety: safety)
+        // The service inspects the repository's configuration itself (#88).
+        let overview = try await RepositoryService(client: client).loadOverview(of: repository)
         XCTAssertEqual(overview.entries.count, 3)
         let main = try XCTUnwrap(overview.entries.first)
         XCTAssertTrue(main.worktree.isBare)
