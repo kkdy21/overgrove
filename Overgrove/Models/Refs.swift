@@ -11,8 +11,9 @@ struct Branch: Sendable, Hashable, Identifiable {
     let fullName: String
     let kind: Kind
     let target: ObjectID
-    /// Full upstream ref name, if configured.
-    let upstream: String?
+    /// Upstream and ahead/behind from `%(upstream)` and `%(upstream:track,nobracket)`. The upstream name is the full
+    /// ref name (`refs/remotes/origin/main`); remote-tracking branches have none.
+    let upstreamStatus: UpstreamStatus
     /// Checked out in the main worktree (`%(HEAD)` is `*`).
     let isHead: Bool
     let committerDate: Date?
@@ -20,6 +21,9 @@ struct Branch: Sendable, Hashable, Identifiable {
     let symbolicTarget: String?
 
     var id: String { fullName }
+
+    /// Full upstream ref name, if configured (also when its remote-tracking ref is gone).
+    var upstream: String? { upstreamStatus.upstreamName }
 
     /// `main` or `origin/main`.
     var shortName: String {
