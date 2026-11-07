@@ -21,6 +21,10 @@ struct WorktreeListing: Sendable, Equatable {
         case foreignRepository
         /// The worktree's own configuration (`config.worktree`) blocks queries (ADR-0009, fail closed).
         case inspectionBlocked(String)
+        /// Another entry leads to the same folder, which is queried once (#226).
+        case duplicate
+        /// More worktrees are listed than one load queries (#226, T15).
+        case limit
     }
 
     struct Entry: Sendable, Equatable {
@@ -56,6 +60,8 @@ extension WorktreeListing {
         case .notQueried(.unrepresentablePath): .notQueried(.unrepresentablePath)
         case .notQueried(.foreignRepository): .notQueried(.foreignRepository)
         case .notQueried(.inspectionBlocked(let reason)): .notQueried(.inspectionBlocked(reason))
+        case .notQueried(.duplicate): .notQueried(.duplicate)
+        case .notQueried(.limit): .notQueried(.limit)
         }
     }
 }
