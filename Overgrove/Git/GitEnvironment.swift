@@ -3,7 +3,7 @@ import Foundation
 /// The git executable and the hardened invocation context every git call uses
 /// (docs/design/security-review.md §3.1–§3.2, git-command-catalog.md §1–§2, ADR-0008).
 ///
-/// Final argument order: `git [common] [neutralization] [fetch auth] <subcommand ...>`. `GitClient` assembles it with
+/// Final argument order: `git [common] [neutralization] [fetch auth] [fetch overrides] <subcommand ...>`. `GitClient` assembles it with
 /// `arguments(for:neutralization:fetchAuthentication:)`; `GitCommand` cases only define the subcommand part.
 struct GitEnvironment: Sendable, Equatable {
     /// Common safety arguments placed before every subcommand (security-review.md §3.1).
@@ -70,13 +70,15 @@ struct GitEnvironment: Sendable, Equatable {
         return environment
     }
 
-    /// `git [common] [neutralization] [fetch auth] <subcommand ...>` (git-command-catalog.md §1).
+    /// `git [common] [neutralization] [fetch auth] [fetch overrides] <subcommand ...>` (git-command-catalog.md §1).
+    /// Later `-c` values win, so the fetch overrides come last before the subcommand (#209).
     func arguments(
         for subcommand: [String],
         neutralization: [String] = [],
-        fetchAuthentication: [String] = []
+        fetchAuthentication: [String] = [],
+        fetchOverrides: [String] = []
     ) -> [String] {
-        Self.commonArguments + neutralization + fetchAuthentication + subcommand
+        Self.commonArguments + neutralization + fetchAuthentication + fetchOverrides + subcommand
     }
 
     // MARK: Discovery

@@ -49,9 +49,11 @@ final class ConfigExecutionArgumentTests: XCTestCase {
         }
         let fetch = FetchCommand.fetch(remote: RemoteName("origin")!)
         let fetchAuthentication = ["-c", "credential.helper="]
+        let fetchOverrides = fetch.configurationOverrides()
         let fetchArguments = environment.arguments(
-            for: fetch.subcommandArguments(), fetchAuthentication: fetchAuthentication)
-        return queries + [("fetch", fetchArguments, GitEnvironment.commonArguments.count + fetchAuthentication.count)]
+            for: fetch.subcommandArguments(), fetchAuthentication: fetchAuthentication, fetchOverrides: fetchOverrides)
+        let subcommandStart = GitEnvironment.commonArguments.count + fetchAuthentication.count + fetchOverrides.count
+        return queries + [("fetch", fetchArguments, subcommandStart)]
     }
 
     func testEveryCaseIsListed() throws {

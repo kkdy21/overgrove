@@ -14,6 +14,7 @@ final class FetchRefScopeSecurityTests: XCTestCase {
     private var remote: URL!
     private var source: GitTestRepository!
     private var local: GitTestRepository!
+    private var bundle: URL!
 
     override func setUp() async throws {
         source = try await GitTestRepository.make()
@@ -41,19 +42,26 @@ final class FetchRefScopeSecurityTests: XCTestCase {
         try await local.git(["config", "fetch.pruneTags", "true"])
         try await local.git(["config", "remote.origin.pruneTags", "true"])
         try await local.git(["config", "remote.origin.tagOpt", "--tags"])
+        // A bundle URI makes fetch download from another location and write refs/bundles/* (security review of #210).
+        bundle = remote.deletingLastPathComponent().appendingPathComponent("evil-\(UUID().uuidString).bundle")
+        // A branch, not HEAD: fetch unbundles refs/heads/* into refs/bundles/heads/*.
+        try await source.git(["bundle", "create", bundle.path, "main"])
+        try await local.git(["config", "fetch.bundleURI", bundle.absoluteURL.absoluteString])
     }
 
     override func tearDown() {
         local?.remove()
         source?.remove()
         if let remote { try? FileManager.default.removeItem(at: remote) }
+        if let bundle { try? FileManager.default.removeItem(at: bundle) }
     }
 
-    /// `refname objectname` for local branches and tags, plus HEAD.
+    /// `refname objectname` for every ref outside `refs/remotes/`, plus HEAD.
     private func localRefs() async throws -> [String] {
-        let refs = try await local.git(["for-each-ref", "--format=%(refname) %(objectname)", "refs/heads", "refs/tags"])
+        let refs = try await local.git(["for-each-ref", "--format=%(refname) %(objectname)"])
         let head = try await local.git(["rev-parse", "HEAD"])
         return String(decoding: refs.stdout, as: UTF8.self).split(separator: "\n").map(String.init)
+            .filter { !$0.hasPrefix("refs/remotes/") }
             + ["HEAD " + String(decoding: head.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)]
     }
 
@@ -66,7 +74,10 @@ final class FetchRefScopeSecurityTests: XCTestCase {
         let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout))
         XCTAssertEqual(
             Set(inspection.report.findings.filter { $0.threat == "T13" }.map(\.entry.key)),
-            ["remote.origin.fetch", "fetch.prunetags", "remote.origin.prunetags", "remote.origin.tagopt"],
+            [
+                "remote.origin.fetch", "fetch.prunetags", "remote.origin.prunetags", "remote.origin.tagopt",
+                "fetch.bundleuri",
+            ],
             "the settings are reported"
         )
         let safety = try XCTUnwrap(inspection.safetyContext)
@@ -75,7 +86,7 @@ final class FetchRefScopeSecurityTests: XCTestCase {
         _ = try await client.fetch(.fetch(remote: RemoteName("origin")!), in: repository, safety: safety)
 
         let after = try await localRefs()
-        XCTAssertEqual(after, before, "local branches, tags, and HEAD are untouched")
+        XCTAssertEqual(after, before, "local branches, tags, bundles, and HEAD are untouched")
         let tracking = try await local.git(["for-each-ref", "--format=%(refname)", "refs/remotes/origin"])
         XCTAssertTrue(
             String(decoding: tracking.stdout, as: UTF8.self).contains("refs/remotes/origin/main"),
@@ -97,5 +108,6 @@ final class FetchRefScopeSecurityTests: XCTestCase {
         XCTAssertNotEqual(
             control.first { $0.hasPrefix("refs/heads/main ") }, before.first { $0.hasPrefix("refs/heads/main ") },
             "control: main force-moved")
+        XCTAssertTrue(control.contains { $0.hasPrefix("refs/bundles/") }, "control: the bundle URI wrote refs/bundles")
     }
 }

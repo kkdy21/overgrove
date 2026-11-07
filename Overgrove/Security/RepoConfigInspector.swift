@@ -178,7 +178,7 @@ enum RepoConfigInspector {
             return ("T3", .reported)
         case "diff" where variable == "orderfile":
             return ("T15", .warned)
-        case "fetch" where variable == "prunetags":
+        case "fetch" where variable == "prunetags" || variable == "bundleuri":
             return ("T13", .neutralized)
         case "gpg" where variable == "program":
             return ("T7", .reported)

@@ -135,6 +135,7 @@ final class RepoConfigInspectorTests: XCTestCase {
             entry(.local, "remote.origin.fetch", "+refs/*:refs/*"),
             entry(.local, "remote.origin.fetch", "refs/heads/main:refs/remotes/upstream/main"),
             entry(.local, "fetch.prunetags", "true"),
+            entry(.local, "fetch.bundleuri", "file:///tmp/evil.bundle"),
             entry(.local, "remote.origin.prunetags", "true"),
             entry(.local, "remote.origin.tagopt", "--tags"),
         ]

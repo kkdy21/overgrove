@@ -121,7 +121,7 @@ final class GitCommandTests: XCTestCase {
             fetch.configurationOverrides(),
             [
                 "-c", "fetch.pruneTags=false", "-c", "remote.team/fork.v2.pruneTags=false",
-                "-c", "fetch.writeCommitGraph=false",
+                "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=",
             ]
         )
     }
