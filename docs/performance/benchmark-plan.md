@@ -61,6 +61,22 @@ scripts/make-bench-repo.sh --commits 3000 --files 500 --worktrees 4 <dir>  # 스
 | PERF-06 | status 새로고침 (파일 1만 개) | PB-5 | signpost `refresh-status` | Phase 3 |
 | PERF-07 | 10만 커밋 적재 시 최대 메모리 | PB-6 | `XCTMemoryMetric` | Phase 3 |
 | PERF-08 | git 계층 기준선 (B01–B18) | 전체 하한 | `measure-git-baseline.sh` | 지금, git 버전 변경 시 |
+| PERF-09 | Diff 뷰어 파싱·행·첫 프레임 (500줄, 1만 줄, 약 10MB) | PB-9 | XCTest, 합성 patch | Phase 3 |
+
+### 3.1 지금 있는 XCTest (#90)
+
+UI 계층(첫 프레임, hitch)은 아직 재지 않는다. 아래 테스트는 그 아래 계층(git, 파싱, 서비스, 레이아웃)을 예산에 대어 본다. 화면 측정(XCUITest, signpost)은 UI 테스트 타깃이 생기면 같은 ID에 더한다.
+
+| ID | 테스트 (`OvergroveTests/Performance/`) | 입력 | 판정 |
+|---|---|---|---|
+| PERF-01 | `RepositoryOverviewBenchmarkTests.test_PERF_01_tenWorktreeOverview` | bench 저장소, 조회 한도 1·4·기본·10 | 기본 한도 p95 < 1.0초 (PB-1, 렌더링 제외) |
+| PERF-02 | `RepositoryOverviewBenchmarkTests.test_PERF_02_cachedWorktreeSwitch` | bench 저장소, 캐시 읽기 1,000회 | 캐시 읽기 p95 < 100ms (PB-2, 뷰 제외). 선택 새로고침은 status 35ms와 참고 비교 |
+| PERF-03 | `GraphBenchmarkTests.test_PERF_03_graphFirstPageAndPaging` | bench 저장소 | 첫 페이지 p95 < 500ms (PB-3). commit-graph가 없으면 < 1.0초 (PB-3b). 페이지별 레이아웃 최대 < 16.7ms |
+| PERF-04 | `GraphEnginePerformanceTests.test_GRA_09_*` | 합성 이력 10만 | `XCTClockMetric`, `XCTMemoryMetric` 기준값(`.xcbaseline`). 항상 실행 |
+| PERF-05 | `GraphBenchmarkTests.test_PERF_05_pageLayoutFitsAFrame` | 합성 이력 10만 | 스크롤 중 메인 액터가 하는 페이지 레이아웃 최대 < 16.7ms (PB-4 대리 측정). hitch ratio는 XCUITest 이후 |
+| PERF-09 | `DiffViewerBenchmarkTests.test_PERF_09_diffRendering` | 합성 patch | 1만 줄 이하 파싱+행 p95 < 200ms, 모든 크기 첫 프레임 p95 < 16ms (PB-9) |
+
+모든 테스트는 `PERF-nn RESULT` 표를 출력한다. 예산을 넘으면 실패한다(`OVERGROVE_PERF_REPORT_ONLY=1`이면 표에만 적는다). 반복 횟수와 p95 계산은 [performance-budget.md §1](performance-budget.md)을 따른다. 21회 실행에서 첫 회를 버리고, nearest-rank로 구한다.
 
 signpost 이름은 `subsystem = io.github.kkdy21.overgrove`, `category = performance`로 통일한다. 구간 이름은 위 표의 영문 식별자를 쓴다. signpost 메시지에 경로, 저장소 이름, 브랜치 이름을 넣지 않는다 (T16).
 
@@ -148,3 +164,40 @@ signpost 이름은 `subsystem = io.github.kkdy21.overgrove`, `category = perform
 - 차가운 캐시 (재부팅 직후 첫 열기)
 - 최소 지원 git(2.36)과 Homebrew 최신 git 비교
 - 저장소 3개 이상을 등록했을 때의 앱 시작 시간
+
+---
+
+## 7. PERF 테스트 실행 방법 (#90)
+
+PERF 테스트는 환경 변수를 켰을 때만 돈다. 보통의 `xcodebuild test`와 필수 CI에서는 건너뛴다(PERF-04 제외). xcodebuild에서는 변수 이름 앞에 `TEST_RUNNER_`를 붙인다.
+
+| 변수 | 효과 |
+|---|---|
+| `OVERGROVE_BENCH_REPO=<dir>` | `make-bench-repo.sh` 출력 폴더. PERF-01·02·03 실행 |
+| `OVERGROVE_PERF=1` | 합성 입력 테스트 PERF-05·09 실행. 예전 `OVERGROVE_BENCH_DIFF=1`도 PERF-09를 켠다 |
+| `OVERGROVE_PERF_REPORT_ONLY=1` | 예산을 넘어도 실패하지 않고 표에만 적는다 (CI 러너) |
+| `OVERGROVE_PERF_REPORT_DIR=<dir>` | 테스트마다 결과 표를 `<dir>/PERF-nn.md`로 쓴다 |
+
+**로컬 (기준 장비)**
+
+```sh
+scripts/make-bench-repo.sh --commit-graph ~/tmp/overgrove-bench      # 약 30–50초, 한 번만
+TEST_RUNNER_OVERGROVE_BENCH_REPO=~/tmp/overgrove-bench \
+TEST_RUNNER_OVERGROVE_PERF=1 \
+TEST_RUNNER_OVERGROVE_PERF_REPORT_DIR=~/tmp/perf-report \
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS' \
+  -only-testing:OvergroveTests/RepositoryOverviewBenchmarkTests \
+  -only-testing:OvergroveTests/GraphBenchmarkTests \
+  -only-testing:OvergroveTests/GraphEnginePerformanceTests \
+  -only-testing:OvergroveTests/DiffViewerBenchmarkTests
+```
+
+- PB-3b를 보려면 `--commit-graph` 없이 만든 bench 폴더를 넘긴다. PERF-03이 commit-graph 유무를 보고 예산을 고른다.
+- 다른 빌드·테스트가 같은 장비에서 돌면 p95가 흔들린다. 기록으로 남길 측정은 장비가 한가할 때 하고, 부하가 있었으면 기록에 적는다.
+- 결과를 남길 때는 `<dir>/PERF-*.md` 표를 `docs/performance/results/<YYYY-MM-DD>-<요약>.md`에 붙인다(§5).
+
+**CI (선택 실행)**: `.github/workflows/perf.yml`. Actions 탭에서 `perf`를 수동 실행하거나(이 저장소의 아무 브랜치), 매주 월요일 예약 실행이 main에서 돈다.
+- bench 저장소를 만들고 위 테스트를 `OVERGROVE_PERF_REPORT_ONLY=1`로 돌린다.
+- 표는 job summary에 붙는다.
+- 필수 검사가 아니고, PR을 막지 않는다. 러너끼리는 비교하지 않고 같은 실행 안의 상대 비교만 참고한다.
+
