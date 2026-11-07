@@ -101,7 +101,9 @@ struct MainWindowView: View {
                     onSelectWip: state.selectFocusedWip, onOpen: { state.focus(.detail) },
                     search: state.graphSearch, onFindNext: state.findNext, onFindPrevious: state.findPrevious,
                     diff: state.diffViewer,
-                    onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
+                    onShowGraph: state.clearSelectedFile,
+                    onShowDiffHistory: state.shownFileHistoryTarget == nil ? nil : { state.showHistoryOfShownFile() },
+                    history: historyCenter, comparison: comparisonCenter)
             } detail: {
                 DetailPanel(
                     focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
@@ -184,6 +186,15 @@ struct MainWindowView: View {
         return FocusedSearchActions(
             canFindMatch: state.canFindMatch, findNext: { state.findNext() }, findPrevious: { state.findPrevious() },
             filterSidebar: { state.focusSidebarFilter() })
+    }
+
+    /// S-09 when a file's history is open (#70).
+    private var historyCenter: FileHistoryView? {
+        guard state.history.isOpen else { return nil }
+        let state = state
+        return FileHistoryView(
+            store: state.history, onBack: state.closeHistory, onSelect: state.selectHistoryEntry,
+            onOpen: state.openHistoryDiff)
     }
 
     /// ⌘R from the toolbar; disabled without a repository.

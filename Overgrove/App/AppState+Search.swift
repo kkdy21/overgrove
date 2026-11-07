@@ -55,7 +55,8 @@ extension AppState {
 
     private func findMatch(forward: Bool) {
         guard let result = graphSearch, let oid = result.step(from: graph.selected, forward: forward) else { return }
-        // `selectCommit` also closes a diff or comparison covering the graph.
+        // The graph shows again: `selectCommit` closes a diff or comparison covering it, and a file history closes.
+        history.close()
         selectCommit(oid)
         graph.scroll(to: oid)
     }

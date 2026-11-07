@@ -69,7 +69,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - **시나리오**: 사용자가 파일 diff를 열면 악성 textconv가 실행된다.
 - **대응**:
   - diff를 만드는 모든 명령(`diff`, `diff-tree -p`, `stash show -p`)에 `--no-ext-diff --no-textconv`를 붙인다 (확인: 실행 안 됨).
-  - numstat 계열(`diff-tree --numstat`, `stash show --numstat`)은 실험에서 textconv를 부르지 않았다. 그래도 같은 인자를 붙인다.
+  - numstat 계열(`diff-tree --numstat`, `stash show --numstat`, 파일 이력의 `log [--follow] --numstat`(#70))은 실험에서 textconv를 부르지 않았다. 그래도 같은 인자를 붙인다. log 계열은 patch(`-p`, `--stat` 등)를 요청하지 않고, diff 출력 옵션(`--numstat`, `--raw`, `--name-status` 등)은 두 인자와 함께일 때만 쓴다(SEC-T3-02, 측정 E24a).
   - porcelain `git diff`는 저장소의 diff 설정으로 출력 모양이 바뀐다(#239, catalog §3). `color.diff=always`가 `color.ui=never`를 이기고, `diff.noprefix`·`mnemonicPrefix`·`srcPrefix`·`dstPrefix`가 접두사를 바꾸고, `diff.suppressBlankEmpty`가 문맥 줄을 바꾸고, `diff.submodule=diff`는 서브모듈 쪽 파일 diff까지 붙인다. 화면이 patch를 잘못 읽거나 서브모듈 내용이 섞이지 않게, porcelain diff case에 `--no-color --src-prefix=a/ --dst-prefix=b/ --submodule=short`를 붙이고 공통 인자에 `-c diff.suppressBlankEmpty=false`를 둔다.
 - **잔여 위험**: 새 diff 명령을 추가할 때 인자를 빠뜨릴 수 있다. 그래서 카탈로그의 모든 diff case를 SEC-T3-02가 열거해 검사한다.
 - **검증**: SEC-T3-01 (textconv, `diff.<d>.command`, `diff.external` 픽스처 → canary 없음), SEC-T3-02 (diff 계열 case 전수 인자 검사), SEC-T3-03 (저장소 diff 설정 8종을 심어도 porcelain diff 5종의 앱 출력이 바이트 단위로 같음. 대조군(고정 인자·공통 인자 없이)은 달라짐. 고정 인자를 비우면 실패함을 확인, #239)
@@ -268,6 +268,8 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 실행 가능한 `hooks/*`가 있을 때.
 
   확인 창은 셸 프롬프트 도구가 이 폴더에서 저장소 설정으로 git을 실행할 수 있다고 알리고, 키 이름(마스킹·이스케이프, 최대 8개)을 보여 준다. 버튼은 `Open Anyway`와 `Cancel`이며 `Cancel`이 기본이다. 검사 결과가 깨끗하면 바로 연다. 사용자가 `Open Anyway`를 고르면 그 셸에서 일어나는 일은 통제하지 않는다.
+
+  **남는 위험 (#97 재검토)**: "깨끗함"은 검사기가 보고하는 키 기준이다. 앱이 실행하지 않는 키는 보고 대상이 아니라서 확인 사유가 되지 않는다. 해당하는 키는 `core.pager`·`pager.<cmd>`, `core.editor`·`sequence.editor`, `!`로 시작하는 `alias.*`다. threat가 없는 finding(`submodule.<n>.update=!cmd`, `uploadpack.packObjectsHook`)도 확인 사유에서 빠진다. 프롬프트 플러그인의 `git status`는 이 키들을 쓰지 않는다. 다만 사용자가 그 터미널에서 `git log`·`git commit`·`git submodule update`를 직접 실행하면 저장소가 정한 명령이 돈다. 이 키들을 보고하고 확인 조건을 넓히는 일은 후속으로 둔다([보안 테스트 보고 §5.2](../qa/reports/2026-11-08-security-test-pass.md)).
 - **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226), SEC-T14-06 (Diff 뷰어가 untracked FIFO와 워크트리 밖 폴더를 가리키는 심볼릭 링크 아래 파일을 미리보기하지 않음, #232), SEC-T14-07 (행 메뉴: 밖을 가리키는 링크·링크 폴더·`..`·없는 파일은 Reveal in Finder 거부, `https` 외 URL은 열지 않음, 클립보드 값의 제어·bidi 문자 이스케이프, #73), SEC-T14-08 (Open in Terminal: 깨끗한 검사는 바로 열고, 실행 finding·차단·hook·검사 없음은 확인 후에만 열며, 나열하는 키는 마스킹·이스케이프·상한 적용, #73)
 - **상태**: 설계 완료
 
@@ -296,7 +298,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - `fd::`는 `protocol.fd.allow=never`로 차단한다.
   - 출력 인코딩을 공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정한다. 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`(include 경유 포함)은 포맷된 출력 전체를 `-z` 구분자까지 다시 인코딩한다. JOHAB·CP1361은 메시지의 전각 문자(U+FF01…)를 NUL로 바꿔 필드를 밀고, 모든 검사를 통과하는 가짜 커밋 레코드를 만들 수 있다. UTF-16·UCS-4 등은 파싱을 실패시켜 그래프를 못 쓰게 만든다 (확인, E41, #205).
 - **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다. 커밋 객체의 `encoding` 헤더가 UCS-2·CP037·TCVN이면 git이 그 커밋의 모든 필드를 빈 값으로 출력해 그래프 페이지 전체가 파싱 실패한다(출력 인코딩 고정과 무관, #203 보안 검토). 필드가 밀리지는 않으므로 위조는 아니고, 가용성 문제로 남긴다.
-- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259), SEC-T15-11 (원격이 `feat/1-*` ref를 대량으로 밀어 넣어도 이슈 하나의 LINKED 항목은 종류별 상한까지만 만들고 나머지는 개수로만 셈. 커밋 제목은 앞부분만 훑고, LINKED 커밋 검색은 캐시해 페이지가 늘 때 새 페이지만 이어서 훑음, #82), SEC-T15-12 (원격 10만 개 + 반복 10만 개 + URL별 TLS·프록시 키 20만 개의 설정 목록을 3초 안에 검사하고 상한대로 줄임. 드라이버 257개는 조회 중단, fetch 덮어쓰기 257개는 fetch만 막음, #262), SEC-T15-13 (ISSUES의 `Check Again`을 gh가 도는 동안 여러 번 눌러도 gh를 더 띄우지 않음, #83), SEC-T15-14 (자동 fetch는 창이 key일 때만, 진행 중인 fetch 위에 겹치지 않고, 활성화 때의 따라잡기는 간격당 한 번. 실패해도 창을 바꿀 때마다 다시 시도하지 않음, #79), SEC-T15-16 (그래프 검색과 사이드바 필터는 필드마다 앞부분만 훑고(제목 1,024자, 이름·ref 256자, 커밋당 co-author·ref 32개), 새 페이지가 오면 그 페이지만 이어서 훑음. ref가 바뀌면 다시 훑음, #74)
+- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259), SEC-T15-11 (원격이 `feat/1-*` ref를 대량으로 밀어 넣어도 이슈 하나의 LINKED 항목은 종류별 상한까지만 만들고 나머지는 개수로만 셈. 커밋 제목은 앞부분만 훑고, LINKED 커밋 검색은 캐시해 페이지가 늘 때 새 페이지만 이어서 훑음, #82), SEC-T15-12 (원격 10만 개 + 반복 10만 개 + URL별 TLS·프록시 키 20만 개의 설정 목록을 3초 안에 검사하고 상한대로 줄임. 드라이버 257개는 조회 중단, fetch 덮어쓰기 257개는 fetch만 막음, #262), SEC-T15-13 (ISSUES의 `Check Again`을 gh가 도는 동안 여러 번 눌러도 gh를 더 띄우지 않음, #83), SEC-T15-14 (자동 fetch는 창이 key일 때만, 진행 중인 fetch 위에 겹치지 않고, 활성화 때의 따라잡기는 간격당 한 번. 실패해도 창을 바꿀 때마다 다시 시도하지 않음, #79), SEC-T15-15 (출력 상한에 잘린 파일 이력은 `Beginning of history`가 아니라 잘렸다고 표시하고, 더 요청하지 않음. 추가 페이지 실패는 Retry를 누를 때까지 다시 실행하지 않음, #70), SEC-T15-16 (그래프 검색과 사이드바 필터는 필드마다 앞부분만 훑고(제목 1,024자, 이름·ref 256자, 커밋당 co-author·ref 32개), 새 페이지가 오면 그 페이지만 이어서 훑음. ref가 바뀌면 다시 훑음, #74)
 - **상태**: 설계 완료
 
 ### T16. 로그를 통한 정보 유출
@@ -479,6 +481,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E22 | textconv + `show -p` | 실행됨. `--no-ext-diff`만으로는 실행됨, `--no-textconv`까지 있어야 막힘 |
 | E23 | `diff.<d>.command` + `git diff` | 실행됨. `--no-ext-diff --no-textconv`면 실행 안 됨 |
 | E24 | `show --numstat`, `diff --stat`, `log --follow`, `stash show --numstat`, `stash show -p` + textconv | 실행 안 됨 (그래도 인자를 붙임) |
+| E24a | `log --follow --numstat`(파일 이력, #70)에서 `--no-ext-diff`·`--no-textconv`를 뺌 + `diff=<d>` textconv·`diff.external` (Apple Git 2.54.0, 악성 픽스처의 `*.txt`). 대조군 `log -p`는 textconv 발화 | 실행 안 됨 (그래도 인자를 붙임, SEC-T3-01에 측정으로 고정) |
 | E25 | 서브모듈 설정의 fsmonitor + 상위 status | 실행됨. 상위 `-c core.fsmonitor=false`가 전파되어 막힘. `--ignore-submodules=dirty`면 재귀 안 함, gitlink 커밋 변경은 표시됨 |
 | E26 | 로컬 `include.path`로 불러온 설정의 scope | `local`로 보고됨. `config.worktree`는 `worktree`, Apple 내장 설정은 `unknown` |
 | E27 | `http.sslVerify=false` + `http.<url>.sslVerify=false` (local) | `-c http.sslVerify=true`만으로는 URL별 값이 이김. 같은 URL 키로 덮어야 `true` (`config --get-urlmatch`) |
@@ -543,6 +546,8 @@ PR 템플릿과 `security-reviewer` 에이전트가 쓰는 목록이다.
 | gitleaks | 전체 이력 통과 |
 | Actions 고정 | 모든 `uses:`가 SHA로 고정 |
 | 잔여 위험 | 이 문서 §2의 잔여 위험을 다시 확인하고 변경 사항을 기록 |
+
+최근 결과: [qa/reports/2026-11-08-security-test-pass.md](../qa/reports/2026-11-08-security-test-pass.md) (#97, `main` `f4259bc`, 전 항목 통과).
 
 ---
 

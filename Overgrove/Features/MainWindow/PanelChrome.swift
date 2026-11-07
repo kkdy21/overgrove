@@ -150,6 +150,10 @@ struct GraphPanel: View {
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
+    /// `Show History` of the diff's file (S-09, #70).
+    var onShowDiffHistory: (() -> Void)?
+    /// S-09 covers the graph while a file's history is open; a diff opened from it covers it in turn (#70).
+    var history: FileHistoryView?
 
     /// S-11 covers the graph while a comparison is open (#158).
     var comparison: ComparisonCenterView?
@@ -158,7 +162,11 @@ struct GraphPanel: View {
         if let comparison {
             comparison
         } else if let diff {
-            DiffViewerView(title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph)
+            DiffViewerView(
+                title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph,
+                backTitle: history == nil ? "Graph" : "History", onShowHistory: onShowDiffHistory)
+        } else if let history {
+            history
         } else {
             graph
         }

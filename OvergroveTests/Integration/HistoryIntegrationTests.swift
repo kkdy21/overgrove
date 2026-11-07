@@ -75,11 +75,16 @@ final class HistoryIntegrationTests: XCTestCase {
         }
 
         // INT-09: history of docs/manual.md follows the rename back to the root commit.
-        let history = try LogParser.parseGraph(
+        let history = try LogParser.parseFileHistory(
             try await context.run(
-                .fileHistory(path: GitPath("docs/manual.md"), limit: 100), in: context.fixture.repository)
-        ).commits
-        XCTAssertEqual(history.map(\.oid.short), ["0893a1a", "c46c37d", "4202323", "0c53f8b"])
+                .fileHistory(path: GitPath("docs/manual.md"), limit: 100), in: context.fixture.repository),
+            path: GitPath("docs/manual.md")
+        ).entries
+        XCTAssertEqual(history.map(\.commit.oid.short), ["0893a1a", "c46c37d", "4202323", "0c53f8b"])
+        // The rename shows both names, and older commits carry the old path (#70).
+        let renameStep = try XCTUnwrap(history.first { $0.originalPath != nil })
+        XCTAssertEqual(renameStep.originalPath?.display, "docs/guide.md")
+        XCTAssertEqual(history.last?.path.display, "docs/guide.md")
     }
 
     /// INT-11: local branches, remote-tracking refs, both tags (annotated one peeled) and the `upstream/HEAD` symref.

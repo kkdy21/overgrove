@@ -18,6 +18,13 @@ enum LogParser {
         let isPartial: Bool
     }
 
+    /// One page of a file's history (§5.3).
+    struct FileHistoryPage: Sendable, Equatable {
+        let entries: [FileHistoryEntry]
+        /// The output was cut at the size limit and the last record was dropped.
+        let isPartial: Bool
+    }
+
     /// `%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B` for one commit (§5.2). Files come from a separate
     /// `diff-tree` call; combine them with `detail(files:isPartial:)`.
     struct CommitMeta: Sendable, Equatable {
@@ -88,6 +95,90 @@ enum LogParser {
             )
         }
         return GraphPage(commits: commits, isPartial: truncated)
+    }
+
+    /// One page of `git log [--follow] -z <format> --numstat -- <path>` (§5.3). After a record's seven fields, a
+    /// commit that changed the file has `\n` and one numstat entry: `added\tdeleted\tpath`, or for a rename
+    /// `added\tdeleted\t` followed by the old and the new path as their own NUL-terminated tokens. `-` counts are a
+    /// binary file. A record without a stat (a merge) is followed directly by the next record.
+    ///
+    /// - Parameter path: The followed path at the newest commit of this page (the requested path, or for a later page
+    ///   the path before the previous page's oldest commit); records without a stat keep it.
+    static func parseFileHistory(_ data: Data, path: GitPath, truncated: Bool = false) throws -> FileHistoryPage {
+        var tokens = data.split(separator: 0, omittingEmptySubsequences: false)
+        tokens.removeLast()  // empty after the final NUL, or cut off when truncated
+        if !truncated, !data.isEmpty, data.last != 0 {
+            throw ParseError(parser: name, offset: data.count, reason: "incomplete record")
+        }
+        var entries: [FileHistoryEntry] = []
+        var current = path
+        var index = 0
+        while index < tokens.count {
+            guard index + graphFieldCount <= tokens.count else {
+                if truncated { break }
+                throw ParseError(parser: name, offset: data.count, reason: "incomplete record")
+            }
+            let fields = tokens[index..<index + graphFieldCount]
+            let commit = CommitNode(
+                oid: try commitOID(fields[index], in: data),
+                parents: try parentOIDs(fields[index + 1], in: data),
+                authorName: text(fields[index + 2]),
+                authorEmail: text(fields[index + 3]),
+                authorDate: try date(fields[index + 4], field: "author time", in: data),
+                subject: text(fields[index + 5]),
+                coAuthors: coAuthors(fields[index + 6]))
+            index += graphFieldCount
+            var entry = FileHistoryEntry(commit: commit, path: current)
+            if index < tokens.count, tokens[index].first == newline {
+                guard let stat = try numstat(tokens, at: index, in: data, truncated: truncated) else { break }
+                index = stat.next
+                entry = FileHistoryEntry(
+                    commit: commit, path: stat.path, originalPath: stat.originalPath, added: stat.added,
+                    deleted: stat.deleted, hasStat: true)
+            }
+            entries.append(entry)
+            current = entry.originalPath ?? entry.path
+        }
+        // A cut page may end in a record whose stat was cut away; drop it rather than show it without one.
+        if truncated, !entries.isEmpty { entries.removeLast() }
+        return FileHistoryPage(entries: entries, isPartial: truncated)
+    }
+
+    private static let newline = UInt8(ascii: "\n")
+
+    /// `\nadded\tdeleted\tpath`, or `\nadded\tdeleted\t` + old + new. `nil` when a truncated page ends inside it.
+    private static func numstat(_ tokens: [Token], at index: Int, in data: Data, truncated: Bool) throws -> (
+        added: Int?, deleted: Int?, path: GitPath, originalPath: GitPath?, next: Int
+    )? {
+        let line = tokens[index].dropFirst()
+        let parts = line.split(separator: UInt8(ascii: "\t"), maxSplits: 2, omittingEmptySubsequences: false)
+        guard parts.count == 3 else {
+            throw ParseError(parser: name, offset: offset(of: tokens[index], in: data), reason: "invalid numstat")
+        }
+        let added = try count(parts[0], in: data)
+        let deleted = try count(parts[1], in: data)
+        if !parts[2].isEmpty {
+            return (added, deleted, GitPath(raw: Data(parts[2])), nil, index + 1)
+        }
+        guard index + 2 < tokens.count else {
+            if truncated { return nil }
+            throw ParseError(parser: name, offset: data.count, reason: "incomplete rename")
+        }
+        let old = tokens[index + 1]
+        let new = tokens[index + 2]
+        guard !old.isEmpty, !new.isEmpty else {
+            throw ParseError(parser: name, offset: offset(of: old, in: data), reason: "empty rename path")
+        }
+        return (added, deleted, GitPath(raw: Data(new)), GitPath(raw: Data(old)), index + 3)
+    }
+
+    /// A numstat count: ASCII digits, or `-` for a binary file (`nil`).
+    private static func count(_ token: Token, in data: Data) throws -> Int? {
+        if token.count == 1, token.first == UInt8(ascii: "-") { return nil }
+        guard !token.isEmpty, token.count <= 18, token.allSatisfy({ (0x30...0x39).contains($0) }),
+            let value = Int(text(token))
+        else { throw ParseError(parser: name, offset: offset(of: token, in: data), reason: "invalid numstat count") }
+        return value
     }
 
     static func parseCommitMeta(_ data: Data, truncated: Bool = false) throws -> CommitMeta {
