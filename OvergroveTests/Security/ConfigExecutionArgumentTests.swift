@@ -86,6 +86,12 @@ final class ConfigExecutionArgumentTests: XCTestCase {
         try assertEveryCommandSets("maintenance.auto=false")
     }
 
+    /// SEC-T13-02 (argument part): `git diff` would otherwise refresh and rewrite the index for a stat-dirty path,
+    /// ignoring `--no-optional-locks` (#208). The setting is on every command, so a new porcelain diff is covered too.
+    func testSECT13_02_EveryCommandDisablesDiffIndexRefresh() throws {
+        try assertEveryCommandSets("diff.autoRefreshIndex=false")
+    }
+
     /// SEC-T7 (argument part of SEC-T7-01): signature checking is off on every command.
     func testEveryCommandDisablesSignatureDisplay() throws {
         try assertEveryCommandSets("log.showSignature=false")

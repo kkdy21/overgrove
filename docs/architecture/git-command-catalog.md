@@ -34,7 +34,7 @@
 | 인자 | 목적 | 위협 |
 |---|---|---|
 | `--no-pager` | 페이저 실행 방지 | T10 |
-| `--no-optional-locks` | 조회 중 `index.lock`을 잡지 않음, index 갱신 쓰기 방지 | T13 |
+| `--no-optional-locks` | 조회 중 `index.lock`을 잡지 않음, index 갱신 쓰기 방지. `git diff`의 자동 refresh는 막지 못한다(`diff.autoRefreshIndex` 행 참고) | T13 |
 | `--literal-pathspecs` | `:(exclude)`, glob 등 pathspec 매직을 끔 | T9 |
 | `-c core.fsmonitor=false` | fsmonitor 훅 실행 방지. 서브프로세스(서브모듈)에도 전파됨 (확인) | T1 |
 | `-c core.hooksPath=/dev/null` | 모든 훅 실행 방지 (fetch의 `reference-transaction` 포함, 확인) | T2 |
@@ -45,6 +45,7 @@
 | `-c log.showSignature=false` | 로컬 `log.showSignature=true`로 인한 `gpg.program` 실행 방지 (확인) | T7 |
 | `-c gc.auto=0` | 자동 gc 방지 | T8 |
 | `-c maintenance.auto=false` | fetch 뒤 `git maintenance run --auto` 실행 방지 (확인) | T8 |
+| `-c diff.autoRefreshIndex=false` | `git diff`가 stat만 바뀐 경로를 diff할 때 index를 새로 고쳐 쓰는 것을 막음. `--no-optional-locks`·`GIT_OPTIONAL_LOCKS=0`은 이 쓰기를 막지 못한다. patch 출력은 그대로다 (확인, #208) | T13 |
 | `-c color.ui=never` | 출력에 ANSI 코드가 섞이지 않게 함 | 파싱 안정성 |
 
 diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)에는 서브커맨드 인자로 `--no-ext-diff --no-textconv`를 반드시 붙인다 (T3). `git diff`는 기본으로 외부 diff 드라이버를 실행한다 (확인).
