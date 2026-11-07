@@ -54,6 +54,7 @@ jobs:
             -destination 'platform=macOS' \
             -only-testing:OvergroveTests/RepositoryOverviewBenchmarkTests \
             -only-testing:OvergroveTests/GraphBenchmarkTests \
+            -only-testing:OvergroveTests/DetailBenchmarkTests \
             -only-testing:OvergroveTests/GraphEnginePerformanceTests \
             -only-testing:OvergroveTests/DiffViewerBenchmarkTests \
             CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
