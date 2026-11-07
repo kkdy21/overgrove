@@ -382,6 +382,9 @@ final class TokensTests: XCTestCase {
                 "ref-pill-border-opacity": Tokens.Graph.refPillBorderOpacity,
                 "ref-connector-opacity": Tokens.Graph.refConnectorOpacity,
                 "selection-opacity": Tokens.Graph.selectionOpacity,
+                "worktree-selection-border-opacity": Tokens.Graph.worktreeSelectionBorderOpacity,
+                "focus-chip-fill-opacity": Tokens.Graph.focusChipFillOpacity,
+                "focus-chip-border-opacity": Tokens.Graph.focusChipBorderOpacity,
             ]
         )
         XCTAssertEqual(Tokens.Font.sectionHeaderTracking, 0.66, accuracy: 1e-9, "0.06em at 11px")
