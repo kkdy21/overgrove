@@ -265,7 +265,7 @@ stateDiagram-v2
 
 - 텍스트는 배경 대비 4.5:1 이상이다. 패널 테마의 모든 표면에서 검증했다. `text.tertiary`는 선택 행과 컨트롤 위에서 `text.secondary`로 바꾼다.
 - 상태 심볼, 그래프 레인, 분할선 손잡이처럼 의미를 가진 그래픽은 3:1 이상이다. 상태 색은 최저 3.20, 레인은 최저 3.10(light) / 5.71(dark), 손잡이는 홈 대비 4.22 / 3.59다. 근거는 [design-tokens.md §5](design-tokens.md#5-검증-결과)에 있다.
-- **Increase Contrast**: 패널 테마는 앱이 직접 대응한다. 패널 테두리 → `border.strong`, `text.tertiary` → `text.secondary`, 컨트롤 테두리 1.5pt. 상태·레인·diff 색은 Phase 3에서 Asset Catalog의 High Contrast 변형을 만든다(배경 대비 4.5:1 이상).
+- **Increase Contrast**: 패널 테마는 앱이 직접 대응한다. 패널 테두리 → `border.strong`, `text.tertiary` → `text.secondary`, 컨트롤 테두리 1.5pt. 상태·레인 색과 diff 전경색은 Asset Catalog의 High Contrast 변형을 쓴다(모든 패널 표면 대비 4.5:1 이상, [design-tokens.md §4·§5.6](design-tokens.md#56-increase-contrast-35)).
 - **Reduce Transparency**: 메인 창은 반투명 재질을 쓰지 않는다. 시스템이 그리는 메뉴·팝오버만 영향을 받는다.
 
 ### 6.5 움직임과 키보드

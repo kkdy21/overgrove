@@ -75,6 +75,26 @@ jobs:
       - name: swift-format lint
         run: xcrun swift-format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
 
+      # design-tokens.md §4 / ADR-0017: colors pass the contrast rules, and the committed Asset Catalog and
+      # Tokens.generated.swift are exactly what the generator produces from tokens.json.
+      - name: Design tokens are valid and up to date
+        run: |
+          set -euo pipefail
+          if ! python3 design/mockups/generator/colorcheck.py > "$RUNNER_TEMP/colorcheck.txt"; then
+            cat "$RUNNER_TEMP/colorcheck.txt"; exit 1
+          fi
+          tail -n 1 "$RUNNER_TEMP/colorcheck.txt"
+          swift scripts/tokens/generate.swift
+          if ! git diff --exit-code --stat; then
+            echo "::error::Generated design tokens are stale. Run: swift scripts/tokens/generate.swift"; exit 1
+          fi
+          untracked=$(git status --porcelain --untracked-files=all)
+          if [ -n "$untracked" ]; then
+            echo "$untracked"
+            echo "::error::The generator created files that are not committed."; exit 1
+          fi
+          echo "ok  design tokens"
+
       - name: Build and test
         run: |
           set -o pipefail

@@ -1,6 +1,6 @@
 # 디자인 토큰 (Design Tokens)
 
-> 상태: Accepted (Phase 2 게이트 2026-11-05, #166 패널 테마로 개정 2026-11-06) · 관련: [`design/tokens/tokens.json`](../../design/tokens/tokens.json), [art-direction.md](art-direction.md), [screens.md](screens.md), [interaction.md §6](interaction.md#6-접근성), [iconography.md](iconography.md), ADR-0006, ADR-0010, [ADR-0014](../adr/0014-panel-theme-and-split-layout.md)
+> 상태: Accepted (Phase 2 게이트 2026-11-05, #166 패널 테마로 개정 2026-11-06, #35 생성기·고대비 모드 2026-11-07) · 관련: [`design/tokens/tokens.json`](../../design/tokens/tokens.json), [art-direction.md](art-direction.md), [screens.md](screens.md), [interaction.md §6](interaction.md#6-접근성), [iconography.md](iconography.md), ADR-0006, ADR-0010, [ADR-0014](../adr/0014-panel-theme-and-split-layout.md), [ADR-0017](../adr/0017-design-token-generation.md)
 
 색, 간격, 크기, 글꼴, 움직임의 **단일 원본은 [`design/tokens/tokens.json`](../../design/tokens/tokens.json)이다.** 이 문서는 그 구조와 규칙, 검증 결과, SwiftUI로 옮기는 계획을 설명한다. 값이 서로 다르면 JSON이 맞고 이 문서를 고친다. 값을 어떻게 조합해 화면을 만드는지는 [art-direction.md](art-direction.md)에 있다.
 
@@ -50,6 +50,9 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 
 - `$value`는 **light 모드** 값이다.
 - dark 값은 `$extensions["io.github.kkdy21.overgrove"].modes.dark`에 둔다.
+- Increase Contrast 값은 같은 `modes`의 `high-contrast`(라이트)와 `dark-high-contrast`(다크)에 둔다(#35).
+  - 값이 없으면 대체한다. `high-contrast`는 `$value`로, `dark-high-contrast`는 `dark`를 거쳐 `$value`로 간다.
+  - 별칭은 지금 풀고 있는 모드에서 푼다. 예를 들어 `border.panel`의 고대비 값 `{semantic.color.border.strong}`은 고대비 모드의 `border.strong`이 된다.
 - 런타임에 시스템이 바꾸는 토큰은 같은 확장에 `appkit` 키로 대응 API를 적는다(예: `accent` → AccentColor, `border.focus` → 키보드 포커스 색).
 
 ```json
@@ -202,9 +205,9 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 
 ---
 
-## 4. SwiftUI 매핑 계획 (Phase 3 결정 사항)
+## 4. SwiftUI 매핑 (#35)
 
-외부 도구 0개 원칙(ADR-0006) 아래에서 JSON을 앱으로 옮기는 방법을 Phase 3 첫 UI 이슈(#35)에서 확정한다. 확정되면 ADR로 남긴다.
+외부 도구 0개 원칙(ADR-0006) 아래에서 JSON을 앱으로 옮기는 방법이다. #35에서 선택지 A로 확정했고 [ADR-0017](../adr/0017-design-token-generation.md)에 남겼다. 아래 표는 결정 당시 비교한 선택지다.
 
 | 선택지 | 장점 | 단점 |
 |---|---|---|
@@ -212,17 +215,41 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | B. 손으로 관리 | 시작이 가장 빠르다 | JSON과 앱이 어긋나기 쉽다 |
 | C. Style Dictionary 같은 외부 도구 | 기능이 풍부하다 | Node 의존성이 생긴다. ADR-0006 위반 |
 
-권장안 A의 세부:
+A의 세부 (구현됨):
 
-- 앱 고유 색은 모두 색 세트로 만든다. 표면, 텍스트, 테두리, 상태, 레인, diff, 아바타가 여기에 든다. 색 세트마다 Any / Dark / High Contrast / Dark High Contrast 네 변형을 둔다.
-  - High Contrast 변형 규칙(Phase 3에서 값 확정, 배경 대비 4.5:1 이상):
-    - `border.panel` → `border.strong`
-    - `text.tertiary` → `text.secondary`
-    - 레인·상태는 다크에서 더 밝게, 라이트에서 더 어둡게
-- `accent`는 Asset Catalog의 `AccentColor`로 만든다. `border.focus`는 시스템 키보드 포커스 색을 참조하는 코드를 생성한다.
-- 알파가 섞인 토큰(`surface.hover` 등)은 색 세트에 알파 그대로 둔다.
-- 간격, 크기, 모서리, 움직임은 `enum Tokens { enum Spacing { static let sm: CGFloat = 8 } … }` 형태로 만든다. 글꼴은 `Font.body` 같은 텍스트 스타일 참조로 만든다.
-- 어긋남 방지: CI에서 생성기를 다시 돌린 뒤 `git diff --exit-code`로 결과물이 최신인지 확인한다. 대비 검증(`colorcheck.py`와 같은 규칙)을 Swift 테스트로 옮길지는 [testing/test-strategy.md](../testing/test-strategy.md)와 맞춘다.
+- **실행.** `swift scripts/tokens/generate.swift`. 결과물은 커밋한다.
+  - `Overgrove/Resources/Assets.xcassets/Tokens/*.colorset`
+  - `Overgrove/Resources/Assets.xcassets/AccentColor.colorset`
+  - `Overgrove/DesignSystem/Tokens.generated.swift`
+- **색 세트.** semantic 색은 모두 색 세트가 된다(71개). 표면(알파 포함), 텍스트, 테두리, 상태, `on-status`, 레인, `on-lane`, 그래프 보조 색, diff, 아바타가 여기에 든다.
+  - 색 세트마다 Any / Dark / High Contrast / Dark High Contrast 네 변형을 둔다. 고대비 값이 따로 없는 토큰은 기본 값을 그대로 쓴다.
+  - 이름은 토큰 경로의 lowerCamelCase이고 `Tokens/` 네임스페이스 안에 있다. 예: `Tokens/statusStaged`.
+  - 앱 코드는 `Tokens.Color.statusStaged`로 참조한다. 레인·아바타는 `Tokens.Color.graphLanes[i % 8]`, `Tokens.Color.avatars[i]`로 고른다.
+- **High Contrast 변형** (값은 §5.6에서 검증)
+  - `border.panel` → `border.strong`, `text.tertiary` → `text.secondary` (별칭)
+  - 상태·레인: OKLCH 색상각과 채도는 그대로 두고 명도만 옮겼다. 기준은 `surface.selection`을 포함한 모든 패널 표면에서 4.5:1이다. 라이트는 어둡게(`status.*-700`, `lane.*-light-hc`), 다크는 밝게(`status.crimson-300`, `status.neutral-300`, `lane.violet-dark-hc`) 했다. 다크의 나머지는 이미 4.5:1 이상이라 그대로 둔다.
+  - 라이트 고대비에서 어두워진 채움 위의 `on-lane.1/4/5/7`과 `on-status.untracked`는 `slate.950`에서 흰색으로 바꾼다. `slate.950`이면 3.3:1로 떨어지기 때문이다.
+  - diff 배경은 바꾸지 않는다. 그 위 `text.primary`가 이미 7:1 이상이고, 틴트를 진하게 하면 오히려 글자 대비가 떨어진다. 4.5:1이 필요한 diff 전경색(`diff.gutter-added`, `diff.gutter-removed`)은 상태 색의 별칭이라 고대비 값을 따라간다.
+- **액센트.** `accent`는 `AccentColor` 색 세트이고 `ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME`으로 등록한다.
+  - 코드에서는 `Color.accentColor`로 읽는다. 그래서 사용자가 고른 시스템 액센트가 이긴다. 액센트의 별칭(`surface.splitter-grip-active`, `graph.head-ring`)도 같다.
+  - `border.focus`는 `NSColor.keyboardFocusIndicatorColor`를 참조한다.
+  - `surface.wip-row`는 액센트에 알파를 섞은 고정 값이라 사용자 액센트를 따라가지 않는다.
+- **상수.**
+  - `Tokens.Spacing`, `Radius`, `Size`는 `CGFloat`이다. `splitter-grip`은 `CGSize`, `graph-max-lanes-visible`은 `Int`다.
+  - `Tokens.Motion`은 초 단위 `TimeInterval`이다. 이징은 `UnitCurve`와 제어점 튜플로 만든다.
+  - `Tokens.Opacity`와 `Tokens.Graph`(`semantic.color.graph.*-opacity`)는 숫자다.
+- **글꼴.** `Tokens.Font`는 `$extensions.swiftui`에 적은 SwiftUI 텍스트 스타일이다. 매핑이 없는 typography 토큰이 있으면 생성기가 실패한다.
+  - 포인트 크기는 `initials`(고정 크기 아바타 안의 글리프)에만 쓴다.
+  - `section-header`의 자간은 `sectionHeaderTracking`(pt)이다.
+  - `lineHeight`는 SwiftUI 기본 행간을 쓰므로 옮기지 않는다.
+- **어긋남 방지.**
+  - CI의 `Design tokens are valid and up to date` 단계가 `colorcheck.py`를 돌린다. 이어서 생성기를 돌리고 `git diff --exit-code`와 미추적 파일 확인을 한다.
+  - `TokensTests`는 생성기와 별개로 JSON을 풀어 비교한다. 대상은 다음과 같다.
+    - 색 세트 네 변형
+    - 번들에 컴파일된 light·dark 값
+    - 모든 상수
+    - 고대비 4.5:1 규칙
+  - High Contrast 변형은 `NSAppearance(named:)`로 만들 수 없어 프로세스 안에서 확인할 수 없다. 그래서 색 세트 원본에서 확인한다.
 
 ---
 
@@ -342,11 +369,27 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 
 ---
 
+### 5.6 Increase Contrast (#35)
+
+`colorcheck.py`의 `high-contrast`, `dark-high-contrast` 모드 결과다. 기준은 텍스트(tertiary 포함)·상태·레인 모두 5개 패널 표면(selection 포함)에서 4.5:1이다.
+
+| 항목 | Light HC (최저, 표면 5개 기준) | Dark HC (최저, 표면 5개 기준) |
+|---|---|---|
+| `text.tertiary` (= secondary) | 6.50 | 6.64 |
+| 상태 (staged / unstaged / untracked / conflicted / ahead) | 4.65 / 4.62 / 4.61 / 4.60 / 4.61 | 7.18 / 7.58 / 4.62 / 4.63 / 6.09 |
+| 레인 0–7 | 4.64 / 4.63 / 5.41 / 4.64 / 4.65 / 4.62 / 4.63 / 4.64 | 5.51 / 7.76 / 4.62 / 4.68 / 8.18 / 7.04 / 4.71 / 9.82 |
+| `on-lane` 글자 (최저) | 5.76 (흰색, 레인 5) | 6.46 (레인 2) |
+| 이웃 레인 ΔE 정상 시각 (최저) | 16.7 (0-1) | 24.2 (0-1) |
+| 이웃 레인 ΔE 제1·2색각 (최저) | 12.6 (4-5, protan) | 17.5 (3-4, deutan) |
+
+- 라이트 고대비는 레인을 어둡게 하면서 색상끼리 가까워진다. 그래도 이웃 쌍 기준(정상 ≥ 15, 색각 이상 목표 ≥ 8)은 지킨다.
+- 라이트 `status.conflicted`·`ahead`는 기본 값과 거의 같다(`#c41f5f` → `#c31d5e`). 기본 값이 이미 canvas·panel·raised에서 4.5:1 이상이고, selection 기준만 맞추면 되었기 때문이다.
+
 ## 6. 변경 절차
 
 1. 색을 바꾸려면 먼저 이슈(`type:feature` 또는 `type:docs`, `area:ui`)를 연다. 큰 변경은 Discussion에서 시작한다.
 2. `design/tokens/tokens.json`을 고친다. semantic 층에는 새 hex를 쓰지 말고 primitive를 추가한 뒤 별칭으로 연결한다.
 3. `python3 design/mockups/generator/colorcheck.py`를 실행해 `RESULT: all checks pass`를 확인한다. 상태 색을 바꿨으면 §5.2의 같은 맥락 분리도 다시 잰다.
 4. §3의 표와 §5의 수치를 갱신한다. `design/mockups/generator/render.sh`로 목업을 다시 렌더링한다.
-5. (Phase 3 이후) 생성기를 돌려 Asset Catalog와 Swift 파일을 갱신한다. light와 dark 스크린샷을 PR에 붙인다.
+5. `swift scripts/tokens/generate.swift`로 Asset Catalog와 `Tokens.generated.swift`를 갱신하고 함께 커밋한다(§4). 고대비 값도 바꿨으면 §5.6을 갱신한다. light와 dark 스크린샷을 PR에 붙인다.
 6. 레인 순서를 바꾸는 것은 색각 이상 안전성을 바꾸는 일이다. 순서만 바꾸더라도 3단계 검증을 다시 한다.
