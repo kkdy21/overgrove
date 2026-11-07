@@ -75,7 +75,8 @@ final class ConfigExecutionScenarioTests: XCTestCase {
     // MARK: T1
 
     /// SEC-T1-02: `core.fsmonitor` in a submodule's configuration does not run when the app reads the superproject's
-    /// status. Plain git recurses into the submodule and runs it.
+    /// status. Two layers stop it: `--ignore-submodules=dirty` (no recursion) and `-c core.fsmonitor=false`, which
+    /// reaches the submodule's git through `GIT_CONFIG_PARAMETERS`. Plain git recurses and runs it.
     func testSECT1_02_SubmoduleFSMonitorDoesNotRun() async throws {
         let (superproject, submodule) = try await superprojectWithSubmodule()
         try await scenario.plain(
@@ -84,6 +85,10 @@ final class ConfigExecutionScenarioTests: XCTestCase {
 
         _ = try await scenario.app(.status, in: superproject)
         assertNoCanary(after: "app status")
+        // Second layer on its own: recursion allowed, the common arguments still disable fsmonitor in the submodule.
+        _ = try await scenario.appArguments(
+            try statusArguments(dropping: "--ignore-submodules=dirty"), in: superproject)
+        assertNoCanary(after: "app arguments with recursion allowed")
 
         try await scenario.plain(try statusArguments(dropping: "--ignore-submodules=dirty"), in: superproject)
         assertFired("T1-sub", "status recursing into the submodule")
@@ -106,6 +111,8 @@ final class ConfigExecutionScenarioTests: XCTestCase {
 
         _ = try await scenario.appFetch("origin", in: repo)
         assertNoCanary(after: "app fetch")
+        // The fetch had a ref to update, so it did reach the point where the hook would run.
+        try await scenario.plain(["rev-parse", "--verify", "refs/remotes/origin/new"], in: repo, requireSuccess: true)
 
         try await scenario.plain(
             ["-c", "core.hooksPath=/dev/null", "update-ref", "-d", "refs/remotes/origin/new"], in: repo,
@@ -149,8 +156,9 @@ final class ConfigExecutionScenarioTests: XCTestCase {
         assertFired("T4-gitattributes", "status without neutralization")
     }
 
-    /// SEC-T4-03: with `required=true` and a failing clean filter, plain status fails; the app's status succeeds and
-    /// runs nothing (the neutralization also sets `required=false`).
+    /// SEC-T4-03: with `required=true`, the app's status still succeeds and runs nothing, because the neutralization
+    /// also sets `required=false`. Without that one argument, the emptied filter itself is fatal (security-review.md
+    /// E6; it only shows on a file whose content is unchanged but whose stat changed, which status re-hashes).
     func testSECT4_03_RequiredFilterDoesNotBreakStatus() async throws {
         let repo = try await repository("repo", files: ["a.dat": "a\n"])
         try writeAttributes("*.dat filter=evil", gitDirectory: repo.appendingPathComponent(".git"))
@@ -162,6 +170,25 @@ final class ConfigExecutionScenarioTests: XCTestCase {
         XCTAssertTrue(inspection.neutralization.contains("filter.evil.required=false"))
         _ = try await scenario.app(.status, in: repo)
         assertNoCanary(after: "app status")
+
+        // The neutralization minus `required=false`: status fails with "clean filter 'evil' failed".
+        var withoutRequired: [String] = []
+        var arguments = inspection.neutralization[...]
+        while let first = arguments.first {
+            let pair = Array(arguments.prefix(2))
+            arguments = arguments.dropFirst(min(2, arguments.count))
+            if first == "-c", pair.last == "filter.evil.required=false" { continue }
+            withoutRequired += pair
+        }
+        let partial = RepoSafetyContext(
+            inspectedNeutralization: withoutRequired, fetchAuthentication: [], trustedSSHCommand: nil)
+        do {
+            _ = try await scenario.client().run(.status, in: repo, safety: partial)
+            XCTFail("without required=false the emptied required filter must be fatal (E6)")
+        } catch GitError.nonZeroExit(_, let detail) {
+            XCTAssertTrue(detail.text.contains("clean filter 'evil' failed"), detail.text)
+        }
+        assertNoCanary(after: "app status without required=false")
 
         let control = try await scenario.plain(try statusArguments(), in: repo)
         assertFired("T4-required", "plain status")
@@ -202,11 +229,23 @@ final class ConfigExecutionScenarioTests: XCTestCase {
         _ = try await scenario.app(.status, in: superproject)
         assertNoCanary(after: "app status")
 
+        // `--ignore-submodules=dirty` is the only layer: the inspector reads the superproject's configuration only,
+        // so with every other app argument kept and just this flag removed, the submodule's filter runs.
+        _ = try await scenario.appArguments(
+            try statusArguments(dropping: "--ignore-submodules=dirty"), in: superproject)
+        assertFired("T4-sub", "app arguments without --ignore-submodules=dirty")
+        try scenario.clearCanaries()
+        try touch(superproject.appendingPathComponent("sub/a.dat"))
+
         try await scenario.plain(try statusArguments(dropping: "--ignore-submodules=dirty"), in: superproject)
         assertFired("T4-sub", "status recursing into the submodule")
     }
 
     // MARK: T6 (credential fill with the app's fetch arguments stands in for HTTP authentication)
+    //
+    // Like the app, the app-path runs read system configuration, so a system helper (Apple's `osxkeychain`) also runs
+    // a lookup for `example.invalid`. That is read-only and the app's real behavior; the assertions only concern the
+    // helpers these tests plant.
 
     private let credentialRequest = "protocol=https\nhost=example.invalid\npath=overgrove.git\n\n"
 
@@ -222,9 +261,14 @@ final class ConfigExecutionScenarioTests: XCTestCase {
         assertFired("T6-local-generic", "plain credential fill")
     }
 
-    /// SEC-T6-02: repository-local URL-specific and wildcard helpers do not run.
+    /// SEC-T6-02: repository-local URL-specific and wildcard helpers do not run. A trusted global helper (recorded
+    /// outside `canary/`) proves the app's run did reach the helper stage.
     func testSECT6_02_LocalURLAndWildcardHelpersDoNotRun() async throws {
         let repo = try await repository("repo", files: ["x.txt": "x\n"])
+        let trustedRecords = executables.directory.appendingPathComponent("trusted", isDirectory: true)
+        let trusted = try executables.canaryPayload("T6-trusted", canary: trustedRecords)
+        try await scenario.plain(
+            ["config", "--global", "credential.helper", trusted.path], in: repo, requireSuccess: true)
         try await scenario.config(
             "credential.https://example.invalid.helper", try scenario.payload("T6-local-url"), in: repo)
         try await scenario.config(
@@ -232,14 +276,18 @@ final class ConfigExecutionScenarioTests: XCTestCase {
 
         _ = try await scenario.appCredentialFill(in: repo, input: credentialRequest)
         assertNoCanary(after: "app credential fill")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: trustedRecords.appendingPathComponent("T6-trusted").path),
+            "the trusted helper must run, or the app's run never reached the helper stage")
 
         try await scenario.plain(["credential", "fill"], in: repo, stdin: credentialRequest)
         assertFired("T6-local-url", "plain credential fill")
         assertFired("T6-local-wildcard", "plain credential fill")
     }
 
-    /// SEC-T6-03: trusted global helpers (generic, then URL-specific) still run, in their original order, while the
-    /// repository's own helper does not.
+    /// SEC-T6-03: trusted global helpers still run in their original configuration order (written URL-specific
+    /// first, so an implementation that always re-inserts the generic key first would fail), while the repository's
+    /// own helper does not.
     func testSECT6_03_TrustedGlobalHelpersRunInOrder() async throws {
         let repo = try await repository("repo", files: ["x.txt": "x\n"])
         let order = scenario.canary.appendingPathComponent("T6-order").path
@@ -247,15 +295,15 @@ final class ConfigExecutionScenarioTests: XCTestCase {
             try scenario.payload(id, tail: "printf '%s\\n' \(id) >> '\(order)'")
         }
         try await scenario.plain(
-            ["config", "--global", "credential.helper", try trusted("T6-trusted-generic")], in: repo,
-            requireSuccess: true)
-        try await scenario.plain(
             ["config", "--global", "credential.https://example.invalid.helper", try trusted("T6-trusted-url")],
             in: repo, requireSuccess: true)
+        try await scenario.plain(
+            ["config", "--global", "credential.helper", try trusted("T6-trusted-generic")], in: repo,
+            requireSuccess: true)
         try await scenario.config("credential.helper", try scenario.payload("T6-local-generic"), in: repo)
 
         _ = try await scenario.appCredentialFill(in: repo, input: credentialRequest)
-        XCTAssertEqual(scenario.records("T6-order"), ["T6-trusted-generic", "T6-trusted-url"])
+        XCTAssertEqual(scenario.records("T6-order"), ["T6-trusted-url", "T6-trusted-generic"])
         XCTAssertFalse(scenario.canaries().contains("T6-local-generic"), "the repository's helper must not run")
     }
 

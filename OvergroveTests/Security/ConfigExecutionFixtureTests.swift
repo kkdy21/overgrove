@@ -52,6 +52,8 @@ final class ConfigExecutionFixtureTests: XCTestCase {
         let fetch = try query("fetch origin", in: try await harness.queries())
         try await harness.runHardened(fetch)
         harness.fixture.assertNoCanaries(after: "app fetch origin")
+        // The fetch had a ref to create, so it reached the point where reference-transaction would run.
+        try await harness.runHardenedSetup(["rev-parse", "--verify", "refs/remotes/origin/feat/remote-only"])
 
         try await harness.forgetRemoteOnlyBranch()
         harness.fixture.assertNoCanaries(after: "setup")
@@ -62,7 +64,9 @@ final class ConfigExecutionFixtureTests: XCTestCase {
     // MARK: T3
 
     /// SEC-T3-01 (textconv and `diff.external`; `diff.<d>.command` is in `ConfigExecutionScenarioTests`): every
-    /// patch the app can show runs neither.
+    /// patch the app can show runs neither. The controls use the worktree diff: `diff-tree -p` (stash and commit
+    /// patches) does not apply textconv by default (measured), so `--no-textconv` there is defense in depth, which
+    /// SEC-T3-02 checks at the argument level.
     func testSECT3_01_PatchesRunNoTextconvOrExternalDiff() async throws {
         let harness = try await harness()
         let queries = try await harness.queries()

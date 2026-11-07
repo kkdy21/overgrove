@@ -116,6 +116,22 @@ struct SecurityScenario {
         return try await client().run(command, in: directory, safety: safety)
     }
 
+    /// The app's common arguments, neutralization and environment around a subcommand the test changed (for
+    /// isolating which single flag stops a vector). Not an app command: `GitClient` only takes `ReadOnlyGitCommand`.
+    func appArguments(_ subcommand: [String], in directory: URL, repository: URL? = nil) async throws -> ProcessResult {
+        let inspection = try await inspect(repository ?? directory)
+        guard let safety = inspection.safetyContext else {
+            throw ScenarioError.blocked(inspection.report.blockingReason ?? "")
+        }
+        return try await launch(
+            environment.arguments(for: subcommand, neutralization: safety.neutralization),
+            in: directory,
+            environment: GitEnvironment.environment(parent: parentEnvironment),
+            stdin: nil,
+            limits: .query
+        )
+    }
+
     /// Inspects `repository` and runs `git fetch <remote>` the way the app does.
     func appFetch(_ remote: String, in repository: URL) async throws -> GitOutput {
         let inspection = try await inspect(repository)

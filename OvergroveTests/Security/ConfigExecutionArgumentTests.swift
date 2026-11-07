@@ -92,9 +92,15 @@ final class ConfigExecutionArgumentTests: XCTestCase {
     /// SEC-T3-02: every case that can produce a diff disables external diff drivers and textconv, and the log-based
     /// cases never ask for a patch.
     func testSECT3_02_EveryDiffCaseDisablesExternalDiffAndTextconv() throws {
+        // Every subcommand is classified, so a new one (`show`, `diff-index`, …) fails here until it is reviewed.
+        let known: Set<String> = [
+            "version", "rev-parse", "config", "worktree", "status", "for-each-ref", "rev-list", "stash", "log",
+            "diff-tree", "diff",
+        ]
         var diffCases = 0
         for command in try Self.allQueries() {
             let arguments = try command.subcommandArguments()
+            XCTAssertTrue(known.contains(arguments.first ?? ""), "\(command): unreviewed subcommand")
             let isDiff =
                 ["diff", "diff-tree"].contains(arguments.first) || arguments.starts(with: ["stash", "show"])
             if isDiff {
@@ -134,6 +140,14 @@ final class ConfigExecutionArgumentTests: XCTestCase {
             }
         }
         XCTAssertGreaterThan(scanned, 20, "the app sources were found")
+
+        // The final arguments themselves, which also catches a format assembled from pieces.
+        for entry in try Self.allFinalArguments() {
+            for argument in entry.arguments {
+                let range = NSRange(argument.startIndex..., in: argument)
+                XCTAssertNil(pattern.firstMatch(in: argument, range: range), "\(entry.label): \(argument)")
+            }
+        }
     }
 
     /// `.../OvergroveTests/Security/ConfigExecutionArgumentTests.swift` → repository root.
