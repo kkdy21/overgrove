@@ -131,7 +131,8 @@ actor GitClient {
             location: command.location,
             limits: .query,
             acceptedExitCodes: command.acceptedExitCodes,
-            trustedSSHCommand: safety.trustedSSHCommand
+            trustedSSHCommand: safety.trustedSSHCommand,
+            allowsTransport: false
         )
     }
 
@@ -174,6 +175,7 @@ actor GitClient {
             limits: fetchLimits,
             acceptedExitCodes: [0],
             trustedSSHCommand: safety.trustedSSHCommand,
+            allowsTransport: true,
             stderrObserver: progress.map(Self.progressObserver)
         )
     }
@@ -206,12 +208,14 @@ actor GitClient {
         limits: ProcessLimits,
         acceptedExitCodes: Set<Int32>,
         trustedSSHCommand: String?,
+        allowsTransport: Bool,
         stderrObserver: (@Sendable (Data) -> Void)? = nil
     ) async throws -> GitOutput {
         let request = ProcessRequest(
             executable: environment.executable,
             arguments: arguments,
-            environment: GitEnvironment.environment(parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand),
+            environment: GitEnvironment.environment(
+                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport),
             currentDirectory: directory,
             limits: limits
         )

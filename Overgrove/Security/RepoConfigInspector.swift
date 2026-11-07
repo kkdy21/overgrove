@@ -165,6 +165,8 @@ enum RepoConfigInspector {
                 return ("T13", .neutralized)
             }
             if variable == "prunetags" || variable == "tagopt" { return ("T13", .neutralized) }
+            // Partial clone: reads lazy-fetch from the promisor remote. Queries allow no transport (#212).
+            if variable == "promisor" || variable == "partialclonefilter" { return ("T5", .neutralized) }
             if variable == "mirror" { return ("T13", .reported) }
             // A remote helper chosen by the repository. `GIT_ALLOW_PROTOCOL` refuses it at fetch time (#161).
             if variable == "vcs" { return ("T5", .reported) }
@@ -178,6 +180,8 @@ enum RepoConfigInspector {
             return ("T3", .reported)
         case "diff" where variable == "orderfile":
             return ("T15", .warned)
+        case "extensions" where variable == "partialclone":
+            return ("T5", .neutralized)
         case "fetch" where variable == "prunetags" || variable == "bundleuri":
             return ("T13", .neutralized)
         case "gpg" where variable == "program":
