@@ -568,12 +568,14 @@ Advanced
 | 설정 | 기본값 | 저장 | 비고 |
 |---|---|---|---|
 | 자동 fetch | 끔, 간격 10분 | `UserDefaults` | 켜면 백그라운드 fetch. 창이 비활성일 때는 건너뛴다 |
-| 원격 URL 전체 표시 | 끔 | `UserDefaults` | 켜도 자격 증명 부분은 항상 마스킹한다 (T11) |
+| 원격 URL 전체 표시 | 끔 | `UserDefaults` | 끄면 호스트와 경로만(`github.com/acme/api`), 켜면 마스킹한 전체 URL. 둘 다 마스킹한 URL에서 만들므로 자격 증명이 나오지 않는다 (T11). S-05의 원격 목록과 사이드바 REMOTE 그룹 툴팁에 적용한다 (#86) |
 | untracked 표시 | 켬 | `UserDefaults` | 끄면 `--untracked-files=no` |
 | git 실행 파일 | `/usr/bin/git` | `UserDefaults` | 절대 경로만 허용한다. 바꿀 때 `--version`으로 검증 (ADR-0008) |
 | 상세 로그 | 끔 | `UserDefaults` | 로그에도 마스킹을 적용한다 (T16) |
 
 토큰이나 비밀 값을 입력받는 필드는 **없다.**
+
+**v0.1 구현 범위 (#86).** General(자동 fetch, 원격 URL)과 Repositories(목록, Remove, Add…) 탭을 만든다. 자동 fetch 설정은 저장하지만, 스케줄러(#79)가 들어올 때까지 화면에서 숨긴다(`AppSettings.isAutoFetchAvailable`). untracked 표시, git 실행 파일(v0.2.0), 상세 로그와 Advanced 탭은 뒤로 미룬다. Settings에서 저장소를 지우면 그 저장소를 보던 창도 닫고, 등록·fetch 기록·결과 캐시를 함께 지운다(창의 Remove와 같다).
 
 **외형.** Settings 창은 네이티브 컨트롤(`Settings` 씬, `Form`의 grouped 스타일)을 쓰므로 시스템 색을 따른다([ADR-0014](../adr/0014-panel-theme-and-split-layout.md)). 앱 토큰에서 오는 것은 액센트(토글, 선택된 탭 아이콘)뿐이다.
 

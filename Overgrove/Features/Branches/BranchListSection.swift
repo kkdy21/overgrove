@@ -10,6 +10,8 @@ struct BranchListSection: View {
     let count: Int
     let nodes: [BranchNode]
     var warning: String?
+    /// Tooltips for folder rows by id; REMOTE uses it for each remote's URL (Settings › Show full remote URLs, #86).
+    var folderHelp: [String: String] = [:]
 
     @State private var isExpanded = true
     @State private var openFolders: Set<String> = []
@@ -70,6 +72,7 @@ struct BranchListSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(folderHelp[id] ?? "")
         .accessibilityLabel(name + ", \(count) branches")
         .accessibilityValue(isOpen ? "expanded" : "collapsed")
     }
