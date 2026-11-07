@@ -21,11 +21,9 @@
 
 ---
 
-> **상태: 프리알파. 아직 써 볼 수 있는 단계는 아닙니다.** git을 안전하게 실행하는 기반은 구현과 테스트를 마쳤습니다.
-> 프로세스 실행, 보안을 강화한 git 호출, 저장소 설정 검사, 자격 증명 마스킹, 경로 검증이 여기에 해당합니다.
-> 파서는 작업 중이고, 앱 창에는 아직 임시 화면만 나옵니다. 아래 이미지는 현재 디자인
-> 목업입니다([#166](https://github.com/kkdy21/overgrove/issues/166)). 진행 상황은
-> [로드맵](docs/roadmap.md)과 [v0.1.0 마일스톤](https://github.com/kkdy21/overgrove/milestone/1)에서 볼 수 있습니다.
+> **상태: 프리알파. 소스에서 빌드해 씁니다.** 아래 v0.1 기능은 실제 저장소에서 동작하지만 아직 릴리스는 없습니다.
+> 다듬어지지 않은 부분이 있을 수 있고, 서명·공증된 실행 파일도 없습니다. 진행 상황은 [로드맵](docs/roadmap.md)과
+> [v0.1.0 마일스톤](https://github.com/kkdy21/overgrove/milestone/1)에서 볼 수 있습니다.
 
 ## 왜 만들었나
 
@@ -67,25 +65,27 @@ Overgrove는 이런 질문에 화면 하나로 답합니다. 쓰기 기능은 �
 
 ## 스크린샷
 
-> **디자인 목업입니다. 앱은 아직 개발 중입니다.** 디자인 토큰과 예시 데이터로 그린 이미지이며, 실제 빌드를 실행해
-> 캡처한 화면은 아닙니다. 다른 화면은 [docs/design/mockups.md](docs/design/mockups.md)에서 볼 수 있습니다.
+앱에서 예시 데이터로 렌더링한 메인 창입니다(기능·수정·리뷰 워크트리가 있는 가상의 API 서비스). 창 위의 툴바에는
+저장소·포커스 워크트리 전환, Fetch, Refresh, Compare, Terminal, Finder, 검색이 있습니다. 모든 화면의 디자인 목업은
+[docs/design/mockups.md](docs/design/mockups.md)에 있습니다.
 
 | 라이트 | 다크 |
 |---|---|
-| ![Overgrove 메인 창 목업, 라이트 모드](design/mockups/main-window-light.png) | ![Overgrove 메인 창 목업, 다크 모드](design/mockups/main-window-dark.png) |
+| ![Overgrove 메인 창, 라이트 모드: 사이드바의 워크트리·브랜치·stash·이슈, WIP 행이 있는 커밋 그래프, 포커스 워크트리의 staged·unstaged·untracked 파일](design/screenshots/main-window-light.png) | ![Overgrove 메인 창, 다크 모드](design/screenshots/main-window-dark.png) |
 
-## v0.1.0에서 만들 기능
+## 기능 (v0.1)
 
-- **워크트리:** 모든 워크트리의 브랜치, HEAD, 경로, 잠김(locked)·정리 대상(prunable) 여부
-- **워크트리별 작업 상태:** staged, unstaged, untracked, 충돌 파일
+- **워크트리:** 모든 워크트리의 브랜치, 경로, 잠김·정리 대상(prunable)·사라짐 상태와 변경·ahead/behind 배지
+- **워크트리별 작업 상태:** staged, unstaged, untracked, 충돌 파일. 줄 수와 diff 뷰어 포함
 - **기준 브랜치와 비교:** 워크트리가 `main`에서 갈라진 뒤 무엇이 바뀌었는지 PR처럼 보여 줍니다. `main`보다 앞선 커밋,
   바뀐 파일, untracked 파일까지 나오니 PR을 열기 전에 에이전트가 한 일을 검토할 수 있습니다.
-- **stash:** 저장소의 stash 목록과 stash별 변경 요약
-- **ahead/behind:** `git fetch` 이후 브랜치마다 upstream과 얼마나 차이 나는지, 마지막 fetch 시각과 함께 보여 줍니다.
-- **커밋 그래프:** 작성자, 날짜, 메시지를 보여 주고, 맨 위에는 아직 커밋하지 않은 변경을 *WIP* 행으로 둡니다. AI
-  에이전트가 함께 작성한 커밋(`Co-authored-by` 트레일러)은 따로 표시합니다.
-- **커밋 상세와 파일 이력**
-- **GitHub 이슈(선택):** 이미 로그인해 둔 `gh`로 이슈 목록을 불러오고, 브랜치 이름에 들어 있는 이슈 번호로 연결합니다.
+- **커밋 그래프:** 브랜치·태그·워크트리를 그 커밋에 표시하고, 포커스 워크트리의 *WIP* 행을 둡니다. AI 에이전트의
+  `Co-authored-by` 트레일러가 있는 커밋에는 *AI* 표시를 붙입니다. 메시지, 작성자, SHA, ref, `#이슈`로 검색합니다.
+- **커밋 상세와 파일 이력:** 커밋의 메시지와 파일, 이름이 바뀐 것까지 따라가는 파일 이력
+- **브랜치와 stash:** upstream 상태가 붙은 로컬·원격 브랜치, stash별 파일
+- **Fetch:** 네트워크를 쓰는 유일한 동작. 마지막 fetch 시각과 선택 사항인 자동 fetch(기본 꺼짐)
+- **GitHub 이슈(선택):** 이미 로그인해 둔 `gh`로 열린 이슈를 불러오고, 이슈 번호로 브랜치·워크트리·커밋과 연결합니다.
+- **키보드와 접근성:** 모든 패널의 단축키, VoiceOver 라벨, 라이트·다크 모드
 
 **처음부터 조회 전용으로 설계했습니다.** 원격 저장소에 접근하는 동작은 `git fetch` 하나뿐입니다. push, pull, merge,
 reset, stage는 일부러 넣지 않았습니다. Overgrove는 쓰기를 맡는 터미널이나 AI 에이전트 옆에 띄워 두고 보는
@@ -93,8 +93,9 @@ reset, stage는 일부러 넣지 않았습니다. Overgrove는 쓰기를 맡는 
 
 ## 보안
 
-신뢰할 수 없는 저장소를 Git 클라이언트로 열면, 그 저장소 설정에 심어 둔 코드가 실행될 수 있습니다. Overgrove는 이런
-위험을 막기 위해 다음 원칙을 지킵니다.
+신뢰할 수 없는 저장소를 Git 클라이언트로 열면, 그 저장소 설정에 심어 둔 코드(hook, 필터, fsmonitor, diff 드라이버,
+credential helper, SSH 명령 등)가 실행될 수 있습니다. Overgrove는 신뢰하지 않는 저장소를 열어도 그런 코드가 실행되지
+않도록 만들었습니다.
 
 - `git`은 셸을 거치지 않고 인자 배열로만 실행합니다.
 - 위험한 저장소 설정(fsmonitor, hooks, 필터, 외부 diff, credential helper, 별도로 지정한 SSH 명령 등)은 강제로 끕니다.
@@ -103,16 +104,28 @@ reset, stage는 일부러 넣지 않았습니다. Overgrove는 쓰기를 맡는 
 - 모든 명령에 시간 제한과 출력 크기 제한을 둡니다.
 - 원격 URL에 들어 있는 자격 증명은 가려서 보여 줍니다.
 - 토큰은 저장하지 않습니다. GitHub 접근은 `gh`에 맡깁니다.
+- 워크트리마다 설정을 검사하고, 위험한 항목은 **Worktree** 패널에 보여 줍니다.
+
+알아 둘 점:
+
+- **터미널은 보호되지 않습니다.** *Open in Terminal*이나 Overgrove에서 복사한 명령은 보통의 `git`으로 실행되고, 이
+  `git`은 저장소의 hook과 설정을 실행합니다. Overgrove는 위험한 설정이 있는 저장소에서 터미널을 열기 전에 묻고,
+  설정 보고가 깨끗할 때만 `git` 명령을 제시합니다. 터미널은 신뢰하는 저장소에서만 쓰세요.
+- **Fetch는 자격 증명을 들고 원격에 접속합니다.** 저장소는 자격 증명이 가는 길(프록시, 인증서, helper)을 바꿀 수
+  없지만, 원격 URL은 저장소가 정합니다.
+- 자체 호스팅·사내 서버에서는 토큰, SSH 호스트 키, 사설 CA, 프록시를 한 번 설정해야 할 수 있습니다.
+  [자체 호스팅·사내 Git 서버](docs/guides/self-hosted-git.ko.md)를 보세요.
 
 자세한 내용은 [SECURITY.md](SECURITY.md)(영문)에 있습니다. 취약점을 비공개로 제보하는 방법도 이 문서에 나와 있습니다.
+위협 모델은 [보안 검토](docs/design/security-review.md)에 있습니다.
 
 ## 요구 사항
 
-- macOS 14 Sonoma 이상
-- 소스에서 빌드하려면 Xcode 26 이상
+- macOS 14 Sonoma 이상 (Apple silicon 또는 Intel)
+- 소스에서 빌드하려면 Xcode 26 이상 (Swift 6)
 - Git 2.36 이상. Overgrove는 `xcode-select`로 지정한 개발자 디렉터리(Xcode 또는 Command Line Tools)에 있는 Apple Git을
-  사용합니다.
-- 선택: 이슈 패널을 쓰려면 로그인해 둔 [GitHub CLI](https://cli.github.com/)(`gh`)가 필요합니다.
+  사용합니다. 처음 실행할 때 설정 도우미가 확인합니다.
+- 선택: 이슈 패널을 쓰려면 `gh auth login`으로 로그인해 둔 [GitHub CLI](https://cli.github.com/)(`gh`)가 필요합니다.
 
 ## 소스에서 빌드하기
 
@@ -122,8 +135,19 @@ Overgrove는 **소스로만** 배포합니다. 서명·공증된 실행 파일�
 git clone https://github.com/kkdy21/overgrove.git
 cd overgrove
 ./scripts/bootstrap.sh     # Git hooks를 설치하고 개발 도구를 점검합니다
-open Overgrove.xcodeproj   # ⌘U로 테스트를 돌립니다. ⌘R은 아직 임시 창만 띄웁니다
+open Overgrove.xcodeproj   # ⌘R로 빌드·실행, ⌘U로 테스트
 ```
+
+명령줄에서:
+
+```sh
+xcodebuild -project Overgrove.xcodeproj -scheme Overgrove -configuration Release build
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
+```
+
+처음 실행하면 설정 도우미가 `git`과 `gh`를 확인하고 저장소를 추가하라고 안내합니다(⌘O). README 스크린샷은
+`ReadmeScreenshotTests`로 만듭니다. `TEST_RUNNER_OVERGROVE_README_SCREENSHOT_DIR`에 폴더를 지정해 실행하면 다시
+렌더링됩니다.
 
 ## 작업 방식
 
