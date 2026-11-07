@@ -84,6 +84,14 @@ final class TerminalGuardTests: XCTestCase {
         let masked = TerminalGuard.reasons(
             inspection: inspection([("url", "https://bob:s3cret@example.com/", "insteadof", "x")]), hooks: [])
         XCTAssertFalse(masked.joined().contains("s3cret"), "\(masked)")
+
+        // #244: scheme-less subsections
+        let schemeless = TerminalGuard.reasons(
+            inspection: inspection([
+                ("url", "bob:s3cret@example.com:org", "insteadof", "x"),
+                ("credential", "s3cret@h.example", "helper", "y"),
+            ]), hooks: [])
+        XCTAssertFalse(schemeless.joined().contains("s3cret"), "\(schemeless)")
     }
 
     func testOpenInTerminalOpensCleanAndConfirmsTheRest() async throws {
