@@ -4,9 +4,9 @@ import XCTest
 @testable import Overgrove
 
 /// SEC-T3-03 (#239): a repository's own diff configuration must not change the porcelain `git diff` output the app
-/// reads (`worktreeDiff`, `untrackedPreview`, `comparePatch`, `compareFiles`). With each setting planted, the app's
-/// output is byte-identical to the output without it; the control (the same subcommand without the pinning options
-/// and the common arguments) changes. `diff-tree` (plumbing) does not read these settings.
+/// reads (`worktreeDiff`, `worktreeNumstat`, `untrackedPreview`, `comparePatch`, `compareFiles`). With each setting
+/// planted, the app's output is byte-identical to the output without it; the control (the same subcommand without
+/// the pinning options and the common arguments) changes. `diff-tree` (plumbing) does not read these settings.
 final class PorcelainDiffConfigTests: XCTestCase {
     private var repository: GitTestRepository!
     private var submodule: GitTestRepository!
@@ -58,6 +58,7 @@ final class PorcelainDiffConfigTests: XCTestCase {
             .comparePatch(base: base, path: GitPath("f.txt"), includeWorkingTree: true),
             .comparePatch(base: base, path: GitPath("sub"), includeWorkingTree: true),
             .compareFiles(base: base, includeWorkingTree: true),
+            .worktreeNumstat(staged: false),
         ]
     }
 

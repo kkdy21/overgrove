@@ -13,7 +13,8 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .stashPatch(oid, path: GitPath("new.txt"), fromUntracked: true), .graphPage(skip: 500, limit: 500),
     .commitMeta(oid), .commitFiles(oid, firstParent: nil), .commitFiles(oid, firstParent: parent),
     .commitPatch(oid, parent: parent, path: GitPath("-x")), .worktreeDiff(path: GitPath("a b.txt"), staged: true),
-    .worktreeDiff(path: GitPath(":(exclude)x"), staged: false),
+    .worktreeDiff(path: GitPath(":(exclude)x"), staged: false), .worktreeNumstat(staged: true),
+    .worktreeNumstat(staged: false),
     .fileHistory(path: GitPath("*"), limit: 100),
     .compareFiles(base: FullRefName("refs/remotes/origin/main")!, includeWorkingTree: false),
     .compareFiles(base: FullRefName("refs/heads/main")!, includeWorkingTree: true),
@@ -109,6 +110,14 @@ final class GitCommandTests: XCTestCase {
             [
                 "diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty", "--no-color",
                 "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--", ":(exclude)x",
+            ],
+            [
+                "diff", "--no-ext-diff", "--no-textconv", "--numstat", "-z", "-M", "--ignore-submodules=dirty",
+                "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--cached",
+            ],
+            [
+                "diff", "--no-ext-diff", "--no-textconv", "--numstat", "-z", "-M", "--ignore-submodules=dirty",
+                "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short",
             ],
             ["log", "--follow", "-z", ReadOnlyGitCommand.logFormat, "-n", "100", "--", "*"],
             [

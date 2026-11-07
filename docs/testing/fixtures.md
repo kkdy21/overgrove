@@ -365,6 +365,7 @@ worktrees/wt-no-upstream   staged=0 unstaged=0 untracked=0 conflicted=0
   | worktreeDiff unstaged | — | `T1-fsmonitor`, `T4-filter-clean` | M04 |
   | worktreeDiff unstaged | `--no-ext-diff`, `--no-textconv` | `T3-external-diff`, `T4-filter-smudge` | M04 |
   | worktreeDiff unstaged | `--no-textconv` | `T3-textconv`, `T4-filter-smudge` | M09 |
+  | worktreeNumstat unstaged | — | `T1-fsmonitor`, `T4-filter-clean` (git 2.54.0 실측, #230) | M04 |
   | graphPage | — | `T7-gpg-program` | M12 |
   | fetch origin | — | `T5-alternateRefsCommand`, `T2-hook-reference-transaction` | M23 |
   | fetch origin | `--upload-pack=git-upload-pack` | `T5-uploadpack` | M20 |

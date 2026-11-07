@@ -70,8 +70,10 @@ final class ConfigExecutionFixtureTests: XCTestCase {
     func testSECT3_01_PatchesRunNoTextconvOrExternalDiff() async throws {
         let harness = try await harness()
         let queries = try await harness.queries()
-        for prefix in ["worktreeDiff unstaged", "worktreeDiff staged", "untrackedPreview", "stashPatch", "commitPatch"]
-        {
+        for prefix in [
+            "worktreeDiff unstaged", "worktreeDiff staged", "worktreeNumstat", "untrackedPreview", "stashPatch",
+            "commitPatch",
+        ] {
             for patch in queries.filter({ $0.label.hasPrefix(prefix) }) {
                 try await harness.runHardened(patch)
                 harness.fixture.assertNoCanaries(after: "app \(patch.label)")

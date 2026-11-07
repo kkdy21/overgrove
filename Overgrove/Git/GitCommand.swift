@@ -25,6 +25,8 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case commitFiles(ObjectID, firstParent: ObjectID?)
     case commitPatch(ObjectID, parent: ObjectID?, path: GitPath)
     case worktreeDiff(path: GitPath, staged: Bool)
+    /// Per-file line counts of the whole worktree, staged or unstaged (S-02, #230). No pathspec.
+    case worktreeNumstat(staged: Bool)
     /// Diff of an untracked file against /dev/null. Only a `WorktreeFile` (checked by `PathValidator`) is accepted.
     case untrackedPreview(WorktreeFile)
     case fileHistory(path: GitPath, limit: Int)
@@ -127,6 +129,12 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             // the submodule, with the submodule's own filters, which were never inspected (#239, SEC-T4-05).
             return ["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty"]
                 + Self.porcelainDiffOptions + (staged ? ["--cached"] : []) + (try Self.pathspec(path))
+        case .worktreeNumstat(let staged):
+            // `--ignore-submodules=dirty` (as in status): without it git diff runs `git status` inside every
+            // submodule, whose configuration was never inspected (#230). The porcelain options do not change numstat
+            // output today (checked, #239); they keep every porcelain diff case under one rule.
+            return ["diff", "--no-ext-diff", "--no-textconv", "--numstat", "-z", "-M", "--ignore-submodules=dirty"]
+                + Self.porcelainDiffOptions + (staged ? ["--cached"] : [])
         case .untrackedPreview(let file):
             return ["diff", "--no-index", "--no-ext-diff", "--no-textconv"] + Self.porcelainDiffOptions
                 + ["--", "/dev/null", file.relativePath]
@@ -168,7 +176,8 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         switch self {
         case .version: .neutral
         case .probeGitDirectory, .probeRepository: .registeredPath
-        case .status, .worktreeDiff, .untrackedPreview, .fileHistory, .compareFiles, .comparePatch, .commitsAhead:
+        case .status, .worktreeDiff, .worktreeNumstat, .untrackedPreview, .fileHistory, .compareFiles, .comparePatch,
+            .commitsAhead:
             .worktree
         default: .repository
         }

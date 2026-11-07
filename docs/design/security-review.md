@@ -72,7 +72,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - numstat 계열(`diff-tree --numstat`, `stash show --numstat`)은 실험에서 textconv를 부르지 않았다. 그래도 같은 인자를 붙인다.
   - porcelain `git diff`는 저장소의 diff 설정으로 출력 모양이 바뀐다(#239, catalog §3). `color.diff=always`가 `color.ui=never`를 이기고, `diff.noprefix`·`mnemonicPrefix`·`srcPrefix`·`dstPrefix`가 접두사를 바꾸고, `diff.suppressBlankEmpty`가 문맥 줄을 바꾸고, `diff.submodule=diff`는 서브모듈 쪽 파일 diff까지 붙인다. 화면이 patch를 잘못 읽거나 서브모듈 내용이 섞이지 않게, porcelain diff case에 `--no-color --src-prefix=a/ --dst-prefix=b/ --submodule=short`를 붙이고 공통 인자에 `-c diff.suppressBlankEmpty=false`를 둔다.
 - **잔여 위험**: 새 diff 명령을 추가할 때 인자를 빠뜨릴 수 있다. 그래서 카탈로그의 모든 diff case를 SEC-T3-02가 열거해 검사한다.
-- **검증**: SEC-T3-01 (textconv, `diff.<d>.command`, `diff.external` 픽스처 → canary 없음), SEC-T3-02 (diff 계열 case 전수 인자 검사), SEC-T3-03 (저장소 diff 설정 8종을 심어도 porcelain diff 4종의 앱 출력이 바이트 단위로 같음. 대조군(고정 인자·공통 인자 없이)은 달라짐. 고정 인자를 비우면 실패함을 확인, #239)
+- **검증**: SEC-T3-01 (textconv, `diff.<d>.command`, `diff.external` 픽스처 → canary 없음), SEC-T3-02 (diff 계열 case 전수 인자 검사), SEC-T3-03 (저장소 diff 설정 8종을 심어도 porcelain diff 5종의 앱 출력이 바이트 단위로 같음. 대조군(고정 인자·공통 인자 없이)은 달라짐. 고정 인자를 비우면 실패함을 확인, #239)
 - **상태**: 설계 완료
 
 ### T4. clean/smudge/process 필터 실행
@@ -360,8 +360,8 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 ```
 
 diff 계열 서브커맨드에는 `--no-ext-diff --no-textconv`를 붙인다.
-porcelain diff(`worktreeDiff`, `untrackedPreview`, `comparePatch`, `compareFiles`)에는 `--no-color --src-prefix=a/ --dst-prefix=b/ --submodule=short`를 붙인다(#239).
-status와 작업 트리를 보는 diff(`worktreeDiff`, `compareFiles`, `comparePatch`)에는 `--ignore-submodules=dirty`를 붙인다.
+porcelain diff(`worktreeDiff`, `worktreeNumstat`, `untrackedPreview`, `comparePatch`, `compareFiles`)에는 `--no-color --src-prefix=a/ --dst-prefix=b/ --submodule=short`를 붙인다(#239).
+status와 작업 트리를 보는 diff(`worktreeDiff`, `worktreeNumstat`, `compareFiles`, `comparePatch`)에는 `--ignore-submodules=dirty`를 붙인다.
 fetch에는 `--no-recurse-submodules --upload-pack=git-upload-pack`을 붙인다.
 
 ### 3.2 환경 변수 allowlist

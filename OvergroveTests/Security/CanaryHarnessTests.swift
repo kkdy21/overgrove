@@ -64,6 +64,7 @@ final class CanaryHarnessTests: XCTestCase {
             ("worktreeDiff unstaged", [], ["T1-fsmonitor", "T4-filter-clean"]),
             ("worktreeDiff unstaged", ["--no-ext-diff", "--no-textconv"], ["T3-external-diff", "T4-filter-smudge"]),
             ("worktreeDiff unstaged", ["--no-textconv"], ["T3-textconv", "T4-filter-smudge"]),
+            ("worktreeNumstat unstaged", [], ["T1-fsmonitor", "T4-filter-clean"]),
             ("graphPage", [], ["T7-gpg-program"]),
             ("fetch origin", [], ["T5-alternateRefsCommand", "T2-hook-reference-transaction"]),
             ("fetch origin", ["--upload-pack=git-upload-pack"], ["T5-uploadpack"]),

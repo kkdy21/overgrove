@@ -84,9 +84,15 @@ protocol RepositoryLoading: Sendable {
     func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing
 }
 
+/// Loads the WIP detail's line counts for one worktree of an opened repository (S-02, #230).
+protocol LineCountLoading: Sendable {
+    /// `nil` when the worktree has no loaded status to go with, or is no longer queried.
+    func lineCounts(_ repository: Repository, worktree: GitPath) async throws(RepositoryLoadError) -> WorkingLineCounts?
+}
+
 /// The app's loader: `RepositoryService` (#87, #88) inspects the repository's configuration (cached until a
 /// configuration file changes), lists the worktrees, and checks and queries each one.
-struct LiveRepositoryLoader: RepositoryLoading {
+struct LiveRepositoryLoader: RepositoryLoading, LineCountLoading {
     /// The shared client and service; tests pass ones with a fixture's environment.
     let services: @Sendable () async throws -> (GitClient, RepositoryService)
 
@@ -112,6 +118,23 @@ struct LiveRepositoryLoader: RepositoryLoading {
             throw error
         } catch let error as GitError {
             throw .git(error)
+        } catch is CancellationError {
+            throw .git(.cancelled)
+        } catch {
+            throw .git(.launchFailed(errno: -1))
+        }
+    }
+
+    func lineCounts(
+        _ repository: Repository, worktree: GitPath
+    ) async throws(RepositoryLoadError) -> WorkingLineCounts? {
+        do {
+            let (_, service) = try await services()
+            return try await service.lineCounts(of: repository, worktree: worktree)
+        } catch let error as GitError {
+            throw .git(error)
+        } catch let error as ParseError {
+            throw .git(GitError(error))
         } catch is CancellationError {
             throw .git(.cancelled)
         } catch {

@@ -127,6 +127,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `commitFiles(oid:)` | 루트·일반 커밋: `["diff-tree", "-r", "-z", "--raw", "--numstat", "-M", "--no-ext-diff", "--no-textconv", "--no-commit-id", "--root", "--end-of-options", "<oid>"]`<br>병합 커밋: `[..., "--end-of-options", "<first parent oid>", "<oid>"]` | 저장소 경로 | `NumstatParser`(raw+numstat) → `CommitDetail.files` | T3, T9 |
 | `commitPatch(oid:parent:path:)` | `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<parent oid 또는 생략>", "<oid>", "--", "<path>"]` | 저장소 경로 | 원문 패치 → S-10 | T3, T9 |
 | `worktreeDiff(path:staged:)` | `["diff", "--no-ext-diff", "--no-textconv", "-M", "--ignore-submodules=dirty", "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", (staged ? "--cached" : 생략), "--", "<path>"]` | 워크트리 경로 | 원문 패치 → S-10 | T3, T4, T9 |
+| `worktreeNumstat(staged:)` | `["diff", "--no-ext-diff", "--no-textconv", "--numstat", "-z", "-M", "--ignore-submodules=dirty", "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", (staged ? "--cached" : 생략)]` | 워크트리 경로 | `NumstatParser.parseWorktreeFiles` → `WorkingLineCounts` (S-02 줄 수, #230) | T1, T3, T4, T13 |
 | `untrackedPreview(WorktreeFile)` | `["diff", "--no-index", "--no-ext-diff", "--no-textconv", "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--", "/dev/null", "<path>"]` (종료 코드 1이 정상) | 워크트리 경로 | 원문 패치 → S-10 | T3, T14 |
 | `fileHistory(path:limit:)` | `["log", "--follow", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "-n", "<limit>", "--", "<path>"]` | 워크트리 경로 | `LogParser` → `[FileHistoryEntry]` | T7, T9 |
 | `compareFiles(base:includeWorkingTree:)` | `["diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--merge-base", "--end-of-options", "<base full ref>", ("HEAD" 또는 작업 트리 포함이면 생략), "--"]` | 워크트리 경로 | `NumstatParser.parseCommitFiles` → `WorktreeComparison.files` | T3, T4, T9, T13 |
@@ -140,7 +141,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 - **그래프 페이지**는 `--skip`과 `-n`으로 나눈다. 같은 ref 집합이면 순서가 결정적이라 GraphEngine이 열린 레인 상태를 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다. 10만 커밋에서 뒤쪽 페이지의 `--skip` 비용이 PB-4를 넘으면, 스트리밍 읽기 모드(한 프로세스의 출력을 페이지 단위로 소비)로 바꾼다. 이 결정은 Phase 3 성능 측정 뒤에 ADR-0010을 갱신해 남긴다.
 - **untrackedPreview**는 `PathValidator.worktreeFile`이 만든 `WorktreeFile`만 받는다(상대 경로, `..` 없음, 실제 위치가 워크트리 안, 일반 파일 또는 심볼릭 링크 — FIFO는 git을 멈추게 하므로 거부). 심볼릭 링크는 내용 대신 링크 대상 문자열만 보여 준다 (T14).
 - **작업 트리를 보는 diff는 `--ignore-submodules=dirty`를 붙인다(#239)**. 경로가 서브모듈이면 git은 서브모듈이 더러운지 보려고 서브모듈 안에서 `status`를 실행한다. 그때 서브모듈 자체의 `.git/modules/<sub>/config`에 있는 filter가 실행되는데, 설정 검사는 상위 저장소 설정만 읽는다(확인, SEC-T4-05). `status`, `worktreeDiff`, 기준 브랜치 비교(`compareFiles`·`comparePatch`, #157)가 이 인자를 쓴다. `--cached`는 서브모듈 안을 보지 않지만 같은 인자를 붙인다. 서브모듈 커밋이 바뀐 것은 그대로 보인다. 다른 diff 계열(`stashFiles`·`stashPatch`·`commitFiles`·`commitPatch`·`fileHistory`)은 트리끼리 비교하므로 서브모듈 작업 트리를 보지 않고, `untrackedPreview`는 일반 파일·심볼릭 링크만 받는다.
-- **porcelain diff 출력 고정(#239)**: `git diff`(porcelain)는 저장소 로컬 diff 설정을 읽어 출력 모양을 바꾼다. plumbing인 `diff-tree`는 읽지 않는다 (Apple Git 2.50.1 확인). 그래서 porcelain diff case(`worktreeDiff`, `untrackedPreview`, `comparePatch`, `compareFiles`)에 `ReadOnlyGitCommand.porcelainDiffOptions`를 붙인다.
+- **porcelain diff 출력 고정(#239)**: `git diff`(porcelain)는 저장소 로컬 diff 설정을 읽어 출력 모양을 바꾼다. plumbing인 `diff-tree`는 읽지 않는다 (Apple Git 2.50.1 확인). 그래서 porcelain diff case(`worktreeDiff`, `worktreeNumstat`, `untrackedPreview`, `comparePatch`, `compareFiles`)에 `ReadOnlyGitCommand.porcelainDiffOptions`를 붙인다. numstat·raw 출력은 아래 설정에 영향받지 않았지만(확인), 규칙을 하나로 두려고 같은 인자를 붙인다.
 
   | 저장소 설정 | 영향 | 막는 인자 |
   |---|---|---|
@@ -162,6 +163,15 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
   - 기본 기준: `refs/remotes/origin/HEAD`의 대상 → `refs/heads/main` → `refs/heads/master`. 셋 다 `refs` 결과에 있는 브랜치일 때만 쓴다. 사용자는 다른 로컬·원격 브랜치를 고를 수 있다.
   - ahead/behind는 HEAD가 브랜치에 있을 때 `aheadBehind(local:upstream: <base>)`로 구한다.
   - 갈라진 지점이 없으면(관련 없는 이력) git이 `fatal: no merge base found`를 낸다 → `noMergeBase`(§6).
+- **worktreeNumstat** (#230): WIP 상세(S-02)의 파일별 `+n −m`. 포커스 워크트리를 상세로 볼 때만 staged·unstaged 두 번 실행한다. 경로 인자가 없다(워크트리 전체). git 2.54.0에서 확인했다.
+  - `-M`: status와 같이 rename을 새 경로 하나로 센다. status의 `R` 행과 새 경로로 맞춘다.
+  - `--ignore-submodules=dirty`: status와 같은 값이다. 이 옵션이 없으면 `git diff`가 서브모듈마다 `git status --porcelain=2 -uno`를 그 서브모듈 안에서 실행한다(`GIT_TRACE`로 확인). 서브모듈의 설정은 검사하지 않았으므로 그 실행을 막는다. 있으면 자식 프로세스가 없다(확인).
+  - index를 쓰지 않는다. stat만 바뀐 파일이 있어도 공통 인자 `-c diff.autoRefreshIndex=false`가 refresh를 막는다(§2.1). 인자 없이 실행하면 index를 고쳐 쓰고 `post-index-change` hook이 돈다(악성 픽스처 확인). numstat은 외부 diff와 textconv를 쓰지 않았지만(악성 픽스처 확인) diff 서브커맨드 규칙대로 `--no-ext-diff --no-textconv`를 붙인다.
+  - 충돌 중인 경로는 unstaged 출력에 두 번 나온다(`0\t0` unmerged 레코드와 stage 2 대 워크트리 레코드, `--diff-filter=u`로도 둘째는 남음). staged 출력에는 `0\t0`으로 나온다. 충돌 행은 줄 수를 보여 주지 않으므로 파서가 status의 conflicted 경로를 받아 버린다. 그 밖의 중복은 파싱 실패다.
+  - untracked 파일은 git diff에 나오지 않으므로 줄 수가 없다. 화면도 untracked 그룹에는 줄 수와 합계를 쓰지 않는다(screens.md S-02).
+  - 캐시: `RepositoryService`가 워크트리별로 두고, 그 워크트리의 status를 다시 조회하면 버린다(overview.md §5). 화면은 로드가 끝날 때마다 다시 묻는다. status 글자가 같아도(이미 수정된 파일을 더 고침) 서비스가 status를 다시 조회했으면 새로 센다.
+  - 사용자가 파일을 고르지 않아도 상세를 열면 워크트리 전체를 읽는다. index에서는 일반 파일인 경로가 워크트리에서 FIFO면 git이 읽기에서 멈춘다. 이 경우 15초 조회 타임아웃(§2.5)이 프로세스를 끝내고, 화면은 `Line counts unavailable`로 끝난다(#230 보안 검토, 잔여 위험). git clone으로는 이런 상태를 만들 수 없다. 저장소를 디렉터리나 압축 파일로 받은 경우에만 생긴다.
+  - 서브모듈 안에서 실행되지 않는다는 것은 SEC-T4-05의 numstat 변형(`ConfigExecutionScenarioTests`)이 검증한다. 하드닝된 실행에서는 canary가 없다. 플래그만 뺀 실행에서는 서브모듈 자체의 filter가 실행된다.
 - **status의 `--untracked-files=all`**은 큰 저장소에서 느릴 수 있다. PB-5 측정에서 기준을 넘으면 `normal`로 바꾸고 디렉터리 단위로 표시하는 방안을 검토한다.
 
 ---
