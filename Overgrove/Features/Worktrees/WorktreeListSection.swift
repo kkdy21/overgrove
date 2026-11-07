@@ -87,6 +87,8 @@ struct SidebarSectionHeader: View {
     let title: String
     let count: Int?
     @Binding var isExpanded: Bool
+    /// A small spinner after the title (ISSUES while gh runs, screens.md S-06).
+    var isLoading = false
 
     var body: some View {
         Button {
@@ -101,6 +103,9 @@ struct SidebarSectionHeader: View {
                     .font(Tokens.Font.sectionHeader)
                     .tracking(Tokens.Font.sectionHeaderTracking)
                     .foregroundStyle(Tokens.Color.textTertiary)
+                if isLoading {
+                    ProgressView().controlSize(.mini).accessibilityLabel("Loading")
+                }
                 Spacer()
                 if let count {
                     Text(WorktreeListModel.badgeText(count))

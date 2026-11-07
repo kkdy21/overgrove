@@ -98,6 +98,10 @@ struct SidebarPanel: View {
     var isStashListPartial = false
     var selectedStash: ObjectID?
     var onSelectStash: (ObjectID) -> Void = { _ in }
+    /// ISSUES (#81).
+    var issueModel: IssueListModel?
+    var selectedIssue: Int?
+    var onSelectIssue: (Int) -> Void = { _ in }
     var canCompareWorktree: (GitPath) -> Bool = { _ in false }
     var onCompareWorktree: (GitPath) -> Void = { _ in }
 
@@ -107,7 +111,6 @@ struct SidebarPanel: View {
             PlaceholderField(symbol: "magnifyingglass", prompt: "Filter", shortcut: "⌥⌘F")
         } content: {
             if hasRepository {
-                // TODO(#81): ISSUES.
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         WorktreeListSection(
@@ -125,6 +128,9 @@ struct SidebarPanel: View {
                             StashListSection(
                                 rows: stashRows, isPartial: isStashListPartial, selectedID: selectedStash,
                                 onSelect: onSelectStash)
+                        }
+                        if let issueModel {
+                            IssueListSection(model: issueModel, selectedNumber: selectedIssue, onSelect: onSelectIssue)
                         }
                     }
                 }
@@ -194,6 +200,8 @@ struct DetailPanel: View {
     var stashModel: StashDetailModel?
     var selectedStashFile: GitPath?
     var onSelectStashFile: (FileStat) -> Void = { _ in }
+    /// S-06 when an issue is selected (#81).
+    var issueModel: IssueDetailModel?
     var onShowChanges: () -> Void = {}
     var onShowWorktree: () -> Void = {}
     /// S-11's lists while a comparison is open (#158).
@@ -205,7 +213,8 @@ struct DetailPanel: View {
         PanelSection {
             Image(systemName: "tree.fill").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
             Text(
-                stashModel?.refName ?? wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title
+                issueModel?.number ?? stashModel?.refName ?? wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?
+                    .title
                     ?? "No selection"
             )
             .font(Tokens.Font.headline)
@@ -219,6 +228,8 @@ struct DetailPanel: View {
         } content: {
             if let comparisonList {
                 comparisonList
+            } else if let issueModel {
+                IssueDetailView(model: issueModel)
             } else if let stashModel {
                 StashDetailView(model: stashModel, selectedFile: selectedStashFile, onSelectFile: onSelectStashFile)
             } else if let worktreeModel {

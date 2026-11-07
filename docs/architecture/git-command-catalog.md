@@ -240,6 +240,8 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 - `git@github.com:OWNER/NAME(.git)?`
 - `ssh://git@github.com/OWNER/NAME(.git)?`
 
+여러 원격이 맞으면 gh와 같은 순서로 고른다: `upstream`, `github`, `origin`, 그다음 설정 순서. fork에서는 이슈가 `upstream`에 있기 때문이다. 판별은 검증된 목록(`RepoConfigInspector` 검사를 거친 조회)의 원격으로만 하고, 캐시에서 먼저 그린 목록으로는 gh를 실행하지 않는다 (`GitHubRemote`, #81).
+
 ---
 
 ## 6. stderr 분류 패턴
