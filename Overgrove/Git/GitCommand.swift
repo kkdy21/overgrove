@@ -255,7 +255,7 @@ enum FetchCommand: Sendable, Hashable {
             [
                 "-c", "fetch.pruneTags=false", "-c", "remote.\(remote.value).pruneTags=false",
                 "-c", "fetch.writeCommitGraph=false",
-                // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.42+);
+                // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.40+, #99);
                 // older git ignores the key (security review of #210).
                 "-c", "fetch.bundleURI=",
             ]

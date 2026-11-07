@@ -445,7 +445,7 @@ final class WorktreeFileTests: XCTestCase {
 
 final class FetchBlockingTests: XCTestCase {
     func testFetchIsRefusedWhenTheRepositoryBlocksIt() async throws {
-        let environment = try await GitEnvironment.discover()
+        let environment = try await GitEnvironment.discoverForTesting()
         let client = GitClient(environment: environment)
         let safety = RepoSafetyContext(
             inspectedNeutralization: [],

@@ -18,6 +18,8 @@ struct FocusedWorktree: Equatable, Sendable {
     let ahead: Int
     let behind: Int
     let hasUpstream: Bool
+    /// Its last status was slow (#168): the status bar says so.
+    var slowStatus: SlowStatusHint?
 
     /// `feat/42-rate-limit`, or `detached @ b2e8a44` (screens.md S-01).
     var title: String {
