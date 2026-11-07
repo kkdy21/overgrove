@@ -55,7 +55,8 @@ struct MainWindowView: View {
                     onCompareWorktree: { state.showComparison(of: $0) })
             } center: {
                 GraphPanel(
-                    hasRepository: state.repository != nil, graphStore: state.graph, diff: state.diffViewer,
+                    hasRepository: state.repository != nil, graphStore: state.graph,
+                    onSelectCommit: state.selectCommit, diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile, comparison: comparisonCenter)
             } detail: {
                 DetailPanel(
@@ -66,9 +67,13 @@ struct MainWindowView: View {
                         switch $0 {
                         case .worktreeInfo: true
                         case .wip: false
-                        case .stash, .issue: nil
+                        case .stash, .commit, .issue: nil
                         }
                     },
+                    commitModel: state.commitDetailModel, commitLane: state.selectedCommitLane,
+                    selectedCommitFile: state.commitDetail.selectedFile?.path,
+                    onSelectCommitFile: state.selectCommitFile, onSelectParent: state.selectCommit,
+                    onShowAllCommitFiles: state.showAllCommitFiles,
                     stashModel: state.stashDetailModel, selectedStashFile: state.selectedStashFile?.path,
                     onSelectStashFile: state.selectStashFile, issueModel: state.issueDetailModel,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
@@ -108,8 +113,8 @@ struct MainWindowView: View {
                 items: StatusBarItem.items(
                     snapshot: state.snapshot, fetchStatus: state.fetchStatus, ghStatus: state.ghStatus,
                     now: context.date, hasFetchDetails: !state.fetch.failures.isEmpty,
-                    isRefreshing: state.isRefreshing),
-                onFetchDetails: state.fetch.failures.isEmpty ? nil : { showsFetchDetails = true })
+                    isRefreshing: state.isRefreshing, fetchRemoteLimit: state.fetch.remoteLimit),
+                onFetchDetails: state.fetch.hasDetails ? { showsFetchDetails = true } : nil)
         }
     }
 
@@ -232,7 +237,9 @@ private struct FetchFeedback: ViewModifier {
     func body(content: Content) -> some View {
         content
             .sheet(isPresented: $showsDetails) {
-                FetchFailureDetailsView(failures: state.fetch.failures, dismiss: { showsDetails = false })
+                FetchFailureDetailsView(
+                    failures: state.fetch.failures, remoteLimit: state.fetch.remoteLimit,
+                    dismiss: { showsDetails = false })
             }
             .onChange(of: state.fetchStatus) { old, new in
                 if let text = FetchAnnouncement.text(from: old, to: new) {

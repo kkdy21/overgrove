@@ -4,6 +4,8 @@ import SwiftUI
 /// stack, so only visible rows are built (PB-4). The next page loads as the end comes into view.
 struct GraphView: View {
     let store: GraphStore
+    /// A row was clicked (S-03, #69); without one, the row is only highlighted.
+    var onSelectCommit: ((ObjectID) -> Void)?
     var now = Date()
 
     private var graphWidth: CGFloat { GraphGeometry.width(lanes: store.laneCount) }
@@ -47,7 +49,7 @@ struct GraphView: View {
             isHead: commit.oid == store.head, isSelected: commit.oid == store.selected, wipLine: wipLine,
             graphWidth: graphWidth, now: now
         ) {
-            store.select(commit.oid)
+            if let onSelectCommit { onSelectCommit(commit.oid) } else { store.select(commit.oid) }
         }
     }
 }

@@ -6,13 +6,21 @@ import SwiftUI
 /// repository write (ADR-0011).
 struct FetchFailureDetailsView: View {
     let failures: [FetchFailureDetail]
+    /// Some remotes were skipped because of the per-Fetch limit (#259).
+    var remoteLimit: FetchRemoteLimit?
     let dismiss: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
-            Text("Fetch failed").font(Tokens.Font.title)
+            Text(failures.isEmpty ? "Fetch details" : "Fetch failed").font(Tokens.Font.title)
             ScrollView {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.lg) {
+                    if let remoteLimit {
+                        Label(remoteLimit.sentence, systemImage: "info.circle")
+                            .font(Tokens.Font.callout)
+                            .foregroundStyle(Tokens.Color.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     ForEach(failures) { failure in
                         FetchFailureSection(failure: failure)
                     }
