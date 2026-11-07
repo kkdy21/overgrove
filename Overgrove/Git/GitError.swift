@@ -117,9 +117,15 @@ enum GitError: Error, Sendable, Equatable {
             return .hostKeyVerificationFailed(changed: true, detail: detail)
         }
         if matches(["detected dubious ownership"]) { return .dubiousOwnership(detail: detail) }
-        // Before the transport refusal: on git < 2.44 a blocked lazy fetch reports `transport 'file' not allowed`
-        // too, but the cause the user needs is the missing object (#212).
+        // Before the transport refusal: a blocked lazy fetch can report `transport '<name>' not allowed` too, but the
+        // cause the user needs is the missing object (#212).
         if matches(["lazy fetching disabled", "from promisor remote"]) {
+            return .partialCloneObjectMissing(detail: detail)
+        }
+        // A git without GIT_NO_LAZY_FETCH (e.g. 2.36) tries the lazy fetch; the empty transport list refuses it, and
+        // git then says only `unable to read <object ID>` (#303). Queries never use a transport, and a refused fetch
+        // reads no object, so the refusal followed by git's own exact line is a missing partial-clone object.
+        if refusedTransport(in: localLines) != nil, localLines.contains(where: isUnreadableObjectLine) {
             return .partialCloneObjectMissing(detail: detail)
         }
         if let name = refusedTransport(in: localLines) {
@@ -161,6 +167,14 @@ enum GitError: Error, Sendable, Equatable {
 
     /// OpenSSH authentication method names, as printed in `Permission denied (<methods>).`
     private static let sshMethods = ["publickey", "password", "keyboard-interactive", "hostbased", "gssapi"]
+
+    /// git's own `fatal: unable to read <object ID>` line, with a full 40- or 64-digit lowercase object ID and nothing
+    /// else (#303). Messages that only start the same way (`unable to read tree <oid>`) do not count.
+    private static func isUnreadableObjectLine(_ line: Substring) -> Bool {
+        let prefix = "fatal: unable to read "
+        guard line.hasPrefix(prefix) else { return false }
+        return ObjectID(line.dropFirst(prefix.count)) != nil
+    }
 
     /// The name in git's own refusal line, `fatal: transport '<name>' not allowed` (possibly empty).
     ///
