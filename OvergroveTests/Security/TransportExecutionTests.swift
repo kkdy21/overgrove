@@ -43,6 +43,13 @@ final class TransportExecutionTests: XCTestCase {
         XCTAssertEqual(refused, transport, file: file, line: line)
     }
 
+    /// #350: the remote is not in a built-in transport form, so fetch refuses it before git starts (SEC-T5-20). The
+    /// test then lets it past that check to show the inner layers refuse it too.
+    private func assertRefusedBeforeFetch(_ error: GitError, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(
+            error, .configInspectionFailed(reason: TransportName.nonBuiltInRemoteReason), file: file, line: line)
+    }
+
     private func config(_ harness: CanaryHarness, _ key: String, _ value: String) async throws {
         _ = try await harness.runPlainSetup(["config", key, value])
     }
@@ -118,7 +125,8 @@ final class TransportExecutionTests: XCTestCase {
         var harness = try await harness()
         try await config(harness, "protocol.ext.allow", "always")
         harness = try await reinspected(harness)
-        assertTransportRefused(try await failingAppFetch("extremote", harness), "ext")
+        assertRefusedBeforeFetch(try await failingAppFetch("extremote", harness))
+        assertTransportRefused(try await failingAppFetch("extremote", harness.allowingFetch(of: "extremote")), "ext")
         harness.fixture.assertNoCanaries(after: "app fetch extremote")
 
         _ = try await harness.runPlain(try fetchQuery("extremote", harness))
@@ -136,7 +144,8 @@ final class TransportExecutionTests: XCTestCase {
         try await config(harness, "remote.swapped.fetch", "+refs/heads/*:refs/remotes/swapped/*")
         harness = try await reinspected(harness)
 
-        assertTransportRefused(try await failingAppFetch("swapped", harness), "ext")
+        assertRefusedBeforeFetch(try await failingAppFetch("swapped", harness))
+        assertTransportRefused(try await failingAppFetch("swapped", harness.allowingFetch(of: "swapped")), "ext")
         harness.fixture.assertNoCanaries(after: "app fetch swapped")
 
         _ = try await harness.runPlain(try fetchQuery("swapped", harness))
@@ -166,7 +175,8 @@ final class TransportExecutionTests: XCTestCase {
         harness = try await reinspected(harness)
 
         let started = ContinuousClock.now
-        assertTransportRefused(try await failingAppFetch("fdremote", harness), "fd")
+        assertRefusedBeforeFetch(try await failingAppFetch("fdremote", harness))
+        assertTransportRefused(try await failingAppFetch("fdremote", harness.allowingFetch(of: "fdremote")), "fd")
         XCTAssertLessThan(ContinuousClock.now - started, .seconds(10), "refused, not stalled")
 
         var limits = ProcessLimits.fetch

@@ -28,8 +28,7 @@ final class WorktreeDetailModelTests: XCTestCase {
             failure: failure, inspectedAt: now, gitVersion: GitVersion(major: 2, minor: 50, patch: 1),
             commonArguments: common,
             diffArguments: diff
-                ?? (try! ReadOnlyGitCommand.worktreeDiff(path: GitPath("f"), staged: false)
-                    .subcommandArguments()),
+                ?? TestFixtures.arguments(.worktreeDiff(path: GitPath("f"), staged: false)),
             hookExecutables: hooks, realPath: realPath)
     }
 

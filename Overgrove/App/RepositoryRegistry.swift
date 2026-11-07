@@ -36,6 +36,14 @@ struct RegisteredRepository: Codable, Equatable, Hashable, Identifiable, Sendabl
         }
     }
 
+    /// Paths, plus the flag only when set: a trusted entry stays exactly as before #107 (overview.md §8).
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(rootPath, forKey: .rootPath)
+        try container.encode(commonDirectoryPath, forKey: .commonDirectoryPath)
+        if isUntrusted { try container.encode(true, forKey: .isUntrusted) }
+    }
+
     var id: String { repository.id }
     var isBare: Bool { rootPath == nil }
     /// The folder that stands for the repository: the main worktree, or the bare repository's git directory.

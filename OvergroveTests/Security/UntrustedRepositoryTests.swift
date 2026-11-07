@@ -65,6 +65,10 @@ final class UntrustedRepositoryTests: XCTestCase {
     func testLocalRemoteURLs() {
         let local = [
             "/srv/git/api.git", "../api.git", "api", "./a:b", "file:///srv/git/api.git", "FILE:///x", "/a/b:c",
+            // Not a URL (`/` is no scheme character), and the slash comes before any colon.
+            "/srv/x://y",
+            // Bytes, as git compares: a combining mark after the slash does not hide it.
+            "a/\u{301}:b",
         ]
         let notLocal = [
             "https://github.com/acme/api.git", "ssh://git@host/acme/api.git", "git@github.com:acme/api.git",

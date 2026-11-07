@@ -291,7 +291,7 @@ struct DetailPanel: View {
                 WorktreeDetailView(model: worktreeModel, onCompare: onCompare, onSetUntrusted: onSetUntrusted)
             } else if let wipModel {
                 WipDetailView(model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile)
-            } else if worktreeStatus == .loading {
+            } else if worktreeStatus.isAwaitingLoad {
                 ProgressView().controlSize(.small)
             } else {
                 PanelEmptyState(

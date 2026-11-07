@@ -16,6 +16,14 @@ final class AppState {
     let loader: any RepositoryLoading
     let lineCountLoader: (any LineCountLoading)?
     let inspector: any WorktreeInspecting
+    /// The last session's sidebar per repository (ADR-0018, #109); `nil` turns launch snapshots off (tests, previews).
+    let launchSnapshots: LaunchSnapshotStore?
+    /// The git executable and version the listings come from, for a snapshot's header. Read after a load, when git
+    /// has been found already.
+    let gitIdentity: @Sendable () async -> (executable: URL, version: GitVersion)?
+    /// When each repository's snapshot was last written, and the write waiting for the 10-second spacing (ADR-0018 §3).
+    @ObservationIgnored var launchSnapshotWrites: [String: Date] = [:]
+    @ObservationIgnored var launchSnapshotTask: Task<Void, Never>?
     let diffLoader: any DiffLoading
     let stashLoader: any StashLoading
     let ghChecker: any GHAuthChecking
@@ -207,8 +215,15 @@ final class AppState {
         gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
         ghChecker: any GHAuthChecking = LiveGHAuthChecker.live,
         settings: AppSettings? = nil,
-        fileWatcher: any FileEventWatching = LiveFileEventWatcher.live
+        fileWatcher: any FileEventWatching = LiveFileEventWatcher.live,
+        launchSnapshots: LaunchSnapshotStore? = nil,
+        gitIdentity: @escaping @Sendable () async -> (executable: URL, version: GitVersion)? = {
+            guard let environment = try? await LiveGitClient.shared.client().environment else { return nil }
+            return (environment.executable, environment.version)
+        }
     ) {
+        self.launchSnapshots = launchSnapshots
+        self.gitIdentity = gitIdentity
         self.ghChecker = ghChecker
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
