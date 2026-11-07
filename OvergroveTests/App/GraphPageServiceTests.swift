@@ -49,6 +49,56 @@ final class GraphPageServiceTests: XCTestCase {
         try await service.graphPage(model, skip: skip, limit: limit).get()
     }
 
+    /// #308: the graph walks branches, remote-tracking refs, tags, and every worktree's HEAD, and nothing else. Notes,
+    /// background prefetch (`git maintenance`), and `filter-branch` backups had commits in the graph with no ref pill,
+    /// and moving them did not change the page cache key.
+    /// Without a commit-graph file the page comes from the streamed graph (#254); review of #346.
+    func testGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads() async throws {
+        XCTAssertFalse(RepositoryService.hasCommitGraph(model), "the stream path")
+        try await assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: false)
+    }
+
+    /// With a commit-graph file each page is its own `--skip` read.
+    func testGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeadsWithACommitGraph() async throws {
+        try await assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: true)
+    }
+
+    private func assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: Bool) async throws {
+        func commit(_ message: String) async throws -> String {
+            func output(_ arguments: [String]) async throws -> String {
+                String(decoding: try await repository.git(arguments).stdout, as: UTF8.self)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            return try await output([
+                "commit-tree", "-p", "HEAD", "-m", message, try await output(["rev-parse", "HEAD^{tree}"]),
+            ])
+        }
+        try await repository.git(["notes", "add", "-m", "a note", "HEAD"])
+        try await repository.git(["update-ref", "refs/prefetch/remotes/origin/main", try await commit("prefetched")])
+        try await repository.git([
+            "update-ref", "refs/original/refs/heads/main", try await commit("filter-branch backup"),
+        ])
+        try await repository.git(["update-ref", "refs/pull/1/head", try await commit("pull request ref")])
+        try await repository.git(["tag", "only-tag", try await commit("tag only")])
+        try await repository.git(["update-ref", "refs/remotes/origin/feature", try await commit("remote only")])
+        let linked = repository.root.deletingLastPathComponent()
+            .appendingPathComponent("graph-308-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: linked) }
+        try await repository.git(["worktree", "add", "-q", "--detach", "--", linked.path, try await commit("detached")])
+
+        if writingCommitGraph {
+            try await repository.git(["commit-graph", "write", "--reachable"])
+            XCTAssertTrue(RepositoryService.hasCommitGraph(model), "the --skip path")
+        }
+        let subjects = Set(try await page(try makeService(), skip: 0, limit: 100).commits.map(\.subject))
+        for shown in ["c6", "c0", "tag only", "remote only", "detached"] {
+            XCTAssertTrue(subjects.contains(shown), "\(shown) missing from \(subjects)")
+        }
+        for hidden in ["Notes added by 'git notes add'", "prefetched", "filter-branch backup", "pull request ref"] {
+            XCTAssertFalse(subjects.contains(hidden), "\(hidden) in the graph")
+        }
+    }
+
     func testPagesLineUpWithOneRead() async throws {
         let service = try makeService()
         let whole = try await page(service, skip: 0, limit: 100)

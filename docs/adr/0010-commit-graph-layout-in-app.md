@@ -14,7 +14,7 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
 
 ## 결정
 
-1. 그래프 데이터는 `git log --exclude=refs/stash --all --date-order -z --format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s`로 받는다. `--graph`는 쓰지 않는다.
+1. 그래프 데이터는 `git log --exclude=refs/stash --all --date-order -z --format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s`로 받는다. `--graph`는 쓰지 않는다. (#308에서 ref 범위를 `--branches --remotes --tags --exclude=refs/* --all`로 좁혔다: 브랜치·원격·태그·워크트리 HEAD만 따라가고 notes·prefetch·`refs/original`은 그래프에 넣지 않는다. 최신 인자는 [git-command-catalog.md](../architecture/git-command-catalog.md)가 기준이다.)
 2. `GraphEngine`(UI 무관 순수 Swift)이 커밋 순서와 부모 목록(`%P`)으로 레인을 계산한다. 결과는 행별로 다음을 담는다.
    - 노드 열
    - 지나가는 선
@@ -24,7 +24,7 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
    - 첫 페이지 500개(`-n 500`)를 먼저 그린다.
    - 다음 페이지는 같은 명령에 `--skip=<n> -n 500`을 붙여 읽는다. ref 집합이 같으면 순서가 결정적이므로, 엔진이 열린 레인 상태를 유지한 채 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다.
    - **commit-graph 파일이 없으면 한 프로세스를 스트리밍한다(#254, 2026-11-08).** `--date-order`는 commit-graph 없이는 첫 줄을 내기 전에 전체 이력을 정렬하므로, `--skip` 페이지마다 그 비용(bench 약 430ms)을 다시 냈다.
-     - `graphStream`(`--skip` 없는 같은 명령, `-n 100000`) 하나를 ref 집합마다 띄운다. stdout을 받는 대로 레코드 단위로 파싱하고(`GraphStreamParser`, 7개 NUL = 1 레코드), 페이지는 그 결과에서 내준다. 정렬은 한 번만 한다.
+     - `graphStream`(`--skip` 없는 같은 명령, `-n 100000`) 하나를 ref 집합마다 띄운다. ref 범위와 포맷은 `graphPage`와 한 헬퍼(`ReadOnlyGitCommand.graphRevisionArguments`)에서 만든다. 그래서 스트림 페이지와 `--skip` 대체 페이지가 같은 커밋을 같은 순서로 낸다(#308 범위 포함). stdout을 받는 대로 레코드 단위로 파싱하고(`GraphStreamParser`, 7개 NUL = 1 레코드), 페이지는 그 결과에서 내준다. 정렬은 한 번만 한다.
      - 상한은 stdout 64MB·타임아웃 120초·취소다(`ProcessLimits.stream`). 스트림이 커밋 상한(10만)·출력 상한·타임아웃·실패로 일찍 멈추면, 그 뒤 페이지는 `--skip`으로 읽는다.
      - commit-graph 유무는 공통 git 디렉터리의 `objects/info/commit-graph` 또는 `commit-graphs/commit-graph-chain` 파일로 판정한다. 파일이 있으면 지금처럼 `--skip` 페이지(약 50ms)를 쓴다.
      - 화면(`GraphStore`)과 `GraphLoading` 인터페이스는 그대로다. ⌘R과 저장소 정리는 스트림을 멈추고 버린다.

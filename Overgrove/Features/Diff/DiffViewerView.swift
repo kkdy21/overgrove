@@ -102,9 +102,7 @@ private struct DiffBody: View {
     let document: DiffDocument
     let isSplit: Bool
 
-    @State private var unified: [DiffDocument.Row]?
-    @State private var split: [DiffDocument.SplitRow]?
-    @State private var builtFor: UUID?
+    @State private var rows = DiffRowsState()
 
     private struct BuildKey: Equatable {
         let document: UUID
@@ -123,23 +121,27 @@ private struct DiffBody: View {
                     .padding(.horizontal, Tokens.Spacing.md)
                     .padding(.vertical, Tokens.Spacing.xxs)
             }
-            if let rows = isSplit ? split.map(AnyRows.split) : unified.map(AnyRows.unified), builtFor == document.id {
-                rowsView(rows)
+            if let built = isSplit
+                ? rows.split(for: document.id).map(AnyRows.split) : rows.unified(for: document.id).map(AnyRows.unified)
+            {
+                rowsView(built)
             } else {
                 ProgressView().controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .task(id: BuildKey(document: document.id, isSplit: isSplit)) {
-            if builtFor != document.id {
-                unified = nil
-                split = nil
-                builtFor = document.id
-            }
+            rows.begin(document.id)
             let document = document
-            if isSplit, split == nil {
-                split = await Task.detached(priority: .userInitiated) { document.splitRows() }.value
-            } else if !isSplit, unified == nil {
-                unified = await Task.detached(priority: .userInitiated) { document.unifiedRows() }.value
+            // `Task.detached` does not inherit cancellation, so a slow build can finish after the user moved on;
+            // `accept` drops rows for a document that is no longer shown (#307).
+            if isSplit, rows.split(for: document.id) == nil {
+                let built = await Task.detached(priority: .userInitiated) { document.splitRows() }.value
+                guard !Task.isCancelled else { return }
+                rows.accept(split: built, for: document.id)
+            } else if !isSplit, rows.unified(for: document.id) == nil {
+                let built = await Task.detached(priority: .userInitiated) { document.unifiedRows() }.value
+                guard !Task.isCancelled else { return }
+                rows.accept(unified: built, for: document.id)
             }
         }
     }
@@ -324,4 +326,38 @@ extension DiffDocument.LineKind {
         case .noNewline: ""
         }
     }
+}
+
+/// The rows built for the shown diff (#307). Rows are kept only for the document being shown: a build that finishes
+/// for an earlier document is dropped instead of replacing the current one.
+struct DiffRowsState {
+    private var document: UUID?
+    private var unified: [DiffDocument.Row]?
+    private var split: [DiffDocument.SplitRow]?
+
+    /// `id` is now shown; rows of any other document are cleared.
+    mutating func begin(_ id: UUID) {
+        guard document != id else { return }
+        document = id
+        unified = nil
+        split = nil
+    }
+
+    /// Stores rows built for `id`; returns `false` (and keeps nothing) when another document is shown by now.
+    @discardableResult
+    mutating func accept(unified rows: [DiffDocument.Row], for id: UUID) -> Bool {
+        guard document == id else { return false }
+        unified = rows
+        return true
+    }
+
+    @discardableResult
+    mutating func accept(split rows: [DiffDocument.SplitRow], for id: UUID) -> Bool {
+        guard document == id else { return false }
+        split = rows
+        return true
+    }
+
+    func unified(for id: UUID) -> [DiffDocument.Row]? { document == id ? unified : nil }
+    func split(for id: UUID) -> [DiffDocument.SplitRow]? { document == id ? split : nil }
 }

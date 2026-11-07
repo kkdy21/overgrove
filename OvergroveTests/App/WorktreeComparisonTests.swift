@@ -123,6 +123,25 @@ final class WorktreeComparisonTests: XCTestCase {
         XCTAssertEqual(committedOnly.untracked, [])
     }
 
+    /// #305: a tracked file whose modification time changed but whose content did not (an editor saving without
+    /// changes, a checkout, an archive) is listed by `git diff --raw` with a zero object name but has no numstat
+    /// record. The comparison failed with "numstat record does not match raw record"; it now leaves the file out.
+    func testStatOnlyChangeInTheWorkingTreeIsNotAChange() async throws {
+        let file = feature.appendingPathComponent("a.txt")
+        let old = Date(timeIntervalSince1970: 1_577_836_800)  // 2020-01-01: older than the index written next
+        try FileManager.default.setAttributes([.modificationDate: old], ofItemAtPath: file.path)
+        try await repository.git(["-C", feature.path, "update-index", "-q", "--really-refresh"])
+        // Another old time: stat-dirty, but not racily clean, so git does not hash it before diffing.
+        try FileManager.default.setAttributes(
+            [.modificationDate: old.addingTimeInterval(86_400 * 366)], ofItemAtPath: file.path)
+        try "c\n".write(to: feature.appendingPathComponent("c.txt"), atomically: true, encoding: .utf8)
+        try await repository.git(["-C", feature.path, "add", "c.txt"])
+
+        let comparison = try await compare(base: main, includeWorkingTree: true)
+
+        XCTAssertEqual(paths(comparison), ["b.txt", "c.txt"], "the touched a.txt is not a change")
+    }
+
     func testDefaultBaseIsUsedWhenNoneIsGiven() async throws {
         let comparison = try await compare(includeWorkingTree: false)
         XCTAssertEqual(comparison.base, main)
