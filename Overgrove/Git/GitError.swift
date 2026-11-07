@@ -48,8 +48,11 @@ enum GitError: Error, Sendable, Equatable {
     case configInspectionFailed(reason: String)
     /// An argument failed validation before anything ran (T9).
     case invalidArgument(reason: String)
-    /// A security rule blocked the operation, e.g. an `ext::` or `fd::` remote.
+    /// A security rule blocked the operation.
     case blockedBySecurityPolicy(detail: MaskedText)
+    /// git refused a transport outside `GIT_ALLOW_PROTOCOL` or one set to `never` (`ext`, `fd`, a remote helper such
+    /// as `codecommit`), #161. `transport` is `nil` unless git's message names a plain scheme.
+    case transportNotAllowed(transport: String?, detail: MaskedText)
     case timeout(seconds: Int)
     /// Output exceeded the limit. Warning level: callers may still show the partial result.
     case outputTruncated
@@ -81,8 +84,10 @@ enum GitError: Error, Sendable, Equatable {
         func matches(_ patterns: [String]) -> Bool { patterns.contains { haystack.contains($0) } }
 
         if matches(["detected dubious ownership"]) { return .dubiousOwnership(detail: detail) }
-        if matches(["transport 'ext' not allowed", "transport 'fd' not allowed"]) {
-            return .blockedBySecurityPolicy(detail: detail)
+        if let name = refusedTransport(in: detail.text) {
+            // The name comes from repository configuration: echo only a plain scheme name of at most 64 characters.
+            let isEchoable = name.count <= 64 && TransportName.isSchemeName(name)
+            return .transportNotAllowed(transport: isEchoable ? String(name) : nil, detail: detail)
         }
         if matches([
             "authentication failed", "could not read username", "could not read password",
@@ -101,6 +106,22 @@ enum GitError: Error, Sendable, Equatable {
         // Killed by a signal we did not send: report like a shell does (128 + signal).
         let code = exitCode ?? (signal.map { 128 + $0 } ?? -1)
         return .nonZeroExit(code: code, detail: detail)
+    }
+
+    /// The name in git's own refusal line, `fatal: transport '<name>' not allowed` (possibly empty).
+    ///
+    /// Only a whole line that starts with `fatal:` counts, so a server cannot fake a refusal, and hide the real error,
+    /// with a `remote:` progress line.
+    private static func refusedTransport(in text: String) -> Substring? {
+        let prefix = "fatal: transport '"
+        let suffix = "' not allowed"
+        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+            guard line.hasPrefix(prefix), line.hasSuffix(suffix), line.count >= prefix.count + suffix.count else {
+                continue
+            }
+            return line.dropFirst(prefix.count).dropLast(suffix.count)
+        }
+        return nil
     }
 
     /// Maps a parser failure.
@@ -131,6 +152,10 @@ enum GitError: Error, Sendable, Equatable {
             "A name looked unsafe, so the command was not run."
         case .blockedBySecurityPolicy:
             "This remote uses a transport that Overgrove blocks for security."
+        case .transportNotAllowed(let transport, _):
+            (transport.map { "Overgrove does not fetch remotes that use the '\($0)' transport." }
+                ?? "This remote uses a transport that Overgrove does not allow.")
+                + " Only https, ssh, git, http, and local file remotes can be fetched."
         case .timeout(let seconds):
             "git did not respond within \(seconds) seconds and was stopped."
         case .outputTruncated:
@@ -162,7 +187,8 @@ enum GitError: Error, Sendable, Equatable {
     var detail: MaskedText? {
         switch self {
         case .notARepository(let detail), .dubiousOwnership(let detail), .blockedBySecurityPolicy(let detail),
-            .authenticationFailed(let detail), .networkUnavailable(let detail), .nonZeroExit(_, let detail):
+            .transportNotAllowed(_, let detail), .authenticationFailed(let detail), .networkUnavailable(let detail),
+            .nonZeroExit(_, let detail):
             detail
         default:
             nil

@@ -152,6 +152,41 @@ final class RepoConfigInspectorTests: XCTestCase {
             inspect([entry(.global, "core.fsmonitor", "x")]).report.findings.isEmpty, "trusted scopes are not reported")
     }
 
+    /// A repository can make fetch run any installed `git-remote-<helper>`; `GIT_ALLOW_PROTOCOL` blocks it, and the
+    /// report tells the user why (#161, T5).
+    func testRemoteHelpersChosenByTheRepositoryAreReported() {
+        let helperURLs = [
+            "evilhelper::payload", "codecommit::us-east-1://repo", "hg::https://example.com/r", "ext::sh -c x",
+            "fd::3", "Git-Remote+x.y::z", "C::x", "1abc::x", "::x",
+            // An unknown `<scheme>://` also runs `git-remote-<scheme>` (security review of #191).
+            "evilhelper://x", "EvilHelper://x", "codecommit://repo", "s3+https://bucket/r",
+        ]
+        for url in helperURLs {
+            let findings = inspect([entry(.local, "remote.origin.url", url)]).report.findings
+            XCTAssertEqual(findings.map(\.handling), [.reported], url)
+            XCTAssertEqual(findings.map(\.threat), ["T5"], url)
+        }
+        let vcs = inspect([entry(.worktree, "remote.origin.vcs", "evilhelper")]).report.findings
+        XCTAssertEqual(vcs.map(\.handling), [.reported])
+        XCTAssertEqual(vcs.map(\.threat), ["T5"])
+
+        // git only treats `<scheme chars>::` at the very start as a helper (transport.c: is_urlschemechar), and
+        // handles these schemes itself or with its own bundled helpers.
+        let ordinaryURLs = [
+            "https://github.com/o/r.git", "HTTPS://github.com/o/r.git", "http://example.com/r", "git://example.com/r",
+            "ssh://git@example.com/a::b", "git+ssh://example.com/r", "ssh+git://example.com/r", "ftp://example.com/r",
+            "ftps://example.com/r", "file:///tmp/r", "git@github.com:o/r.git", "example.com:a://b", "/srv/repos/a::b",
+            "../relative::x", "-x::y", "a b::c", "+x://y",
+        ]
+        for url in ordinaryURLs {
+            XCTAssertTrue(inspect([entry(.local, "remote.origin.url", url)]).report.findings.isEmpty, url)
+        }
+        XCTAssertTrue(
+            inspect([entry(.global, "remote.origin.url", "codecommit::us-east-1://repo")]).report.findings.isEmpty,
+            "trusted scopes are not reported"
+        )
+    }
+
     func testRemotesAreMaskedAndValidated() {
         let secret = "s3" + "cr3t"
         let result = inspect([

@@ -160,7 +160,9 @@ enum RepoConfigInspector {
             }
         case "remote":
             if variable == "uploadpack" { return ("T5", .neutralized) }
-            if variable == "url", value.hasPrefix("ext::") || value.hasPrefix("fd::") { return ("T5", .reported) }
+            // A remote helper chosen by the repository. `GIT_ALLOW_PROTOCOL` refuses it at fetch time (#161).
+            if variable == "vcs" { return ("T5", .reported) }
+            if variable == "url", TransportName.remoteHelper(forURL: value) != nil { return ("T5", .reported) }
             return nil
         case "http":
             if variable == "sslverify" || variable == "proxy" { return ("T11", .neutralized) }
@@ -194,7 +196,6 @@ enum RepoConfigInspector {
             return nil
         }
     }
-
 }
 
 /// Caches inspections per repository until one of its configuration files changes (modification time or size).
