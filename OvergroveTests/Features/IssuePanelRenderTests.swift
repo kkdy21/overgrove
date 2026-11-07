@@ -25,7 +25,9 @@ final class IssuePanelRenderTests: XCTestCase {
             Spacer()
         }
         try render(sidebar, width: 256, height: 200, name: "issues-sidebar")
-        try render(IssueDetailView(model: IssueDetailModel(issues[0])), width: 344, height: 420, name: "issue-detail")
+        try render(
+            IssueDetailView(model: IssueDetailModel(issues[0], repository: IssueModelsTests.repository)), width: 344,
+            height: 420, name: "issue-detail")
     }
 
     private func render(_ view: some View, width: CGFloat, height: CGFloat, name: String) throws {

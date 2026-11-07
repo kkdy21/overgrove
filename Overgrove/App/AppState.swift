@@ -337,7 +337,7 @@ final class AppState {
     private func showCached(_ listing: WorktreeListing, generation: Int) {
         guard generation == loadGeneration, !Task.isCancelled else { return }
         if case .loaded = worktreeList { return }
-        apply(listing)
+        apply(listing, isVerified: false)
     }
 
     private func finishLoad(_ result: Result<WorktreeListing?, RepositoryLoadError>, generation: Int) {
@@ -348,7 +348,7 @@ final class AppState {
             hasVerifiedListing = true
             supersededRetries = 0
             needsFullLoad = false
-            apply(listing)
+            apply(listing, isVerified: true)
         case .success(nil), .failure(.git(.cancelled)):
             // Superseded (another window asked for the same repository) or debounced away. A verified listing stays;
             // a cached paint is not kept as if it were current (security review of #243).
@@ -370,7 +370,8 @@ final class AppState {
         }
     }
 
-    private func apply(_ listing: WorktreeListing) {
+    /// - Parameter isVerified: The listing came from this load's inspection, not from the cache painted before it.
+    private func apply(_ listing: WorktreeListing, isVerified: Bool) {
         worktreeList = .loaded(listing)
         branchListModel = Self.branchModel(listing)
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
@@ -386,8 +387,9 @@ final class AppState {
         worktreeInspections = [:]
         inspectionGeneration += 1
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
-        // Only a verified listing's remotes pick the repository gh is asked about, not a cached paint.
-        if hasVerifiedListing { issuePanel.show(listing.githubRepository) }
+        // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
+        // a failed refresh; security review of #81).
+        if isVerified { issuePanel.show(listing.githubRepository) }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
         // Keep the picked file only while it is still listed in the same group.
         // Same rule as `selectFile`: the row must still exist and still be selectable.
@@ -411,7 +413,7 @@ final class AppState {
         /// Shows `listing` as if it had just loaded (previews and render tests; no git).
         func showForPreview(_ listing: WorktreeListing) {
             hasVerifiedListing = true
-            apply(listing)
+            apply(listing, isVerified: false)
         }
     #endif
 
@@ -591,7 +593,7 @@ final class AppState {
     var issueDetailModel: IssueDetailModel? {
         guard let number = selectedIssueNumber, let issue = issuePanel.issues.first(where: { $0.number == number })
         else { return nil }
-        return IssueDetailModel(issue)
+        return IssueDetailModel(issue, repository: issuePanel.repository)
     }
 
     /// Selecting an issue shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).

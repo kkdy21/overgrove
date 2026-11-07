@@ -55,13 +55,13 @@ final class IssueModelsTests: XCTestCase {
         XCTAssertTrue(IssueListModel(content: nil, isLoading: true).isLoading)
     }
 
-    /// Titles, labels, and logins come from GitHub: control and bidi characters are escaped (T15).
+    /// Titles, labels, and logins come from GitHub: control and bidi characters are escaped (display spoofing).
     func testRepositoryStringsAreEscaped() {
         let issue = Self.issue(
             7, "Fix\u{202E}gnp.exe\nnext", labels: ["bug\u{200B}"], assignees: ["oct\u{2028}cat"])
         let row = IssueRow(issue)
         XCTAssertFalse(row.title.unicodeScalars.contains { $0 == "\u{202E}" || $0 == "\n" })
-        let detail = IssueDetailModel(issue)
+        let detail = IssueDetailModel(issue, repository: Self.repository)
         XCTAssertEqual(detail.title, row.title)
         XCTAssertEqual(detail.labels, [PathValidator.displayable("bug\u{200B}")])
         XCTAssertFalse(detail.labels[0].unicodeScalars.contains("\u{200B}"))
@@ -71,17 +71,20 @@ final class IssueModelsTests: XCTestCase {
 
     func testDetailShowsStateLabelsAndAssignees() {
         let detail = IssueDetailModel(
-            Self.issue(12, "Worktree list", labels: ["type:feature", "area:ui"], assignees: ["octocat", "mina"]))
+            Self.issue(12, "Worktree list", labels: ["type:feature", "area:ui"], assignees: ["octocat", "mina"]),
+            repository: Self.repository)
         XCTAssertEqual(detail.number, "#12")
+        XCTAssertEqual(detail.repository, "team/app")
         XCTAssertEqual(detail.stateText, "Open")
         XCTAssertEqual(detail.stateSymbol, "number.circle")
         XCTAssertEqual(detail.labels, ["type:feature", "area:ui"])
         XCTAssertEqual(detail.assignees, ["@octocat", "@mina"])
         XCTAssertEqual(detail.browserURL?.absoluteString, "https://github.com/team/app/issues/12")
-        XCTAssertEqual(IssueDetailModel(Self.issue(1, state: .closed)).stateSymbol, "checkmark.seal")
+        XCTAssertEqual(IssueDetailModel(Self.issue(1, state: .closed), repository: nil).stateSymbol, "checkmark.seal")
     }
 
-    /// Open in Browser only opens a github.com issue page for that number (screens.md S-06).
+    /// SEC-T13-05: Open in Browser hands `NSWorkspace` only a github.com issue page for that number (screens.md
+    /// S-06): no other scheme, host, user, port, query, fragment, or path.
     func testBrowserURLIsOnlyAGitHubIssuePage() {
         // A renamed or transferred repository redirects: another valid OWNER/NAME is fine.
         XCTAssertNotNil(IssueDetailModel.browserURL(for: Self.issue(5, url: "https://github.com/new/name/issues/5")))

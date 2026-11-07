@@ -101,7 +101,10 @@ struct IssueDetailView: View {
             (Text(model.number).foregroundStyle(Tokens.Color.textSecondary) + Text("  ")
                 + Text(model.title).foregroundStyle(Tokens.Color.textPrimary))
                 .font(Tokens.Font.headline)
+                // Combining marks are not escaped; a title cannot grow without bound.
+                .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
+                .help(model.title)
             HStack(spacing: Tokens.Spacing.xs) {
                 // A neutral pill: the state is text and symbol, not a status color (screens.md S-06).
                 Label(model.stateText, systemImage: model.stateSymbol)
@@ -112,9 +115,14 @@ struct IssueDetailView: View {
                     .background(Capsule().fill(Tokens.Color.surfaceRaised))
                     .overlay(Capsule().strokeBorder(Tokens.Color.borderSeparator, lineWidth: 1))
                 TimelineView(.periodic(from: .now, by: 60)) { context in
-                    Text("updated " + StatusBarItem.relative(model.updatedAt, now: context.date))
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.textTertiary)
+                    Text(
+                        ([model.repository].compactMap { $0 } + [
+                            "updated " + StatusBarItem.relative(model.updatedAt, now: context.date)
+                        ]).joined(separator: " · ")
+                    )
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .lineLimit(1)
                 }
             }
         }

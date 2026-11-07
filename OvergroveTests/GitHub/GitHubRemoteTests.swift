@@ -14,6 +14,8 @@ final class GitHubRemoteTests: XCTestCase {
         }
     }
 
+    /// SEC-T9-05: a repository's remote URL decides gh's `--repo` value, so only `OWNER/NAME` from the three
+    /// github.com forms passes: no option-like owner, non-ASCII, userinfo, port, other host, or extra path.
     func testRejectsEverythingElse() {
         for url in [
             "", "http://github.com/o/r", "https://github.com/o", "https://github.com/o/r/", "https://github.com/o/r/x",

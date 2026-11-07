@@ -21,12 +21,13 @@ final class IssuePanelState {
     /// `nil` until the repository's remotes are known.
     private(set) var content: IssueListContent?
     private(set) var isLoading = false
+    /// The github.com repository the issues are read from, shown on S-06 so the user sees where they come from.
+    private(set) var repository: GitHubRepository?
     /// The load in flight; tests await it.
     private(set) var task: Task<Void, Never>?
     /// Called with the loaded issues, so a selection of an issue that is gone can fall back.
     var onLoaded: (([Issue]) -> Void)?
 
-    private var repository: GitHubRepository?
     private var isStale = true
     private var generation = 0
 

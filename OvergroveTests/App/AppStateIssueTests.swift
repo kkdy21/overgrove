@@ -119,6 +119,33 @@ final class AppStateIssueTests: XCTestCase {
         XCTAssertEqual(state.issueListModel.rows.map(\.id), [12])
     }
 
+    /// A cached paint never decides the repository gh is asked about, even after a verified listing failed to
+    /// refresh (security review of #81).
+    func testACachedPaintDoesNotRunGh() async {
+        let loader = StubIssueLoader([.issues([first])])
+        var verified = WorktreeListing.mockup
+        verified.githubRepository = IssueModelsTests.repository
+        var cached = WorktreeListing.mockup
+        cached.githubRepository = GitHubRepository(owner: "old", name: "app")
+        let repositoryLoader = CachedFailingLoader(first: verified, cached: cached)
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: repositoryLoader, issueLoader: loader)
+        let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil))
+        // Verified, then a failed refresh (the list shows the error), then a reload that paints the cache first.
+        for _ in 0..<3 {
+            state.reload()
+            await state.loadTask?.value
+            await state.issuePanel.task?.value
+        }
+        XCTAssertEqual(loader.requests, ["team/app"], "the cached paint's remote is never asked about")
+    }
+
     func testOpeningAnotherRepositoryClearsTheIssues() async {
         let state = await loadedState(StubIssueLoader([.issues([first])]))
         state.selectIssue(12)
@@ -132,6 +159,30 @@ final class AppStateIssueTests: XCTestCase {
         XCTAssertTrue(state.issueListModel.rows.isEmpty)
         XCTAssertNil(state.issueDetailModel)
     }
+}
+
+/// Answers the first load with `first`, fails the rest, and paints `cached` before each.
+private final class CachedFailingLoader: RepositoryLoading, @unchecked Sendable {
+    private let lock = NSLock()
+    private let first: WorktreeListing
+    private let cached: WorktreeListing
+    private var loads = 0
+
+    init(first: WorktreeListing, cached: WorktreeListing) {
+        self.first = first
+        self.cached = cached
+    }
+
+    func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing {
+        let count = lock.withLock {
+            loads += 1
+            return loads
+        }
+        guard count == 1 else { throw .git(.timeout(seconds: 1)) }
+        return first
+    }
+
+    func cachedListing(_ repository: Repository) async -> WorktreeListing? { cached }
 }
 
 /// `LiveIssueLoader` maps gh failures to panel states (#81).

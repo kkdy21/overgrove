@@ -75,6 +75,8 @@ struct IssueDetailModel: Equatable {
     let number: String
     /// Escaped.
     let title: String
+    /// `OWNER/NAME` the issues were read from: a repository's remote decides it, so it is always shown.
+    let repository: String?
     let stateText: String
     let stateSymbol: String
     let updatedAt: Date
@@ -87,9 +89,10 @@ struct IssueDetailModel: Equatable {
     /// What Copy URL puts on the clipboard.
     let urlText: String
 
-    init(_ issue: Issue) {
+    init(_ issue: Issue, repository: GitHubRepository?) {
         number = "#\(issue.number)"
         title = PathValidator.displayable(issue.title)
+        self.repository = repository?.slug
         switch issue.state {
         case .open:
             stateText = "Open"
