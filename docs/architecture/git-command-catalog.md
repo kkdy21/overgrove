@@ -169,6 +169,16 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
 | `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
 
+실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
+
+- 실행 파일은 위 두 경로를 순서대로 보고, 실행 가능한 일반 파일(심볼릭 링크는 따라감)인 첫 경로를 쓴다. 호출할 때마다 다시 찾으므로 앱 실행 중에 gh를 설치해도 반영된다. 둘 다 없으면 `authStatus()`는 `GHAuthStatus.notInstalled`를 돌려주고, 그 밖의 명령은 `GHError.notInstalled`를 던진다.
+- 작업 디렉터리는 앱의 임시 디렉터리(`FileManager.temporaryDirectory`)다. `GitClient`의 neutral 명령과 같다.
+- 실행 제한은 §2.5의 gh 값이다. 타임아웃과 stdout 잘림은 종료 코드와 관계없이 실패(`timeout`, `outputTruncated`)로 본다. 잘린 JSON은 해석하지 않는다.
+- `authStatus`: 판단은 JSON으로만 한다. JSON이 아니면 종료 코드가 0이 아닐 때 `nonZeroExit`(예: `--json`을 모르는 옛 gh의 `unknown flag: --json`), 0일 때 `parseFailed`다.
+- 그 밖의 명령은 종료 코드 0만 성공이다. 종료 코드 4(gh의 "인증 필요")는 `GHError.notLoggedIn`, 나머지는 마스킹한 stderr를 담은 `nonZeroExit`다.
+- 에러 타입은 `GitError`와 따로 둔 `GHError`다. gh 문제는 이슈 패널만 끄기 때문이다 (ADR-0004 §4). 사용자에게는 `gh auth login`, `brew install gh`를 복사 가능한 명령으로만 보여 준다.
+- `XDG_CONFIG_HOME`도 전달하지 않는다. gh는 `~/.config/gh`의 설정을 읽는다. 셸에서만 `XDG_CONFIG_HOME`이나 `GH_CONFIG_DIR`을 바꿔 쓰는 사용자는 앱에서 로그인하지 않은 것으로 보인다 (의도된 동작, T10 잔여 위험과 같음).
+
 GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 때만 `OWNER/NAME`을 뽑는다. 그 밖의 호스트는 이슈 패널을 끄고 "github.com 원격 없음"을 보여 준다.
 
 - `https://github.com/OWNER/NAME(.git)?`

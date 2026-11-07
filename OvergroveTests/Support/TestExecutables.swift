@@ -70,6 +70,32 @@ struct TestExecutables {
         return root
     }
 
+    /// A fake `gh` that records how it was started and replies with fixed output.
+    ///
+    /// It writes its arguments (NUL-separated), physical working directory, and environment into its own folder,
+    /// then prints `stdout` and `stderr` byte for byte and exits with `exitCode`. Output is read from files, so the
+    /// test data needs no quoting. With `sleepSeconds`, it sleeps before replying (for timeout tests).
+    func fakeGH(stdout: String, stderr: String = "", exitCode: Int32 = 0, sleepSeconds: Int = 0) throws -> FakeGH {
+        let name = "fake-gh-\(UUID().uuidString)"
+        let fake = FakeGH(root: directory.appendingPathComponent(name, isDirectory: true))
+        try FileManager.default.createDirectory(at: fake.root, withIntermediateDirectories: true)
+        try Data(stdout.utf8).write(to: fake.stdoutFile)
+        try Data(stderr.utf8).write(to: fake.stderrFile)
+        _ = try script(
+            "\(name)/gh",
+            """
+            for a in "$@"; do printf '%s\\0' "$a"; done > '\(fake.argumentsFile.path)'
+            pwd -P > '\(fake.directoryFile.path)'
+            /usr/bin/env > '\(fake.environmentFile.path)'
+            if [ \(sleepSeconds) -gt 0 ]; then sleep \(sleepSeconds); fi
+            cat '\(fake.stdoutFile.path)'
+            cat '\(fake.stderrFile.path)' >&2
+            exit \(exitCode)
+            """
+        )
+        return fake
+    }
+
     private func script(_ name: String, _ body: String) throws -> URL {
         let url = directory.appendingPathComponent(name)
         try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
@@ -96,4 +122,41 @@ func eventually(timeout: Duration = .seconds(3), _ condition: () -> Bool) async 
 /// Number of file descriptors open in the current process.
 func openDescriptorCount() -> Int {
     (try? FileManager.default.contentsOfDirectory(atPath: "/dev/fd").count) ?? -1
+}
+
+/// What a fake `gh` from `TestExecutables.fakeGH` recorded about its last run.
+struct FakeGH {
+    let root: URL
+
+    var executable: URL { root.appendingPathComponent("gh") }
+    var argumentsFile: URL { root.appendingPathComponent("args") }
+    var directoryFile: URL { root.appendingPathComponent("pwd") }
+    var environmentFile: URL { root.appendingPathComponent("env") }
+    var stdoutFile: URL { root.appendingPathComponent("stdout") }
+    var stderrFile: URL { root.appendingPathComponent("stderr") }
+
+    /// `nil` until the fake has run.
+    var recordedArguments: [String]? {
+        guard let data = try? Data(contentsOf: argumentsFile) else { return nil }
+        return data.split(separator: 0, omittingEmptySubsequences: false).dropLast().map {
+            String(decoding: $0, as: UTF8.self)
+        }
+    }
+
+    var recordedDirectory: String? {
+        (try? String(contentsOf: directoryFile, encoding: .utf8))?.trimmingCharacters(in: .newlines)
+    }
+
+    /// The child's environment. The shell adds `PWD`, `SHLVL`, and `_` itself; they are removed here.
+    var recordedEnvironment: [String: String]? {
+        guard let text = try? String(contentsOf: environmentFile, encoding: .utf8) else { return nil }
+        var environment: [String: String] = [:]
+        for line in text.split(separator: "\n") {
+            let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { continue }
+            environment[String(parts[0])] = String(parts[1])
+        }
+        for key in ["PWD", "SHLVL", "_", "OLDPWD"] { environment[key] = nil }
+        return environment
+    }
 }
