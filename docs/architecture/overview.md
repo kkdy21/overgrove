@@ -87,7 +87,7 @@ flowchart TD
 | `AppState` | `App/` | 창 하나의 상태: 열린 저장소, 패널 레이아웃, 저장소 추가·전환·제거, 알림 |
 | `RepositoryLoading`, `LiveRepositoryLoader` | `App/` | 연 저장소의 `configList` → `RepoConfigInspector` → 워크트리 목록(§3.2). 목록과 워크트리별 확인·조회는 `RepositoryService`(#87)가 하고, 결과(`RepositoryOverview`)를 `WorktreeListing`으로 옮긴다 (#65) |
 | `WorktreeListing` | `App/` | 워크트리마다 status 결과(`loaded`, `missing`, `failed`, `notQueried`)와 목록 잘림 여부. 사이드바 `WorktreeListModel`(`Features/Worktrees/`)의 입력 |
-| `RepositoryRegistry` | `App/` | 등록된 저장소 목록과 마지막 선택(모든 창이 공유). `UserDefaults`에 경로만 저장 (§8) |
+| `RepositoryRegistry` | `App/` | 등록된 저장소 목록과 마지막 선택(모든 창이 공유). `UserDefaults`에 경로와 신뢰하지 않음 표시(#107)만 저장 (§8) |
 | `RepositoryRegistrar` | `App/` | 고른 폴더 → `PathValidator` → probe(`GitClient`, 검사 전 허용 명령) → 등록할 저장소. 같은 공통 git 디렉터리는 한 저장소 (§9) |
 | `RepositoryStore` | `App/` | 선택된 저장소 하나의 화면 상태: 워크트리, 상태, stash, 그래프 페이지, 선택 항목, 로딩·에러 |
 | `IssueStore` | `App/` | gh 로그인 상태, 이슈 목록, 이슈 번호 매칭 결과 |
@@ -325,7 +325,7 @@ gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다:
 ## 8. 설정 저장
 
 - `UserDefaults`에 다음만 저장한다.
-  - 등록된 저장소 경로 목록
+  - 등록된 저장소 경로 목록과 저장소별 신뢰하지 않음 표시(#107, 기본 신뢰함)
   - 마지막 선택 저장소
   - 자동 fetch 사용 여부와 주기(기본 꺼짐)
   - 원격 URL 표시 여부(기본: 마스킹)

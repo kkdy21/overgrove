@@ -28,6 +28,9 @@ struct RepoSafetyContext: Sendable, Equatable {
     /// Remotes whose URLs and settings are all in a built-in transport form (`TransportName.isBuiltInFetchForm`).
     /// Fetch refuses any other remote before git starts (#350, T5). Empty by default (fail closed).
     let fetchableRemotes: Set<String>
+    /// The user marked the repository untrusted (#107): fetch allows no `file` transport. Set by the caller from the
+    /// registry, not from the repository's configuration.
+    var blocksLocalTransport = false
 
     static let preInspection = RepoSafetyContext(
         neutralization: [],
@@ -212,6 +215,7 @@ actor GitClient {
             acceptedExitCodes: [0],
             trustedSSHCommand: safety.trustedSSHCommand,
             allowsTransport: true,
+            allowsLocalTransport: !safety.blocksLocalTransport,
             stderrObserver: progress.map(Self.progressObserver)
         )
     }
@@ -245,13 +249,15 @@ actor GitClient {
         acceptedExitCodes: Set<Int32>,
         trustedSSHCommand: String?,
         allowsTransport: Bool,
+        allowsLocalTransport: Bool = true,
         stderrObserver: (@Sendable (Data) -> Void)? = nil
     ) async throws -> GitOutput {
         let request = ProcessRequest(
             executable: environment.executable,
             arguments: arguments,
             environment: GitEnvironment.environment(
-                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport),
+                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport,
+                allowsLocalTransport: allowsLocalTransport),
             currentDirectory: directory,
             limits: limits
         )

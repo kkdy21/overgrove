@@ -314,7 +314,7 @@ final class RemoteFormSecurityTests: XCTestCase {
         try await repository.git(["remote", "add", "origin", "ssh::x"])
         try await plantCanary(named: "ssh")
         let service = RepositoryService(client: GitClient(environment: repository.environment))
-        let run = await service.fetch(target())
+        let run = await service.fetch(target(), untrusted: false)
         guard case .finished(let failures, _) = run else { return XCTFail("got \(run)") }
         XCTAssertEqual(failures.count, 1)
         XCTAssertEqual(failures.first?.remote, origin)
