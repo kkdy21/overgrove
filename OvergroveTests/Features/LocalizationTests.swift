@@ -24,11 +24,17 @@ final class LocalizationTests: XCTestCase {
         "GraphRowModel", "AppState+Comparison",
         // #454: S-02, submodules, search, the toolbar, the repository switcher, fetch details, Settings › Apps
         "WipDetailModel", "WipDetailView", "SubmoduleSectionModel", "SubmoduleSectionView", "GraphSearch",
-        "RepositorySwitcher", "FetchFailureDetailsView", "MainToolbar", "ExternalAppsSettingsView",
+        "RepositorySwitcher", "FetchFailureDetailsView", "MainToolbar", "ExternalAppsSettingsView", "GraphView",
     ]
     /// Files with translated strings among others: only these keys are checked.
     private static let translatedKeysIn = [
-        "PanelChrome": Set(["Graph", "History"]),
+        "PanelChrome": Set([
+            "Graph", "History", "No repository open", "Add a repository to see its worktrees.", "History unavailable",
+            "Commit graph", "The history of every worktree appears here.", "Open a repository to see its history.",
+            "Commit %@", "No selection", "Details",
+            "Changes in the focused worktree or the selected commit appear here.",
+            "Commits", "Loading history…",
+        ]),
         "StatusBar": Set(["just now", "%lld min ago", "%lld h ago", "%lld d ago"]),
         "ExternalApps": Set(["Terminal", "Editor"]),
         "GHStatusGuidanceView": Set(["Copy", "Copy command %@"]),

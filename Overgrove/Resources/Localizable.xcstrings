@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@ and %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@"
+          }
+        }
+      }
+    },
     "%@ changed %@" : {
       "localizations" : {
         "ko" : {
@@ -487,6 +497,16 @@
         }
       }
     },
+    "AI" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI"
+          }
+        }
+      }
+    },
     "AI-assisted" : {
       "localizations" : {
         "ko" : {
@@ -533,6 +553,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "저장소 추가"
+          }
+        }
+      }
+    },
+    "Add a repository to see its worktrees." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소를 추가하면 워크트리가 보입니다."
           }
         }
       }
@@ -768,6 +798,16 @@
         }
       }
     },
+    "Changes in the focused worktree or the selected commit appear here." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "포커스된 워크트리나 선택한 커밋의 변경 사항이 여기에 보입니다."
+          }
+        }
+      }
+    },
     "Changes unavailable" : {
       "localizations" : {
         "ko" : {
@@ -978,6 +1018,26 @@
         }
       }
     },
+    "Commit graph" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋 그래프"
+          }
+        }
+      }
+    },
+    "Commits" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋"
+          }
+        }
+      }
+    },
     "Commits in %@ that %@ does not have" : {
       "localizations" : {
         "ko" : {
@@ -1036,6 +1096,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기준과 비교"
+          }
+        }
+      }
+    },
+    "Compare with Selected Commit" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택한 커밋과 비교"
           }
         }
       }
@@ -1141,6 +1211,16 @@
         }
       }
     },
+    "Copy Message" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메시지 복사"
+          }
+        }
+      }
+    },
     "Copy Name" : {
       "localizations" : {
         "ko" : {
@@ -1177,6 +1257,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SHA 복사"
+          }
+        }
+      }
+    },
+    "Copy Short SHA" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "짧은 SHA 복사"
           }
         }
       }
@@ -1268,6 +1358,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기본값 (Xcode 개발자 도구)"
+          }
+        }
+      }
+    },
+    "Details" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상세"
           }
         }
       }
@@ -1522,12 +1622,32 @@
         }
       }
     },
+    "Find Next (⌘G)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 찾기 (⌘G)"
+          }
+        }
+      }
+    },
     "Find Previous" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "이전 찾기"
+          }
+        }
+      }
+    },
+    "Find Previous (⌘⇧G)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전 찾기 (⌘⇧G)"
           }
         }
       }
@@ -1669,6 +1789,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "그래프 레인"
+          }
+        }
+      }
+    },
+    "HEAD of the focused worktree" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "포커스된 워크트리의 HEAD"
+          }
+        }
+      }
+    },
+    "HEAD of worktree %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 %@의 HEAD"
           }
         }
       }
@@ -1996,6 +2136,16 @@
         }
       }
     },
+    "Next match" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 일치 항목"
+          }
+        }
+      }
+    },
     "No changes between %@ and %@" : {
       "localizations" : {
         "ko" : {
@@ -2102,6 +2252,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "저장소 없음"
+          }
+        }
+      }
+    },
+    "No repository open" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "열린 저장소 없음"
+          }
+        }
+      }
+    },
+    "No selection" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택 없음"
           }
         }
       }
@@ -2236,6 +2406,16 @@
         }
       }
     },
+    "Open a repository to see its history." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소를 열면 이력이 보입니다."
+          }
+        }
+      }
+    },
     "Open in Editor" : {
       "localizations" : {
         "ko" : {
@@ -2352,6 +2532,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "목록에서 파일을 고르면 %@와(과) 비교한 변경을 봅니다."
+          }
+        }
+      }
+    },
+    "Previous match" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전 일치 항목"
           }
         }
       }
@@ -3052,6 +3242,16 @@
         }
       }
     },
+    "The history of every worktree appears here." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 워크트리의 이력이 여기에 보입니다."
+          }
+        }
+      }
+    },
     "The only network action is git fetch. Nothing in your repositories is ever changed." : {
       "localizations" : {
         "ko" : {
@@ -3218,6 +3418,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "미커밋 변경"
+          }
+        }
+      }
+    },
+    "Uncommitted changes in %@:" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 미커밋 변경:"
           }
         }
       }
@@ -3506,6 +3716,26 @@
         }
       }
     },
+    "branch %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "브랜치 %@"
+          }
+        }
+      }
+    },
+    "branches %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "브랜치 %@"
+          }
+        }
+      }
+    },
     "by %@" : {
       "localizations" : {
         "ko" : {
@@ -3623,6 +3853,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "우리가 삭제"
+          }
+        }
+      }
+    },
+    "detached worktree %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "분리된 워크트리 %@"
+          }
+        }
+      }
+    },
+    "detached worktrees %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "분리된 워크트리 %@"
           }
         }
       }
@@ -3778,6 +4028,16 @@
         }
       }
     },
+    "issue %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈 %@"
+          }
+        }
+      }
+    },
     "issue %lld" : {
       "localizations" : {
         "ko" : {
@@ -3794,6 +4054,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "방금"
+          }
+        }
+      }
+    },
+    "linked to the selected issue" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택한 이슈와 연결됨"
           }
         }
       }
@@ -3834,6 +4104,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "메인 워크트리"
+          }
+        }
+      }
+    },
+    "merge commit, %lld parents" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "병합 커밋, 부모 %lld개"
           }
         }
       }
@@ -3965,6 +4245,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "서브모듈"
+          }
+        }
+      }
+    },
+    "tag %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "태그 %@"
+          }
+        }
+      }
+    },
+    "tags %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "태그 %@"
           }
         }
       }

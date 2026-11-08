@@ -177,18 +177,23 @@ enum GraphRowAccessibility {
         commit: CommitNode, text: GraphCommitText, pills: [GraphRefPill], isHead: Bool, linkedIssues: [Int] = [],
         isHighlighted: Bool = false, now: Date
     ) -> String {
-        var parts = ["Commit \(text.shortSHA)", text.subject]
-        if text.isAIAssisted { parts.append("AI-assisted") }
+        var parts = [String(localized: "Commit \(text.shortSHA)"), text.subject]
+        if text.isAIAssisted { parts.append(String(localized: "AI-assisted")) }
         parts.append(text.author)
         parts.append(relative(commit.authorDate, now: now))
         parts += refs(pills)
         if isHead {
             let focused = pills.first { $0.kind == .focusedBranch || $0.kind == .focusedDetached }
-            parts.append(focused.map { "HEAD of worktree \($0.title)" } ?? "HEAD of the focused worktree")
+            parts.append(
+                focused.map { String(localized: "HEAD of worktree \($0.title)") }
+                    ?? String(localized: "HEAD of the focused worktree"))
         }
-        if commit.isMerge { parts.append("merge commit, \(commit.parents.count) parents") }
-        if !linkedIssues.isEmpty { parts.append("issue " + linkedIssues.map(String.init).joined(separator: ", ")) }
-        if isHighlighted { parts.append("linked to the selected issue") }
+        if commit.isMerge { parts.append(String(localized: "merge commit, \(commit.parents.count) parents")) }
+        if !linkedIssues.isEmpty {
+            let numbers = linkedIssues.map(String.init).joined(separator: ", ")
+            parts.append(String(localized: "issue \(numbers)", comment: "VoiceOver: issues a commit names"))
+        }
+        if isHighlighted { parts.append(String(localized: "linked to the selected issue")) }
         return parts.joined(separator: ", ")
     }
 
@@ -199,12 +204,12 @@ enum GraphRowAccessibility {
 
     /// `Uncommitted changes in api-wt: 3 staged, 2 unstaged, 1 untracked, 1 conflicted`.
     static func wipLabel(folderName: String, state: WorkingState) -> String {
-        let counts = [
-            (state.staged.count, "staged"), (state.unstaged.count, "unstaged"),
-            (state.untracked.count, "untracked"), (state.conflicted.count, "conflicted"),
-        ]
-        .filter { $0.0 > 0 }.map { "\($0.0) \($0.1)" }
-        return "Uncommitted changes in \(folderName): " + counts.joined(separator: ", ")
+        var counts: [String] = []
+        if !state.staged.isEmpty { counts.append(String(localized: "\(state.staged.count) staged")) }
+        if !state.unstaged.isEmpty { counts.append(String(localized: "\(state.unstaged.count) unstaged")) }
+        if !state.untracked.isEmpty { counts.append(String(localized: "\(state.untracked.count) untracked")) }
+        if !state.conflicted.isEmpty { counts.append(String(localized: "\(state.conflicted.count) conflicted")) }
+        return String(localized: "Uncommitted changes in \(folderName):") + " " + counts.joined(separator: ", ")
     }
 
     /// `branches feat/12 and origin/feat/12`, `tag v1.0`, `detached worktree review`.
@@ -223,15 +228,21 @@ enum GraphRowAccessibility {
             }
         }
         return [
-            list(branches, one: "branch", many: "branches"), list(tags, one: "tag", many: "tags"),
-            list(detached, one: "detached worktree", many: "detached worktrees"),
+            list(branches, one: { String(localized: "branch \($0)") }, many: { String(localized: "branches \($0)") }),
+            list(tags, one: { String(localized: "tag \($0)") }, many: { String(localized: "tags \($0)") }),
+            list(
+                detached, one: { String(localized: "detached worktree \($0)") },
+                many: { String(localized: "detached worktrees \($0)") }),
         ].compactMap { $0 }
     }
 
-    private static func list(_ names: [String], one: String, many: String) -> String? {
+    private static func list(
+        _ names: [String], one: (String) -> String, many: (String) -> String
+    ) -> String? {
         guard let last = names.last else { return nil }
-        let joined = names.count == 1 ? last : names.dropLast().joined(separator: ", ") + " and " + last
-        return "\(names.count == 1 ? one : many) \(joined)"
+        guard names.count > 1 else { return one(last) }
+        let first = names.dropLast().joined(separator: ", ")
+        return many(String(localized: "\(first) and \(last)", comment: "VoiceOver: the last two names in a list"))
     }
 
     /// `2 hours ago`, spelled out for speech.
