@@ -86,6 +86,78 @@ check "push origin only on main"            2 "$M" 'git push origin'
 check "bare push on main after cd"          2 "$M" 'echo hi && git push -u'
 check "push branch from main checkout"      0 "$M" 'git push origin feat/1-x'
 
+# #342: push forms both the old and the #301 hook let through.
+check "push --all"                          2 "$B" 'git push --all'
+check "push origin --all"                   2 "$B" 'git push origin --all'
+check "push --mirror"                       2 "$B" 'git push --mirror origin'
+check "push --mirror=x"                     2 "$B" 'git push --mirror=origin'
+check "force via + refspec"                 2 "$B" 'git push origin +feat/1-x'
+check "force via quoted + refspec"          2 "$B" "git push origin '+feat/1-x'"
+check "force via +HEAD refspec"             2 "$B" 'git push origin +HEAD:feat/1-x'
+check "force bundled -uf"                   2 "$B" 'git push -uf origin feat/1-x'
+check "force bundled -fu"                   2 "$B" 'git push -fu origin feat/1-x'
+check "force bundled -qf"                   2 "$B" 'git push -qf origin feat/1-x'
+check "push origin HEAD on main"            2 "$M" 'git push origin HEAD'
+check "push origin @ on main"               2 "$M" 'git push origin @'
+check "push -u origin HEAD on main"         2 "$M" 'git push -u origin HEAD'
+check "push main, single &"                 2 "$B" 'git push origin main&'
+check "push main, single & then more"       2 "$B" 'git push origin main& echo done'
+check "push heads/main"                     2 "$B" 'git push origin heads/main'
+check "push HEAD:heads/main"                2 "$B" 'git push origin HEAD:heads/main'
+check "push main; in braces"                2 "$B" '{ git push origin main; }'
+check "push main} in braces"                2 "$B" '{ git push origin main;}'
+check "git -C main checkout, bare push"     2 "$B" "git -C $M push"
+check "git -C main checkout, HEAD"          2 "$B" "git -C $M push origin HEAD"
+check "git -C quoted main checkout"         2 "$B" "git -C \"$M\" push -u"
+check "cd main checkout, bare push"         2 "$B" "cd $M && git push"
+# Security review of #342's first version: unrelated `-C`/`cd` must not hide the session's main checkout, and
+# abbreviations, variables, redirects, and quoted paths must not hide a push.
+check "-C elsewhere, then bare push on main" 2 "$M" 'git -C /tmp status; git push'
+check "cd in subshell, then bare push"      2 "$M" '(cd /tmp && ls); git push -u'
+check "cd -- main checkout, bare push"      2 "$B" "cd -- $M && git push"
+check "push --mirr"                         2 "$B" 'git push --mirr origin'
+check "push --mir=origin"                   2 "$B" 'git push --mir=origin'
+check "push --al"                           2 "$B" 'git push --al'
+check "push --branches"                     2 "$B" 'git push origin --branches'
+check "force via +\$ref"                    2 "$B" 'git push origin +$REF'
+check "force via quoted +\$ref"             2 "$B" 'git push origin "+${REF}"'
+check "push main>/dev/null"                 2 "$B" 'git push origin main>/dev/null'
+check "push HEAD:heads/main<x"              2 "$B" 'git push origin HEAD:heads/main<x'
+check "push main#comment"                   2 "$B" 'git push origin main#c'
+check "force>/dev/null"                     2 "$B" 'git push --force>/dev/null origin feat/1-x'
+check "force bundled -uff"                  2 "$B" 'git push -uff origin feat/1-x'
+check "force bundled with -o value"         2 "$B" 'git push -foci.skip origin feat/1-x'
+check "force quoted -f"                     2 "$B" 'git push "-f" origin feat/1-x'
+check "-C quoted path with space, main"     2 "$B" 'git -C "/a b" push origin main'
+check "-c quoted value with space, mirror"  2 "$B" "git -c 'user.name=a b' push --mirror"
+check "bare push on main, redirect"         2 "$M" 'git push origin 2>/dev/null'
+# Re-review of #342: `cd` targets end at `;`, `cd` also follows `(` and a newline, a failing `cd` moves nowhere.
+check "cd main; bare push"                  2 "$B" "cd $M; git push"
+check "cd main;bare push"                   2 "$B" "cd $M;git push"
+check "cd main&&bare push"                  2 "$B" "cd $M&&git push"
+check "braces: cd main; bare push"          2 "$B" "{ cd $M; git push; }"
+check "branch push, cd main, bare push"     2 "$B" "git push origin feat/1-x; cd $M; git push"
+check "subshell: cd main && bare push"      2 "$B" "(cd $M && git push)"
+check "newline: cd main, bare push"         2 "$B" $'echo hi\ncd '"$M"$'\ngit push'
+check "cd missing dir; bare push on main"   2 "$M" 'cd no-such-dir-342; git push'
+check "cd main without cwd"                 2 "" "cd $M && git push"
+check "comment after bare push on main"     2 "$M" 'git push origin #feat'
+# Not pushes, or pushes of a branch: allowed.
+check "-C main checkout log, then push HEAD" 0 "$B" "git -C $M log -1; git push origin HEAD"
+check "cd main in subshell, push on branch" 0 "$B" "(cd $M && git status); git push -u origin HEAD"
+check "push --follow-tags"                  0 "$B" 'git push --follow-tags origin feat/1-x'
+check "push then pr create --base main (#301)" 0 "$B" 'git push -u origin HEAD && gh pr create --base main'
+check "push branch then date +%s"           0 "$B" 'git push origin feat/1-x && date +%s'
+check "date +%s alone"                      0 "$B" 'date +%s'
+check "push origin HEAD on a branch"        0 "$B" 'git push -u origin HEAD'
+check "git -C branch checkout, bare push"   0 "$M" "git -C $B push"
+check "cd branch checkout, push HEAD"       0 "$M" "cd $B && git push -u origin HEAD"
+check "push branch named feat/main-menu"    0 "$B" 'git push origin feat/main-menu'
+check "push branch named feat/x-main"       0 "$B" 'git push origin feat/x-main'
+check "push -uq (not a bundled force)"      0 "$B" 'git push -uq origin feat/1-x'
+check "push then rm -rf build"              0 "$B" 'git push origin feat/1-x && rm -rf build'
+check "log --all without push"              0 "$B" 'git log --all --oneline'
+
 # Force pushes stay blocked.
 check "force push"                          2 "$B" 'git push --force origin feat/1-x'
 check "force push -f"                       2 "$B" 'git push -f'
