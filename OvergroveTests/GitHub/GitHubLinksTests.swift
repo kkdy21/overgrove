@@ -3,7 +3,9 @@ import XCTest
 
 @testable import Overgrove
 
-/// Open on GitHub URLs (#398): only github.com, https, and paths assembled from validated parts.
+/// SEC-T14-11: Open on GitHub URLs (#398) are github.com over https with paths assembled from validated parts, so
+/// repository text (paths, ref names) cannot change the host or scheme, add a query or fragment, or leave the
+/// repository's pages.
 final class GitHubLinksTests: XCTestCase {
     private let repository = GitHubRepository(owner: "acme", name: "api.v2")!
     private let oid = ObjectID(String(repeating: "a", count: 40))!
@@ -54,6 +56,27 @@ final class GitHubLinksTests: XCTestCase {
         }
         for climbing in ["../x", "a/../../x", "./x"] {
             XCTAssertNil(GitHubLinks.file(repository, commit: oid, path: path(climbing)), climbing)
+        }
+    }
+
+    /// Branch names allow `#`, `%`, `;`, `@`, `'`, and non-ASCII (bidi included); each is encoded in its component.
+    func testSECT14_11_HostileBranchNamesStayInsideTheRepositoryPage() throws {
+        let cases = [
+            "feat/#1": "/acme/api.v2/tree/feat/%231",
+            "a%2Fb": "/acme/api.v2/tree/a%252Fb",
+            "x;y": "/acme/api.v2/tree/x%3By",
+            "me@host": "/acme/api.v2/tree/me@host",
+            "\u{202E}abc": "/acme/api.v2/tree/%E2%80%AEabc",
+        ]
+        for (branch, expected) in cases {
+            let built = try XCTUnwrap(
+                GitHubLinks.branch(repository, remoteRef: "refs/remotes/origin/\(branch)", remote: "origin"), branch)
+            XCTAssertEqual(built.scheme, "https", branch)
+            XCTAssertEqual(built.host, "github.com", branch)
+            XCTAssertNil(built.query, branch)
+            XCTAssertNil(built.fragment, branch)
+            XCTAssertEqual(
+                URLComponents(url: built, resolvingAgainstBaseURL: false)?.percentEncodedPath, expected, branch)
         }
     }
 
