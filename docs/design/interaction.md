@@ -184,6 +184,8 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 - 결과가 오면 제자리에서 바꾼다. 정렬이 안정적이므로 행이 튀지 않는다. 배지 수가 바뀌면 `motion.duration-fast` 동안 옅게 페이드한다. Reduce Motion이면 애니메이션을 끈다.
 - 실패하면 이전 데이터를 `opacity.stale`로 흐리게 두고, 상태바에 `Refresh failed — Details`를 띄운다.
   - 워크트리 목록 읽기가 실패했을 때 S-11 비교가 열려 있으면 닫지 않는다. 마지막 결과를 `opacity.stale`로 흐리게 두고, 머리글 아래에 `The worktree list could not be read, so this comparison may be out of date.`를 띄운다. 실패한 뒤의 재시도가 도는 동안에도 같다. 목록 읽기가 다시 성공할 때까지 기준 브랜치 선택, `Include uncommitted`, 파일 선택은 막고 git을 다시 실행하지 않는다. 실패 전에 시작된 비교·patch는 버린다. `‹ Graph`와 `⎋`로는 닫을 수 있다(#374).
+  - 실패 원인이 설정 검사의 차단(`.blocked`)이면 예외로 S-11을 닫고 진행 중인 비교·patch를 취소한다. 보안 중단은 "읽지 못함"이 아니므로, 사용자는 흐린 비교 대신 보안 상태를 본다(#401).
+  - 목록은 읽었지만 비교 대상 워크트리만 읽지 못한 경우도 같은 규칙을 따른다(#413). 폴더가 사라졌거나(`prunable`), 경로가 이제 다른 항목의 폴더로 이어지거나(`duplicate`), 그 워크트리 설정이 차단 대상이거나, 다른 저장소의 것이면 S-11을 닫는다. 조회 상한 밖이거나 status가 실패한 것처럼 읽지만 못한 경우에는 흐리게 두고 `This worktree's status could not be read, so this comparison may be out of date.`를 띄운다.
 
 ### 4.2 fetch (원격)
 

@@ -235,16 +235,24 @@ final class AppStateComparisonTests: XCTestCase {
     }
 }
 
-/// Answers loads in order; a `nil` slot fails the load (the listing could not be read).
+/// Answers loads in order; a `nil` slot fails the load with the next of `failures` (the last one repeats).
 final class FailingRepositoryLoader: RepositoryLoading, @unchecked Sendable {
     private let lock = NSLock()
     private var answers: [WorktreeListing?]
+    private var failures: [RepositoryLoadError]
 
-    init(_ answers: [WorktreeListing?]) { self.answers = answers }
+    init(_ answers: [WorktreeListing?], failures: [RepositoryLoadError] = [.git(.timeout(seconds: 15))]) {
+        self.answers = answers
+        self.failures = failures
+    }
 
     func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing {
-        let answer = lock.withLock { answers.count > 1 ? answers.removeFirst() : answers[0] }
-        guard let answer else { throw .git(.timeout(seconds: 15)) }
+        let (answer, failure) = lock.withLock {
+            let answer = answers.count > 1 ? answers.removeFirst() : answers[0]
+            let failure = failures.count > 1 && answer == nil ? failures.removeFirst() : failures[0]
+            return (answer, failure)
+        }
+        guard let answer else { throw failure }
         return answer
     }
 }
@@ -267,11 +275,13 @@ final class AppStateComparisonStaleTests: XCTestCase {
     }
 
     private func comparedState(
-        _ loader: StubComparisonLoader, answers: [WorktreeListing?], diff: StubDiffLoader = StubDiffLoader()
+        _ loader: StubComparisonLoader, answers: [WorktreeListing?], diff: StubDiffLoader = StubDiffLoader(),
+        failures: [RepositoryLoadError] = [.git(.timeout(seconds: 15))]
     ) async -> AppState {
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: FailingRepositoryLoader(answers), inspector: RecordingInspector(), diffLoader: diff,
+            loader: FailingRepositoryLoader(answers, failures: failures), inspector: RecordingInspector(),
+            diffLoader: diff,
             comparisonLoader: loader)
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
@@ -337,13 +347,109 @@ final class AppStateComparisonStaleTests: XCTestCase {
         let state = await comparedState(StubComparisonLoader(), answers: [.mockup])
         state.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
         XCTAssertEqual(state.comparison?.patch, .loading)
-        state.comparisonListFailed()
+        state.comparisonListFailed(.git(.timeout(seconds: 15)))
         XCTAssertNil(state.comparisonPatchTask)
         XCTAssertNil(state.comparison?.patch)
         XCTAssertNil(state.comparison?.selectedFile)
         for _ in 0..<10 { await Task.yield() }
         XCTAssertNil(state.comparison?.patch, "the dropped patch never lands")
         XCTAssertNotNil(state.comparison, "S-11 stays open")
+    }
+
+    /// #401: a security stop (`.blocked`) is not "could not be read": S-11 closes, and a patch in flight is
+    /// cancelled, so the security state shows instead. A transient failure keeps the stale view (above).
+    func testBlockedListLoadClosesTheComparison() async {
+        let loader = StubComparisonLoader()
+        let state = await comparedState(
+            loader, answers: [.mockup, nil], failures: [.blocked(reason: "filter driver name not allowed")])
+        state.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
+        XCTAssertNotNil(state.comparisonPatchTask)
+
+        state.reload()
+        await state.loadTask?.value
+        guard case .failed = state.worktreeList else { return XCTFail("the list load should fail") }
+        XCTAssertNil(state.comparison, "a security stop closes S-11")
+        XCTAssertNil(state.comparisonModel)
+        XCTAssertNil(state.comparisonTask)
+        XCTAssertNil(state.comparisonPatchTask, "the patch in flight is cancelled")
+        let requests = loader.compareRequests.count
+        state.setIncludeUncommitted(false)
+        XCTAssertEqual(loader.compareRequests.count, requests)
+    }
+
+    /// #401: a transient failure while S-11 is already stale, followed by a security stop on the retry, closes it.
+    func testBlockedRetryAfterATransientFailureCloses() async {
+        let state = await comparedState(
+            StubComparisonLoader(), answers: [.mockup, nil, nil],
+            failures: [.git(.timeout(seconds: 15)), .blocked(reason: "hook found")])
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertNotNil(state.comparisonModel?.staleNotice, "a transient failure keeps it, stale")
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertNil(state.comparison, "the security stop on the retry closes it")
+    }
+
+    /// The mockup listing with the compared worktree in `state` (still listed).
+    private func listing(feature state: WorktreeListing.State) -> WorktreeListing {
+        WorktreeListing(
+            entries: WorktreeListing.mockup.entries.map { entry in
+                entry.worktree.path == feature ? WorktreeListing.Entry(worktree: entry.worktree, state: state) : entry
+            },
+            isPartial: false)
+    }
+
+    /// #413: the compared worktree still listed but with its folder gone (`prunable`), or not queried for safety
+    /// (its own configuration blocks, another repository's), closes S-11 like a removed worktree (#311).
+    func testUnqueryableWorktreeClosesTheComparison() async {
+        for state: WorktreeListing.State in [
+            .missing, .notQueried(.inspectionBlocked("hook found")), .notQueried(.foreignRepository),
+            .notQueried(.duplicate),
+        ] {
+            let comparisons = await comparedState(StubComparisonLoader(), answers: [.mockup, listing(feature: state)])
+            comparisons.reload()
+            await comparisons.loadTask?.value
+            XCTAssertNil(comparisons.comparison, "\(state) closes S-11")
+        }
+    }
+
+    /// #413: the compared worktree listed but its status unread (past the query limit, or failed) keeps S-11 open,
+    /// stale under its own notice, with the last rows and nothing run, until its status loads again.
+    func testUnreadWorktreeKeepsTheComparisonStale() async {
+        for state: WorktreeListing.State in [.notQueried(.limit), .failed(.timeout(seconds: 15))] {
+            let loader = StubComparisonLoader()
+            let diff = StubDiffLoader()
+            let comparisons = await comparedState(
+                loader, answers: [.mockup, listing(feature: state), .mockup], diff: diff)
+            let before = comparisons.comparisonModel
+            // A patch asked before the load that leaves the status unread is dropped with it.
+            comparisons.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
+            comparisons.reload()
+            await comparisons.loadTask?.value
+            XCTAssertEqual(comparisons.comparison?.worktree, feature, "\(state) keeps S-11")
+            XCTAssertEqual(comparisons.comparisonModel?.staleNotice, ComparisonModel.worktreeUnreadNotice)
+            XCTAssertEqual(comparisons.comparisonModel?.files, before?.files, "the last rows, WIP pills too")
+            XCTAssertNil(comparisons.comparisonPatchTask)
+            XCTAssertNotEqual(comparisons.comparison?.patch, .loading)
+
+            let requests = loader.compareRequests.count
+            let patches = loader.patchRequests.count
+            comparisons.setIncludeUncommitted(false)
+            comparisons.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
+            comparisons.selectComparisonFile(ComparisonFile(path: GitPath("new0.swift"), isUntracked: true))
+            await comparisons.comparisonTask?.value
+            await comparisons.comparisonPatchTask?.value
+            XCTAssertNil(comparisons.comparisonTask)
+            XCTAssertNil(comparisons.comparisonPatchTask)
+            XCTAssertEqual(comparisons.comparison?.includeUncommitted, true)
+            XCTAssertEqual(loader.compareRequests.count, requests)
+            XCTAssertEqual(loader.patchRequests.count, patches)
+            XCTAssertEqual(diff.requests.count, 0)
+
+            comparisons.reload()
+            await comparisons.loadTask?.value
+            XCTAssertNil(comparisons.comparisonModel?.staleNotice, "its status loaded again")
+        }
     }
 
     func testStaleComparisonStillCloses() async {
