@@ -322,10 +322,12 @@ final class GraphStoreTests: XCTestCase {
         loader.pages.moveRefs()
         store.refresh(focus: nil)
         try await waitUntil { loader.pendingCount == 2 }
+        let decorated = store.decorationGeneration
         loader.releaseOldest()
         try await waitUntil { loader.pages.skips.count == 2 }
         loader.releaseOldest()
-        try await waitUntil { loader.pages.skips.count == 3 && store.index(of: FakeGraphLoader.oid(0)) == 0 }
+        // The restart lays out the new first page with its new ref set, which redecorates: the check was handled.
+        try await waitUntil { store.decorationGeneration > decorated }
         try await Task.sleep(for: .milliseconds(50))
         XCTAssertEqual(loader.pages.skips, [0, 500, 0], "the new first page only")
         XCTAssertEqual(loader.pendingCount, 0)
