@@ -267,6 +267,9 @@ enum FetchCommand: Sendable, Hashable {
                 // write. Fetch never needs one. URL-specific keys win over these, so the inspector also resets the
                 // repository's own (#355).
                 "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
+                // Kerberos ticket forwarding (`always` could hand a ticket to a host the repository named). Fetch never
+                // needs it; the inspector resets the repository's URL-specific keys (#367).
+                "-c", "http.delegation=none",
             ]
         }
     }

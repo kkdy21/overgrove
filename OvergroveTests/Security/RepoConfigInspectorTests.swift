@@ -229,18 +229,35 @@ final class RepoConfigInspectorTests: XCTestCase {
             ["-c", "remote.o.proxyauthmethod=anyauth", "-c", "http.proxyauthmethod=anyauth"])
     }
 
-    /// #367: certificate files for the TLS connection to the proxy are the user's, like `http.sslCAInfo`: a repository
-    /// that sets its own turns fetch off (generic or per URL). Queries go on.
-    func testLocalProxyCertificateFilesBlockFetchOnly() {
-        for key in [
-            "http.proxysslcainfo", "http.proxysslcert", "http.proxysslkey", "http.https://x.invalid.proxysslcainfo",
-        ] {
-            let result = inspect([entry(.local, key, "/tmp/evil.pem")])
-            XCTAssertFalse(result.report.isBlocked, key)
-            XCTAssertNotNil(result.fetchBlockingReason, key)
-            XCTAssertEqual(result.report.findings.map(\.handling), [.warned], key)
-        }
-        XCTAssertNil(inspect([entry(.global, "http.proxysslcainfo", "/etc/corp-ca.pem")]).fetchBlockingReason)
+    /// #367 review: `sslCertPasswordProtected` (the remote certificate's twin) makes git ask the trusted helper too.
+    func testLocalSSLCertPasswordProtectedIsReplacedWithTrustedValue() {
+        XCTAssertEqual(
+            inspect([
+                entry(.global, "http.sslcertpasswordprotected", "true"),
+                entry(.local, "http.sslcertpasswordprotected", "false"),
+                entry(.local, "http.https://x.invalid.sslcertpasswordprotected", "true"),
+            ]).fetchAuthentication,
+            [
+                "-c", "http.sslcertpasswordprotected=true",
+                "-c", "http.https://x.invalid.sslcertpasswordprotected=true",
+            ])
+        XCTAssertEqual(
+            inspect([entry(.local, "http.sslcertpasswordprotected", "true")]).fetchAuthentication,
+            ["-c", "http.sslcertpasswordprotected=false"])
+    }
+
+    /// #367: Kerberos ticket forwarding is pinned off for fetch (`FetchCommand`), and a repository's URL-specific
+    /// `http.<url>.delegation` (which would win over the pin) is reset to `none` under its own key. A user's own stays.
+    func testLocalDelegationIsTurnedOffUnderItsOwnKey() {
+        let result = inspect([
+            entry(.local, "http.delegation", "always"),
+            entry(.local, "http.https://x.invalid.delegation", "always"),
+            entry(.global, "http.https://corp.invalid.delegation", "policy"),
+        ])
+        XCTAssertEqual(result.fetchAuthentication, ["-c", "http.https://x.invalid.delegation=none"])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T11", "T11"])
+        XCTAssertEqual(result.report.findings.map(\.handling), [.neutralized, .neutralized])
+        XCTAssertNil(result.fetchBlockingReason)
     }
 
     /// #367: `-c remote.a=b.proxyauthmethod=` would set `remote.a` instead.

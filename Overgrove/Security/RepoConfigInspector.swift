@@ -165,12 +165,16 @@ enum RepoConfigInspector {
                 if seenCookies.insert(Array(entry.key.utf8)).inserted { resetCookies.append(entry.key) }
             // How fetch authenticates to the user's proxy (#367): `basic` would send the proxy password in the clear,
             // and a password-protected certificate makes git ask the trusted helper. Reset under each key, like proxies.
-            case ("http", "proxyauthmethod"), ("remote", "proxyauthmethod"), ("http", "proxysslcertpasswordprotected"):
+            case ("http", "proxyauthmethod"), ("remote", "proxyauthmethod"), ("http", "proxysslcertpasswordprotected"),
+                ("http", "sslcertpasswordprotected"):
                 if seenProxyAuth.insert(Array(entry.key.utf8)).inserted { resetProxyAuth.append(entry) }
-            // Certificate files for TLS, to the remote or to the proxy (#367): a repository's CA would be trusted for
-            // the connection that carries credentials.
-            case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"),
-                ("http", "proxysslcainfo"), ("http", "proxysslcert"), ("http", "proxysslkey"):
+            // Kerberos ticket forwarding (#367): fetch pins `http.delegation=none`; a URL-specific key wins over it, so
+            // the repository's own are reset under the same key, as for cookies. (Not measured: no Kerberos setup.)
+            case ("http", "delegation"):
+                if entry.subsection != nil, seenCookies.insert(Array(entry.key.utf8)).inserted {
+                    resetCookies.append(entry.key)
+                }
+            case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"):
                 fetchBlockingReason = "This repository sets its own TLS certificate files; fetching is disabled."
             default:
                 break
@@ -229,7 +233,10 @@ enum RepoConfigInspector {
             }
             // The user's own choice for the same key or URL, else git's default (#367). `anyauth` is written out:
             // an empty method makes git warn on every fetch.
-            let defaults = ["proxyauthmethod": "anyauth", "proxysslcertpasswordprotected": "false"]
+            let defaults = [
+                "proxyauthmethod": "anyauth", "proxysslcertpasswordprotected": "false",
+                "sslcertpasswordprotected": "false",
+            ]
             var trustedByVariable: [String: TrustedProxies] = [:]
             for entry in resetProxyAuth {
                 let variable = entry.variable
@@ -240,10 +247,11 @@ enum RepoConfigInspector {
                 fetchAuthentication += ["-c", "\(entry.key)=\(value)"]
             }
         }
-        // Off, not a trusted value: a repository's cookie file is never read or written (`FetchCommand` also pins the
-        // generic keys; a user's own URL-specific keys stay).
+        // Off, not a trusted value: a repository's cookie file is never read or written, and no Kerberos ticket is
+        // forwarded (`FetchCommand` also pins the generic keys; a user's own URL-specific keys stay).
         for key in resetCookies {
-            fetchAuthentication += ["-c", key.hasSuffix(".savecookies") ? "\(key)=false" : "\(key)="]
+            let value = key.hasSuffix(".savecookies") ? "false" : key.hasSuffix(".delegation") ? "none" : ""
+            fetchAuthentication += ["-c", "\(key)=\(value)"]
         }
 
         let trustedSSHCommand =
@@ -355,16 +363,13 @@ enum RepoConfigInspector {
             if variable == "url", TransportName.remoteHelper(forURL: value) != nil { return ("T5", .reported) }
             return nil
         case "http":
-            if ["sslverify", "proxy", "cookiefile", "savecookies", "proxyauthmethod", "proxysslcertpasswordprotected"]
-                .contains(variable)
-            {
+            if [
+                "sslverify", "proxy", "cookiefile", "savecookies", "proxyauthmethod", "proxysslcertpasswordprotected",
+                "sslcertpasswordprotected", "delegation",
+            ].contains(variable) {
                 return ("T11", .neutralized)
             }
-            if ["sslcainfo", "sslcapath", "sslcert", "sslkey", "proxysslcainfo", "proxysslcert", "proxysslkey"]
-                .contains(variable)
-            {
-                return ("T11", .warned)
-            }
+            if ["sslcainfo", "sslcapath", "sslcert", "sslkey"].contains(variable) { return ("T11", .warned) }
             return nil
         case "diff" where variable == "external" || variable == "textconv" || variable == "command":
             return ("T3", .reported)

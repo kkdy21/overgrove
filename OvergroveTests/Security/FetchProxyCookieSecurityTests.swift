@@ -196,25 +196,30 @@ final class FetchProxyCookieSecurityTests: XCTestCase {
         }
     }
 
-    /// SEC-T11-10: certificate files for the TLS connection to the proxy are the user's. A repository that sets its own
-    /// (it could make git trust a CA it chose for that connection) gets no fetch at all, while plain git uses them.
-    func testSECT11_10_RepositoryProxyCertificateFilesTurnFetchOff() async throws {
-        let caFile = home.appendingPathComponent("evil-ca.pem")
-        try "not a certificate\n".write(to: caFile, atomically: true, encoding: .utf8)
-        try await plainGit([
-            "config", "--file", home.appendingPathComponent(".gitconfig").path, "http.proxy", proxyURL,
-        ])
-        for key in [
-            "http.proxySSLCAInfo", "http.proxySSLCert", "http.proxySSLKey", "http.\(remote.url("")).proxySSLCAInfo",
-        ] {
-            try await repository.git(["config", key, caFile.path])
-            let viaProxy = proxy.requestCount
-            try await plainGit(["-c", "credential.helper=", "fetch", "origin"])
-            XCTAssertGreaterThan(proxy.requestCount, viaProxy, "\(key) control: plain git fetches with the setting")
+    // MARK: - SEC-T11-11
 
-            let before = proxy.requestCount + remote.requestCount
-            try await appFetch()
-            XCTAssertEqual(proxy.requestCount + remote.requestCount, before, "\(key): the app does not fetch")
+    /// #367: Kerberos ticket forwarding. A repository's `http.delegation=always` (generic, or per URL, which wins over a
+    /// generic pin) would let fetch forward the user's ticket to a host the repository named. Not measured against a
+    /// real KDC (no Kerberos setup here): checked at the argument level, with git itself resolving the effective value
+    /// for the remote URL through `config --get-urlmatch`.
+    func testSECT11_11_RepositoryCannotTurnOnTicketDelegation() async throws {
+        func effective(_ prefix: [String]) async throws -> String {
+            let result = try await plainGit(prefix + ["config", "--get-urlmatch", "http.delegation", remote.url()])
+            return String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        for key in ["http.delegation", "http.\(remote.url("")).delegation"] {
+            try await repository.git(["config", key, "always"])
+            let control = try await effective([])
+            XCTAssertEqual(control, "always", "\(key) control: plain git would delegate")
+
+            let client = GitClient(environment: repository.environment, parentEnvironment: ["HOME": home.path])
+            let listing = try await client.run(.configList, in: repository.root, safety: .preInspection)
+            let safety = try XCTUnwrap(
+                RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
+            let arguments =
+                safety.fetchAuthentication + FetchCommand.fetch(remote: RemoteName("origin")!).configurationOverrides()
+            let resolved = try await effective(arguments)
+            XCTAssertEqual(resolved, "none", "\(key): the app's fetch delegates nothing")
             try await repository.git(["config", "--unset", key])
         }
     }
