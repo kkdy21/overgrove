@@ -40,6 +40,9 @@ enum GitError: Error, Sendable, Equatable {
     case executableNotFound(path: String)
     case launchFailed(errno: Int32)
     case unsupportedVersion(found: GitVersion)
+    /// The git chosen in Settings fails ADR-0019's rules (#106). `path` and `reason` are escaped for display. The
+    /// default git is not used in its place (fail closed).
+    case chosenExecutableRejected(path: String, reason: String)
     case notARepository(detail: MaskedText)
     /// git refused a repository owned by another user. Overgrove never bypasses `safe.directory`.
     case dubiousOwnership(detail: MaskedText)
@@ -205,6 +208,8 @@ enum GitError: Error, Sendable, Equatable {
             "git could not be started (error \(code))."
         case .unsupportedVersion(let found):
             "Overgrove needs git \(GitVersion.minimumSupported) or later (found \(found))."
+        case .chosenExecutableRejected(let path, let reason):
+            "The git chosen in Settings (\(path)) cannot be used: \(reason) Choose another or use the default."
         case .notARepository:
             "This folder is not a Git repository."
         case .dubiousOwnership:

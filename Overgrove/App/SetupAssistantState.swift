@@ -22,10 +22,33 @@ final class SetupAssistantState {
 
     @ObservationIgnored private let gitChecker: any GitSetupChecking
     @ObservationIgnored private let ghChecker: any GHAuthChecking
+    /// Forgets the git chosen in Settings and drops the shared client (ADR-0019 §4, #106); `nil` hides Use Default.
+    @ObservationIgnored private let useDefaultGitAction: (@MainActor () async -> Void)?
 
-    init(gitChecker: any GitSetupChecking, ghChecker: any GHAuthChecking) {
+    init(
+        gitChecker: any GitSetupChecking, ghChecker: any GHAuthChecking,
+        useDefaultGit: (@MainActor () async -> Void)? = nil
+    ) {
         self.gitChecker = gitChecker
         self.ghChecker = ghChecker
+        self.useDefaultGitAction = useDefaultGit
+    }
+
+    var canUseDefaultGit: Bool { useDefaultGitAction != nil }
+
+    /// Use Default, offered when the git chosen in Settings is refused: forget the choice, then check git again.
+    func useDefaultGit() {
+        guard let action = useDefaultGitAction else { return }
+        gitTask?.cancel()
+        git = nil
+        let checker = gitChecker
+        gitTask = Task { [weak self] in
+            await action()
+            guard !Task.isCancelled else { return }
+            let status = await checker.check()
+            guard !Task.isCancelled else { return }
+            self?.git = status
+        }
     }
 
     /// Opens the assistant and checks git and GitHub CLI again.
