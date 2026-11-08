@@ -103,7 +103,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .refs:
             return [
                 "for-each-ref",
-                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)",
+                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)%00%(upstream:remotename)%00%(upstream:remoteref)",
                 "refs/heads", "refs/remotes", "refs/tags",
             ]
         case .aheadBehind(let local, let upstream):
@@ -283,6 +283,9 @@ enum FetchCommand: Sendable, Hashable {
                 // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.40+, #99);
                 // older git ignores the key (security review of #210).
                 "-c", "fetch.bundleURI=",
+                // A repository-local transfer.bundleURI asks the server for bundle URIs. git uses it only for clone
+                // (measured on 2.40.4 to 2.54.0, #195); turned off in case a later git fetch reads it.
+                "-c", "transfer.bundleURI=false",
                 // A cookie file is read into every request, and with saveCookies written back: any path the user can
                 // write. Fetch never needs one. URL-specific keys win over these, so the inspector also resets the
                 // repository's own (#355).

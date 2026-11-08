@@ -143,6 +143,10 @@ extension AppState {
         }
         branchListModel = Self.branchModel(listing)
         issueLinks = IssueLinkIndex(listing: listing)
+        // Like the gh repository below, PR links use only remotes this load inspected (ADR-0023 §4).
+        if isVerified {
+            pullRequestStore.update(branches: listing.refs?.branches ?? [], remotes: listing.githubRemotes)
+        }
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
         // The fallbacks below are the app's choice, not the user's: they replace the current history entry (#378).
         isSelectingAutomatically = true
@@ -166,7 +170,13 @@ extension AppState {
         // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
         // a failed refresh; security review of #81).
         // gh's login state is read alongside, for the status bar (#83); a repository without a GitHub remote runs no gh.
-        if isVerified, issuePanel.show(listing.githubRepository) { checkGitHub() }
+        // Pull requests load at the same times as the issues (ADR-0023 §6).
+        if isVerified, issuePanel.show(listing.githubRepository) {
+            checkGitHub()
+            pullRequestStore.load(listing.githubRepository)
+        } else if isVerified, listing.githubRepository == nil {
+            pullRequestStore.load(nil)
+        }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
         updateGraph(listing)
         // Keep the picked file only while it is still listed in the same group.
@@ -244,9 +254,13 @@ extension AppState {
     /// S-05 for the selected worktree, `nil` unless its `Worktree` segment is shown.
     var worktreeDetailModel: WorktreeDetailModel? {
         guard case .worktreeInfo(let path) = selection, let entry = entry(at: path) else { return nil }
-        return WorktreeDetailModel(
+        var model = WorktreeDetailModel(
             entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date(),
             showsFullRemoteURLs: settings.showsFullRemoteURLs, isUntrusted: isRepositoryUntrusted)
+        model.pullRequest = entry.worktree.branch
+            .flatMap(pullRequestStore.links.pullRequest(forBranch:))
+            .map { PullRequestCardModel($0, repository: pullRequestStore.repository) }
+        return model
     }
 
     /// The open repository is marked untrusted (#107, the registry's flag).

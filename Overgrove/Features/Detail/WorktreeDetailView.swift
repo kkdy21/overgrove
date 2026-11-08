@@ -16,6 +16,7 @@ struct WorktreeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
                 InfoCard(model: model)
+                if let pullRequest = model.pullRequest { PullRequestCard(model: pullRequest) }
                 Button("Compare with Base…") { onCompare?() }
                     .disabled(onCompare == nil)
                     .help("See what this worktree changed compared with its base branch (⌘⇧B)")

@@ -74,6 +74,9 @@ struct WorktreeListing: Sendable, Equatable {
     var githubRepository: GitHubRepository?
     /// The remote `githubRepository` came from (Open on GitHub for its branches, #398).
     var githubRemoteName: String?
+    /// Each inspected remote whose URL is a github.com repository, by remote name: the head repositories a local
+    /// branch's pull request may come from (ADR-0023 §4).
+    var githubRemotes: [String: GitHubRepository] = [:]
 
     /// Some listed worktrees were not queried because of the per-load limit (#226); the sidebar says so (#243).
     var isQueryLimited: Bool {
@@ -94,7 +97,9 @@ extension WorktreeListing {
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
             remoteNames: overview.inspection.remotes.map(\.name.value),
-            githubRepository: github?.repository, githubRemoteName: github?.name)
+            githubRepository: github?.repository, githubRemoteName: github?.name,
+            githubRemotes: GitHubRemote.repositories(
+                remotes: overview.inspection.remotes.map { (name: $0.name.value, url: $0.url) }))
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {

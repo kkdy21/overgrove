@@ -2,8 +2,8 @@ import Foundation
 
 /// Parses `git for-each-ref` output in the `ReadOnlyGitCommand.refs` format (parsing-spec.md §6).
 ///
-/// Each record ends with LF and has eight NUL-separated fields: refname, objectname, `*objectname`, upstream, HEAD,
-/// committer date, symref, and `upstream:track,nobracket`. Ref names cannot contain control characters, so LF is a
+/// Each record ends with LF and has ten NUL-separated fields: refname, objectname, `*objectname`, upstream, HEAD,
+/// committer date, symref, `upstream:track,nobracket`, `upstream:remotename`, and `upstream:remoteref`. Ref names cannot contain control characters, so LF is a
 /// safe record separator.
 ///
 /// Format violations (field count, OIDs, HEAD marker, numbers, track syntax) fail the whole parse: a shifted field
@@ -28,7 +28,7 @@ enum RefParser {
     }
 
     private static let name = "RefParser"
-    private static let fieldCount = 8
+    private static let fieldCount = 10
     private static let lineFeed = UInt8(ascii: "\n")
 
     private static let headsPrefix = "refs/heads/"
@@ -121,7 +121,10 @@ extension RefParser {
                 upstreamStatus: upstreamStatus,
                 isHead: isHead,
                 committerDate: date,
-                symbolicTarget: symref
+                symbolicTarget: symref,
+                // Only matched against gh's head branch (ADR-0023 §4), never passed back to git.
+                upstreamRemote: kind == .local ? utf8(fields[8]) : nil,
+                upstreamRemoteRef: kind == .local ? utf8(fields[9]) : nil
             )
         )
     }
@@ -134,6 +137,11 @@ extension RefParser {
 
     private static func fail(_ token: Token, _ reason: String, in data: Data) -> ParseError {
         ParseError(parser: name, offset: offset(of: token, in: data), reason: reason)
+    }
+
+    /// Valid UTF-8 text, or `nil` when empty or not UTF-8.
+    private static func utf8(_ token: Token) -> String? {
+        token.isEmpty ? nil : String(data: Data(token), encoding: .utf8)
     }
 
     /// A full ref name that can be passed back to git unchanged (valid UTF-8, accepted by `FullRefName`), or `nil`.

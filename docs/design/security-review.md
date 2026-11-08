@@ -33,6 +33,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 - 저장소 파일과 `.git` 디렉터리 내용을 마음대로 만들 수 있다 (악성 저장소를 배포하는 공격자).
 - 원격 서버를 운영할 수 있다 (악성 원격).
 - 사용자를 속여 앱에 저장소를 등록하게 할 수 있다.
+- 공개 저장소에 fork PR을 열 수 있다. head 브랜치 이름은 마음대로 정한다(PR 상태 표시의 사칭, T9 대응 8, ADR-0023).
 - 사용자 계정의 global 설정과 앱 바이너리는 바꿀 수 없다.
 
 ---
@@ -194,8 +195,9 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   5. ref는 `refs/`로 시작하는 전체 이름만 인자로 쓴다. 제어 문자, 공백, `..`, `-` 시작 구성 요소가 있으면 거부한다.
   6. 리비전 인자 앞에 `--end-of-options`를 둔다. `log`, `rev-list`, `diff-tree`, `stash show`, `fetch`에서 동작을 확인했다.
   7. `git check-ref-format`은 `--` 구분자를 지원하지 않아(확인) 검증에 쓰지 않는다. 검증은 앱 코드에서 한다.
+  8. gh 출력의 값으로 앱의 대상을 정하지 않는다. PR 상태(v0.2.0, ADR-0023)는 고정 인자의 `gh pr list --repo OWNER/NAME` 하나로 읽고, PR을 로컬 브랜치에 잇는 것은 head 저장소 소유자·이름과 브랜치 이름이 모두 브랜치의 upstream 원격과 맞을 때뿐이다. 브랜치 이름만으로 잇지 않는다(fork PR 사칭). 소유자·저장소 이름은 ASCII 대소문자 무시, 브랜치 이름은 바이트로 비교하고, head 저장소가 null이거나 비어 있는 PR(fork를 지운 PR 등)은 어디에도 잇지 않되 목록 전체를 실패로 보지 않는다. PR 제목·기준 브랜치 이름은 표시 전에 이스케이프하고(head 로그인·브랜치 이름은 화면에 쓰지 않는다), PR URL은 조회한 저장소의 `https://github.com/OWNER/NAME/pull/<그 번호>`일 때만 연다. 잔여 위험: 잇기는 저장소 설정(`remote.<n>.url`)을 믿는 만큼만 믿을 수 있다(조회 대상이 이미 그 설정으로 정해지는 이슈 패널과 같다). 검증은 SEC-T9-06·07(#115).
 - **잔여 위험**: 낮음. 모든 인자는 git 출력에서 온 값이고, 사용자가 직접 입력하는 값(검색어)은 git에 넘기지 않는다.
-- **검증**: SEC-T9-01 (모든 case의 최종 인자 배열 스냅샷. 기준 브랜치 비교의 기준 ref는 `--end-of-options` 뒤, 파일은 `--` 뒤, #157), SEC-T9-02 (ref 검증: `-x`, `refs/heads/a..b`, 제어 문자 거부), SEC-T9-03 (파일명 `-x`, `--output=x`, `:(exclude)x`, `*`로 diff·이력 → 해당 파일만 대상, 부수 파일 생성 없음), SEC-T9-04 (OID 검증), SEC-T9-05 (원격 URL → gh `--repo` 값: github.com 세 형식의 `OWNER/NAME`만. `-` 시작·비ASCII·userinfo·포트·다른 호스트·경로 추가 거부, #81)
+- **검증**: SEC-T9-01 (모든 case의 최종 인자 배열 스냅샷. 기준 브랜치 비교의 기준 ref는 `--end-of-options` 뒤, 파일은 `--` 뒤, #157), SEC-T9-02 (ref 검증: `-x`, `refs/heads/a..b`, 제어 문자 거부), SEC-T9-03 (파일명 `-x`, `--output=x`, `:(exclude)x`, `*`로 diff·이력 → 해당 파일만 대상, 부수 파일 생성 없음), SEC-T9-04 (OID 검증), SEC-T9-05 (원격 URL → gh `--repo` 값: github.com 세 형식의 `OWNER/NAME`만. `-` 시작·비ASCII·userinfo·포트·다른 호스트·경로 추가 거부, #81), SEC-T9-06 (PR 잇기: 같은 이름의 fork PR·저장소 이름만 다른 PR은 잇지 않음, fork 흐름은 fork 원격과 맞음, 소유자·이름은 ASCII 대소문자만 무시하고 전각 문자는 다름, 브랜치는 NFC/NFD까지 바이트 비교, 로컬 이름이 아니라 원격 ref로 맞춤, `/`가 든 원격 이름, upstream 없음·로컬 upstream·github.com 밖 원격·`refs/heads/` 밖 ref는 잇지 않음, head 없는 PR은 건너뛰고 다른 PR은 유지, ADR-0023 §4), SEC-T9-07 (적대적 PR JSON: 번호·상태·URL이 틀린 항목과 배열 아닌 항목은 그 항목만 버림, head가 없거나 null·빈 값이면 목록에 두되 잇지 않음, 제목·기준 브랜치의 제어·bidi 문자 이스케이프, Open in Browser는 조회한 저장소의 그 번호 PR 주소일 때만, ADR-0023 §3)
 - **상태**: 설계 완료
 
 ### T10. 부모 환경 변수 상속
@@ -252,7 +254,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **fetch 범위 고정(#209)**: 저장소 설정이 이 범위를 넓히지 못하게 fetch 인자에 고정한다. refspec `+refs/heads/*:refs/remotes/<원격>/*`와 `--refmap=`, `--no-tags`, `-c fetch.pruneTags=false -c remote.<원격>.pruneTags=false -c fetch.bundleURI=`를 쓴다([카탈로그 §4](../architecture/git-command-catalog.md)). 고정하기 전에는 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`(detached HEAD)가 로컬 브랜치를 지우고 `main`을 되돌렸다. 로컬 `fetch.pruneTags`는 로컬 태그를 지웠다(#206 보안 검토, E40).
 - **잔여 위험**: 낮음. #94의 테스트와 리뷰에서 찾은 두 결함, `git diff`의 index 쓰기(#208)와 저장소 설정에 의한 fetch 범위 확대(#209)는 고쳤다.
   - `--no-tags` 때문에 원격에만 있는 새 태그는 v0.1에서 가져오지 않는다(의도된 동작, #209).
-- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. stat만 바뀐 파일의 worktree diff와 기준 브랜치 비교(`git diff --merge-base`, 작업 트리 포함, #157)도 불변이고, `diff.autoRefreshIndex=false`를 빼면 다시 쓰는 대조군 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인), SEC-T13-04 (로컬 `remote.<n>.fetch`·`fetch.pruneTags`·`remote.<n>.pruneTags`·`tagOpt`·`fetch.bundleURI`를 심은 저장소에서 앱 fetch 뒤 `refs/remotes/` 밖의 모든 ref와 HEAD 불변, 대조군(고정 전 인자)에서는 브랜치·태그 삭제, `main` 이동, `refs/bundles/*` 생성), SEC-T13-05 (이슈의 `Open in Browser`는 정확히 `https://github.com/OWNER/NAME/issues/<번호>`일 때만 `NSWorkspace`에 넘김. 다른 번호·`pull`·경로 추가·쿼리·조각·사용자 정보·포트 거부, #81), SEC-T13-06 (실제 git: 저장소 밖 위치를 가리키는 `extensions.refStorage`는 보고되고 앱이 fetch하지 않으며 밖에 아무것도 쓰지 않음. 대조군인 평범한 git 2.54는 밖에 ref와 reflog를 씀. 이 확장을 모르는 git은 git 디렉터리를 무시해 저장소 명령이 스스로 실패함, #356)
+- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. stat만 바뀐 파일의 worktree diff와 기준 브랜치 비교(`git diff --merge-base`, 작업 트리 포함, #157)도 불변이고, `diff.autoRefreshIndex=false`를 빼면 다시 쓰는 대조군 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인), SEC-T13-04 (로컬 `remote.<n>.fetch`·`fetch.pruneTags`·`remote.<n>.pruneTags`·`tagOpt`·`fetch.bundleURI`를 심은 저장소에서 앱 fetch 뒤 `refs/remotes/` 밖의 모든 ref와 HEAD 불변, 대조군(고정 전 인자)에서는 브랜치·태그 삭제, `main` 이동, `refs/bundles/*` 생성), SEC-T13-05 (이슈의 `Open in Browser`는 정확히 `https://github.com/OWNER/NAME/issues/<번호>`일 때만 `NSWorkspace`에 넘김. 다른 번호·`pull`·경로 추가·쿼리·조각·사용자 정보·포트 거부, #81), SEC-T13-06 (실제 git: 저장소 밖 위치를 가리키는 `extensions.refStorage`는 보고되고 앱이 fetch하지 않으며 밖에 아무것도 쓰지 않음. 대조군인 평범한 git 2.54는 밖에 ref와 reflog를 씀. 이 확장을 모르는 git은 git 디렉터리를 무시해 저장소 명령이 스스로 실패함, #356), SEC-T13-07 (저장소 로컬 `transfer.bundleURI`는 T13으로 보고하고, 서버가 bundle URI를 광고해도 앱 fetch와 그냥 fetch 모두 따르지 않음. clone 대조군은 따름, #195)
 - **상태**: 설계 완료 (정적 검사 스크립트는 저장소 셋업에서 적용)
 
 ### T14. 파일 시스템 범위 이탈, 심볼릭 링크 탈출
@@ -486,6 +488,7 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^remote\.<n>\.fetch$` (대상이 `refs/remotes/<n>/` 밖. 대상 없는 refspec과 `^` negative refspec 제외) | 쓰기 | **무력화**: fetch는 명령줄 refspec + `--refmap=`만 쓴다 (#209) | T13 |
 | `^fetch\.prunetags$`, `^remote\..+\.prunetags$`, `^remote\..+\.tagopt$` | 쓰기 | **무력화**: `-c …pruneTags=false`, `--no-tags` (#209) | T13 |
 | `^fetch\.bundleuri$` | 쓰기·전송 | **무력화**: `-c fetch.bundleURI=` (임의 URI에서 bundle을 받아 `refs/bundles/*`를 쓰는 것을 막음, #210 보안 검토) | T13 |
+| `^transfer\.bundleuri$` | 전송 | **무력화**: `-c transfer.bundleURI=false` (fetch). git은 이 키를 clone에만 쓴다(E47, #195). 나중 git이 fetch에서도 읽을 때를 대비한 심층 방어 | T13 |
 | `^remote\..+\.mirror$` | 쓰기 | 보고 (fetch는 명령줄 refspec만 쓰므로 영향 없음, #209) | T13 |
 | `^url\..+\.(insteadof\|pushinsteadof)$` | 전송 | 보고 | T5 |
 | `^http\.(.+\.)?(sslcainfo\|sslcapath\|sslcert\|sslkey)$` | 전송 보안 | 경고 + **fetch 차단** (조회는 허용). 프록시 TLS 인증서 파일·`curloptResolve`는 아래 #356 행 | T11 |
@@ -586,6 +589,7 @@ Phase 2에서 Apple Git 2.50.1 (Apple Git-155), gh 2.95.0으로 격리된 임시
 | E44 | git 호환성 매트릭스: git 2.36.6(kernel.org tarball 소스 빌드), Apple Git 2.54.0 (Apple Git-157), Homebrew git 2.54.0으로 INT·SEC를 포함한 전체 테스트 실행. 보조로 2.39.5·2.40.4 (#99, [보고서](../qa/reports/2026-11-08-git-compatibility.md)) | 어느 버전에서도 canary가 실행되지 않음. 차이는 옛 git에 없는 기능(아래 도입 버전)뿐이고, 테스트의 대조군·픽스처만 영향을 받음. 앱 동작 차이는 E45의 오류 분류 하나 |
 | E45 | E42의 partial 저장소 + 로컬 `remote.origin.uploadpack` canary에서 blob이 필요한 쿼리(`diff-tree -p` 등)를 앱 환경으로 실행 (git 2.36.6·2.39.5·2.40.4, #99) | 세 버전 모두 canary 실행 안 됨. 2.36.6은 `GIT_NO_LAZY_FETCH`가 없는 git이라 lazy fetch를 시도하고, 빈 `GIT_ALLOW_PROTOCOL`이 막는다. stderr는 `fatal: transport 'file' not allowed`(2회) + `fatal: unable to read <oid>`뿐이다. 2.39.5·2.40.4는 이 변수가 백포트된 버전이라 `warning: lazy fetching disabled …` + `fatal: could not fetch <oid> from promisor remote`를 낸다(2.54.0과 같음). 이 변수는 2024년 5월 보안 릴리스에서 2.44.1과 백포트 2.39.4·2.40.2·2.41.1·2.42.2·2.43.4로 들어왔다. 그러니 "변수가 없는 git"은 2.36–2.44.0 중 백포트가 없는 버전이다(처음 기록의 "2.36–2.43은 무시"는 틀림, #303·#317). 2.36.6 형태는 `GitError`가 `transportNotAllowed`로 잘못 분류했는데, #303에서 `partialCloneObjectMissing`으로 고쳤다 |
 | E46 | 로컬 `fetch.bundleURI`(평범한 bundle 파일) + `-c fetch.bundleURI=` 없이 fetch (E40의 대조군, git 2.39.5·2.40.4, #99) | 2.39.5는 키를 무시해 `refs/bundles/*`를 쓰지 않음. 2.40.4부터 씀. 앱의 `-c fetch.bundleURI=`는 두 경우 모두 무해 |
+| E47 | 서버가 `uploadpack.advertiseBundleURIs`와 `bundle.*`로 bundle 목록을 광고하고 클라이언트 저장소에 `transfer.bundleURI=true`. 앱 인자 없이 `fetch` (git 2.40.4, 2.45.1, Apple Git 2.54.0, Homebrew 2.54.0) | 네 버전 모두 fetch는 `bundle-uri` 명령을 보내지 않고 `refs/bundles/*`도 없다(`GIT_TRACE_PACKET`). 같은 설정의 `clone`은 bundle을 받는다(2.40.4·Homebrew 2.54.0 trace, Apple 2.54.0 SEC-T13-07 대조군). 덧붙여 2.40.4는 `-c fetch.bundleURI=`(빈 값)에 `failed to download bundle from URI ''` 경고 두 줄만 남기고 fetch는 성공한다. 2.41.0 소스부터 빈 값을 건너뛴다(#195) |
 
 릴리스 노트로 확인한 도입 버전은 다음과 같다. `--end-of-options` 2.24, `config --show-scope` 2.26, `git maintenance` 2.29, `--diff-merges` 2.31, `stash show --include-untracked` 2.32, porcelain v2 `--show-stash` 2.35, `worktree list -z` 2.36, `--attr-source` 2.41. 호환성 매트릭스(#99)에서 테스트에 영향을 준 것은 `fetch.bundleURI` 2.40(E46에서 실측), `worktree add --orphan` 2.42, `GIT_NO_LAZY_FETCH` 2.44, `diff.srcPrefix`·`diff.dstPrefix` 2.45, fetch가 `refs/remotes/<원격>/HEAD`를 자동으로 만드는 동작 2.48이다.
 

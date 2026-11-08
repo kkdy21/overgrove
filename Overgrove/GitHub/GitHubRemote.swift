@@ -21,6 +21,15 @@ enum GitHubRemote {
         }.first
     }
 
+    /// Every remote whose URL is a github.com repository, by name. A name listed twice keeps its first URL.
+    static func repositories(remotes: [(name: String, url: String)]) -> [String: GitHubRepository] {
+        var result: [String: GitHubRepository] = [:]
+        for remote in remotes where result[remote.name] == nil {
+            if let repository = repository(fromURL: remote.url) { result[remote.name] = repository }
+        }
+        return result
+    }
+
     /// `OWNER/NAME` from `https://github.com/OWNER/NAME(.git)?`, `git@github.com:OWNER/NAME(.git)?`, or
     /// `ssh://git@github.com/OWNER/NAME(.git)?`. Compared in UTF-8 bytes, so a combining mark cannot join a `/`;
     /// `GitHubRepository` then allows ASCII names only.

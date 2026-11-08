@@ -137,7 +137,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `configList` | `["config", "--list", "--show-scope", "-z", "--includes"]` | 저장소 경로 | `ConfigParser` → 보안 보고서, 원격 목록 | T4–T8 |
 | `worktreeList` | `["worktree", "list", "--porcelain", "-z"]` | 저장소 경로 | `WorktreeParser` → `[Worktree]` | — |
 | `status` | `["status", "--porcelain=v2", "-z", "--branch", "--show-stash", "--untracked-files=all", "--ignore-submodules=dirty"]` | 워크트리 경로 | `StatusParser` → `WorkingState`, `UpstreamStatus` | T1, T4 |
-| `refs` | `["for-each-ref", "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)", "refs/heads", "refs/remotes", "refs/tags"]` | 저장소 경로 | `RefParser` → `[Branch]`, `[Tag]` (로컬 브랜치의 ahead/behind 포함) | — |
+| `refs` | `["for-each-ref", "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)%00%(upstream:remotename)%00%(upstream:remoteref)", "refs/heads", "refs/remotes", "refs/tags"]` | 저장소 경로 | `RefParser` → `[Branch]`, `[Tag]` (로컬 브랜치의 ahead/behind, upstream 원격 이름과 원격 ref 포함. 뒤의 둘은 PR 잇기용, ADR-0023) | — |
 | `aheadBehind(local:upstream:)` | `["rev-list", "--left-right", "--count", "--end-of-options", "<upstream full ref>...<local full ref>"]` | 저장소 경로 | `RevListParser` → (behind, ahead) | T9 |
 | `stashList` | `["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct%x00%P", "refs/stash", "--"]` | 저장소 경로 | `StashParser` → `[Stash]`. `%P`는 기준 커밋(첫 부모)과 index·untracked 커밋 유무(S-04, #71). `git stash list`가 내부에서 실행하는 reflog 조회와 같은 바이트를 내지만(Apple Git 2.50.1, git 2.54.0에서 비교), `stash list`와 달리 작업 트리가 필요 없어 bare 저장소에서도 동작한다(#222). `refs/stash`가 없으면 빈 출력이다 | T7 (공통 `-c log.showSignature=false`) |
 | `stashFiles(oid:)` | `["stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>"]` | 저장소 경로. `stash show`는 작업 트리가 필요하므로 bare 저장소에서는 검증된 링크 워크트리에서 실행한다(#222) | `NumstatParser` → `StashDetail` | T3, T9 |
@@ -225,12 +225,13 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
     - `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false`: 이중 방어.
     - `-c fetch.writeCommitGraph=false`: fetch 뒤 commit-graph 파일 쓰기를 끈다.
     - `-c fetch.bundleURI=`: 로컬 `fetch.bundleURI`(git 2.40+, #99 호환성 매트릭스에서 2.39.5·2.40.4로 확인)가 있으면 fetch가 그 URI(원격이 아닌 임의 위치)에서 bundle을 받아 `refs/bundles/*`를 쓴다. bundle list가 `creationToken`을 쓰면 `.git/config`에 `fetch.bundleCreationToken`까지 기록한다(#210 보안 검토, 확인). 빈 값이면 꺼진다. 2.40 미만 git은 이 키를 무시한다.
+    - `-c transfer.bundleURI=false`: 로컬 `transfer.bundleURI`는 서버가 광고한 bundle URI를 따르게 하는데, git은 clone에만 쓴다(security-review.md E47, #195). 나중 git이 fetch에서도 읽을 때를 대비해 끈다. 2.40.x는 위의 빈 `fetch.bundleURI`에 경고 두 줄(`failed to download bundle from URI ''`, `failed to fetch bundles from ''`)을 남기지만 fetch는 성공한다. 2.41.0부터는 빈 값을 건너뛴다.
     - `-c http.cookieFile= -c http.saveCookies=false`: generic 키의 쿠키 파일 읽기와 저장을 끈다(저장소 값과 사용자 값 모두). 저장소의 URL별 키는 §2.3이 같은 키로 끈다. 사용자(신뢰 scope)의 URL별 키는 그대로 둔다(#355).
     - `-c http.delegation=none`: Kerberos 티켓 위임을 끈다(저장소 값과 사용자 generic 값 모두. `always`면 저장소가 고른 원격 호스트에 티켓이 갈 수 있다). fetch에는 필요 없다. 저장소의 URL별 키는 inspector가 같은 키로 끈다. 사용자의 URL별 키는 그대로 둔다(#367).
     - `-c credential.protectProtocol=true -c credential.sanitizePrompt=true`: git의 자격 증명 CVE 수정(CVE-2024-52006, CVE-2024-50349)을 저장소가 끄지 못하게 한다. URL별 키는 §2.3이 같은 키로 켠다(#356).
     - `-c transfer.credentialsInUrl=die`: URL에 비밀번호가 있으면 접속 전에 실패한다(2.37+). 그 미만 git은 키를 무시하므로 `RepoConfigInspector.remotesWithPassword`가 그 원격을 미리 거부한다(#356).
     - `-c promisor.acceptFromServer=none`: 서버가 광고하는 promisor 원격을 받지 않는다(2.49+, #356).
-  - `RepoConfigInspector`는 로컬 `remote.<n>.fetch`(대상이 `refs/remotes/<n>/` 밖), `fetch.pruneTags`, `remote.<n>.pruneTags`, `remote.<n>.tagOpt`, `fetch.bundleURI`, `remote.<n>.mirror`를 보고한다(SEC-T13-04).
+  - `RepoConfigInspector`는 로컬 `remote.<n>.fetch`(대상이 `refs/remotes/<n>/` 밖), `fetch.pruneTags`, `remote.<n>.pruneTags`, `remote.<n>.tagOpt`, `fetch.bundleURI`, `transfer.bundleURI`, `remote.<n>.mirror`를 보고한다(SEC-T13-04, `transfer.bundleURI`는 SEC-T13-07).
   - 남는 한계: 설정 파일을 직접 고치면 원격 `a`와 `a/b`를 함께 둘 수 있다. 이때 `a`를 fetch하면 `--prune`이 `refs/remotes/a/b/*`를 지운다. 고정 전에도 같았고 피해는 `refs/remotes` 안으로 한정되며 다시 fetch하면 복구된다(#210 보안 검토).
 - `--progress`의 stderr 진행 메시지(`Receiving objects:  45% (...)`)는 `LC_ALL=C`에서 영어로 고정된다. git이 실행되는 동안 `FetchProgressParser`가 읽어 진행률로 쓰고, 파싱에 실패하면 무시한다([parsing-spec.md §11.4](parsing-spec.md)). `remote:` 줄은 서버가 쓰므로 단계와 숫자만 꺼내고 문자열은 넘기지 않는다.
 - 실행 방식(`GitClient.fetch`, #76): 저장소당 하나씩(`Repository.id` 기준) 요청 순서대로, 앱 전체에서 동시에 최대 2개. 조회 슬롯(4개)과 따로 센다. Task를 취소하면 프로세스 그룹을 종료하고(SIGTERM → 2초 → SIGKILL) `GitError.cancelled`, 120초가 지나면 `GitError.timeout`을 던진다.
@@ -265,6 +266,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `version` | `["--version"]` | 첫 줄 `gh version X.Y.Z (...)` | 온보딩 표시 |
 | `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
 | `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
+| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 머지·닫힌 PR 중 최근에 만든 200개(gh 기본 정렬, gh 2.95.0 확인). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
 
 실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
 
@@ -321,6 +323,6 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 다음은 1차 범위에서 **어떤 형태로도 실행하지 않는다**. 코드 리뷰와 `security-reviewer` 에이전트가 이 목록을 기준으로 검사한다.
 
-`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr *`, `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`.
+`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr list` 밖의 모든 `gh pr`(ADR-0023), `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`.
 
 `config`는 `--list --show-scope -z --includes` 조합만 허용한다.
