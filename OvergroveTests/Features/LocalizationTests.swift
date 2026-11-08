@@ -29,6 +29,8 @@ final class LocalizationTests: XCTestCase {
         "TerminalGuard", "AppState+Registration", "RepositoryRegistrar",
         // #454: S-05 (the Copy Report text stays English: SecurityReportTests)
         "WorktreeDetailModel", "WorktreeDetailView",
+        // #454: summaries and guidance the app writes; git's and gh's own output and copyable commands stay as they are
+        "GitError", "FetchFailureGuidance",
     ]
     /// Files with translated strings among others: only these keys are checked.
     private static let translatedKeysIn = [

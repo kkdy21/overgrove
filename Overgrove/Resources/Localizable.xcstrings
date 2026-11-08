@@ -557,6 +557,16 @@
         }
       }
     },
+    "A name looked unsafe, so the command was not run." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "안전하지 않아 보이는 이름이 있어 명령을 실행하지 않았습니다."
+          }
+        }
+      }
+    },
     "A worktree is checked out at this commit" : {
       "localizations" : {
         "ko" : {
@@ -583,6 +593,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AI 지원"
+          }
+        }
+      }
+    },
+    "Access to %@ was denied" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 접근 거부"
           }
         }
       }
@@ -723,6 +743,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "앱"
+          }
+        }
+      }
+    },
+    "Authentication failed for %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 인증 실패"
+          }
+        }
+      }
+    },
+    "Authentication with the remote failed. Check your git credentials in Terminal." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 인증에 실패했습니다. 터미널에서 git 자격 증명을 확인하세요."
           }
         }
       }
@@ -914,6 +954,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "다시 확인"
+          }
+        }
+      }
+    },
+    "Check the remote's URL. If the repository is private, missing access can look the same." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 URL을 확인하세요. 비공개 저장소라면 접근 권한이 없을 때도 같은 오류가 납니다."
+          }
+        }
+      }
+    },
+    "Check your network connection, VPN, or proxy, then try again." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "네트워크 연결, VPN, 프록시를 확인한 뒤 다시 시도하세요."
           }
         }
       }
@@ -1441,6 +1501,26 @@
         }
       }
     },
+    "Could not reach %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에 연결하지 못함"
+          }
+        }
+      }
+    },
+    "Could not read the repository's configuration" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 설정을 읽지 못함"
+          }
+        }
+      }
+    },
     "Couldn’t Add Repository" : {
       "localizations" : {
         "ko" : {
@@ -1718,6 +1798,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "페치 완료"
+          }
+        }
+      }
+    },
+    "Fetch timed out after %lld s" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld초 후 페치 시간 초과"
+          }
+        }
+      }
+    },
+    "Fetching %@ is turned off for this repository" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소에서는 %@ 페치가 꺼져 있습니다"
           }
         }
       }
@@ -2516,6 +2616,16 @@
         }
       }
     },
+    "No remotes configured" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정된 원격 없음"
+          }
+        }
+      }
+    },
     "No repositories yet." : {
       "localizations" : {
         "ko" : {
@@ -2706,6 +2816,16 @@
         }
       }
     },
+    "Only https, ssh, git, http, and local file remotes can be fetched." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https, ssh, git, http, 로컬 파일 원격만 페치할 수 있습니다."
+          }
+        }
+      }
+    },
     "Open Repository" : {
       "localizations" : {
         "ko" : {
@@ -2806,6 +2926,26 @@
         }
       }
     },
+    "Overgrove could not inspect this repository's configuration, so it stopped querying it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove가 이 저장소의 설정을 검사하지 못해 조회를 멈췄습니다."
+          }
+        }
+      }
+    },
+    "Overgrove could not read this repository's configuration, so it did not fetch. Refresh (⌘R) to try again." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove가 이 저장소의 설정을 읽지 못해 페치하지 않았습니다. 다시 시도하려면 새로 고치세요(⌘R)."
+          }
+        }
+      }
+    },
     "Overgrove could not run git." : {
       "localizations" : {
         "ko" : {
@@ -2816,12 +2956,82 @@
         }
       }
     },
+    "Overgrove could not understand git's output. Please report this as a bug." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove가 git 출력을 해석하지 못했습니다. 버그로 알려 주세요."
+          }
+        }
+      }
+    },
+    "Overgrove does not fetch %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove는 %@을(를) 페치하지 않습니다"
+          }
+        }
+      }
+    },
+    "Overgrove does not fetch %@ with this git" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 git으로는 Overgrove가 %@을(를) 페치하지 않습니다"
+          }
+        }
+      }
+    },
+    "Overgrove does not fetch remotes that use the '%@' transport." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove는 '%@' 전송 방식을 쓰는 원격을 페치하지 않습니다."
+          }
+        }
+      }
+    },
+    "Overgrove does not prompt for passwords; it uses the credentials your Git setup already stores." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove는 비밀번호를 묻지 않고, Git 설정에 이미 저장된 자격 증명을 씁니다."
+          }
+        }
+      }
+    },
     "Overgrove does not query this worktree entry, so its configuration is not inspected." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove가 이 워크트리 항목을 조회하지 않으므로 설정을 검사하지 않습니다."
+          }
+        }
+      }
+    },
+    "Overgrove needs git %@ or later (found %@)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove에는 git %1$@ 이상이 필요합니다(찾은 버전: %2$@)."
+          }
+        }
+      }
+    },
+    "Overgrove never accepts host keys on its own. Compare the server's fingerprint with the one your Git host publishes, then accept the key outside Overgrove." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove는 호스트 키를 스스로 받아들이지 않습니다. 서버의 지문을 Git 호스트가 공개한 지문과 비교한 뒤 Overgrove 밖에서 키를 받아들이세요."
           }
         }
       }
@@ -3224,6 +3434,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "포커스된 워크트리를 Finder에서 보기"
+          }
+        }
+      }
+    },
+    "Run \"%@\" in Terminal %@. Terminal git also runs the repository's own hooks and settings, which Overgrove turns off, so do this only for a repository you trust." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ 터미널에서 \"%1$@\"을(를) 실행하세요. 터미널의 git은 Overgrove가 끄는 저장소 자체의 훅과 설정도 실행하므로, 신뢰하는 저장소에서만 하세요."
           }
         }
       }
@@ -3742,6 +3962,36 @@
         }
       }
     },
+    "The SSH host key of %@ has changed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 SSH 호스트 키가 바뀜"
+          }
+        }
+      }
+    },
+    "The SSH host key of %@ is not trusted yet" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 SSH 호스트 키를 아직 믿지 않음"
+          }
+        }
+      }
+    },
+    "The SSH key was rejected for %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 SSH 키를 거부함"
+          }
+        }
+      }
+    },
     "The folder could not be found." : {
       "localizations" : {
         "ko" : {
@@ -3782,6 +4032,16 @@
         }
       }
     },
+    "The git chosen in Settings (%@) cannot be used: %@ Choose another or use the default." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정에서 고른 git(%1$@)을 사용할 수 없습니다: %2$@ 다른 git을 고르거나 기본값을 쓰세요."
+          }
+        }
+      }
+    },
     "The git chosen in Settings cannot be used" : {
       "localizations" : {
         "ko" : {
@@ -3808,6 +4068,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "네트워크 동작은 git fetch 하나뿐입니다. 저장소의 내용은 어떤 것도 바꾸지 않습니다."
+          }
+        }
+      }
+    },
+    "The output was too large; only part of it is shown." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "출력이 너무 커서 일부만 보입니다."
           }
         }
       }
@@ -3842,12 +4112,112 @@
         }
       }
     },
+    "The remote %@ did not finish in time. Try again." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 %@이(가) 시간 안에 끝나지 않았습니다. 다시 시도하세요."
+          }
+        }
+      }
+    },
+    "The remote accepted your credentials, but this account cannot read the repository. Check that you have access, or sign in with another account." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격이 자격 증명은 받아들였지만 이 계정으로는 저장소를 읽을 수 없습니다. 접근 권한이 있는지 확인하거나 다른 계정으로 로그인하세요."
+          }
+        }
+      }
+    },
+    "The remote could not be reached." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격에 연결하지 못했습니다."
+          }
+        }
+      }
+    },
+    "The remote denied access to this repository." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격이 이 저장소에 대한 접근을 거부했습니다."
+          }
+        }
+      }
+    },
+    "The remote repository was not found." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 저장소를 찾지 못했습니다."
+          }
+        }
+      }
+    },
+    "The repository for %@ was not found" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 저장소를 찾지 못함"
+          }
+        }
+      }
+    },
     "The repository’s settings could not be checked." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "저장소 설정을 확인하지 못했습니다."
+          }
+        }
+      }
+    },
+    "The server did not accept any of your SSH keys. Check that your key is loaded in the SSH agent (\"ssh-add -l\"; add it with \"ssh-add --apple-use-keychain\")." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 SSH 키를 하나도 받아들이지 않았습니다. 키가 SSH 에이전트에 올라가 있는지 확인하세요(\"ssh-add -l\", 추가는 \"ssh-add --apple-use-keychain\")."
+          }
+        }
+      }
+    },
+    "The server rejected your SSH key. Check your SSH agent in Terminal." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버가 SSH 키를 거부했습니다. 터미널에서 SSH 에이전트를 확인하세요."
+          }
+        }
+      }
+    },
+    "The server's SSH host key has changed. Verify it before trusting the new key." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버의 SSH 호스트 키가 바뀌었습니다. 새 키를 믿기 전에 확인하세요."
+          }
+        }
+      }
+    },
+    "The server's SSH host key is not trusted yet. Connect once in Terminal to verify it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서버의 SSH 호스트 키를 아직 믿지 않습니다. 터미널에서 한 번 연결해 확인하세요."
           }
         }
       }
@@ -3872,12 +4242,42 @@
         }
       }
     },
+    "The worktree folder no longer exists." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 폴더가 더 이상 없습니다."
+          }
+        }
+      }
+    },
     "The worktree list could not be read, so this comparison may be out of date." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "워크트리 목록을 읽지 못해 이 비교는 최신이 아닐 수 있습니다."
+          }
+        }
+      }
+    },
+    "This branch shares no history with the base branch, so there is nothing to compare." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 브랜치는 기준 브랜치와 공유하는 이력이 없어 비교할 것이 없습니다."
+          }
+        }
+      }
+    },
+    "This can mean someone is intercepting the connection. Do not remove the old key until you have confirmed the new fingerprint with your Git host. A host alias in your SSH config may be stored under its alias instead of this name." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "누군가 연결을 가로채고 있을 수 있습니다. Git 호스트에서 새 지문을 확인하기 전에는 예전 키를 지우지 마세요. SSH 설정의 호스트 별칭은 이 이름 대신 별칭으로 저장되어 있을 수 있습니다."
           }
         }
       }
@@ -3908,6 +4308,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이 폴더는 저장소 폴더가 아니라 Git 디렉터리(.git 등)이거나 그 안의 폴더입니다. 저장소나 그 워크트리를 고르세요. 베어 저장소(repo.git 등)는 직접 고를 수 있습니다."
+          }
+        }
+      }
+    },
+    "This folder is not a Git repository." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 폴더는 Git 저장소가 아닙니다."
+          }
+        }
+      }
+    },
+    "This remote uses a transport that Overgrove blocks for security." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 원격은 Overgrove가 보안 때문에 막는 전송 방식을 씁니다."
+          }
+        }
+      }
+    },
+    "This remote uses a transport that Overgrove does not allow." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 원격은 Overgrove가 허용하지 않는 전송 방식을 씁니다."
+          }
+        }
+      }
+    },
+    "This repository has no remote to fetch from. Add one in Terminal with \"git remote add\"." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소에는 페치할 원격이 없습니다. 터미널에서 \"git remote add\"로 추가하세요."
+          }
+        }
+      }
+    },
+    "This repository has settings or hooks that Overgrove turned off for safety (see its security report). Terminal git would apply them, so review them before you run git in this repository." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소에는 Overgrove가 안전을 위해 끈 설정이나 훅이 있습니다(보안 보고서 참고). 터미널의 git은 이를 적용하므로, 이 저장소에서 git을 실행하기 전에 검토하세요."
+          }
+        }
+      }
+    },
+    "This repository is a partial clone and does not have this content locally. Overgrove does not download missing objects." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소는 부분 클론이라 이 내용이 로컬에 없습니다. Overgrove는 없는 객체를 내려받지 않습니다."
           }
         }
       }
@@ -3988,6 +4448,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "docs/design/security-review.md의 위협 %@"
+          }
+        }
+      }
+    },
+    "To list the configured URLs, run \"%@\" in Terminal; do this only for a repository you trust." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정된 URL을 보려면 터미널에서 \"%@\"을(를) 실행하세요. 신뢰하는 저장소에서만 하세요."
           }
         }
       }
@@ -4697,6 +5167,36 @@
         }
       }
     },
+    "git could not be found. Install the Xcode Command Line Tools." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git을 찾을 수 없습니다. Xcode Command Line Tools를 설치하세요."
+          }
+        }
+      }
+    },
+    "git could not be started (error %d)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git을 시작하지 못했습니다(오류 %d)."
+          }
+        }
+      }
+    },
+    "git did not respond within %lld seconds and was stopped." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git이 %lld초 안에 응답하지 않아 멈췄습니다."
+          }
+        }
+      }
+    },
     "git directory missing" : {
       "localizations" : {
         "ko" : {
@@ -4713,6 +5213,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "git 실행 파일"
+          }
+        }
+      }
+    },
+    "git refused this repository because another user owns it. Overgrove does not bypass this check." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 사용자가 소유한 저장소라 git이 거부했습니다. Overgrove는 이 검사를 우회하지 않습니다."
+          }
+        }
+      }
+    },
+    "git reported an error." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git이 오류를 보고했습니다."
+          }
+        }
+      }
+    },
+    "git reported an error; Details show the end of its output." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git이 오류를 보고했습니다. 세부 사항에 출력의 끝부분이 보입니다."
           }
         }
       }
@@ -4939,6 +5469,16 @@
         }
       }
     },
+    "once if the repository is very large" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소가 아주 크면 한 번"
+          }
+        }
+      }
+    },
     "optional — used only to show issues" : {
       "localizations" : {
         "ko" : {
@@ -5025,6 +5565,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "태그 %@"
+          }
+        }
+      }
+    },
+    "the remote of %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 원격"
+          }
+        }
+      }
+    },
+    "to check your credentials" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자격 증명을 확인하려면"
+          }
+        }
+      }
+    },
+    "to connect and accept it" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결해 키를 받아들이려면"
+          }
+        }
+      }
+    },
+    "to fetch it yourself" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "직접 페치하려면"
+          }
+        }
+      }
+    },
+    "to see the full error" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 오류를 보려면"
+          }
+        }
+      }
+    },
+    "to try again" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 시도하려면"
           }
         }
       }
