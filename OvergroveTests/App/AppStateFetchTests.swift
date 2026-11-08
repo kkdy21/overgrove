@@ -93,6 +93,19 @@ final class AppStateFetchTests: XCTestCase {
             await state.fetch.task?.value
             registry.setUntrusted(false, for: entry.id)
         }
+
+        // A fetch that started untrusted keeps running when the registry changes for another reason.
+        registry.setUntrusted(true, for: entry.id)
+        await Task.yield()
+        state.fetch.fetch()
+        await fetcher.waitForFetches(3)
+        let other = root.appendingPathComponent("other", isDirectory: true)
+        try FileManager.default.createDirectory(at: other, withIntermediateDirectories: true)
+        registry.add(RegisteredRepository(rootPath: other.path, commonDirectoryPath: other.path + "/.git"))
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(state.fetch.task?.isCancelled, false, "an unrelated change does not stop it")
+        fetcher.release(2, with: .finished(failures: []))
+        await state.fetch.task?.value
     }
 
     func testRemovingARepositoryForgetsItsFetchRecord() async throws {
