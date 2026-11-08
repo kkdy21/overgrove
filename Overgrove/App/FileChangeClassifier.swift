@@ -34,8 +34,9 @@ struct FileEvent: Equatable, Sendable {
 ///
 /// In the shared git directory only what changes a status or the lists counts (#163): `HEAD` and `index` (the main
 /// worktree), `refs/` and `packed-refs`, `worktrees/<id>/HEAD|index` (that linked worktree; `HEAD` also the list,
-/// #416), `worktrees/<id>` itself and its `gitdir`/`locked` (the list), and `config` (everything, it can change how queries run). Objects, logs,
-/// `FETCH_HEAD`, `ORIG_HEAD`, hooks and the rest are ignored, so a fetch or gc does not re-run every status.
+/// #416), `worktrees/<id>` itself and its `gitdir`/`locked` (the list), and `config` (everything, it can change how
+/// queries run). Objects, logs, `FETCH_HEAD`, `ORIG_HEAD`, hooks and the rest are ignored, so a fetch or gc does not
+/// re-run every status.
 struct FileChangeClassifier: Equatable, Sendable {
     struct WatchedWorktree: Equatable, Sendable {
         let path: GitPath
