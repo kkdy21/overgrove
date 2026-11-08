@@ -3,9 +3,12 @@ import XCTest
 
 @testable import Overgrove
 
-/// PAR-REF-01…06 (parsing-spec.md §6), plus truncation (SEC-T15-03) and field-format failures (§1.6).
+/// PAR-REF-01…07 (parsing-spec.md §6), plus truncation (SEC-T15-03) and field-format failures (§1.6).
 final class RefParserTests: XCTestCase {
-    /// Real `for-each-ref` output (Apple Git 2.54.0, `LC_ALL=C`) with the `ReadOnlyGitCommand.refs` format.
+    /// Real `for-each-ref` output (Apple Git 2.54.0, `LC_ALL=C`) with the `ReadOnlyGitCommand.refs` format. It was
+    /// captured before `%(upstream:remotename)` and `%(upstream:remoteref)` joined the format (#115); those two fields
+    /// are appended as git 2.54.0 and 2.36.6 print them for this repository (`origin`, `refs/heads/<name>` for a
+    /// branch tracking `origin/<name>`, empty otherwise).
     ///
     /// Local branches: `ahead` (ahead 2), `behind` (behind 3), `both` (ahead 1, behind 2), `feat/한글-브랜치` and
     /// `no-upstream` (no upstream), `gone` (upstream deleted), `main` (checked out, in sync). Remote-tracking refs
@@ -13,19 +16,21 @@ final class RefParserTests: XCTestCase {
     private static let realOutput =
         Data(
             base64Encoded:
-                "cmVmcy9oZWFkcy9haGVhZAA3ZjI3NDhlMTQ0N2FhYzg4MjgxZDIwYTJhZDViYTU2NjVkMDgxNjdlAAByZWZzL3JlbW90ZXMvb3JpZ2luL2FoZWFkACAAMTc5Mzg1MzY1MgAAYWhlYWQgMgpyZWZzL2hlYWRzL2JlaGluZAA0ZTY4MjNhNmZiZDIyNDc5ZDdhZTMyMDllY2EzYmRkOTZlOTEwNTllAAByZWZzL3JlbW90ZXMvb3JpZ2luL2JlaGluZAAgADE3OTM4NTM2NTIAAGJlaGluZCAzCnJlZnMvaGVhZHMvYm90aAAyODgwNDA0YzI4OGY1ODE0YmU0ZWY2YmVlNmExMzkxMTllN2I5NjdkAAByZWZzL3JlbW90ZXMvb3JpZ2luL2JvdGgAIAAxNzkzODUzNjUyAABhaGVhZCAxLCBiZWhpbmQgMgpyZWZzL2hlYWRzL2ZlYXQv7ZWc6riALeu4jOuenOy5mAA5NjkyOTQxZDdmYWQzMWYwYjYwMDFkZGRlZmYxN2YwMGUzOTZmN2FkAAAAIAAxNzkzODUzNjUyAAAKcmVmcy9oZWFkcy9nb25lADk2OTI5NDFkN2ZhZDMxZjBiNjAwMWRkZGVmZjE3ZjAwZTM5NmY3YWQAAHJlZnMvcmVtb3Rlcy9vcmlnaW4vZ29uZQAgADE3OTM4NTM2NTIAAGdvbmUKcmVmcy9oZWFkcy9tYWluADk2OTI5NDFkN2ZhZDMxZjBiNjAwMWRkZGVmZjE3ZjAwZTM5NmY3YWQAAHJlZnMvcmVtb3Rlcy9vcmlnaW4vbWFpbgAqADE3OTM4NTM2NTIAAApyZWZzL2hlYWRzL25vLXVwc3RyZWFtADk2OTI5NDFkN2ZhZDMxZjBiNjAwMWRkZGVmZjE3ZjAwZTM5NmY3YWQAAAAgADE3OTM4NTM2NTIAAApyZWZzL3JlbW90ZXMvb3JpZ2luL0hFQUQAOTY5Mjk0MWQ3ZmFkMzFmMGI2MDAxZGRkZWZmMTdmMDBlMzk2ZjdhZAAAACAAMTc5Mzg1MzY1MgByZWZzL3JlbW90ZXMvb3JpZ2luL21haW4ACnJlZnMvcmVtb3Rlcy9vcmlnaW4vYWhlYWQAOTY5Mjk0MWQ3ZmFkMzFmMGI2MDAxZGRkZWZmMTdmMDBlMzk2ZjdhZAAAACAAMTc5Mzg1MzY1MgAACnJlZnMvcmVtb3Rlcy9vcmlnaW4vYmVoaW5kAGIzZjgyNDIyYzMwYzg3MTgyMmIyOTMwMzMzYzllN2JjYWE2NGU1ZGYAAAAgADE3OTM4NTM2NTIAAApyZWZzL3JlbW90ZXMvb3JpZ2luL2JvdGgAYjNmODI0MjJjMzBjODcxODIyYjI5MzAzMzNjOWU3YmNhYTY0ZTVkZgAAACAAMTc5Mzg1MzY1MgAACnJlZnMvcmVtb3Rlcy9vcmlnaW4vbWFpbgA5NjkyOTQxZDdmYWQzMWYwYjYwMDFkZGRlZmYxN2YwMGUzOTZmN2FkAAAAIAAxNzkzODUzNjUyAAAKcmVmcy90YWdzL2xpZ2h0LXRhZwA0ZTY4MjNhNmZiZDIyNDc5ZDdhZTMyMDllY2EzYmRkOTZlOTEwNTllAAAAIAAxNzkzODUzNjUyAAAKcmVmcy90YWdzL3YxADRmYTAyYTE2ZDc5Njk3ZTAxNDFlOTliMjA2NjVmZDZjOWE5ZWE0ZjkAOTY5Mjk0MWQ3ZmFkMzFmMGI2MDAxZGRkZWZmMTdmMDBlMzk2ZjdhZAAAIAAAAAo="
+                "cmVmcy9oZWFkcy9haGVhZAA3ZjI3NDhlMTQ0N2FhYzg4MjgxZDIwYTJhZDViYTU2NjVkMDgxNjdlAAByZWZzL3JlbW90ZXMvb3JpZ2luL2FoZWFkACAAMTc5Mzg1MzY1MgAAYWhlYWQgMgBvcmlnaW4AcmVmcy9oZWFkcy9haGVhZApyZWZzL2hlYWRzL2JlaGluZAA0ZTY4MjNhNmZiZDIyNDc5ZDdhZTMyMDllY2EzYmRkOTZlOTEwNTllAAByZWZzL3JlbW90ZXMvb3JpZ2luL2JlaGluZAAgADE3OTM4NTM2NTIAAGJlaGluZCAzAG9yaWdpbgByZWZzL2hlYWRzL2JlaGluZApyZWZzL2hlYWRzL2JvdGgAMjg4MDQwNGMyODhmNTgxNGJlNGVmNmJlZTZhMTM5MTE5ZTdiOTY3ZAAAcmVmcy9yZW1vdGVzL29yaWdpbi9ib3RoACAAMTc5Mzg1MzY1MgAAYWhlYWQgMSwgYmVoaW5kIDIAb3JpZ2luAHJlZnMvaGVhZHMvYm90aApyZWZzL2hlYWRzL2ZlYXQv7ZWc6riALeu4jOuenOy5mAA5NjkyOTQxZDdmYWQzMWYwYjYwMDFkZGRlZmYxN2YwMGUzOTZmN2FkAAAAIAAxNzkzODUzNjUyAAAAAApyZWZzL2hlYWRzL2dvbmUAOTY5Mjk0MWQ3ZmFkMzFmMGI2MDAxZGRkZWZmMTdmMDBlMzk2ZjdhZAAAcmVmcy9yZW1vdGVzL29yaWdpbi9nb25lACAAMTc5Mzg1MzY1MgAAZ29uZQBvcmlnaW4AcmVmcy9oZWFkcy9nb25lCnJlZnMvaGVhZHMvbWFpbgA5NjkyOTQxZDdmYWQzMWYwYjYwMDFkZGRlZmYxN2YwMGUzOTZmN2FkAAByZWZzL3JlbW90ZXMvb3JpZ2luL21haW4AKgAxNzkzODUzNjUyAAAAb3JpZ2luAHJlZnMvaGVhZHMvbWFpbgpyZWZzL2hlYWRzL25vLXVwc3RyZWFtADk2OTI5NDFkN2ZhZDMxZjBiNjAwMWRkZGVmZjE3ZjAwZTM5NmY3YWQAAAAgADE3OTM4NTM2NTIAAAAACnJlZnMvcmVtb3Rlcy9vcmlnaW4vSEVBRAA5NjkyOTQxZDdmYWQzMWYwYjYwMDFkZGRlZmYxN2YwMGUzOTZmN2FkAAAAIAAxNzkzODUzNjUyAHJlZnMvcmVtb3Rlcy9vcmlnaW4vbWFpbgAAAApyZWZzL3JlbW90ZXMvb3JpZ2luL2FoZWFkADk2OTI5NDFkN2ZhZDMxZjBiNjAwMWRkZGVmZjE3ZjAwZTM5NmY3YWQAAAAgADE3OTM4NTM2NTIAAAAACnJlZnMvcmVtb3Rlcy9vcmlnaW4vYmVoaW5kAGIzZjgyNDIyYzMwYzg3MTgyMmIyOTMwMzMzYzllN2JjYWE2NGU1ZGYAAAAgADE3OTM4NTM2NTIAAAAACnJlZnMvcmVtb3Rlcy9vcmlnaW4vYm90aABiM2Y4MjQyMmMzMGM4NzE4MjJiMjkzMDMzM2M5ZTdiY2FhNjRlNWRmAAAAIAAxNzkzODUzNjUyAAAAAApyZWZzL3JlbW90ZXMvb3JpZ2luL21haW4AOTY5Mjk0MWQ3ZmFkMzFmMGI2MDAxZGRkZWZmMTdmMDBlMzk2ZjdhZAAAACAAMTc5Mzg1MzY1MgAAAAAKcmVmcy90YWdzL2xpZ2h0LXRhZwA0ZTY4MjNhNmZiZDIyNDc5ZDdhZTMyMDllY2EzYmRkOTZlOTEwNTllAAAAIAAxNzkzODUzNjUyAAAAAApyZWZzL3RhZ3MvdjEANGZhMDJhMTZkNzk2OTdlMDE0MWU5OWIyMDY2NWZkNmM5YTllYTRmOQA5NjkyOTQxZDdmYWQzMWYwYjYwMDFkZGRlZmYxN2YwMGUzOTZmN2FkAAAgAAAAAAAK"
         ) ?? Data()
 
     private let mainOID = "9692941d7fad31f0b6001dddeff17f00e396f7ad"
     private let oid = String(repeating: "ab", count: 20)
     private let date = Date(timeIntervalSince1970: 1_793_853_652)
 
-    /// One record: eight NUL-separated fields ending with LF, as git prints them.
+    /// One record: ten NUL-separated fields ending with LF, as git prints them.
     private func record(
         _ refname: String, _ objectname: String? = nil, peeled: String = "", upstream: String = "", head: String = " ",
-        date: String = "1793853652", symref: String = "", track: String = ""
+        date: String = "1793853652", symref: String = "", track: String = "", remote: String = "",
+        remoteRef: String = ""
     ) -> String {
-        [refname, objectname ?? oid, peeled, upstream, head, date, symref, track].joined(separator: "\u{0}") + "\n"
+        [refname, objectname ?? oid, peeled, upstream, head, date, symref, track, remote, remoteRef]
+            .joined(separator: "\u{0}") + "\n"
     }
 
     private func parse(_ records: String..., truncated: Bool = false) throws -> RefParser.Listing {
@@ -108,7 +113,7 @@ final class RefParserTests: XCTestCase {
         var data = Data(record("refs/remotes/origin/HEAD", symref: "origin/main").utf8)
         data.append(Data(record("refs/remotes/up/HEAD", symref: "refs/remotes/-x").utf8))
         var invalidUTF8 = Data(record("refs/remotes/other/HEAD", symref: "refs/remotes/other/m").utf8)
-        invalidUTF8.insert(0xFF, at: invalidUTF8.count - 2)  // inside the symref, before the empty track and LF
+        invalidUTF8.insert(0xFF, at: invalidUTF8.count - 4)  // inside the symref, before the three empty fields and LF
         data.append(invalidUTF8)
         let listing = try RefParser.parse(data)
         XCTAssertEqual(listing.branches.count, 3)
@@ -221,9 +226,41 @@ final class RefParserTests: XCTestCase {
         ]
         for track in malformed {
             let line = record("refs/heads/x", upstream: upstream, track: track)
-            let trackOffset = line.utf8.count - 1 - track.utf8.count
+            // The track is followed by the two empty remote fields and LF.
+            let trackOffset = line.utf8.count - 3 - track.utf8.count
             assertFails(line, reason: "invalid upstream track", offset: trackOffset)
         }
+    }
+
+    /// `%(upstream:remotename)` and `%(upstream:remoteref)` (#115, ADR-0023 §4): kept whole for local branches, even
+    /// with a `/` in the remote name or `.` for a local upstream; ignored on remote-tracking refs; not valid UTF-8 is
+    /// `nil` without skipping the branch.
+    func testPARREF07_UpstreamRemoteAndRemoteRef() throws {
+        let listing = try parse(
+            record(
+                "refs/heads/feature", upstream: "refs/remotes/my/fork/topic", remote: "my/fork",
+                remoteRef: "refs/heads/topic"),
+            record("refs/heads/loc", upstream: "refs/heads/main", remote: ".", remoteRef: "refs/heads/main"),
+            record("refs/heads/none"),
+            record("refs/remotes/origin/x", remote: "origin", remoteRef: "refs/heads/x"))
+        let feature = try branch("refs/heads/feature", in: listing)
+        XCTAssertEqual(feature.upstreamRemote, "my/fork")
+        XCTAssertEqual(feature.upstreamRemoteRef, "refs/heads/topic")
+        XCTAssertEqual(try branch("refs/heads/loc", in: listing).upstreamRemote, ".")
+        XCTAssertNil(try branch("refs/heads/none", in: listing).upstreamRemote)
+        XCTAssertNil(try branch("refs/heads/none", in: listing).upstreamRemoteRef)
+        XCTAssertNil(try branch("refs/remotes/origin/x", in: listing).upstreamRemote)
+
+        let real = try RefParser.parse(Self.realOutput)
+        XCTAssertEqual(try branch("refs/heads/ahead", in: real).upstreamRemote, "origin")
+        XCTAssertEqual(try branch("refs/heads/gone", in: real).upstreamRemoteRef, "refs/heads/gone")
+        XCTAssertNil(try branch("refs/heads/no-upstream", in: real).upstreamRemote)
+
+        var invalid = Data(record("refs/heads/odd", upstream: "refs/remotes/origin/odd", remote: "origin").utf8)
+        invalid.insert(contentsOf: [0xFF, 0xFE], at: invalid.count - 1)
+        let odd = try XCTUnwrap(RefParser.parse(invalid).branches.first)
+        XCTAssertEqual(odd.upstreamRemote, "origin")
+        XCTAssertNil(odd.upstreamRemoteRef)
     }
 
     // MARK: - Field formats (parsing-spec.md §1.6–§1.8)
@@ -231,10 +268,13 @@ final class RefParserTests: XCTestCase {
     func testWrongFieldCountFails() {
         // The format before #54 had seven fields; reading it would shift every value.
         let seven = ["refs/heads/x", oid, "", "", " ", "1793853652", ""].joined(separator: "\u{0}") + "\n"
-        assertFails(seven, reason: "expected 8 fields", offset: 0)
+        assertFails(seven, reason: "expected 10 fields", offset: 0)
         let second = record("refs/heads/a")
-        assertFails(second + record("refs/heads/b") + "\u{0}\n", reason: "expected 8 fields")
-        assertFails(second + seven, reason: "expected 8 fields", offset: second.utf8.count)
+        assertFails(second + record("refs/heads/b") + "\u{0}\n", reason: "expected 10 fields")
+        assertFails(second + seven, reason: "expected 10 fields", offset: second.utf8.count)
+        // The format before #115 had eight.
+        let eight = ["refs/heads/x", oid, "", "", " ", "1793853652", "", ""].joined(separator: "\u{0}") + "\n"
+        assertFails(eight, reason: "expected 10 fields", offset: 0)
     }
 
     func testInvalidObjectIDsFail() {

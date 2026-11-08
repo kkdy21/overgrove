@@ -27,6 +27,8 @@ struct WorktreeDetailModel: Equatable {
     let securityReport: SecurityReport.Source?
     /// Its last status was slow: why, and the command that refreshes the index (copy only, #168).
     let slowStatus: SlowStatusHint?
+    /// The pull request of this worktree's branch (ADR-0023 §5); `nil` without one or while PR status is unavailable.
+    var pullRequest: PullRequestCardModel?
 
     init(
         entry: WorktreeListing.Entry, inspection: WorktreeInspection?, fetchStatus: FetchStatus, now: Date,

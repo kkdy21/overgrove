@@ -1,18 +1,25 @@
 /// The only gh commands Overgrove can run (git-command-catalog.md §5, ADR-0004, threat T13).
 ///
 /// Nothing here can write to GitHub, log in or out, or print a token: `gh auth login/logout/refresh/setup-git`,
-/// `gh api`, `gh pr *`, `gh repo *`, `gh issue create/edit/close`, and `--show-token` have no case
-/// (git-command-catalog.md §7). Repository-scoped commands always pass `--repo`, so gh never infers the repository
+/// `gh api`, every `gh pr` other than `gh pr list` (ADR-0023), `gh repo *`, `gh issue create/edit/close`, and
+/// `--show-token` have no case (git-command-catalog.md §7). Repository-scoped commands always pass `--repo`, so gh never infers the repository
 /// from a working directory.
 enum GHCommand: Sendable, Hashable {
     case version
     case authStatus
     case issueList(repo: GitHubRepository)
+    /// Open, merged, and closed pull requests: the 200 most recently created (gh's order), ADR-0023.
+    case prList(repo: GitHubRepository)
 
     /// Only github.com is supported in v0.1 (ADR-0004 §8).
     static let host = "github.com"
 
     static let issueFields = "number,title,state,labels,assignees,updatedAt,url"
+
+    /// No body, comments, files, reviews, or CI status (ADR-0023 §1).
+    static let pullRequestFields =
+        "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,"
+        + "reviewDecision,mergedAt,updatedAt,url"
 
     var arguments: [String] {
         switch self {
@@ -24,6 +31,11 @@ enum GHCommand: Sendable, Hashable {
             [
                 "issue", "list", "--repo", repo.slug, "--state", "open", "--limit", "200", "--json",
                 Self.issueFields,
+            ]
+        case .prList(let repo):
+            [
+                "pr", "list", "--repo", repo.slug, "--state", "all", "--limit", "200", "--json",
+                Self.pullRequestFields,
             ]
         }
     }
