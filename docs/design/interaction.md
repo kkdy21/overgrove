@@ -145,7 +145,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⌘⇧F` (HANDOFF 초안) | 시스템 예약은 아니지만 IntelliJ, VS Code, Xcode에서 "Find in Files/Project"다. 사용자가 검색하려다 네트워크 fetch를 시작하게 된다. **제외** |
 | `⌘⇧R` | 브라우저의 "강제 새로고침" 관례와 의미가 맞다. `⌘R`은 로컬 새로고침, `⌘⇧R`은 원격까지 새로고침이라는 짝이 생긴다. 시스템 예약 아님. **채택** |
 | `⌘1`~`⌘4` | Finder(보기 방식), Xcode(내비게이터)에서도 앱 고유 용도로 쓰는 영역이다. 시스템 예약 아님. 유지 |
-| `Space` (Quick Look) | 저장소 파일을 Quick Look 플러그인에 넘기게 된다. 보안 검토 전까지 `later` |
+| `Space` (Quick Look) | 저장소 파일을 Quick Look 확장에 넘기게 된다. v0.2.0은 파일 행 메뉴의 `Quick Look`만 두고(macOS 15 이상, #399) 단축키는 `later` |
 | `⌘[` / `⌘]` (선택 이력 뒤로/앞으로) | v0.1 범위 밖이었다. v0.2.0에서 **채택**(#123, §1.4). Finder·Safari·Xcode 문서 탐색의 뒤로/앞으로와 같아 의미가 바로 읽힌다. 시스템 예약 아님. 앱의 다른 단축키와 겹치지 않는다 |
 | `⌘+` / `⌘−` / `⌘0` (확대) | 그래프 행 높이와 글자 크기 배율. v0.2.0에서 **채택**(#121, §6.3). 보기 메뉴의 Zoom In·Zoom Out·Actual Size. 브라우저·텍스트 편집기의 확대 관례와 같다. 시스템 예약 아님 |
 
@@ -253,7 +253,7 @@ stateDiagram-v2
 |---|---|---|
 | 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03). 그래프 행에는 v0.2.0부터 `Compare with Selected Commit`(S-12, #122. 다른 커밋이 주 선택일 때만 켜짐) | Open on GitHub, Copy Permalink |
 | WIP 행 | Show Changes (S-02), Show Worktree Info (S-05) | — |
-| 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder | Quick Look, Open With… |
+| 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder. 작업 트리 파일 행(S-02)에는 macOS 15 이상에서 `Quick Look`(#399): 워크트리 안의 일반 파일(링크·FIFO·폴더 제외), 100MB 이하 | Open With… |
 | 워크트리 행 | Show Changes, Show Info, Copy Path, Copy Branch Name, Reveal in Finder, Open in Terminal | Open in 사용자 지정 터미널·에디터 |
 | 브랜치 행 | Show in Graph, Copy Name, Copy Upstream Name | — |
 | 태그 행 (v0.2.0, #123) | Show in Graph, Copy Tag Name, Copy SHA (가리키는 커밋) | Show on GitHub |
