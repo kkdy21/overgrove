@@ -120,6 +120,7 @@ extension RepositoryService {
         {
         case .inside(let found): gitDirectory = found
         case .notCheckedOut: return .notCheckedOut
+        case .gitDirectoryMissing: return .gitDirectoryMissing
         case .outside: return .notInspected(.outsideRepository)
         }
         do {
