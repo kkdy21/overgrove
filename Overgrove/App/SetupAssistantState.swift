@@ -74,15 +74,17 @@ final class SetupAssistantState {
         }
     }
 
-    /// Check Again for GitHub CLI (after `gh auth login`). The GitHub step is optional.
+    /// Check Again for GitHub CLI (after `gh auth login`). The GitHub step is optional. Every host gh is logged in to
+    /// counts, not only github.com (#476).
     func checkGitHub() {
         gitHubTask?.cancel()
         gitHub = .checking
         let checker = ghChecker
         gitHubTask = Task { [weak self] in
-            let status = await checker.authStatus()
+            // The whole report, as the status bar reads it: a login only on another host counts too (#476).
+            let report = await checker.authReport()
             guard !Task.isCancelled else { return }
-            self?.gitHub = .done(status.map(GHStatusGuidance.init(status:)) ?? GHStatusGuidance(checkFailed: nil))
+            self?.gitHub = .done(report.map(GHStatusGuidance.init(report:)) ?? GHStatusGuidance(checkFailed: nil))
         }
     }
 

@@ -31,6 +31,35 @@ struct GHStatusGuidance: Equatable, Sendable {
         }
     }
 
+    /// From the whole report (#476), as the status bar reads it: github.com's state, or, when only other hosts have a
+    /// working login (the report lists only those, #467), a ready state that names where gh is logged in.
+    init(report: GHAuthReport) {
+        let others = report.hosts.subtracting([GitHubRepository.publicHost]).sorted { $0.name < $1.name }
+        guard report.status == .notLoggedIn, let first = others.first else {
+            self.init(status: report.status)
+            return
+        }
+        let title: String
+        if others.count > 1 {
+            title = "Logged in to \(first.name) and \(others.count - 1) more host" + (others.count > 2 ? "s" : "")
+        } else if let account = report.accounts[first] {
+            title = "Logged in to \(first.name) as @\(PathValidator.displayable(account.login))"
+        } else {
+            title = "Logged in to \(first.name)"
+        }
+        self.init(
+            title: title,
+            message: "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to.",
+            command: nil, isOK: true)
+    }
+
+    private init(title: String, message: String?, command: String?, isOK: Bool) {
+        self.title = title
+        self.message = message
+        self.command = command
+        self.isOK = isOK
+    }
+
     /// The check could not run (`gh` failed in another way). `detail` must already be escaped for display.
     init(checkFailed detail: String?) {
         title = "Couldn't check GitHub CLI"
