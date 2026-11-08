@@ -64,7 +64,6 @@ enum QuickLook {
             let real = PathValidator.canonical(worktree.appendingPathComponent(file.relativePath)),
             case .inside = PathValidator.containment(of: real, in: worktree)
         else { return .failure(.outsideRepository) }
-        // Both the name in the repository and the real file's: either decides the preview extension's type.
         // Both the name in the repository and the real file's, and the type the system reports for the file, decide
         // which preview extension draws it.
         let reported = (try? real.resourceValues(forKeys: [.contentTypeKey]))?.contentType
