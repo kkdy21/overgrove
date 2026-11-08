@@ -32,7 +32,7 @@ extension AppState {
         let key = SearchCacheKey(
             query: query, commitCount: graph.commits.count, newest: graph.commits.first?.oid,
             decorationGeneration: graph.decorationGeneration, isComplete: graph.isComplete,
-            issueRepository: issuePanel.repository?.ownerAndName)
+            issueRepository: issuePanel.repository?.referencePath)
         if let cached = searchCache, cached.key == key { return cached.result }
         let result: GraphSearchResult
         if let cached = searchCache, key.isExtension(of: cached.key) {

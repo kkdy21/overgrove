@@ -16,7 +16,7 @@ final class IssuePanelRenderTests: XCTestCase {
             IssueModelsTests.issue(12, "Worktree list shows prunable entries last", updated: -3_600),
         ]
         let list = IssueListModel(
-            content: .loaded(repository: IssueModelsTests.repository, issues: issues), isLoading: true)
+            content: .loaded(repository: .github(IssueModelsTests.repository), issues: issues), isLoading: true)
         let sidebar = VStack(spacing: 0) {
             IssueListSection(model: list, selectedNumber: 42, onSelect: { _ in })
             IssueListSection(
@@ -62,7 +62,7 @@ final class IssuePanelRenderTests: XCTestCase {
                 Array(
                     [
                         IssueListContent.notLoggedIn, .notInstalled,
-                        .failed(repository: IssueModelsTests.repository, detail: "HTTP 404"), .noGitHubRemote,
+                        .failed(repository: .github(IssueModelsTests.repository), detail: "HTTP 404"), .noGitHubRemote,
                     ].enumerated()), id: \.offset
             ) { _, content in
                 IssueListSection(

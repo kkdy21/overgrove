@@ -1,6 +1,6 @@
 # ADR-0026: GitLab·Gitea 이슈는 glab·gt에 위임해 읽고, 그 CLI에 로그인된 호스트만 신뢰한다
 
-> 상태: Accepted · 날짜: 2026-11-08 · 관련: #448, #154, #449, #450, #117, ADR-0004, ADR-0021, ADR-0022, ADR-0025, T9, T10, T11, T13, T15, [git-command-catalog.md §5.1](../architecture/git-command-catalog.md#51-glcommand와-gtcommand-다른-제공자-cli)
+> 상태: Accepted · 날짜: 2026-11-08 · 개정: 2026-11-08 #154 구현 중 같은 호스트에 두 CLI가 로그인된 경우의 규칙 정정(§2, gh 우선) · 관련: #448, #154, #449, #450, #117, ADR-0004, ADR-0021, ADR-0022, ADR-0025, T9, T10, T11, T13, T15, [git-command-catalog.md §5.1](../architecture/git-command-catalog.md#51-glcommand와-gtcommand-다른-제공자-cli)
 
 ## 맥락
 
@@ -39,7 +39,7 @@ ADR-0004의 1차 결정(gh 위임, 토큰 비취급, 중립 작업 디렉터리,
      - 구성 요소: `[A-Za-z0-9_.-]`로 1–255바이트이고, `-`나 `.`로 시작하지 않으며, `.`·`..`가 아니다. 끝의 `.git`은 떼고 본다.
      - GitLab: NAMESPACE는 구성 요소 1–20개(하위 그룹 포함), NAME은 구성 요소 하나다. 전체는 255바이트 이하다.
      - Gitea: OWNER와 NAME이 각각 구성 요소 하나다. OWNER는 40바이트, NAME은 100바이트 이하다.
-   - github.com과 gh에 로그인된 호스트는 gh가 맡는다(ADR-0025). 한 호스트를 두 CLI가 모두 로그인됐다고 보고하면 제공자를 고르지 않고, 패널에 그 사실만 보인다.
+   - github.com과 gh에 로그인된 호스트는 gh가 맡는다(ADR-0025). **개정 (2026-11-08, #154).** 묻는 순서는 gh → glab → gt이고, 먼저 로그인이 확인된 CLI가 그 호스트를 맡는다. gh가 로그인한 호스트는 glab·gt 후보에서 빠지므로 다른 CLI에는 묻지 않는다(보안상 약해지지 않고 실행하는 프로세스도 줄어든다). 두 CLI가 모두 로그인된 상태를 따로 보이지 않는다.
 3. **명령.** 인자를 고정한 allowlist 타입 `GLCommand`·`GTCommand`로만 만든다(카탈로그 §5.1). 이 타입은 새 폴더 `Overgrove/Forges/`에 둔다.
    - glab
      - `version`: `["--version"]`

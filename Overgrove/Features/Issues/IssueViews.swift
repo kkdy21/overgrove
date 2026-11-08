@@ -26,10 +26,10 @@ struct IssueListSection: View {
                     SidebarNotice(symbol: notice.symbol, text: notice.text)
                         .help(notice.detail ?? notice.text)
                 }
-                if model.guidance != nil || model.canCheckAgain {
+                if !model.setupCommands.isEmpty || model.canCheckAgain {
                     IssueSetupHint(
-                        guidance: model.guidance, canCheckAgain: model.canCheckAgain, isChecking: model.isLoading,
-                        onCheckAgain: onCheckAgain)
+                        message: model.setupMessage, commands: model.setupCommands, canCheckAgain: model.canCheckAgain,
+                        isChecking: model.isLoading, onCheckAgain: onCheckAgain)
                 }
                 // Lazy: up to 200 rows (`--limit 200`).
                 LazyVStack(alignment: .leading, spacing: 0) {
@@ -118,23 +118,25 @@ private struct IssueAccountRow: View {
     }
 }
 
-/// Under a degraded ISSUES notice (#83): what to run in Terminal, a Copy button, and Check Again. The texts are the
-/// shared `GHStatusGuidance` (S-07 says the same); laid out narrow for the sidebar. Overgrove never runs the command.
+/// Under a degraded ISSUES notice (#83): what to run in Terminal, a Copy button per command, and Check Again. gh's
+/// texts are the shared `GHStatusGuidance` (S-07 says the same); a host no CLI is logged in to lists one login command
+/// per CLI (ADR-0026 §7). Laid out narrow for the sidebar. Overgrove never runs the commands.
 private struct IssueSetupHint: View {
-    let guidance: GHStatusGuidance?
+    let message: String?
+    let commands: [String]
     let canCheckAgain: Bool
     var isChecking = false
     let onCheckAgain: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
-            if let message = guidance?.message {
+            if let message {
                 Text(message)
                     .font(Tokens.Font.caption)
                     .foregroundStyle(Tokens.Color.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let command = guidance?.command {
+            ForEach(commands, id: \.self) { command in
                 HStack(spacing: Tokens.Spacing.xs) {
                     Text("$ " + command)
                         .font(Tokens.Font.monoSmall)
