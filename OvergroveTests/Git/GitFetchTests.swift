@@ -131,7 +131,7 @@ final class GitFetchTests: XCTestCase {
         let bare = try await makeBareRemote("plain")
         try await source.git(["push", "-q", bare.path, "HEAD:refs/heads/topic"])
         try await local.git(["remote", "add", "origin", bare.path])
-        let client = GitClient(environment: local.environment)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting)
 
         // The real flow: list the configuration, inspect it, then fetch with the resulting context.
         let listing = try await client.run(.configList, in: local.root, safety: .preInspection)
@@ -151,7 +151,7 @@ final class GitFetchTests: XCTestCase {
         try await makeBareRemote("alpha")
         try await local.git(["remote", "add", "origin", "ssh://alpha/x"])
         let log = ProgressLog()
-        let client = GitClient(environment: local.environment)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting)
         let output = try await client.fetch(
             .fetch(remote: origin), in: repository(local), safety: try sshSafety(gated: false),
             progress: { log.append($0) })
@@ -179,7 +179,7 @@ final class GitFetchTests: XCTestCase {
         try await local.git(["remote", "add", "origin", "ssh://alpha/x"])
         var limits = ProcessLimits.fetch
         limits.timeout = .seconds(1)
-        let client = GitClient(environment: local.environment, fetchLimits: limits)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting, fetchLimits: limits)
         let started = ContinuousClock.now
         do {
             _ = try await client.fetch(
@@ -195,7 +195,7 @@ final class GitFetchTests: XCTestCase {
     func testCancellationStopsAFetchAndFreesTheRepository() async throws {
         try await makeBareRemote("alpha")
         try await local.git(["remote", "add", "origin", "ssh://alpha/x"])
-        let client = GitClient(environment: local.environment)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting)
         let target = repository(local)
         let safety = try sshSafety(gated: true)
         let remote = origin
@@ -227,7 +227,7 @@ final class GitFetchTests: XCTestCase {
         let safety = RepoSafetyContext(
             inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil, fetchableRemotes: ["origin"])
 
-        _ = try await GitClient(environment: local.environment).fetch(
+        _ = try await GitClient(environment: local.environment.fetchingLocalRemotesForTesting).fetch(
             .fetch(remote: origin), in: target, safety: safety)
         let refs = try await source.git(["-C", bare.path, "for-each-ref", "--format=%(refname)", "refs/remotes/origin"])
         // git 2.48+ also creates refs/remotes/origin/HEAD, so check for the branch only.
@@ -241,7 +241,7 @@ final class GitFetchTests: XCTestCase {
         try await makeBareRemote("alpha")
         try await local.git(["remote", "add", "origin", "ssh://alpha/x"])
         // A single query slot: if fetch used it, the status below could not run until the fetch ended.
-        let client = GitClient(environment: local.environment, maximumConcurrency: 1)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting, maximumConcurrency: 1)
         let target = repository(local)
         let safety = try sshSafety(gated: true)
         let fetchEnded = Flag()
@@ -267,7 +267,7 @@ final class GitFetchTests: XCTestCase {
         try await makeBareRemote("beta")
         try await local.git(["remote", "add", "origin", "ssh://alpha/x"])
         try await local.git(["remote", "add", "upstream", "ssh://beta/x"])
-        let client = GitClient(environment: local.environment)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting)
         let target = repository(local)
         let safety = try sshSafety(gated: true)
 
@@ -297,7 +297,8 @@ final class GitFetchTests: XCTestCase {
         try await makeBareRemote("beta")
         try await local.git(["remote", "add", "origin", "ssh://alpha/x"])
         try await local.git(["remote", "add", "upstream", "ssh://beta/x"])
-        let client = GitClient(environment: local.environment, maximumFetchConcurrency: 1)
+        let client = GitClient(
+            environment: local.environment.fetchingLocalRemotesForTesting, maximumFetchConcurrency: 1)
         let target = repository(local)
         let safety = try sshSafety(gated: true)
         let remote = origin
@@ -324,7 +325,8 @@ final class GitFetchTests: XCTestCase {
     }
 
     func testFetchSlotsAreCappedAcrossRepositories() async throws {
-        let client = GitClient(environment: local.environment, maximumFetchConcurrency: 2)
+        let client = GitClient(
+            environment: local.environment.fetchingLocalRemotesForTesting, maximumFetchConcurrency: 2)
         let safety = try sshSafety(gated: true)
         var tasks: [Task<GitOutput, Error>] = []
         for index in 0..<3 {

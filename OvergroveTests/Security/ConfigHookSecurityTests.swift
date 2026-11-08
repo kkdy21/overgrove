@@ -191,7 +191,7 @@ final class ConfigHookSecurityTests: XCTestCase {
         XCTAssertEqual(hookArguments(inspection).count, names.count)
         let repository = Repository(
             rootURL: local.root, commonGitDirectoryURL: local.root.appendingPathComponent(".git"), isBare: false)
-        let client = GitClient(environment: local.environment)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting)
         _ = try await client.fetch(.fetch(remote: RemoteName("origin")!), in: repository, safety: safety)
         let fetched = try await local.git(["for-each-ref", "refs/remotes/origin"])
         XCTAssertFalse(fetched.stdout.isEmpty, "the fetch updated refs, so the event happened")

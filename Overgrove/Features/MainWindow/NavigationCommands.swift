@@ -1,7 +1,13 @@
+import AppKit
 import SwiftUI
 
 /// The window's navigation actions for the menu bar (interaction.md §3.1, #73).
 struct FocusedNavigationActions: Equatable {
+    var canGoBack = false
+    var canGoForward = false
+    /// `false` when no earlier (later) selection still exists: the view beeps and tells VoiceOver (#378).
+    var goBack: @MainActor () -> Bool = { false }
+    var goForward: @MainActor () -> Bool = { false }
     var canJumpToHead = false
     var jumpToHead: @MainActor () -> Void = {}
     var canToggleWorktreeInfo = false
@@ -11,7 +17,8 @@ struct FocusedNavigationActions: Equatable {
     var copy: @MainActor (String) -> Void = { _ in }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.canJumpToHead == rhs.canJumpToHead && lhs.canToggleWorktreeInfo == rhs.canToggleWorktreeInfo
+        lhs.canGoBack == rhs.canGoBack && lhs.canGoForward == rhs.canGoForward
+            && lhs.canJumpToHead == rhs.canJumpToHead && lhs.canToggleWorktreeInfo == rhs.canToggleWorktreeInfo
             && lhs.fullPath == rhs.fullPath
     }
 }
@@ -27,7 +34,7 @@ extension FocusedValues {
     }
 }
 
-/// Navigate › Jump to HEAD `⌘J`, Show Worktree Info `⌘I`, Focus `⌘1`–`⌘4`; Edit › Copy Full Path `⌥⌘C`.
+/// Navigate › Back `⌘[`, Forward `⌘]` (#378), Jump to HEAD `⌘J`, Show Worktree Info `⌘I`, Focus `⌘1`–`⌘4`; Edit › Copy Full Path `⌥⌘C`.
 /// `⌘F` and `⌘G` are in `SearchCommands` (#74).
 struct NavigationCommands: Commands {
     @FocusedValue(\.navigationActions) private var actions
@@ -39,6 +46,13 @@ struct NavigationCommands: Commands {
                 .disabled(actions?.fullPath == nil)
         }
         CommandMenu("Navigate") {
+            Button("Back") { move(actions?.goBack, nothing: "Nothing to go back to") }
+                .keyboardShortcut("[", modifiers: .command)
+                .disabled(actions?.canGoBack != true)
+            Button("Forward") { move(actions?.goForward, nothing: "Nothing to go forward to") }
+                .keyboardShortcut("]", modifiers: .command)
+                .disabled(actions?.canGoForward != true)
+            Divider()
             Button("Jump to HEAD") { actions?.jumpToHead() }
                 .keyboardShortcut("j", modifiers: .command)
                 .disabled(actions?.canJumpToHead != true)
@@ -51,6 +65,16 @@ struct NavigationCommands: Commands {
             Button("Focus Detail") { actions?.focus(.detail) }.keyboardShortcut("3", modifiers: .command)
             Button("Focus Issues") { actions?.focus(.issues) }.keyboardShortcut("4", modifiers: .command)
         }
+    }
+}
+
+extension NavigationCommands {
+    /// Every entry on the way was gone (interaction.md §1.4): the system beep, and the reason for VoiceOver.
+    @MainActor
+    private func move(_ step: (@MainActor () -> Bool)?, nothing: String) {
+        guard let step, !step() else { return }
+        NSSound.beep()
+        AccessibilityNotification.Announcement(nothing).post()
     }
 }
 
