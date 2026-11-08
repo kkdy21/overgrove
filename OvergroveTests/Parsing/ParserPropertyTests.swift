@@ -414,6 +414,18 @@ final class ParserPropertyTests: XCTestCase {
                 hasByteOffsets: false,
                 honorsTruncation: false
             ) { data, _ in Parsed(lists: [Self.erase(try IssueParser.parse(data))]) },
+            Subject(
+                parser: "PullRequestParser",
+                label: "gh pull requests",
+                fixtures: [
+                    Data(
+                        ("[" + PullRequestParserTests.entry(400) + ","
+                            + PullRequestParserTests.entry(7, state: "MERGED", owner: nil) + "]").utf8
+                    )
+                ],
+                hasByteOffsets: false,
+                honorsTruncation: false
+            ) { data, _ in Parsed(lists: [Self.erase(try PullRequestParser.parse(data))]) },
         ]
     }
 }

@@ -89,6 +89,11 @@ private struct BranchRowView: View {
     /// Set for remote rows, which show the tip's relative date.
     let now: Date?
 
+    @Environment(\.pullRequestBadges) private var pullRequests
+
+    /// Only local branches are linked (ADR-0023 §4).
+    private var pullRequest: PullRequestBadge? { pullRequests.badge(forBranch: row.id) }
+
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {
             Image(systemName: "arrow.triangle.branch").foregroundStyle(Tokens.Color.textTertiary)
@@ -99,6 +104,7 @@ private struct BranchRowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: Tokens.Spacing.xs)
+            if let pullRequest { PullRequestPill(badge: pullRequest) }
             if let number = row.issueNumber { IssueNumberBadge(number: number) }
             if row.isUpstreamGone {
                 Text("gone").font(Tokens.Font.pill).foregroundStyle(Tokens.Color.statusPrunable)
@@ -127,7 +133,7 @@ private struct BranchRowView: View {
         .help(row.help)
         .contextMenu { BranchRowMenu(row: row) }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(row.accessibilityLabel)
+        .accessibilityLabel(row.accessibilityLabel + (pullRequest.map { ", " + $0.accessibilityText } ?? ""))
         .issueBadgeAction(row.issueNumber)
     }
 }

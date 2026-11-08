@@ -125,6 +125,11 @@ actor RepositoryService {
         cache.value(for: repository.id)?.overview
     }
 
+    /// When the load that last read `repository`'s refs started (#418); `nil` when nothing is cached.
+    func cachedRefsTime(of repository: Repository) -> ContinuousClock.Instant? {
+        cache.peek(repository.id)?.refsTime
+    }
+
     /// Drops everything about `repository` (removed from the registry). A refresh in flight is cancelled and dropped.
     func forget(_ repository: Repository) async {
         let id = repository.id
@@ -272,6 +277,8 @@ actor RepositoryService {
         let overview: RepositoryOverview
         /// When each listed worktree's status was last queried.
         let statusTimes: [GitPath: ContinuousClock.Instant]
+        /// When the load that last read the refs started (#418): the graph's kept refs give way to refs read later.
+        var refsTime: ContinuousClock.Instant?
     }
 
     struct Context: Sendable {
@@ -381,14 +388,17 @@ actor RepositoryService {
         }
         let (rechecked, recounted) = try await (checkedRefs, checkedStashes)
         let finalRefs = refs ?? rechecked
+        let readRefs = refs != nil || refsMoved
         let finalStashes = stashes ?? recounted
 
         // A cancelled refresh ends here, instead of reporting every worktree as failed.
         guard !Task.isCancelled, let finalRefs, let finalStashes else { throw GitError.cancelled }
-        return assemble(
+        var loaded = assemble(
             zip(worktrees, admissions).map { ($0, $1) }, isListPartial: isListPartial, fresh: fresh,
             previous: previous, at: context.now,
             refs: finalRefs, stashes: finalStashes, inspection: inspection)
+        loaded.refsTime = readRefs ? context.now : previous?.refsTime
+        return loaded
     }
 
     private static func worktreeList(

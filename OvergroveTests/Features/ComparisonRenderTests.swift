@@ -86,7 +86,7 @@ final class ComparisonRenderTests: XCTestCase {
     /// #374: a stale S-11 (the worktree list failed to load) renders dimmed under its notice, in light and dark.
     func testStaleComparisonRenders() throws {
         let session = session
-        let model = ComparisonModel(session: session, workingState: nil, isListStale: true)
+        let model = ComparisonModel(session: session, workingState: nil, staleNotice: ComparisonModel.listFailedNotice)
         XCTAssertEqual(model.staleNotice, ComparisonModel.listFailedNotice)
         for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let appearance = try XCTUnwrap(NSAppearance(named: appearanceName))

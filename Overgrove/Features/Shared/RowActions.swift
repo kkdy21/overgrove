@@ -1,14 +1,20 @@
 import AppKit
 import Foundation
 
-/// What row menus and shortcuts may do (interaction.md §5, #73): look and copy only. Nothing here runs git, writes to
-/// a repository, or opens a repository file with an app (`.command`, `.app`, and scripts would run).
+/// What row menus and shortcuts may do (interaction.md §5, #73): look and copy, and hand one checked folder or regular
+/// file to an app the user chose (#124). Nothing here runs git or writes to a repository, and no file is opened with
+/// its default app (`.command`, `.app`, and scripts would run).
 protocol RowActionPerforming: Sendable {
     func copy(_ text: String)
     /// Shows the item in Finder without opening it.
     func reveal(_ url: URL)
-    /// Opens a Terminal window in `folder` (a folder URL handed to Terminal.app; no shell string is built).
-    func openTerminal(at folder: URL)
+    /// Opens `item` (a checked folder or file URL) in the app with `bundleIdentifier` through `NSWorkspace`: no shell
+    /// string, process, or argument is built (#124). `false` when no such app is installed.
+    func open(_ item: URL, inApplication bundleIdentifier: String) -> Bool
+    /// The installed app's name, for confirmations and alerts; `nil` when it is not installed.
+    func applicationName(_ bundleIdentifier: String) -> String?
+    /// Where the installed app is, so an app inside a repository is never opened (#124); `nil` when not installed.
+    func applicationURL(_ bundleIdentifier: String) -> URL?
     /// Opens an `https` page in the default browser.
     func openInBrowser(_ url: URL)
 }
@@ -79,12 +85,25 @@ struct LiveRowActions: RowActionPerforming {
         MainActor.assumeIsolated { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }
 
-    func openTerminal(at folder: URL) {
+    func open(_ item: URL, inApplication bundleIdentifier: String) -> Bool {
         MainActor.assumeIsolated {
-            guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
-            else { return }
-            NSWorkspace.shared.open(
-                [folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
+            guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+                return false
+            }
+            NSWorkspace.shared.open([item], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+            return true
+        }
+    }
+
+    func applicationURL(_ bundleIdentifier: String) -> URL? {
+        MainActor.assumeIsolated { NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) }
+    }
+
+    func applicationName(_ bundleIdentifier: String) -> String? {
+        MainActor.assumeIsolated {
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier).map {
+                PathValidator.displayable(FileManager.default.displayName(atPath: $0.path))
+            }
         }
     }
 

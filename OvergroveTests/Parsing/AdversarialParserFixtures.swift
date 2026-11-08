@@ -88,22 +88,24 @@ enum AdversarialParserFixtures {
     /// `for-each-ref` in the `ReadOnlyGitCommand.refs` format (`LC_ALL=C`) after adding branches `(detached)`,
     /// `(initial)`, `한글/🌳-name`, `refs/heads/-odd` and `refs/tags/-lead` (via `update-ref`), an annotated tag `v1-🌳`,
     /// `main` one commit ahead of `origin/main`, `feat/58-x` tracking a missing branch (`gone`), and `origin/HEAD`.
+    /// Captured before `%(upstream:remotename)` and `%(upstream:remoteref)` joined the format (#115); those two fields are
+    /// appended as git prints them for this repository (`origin` and `refs/heads/<name>` for `main` and `feat/58-x`).
     static let refs =
         Data(
             base64Encoded:
                 "cmVmcy9oZWFkcy8oZGV0YWNoZWQpADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAAAgADE3OTM4NTM2"
-                + "NTIAAApyZWZzL2hlYWRzLyhpbml0aWFsKQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAAIAAxNzkz"
-                + "ODUzNjUyAAAKcmVmcy9oZWFkcy8tb2RkADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAAAgADE3OTM4"
-                + "NTM2NTIAAApyZWZzL2hlYWRzL2ZlYXQvNTgteAA3OTcyMmYyNTcwYzE4YTQzMTVjM2MzZDkwMzU1NzJjNmE1YTBmYzQ1AAByZWZz"
-                + "L3JlbW90ZXMvb3JpZ2luL21pc3NpbmcAIAAxNzkzODUzNjUyAABnb25lCnJlZnMvaGVhZHMvbWFpbgA0YWI0NGJkODFhMmZkODg4"
-                + "ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAByZWZzL3JlbW90ZXMvb3JpZ2luL21haW4AKgAxNzkzODUzNjUyAABhaGVhZCAxCnJl"
-                + "ZnMvaGVhZHMv7ZWc6riAL/CfjLMtbmFtZQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAAIAAxNzkz"
-                + "ODUzNjUyAAAKcmVmcy9yZW1vdGVzL29yaWdpbi9IRUFEADc5NzIyZjI1NzBjMThhNDMxNWMzYzNkOTAzNTU3MmM2YTVhMGZjNDUA"
-                + "AAAgADE3OTM4NTM2NTIAcmVmcy9yZW1vdGVzL29yaWdpbi9tYWluAApyZWZzL3JlbW90ZXMvb3JpZ2luL21haW4ANzk3MjJmMjU3"
-                + "MGMxOGE0MzE1YzNjM2Q5MDM1NTcyYzZhNWEwZmM0NQAAACAAMTc5Mzg1MzY1MgAACnJlZnMvdGFncy8tbGVhZAA0YWI0NGJkODFh"
-                + "MmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAAIAAxNzkzODUzNjUyAAAKcmVmcy90YWdzL3YxLfCfjLMAM2JhYTc2NDU0"
-                + "ZDM3MzM2YzQzOTFlMWE0NDM2YjY4NDVkMmJkNDMyOQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAg"
-                + "AAAACg=="
+                + "NTIAAAAACnJlZnMvaGVhZHMvKGluaXRpYWwpADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAAAgADE3"
+                + "OTM4NTM2NTIAAAAACnJlZnMvaGVhZHMvLW9kZAA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAAIAAx"
+                + "NzkzODUzNjUyAAAAAApyZWZzL2hlYWRzL2ZlYXQvNTgteAA3OTcyMmYyNTcwYzE4YTQzMTVjM2MzZDkwMzU1NzJjNmE1YTBmYzQ1"
+                + "AAByZWZzL3JlbW90ZXMvb3JpZ2luL21pc3NpbmcAIAAxNzkzODUzNjUyAABnb25lAG9yaWdpbgByZWZzL2hlYWRzL21pc3NpbmcK"
+                + "cmVmcy9oZWFkcy9tYWluADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAHJlZnMvcmVtb3Rlcy9vcmln"
+                + "aW4vbWFpbgAqADE3OTM4NTM2NTIAAGFoZWFkIDEAb3JpZ2luAHJlZnMvaGVhZHMvbWFpbgpyZWZzL2hlYWRzL+2VnOq4gC/wn4yz"
+                + "LW5hbWUANGFiNDRiZDgxYTJmZDg4OGU3YWU4NjYwZmEzNTZjMjRhYzg0YjFmYwAAACAAMTc5Mzg1MzY1MgAAAAAKcmVmcy9yZW1v"
+                + "dGVzL29yaWdpbi9IRUFEADc5NzIyZjI1NzBjMThhNDMxNWMzYzNkOTAzNTU3MmM2YTVhMGZjNDUAAAAgADE3OTM4NTM2NTIAcmVm"
+                + "cy9yZW1vdGVzL29yaWdpbi9tYWluAAAACnJlZnMvcmVtb3Rlcy9vcmlnaW4vbWFpbgA3OTcyMmYyNTcwYzE4YTQzMTVjM2MzZDkw"
+                + "MzU1NzJjNmE1YTBmYzQ1AAAAIAAxNzkzODUzNjUyAAAAAApyZWZzL3RhZ3MvLWxlYWQANGFiNDRiZDgxYTJmZDg4OGU3YWU4NjYw"
+                + "ZmEzNTZjMjRhYzg0YjFmYwAAACAAMTc5Mzg1MzY1MgAAAAAKcmVmcy90YWdzL3YxLfCfjLMAM2JhYTc2NDU0ZDM3MzM2YzQzOTFl"
+                + "MWE0NDM2YjY4NDVkMmJkNDMyOQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAgAAAAAAAK"
         ) ?? Data()
 
     /// `rev-list --left-right --count --end-of-options refs/remotes/origin/main...refs/heads/main`.

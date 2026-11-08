@@ -32,7 +32,8 @@ struct MainWindowView: View {
                 Alert(title: Text(alert.title), message: Text(alert.message))
             }
             .alert(
-                "Open in Terminal?", isPresented: terminalConfirmationShown, presenting: state.terminalConfirmation
+                state.terminalConfirmation?.title ?? "Open in Terminal?", isPresented: terminalConfirmationShown,
+                presenting: state.terminalConfirmation
             ) { _ in
                 Button("Open Anyway", action: state.confirmOpenTerminal)
                 // Cancel is the default button (`⏎`) as well as `⎋`.
@@ -156,6 +157,8 @@ struct MainWindowView: View {
         .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
         // `#n` badges on worktree, branch, and graph rows (#82).
         .environment(\.issueBadges, state.issueBadgeContext)
+        // PR pills on worktree and local branch rows (ADR-0023, #115).
+        .environment(\.pullRequestBadges, PullRequestBadgeContext(links: state.pullRequestStore.links))
         .environment(\.rowMenu, state.rowMenuActions)
         .environment(\.panelFocusRequest, state.panelFocusRequest)
         .toolbar {

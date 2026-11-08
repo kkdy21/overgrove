@@ -14,6 +14,12 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
     var failure: GitError?
     /// What `files(from:to:)` answers (S-12, #388).
     var comparedFiles: [FileStat] = [CommitDetailModelTests.stat("a.go", .modified, 2, 1)]
+    /// What `commits(from:to:)` answers (S-12, #389).
+    var commitsBetween = LogParser.GraphPage(commits: [], isPartial: false)
+    /// A failure for the commits between only.
+    var commitsFailure: GitError?
+    private var commitRanges: [(base: ObjectID, target: ObjectID)] = []
+    var commitRangeRequests: [(base: ObjectID, target: ObjectID)] { lock.withLock { commitRanges } }
 
     var detailRequests: [ObjectID] { lock.withLock { details } }
     var patchRequests: [GitPath] { lock.withLock { patches } }
@@ -27,6 +33,14 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
         lock.withLock { ranges.append((base, target)) }
         if let failure { return .failure(failure) }
         return .success(NumstatParser.Files(files: comparedFiles, isPartial: false))
+    }
+
+    func commits(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
+        -> Result<LogParser.GraphPage, GitError>
+    {
+        lock.withLock { commitRanges.append((base, target)) }
+        if let failure = commitsFailure ?? failure { return .failure(failure) }
+        return .success(commitsBetween)
     }
 
     func detail(_ repository: Repository, of commit: ObjectID) async -> Result<CommitDetail, GitError> {
