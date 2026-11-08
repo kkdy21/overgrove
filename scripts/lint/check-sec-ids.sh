@@ -2,12 +2,13 @@
 # Checks that test IDs are defined once (#282). Parallel PRs picked the same new number three times
 # (SEC-T15-08, -11, -15); reviewers caught each by hand.
 #
-#   SEC-Tn-xx  defined as `SEC-Tn-xx (` on a **검증** line of docs/design/security-review.md
-#              - no ID is defined twice (a mention elsewhere, e.g. §4.2 "SEC-T4-05 (대조군 포함)", is a reference)
-#              - an ID is defined under its own threat (`### Tn.`)
-#              - every SEC ID mentioned in security-review.md, OvergroveTests (`SEC-Tn-xx`, `SEC-Tn-xx/yy`,
-#                `testSECTn_xx`), scripts/, or .github/ is defined (this script's test, whose fixtures are made up,
-#                is skipped)
+#   SEC IDs    defined once, as `  - SEC-T<n>-<id> (` items of the **검증** list in docs/design/threats/T<n>.md (#457)
+#              - no ID is defined twice, and each is defined in its own threat's file
+#              - new IDs are `SEC-T<n>-<issue>-<k>` (issue number of 3+ digits, then a running number), so parallel PRs
+#                cannot pick the same one; two-digit IDs from before #457 must be in scripts/lint/sec-ids-legacy.txt
+#              - every SEC ID mentioned in security-review.md, the threat files, OvergroveTests (`SEC-T4-01`,
+#                `SEC-T4-01/02`, `SEC-T<n>-<issue>-<k>`, `testSECT4_01`, `testSECT<n>_<issue>_<k>`), scripts/, or .github/ is
+#                defined (this script's test, whose fixtures are made up, is skipped)
 #   PAR-*      each row ID of docs/architecture/parsing-spec.md's tables appears in one row only
 #   E<n>       each experiment row of security-review.md §4.1 appears once
 #   PERF-nn    defined once in docs/performance/benchmark-plan.md §3's table; every PERF ID or `test_PERF_nn` name in
@@ -31,38 +32,50 @@ report() {
 }
 
 [[ -f "$review" ]] || { report "missing docs/design/security-review.md"; exit 1; }
+threats="$root/docs/design/threats"
+legacy_file="$root/scripts/lint/sec-ids-legacy.txt"
+[[ -d "$threats" ]] || { report "missing docs/design/threats/"; exit 1; }
 
-# "<section> <id>" for every definition on a **검증** line.
-definitions=$(awk '
-  /^### T[0-9]+\./ { match($0, /T[0-9]+/); section = substr($0, RSTART + 1, RLENGTH - 1); next }
-  /^## / { section = "" }
-  /^- \*\*검증\*\*/ {
-    line = $0
-    while (match(line, /SEC-T[0-9]+-[0-9]+ \(/)) {
-      print section, substr(line, RSTART, RLENGTH - 2)
-      line = substr(line, RSTART + RLENGTH)
-    }
-  }' "$review")
+# "<threat> <id>" for every item of a **검증** list; the threat comes from the file name (T9.md).
+definitions=$(for file in "$threats"/T*.md; do
+  section=$(basename "$file" .md); section="${section#T}"
+  awk -v section="$section" '
+    /^- \*\*검증\*\*/ { inside = 1; next }
+    /^- \*\*/ { inside = 0 }
+    inside && match($0, /^  - SEC-T[0-9]+-[0-9]+(-[0-9]+)? \(/) {
+      id = substr($0, 5, RLENGTH - 6)
+      print section, id
+    }' "$file"
+done)
 
 while read -r id; do
-  [[ -n "$id" ]] && report "security-review.md: $id is defined more than once on 검증 lines; give the newer test the next free number"
+  [[ -n "$id" ]] && report "threats: $id is defined more than once on 검증 lists"
 done < <(awk '{ print $2 }' <<<"$definitions" | sort | uniq -d)
 
+legacy=$([[ -f "$legacy_file" ]] && grep -E '^SEC-T[0-9]+-[0-9]+$' "$legacy_file" || true)
 while read -r section id; do
   [[ -z "$id" ]] && continue
   threat="${id#SEC-T}"; threat="${threat%%-*}"
   if [[ "$threat" != "$section" ]]; then
-    report "security-review.md: $id is defined under ${section:+T}${section:-no threat section}, not T$threat"
+    report "threats: $id is defined in T$section.md, not T$threat.md"
+  fi
+  if [[ "$id" =~ ^SEC-T[0-9]+-[0-9]{1,2}$ ]]; then
+    grep -qxF "$id" <<<"$legacy" ||
+      report "threats: $id is a new two-digit ID; use SEC-T$threat-<issue>-<k> (security-review.md §2.1)"
+  elif ! [[ "$id" =~ ^SEC-T[0-9]+-[0-9]{3,}-[0-9]+$ ]]; then
+    report "threats: $id is not SEC-T<n>-<issue>-<k> (security-review.md §2.1)"
   fi
 done <<<"$definitions"
 
 defined=$(awk '{ print $2 }' <<<"$definitions" | sort -u)
 
-# Every mention, with `/`-grouped numbers expanded (SEC-T4-01/02/03) and test names (testSECT4_01) mapped.
+# Every mention, with `/`-grouped numbers expanded (SEC-T4-01/02/03) and test names (testSECT4_01, testSECT<n>_<issue>_<k>)
+# mapped.
 mentions() {
   {
-    grep -rhoE --exclude=check-sec-ids.test.sh 'SEC-T[0-9]+-[0-9]+(/[0-9]+)*' "$@" 2>/dev/null || true
-    grep -rhoE --exclude=check-sec-ids.test.sh 'testSECT[0-9]+_[0-9]+' "$@" 2>/dev/null | sed -E 's/^testSECT([0-9]+)_([0-9]+)$/SEC-T\1-\2/' || true
+    grep -rhoE --exclude=check-sec-ids.test.sh --exclude=sec-ids-legacy.txt 'SEC-T[0-9]+-[0-9]+(-[0-9]+|(/[0-9]+)*)' "$@" 2>/dev/null || true
+    grep -rhoE --exclude=check-sec-ids.test.sh 'testSECT[0-9]+_[0-9]+(_[0-9]+)?' "$@" 2>/dev/null |
+      sed -E 's/^testSECT([0-9]+)_([0-9]+)_([0-9]+)$/SEC-T\1-\2-\3/; s/^testSECT([0-9]+)_([0-9]+)$/SEC-T\1-\2/' || true
   } | awk -F/ '{
       split($1, part, "-"); prefix = part[1] "-" part[2]
       print $1
@@ -70,7 +83,7 @@ mentions() {
     }' | sort -u
 }
 
-sources=("$review")
+sources=("$review" "$threats")
 for dir in OvergroveTests scripts .github; do
   [[ -d "$root/$dir" ]] && sources+=("$root/$dir")
 done
@@ -78,10 +91,10 @@ while read -r id; do
   [[ -z "$id" ]] && continue
   if ! grep -qxF "$id" <<<"$defined"; then
     number="${id#SEC-T}"
-    test_name="testSECT${number%%-*}_${number#*-}"
-    where=$({ grep -rlE --exclude=check-sec-ids.test.sh "${id}([^0-9]|$)|${id%-*}-[0-9]+/|${test_name}" "${sources[@]}" 2>/dev/null || true; } |
+    test_name="testSECT${number%%-*}_${number#*-}"; test_name="${test_name//-/_}"
+    where=$({ grep -rlE --exclude=check-sec-ids.test.sh --exclude=sec-ids-legacy.txt "${id}([^0-9-]|$)|${test_name}" "${sources[@]}" 2>/dev/null || true; } |
       sed "s|^$root/||" | head -3 | tr '\n' ' ')
-    report "$id is mentioned (${where% }) but not defined on a 검증 line of security-review.md"
+    report "$id is mentioned (${where% }) but not defined on a 검증 list in docs/design/threats/"
   fi
 done < <(mentions "${sources[@]}" | sed -E 's/^(SEC-T[0-9]+-)([0-9])$/\10\2/')
 
@@ -92,7 +105,7 @@ if [[ -f "$parsing" ]]; then
   done < <(grep -oE '^\| PAR-[A-Z0-9]+-[0-9]+ \|' "$parsing" | tr -d '| ' | sort | uniq -d)
 fi
 
-# Experiment rows: `| E43 | …` in security-review.md.
+# Experiment rows: `| E43 | …` in security-review.md §4.
 while read -r id; do
   [[ -n "$id" ]] && report "security-review.md: experiment $id has more than one row"
 done < <(grep -oE '^\| E[0-9]+ \|' "$review" | tr -d '| ' | sort | uniq -d)

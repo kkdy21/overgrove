@@ -26,7 +26,7 @@ final class QueuedGHAuthReporter: GHAuthChecking, @unchecked Sendable {
     }
 }
 
-/// Which hosts' GitHub remotes the app hands to gh (ADR-0025 §1, SEC-T9-08).
+/// Which hosts' GitHub remotes the app hands to gh (ADR-0025 §1, SEC-T9-117-01).
 @MainActor
 final class AppStateGitHubHostTests: XCTestCase {
     private var defaults: UserDefaults!
@@ -71,8 +71,8 @@ final class AppStateGitHubHostTests: XCTestCase {
         return state
     }
 
-    /// SEC-T9-08: a remote on a host gh is logged in to is read with `--repo HOST/OWNER/NAME`, after the login list.
-    func testSECT9_08_ALoggedInHostsRemoteIsRead() async {
+    /// SEC-T9-117-01: a remote on a host gh is logged in to is read with `--repo HOST/OWNER/NAME`, after the login list.
+    func testSECT9_117_01_ALoggedInHostsRemoteIsRead() async {
         let issues = StubIssueLoader([.issues([issue])])
         let pullRequests = StubPullRequestLoader([.unavailable])
         let checker = QueuedGHAuthReporter([report(["github.com", "ghe.example"])])
@@ -85,8 +85,8 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertNotNil(state.issueListModel.rows.first?.browserURL)
     }
 
-    /// SEC-T9-08: a remote on a host gh has no login for is never handed to gh.
-    func testSECT9_08_AHostWithoutALoginIsNotRead() async {
+    /// SEC-T9-117-01: a remote on a host gh has no login for is never handed to gh.
+    func testSECT9_117_01_AHostWithoutALoginIsNotRead() async {
         let issues = StubIssueLoader([.issues([issue])])
         let pullRequests = StubPullRequestLoader([.unavailable])
         let checker = QueuedGHAuthReporter([report(["github.com", "other.example"])])
@@ -130,8 +130,8 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertTrue(state.trustedGitHubHosts.contains(RemoteHost("ghe.example")!))
     }
 
-    /// SEC-T9-08: a host that drops out of gh's login list at the next check is no longer read.
-    func testSECT9_08_AHostThatLogsOutIsDropped() async {
+    /// SEC-T9-117-01: a host that drops out of gh's login list at the next check is no longer read.
+    func testSECT9_117_01_AHostThatLogsOutIsDropped() async {
         let issues = StubIssueLoader([.issues([issue])])
         let pullRequests = StubPullRequestLoader([.unavailable])
         let checker = QueuedGHAuthReporter([report(["ghe.example"]), report(["github.com"])])
@@ -145,8 +145,8 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertNil(state.pullRequestStore.repository)
     }
 
-    /// SEC-T9-08: a login list that arrives after another repository opened never picks from the old remotes.
-    func testSECT9_08_ALateLoginListIgnoresTheOldRepository() async throws {
+    /// SEC-T9-117-01: a login list that arrives after another repository opened never picks from the old remotes.
+    func testSECT9_117_01_ALateLoginListIgnoresTheOldRepository() async throws {
         let issues = StubIssueLoader([.issues([issue])])
         let checker = QueuedGHAuthReporter([nil])
         let state = await loadedState(remotes: ["https://ghe.example/team/app"], issues: issues, checker: checker)

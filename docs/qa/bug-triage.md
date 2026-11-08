@@ -66,7 +66,7 @@
   3. 공개 이슈는 상세 없이 닫는다.
 - 비공개 advisory 안에서 진행하는 것:
   - 심각도는 기본 S1이다.
-  - 재현 테스트(SEC-Tn-xx)를 쓴다. 새 위협이면 security-review.md에 T19 이후 번호를 추가한다.
+  - 재현 테스트(SEC-Tn-xx)를 쓴다. 새 위협이면 `docs/design/threats/`에 다음 번호의 파일을 만들고 security-review.md §2 표에 행을 더한다. 새 SEC ID는 `SEC-T<n>-<이슈 번호>-<순번>`이다.
   - 수정은 advisory의 private fork에서 하거나, 공개 PR에서 보안 영향을 드러내지 않는 제목으로 한다. 어느 쪽으로 할지는 메인테이너가 정한다.
 - 수정이 배포되면 advisory를 공개하고 CHANGELOG의 `Security` 항목에 적는다.
 - Claude Code는 보안 제보 내용을 공개 이슈, PR, 커밋 메시지, Discussion에 옮겨 적지 않는다.

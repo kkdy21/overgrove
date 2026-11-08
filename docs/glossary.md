@@ -2,39 +2,66 @@
 
 > 상태: Accepted (Phase 1 게이트, 2026-11-05) · 관련: [prd.md](prd.md), [architecture/parsing-spec.md](architecture/parsing-spec.md)
 
-문서와 UI에서 같은 뜻의 말을 같은 이름으로 쓰기 위한 목록이다. UI 문구(영어)는 [design/screens.md](design/screens.md)를 따른다.
+문서와 UI에서 같은 뜻의 말을 같은 이름으로 쓰기 위한 목록이다. UI 문구(영어)는 [design/screens.md](design/screens.md)를 따른다. 한국어 UI 표기(#120, String Catalog `Overgrove/Resources/Localizable.xcstrings`)는 이 파일에서만 정한다.
 
 ## Git 개념
 
-| 용어 | UI 표기 | 정의 |
-|---|---|---|
-| 저장소 (repository) | Repository | 사용자가 등록한 Git 저장소. 공통 디렉터리(`git-common-dir`) 하나와 워크트리 여러 개를 가진다 |
-| 공통 디렉터리 (common dir) | — | 모든 워크트리가 공유하는 `.git` 디렉터리. 객체, ref, 설정이 있다 |
-| 워크트리 (worktree) | Worktree | 저장소에 연결된 작업 디렉터리. 각자 HEAD와 index를 가진다 |
-| 메인 워크트리 (main worktree) | main | `worktree list`의 첫 항목. 저장소를 처음 만든 디렉터리 |
-| 연결 워크트리 (linked worktree) | — | `git worktree add`로 만든 추가 워크트리. 그 안의 `.git`은 파일이며 공통 디렉터리의 `worktrees/<name>`을 가리킨다 |
-| locked | Locked | `git worktree lock`으로 잠긴 워크트리. 이동식 디스크처럼 자주 사라지는 경로가 prune되지 않게 막는다. 이유 문자열을 가질 수 있다 |
-| prunable | Prunable | 경로가 사라지는 등의 이유로 `git worktree prune` 대상이 된 워크트리. 앱은 표시만 하고 prune하지 않는다 |
-| detached HEAD | Detached | 브랜치가 아니라 커밋을 직접 가리키는 HEAD |
-| unborn 브랜치 | — | 커밋이 아직 없는 브랜치. status 헤더는 `branch.oid (initial)` |
-| bare 저장소 | Bare | 작업 트리가 없는 저장소 |
-| HEAD | HEAD | 워크트리가 현재 가리키는 커밋 또는 브랜치 |
-| index (스테이징 영역) | — | 다음 커밋에 들어갈 내용 |
-| Staged | Staged | index와 HEAD가 다른 변경 (porcelain v2 XY의 X) |
-| Unstaged | Unstaged | 작업 트리와 index가 다른 변경 (XY의 Y) |
-| Untracked | Untracked | Git이 추적하지 않는 새 파일 (`?` 레코드) |
-| Conflicted | Conflicted | 병합 충돌 상태 파일 (`u` 레코드, XY가 `UU`, `AA` 등) |
-| WIP | WIP | 아직 커밋하지 않은 변경 전체 (Staged + Unstaged + Untracked + Conflicted) |
-| WIP 행 | WIP row | 그래프 맨 위에 두는 가상 행. 선택한 워크트리의 미커밋 변경을 요약한다 |
-| stash | Stash | `git stash`로 임시 보관한 변경. `stash@{n}`으로 표시하지만 내부적으로는 OID로 가리킨다 |
-| upstream | Upstream | 로컬 브랜치가 추적하는 원격 브랜치 (예: `origin/main`) |
-| ahead / behind | ↑ / ↓ | 로컬 브랜치에만 있는 커밋 수 / upstream에만 있는 커밋 수. 마지막 fetch 시점 기준 |
-| upstream gone | Gone | upstream이 설정되어 있지만 원격 추적 ref가 사라진 상태 |
-| fetch | Fetch | 원격의 객체와 ref를 받아 원격 추적 ref를 갱신하는 동작. 앱이 하는 유일한 원격 동작 |
-| 원격 추적 ref | Remote branch | `refs/remotes/<remote>/<branch>` |
-| OID (object ID) | SHA | 객체 해시. SHA-1이면 40자리, SHA-256이면 64자리 hex |
-| 전체 ref 이름 | — | `refs/heads/main`처럼 `refs/`로 시작하는 이름. 앱은 git 인자로 이 형태만 쓴다 |
-| 서브모듈 | Submodule | 다른 저장소를 커밋 단위로 포함하는 항목 (gitlink) |
+| 용어 | UI 표기 | 한국어 UI 표기 | 정의 |
+|---|---|---|---|
+| 저장소 (repository) | Repository | 저장소 | 사용자가 등록한 Git 저장소. 공통 디렉터리(`git-common-dir`) 하나와 워크트리 여러 개를 가진다 |
+| 공통 디렉터리 (common dir) | — | — | 모든 워크트리가 공유하는 `.git` 디렉터리. 객체, ref, 설정이 있다 |
+| 워크트리 (worktree) | Worktree | 워크트리 | 저장소에 연결된 작업 디렉터리. 각자 HEAD와 index를 가진다 |
+| 메인 워크트리 (main worktree) | main | 메인 | `worktree list`의 첫 항목. 저장소를 처음 만든 디렉터리 |
+| 연결 워크트리 (linked worktree) | — | — | `git worktree add`로 만든 추가 워크트리. 그 안의 `.git`은 파일이며 공통 디렉터리의 `worktrees/<name>`을 가리킨다 |
+| locked | Locked | 잠김 | `git worktree lock`으로 잠긴 워크트리. 이동식 디스크처럼 자주 사라지는 경로가 prune되지 않게 막는다. 이유 문자열을 가질 수 있다 |
+| prunable | Prunable | 정리 대상 | 경로가 사라지는 등의 이유로 `git worktree prune` 대상이 된 워크트리. 앱은 표시만 하고 prune하지 않는다 |
+| detached HEAD | Detached | 분리됨 | 브랜치가 아니라 커밋을 직접 가리키는 HEAD |
+| unborn 브랜치 | — | — | 커밋이 아직 없는 브랜치. status 헤더는 `branch.oid (initial)` |
+| bare 저장소 | Bare | 베어 | 작업 트리가 없는 저장소 |
+| HEAD | HEAD | HEAD | 워크트리가 현재 가리키는 커밋 또는 브랜치 |
+| index (스테이징 영역) | — | — | 다음 커밋에 들어갈 내용 |
+| Staged | Staged | 스테이징됨 | index와 HEAD가 다른 변경 (porcelain v2 XY의 X) |
+| Unstaged | Unstaged | 스테이징 안 됨 | 작업 트리와 index가 다른 변경 (XY의 Y) |
+| Untracked | Untracked | 추적 안 됨 | Git이 추적하지 않는 새 파일 (`?` 레코드) |
+| Conflicted | Conflicted | 충돌 | 병합 충돌 상태 파일 (`u` 레코드, XY가 `UU`, `AA` 등) |
+| WIP | WIP | WIP | 아직 커밋하지 않은 변경 전체 (Staged + Unstaged + Untracked + Conflicted) |
+| WIP 행 | WIP row | WIP 행 | 그래프 맨 위에 두는 가상 행. 선택한 워크트리의 미커밋 변경을 요약한다 |
+| stash | Stash | 스태시 | `git stash`로 임시 보관한 변경. `stash@{n}`으로 표시하지만 내부적으로는 OID로 가리킨다 |
+| upstream | Upstream | 업스트림 | 로컬 브랜치가 추적하는 원격 브랜치 (예: `origin/main`) |
+| ahead / behind | ↑ / ↓ | ↑ / ↓ | 로컬 브랜치에만 있는 커밋 수 / upstream에만 있는 커밋 수. 마지막 fetch 시점 기준 |
+| upstream gone | Gone | 사라짐 | upstream이 설정되어 있지만 원격 추적 ref가 사라진 상태 |
+| fetch | Fetch | 페치 | 원격의 객체와 ref를 받아 원격 추적 ref를 갱신하는 동작. 앱이 하는 유일한 원격 동작 |
+| 원격 추적 ref | Remote branch | 원격 브랜치 | `refs/remotes/<remote>/<branch>` |
+| OID (object ID) | SHA | SHA | 객체 해시. SHA-1이면 40자리, SHA-256이면 64자리 hex |
+| 전체 ref 이름 | — | — | `refs/heads/main`처럼 `refs/`로 시작하는 이름. 앱은 git 인자로 이 형태만 쓴다 |
+| 서브모듈 | Submodule | 서브모듈 | 다른 저장소를 커밋 단위로 포함하는 항목 (gitlink) |
+
+## 한국어 UI 표기 규칙 (#120)
+
+앱은 시스템 언어와 macOS의 앱별 언어 설정을 따른다. 앱 안에는 언어 설정이 없다.
+
+- **번역하지 않는 것**: git 식별자와 기호(HEAD, ref·브랜치 이름, SHA, 경로, `stash@{n}`), 복사용 명령(git·gh·brew·xcode-select), 키 표기(⌘, ⎋), git·gh가 낸 오류 원문(마스킹된 stderr), 배지 약어(WIP, AI). 클립보드에 들어가는 값(SHA, 경로, 명령, Copy Report)도 번역하지 않는다.
+- **git 용어는 음차한다**: 커밋, 브랜치, 태그, 스태시, 워크트리, 페치(Fetch). 다른 git 동사가 나오면 같은 원칙을 따른다(예: Pull → 풀).
+- **UI 명사와 동작은 번역한다.** VoiceOver 라벨과 툴팁도 번역한다.
+- 테스트는 영어 문구를 비교하므로 scheme의 테스트 언어를 영어로 고정한다. 한국어 번역은 별도 테스트로 확인한다.
+
+| UI 표기 (영어) | 한국어 UI 표기 |
+|---|---|
+| Commit / Branch / Tag | 커밋 / 브랜치 / 태그 |
+| Remote | 원격 |
+| Graph | 그래프 |
+| History | 이력 |
+| Refs / Author / Date / Message (그래프 열) | Refs / 작성자 / 날짜 / 메시지 |
+| Diff (S-10, 변경 내용 보기) | 변경 내용 |
+| Unified / Split | 통합 / 나란히 |
+| Settings, General, Repositories, Advanced | 설정, 일반, 저장소, 고급 |
+| Untrusted | 신뢰하지 않음 |
+| Read-only | 읽기 전용 |
+| AI-assisted | AI 지원 |
+| Check Again | 다시 확인 |
+| Use Default | 기본값 사용 |
+| Setup Assistant | 설정 도우미 |
+| Show / Copy / Reveal in Finder / Open in Terminal | 보기 / 복사 / Finder에서 보기 / 터미널에서 열기 |
 
 ## Git 출력·호출
 

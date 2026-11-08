@@ -4,12 +4,17 @@ import Foundation
 extension AppState {
     // MARK: Branches (#72)
 
-    static func branchModel(_ listing: WorktreeListing) -> BranchListModel? {
+    /// - Parameter isVerified: Open on GitHub links use only remotes this load inspected, like the PR links (#406);
+    ///   a cached paint has none.
+    static func branchModel(
+        _ listing: WorktreeListing, isVerified: Bool = true, trusting hosts: TrustedHosts = GitHubRemote.publicOnly
+    ) -> BranchListModel? {
         guard let refs = listing.refs else { return nil }
         return BranchListModel(
             refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
             remoteNames: listing.remoteNames,
-            detachedHeads: Set(listing.entries.filter(\.worktree.isDetached).compactMap(\.worktree.head)))
+            detachedHeads: Set(listing.entries.filter(\.worktree.isDetached).compactMap(\.worktree.head)),
+            githubRemotes: isVerified ? listing.githubRemotes(trusting: hosts) : [:])
     }
 
     // MARK: Issues (#81)
@@ -132,6 +137,11 @@ extension AppState {
         let remotes = source.remotes.map { (name: $0.name, url: $0.url) }
         pullRequestStore.update(
             branches: source.branches, remotes: GitHubRemote.repositories(remotes: remotes, trusting: trusted))
+        // Branch rows' Open on GitHub (#406) from the same verified remotes.
+        if case .loaded(var listing) = worktreeList {
+            listing.remotes = source.remotes
+            branchListModel = Self.branchModel(listing, trusting: trusted)
+        }
         let github = GitHubRemote.repository(remotes: remotes, trusting: trusted)
         guard github != issuePanel.repository else { return }
         issuePanel.show(github)

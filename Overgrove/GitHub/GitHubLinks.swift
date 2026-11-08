@@ -11,15 +11,16 @@ enum GitHubLinks {
         url(repository, ["commit", oid.hex])
     }
 
-    /// `https://HOST/OWNER/NAME/tree/<branch>` for a remote-tracking ref of the GitHub remote
-    /// (`refs/remotes/<remote>/<branch>`). `nil` for another remote, the remote's `HEAD`, or an invalid ref.
-    static func branch(_ repository: GitHubRepository, remoteRef: String, remote: String) -> URL? {
-        let prefix = "refs/remotes/\(remote)/"
-        guard FullRefName(remoteRef) != nil, remoteRef.utf8.starts(with: prefix.utf8) else { return nil }
-        let branch = String(decoding: remoteRef.utf8.dropFirst(prefix.utf8.count), as: UTF8.self)
-        guard !branch.isEmpty, branch != "HEAD" else { return nil }
+    /// `https://HOST/OWNER/NAME/tree/<branch>` for a branch row's target (#406): the repository of the remote the
+    /// branch tracks, resolved and validated by `GitHubBranchTarget`. `nil` for an empty name or `HEAD`; each
+    /// `/`-separated part is encoded on its own.
+    static func tree(_ target: GitHubBranchTarget) -> URL? {
+        // `GitHubBranchTarget` already validated the ref; checked again here as defense in depth.
+        guard !target.branch.isEmpty, target.branch != "HEAD", FullRefName("refs/heads/" + target.branch) != nil
+        else { return nil }
         return url(
-            repository, ["tree"] + branch.split(separator: "/", omittingEmptySubsequences: false).map(String.init))
+            target.repository,
+            ["tree"] + target.branch.split(separator: "/", omittingEmptySubsequences: false).map(String.init))
     }
 
     /// `https://HOST/OWNER/NAME/blob/<oid>/<path>`. `nil` for a path git cannot name losslessly.

@@ -20,7 +20,7 @@ Overgrove는 **사용자가 고른 로컬 저장소에 대해 시스템 `git`을
 
 | 신뢰함 | 신뢰하지 않음 |
 |---|---|
-| macOS, `/usr/bin/git`(Apple 서명), 사용자가 설치한 `gh` | 저장소 안의 모든 것: 작업 트리 파일, `.gitattributes`, `.gitmodules` |
+| macOS, `/usr/bin/git`(Apple 서명), 사용자가 설치한 `gh`, `glab`, `gt`(v0.2.0, ADR-0026. 실행 전에 버전 출력 형식을 확인한다) | 저장소 안의 모든 것: 작업 트리 파일, `.gitattributes`, `.gitmodules` |
 | git의 `system`, `global`, `unknown`(Apple 내장), `command` scope 설정 | `.git/config`(`local`), `config.worktree`(`worktree`), 그 설정이 include한 파일 |
 | 사용자가 `NSOpenPanel`로 고른 경로 | `.git/info/attributes`, `.git/hooks/*`, 서브모듈의 `.git/modules/*/config` |
 | 설정에서 사용자가 고른 git 실행 파일 중 [ADR-0019](../adr/0019-user-chosen-git-executable.md)의 경로·소유자·권한·버전 규칙을 통과한 것 (v0.2.0, #106) | 등록된 저장소 안에 있거나, root·현재 사용자가 아닌 소유자, other 쓰기, `admin`·`wheel`이 아닌 group 쓰기 권한이 있는 경로의 실행 파일 |
@@ -42,361 +42,35 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 
 상태 표기: **설계 완료**는 대응이 정의되어 있고 구현 전이라는 뜻이다. **적용됨**은 저장소 셋업에서 이미 적용했다는 뜻이다. **확인**은 Apple Git 2.50.1 실험(§4)으로 검증한 사실이다.
 
-### T1. `core.fsmonitor` 실행
+위협마다 파일 하나를 둔다(#457). 각 파일에 설명, 시나리오, 대응, 잔여 위험, 검증 테스트, 상태가 있다. 검증 테스트는 한 줄에 하나씩 쓰고, 새 SEC ID는 [§2.1](#21-sec-id-규칙)을 따른다.
 
-- **설명**: `core.fsmonitor`에 실행 파일 경로를 넣으면 `git status`가 그 프로그램을 실행한다.
-- **시나리오**: 악성 저장소의 `.git/config`에 `core.fsmonitor = ./.git/evil`. 사용자가 앱에 등록하는 순간 status 조회로 실행된다. 서브모듈의 설정에 넣어도 상위 저장소 status가 서브모듈로 재귀하며 실행된다 (확인).
-- **대응**:
-  - 공통 인자 `-c core.fsmonitor=false` (확인: 실행 안 됨). `-c`는 `GIT_CONFIG_PARAMETERS`로 서브프로세스(서브모듈)에도 전파된다 (확인).
-  - status에 `--ignore-submodules=dirty`를 붙여 서브모듈 재귀 자체를 막는다 (확인).
-  - 서브모듈 내부 상태(#108)는 재귀로 읽지 않는다. 서브모듈마다 별도 저장소로 보고, 경로와 `.git`이 저장소 안에 머무는지 확인한 뒤 그 서브모듈의 `configList`를 `RepoConfigInspector`로 검사하고, 그 서브모듈 자신의 안전 컨텍스트로만 `status`를 실행한다. 검사가 막으면 아무것도 실행하지 않는다(git-command-catalog.md §3 "서브모듈 상태").
-  - `RepoConfigInspector`가 탐지해 S-05에 "무력화됨"으로 보고한다.
-- **잔여 위험**: 없음 (확인된 범위). 내장 fsmonitor 데몬(`core.fsmonitor=true`)도 함께 꺼진다. 대신 큰 저장소의 status가 느려질 수 있다 (PB-5 측정).
-- **검증**: SEC-T1-01 (악성 픽스처 status → canary 없음), SEC-T1-02 (서브모듈 fsmonitor → canary 없음), SEC-T1-03 (모든 명령의 인자 스냅샷에 포함), SEC-T1-04 (서브모듈 상태 조회(#108): 서브모듈 자체 설정의 fsmonitor → 서브모듈 status에도 공통 인자가 붙는지 지키는 회귀 테스트. 공통 `-c core.fsmonitor=false`가 어느 안전 컨텍스트에서든 막으므로, 서브모듈 자체 컨텍스트를 쓰는지는 SEC-T4-09가 가린다. 대조군: 서브모듈 안의 plain status는 실행)
-- **상태**: 설계 완료
+| 위협 | 내용 |
+|---|---|
+| [T1](threats/T1.md) | `core.fsmonitor` 실행 |
+| [T2](threats/T2.md) | hooks 실행 |
+| [T3](threats/T3.md) | 외부 diff, textconv 실행 |
+| [T4](threats/T4.md) | clean/smudge/process 필터 실행 |
+| [T5](threats/T5.md) | 전송 계층 명령 실행 |
+| [T6](threats/T6.md) | 저장소 로컬 `credential.helper` 실행 |
+| [T7](threats/T7.md) | 서명 검증 프로그램 실행 |
+| [T8](threats/T8.md) | fetch 중 자동 gc·maintenance |
+| [T9](threats/T9.md) | 인자 인젝션 |
+| [T10](threats/T10.md) | 부모 환경 변수 상속 |
+| [T11](threats/T11.md) | 자격 증명 노출 |
+| [T12](threats/T12.md) | 자격 증명 프롬프트 대기 |
+| [T13](threats/T13.md) | 의도치 않은 쓰기 명령 실행 |
+| [T14](threats/T14.md) | 파일 시스템 범위 이탈, 심볼릭 링크 탈출 |
+| [T15](threats/T15.md) | 자원 고갈 |
+| [T16](threats/T16.md) | 로그를 통한 정보 유출 |
+| [T17](threats/T17.md) | 공급망 |
+| [T18](threats/T18.md) | 공개 저장소에 비밀 정보·개인 경로 커밋 |
+| [T19](threats/T19.md) | 디스크에 남는 저장소 데이터 |
 
-### T2. hooks 실행
+### 2.1 SEC ID 규칙
 
-- **설명**: `.git/hooks/*` 또는 `core.hooksPath`가 가리키는 훅이 실행된다. 조회 명령은 대부분 훅을 실행하지 않지만, **fetch는 ref를 갱신할 때 `reference-transaction` 훅을 실행한다** (확인).
-- **시나리오**: 악성 저장소에 `.git/hooks/reference-transaction` 실행 파일이 있다. 사용자가 Fetch 버튼을 누르면 실행된다.
-- **대응**:
-  - 공통 인자 `-c core.hooksPath=/dev/null`. 훅 디렉터리가 존재하지 않는 경로가 되어 실행되지 않는다 (확인). 로컬 `core.hooksPath`보다 명령줄이 우선한다.
-  - **설정형 hook(#354)**: git 2.54부터 설정(`hook.<이름>.command`, `.event`)으로도 hook을 정의할 수 있다(릴리스 노트). `RepoConfigInspector`가 신뢰하지 않는 scope(`local`, `worktree`)의 `hook.<이름>.*` 키를 찾으면 이름마다 `-c hook.<이름>.enabled=false`를 모든 명령에 붙인다(T2 `neutralized`). 이름은 git처럼 바이트로 구분한다(정준 동치인 이름도 서로 다른 hook이다). 저장소가 신뢰 scope에 정의된 hook 이름에 이벤트만 더해도 그 이름 전체를 끈다. 이름에 `=`·제어 문자·손실 디코딩이 있거나 256바이트를 넘거나, 이름이 `maximumNeutralizedHooks`(256)개를 넘으면 무력화 인자를 만들 수 없으므로 조회와 fetch를 모두 막는다(fail closed, filter 드라이버와 같다). 2.54 미만 git은 이 키들을 무시한다.
-  - 사용자 전역(`global`, `system`) hook은 신뢰 범위라 건드리지 않는다.
-- **잔여 위험**: 없음 (확인된 범위). 새 git 버전이 다른 형태의 hook 설정을 더하면 검사기가 모를 수 있다.
-- **검증**: SEC-T2-01 (훅이 든 픽스처 fetch → canary 없음), SEC-T2-02 (인자 스냅샷), SEC-T2-03 (설정형 hook: 악성 픽스처의 모든 이벤트에 건 hook이 앱 fetch에서 실행되지 않음, 대조군 포함, #354), SEC-T2-04 (실측: 앱의 모든 조회는 설정형 hook을 일으키지 않음, #354), SEC-T2-05 (무력화할 수 없는 hook 이름·상한 초과는 조회와 fetch를 막음, #354), SEC-T2-06 (여러 이름 형태 — 문장부호, 앞뒤 공백, 비ASCII, 정준 동치 쌍, 저장소의 `enabled = true` — 모두 앱 fetch에서 실행되지 않음, #354). git 2.36.6, Apple Git 2.54.0, Homebrew 2.54.0에서 확인
-- **상태**: 설계 완료
-
-### T3. 외부 diff, textconv 실행
-
-- **설명**: `.gitattributes`의 `diff=<driver>`와 설정의 `diff.<driver>.textconv`·`diff.<driver>.command`, 또는 `diff.external`이 diff를 만들 때 실행된다.
-  - `git diff`는 기본으로 외부 diff 드라이버를 실행한다 (확인).
-  - `git show -p`는 textconv를 실행한다 (확인).
-- **시나리오**: 사용자가 파일 diff를 열면 악성 textconv가 실행된다.
-- **대응**:
-  - diff를 만드는 모든 명령(`diff`, `diff-tree -p`, `stash show -p`)에 `--no-ext-diff --no-textconv`를 붙인다 (확인: 실행 안 됨).
-  - numstat 계열(`diff-tree --numstat`, `stash show --numstat`, 파일 이력의 `log [--follow] --numstat`(#70))은 실험에서 textconv를 부르지 않았다. 그래도 같은 인자를 붙인다. log 계열은 patch(`-p`, `--stat` 등)를 요청하지 않고, diff 출력 옵션(`--numstat`, `--raw`, `--name-status` 등)은 두 인자와 함께일 때만 쓴다(SEC-T3-02, 측정 E24a).
-  - porcelain `git diff`는 저장소의 diff 설정으로 출력 모양이 바뀐다(#239, catalog §3). `color.diff=always`가 `color.ui=never`를 이기고, `diff.noprefix`·`mnemonicPrefix`·`srcPrefix`·`dstPrefix`가 접두사를 바꾸고, `diff.suppressBlankEmpty`가 문맥 줄을 바꾸고, `diff.submodule=diff`는 서브모듈 쪽 파일 diff까지 붙인다. 화면이 patch를 잘못 읽거나 서브모듈 내용이 섞이지 않게, porcelain diff case에 `--no-color --src-prefix=a/ --dst-prefix=b/ --submodule=short`를 붙이고 공통 인자에 `-c diff.suppressBlankEmpty=false`를 둔다.
-- **잔여 위험**: 새 diff 명령을 추가할 때 인자를 빠뜨릴 수 있다. 그래서 카탈로그의 모든 diff case를 SEC-T3-02가 열거해 검사한다.
-- **검증**: SEC-T3-01 (textconv, `diff.<d>.command`, `diff.external` 픽스처 → canary 없음), SEC-T3-02 (diff 계열 case 전수 인자 검사), SEC-T3-03 (저장소 diff 설정 8종을 심어도 porcelain diff 5종의 앱 출력이 바이트 단위로 같음. 대조군(고정 인자·공통 인자 없이)은 달라짐. 고정 인자를 비우면 실패함을 확인, #239)
-- **상태**: 설계 완료
-
-### T4. clean/smudge/process 필터 실행
-
-- **설명**: `filter=<driver>` 속성이 붙은 파일의 stat 정보가 index와 다르면, `git status`가 내용을 비교하려고 clean 필터를 실행한다 (확인).
-  - `--no-optional-locks`면 index를 갱신하지 않으므로 **status를 부를 때마다 다시 실행된다** (확인).
-  - 속성은 트리의 `.gitattributes`뿐 아니라 `.git/info/attributes`에서도 온다.
-  - 드라이버 이름이 임의라서 고정된 `-c`로는 막을 수 없다.
-- **시나리오**: 악성 저장소에 `* filter=x`와 `filter.x.clean = <명령>`이 있다. 등록 직후 status 조회로 실행된다.
-- **대응** (ADR-0009):
-  - `RepoConfigInspector`가 `local`·`worktree` scope의 `filter.<d>.*`를 찾아, 드라이버마다 `-c filter.<d>.clean= -c filter.<d>.smudge= -c filter.<d>.process= -c filter.<d>.required=false`를 붙인다.
-    - 빈 clean은 필터를 끈다 (확인).
-    - `required=true`인 상태에서 clean만 비우면 fatal이 난다 (확인, E6). 그래서 `required=false`를 함께 넣는다. SEC-T4-03이 이 사실(무력화에서 `required=false`만 빼면 status 실패)을 고정한다. 내용이 바뀐 파일은 status가 다시 해시하지 않아 이 오류가 나지 않으므로, 내용은 같고 stat만 바뀐 파일로 확인해야 한다.
-  - 드라이버 이름이 허용 형식이 아니면 fail closed.
-  - 서브모듈 쪽 필터는 `--ignore-submodules=dirty`로 재귀를 막아 차단한다. status뿐 아니라 **작업 트리를 보는 diff(`worktreeDiff`)도** 같다. 경로가 서브모듈이면 미스테이지 diff가 서브모듈 안에서 `status`를 돌려 서브모듈 자체의 filter를 실행했다(확인, #239). `--cached`는 서브모듈 안을 보지 않는다. 트리끼리 비교하는 명령(stash·커밋 diff, 파일 이력)은 서브모듈 작업 트리를 보지 않는다.
-- **대안 검토**: `--attr-source=<empty tree>`(git 2.41+)는 트리의 `.gitattributes`만 막고 `.git/info/attributes`는 막지 못한다 (확인). 주 대응이 될 수 없다.
-- **잔여 위험**:
-  - global 설정에 정의된 필터(예: 사용자가 설치한 Git LFS)는 신뢰 범위라 그대로 실행된다. 의도된 동작이다.
-  - 로컬에 정의된 LFS 필터를 무력화하면 LFS 파일이 변경으로 보일 수 있다.
-- **워크트리 경로는 믿지 않는다(#87, #221 보안 검토)**: `worktree list`의 경로는 저장소가 쓰는 `.git/worktrees/<id>/gitdir`에서 온다. 위조된 항목이 따로 둔 다른 저장소를 가리키면, 그 경로에서 실행한 status가 검사하지 않은 그 저장소의 filter를 실행한다(대조군으로 확인, E43). 연결 워크트리의 `config.worktree`도 메인 워크트리 검사에 나오지 않는다. 그래서 `RepositoryService`는 워크트리마다 그 워크트리가 이 저장소의 것인지 확인한 뒤에만 git을 실행하고(T14, #226), 그 워크트리에서 `configList`를 검사해 그 워크트리의 무력화 인자로 status를 실행한다. `config.worktree`가 조회를 막으면 그 워크트리만 `.inspectionBlocked`가 되고 status는 실행하지 않는다.
-- **검사 결과를 캐시해도 낡은 결과를 쓰지 않는다(#88)**: `RepositoryService`는 워크트리마다 설정 검사 결과를 캐시한다(`RepoConfigInspectionCache`). 낡은 검사 결과로 status를 실행하면 그 뒤에 추가된 filter 드라이버가 무력화되지 않는다(대조군으로 확인). 그래서 다음 규칙을 둔다.
-  - 지문은 그 폴더에서 git이 읽는 설정 파일 전부를 `stat(2)`으로 찍는다: 공통 `config`, 두 `config.worktree`, `commondir`, `.git`. 장치·inode·크기·mtime·**ctime**을 비교한다. mtime은 되돌릴 수 있지만(`touch -m`, 압축 해제) ctime은 사용자 공간에서 되돌릴 수 없다.
-  - 지문은 `config --list` 실행 **전에** 찍는다.
-  - 저장소가 제어하는 `include.path`·`includeIf.*.path`가 있으면 캐시하지 않는다. 포함된 파일은 지문에 없고, 작업 트리의 추적 파일일 수도 있기 때문이다(fail closed).
-  - ⌘R은 그 저장소의 검사 캐시를 모두 버린다. 검사가 막히면 그 저장소의 결과 캐시도 버린다.
-- **검증**: SEC-T4-01 (`.gitattributes` 필터 → canary 없음), SEC-T4-02 (`.git/info/attributes` 필터), SEC-T4-03 (`required=true`여도 status 성공), SEC-T4-04 (허용 밖 드라이버 이름 → 조회 차단), SEC-T4-05 (서브모듈 필터: status와 `worktreeDiff`(미스테이지·스테이지) → canary 없음, 인자만 빼면 실행되는 대조군, #239), SEC-T4-06 (그래프 포맷의 `%(trailers)`가 로컬 `trailer.<key>.cmd`/`.command`를 실행하지 않음, #160), `RepositoryServiceCacheTests.testChangedWorktreeConfigurationIsInspectedAgain`·`testChangedSharedConfigurationIsInspectedAgain`·`testRepositoryLocalIncludeIsNeverServedFromTheCache` (캐시 후 설정이 바뀌면 다시 검사해 새 드라이버가 실행되지 않음. 대조군은 낡은 검사 결과로 실행됨, #88), `RepoConfigInspectorTests.testFingerprintSeesARewriteThatRestoresSizeAndModificationTime` (크기·mtime을 되돌려도 지문이 바뀜), `RepositoryServiceTests.testForgedWorktreeEntryPointingAtAnotherRepositoryIsNotQueried`·`testLinkedWorktreeOwnConfigurationIsInspected` (대조군에서는 filter 실행, 앱 경로에서는 실행 안 됨), SEC-T4-07 (연결 워크트리의 `config.worktree`가 조회를 막으면 그 워크트리만 `.inspectionBlocked`이고 status가 실행되지 않음. 워크트리 전용 드라이버는 `testLinkedWorktreeOwnConfigurationIsInspected`, #226), SEC-T4-08 (Diff 뷰어(S-10) 경로 — 소속 재확인, 그 워크트리 설정 검사, 그 safety로 `worktreeDiff`·`untrackedPreview` — 가 `--malicious` 픽스처의 staged·unstaged·untracked 파일에서 canary를 실행하지 않음, #232), SEC-T4-09 (서브모듈 상태 조회(#108): 서브모듈 자체 설정과 `info/attributes`의 filter → 서브모듈의 검사 결과로 무력화되어 canary 없음. 대조군: 서브모듈 안의 plain status는 실행)
-- **상태**: 설계 완료
-
-### T5. 전송 계층 명령 실행
-
-- **설명**: fetch가 원격에 연결할 때 다음 경로로 임의 명령이 실행된다. 모두 확인했다.
-
-  | 경로 | 확인 결과 |
-  |---|---|
-  | 로컬 `core.sshCommand` | ssh 원격 fetch 시 실행 |
-  | 로컬 `core.gitProxy` | `git://` 원격 fetch 시 실행. `-c core.gitProxy=`로는 막히지 않음 |
-  | 로컬 `remote.<n>.uploadpack` | 로컬 경로 원격 fetch 시 실행. `-c remote.<n>.uploadpack=...`로는 막히지 않음 (첫 값이 이김) |
-  | `ext::<명령>` URL + 로컬 `protocol.ext.allow=always` | 실행. `url.<base>.insteadOf`로 평범한 https URL을 `ext::`로 바꿔치기해도 실행 |
-  | `fd::` URL | 기본 허용이며 fetch가 정지함 |
-  | 로컬 `core.alternateRefsCommand` + `objects/info/alternates` | alternates가 있는 저장소의 fetch에서 실행 (테스트 fork 실측, [fixtures.md §8](../testing/fixtures.md)) |
-  | `<helper>::<주소>` URL, git이 직접 처리하지 않는 `<scheme>://` URL, `remote.<n>.vcs`, `insteadOf`로 바꿔치기한 URL | 사용자가 설치한 `git-remote-<helper>`(`hg`, `gcrypt`, `codecommit` 등)를 **저장소가 고른 인자로** 실행. 로컬 `protocol.<helper>.allow=always`가 있으면 명령줄 `-c protocol.allow=never`로도 막히지 않음 (이름별 키가 일반 키보다 우선, #161 실측) |
-  | **조회 명령의 lazy fetch** (partial clone: 로컬 `remote.<n>.promisor`·`partialclonefilter` 또는 처음부터 partial로 배포된 저장소) | 내용이 필요한 조회(diff, numstat, `log --follow`)가 누락 객체를 promisor 원격에서 가져오며 로컬 `remote.<n>.uploadpack`을 실행. https 원격이면 401 뒤 로컬 `credential.helper`도 실행. 조회에는 fetch의 `--upload-pack` 고정·인증 재설정이 없음 (#210 보안 검토, #212 실측) |
-
-- **시나리오**: 사용자가 Fetch를 누르면 원격 설정에 숨긴 명령이 실행된다.
-- **대응**:
-  - **환경 변수 `GIT_SSH_COMMAND`**: 신뢰 scope의 `core.sshCommand`, 없으면 `ssh -o BatchMode=yes`. 환경 변수가 로컬 설정보다 우선한다 (확인). 빈 `-c core.sshCommand=`는 ssh 자체를 망가뜨려서 쓰지 않는다 (확인).
-  - **환경 변수 `GIT_PROXY_COMMAND=`(빈 값)**: 로컬 `core.gitProxy` 무력화 (확인).
-  - **`fetch --upload-pack=git-upload-pack`**: 로컬 uploadpack 무력화 (확인).
-  - **환경 변수 `GIT_ALLOW_PROTOCOL=https:ssh:git:file:http`**: 내장 전송만 허용한다. `protocol.allow=never`에 목록의 전송만 `always`로 둔 것처럼 동작하고, 저장소의 `protocol.<이름>.allow=always`를 포함한 모든 설정보다 우선한다. 저장소가 고른 원격 helper(`<helper>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기)는 `transport '<이름>' not allowed`로 실행 전에 거부된다 (확인, E34–E38). 거부는 `GitError.transportNotAllowed`로 분류해 이유를 보여 준다. 신뢰하지 않음 저장소(#107)와 `lazyFetchControlVersion` 미만 git(#361)의 fetch는 `file`을 뺀 `https:ssh:git:http`를 쓴다.
-  - **조회는 전송을 쓰지 않는다(#212)**: `GitClient.run`의 환경은 `GIT_ALLOW_PROTOCOL=`(빈 값)이다. 이것이 `GitEnvironment.environment`의 기본값이고, 전송은 `GitClient.fetch`만 `allowsTransport: true`로 연다(#215). 빈 목록은 모든 전송을 원격 helper·uploadpack·credential helper 실행 전에 거부한다(`transport 'file' not allowed`, 확인 E42). git의 protocol policy(2.12+)라서 최소 지원 2.36부터 모든 버전에 적용된다(소스 기준. #99·#317에서 2.36.6·2.39.5·2.40.4·2.44.0·2.45.0도 실행해 확인). 모든 명령에 `GIT_NO_LAZY_FETCH=1`을 두 번째 층으로 둔다. 이 변수가 모든 lazy fetch를 막게 된 것은 2024년 5월 git 보안 릴리스부터다: 2.45.1, 2.44.1과 2.39.4·2.40.2·2.41.1·2.42.2·2.43.4 백포트. 백포트가 없는 2.44.0 이하는 변수를 모르고, 2.45.0은 변수가 있지만 fetch 중의 lazy fetch는 막지 못한다(각 버전 tarball 소스와 실측으로 확인, #317). `-c remote.<n>.promisor=false`와 `-c remote.<n>.uploadpack=…`로는 막히지 않는다(로컬 값이 이김, 확인). fetch만 `https:ssh:git:file:http` 목록을 쓴다. (신뢰하지 않음 저장소와 2.45.1 미만 git의 fetch는 `https:ssh:git:http`, #107·#361.)
-  - **fetch 중의 lazy fetch(#213 보안 검토)**: fetch도 받은 객체가 로컬에 없는 blob을 delta base로 쓰면 lazy fetch를 하며, 이때는 고정한 `--upload-pack`이 적용되지 않아 로컬 uploadpack이 실행된다(filter 설정 없이 promisor만 있는 저장소, 실측). `GIT_NO_LAZY_FETCH`를 지원하는 git은 이것으로 막혀 fetch가 안전하게 실패한다. **`lazyFetchControlVersion`(2.45.1) 미만에서는 partial clone의 fetch를 거부한다**(`configInspectionFailed`). partial clone 판정은 두 신호 중 하나다. ① git이 원격을 promisor로 다루게 하는 설정 전부: 어느 scope든 `remote.<n>.promisor`, `remote.<n>.partialclonefilter`(값 무관), `extensions.partialclone`(빈 값 포함)(`RepoSafetyContext.isPartialClone`). ② 독립 신호로, 공통 git 디렉터리의 `objects/pack`에 `.promisor` 파일이 있는 경우(`GitClient.hasPromisorPack`). ②는 이름만 읽고 링크는 따라가지 않는다. 링크, 읽을 수 없는 폴더, 폴더가 아닌 것, 스캔 상한 초과처럼 판단할 수 없으면 partial clone으로 본다. 폴더가 없을 때만 pack이 없다고 본다. 설정 목록이 git 내부를 따라가는 방식이라 빠질 수 있어서 둔 심층 방어다(#317). 기준은 원래 2.44.0이었다. 하지만 2.44.0과 2.45.0은 보안 릴리스보다 먼저 나와 fetch 중의 lazy fetch를 막지 못한다. 그래서 기준을 2.45.1로 고쳤다(#317, SEC-T5-18). 같은 이슈에서 git이 promisor로 다루는 설정 키 하나가 판정에서 빠져 있던 것도 고쳤다(①). 버전 비교라서 고쳐진 2.44.1과 백포트된 2.39.4–2.43.x도 거부하는데, 안전한 쪽으로 남긴 것이다.
-  - 대가: 사용자가 직접 만든 partial clone에서 누락 객체가 필요한 조회(과거 커밋 diff, `fileHistory`)는 실패한다. partial 서브모듈이 있는 상위 저장소의 status도 실패할 수 있다(실측). 안전한 방향의 실패이고 메시지로 알린다.
-  - **공통 인자 `-c protocol.ext.allow=never -c protocol.fd.allow=never`**: `ext::`와 `insteadOf` 바꿔치기, `fd::` 차단 (확인). `GIT_ALLOW_PROTOCOL`과 겹치지만 심층 방어로 유지한다.
-  - **fetch 전 원격 형태 검사(#350)**: 내장 전송(https, ssh, git, file) 형태가 아닌 원격은 fetch 전에 거부한다. `<이름>::<주소>` URL, git이 직접 처리하지 않거나 대소문자가 다른 `<scheme>://`, `remote.<n>.vcs`, `insteadOf`로 바꾼 결과가 내장 형태가 아닌 URL이 해당한다. 검사는 `RepoConfigInspector`가 하고 `GitClient.fetch`가 통과한 원격만 실행한다(`fetchableRemotes`, 기본값은 비어 있음). 상세 규칙은 [git-command-catalog.md §4](../architecture/git-command-catalog.md#4-fetchcommand).
-  - **공통 인자 `-c alias.remote-<이름>=`와 `-c help.autocorrect=0`(#350)**: 관련 저장소 설정을 무력화하는 심층 방어. 원격 형태 검사를 거치지 않고 fetch가 시작되더라도 효과가 있다(확인: git 2.36.6, Apple Git 2.54.0, Homebrew 2.54.0).
-  - **공통 인자 `-c core.alternateRefsCommand=`(빈 값)**: alternates 경로 무력화. 빈 값이어도 fetch는 성공한다 (확인).
-  - fetch는 `--no-recurse-submodules`로 서브모듈 원격에 연결하지 않는다.
-- **잔여 위험**:
-  - 로컬 경로 원격(`file://` 또는 경로)을 fetch하면, **상대 저장소**에서 `git-upload-pack`이 실행되면서 그 저장소의 설정을 읽는다. 상대 저장소의 설정은 검사하지 않는다. 저장소별 "신뢰하지 않음" 모드(#107, ADR-0009 후속 작업)를 켜면 그 저장소의 fetch는 `GIT_ALLOW_PROTOCOL`에서 `file`을 뺀 목록으로 돈다. 로컬 경로·`file://` 원격은 git을 실행하지 않고 안내로 끝나고, 설정으로 로컬이 되는 원격도 `transport 'file' not allowed`로 거부된다. 기본값은 신뢰함이다. 신뢰함이면서 이 Mac에 원격이 있으면 S-05가 경고한다. 신뢰하지 않음 저장소는 Open in Terminal도 항상 확인을 거친다.
-  - **오래된 git의 로컬 경로 원격(#361)**: 상대 저장소 쪽에는 앱의 `-c` 인자가 전달되지 않고, partial clone 게이트(#317)는 fetch하는 쪽 저장소만 본다. 실측 결과 git 2.36.6·2.44.0·2.45.0에서는 로컬 경로 원격을 fetch할 때 상대 저장소 쪽 동작이 그 저장소의 설정을 따를 수 있었고, 2.45.1과 2.54.0에서는 그렇지 않았다. 그래서 `lazyFetchControlVersion`(2.45.1) 미만 git에서는 신뢰 여부와 관계없이 fetch의 `GIT_ALLOW_PROTOCOL`에서 `file`을 뺀다(`GitClient.allowsLocalTransport`). 로컬 경로·`file://` 원격은 git이 실행 전에 거부하고, 앱은 "이 git 버전에서는 이 Mac의 원격을 안전하게 fetch할 수 없다(git 2.45.1 이상 필요)"로 안내한다(명령 제시 없음). 백포트된 2.39.4–2.43.4도 버전 비교로 거부되는데, 안전한 쪽으로 남긴 것이다. 같은 Mac을 가리키는 네트워크 원격은 아래 #107 잔여 위험과 같다.
-  - 내장 전송만 허용하는 데 따른 사용 제약(`ftp://`·`ftps://`, 커스텀 원격 helper는 fetch 불가, 허용하더라도 앱 설정으로만)은 사용자 안내 [guides/self-hosted-git.md §Limits](../guides/self-hosted-git.md#limits)로 옮겼다(#161, #152).
-  - 사용자가 global에 정의한 `core.gitProxy`는 v0.1에서 무시된다 (빈 `GIT_PROXY_COMMAND`). `git://` 프로토콜은 드물어서 감수한다.
-  - **터미널로 보내는 안내.** fetch 실패 안내(`FetchFailureGuidance`, #78)가 사용자를 터미널로 보내면, 터미널의 git은 이 문서의 대응을 하나도 적용받지 않는다. 악성 저장소가 일부러 fetch를 실패시켜(예: 처음 보는 호스트로 `hostKeyNotTrusted`) 사용자가 페이로드를 직접 실행하게 만들 수 있다(#200 보안 검토).
-    - 그래서 `git` 명령은 `RepoSecurityReport`에 항목이 없고 hooks 디렉터리에 실행 파일도 없을 때만 복사용으로 제시하고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다. hooks 디렉터리 검사는 #354에서 더했다(느린 status 안내와 같은 기준). 설정형 hook은 finding이라 앞 조건에 포함된다.
-    - 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan … | ssh-keygen -lf -`, `ssh-keygen -F`)만 제시한다.
-    - 남는 위험: `.git/hooks`는 설정 보고에 나오지 않으므로, 보고가 깨끗해도 터미널 git이 hook을 실행할 수 있다. 안내 문구가 이를 경고한다.
-    - 두 번째 경로는 느린 status 안내(`SlowStatusHint`, #168)다. 저장소가 status를 일부러 느리게 만들어 안내를 띄울 수 있고, 권하는 `git status`는 index를 다시 써서 `post-index-change` hook을 실행할 수 있다. 그래서 설정 보고에 항목이 없고 **S-05의 hook 검사(`hookExecutables`)가 비어 있을 때만** 복사용 명령을 제시한다. 검사 결과가 없으면(상태바) 명령을 제시하지 않는다. 문구는 FetchFailureGuidance처럼 hook과 설정을 경고한다(SEC-T5-17). pager·editor·`!` alias는 #278부터 보고에 나온다.
-  - 신뢰하지 않음 모드는 `file` 전송만 막는다. `ssh://localhost/…`, `user@127.0.0.1:…`, `git://localhost`처럼 같은 Mac을 가리키는 네트워크 원격은 막지 않는다. Remote Login이 켜져 있고 사용자 키가 등록되어 있으면 sshd를 거쳐 같은 Mac의 다른 저장소에서 upload-pack이 실행될 수 있다. 이름이 루프백을 가리키는지는 DNS로 바뀔 수 있어 코드로 완전히 막을 수 없다(#107).
-- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용, git 2.45.1 이상), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-17 (느린 status 안내는 설정 보고에 항목이 없고 hook 실행 파일이 없을 때만 `git status`를 제시하고, 항목·hook이 있거나 검사 결과가 없으면 명령이 없음, #168), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행), SEC-T5-20 (내장 전송 형태가 아닌 원격: `<이름>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기를 앱 fetch가 git 실행 전에 거부하고 canary 없음, 대조군은 실행. `RepositoryService`는 원격별 실패로 보고, #350), SEC-T5-21 (원격 형태 검사를 우회해도 공통 인자만으로 canary 없음, 저장소가 켤 수 있는 두 가지 대체 경로 모두, 대조군은 실행, #350. 두 테스트 모두 git 2.36.6·Apple Git·Homebrew git에서 확인), SEC-T5-22 (fetch 실패 안내는 hooks 디렉터리에 실행 파일이 있으면 git 명령을 제시하지 않음, #354), SEC-T5-23 (`lazyFetchControlVersion` 미만 git은 로컬 경로 원격을 실행 전에 거부하고 2.45.1부터 fetch함, 상대 저장소를 꾸민 canary는 앱 fetch에서 실행되지 않고 대조군은 오래된 git에서 실행, `RepositoryService` 안내 문구, #361. git 2.36.6·2.44.0·2.45.0·2.45.1·Apple 2.54.0에서 확인), SEC-T5-24 (신뢰하지 않음 표시는 S-05·Settings·다른 창 어디서 바꿔도 진행 중인 fetch를 토글 안에서 즉시 멈춤. fetch는 원격마다 플래그를 다시 읽고, 시작 때나 도중에 신뢰하지 않음이면 끝까지 그대로, #423), SEC-T5-18 (partial clone fetch: `lazyFetchControlVersion` 경계 2.45.0 거부·2.45.1 허용, 두 가지 pack 처리 경로와 promisor 설정 두 종류에서 앱 fetch 뒤 canary 없음, 대조군은 실행하되 저장소는 그대로. 설정이 없어도 `.promisor` pack이 있으면 거부, 판단할 수 없는 pack 폴더는 fail closed. `OVERGROVE_TEST_GIT`로 git 2.36·2.44.0·2.45.0을 주면 거부 경로를 실제 git으로 확인한다), SEC-T5-19 (신뢰하지 않음 저장소의 fetch: 로컬 경로 원격은 `transport 'file' not allowed`로 거부되고 아무것도 가져오지 않음, 신뢰함이면 같은 원격을 fetch함, #107)
-- **상태**: 설계 완료
-
-### T6. 저장소 로컬 `credential.helper` 실행
-
-- **설명**: 원격 인증이 필요할 때 git은 system → global → local 순서로 쌓인 credential helper를 차례로 실행한다. 앞선 helper가 자격 증명을 주지 못하면 로컬 helper까지 실행된다 (확인). URL별 키(`credential.<url>.helper`)도 같다.
-- **시나리오**: 악성 저장소의 `credential.helper = !<명령>`이 fetch 인증 과정에서 실행된다. 자격 증명을 가로채는 helper도 만들 수 있다.
-- **대응** (ADR-0009):
-  1. fetch에 `-c credential.helper=`(빈 값)을 넣어 그때까지 쌓인 목록을 비운다. URL별 helper도 함께 비워진다 (확인).
-  2. 그 뒤에 신뢰 scope의 `credential.*helper` 항목을 **원래 순서와 키 그대로** 다시 넣는다. Apple 내장 `osxkeychain`과 `gh auth setup-git` 형식의 URL별 항목이 이렇게 복원된다 (확인).
-  3. 순서가 중요하다. URL별 빈 값을 신뢰 helper보다 뒤에 넣으면 신뢰 helper까지 지워진다 (확인). 그래서 항상 "초기화 → 재삽입" 순서를 지킨다.
-- **잔여 위험**: 신뢰 scope의 helper 자체가 위험하면 막지 못한다 (위협 모델 밖).
-- **검증**: SEC-T6-01 (로컬 generic helper → canary 없음), SEC-T6-02 (로컬 URL별·와일드카드 helper → canary 없음), SEC-T6-03 (신뢰 global helper와 URL별 helper가 순서대로 실행됨), SEC-T6-04 (https promisor 원격의 lazy fetch: 앱 조회는 로컬 helper를 실행하지 않고 서버에 요청도 보내지 않음, 대조군은 401 뒤 helper 실행, #212), SEC-T6-05 (실제 git: URL에 비밀번호가 든 원격(직접, 또는 `insteadOf` 바꿔치기로)은 앱 fetch가 git 실행 전에 거부하고 서버에 요청이 없음. 대조군은 그 URL로 접속. git 2.37+는 `-c transfer.credentialsInUrl=die`, 그 미만은 검사가 막음, #356), SEC-T6-06 (git의 자격 증명 CVE 수정을 끄는 `credential[.<url>].protectProtocol`·`sanitizePrompt`는 fetch에서 `true`로 강제됨, #356)
-- **상태**: 설계 완료
-
-### T7. 서명 검증 프로그램 실행
-
-- **설명**: 서명 관련 log 포맷(`%G?` 등)을 쓰거나 로컬 `log.showSignature=true`가 있으면, `git log`와 `git show`가 `gpg.program`(또는 `gpg.ssh.program`)을 실행한다. 서명된 커밋이 하나라도 있으면 실행된다 (확인).
-- **시나리오**: 악성 저장소가 가짜 서명 커밋 하나와 로컬 `gpg.program = <명령>`, `log.showSignature = true`를 둔다. 그래프를 여는 순간 실행된다.
-- **대응**:
-  - 공통 인자 `-c log.showSignature=false` (확인: 실행 안 됨)
-  - 서명 포맷(`%G?`, `%GS`, `%GK`, `%GF`, `%GP`, `%GT`) 사용 금지. 카탈로그 리뷰와 정적 검사로 막는다.
-  - 서명 표시 기능은 범위 밖이다.
-- **잔여 위험**: 없음 (확인된 범위).
-- **검증**: SEC-T7-01 (악성 픽스처에서 graphPage, commitMeta, fileHistory → canary 없음), SEC-T7-02 (소스에 `%G` 포맷 문자열이 없음을 검사)
-- **상태**: 설계 완료
-
-### T8. fetch 중 자동 gc·maintenance
-
-- **설명**: fetch가 끝나면 git이 `git maintenance run --auto`를 실행한다 (확인: `GIT_TRACE`). 이 작업은 객체를 다시 묶고 prune하는 쓰기 작업이고, 큰 저장소에서 오래 걸린다.
-- **시나리오**: 조회 앱이 사용자 모르게 저장소 정리를 시작한다. 그동안 사용자의 다른 git 작업과 잠금이 충돌한다.
-- **대응**: 공통 인자 `-c gc.auto=0 -c maintenance.auto=false` (확인: maintenance가 실행되지 않음). fetch의 `--no-auto-maintenance` 옵션도 2.50에서는 받아들여지지만, 도입 버전을 확인하지 못해 쓰지 않는다.
-- **잔여 위험**: 없음.
-- **검증**: SEC-T8-01 (로컬 `gc.auto=1`·`maintenance.auto=true` 픽스처를 `GIT_TRACE=1`로 fetch했을 때 자식 프로세스에 `maintenance run`과 `gc --auto`가 없음. pack 수 비교는 alternates가 있으면 변하지 않아 판정에 쓰지 않는다, [fixtures.md §8.3](../testing/fixtures.md)), SEC-T8-02 (인자 스냅샷)
-- **상태**: 설계 완료
-
-### T9. 인자 인젝션
-
-- **설명**: 파일명이나 ref 이름이 옵션(`--output=...`)이나 pathspec 매직(`:(exclude)`, glob `*`)으로 해석되는 문제다.
-- **시나리오**: `--output=../../x`라는 이름의 파일이나 ref를 인자로 넘기면 git이 파일을 쓴다. `*`라는 파일명의 이력을 보면 glob으로 해석되어 다른 파일 이력이 섞인다 (확인: glob이 모든 파일과 일치).
-- **대응**:
-  1. 셸을 쓰지 않는다. 인자는 배열로만 넘긴다 (ADR-0008).
-  2. 경로는 항상 `--` 뒤에 둔다.
-  3. 공통 인자 `--literal-pathspecs`로 pathspec 매직을 끈다 (확인).
-  4. 커밋은 검증된 OID(`^[0-9a-f]{40}$|^[0-9a-f]{64}$`)로만 가리킨다. stash도 `stash@{n}`이 아니라 OID로 가리킨다.
-  5. ref는 `refs/`로 시작하는 전체 이름만 인자로 쓴다. 제어 문자, 공백, `..`, `-` 시작 구성 요소가 있으면 거부한다.
-  6. 리비전 인자 앞에 `--end-of-options`를 둔다. `log`, `rev-list`, `diff-tree`, `stash show`, `fetch`에서 동작을 확인했다.
-  7. `git check-ref-format`은 `--` 구분자를 지원하지 않아(확인) 검증에 쓰지 않는다. 검증은 앱 코드에서 한다.
-  8. gh 출력의 값으로 앱의 대상을 정하지 않는다. PR 상태(v0.2.0, ADR-0023)는 고정 인자의 `gh pr list --repo HOST/OWNER/NAME` 하나로 읽고, PR을 로컬 브랜치에 잇는 것은 head 저장소 소유자·이름과 브랜치 이름이 모두 브랜치의 upstream 원격과 맞을 때뿐이다. 브랜치 이름만으로 잇지 않는다(fork PR 사칭). 소유자·저장소 이름은 ASCII 대소문자 무시, 브랜치 이름은 바이트로 비교하고, head 저장소가 null이거나 비어 있는 PR(fork를 지운 PR 등)은 어디에도 잇지 않되 목록 전체를 실패로 보지 않는다. PR 제목·기준 브랜치 이름은 표시 전에 이스케이프하고(head 로그인·브랜치 이름은 화면에 쓰지 않는다), PR URL은 조회한 저장소의 `https://github.com/OWNER/NAME/pull/<그 번호>`일 때만 연다. 잔여 위험: 잇기는 저장소 설정(`remote.<n>.url`)을 믿는 만큼만 믿을 수 있다(조회 대상이 이미 그 설정으로 정해지는 이슈 패널과 같다). 검증은 SEC-T9-06·07(#115).
-  9. GitHub 호스트(v0.2.0, ADR-0025)는 `github.com`과 gh에 로그인된 호스트만 신뢰한다. 원격 URL만으로는 새 호스트를 신뢰하지 않는다. 저장소가 원격을 사용자가 로그인한 다른 호스트로 바꿔 두면 gh가 그 호스트의 토큰으로 요청하기 때문이다. HOST는 소문자 ASCII DNS 이름만 받고(IP 리터럴·userinfo·포트·경로 거부), 판별은 제공자와 무관한 `RemoteHost`·`HostedRemoteURL`·`TrustedHosts`가 한다. 호스트는 `--repo HOST/OWNER/NAME`으로만 고르고(github.com도 HOST를 넣는다) `GH_HOST`·`GH_ENTERPRISE_TOKEN`·`GH_TOKEN`은 넘기지 않는다. 이슈·PR·Open on GitHub 링크는 그 저장소의 HOST와 같은 https 주소만 연다. PR을 브랜치에 잇는 원격도 PR 목록과 같은 호스트의 것만 쓴다. 잔여 위험: 사용자가 로그인해 둔 GHE 호스트를 저장소 원격이 가리키면 그 호스트로 조회가 간다(ADR-0025 결과).
-- **잔여 위험**: 낮음. 모든 인자는 git 출력에서 온 값이고, 사용자가 직접 입력하는 값(검색어)은 git에 넘기지 않는다.
-- **검증**: SEC-T9-01 (모든 case의 최종 인자 배열 스냅샷. 기준 브랜치 비교의 기준 ref는 `--end-of-options` 뒤, 파일은 `--` 뒤, #157. 두 커밋 사이 커밋 목록의 범위는 검증된 OID 두 개의 `base..target`이고 `--end-of-options` 뒤, #389), SEC-T9-02 (ref 검증: `-x`, `refs/heads/a..b`, 제어 문자 거부), SEC-T9-03 (파일명 `-x`, `--output=x`, `:(exclude)x`, `*`로 diff·이력 → 해당 파일만 대상, 부수 파일 생성 없음), SEC-T9-04 (OID 검증), SEC-T9-05 (원격 URL → gh `--repo` 값: github.com 세 형식의 `OWNER/NAME`만. `-` 시작·비ASCII·userinfo·포트·다른 호스트·경로 추가 거부, #81), SEC-T9-06 (PR 잇기: 같은 이름의 fork PR·저장소 이름만 다른 PR은 잇지 않음, fork 흐름은 fork 원격과 맞음, 소유자·이름은 ASCII 대소문자만 무시하고 전각 문자는 다름, 브랜치는 NFC/NFD까지 바이트 비교, 로컬 이름이 아니라 원격 ref로 맞춤, `/`가 든 원격 이름, upstream 없음·로컬 upstream·github.com 밖 원격·`refs/heads/` 밖 ref는 잇지 않음, head 없는 PR은 건너뛰고 다른 PR은 유지, ADR-0023 §4), SEC-T9-07 (적대적 PR JSON: 번호·상태·URL이 틀린 항목과 배열 아닌 항목은 그 항목만 버림, head가 없거나 null·빈 값이면 목록에 두되 잇지 않음, 제목·기준 브랜치의 제어·bidi 문자 이스케이프, Open in Browser는 조회한 저장소의 그 번호 PR 주소일 때만, ADR-0023 §3), SEC-T9-08 (호스트 신뢰: HOST는 소문자 ASCII DNS 이름만 — IP 리터럴(16진 형태 포함)·한 라벨·userinfo·포트(https)·비ASCII·제어 문자 거부, 세 원격 형식 외 거부, ssh 포트는 받되 무시, 로그인하지 않은 호스트의 원격은 gh에 넘기지 않음, `--repo`는 github.com도 `HOST/OWNER/NAME`, 로그인 목록을 읽지 못하면 github.com만, 다음 검사에서 빠진 호스트는 다시 신뢰하지 않음, 검사 중 저장소가 바뀌면 이전 저장소의 원격으로 고르지 않음, 원격이 세 형식이 아니면 gh를 실행하지 않음, ADR-0025 §1–§3), SEC-T9-09 (링크 호스트: 이슈·PR URL은 조회한 저장소의 HOST와 같은 https만 파싱·열기, 다른 호스트·http·포트 거부, Open on GitHub는 저장소 HOST로만 만듦, ADR-0025 §5)
-- **상태**: 설계 완료
-
-### T10. 부모 환경 변수 상속
-
-- **설명**: 앱을 터미널에서 실행하면 `GIT_DIR`, `GIT_CONFIG_PARAMETERS`, `GIT_SSH_COMMAND`, `GIT_EXTERNAL_DIFF`, `GIT_EXEC_PATH`, `DYLD_*` 같은 변수가 상속되어 git 동작이 바뀐다.
-- **시나리오**: 다른 도구가 설정한 `GIT_DIR` 때문에 엉뚱한 저장소를 조회한다. `GIT_EXTERNAL_DIFF`가 의도치 않은 프로그램을 실행한다.
-- **대응**: 환경 변수를 allowlist로 새로 만든다 (§3.2). 부모 환경은 `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK`만 전달한다. PATH는 고정값이다. 페이저는 `--no-pager`와 `GIT_PAGER=cat`으로 이중 차단한다. gh는 별도 allowlist(`HOME`, `USER`, `TMPDIR`와 고정값, [카탈로그 §5](../architecture/git-command-catalog.md))를 쓴다. `GH_TOKEN`, `GITHUB_TOKEN`, `GH_HOST`, `GH_REPO`, `GH_CONFIG_DIR`, 브라우저·편집기 변수는 gh에 전달하지 않는다.
-  - **사용자가 고른 git 실행 파일(v0.2.0, #106)**: [ADR-0019](../adr/0019-user-chosen-git-executable.md)를 따른다. 절대 경로이고, 링크를 푼 실제 파일이 일반 실행 파일이어야 한다. 실행하는 것은 링크를 다 푼 실제 파일이고, 규칙도 그 파일과 그 상위 디렉터리에만 적용한다. 상위 디렉터리 중 등록된 저장소·git 디렉터리·워크트리가 있으면 장치·inode 비교로 거부한다(firmlink 경로 포함). 실제 파일과 그 상위 디렉터리는 root 또는 현재 사용자 소유여야 한다. other 쓰기는 항상, group 쓰기는 그룹이 `admin`·`wheel`이 아니면 거부한다(macOS의 `/Applications`와 Homebrew `Cellar`는 `admin` 그룹 쓰기다). 소유권을 무시하는 볼륨이나 로컬이 아닌 볼륨의 파일은 거부한다. 보호할 워크트리 위치는 `gitdir` 파일에서 링크를 따라가지 않고 막히지 않게 4KB까지만 읽는다. 상대 경로는 항목 기준으로 풀고 `/`는 넣지 않는다. git을 고르지 않았으면 읽지 않는다. 버전은 2.36 이상이어야 한다. 고를 때와 git을 찾을 때마다 다시 검사하고, 실패하면 기본 git으로 바꾸지 않고 조회를 멈춘다(fail closed). 코드 서명은 요구하지 않고 표시만 한다.
-- **잔여 위험**: 사용자의 셸 설정에 의존하던 git 동작(예: 셸에서만 설정한 `GIT_SSH_COMMAND`)은 앱에서 동작하지 않는다. 의도된 동작이고 문서화한다. `HOME`은 부모 값을 그대로 쓰므로, 앱 실행 환경을 바꿀 수 있는 같은 사용자는 git·gh가 읽는 전역 설정(`~/.gitconfig`, `~/.config/gh`)과 gh 계정 선택을 바꿀 수 있다. 이 권한은 원래 신뢰 경계 밖이다. gh 실행 파일은 경로를 탐색한 뒤 `posix_spawn`이 다시 해석하므로(TOCTOU), 그 사이에 `/opt/homebrew/bin`에 쓸 수 있는 사용자는 실행 파일을 바꿀 수 있다. 위협 모델은 사용자가 설치한 gh를 신뢰하므로(§1) 받아들인다. 사용자가 고른 git의 검사와 실행 사이 바꿔치기(TOCTOU)는 소유자·권한 규칙상 root나 그 사용자만 할 수 있어 신뢰 경계 밖이다. 고른 git의 헬퍼(`libexec/git-core`)와 컴파일 시 정해진 system gitconfig, macOS ACL로 허용한 쓰기, 중간 링크는 검사하지 않는다. 악성 저장소가 `gitdir`로 특정 디렉터리의 git을 막는 서비스 거부도 남는다(ADR-0019 결과).
-- **검증**: SEC-T10-01 (테스트 프로세스 환경에 위험 변수를 넣어도 자식 프로세스 환경에 없음), SEC-T10-02 (PATH 고정), SEC-T10-03 (gh 자식 환경이 카탈로그 §5 allowlist와 정확히 같음. 토큰·호스트·설정 디렉터리 변수 없음, 텔레메트리 끔), SEC-T10-04 (사용자가 고른 git: 실제 파일이 등록된 저장소·git 디렉터리·워크트리 안이면 firmlink 같은 다른 이름이어도 장치·inode로 거부, ADR-0019), SEC-T10-05 (사용자가 고른 git: 실제 파일과 그 상위 디렉터리가 root·사용자 소유가 아니거나 other 쓰기, `admin`·`wheel` 아닌 group 쓰기면 거부. `/tmp`, 소유권을 무시하는 볼륨·로컬이 아닌 볼륨 포함), SEC-T10-06 (저장된 선택이 규칙·최소 버전·`git version` 확인을 통과하지 못하면 git 탐색이 이유와 함께 실패하고 기본 git을 쓰지 않음, fail closed. 검사한 실제 파일을 실행해 검사 뒤 링크를 바꿔도 실행 대상이 바뀌지 않음. git을 고르지 않았으면 저장소 파일을 읽지 않음)
-- **상태**: 설계 완료
-
-### T11. 자격 증명 노출
-
-- **설명**: 원격 URL에 `https://user:token@host/...`처럼 자격 증명이 들어 있을 수 있다. 이것이 화면, 로그, 에러 메시지(stderr)로 새어 나갈 수 있다. 또 로컬 설정의 `http.sslVerify=false`는 TLS 검증을 꺼서 중간자에게 자격 증명을 넘길 수 있다.
-- **대응**:
-  - **`CredentialMasker`**: 아래 패턴을 `***`로 바꾼다. 화면 표시, 로그, 에러 요약 전에 반드시 거친다. stderr를 담는 `MaskedText`는 원문을 가린 뒤 제어·서식 문자(`Cc`·`Cf`: ESC, DEL, VT, 폭 없는 문자, bidi 표시)와 화면에 그려지지 않는 기본 무시 문자(variation selector, CGJ, 한글 채움 문자, 미배정 기본 무시 문자. CoreText로 측정, #375 검토)를 지우고, 지운 결과를 **다시 가린다**. 그 문자로 갈라졌던 토큰 조각이 지운 뒤 붙어 원문처럼 보이지 않게 하기 위해서다. 다시 가리면 더 가려질 수는 있어도 드러나지는 않는다. 길이 상한은 그다음에 자른다(#375).
-    - URL userinfo (`scheme://user:pass@` → `scheme://***@`, `scheme://token@` → `scheme://***@`)
-    - scheme 없는 userinfo (`user:token@host:repo` → `user:***@host:repo`, #244). 첫 `:` 뒤에 `@`가 있으면 그 `:`부터 마지막 `@`까지의 비밀번호만 가린다. `:` 앞은 남긴다. git은 `a:b@c:d`를 호스트 `a`로 가는 scp 형식 SSH로 읽기 때문에, 앞까지 지우면 원격이 `c`를 가리키는 것처럼 보인다(#244 보안 검토, #86). `:` 앞에 미끼 `@`를 두어도 가려진다. scp 형식 `git@host:repo`, 이메일, `bob@host's password:`는 그대로 보인다. 공백 없는 `단어:단어@단어` 꼴(예: `mailto:a@b`, `git@host:repo@v1`)도 가려지는 오탐이 있지만, 글자가 조금 덜 보일 뿐이다. `:` 없는 `token@host`는 사용자 이름과 구별할 수 없어 일반 텍스트에서는 가리지 않는다
-    - config 키 이름(S-05, Open in Terminal): `credential`·`url`·`http` subsection은 URL이나 URL 패턴이다. scheme으로 시작하지 않으면 첫 `/` 앞의 마지막 `@`까지를 userinfo로 보고 가린다(`credential.token@host.helper` → `credential.***@host.helper`, `CredentialMasker.maskConfigKey`, #244). 사용자 이름도 URL과 같이 가린다(`url.***@github.com:.insteadof`). 키는 보여 주기만 하고 접속하지 않으므로 호스트 문제가 없다. 다른 섹션의 키는 일반 마스킹만 거친다
-    - 쿼리 파라미터 `access_token=`, `token=`
-    - GitHub 토큰 접두사 `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`
-    - `Authorization:` 헤더 줄
-  - **원격 URL 표시**: 기본은 마스킹이다. 설정의 "원격 URL 표시"를 켜도 자격 증명 부분은 계속 마스킹한다. 원격 URL에 자격 증명이 들어 있으면 S-05에 경고하고, credential helper 사용을 권장한다.
-  - **TLS 설정**: `local`·`worktree` scope에서 `false`로 설정된 `http.sslVerify`·`http.<url>.sslVerify`를 fetch에서 같은 키의 `true`로 덮는다 (확인: `config --get-urlmatch`). 로컬 `http.*proxy`와 `remote.<name>.proxy`는 그 URL에 대해 신뢰 scope가 주는 실효 프록시 값(없으면 빈 값)으로 덮고, 로컬 `http.*sslCAInfo`·`sslCAPath`·`sslCert`·`sslKey`가 있으면 fetch를 막는다(§3.3, #150, #355). 프록시와 맺는 연결의 인증 방식도 저장소가 정하지 않는다(#367): 로컬 `http.*proxyAuthMethod`·`remote.<name>.proxyAuthMethod`는 같은 키의 신뢰 값(없으면 git 기본값 `anyauth`)으로, `http.*proxySSLCertPasswordProtected`·`http.*sslCertPasswordProtected`는 신뢰 값(없으면 `false`)으로 덮는다. 실측(git 2.54, Apple git 2.50, 평범한 git): `proxyAuthMethod=basic`은 Digest를 제시한 프록시에도 비밀번호를 Basic(평문)으로 보내고, `proxySSLCertPasswordProtected=true`는 신뢰 helper에 인증서 비밀번호를 묻는다. URL별·원격별 값은 같은 키로 덮어야 이긴다. git 2.36.0도 같은 키를 같은 방식으로 읽는다(소스 확인). Kerberos 티켓 위임은 fetch에서 `http.delegation=none`으로 끄고 저장소의 URL별 키는 같은 키로 끈다(측정 안 함: Kerberos 환경 없음, 인자 수준 확인). 프록시 TLS 인증서 파일(`proxySSLCAInfo`·`proxySSLCert`·`proxySSLKey`)과 `curloptResolve`(프록시 호스트 이름도 저장소가 고른 주소로 바뀜)는 #356에서 fetch 차단으로 다룬다(§3.3). 저장소의 쿠키 파일 설정은 fetch에서 끈다(generic 키는 fetch overrides, 저장소의 URL별 키는 같은 키로 끔. 사용자의 URL별 키는 그대로, #355). 키 중복은 바이트로 비교하고, 덮어쓰는 키의 subsection이 UTF-8이 아니면 조회를 막는다(#355).
-  - 앱은 토큰을 받거나 저장하지 않는다. `gh auth status`는 `--show-token` 없이 호출한다.
-  - **보안 보고서 복사(S-05 `Copy Report`, #110)**: 이슈나 대화에 붙여 넣는 글이므로 키 이름과 각 항목의 판정만 담는다. 그 밖에는 고정된 사실(main/linked 워크트리, 검사 시각, git·앱 버전)만 쓴다. config 값, 원격 URL과 호스트, 파일 경로, 브랜치 이름, 오류 문구(경로나 stderr를 인용할 수 있음)는 넣지 않는다. URL이나 경로가 될 수 있는 subsection은 마스킹하지 않고 자리표시로 바꾼다(`credential.<url>.helper`, `http.<url>.sslverify`, `includeif.<condition>.path`). 그 밖의 subsection도 글자로 시작하고 글자·숫자·`_`·`-`만 쓴 이름이 아니면 `<name>`이 된다. `.`이 든 이름은 호스트나 IP일 수 있어서 바꾼다. 자격 증명이 든 원격은 이름만 적는다(`origin (credentials in URL)`, 이름이 평범하지 않으면 `<remote>`). 목록은 행마다 50개까지 적는다. 마지막으로 줄마다 `CredentialMasker`, 홈 → `~`, 제어·bidi 문자 이스케이프를 거친다.
-- **잔여 위험**: 새로운 토큰 형식은 마스킹 패턴에 없을 수 있다. URL userinfo는 형식과 관계없이 전부 마스킹하므로 위험이 줄어든다. scheme 없이 `:`도 없는 `token@host`가 config 키가 아닌 텍스트(stderr 등)에 나오면 가리지 않는다. scheme 없는 비밀번호에 `/`가 있으면(`u:pa/ss@h`) `/`가 구간을 끊어 일부가 보인다. git은 이것을 호스트 `u`의 경로로 읽으므로 자격 증명으로 쓰이지 않고, 주요 토큰 형식에는 `/`가 없다(#244).
-- **검증**: SEC-T11-01 (`CredentialMasker` 단위 테스트), SEC-T11-02 (fetch 실패 stderr가 마스킹된 뒤에만 UI 모델과 로그에 들어감), SEC-T11-03 (로컬 `sslVerify=false` → 최종 인자로 `true` 복원), SEC-T11-04 (S-05, 상태바의 원격 표시가 마스킹됨), SEC-T11-05 (`GHCommand`의 어떤 인자에도 token이 없고, gh stderr는 마스킹된 뒤에만 `GHError`에 들어감), SEC-T11-06 (S-05 보안 보고서 복사: 적대적 설정에서도 config 값·원격 URL·호스트·경로·홈·토큰·브랜치 이름이 없고 키 이름과 판정만 남음, #110), SEC-T11-07 (실제 git: 저장소의 `remote.<name>.proxy`·`http.<url>.proxy`·`http.proxy`가 있어도 앱의 fetch는 프록시를 거치지 않음. 대조군인 평범한 git은 신뢰 helper의 비밀번호를 프록시로 보냄. 사용자 global `http.proxy`가 있으면 저장소 프록시 대신 그 프록시를 거침, #355), SEC-T11-08 (실제 git: 저장소의 `http.cookieFile`·`http.<url>.cookieFile` 쿠키가 앱의 fetch 요청에 실리지 않고, `saveCookies`가 있어도 그 파일에 쓰지 않음. 대조군은 쿠키를 보내고 서버가 보낸 쿠키로 파일을 덮어씀, #355), SEC-T11-09 (실제 git: Digest와 Basic을 제시하는 사용자 프록시에 저장소의 `http.proxyAuthMethod`·`http.<url>.proxyAuthMethod`·`remote.<n>.proxyAuthMethod`=`basic`이 있어도 앱의 fetch는 Basic을 보내지 않고 Digest로 답함. 대조군은 Basic을 보냄, #367), SEC-T11-10 (실제 git: 저장소의 `http.proxySSLCertPasswordProtected`·URL별 형태가 있어도 앱의 fetch는 신뢰 helper에 인증서 비밀번호를 묻지 않음. 대조군은 helper에 물음, #367), SEC-T11-11 (저장소의 `http.delegation`·`http.<url>.delegation=always`가 있어도 앱의 fetch 인자로 git이 계산한 원격 URL의 실효 값(`config --get-urlmatch`)이 `none`. 대조군은 `always`. Kerberos 환경이 없어 인자 수준, #367), SEC-T11-12 (`MaskedText`: GitHub 토큰, URL userinfo 비밀번호, scheme 없는 userinfo가 ESC·DEL·U+200B·U+200D·U+FEFF·백스페이스·U+202E·NUL로 갈라져 있어도 표시 결과에 원래 토큰·비밀번호가 없음. 첫 마스킹의 구간을 끊는 VT·FF로 가른 URL 비밀번호, 갈라진 `Authorization`·`access_token`·`github_pat_`, variation selector·CGJ·U+17B4·한글 채움 문자·미배정 기본 무시 문자로 가른 토큰, 길이 상한에 걸친 갈라진 토큰도 마찬가지. `\r`로 다시 쓴 줄과 ANSI 색 코드로도 붙지 않음. NFC·NFD 한글 파일명은 그대로, #375)
-- **상태**: 설계 완료
-
-### T12. 자격 증명 프롬프트 대기
-
-- **설명**: 백그라운드 fetch가 사용자 이름·비밀번호·호스트 키 확인을 기다리며 멈출 수 있다. 로컬 `core.askPass`는 `GIT_TERMINAL_PROMPT=0`이어도 실행된다 (확인).
-- **대응**:
-  - 환경 변수 `GIT_TERMINAL_PROMPT=0`
-  - 빈 `GIT_ASKPASS`와 빈 `SSH_ASKPASS`. 빈 `GIT_ASKPASS`는 `core.askPass`보다 우선해 실행을 막는다 (확인).
-  - 공통 인자 `-c core.askPass=` (확인)
-  - ssh는 `-o BatchMode=yes`로 프롬프트 없이 실패하게 한다. 신뢰 scope의 `core.sshCommand`가 있으면 그 값을 존중한다.
-  - fetch 타임아웃은 120초다.
-  - 인증 실패는 stderr 패턴으로 분류해 터미널에서 확인하라고 안내한다.
-- **잔여 위험**: 신뢰 scope의 사용자 지정 sshCommand에 BatchMode가 없으면 호스트 키 확인에서 멈출 수 있다. 이 경우 타임아웃으로 끊긴다.
-- **검증**: SEC-T12-01 (로컬 askPass → canary 없음, 즉시 실패), SEC-T12-02 (인증이 필요한 원격에서 helper가 없으면 `authenticationFailed`로 빠르게 실패)
-- **상태**: 설계 완료
-
-### T13. 의도치 않은 쓰기 명령 실행
-
-- **설명**: 조회 앱이 버그나 잘못된 구현으로 쓰기 명령을 실행하는 문제다.
-- **대응**:
-  - **컴파일 타임 allowlist**: `ReadOnlyGitCommand`와 `FetchCommand` case만 존재한다. 쓰기 명령은 타입이 없다 ([카탈로그 §7](../architecture/git-command-catalog.md)).
-  - **프로세스 생성 위치 제한**: `Overgrove/Execution/` 밖에서 `Process`를 만들면 안 된다. `scripts/lint/check-forbidden-apis.sh`가 pre-commit hook, Claude Code hook, CI에서 검사한다.
-  - **index 쓰기 방지**: `--no-optional-locks`와 `GIT_OPTIONAL_LOCKS=0`으로 조회 중 `index.lock`을 잡지 않는다. `git diff`는 이 설정을 무시하고 stat만 바뀐 경로의 index를 새로 고쳐 쓰므로, 공통 인자 `-c diff.autoRefreshIndex=false`로 막는다 (확인, #208). 이 인자는 diff 계열이 아닌 명령에는 영향이 없어 공통 인자에 둔다.
-  - **허용된 쓰기**: fetch가 만드는 쓰기(`refs/remotes/<원격>/*`, `FETCH_HEAD`, 객체)와 `--prune`의 원격 추적 ref 삭제뿐이다.
-  - **fetch 범위 고정(#209)**: 저장소 설정이 이 범위를 넓히지 못하게 fetch 인자에 고정한다. refspec `+refs/heads/*:refs/remotes/<원격>/*`와 `--refmap=`, `--no-tags`, `-c fetch.pruneTags=false -c remote.<원격>.pruneTags=false -c fetch.bundleURI=`를 쓴다([카탈로그 §4](../architecture/git-command-catalog.md)). 고정하기 전에는 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`(detached HEAD)가 로컬 브랜치를 지우고 `main`을 되돌렸다. 로컬 `fetch.pruneTags`는 로컬 태그를 지웠다(#206 보안 검토, E40).
-- **잔여 위험**: 낮음. #94의 테스트와 리뷰에서 찾은 두 결함, `git diff`의 index 쓰기(#208)와 저장소 설정에 의한 fetch 범위 확대(#209)는 고쳤다.
-  - `--no-tags` 때문에 원격에만 있는 새 태그는 v0.1에서 가져오지 않는다(의도된 동작, #209).
-- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. stat만 바뀐 파일의 worktree diff와 기준 브랜치 비교(`git diff --merge-base`, 작업 트리 포함, #157)도 불변이고, `diff.autoRefreshIndex=false`를 빼면 다시 쓰는 대조군 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인), SEC-T13-04 (로컬 `remote.<n>.fetch`·`fetch.pruneTags`·`remote.<n>.pruneTags`·`tagOpt`·`fetch.bundleURI`를 심은 저장소에서 앱 fetch 뒤 `refs/remotes/` 밖의 모든 ref와 HEAD 불변, 대조군(고정 전 인자)에서는 브랜치·태그 삭제, `main` 이동, `refs/bundles/*` 생성), SEC-T13-05 (이슈의 `Open in Browser`는 정확히 `https://github.com/OWNER/NAME/issues/<번호>`일 때만 `NSWorkspace`에 넘김. 다른 번호·`pull`·경로 추가·쿼리·조각·사용자 정보·포트 거부, #81), SEC-T13-06 (실제 git: 저장소 밖 위치를 가리키는 `extensions.refStorage`는 보고되고 앱이 fetch하지 않으며 밖에 아무것도 쓰지 않음. 대조군인 평범한 git 2.54는 밖에 ref와 reflog를 씀. 이 확장을 모르는 git은 git 디렉터리를 무시해 저장소 명령이 스스로 실패함, #356), SEC-T13-07 (저장소 로컬 `transfer.bundleURI`는 T13으로 보고하고, 서버가 bundle URI를 광고해도 앱 fetch와 그냥 fetch 모두 따르지 않음. clone 대조군은 따름, #195)
-- **상태**: 설계 완료 (정적 검사 스크립트는 저장소 셋업에서 적용)
-
-### T14. 파일 시스템 범위 이탈, 심볼릭 링크 탈출
-
-- **설명**: 심볼릭 링크나 `core.worktree` 설정, 조작된 `.git` 파일이 저장소 밖의 파일을 읽게 만들 수 있다.
-- **시나리오**:
-  - untracked 파일 미리보기가 `~/.ssh/id_ed25519`를 가리키는 심볼릭 링크를 따라가 내용을 보여 준다.
-  - 로컬 `core.worktree`가 홈 디렉터리를 가리켜 status가 홈 전체를 훑는다.
-- **대응**:
-  - 저장소는 `NSOpenPanel`로 고른 경로만 등록한다.
-  - `PathValidator`가 경로를 정규화하고 심볼릭 링크를 해석한 결과를 비교한다. 고른 경로와 다르면 경고한다.
-  - untracked 미리보기는 해석한 실제 경로가 워크트리 안일 때만 실행한다. 심볼릭 링크는 링크 대상 문자열만 보여 준다.
-  - 로컬 `core.worktree`는 경고로 보고한다.
-  - 연결 워크트리는 그 안의 `.git` 파일이 이 저장소의 `worktrees/<name>`을 가리키는지 확인한다.
-  - **`worktree list`가 나열한 경로도 등록과 같은 기준으로 검증한다(#226)**. 목록은 저장소가 쓰는 `.git/worktrees/<id>/gitdir`에서 오므로, 공통 git 디렉터리가 같다는 것(#221)만으로는 부족하다. 다음 세 위조가 그 검사를 통과했다.
-    - 메인 워크트리의 하위 폴더를 가리키는 항목: 같은 작업 트리를 두 번째 행으로 조회한다.
-    - `.git`이 정상 연결 워크트리의 `worktrees/<id>`를 빌려 쓰는 폴더: 그 워크트리의 index·HEAD로 엉뚱한 폴더를 그 브랜치 이름으로 보여 준다.
-    - 연결 워크트리 `config.worktree`의 `core.worktree`: 등록하지 않은 폴더(예: 홈)를 status가 훑는다.
-
-    그래서 나열된 경로를 `realpath(3)`로 한 번 정규화해 세 명령(probe, config, status)에 같은 폴더를 쓰고, git을 실행하기 전에 파일 시스템으로 확인한다. 메인 워크트리는 `.git`이 공통 디렉터리로 이어져야 하고, 연결 워크트리는 `checkLinkedWorktree`가 `.linked`여야 한다(back-pointer 일치). 그다음 probe가 그 폴더를 워크트리 루트로, 이 저장소의 공통 디렉터리를 보고해야 한다. 하나라도 어긋나면 `.notQueried(.foreignRepository)`다.
-  - **행 메뉴(#73)**: Reveal in Finder는 `PathValidator.containment`로 해석한 실제 경로가 워크트리 안일 때만 Finder에 넘긴다. 링크나 `..`로 밖을 가리키면 `This path points outside the repository.`를 보여 주고 열지 않는다. 파일을 기본 앱으로 여는 항목은 없다. Open in Terminal은 고른 터미널(기본 Terminal.app)에 폴더 URL을 넘긴다. Open in Editor(#124)는 고른 에디터에 폴더(확인을 거침)나 일반 파일 하나를 넘긴다. 파일은 실제 위치가 워크트리 안이고, 일반 파일이며 package가 아니고, 실행 비트가 없고, macOS가 여는 대신 실행하는 형식(`.command`, `.terminal`, `.webloc`, `.app` 등)이 아닐 때만 연다. 그래서 폴더를 가리키는 링크로 폴더 확인을 건너뛰지 못한다. 찾은 앱이 등록된 저장소나 워크트리 안에 있으면 열지 않는다(같은 bundle identifier를 주장하는 앱). Open in Browser는 `https`와 호스트가 있는 URL만 연다. 클립보드에는 화면에 보이는 값을 넣는다. 제어·서식(bidi)·줄 구분 문자는 `\u{…}`로 이스케이프해, 파일 이름이 터미널에 붙여 넣을 때 줄바꿈이나 방향 전환 문자를 숨겨 넣지 못하게 한다. 커밋 메시지만 줄바꿈과 탭을 유지한다.
-- **잔여 위험**: git 자체가 따라가는 경로(예: alternates 객체 저장소)는 통제하지 않는다. 읽기 전용이라 영향이 제한적이다. Open in Terminal(#73)로 연 셸은 앱 밖이라 보안 인자가 없다. 사용자의 프롬프트 플러그인이 그 폴더에서 `git status`를 실행하면 저장소의 `core.fsmonitor`, filter, hook이 실행될 수 있다. 그래서 `TerminalGuard`가 확인 창을 띄운다. 조건은 다음과 같다.
-  - 그 워크트리의 로드 시점 검사(`WorktreeListing.Entry.inspection`)가 없을 때: 검사 전, 차단, 다른 저장소, 실패를 모두 포함한다.
-  - 보고서가 차단되었을 때.
-  - finding이 하나라도 있을 때(#278 전에는 T1–T7만 봤다). `core.fsmonitor`·`core.hooksPath`처럼 앱에서는 보고만 하는 키도 포함한다. 셸의 git은 이 키를 따르기 때문이다.
-  - 실행 가능한 `hooks/*`가 있을 때.
-
-  서브모듈 상태(#108)는 경로·`.git` 검사와 git 실행 사이, `configList`와 `status` 사이에 시간 창이 있다. 그 사이 경로 구성 요소를 심볼릭 링크로 바꿀 수 있는 동시 로컬 공격자는 막지 못한다. 저장소 내용만 통제하는 공격자는 할 수 없고, 워크트리 조회와 같은 수준이다.
-
-  확인 창은 셸 프롬프트 도구가 이 폴더에서 저장소 설정으로 git을 실행할 수 있다고 알리고, 키 이름(마스킹·이스케이프, 최대 8개)을 보여 준다. 버튼은 `Open Anyway`와 `Cancel`이며 `Cancel`이 기본이다. 검사 결과가 깨끗하면 바로 연다. 사용자가 `Open Anyway`를 고르면 그 셸에서 일어나는 일은 통제하지 않는다.
-
-  **사용자가 칠 git까지 (#278)**: #97 재검토에서 앞의 조건에 빠진 곳을 찾았다. 앱이 실행하지 않는 키(`core.pager`·`pager.<cmd>`, `core.editor`·`sequence.editor`, `!`로 시작하는 `alias.*`)는 보고되지 않았고, threat가 없는 finding(`submodule.<n>.update=!cmd`, `uploadpack.packObjectsHook`, `include.path`)은 확인 사유가 아니었다. 그래서 다음 두 가지를 바꿨다.
-  - 검사기가 앞의 키들을 T14 `reported`로 보고한다. 앱의 무력화 인자는 바뀌지 않는다.
-  - `TerminalGuard`는 위협·처리 방식과 관계없이 **모든 finding**을 확인 사유로 본다. 앱이 자기 명령에서 덮어쓰거나 무시하는 설정도 셸의 git은 그대로 따르기 때문이다.
-
-  남는 위험: 검사기가 모르는 실행 경로(예: 새 git 버전의 새 키)는 확인 사유가 되지 않는다.
-  **외부 앱 (#124).** 외부 앱은 `NSWorkspace`로만 열고 검사한 폴더·파일 URL이나 https 페이지 하나만 넘긴다. 셸 문자열, `Process`, 저장된 명령줄, AppleScript, 인자 템플릿은 없다. 사용자 지정 터미널·에디터는 bundle identifier만 저장해 열 때마다 찾고, 에디터로 폴더를 열 때도 Open in Terminal과 같은 확인을 거친다([interaction.md §5](interaction.md)).
-  남는 위험(#124): 에디터는 파일 하나만 열어도 상위 저장소를 찾아 git을 실행할 수 있고(gutter, blame), 그 git은 저장소의 `core.fsmonitor`·filter를 따른다. 그래서 신뢰하지 않음 저장소는 파일을 열 때도 확인을 거친다. 같은 bundle identifier를 가진 앱이 여럿일 때 LaunchServices가 무엇을 고르는지는 확인하지 못했다. 저장소 안의 앱은 거부하지만 다른 위치의 앱은 막지 않는다.
-- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226), SEC-T14-06 (Diff 뷰어가 untracked FIFO와 워크트리 밖 폴더를 가리키는 심볼릭 링크 아래 파일을 미리보기하지 않음, #232), SEC-T14-07 (행 메뉴: 밖을 가리키는 링크·링크 폴더·`..`·없는 파일은 Reveal in Finder 거부, `https` 외 URL은 열지 않음, 클립보드 값의 제어·bidi 문자 이스케이프, #73), SEC-T14-08 (Open in Terminal: 깨끗한 검사는 바로 열고, 실행 finding·차단·hook·검사 없음은 확인 후에만 열며, 나열하는 키는 마스킹·이스케이프·상한 적용, #73), SEC-T14-09 (FSEvents 이벤트 경로는 신뢰하지 않는 문자열이다. 검증된 워크트리 폴더(`realpath`)와 공통 git 디렉터리에 컴포넌트 단위로만 비교하고 디스크를 읽지 않는다. 접두사 속임(`/dev/api-other`), 상대 경로, `.`·`..`, 연결 워크트리의 `.git` 파일, 감시 밖 경로는 아무것도 바꾸지 않음, #119), SEC-T14-10 (pager·editor·`!` alias는 T14 `reported`로 보고하고 앱의 인자는 바꾸지 않음. 불리언 `pager.<cmd>`와 신뢰 scope는 보고하지 않음. Open in Terminal은 위협·처리와 관계없이 모든 finding을 확인 사유로 씀, #278. 설정형 hook 키도 사유가 됨, #354), SEC-T14-11 (서브모듈 경로와 git 디렉터리(#108): `.gitmodules`의 `../`·절대 경로·심볼릭 링크 경로는 검사하지 않음, `.git` 파일이 저장소의 `modules/` 밖(다른 저장소)을 가리키면 아무것도 실행하지 않음(대조군: git은 따라감), git 디렉터리의 `core.worktree`·`commondir`이나 폴더 안 `.git` 디렉터리의 `commondir`이 다른 곳을 가리키면 probe 교차 확인에서 거부(대조군: git은 따라감), 심볼릭 링크 `.gitmodules`는 읽지 않음(대조군: `config --file`은 따라감), `include.path`는 따르지 않음), SEC-T14-12 (Open on GitHub: github.com·https만, 경로·브랜치 구성요소별 인코딩, 빈 구성요소·`.`·`..` 거부, 적대적 경로·브랜치 이름에서 호스트·스킴 고정과 쿼리·프래그먼트 없음, #398), SEC-T14-13 (사용자 지정 터미널·에디터: 저장값은 검증한 bundle identifier만, `NSWorkspace`로 검사한 URL 하나만 넘김, 에디터로 폴더를 열 때 TerminalGuard 확인, 워크트리 밖을 가리키는 파일 거부, 설치되지 않은 앱은 알림, #124)
-- **상태**: 설계 완료
-
-### T15. 자원 고갈
-
-- **설명**: 병적인 저장소(거대한 출력, 수백만 개 파일, 끝나지 않는 원격)가 메모리를 고갈시키거나 앱을 멈추게 할 수 있다. `fd::` 원격은 fetch를 정지시켰다 (확인).
-- **대응**:
-  - 타임아웃: 기본 15초, fetch 120초. SIGTERM 뒤 2초가 지나면 SIGKILL.
-  - stdout 상한 10MB(fetch 1MB), stderr 상한 64KB(fetch 256KB). 넘으면 읽기를 멈추고 `truncated` 결과를 돌려준다.
-  - 동시 git 프로세스 수를 `min(코어 수, 8)`로 제한한다.
-  - **설정 검사도 선형 시간이다(#262)**. `config --list` 출력은 stdout 상한(10MB)까지 저장소가 정한다. 원격, TLS·프록시 키, filter 드라이버의 중복 제거와 신뢰 프록시 값 찾기는 집합과 한 번의 훑기로 한다. 이전에는 앞의 항목을 매번 다시 훑어 O(n²)였다. 검사는 저장소를 열 때와 워크트리마다 실행된다. 남기는 양에도 상한을 둔다.
-
-    | 대상 | 상한 | 넘으면 |
-    |---|---|---|
-    | filter 드라이버 | 256 | 조회 중단(fail closed). 드라이버마다 모든 git 명령에 인자 8개가 붙고, 모두 무력화하지 못하면 실행하지 않는다 |
-    | fetch 전용 덮어쓰기(`http.<url>.sslVerify`·`.proxy`·`.cookieFile`·`.saveCookies`·`.proxyAuthMethod`·`.proxySSLCertPasswordProtected`·`.sslCertPasswordProtected`·`.delegation`, `remote.<name>.proxy`·`.proxyAuthMethod`, `credential.<url>.protectProtocol`·`.sanitizePrompt`) | 256 | fetch만 막는다. 조회는 계속한다 |
-    | 원격 목록 | 1,000 (설정 순서) | 나머지는 개수만 센다(`omittedRemotes`). fetch는 더 적게 쓴다(#259). 무력화와 무관하므로 fail closed가 아니다 |
-    | 보고서 항목 | 1,000 | 나머지는 개수만 센다(`omittedFindings`). 무력화는 모든 항목에 그대로 적용한다 |
-
-    S-05는 보고서가 줄었으면 "Report shortened"로 알린다.
-  - 한 번의 조회에서 status를 실행하는 워크트리는 최대 64개다(`RepositoryService.defaultMaximumQueriedWorktrees`, #226). 워크트리 목록은 저장소가 쓰는 파일에서 오고 10MB까지 읽으므로, 위조 레코드 수천 개가 각각 프로세스 3개(probe, config, status, 각 최대 15초)와 `WorkingState`를 만들 수 있었다. 64는 PB-1 기준(워크트리 10개)의 6배 남짓이다. 나머지는 목록에만 두고 `.notQueried(.limit)`로 표시하며, 화면은 `RepositoryOverview.isQueryLimited`로 알린다. 같은 경로는 한 번만 나열하고, 다른 경로가 같은 폴더로 이어지면(심볼릭 링크) 한 번만 조회한다(`.notQueried(.duplicate)`).
-  - Fetch 한 번이 가져오는 원격은 최대 16개다(`RepositoryService.defaultMaximumFetchedRemotes`, #259). 원격 목록은 저장소 설정이 정하고, 원격마다 최대 120초씩 순서대로 돌기 때문에, 원격 수천 개를 넣으면 Fetch 한 번이 사실상 끝나지 않고 앱 전체 fetch 슬롯 2개 중 하나를 붙잡았다. 보통은 1~3개(origin, upstream, fork 몇 개)이고 16은 fork가 많은 리뷰 환경도 담는다. 최악의 경우는 약 32분이며, Stop과 창 닫기는 언제든 멈춘다. 설정 순서로 앞의 16개만 가져오고, 건너뛴 수는 상태바(`· 16 of 40 remotes`)와 Details에 알린다.
-  - 자동 fetch(기본 끔, #79)는 창마다 설정 간격(최소 5분)에 한 번, 창이 key일 때만, 진행 중인 fetch가 없을 때만 실행한다. 창을 다시 활성화했을 때의 따라잡기도 간격당 한 번이다. 실제 fetch는 수동과 같은 경로(검사, 원격 상한, 저장소당 직렬화)를 지난다.
-  - 그래프는 페이지 단위로 불러온다. commit-graph 파일이 없는 저장소는 한 `graphStream` 프로세스를 스트리밍한다(#254).
-    - stdout을 모으지 않고 받는 대로 레코드 단위로 파싱한다(`ProcessRunner`의 `stdoutObserver`). 남겨 두는 것은 불완전한 마지막 레코드 하나뿐이다.
-    - `stdoutLimit`(64MB)은 전달한 바이트 합계에 적용한다. 넘으면 더 전달하지 않고 프로세스 그룹을 종료한다. 타임아웃 120초와 취소, 프로세스 그룹 정리는 다른 실행과 같다.
-    - 커밋은 10만 개까지만 읽는다. 스트림은 저장소 2개까지만 두고, 그 이상이면 가장 오래된 것을 멈추고 버린다. ⌘R과 저장소 정리도 스트림을 멈춘다. 들고 있는 커밋의 상한은 스트림당 64MB 출력 분량(bench 이력 10만 개는 모델 약 50MB)이고, 두 개까지라 PB-6 안이다.
-    - 스트림은 조회 슬롯이 아니라 앱 전체에 하나뿐인 stream 슬롯에서 돈다. 최대 120초 걸릴 수 있는 스트림 여러 개가 조회 슬롯을 다 잡아 status·diff·⌘R을 세우지 못하게 하기 위해서다. 다른 저장소의 스트림을 시작하면 끝나지 않은 스트림은 멈춘다(그 페이지는 `--skip`). 그래서 악성 저장소의 느린 스트림이 다른 저장소의 그래프를 붙잡지 못한다.
-    - 파싱할 수 없는 출력이 오면 스트림을 끝내고 git 프로세스도 바로 멈춘다(타임아웃·출력 상한까지 돌게 두지 않음).
-    - 이 세 항목은 #254 보안 검토(독립 리뷰)에서 나온 지적을 반영했다.
-  - 파서는 잘린 입력을 안전하게 처리한다.
-  - `fd::`는 `protocol.fd.allow=never`로 차단한다.
-  - 출력 인코딩을 공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정한다. 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`(include 경유 포함)은 포맷된 출력 전체를 `-z` 구분자까지 다시 인코딩한다. JOHAB·CP1361은 메시지의 전각 문자(U+FF01…)를 NUL로 바꿔 필드를 밀고, 모든 검사를 통과하는 가짜 커밋 레코드를 만들 수 있다. UTF-16·UCS-4 등은 파싱을 실패시켜 그래프를 못 쓰게 만든다 (확인, E41, #205).
-- **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다. 커밋 객체의 `encoding` 헤더가 UCS-2·CP037·TCVN이면 git이 그 커밋의 모든 필드를 빈 값으로 출력해 그래프 페이지 전체가 파싱 실패한다(출력 인코딩 고정과 무관, #203 보안 검토). 필드가 밀리지는 않으므로 위조는 아니고, 가용성 문제로 남긴다.
-- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259), SEC-T15-11 (원격이 `feat/1-*` ref를 대량으로 밀어 넣어도 이슈 하나의 LINKED 항목은 종류별 상한까지만 만들고 나머지는 개수로만 셈. 커밋 제목은 앞부분만 훑고, LINKED 커밋 검색은 캐시해 페이지가 늘 때 새 페이지만 이어서 훑음, #82), SEC-T15-12 (원격 10만 개 + 반복 10만 개 + URL별 TLS·프록시 키 20만 개의 설정 목록을 선형 시간에 검사하고(로컬 Debug 약 1.5초, 기준 20초 — 이전 이차 시간 코드는 몇 분, #279) 상한대로 줄임. 원격 형태 검사(#350)는 모든 URL에 맞는 바꾸기 규칙 256개와 1KB 값으로 채운 약 10MB 목록에서도 기준 안에 끝남. 드라이버 257개는 조회 중단, fetch 덮어쓰기 257개는 fetch만 막음, #262), SEC-T15-13 (ISSUES의 `Check Again`을 gh가 도는 동안 여러 번 눌러도 gh를 더 띄우지 않음, #83), SEC-T15-14 (자동 fetch는 창이 key일 때만, 진행 중인 fetch 위에 겹치지 않고, 활성화 때의 따라잡기는 간격당 한 번. 실패해도 창을 바꿀 때마다 다시 시도하지 않음, #79), SEC-T15-15 (출력 상한에 잘린 파일 이력은 `Beginning of history`가 아니라 잘렸다고 표시하고, 더 요청하지 않음. 추가 페이지 실패는 Retry를 누를 때까지 다시 실행하지 않음, #70), SEC-T15-16 (그래프 검색과 사이드바 필터는 필드마다 앞부분만 훑고(제목 1,024자, 이름·ref 256자, 커밋당 co-author·ref 32개), 새 페이지가 오면 그 페이지만 이어서 훑음. ref가 바뀌면 다시 훑음, #74), SEC-T15-17 (FSEvents 자동 새로고침: 분류는 스트림 큐에서 하고 메인 액터로는 묶은 변경만 넘기며, 한 묶음이 `FileChangeClassifier.maximumEventsPerBatch`(10,000)를 넘으면 경로를 보지 않고 rescan으로 친다. 요청은 한 번에 하나, 재실행 간격 `max(2초, 소요 × 10)`, 실패한 요청은 다시 보내지 않고, 다시 보일 때도 같은 간격을 거친다. PERF-10에서 6,000개 파일 폭주 동안 status 3회, #119), SEC-T15-18 (실제 git: 저장소의 `mailmap.file`이 FIFO여도 앱의 log 조회는 바로 끝남. 대조군인 평범한 `git log`는 시간 제한까지 멈춤. 모든 명령이 mailmap을 끔, #356), SEC-T15-19 (서버가 정하는 fetch stderr를 상한(256 KiB)까지 짧은 줄·`\r` 다시 쓰기·sideband 접두어로 채워도 `MaskedText`는 선형으로 끝나고 결과는 스칼라 64K개 이하. 화면의 상세 줄은 다시 쓴 줄의 마지막 상태만, 줄마다 300 스칼라까지, #362), SEC-T15-20 (서브모듈 상태는 선택한 워크트리만 `RepositoryService.maximumInspectedSubmodules`(32)개까지 검사하고 나머지는 개수로만 알림. 바뀐 gitlink를 먼저 검사함. 동시 검사 4개(sliding window), `.gitmodules` 경로는 128개까지만 만듦. 반복되는 load는 진행 중인 읽기를 취소하지 않고 새로고침을 한 번으로 합치며, 다음 읽기는 `max(2초, 소요 × 10)` 뒤, #108), SEC-T15-21 (`stdoutObserver`로 받는 실행도 `stdoutLimit`을 전달한 바이트 합계로 적용: 관찰자는 상한을 넘는 바이트를 받지 않고, 생산자는 바로 멈춤, #254)
-- **상태**: 설계 완료
-
-### T16. 로그를 통한 정보 유출
-
-- **설명**: 경로, 저장소 이름, 커밋 메시지, 원격 URL이 시스템 로그에 남아 다른 프로세스나 진단 리포트로 새어 나갈 수 있다.
-- **대응**:
-  - `os.Logger`의 `privacy: .private`를 쓰고, 원격 URL과 stderr는 로깅 전에 마스킹한다.
-  - 명령 로그에는 서브커맨드, 소요 시간, 종료 코드, 바이트 수만 남긴다.
-  - 기본 로그 수준은 `notice`다.
-  - 텔레메트리가 없다. gh 텔레메트리도 `GH_TELEMETRY=0`, `DO_NOT_TRACK=1`로 끈다 (ADR-0004).
-- **잔여 위험**: 개발 장비에서 private 로그가 풀릴 수 있다. 마스킹으로 자격 증명은 보호한다.
-- **검증**: SEC-T16-01 (테스트에서 `OSLogStore`로 현재 프로세스 로그를 수집해 자격 증명 패턴과 원격 URL 원문이 없음을 확인)
-- **상태**: 설계 완료
-
-### T17. 공급망
-
-- **설명**: 의존성이나 CI Action이 오염되면 빌드 산출물이나 저장소 비밀이 위험해진다.
-- **대응**:
-  - 외부 패키지 0개 (ADR-0006)
-  - GitHub Actions는 전체 커밋 SHA로 고정하고 Dependabot으로 갱신한다.
-  - 워크플로우 `permissions:`는 최소로 둔다.
-  - `pull_request_target`은 보드 동기화(`board-sync.yml`, ADR-0016) 한 곳에서만 쓴다. 지키는 조건은 다음과 같다.
-    - 기본 브랜치만 체크아웃하고(`persist-credentials: false`) PR 코드는 체크아웃하거나 실행하지 않는다.
-    - 이벤트에서는 이슈·PR 번호만 쓴다.
-    - 메인테이너가 아닌 사람의 이벤트는 동시성 그룹 하나를 공유한다.
-    - PR은 자기 브랜치 이름의 이슈를, 그 이슈를 가진 사람이 낸 경우에만 움직인다.
-  - 보드 토큰 `PROJECT_TOKEN`은 `project` scope 하나만 가진 classic token이다. 보드 #4에만 쓰기 권한이 있는 전용 머신 계정의 토큰을 권장한다.
-  - PR 제목·본문 같은 신뢰할 수 없는 값은 `env:`로만 넘긴다.
-  - CI의 gitleaks는 버전과 SHA-256을 고정해 받는다.
-  - git 호환성 매트릭스(`git-compat.yml`, [ADR-0020](../adr/0020-git-compatibility-matrix-in-ci.md))는 최소 지원 버전 git을 kernel.org 공식 tarball에서 버전과 SHA-256을 고정해 받는다. 해시가 맞을 때만 러너 안에서 빌드하고, 테스트에만 쓰며, 캐시하지 않는다. 필수 검사가 아니고 `contents: read` 권한만 쓴다. Homebrew git은 러너에 있는 것만 쓰고 새로 설치하지 않는다.
-- **잔여 위험**:
-  - Apple 툴체인과 GitHub 러너 이미지는 신뢰한다.
-  - 보드 토큰이 새면 그 계정이 쓸 수 있는 모든 Projects 보드가 바뀔 수 있다. 메인테이너 계정 토큰이면 메인테이너가 속한 조직의 보드도 포함된다. 저장소 코드와 이슈는 영향이 없다.
-  - `pull_request_target`은 첫 기여자 승인 없이 실행된다. 외부 사용자가 이벤트를 많이 만들면 토큰 계정의 API 한도를 쓸 수 있다. 공유 동시성 그룹으로 상한을 둔다.
-  - 호환성 매트릭스의 tarball 해시는 워크플로에 적힌 값이 신뢰의 기준이다. CI는 kernel.org 서명을 검증하지 않는다. 해시를 바꾸는 PR이 출처(`sha256sums.asc`)를 밝히고 리뷰를 거친다(ADR-0020 §4).
-- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음 — `scripts/lint/check-no-dependencies.sh`와 그 테스트, CI `build-test`), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정. 같은 검사가 다음도 확인한다: 모든 워크플로우에 최상위 `permissions:`가 있고 `write-all`이 없음, `pull_request_target`은 `board-sync.yml`에만, PR·이슈 제목·본문·브랜치 이름 같은 신뢰할 수 없는 값은 `KEY: ${{ … }}` 매핑(`env:`)으로만, CI gitleaks 다운로드의 버전·SHA-256 고정 — `scripts/lint/check-workflows.sh`와 그 테스트, CI `build-test`, #95), SEC-T17-03 (Dependabot이 `/`의 `github-actions`를 갱신 — 같은 스크립트), SEC-T17-04 (`git-compat.yml`의 테스트용 git: kernel.org tarball만, `TEST_GIT_VERSION`·`TEST_GIT_SHA256` 고정, 주석이 아닌 줄에서 `TEST_GIT_SHA256`으로 검증하고 그 검증이 압축 해제·빌드보다 앞, `actions/cache` 없음 — `scripts/lint/check-workflows.sh`와 그 테스트, ADR-0020), 보드 상태 규칙은 `scripts/github/board-sync-rules.test.sh`(CI `build-test`). **수동**: `PROJECT_TOKEN`이 `project` scope 하나만 가진 토큰인지는 CI에서 볼 수 없어 메인테이너가 토큰을 바꿀 때 확인한다
-- **상태**: 적용됨 (저장소 셋업: 워크플로우와 Dependabot, SEC-T17-01은 #33에서 CI에 추가)
-
-### T18. 공개 저장소에 비밀 정보·개인 경로 커밋
-
-- **설명**: 이 프로젝트 자체가 공개 저장소다. 토큰, 개인 홈 경로, 내부 저장소 이름이 커밋·이슈·PR에 들어갈 수 있다.
-- **대응**:
-  - gitleaks를 세 단계에서 실행한다: pre-commit(스테이징 영역), pre-push(푸시할 범위), CI(`gitleaks` 필수 검사).
-  - `.gitleaks.toml`에 개인 홈 경로(`/Users/<이름>/`) 규칙을 둔다.
-  - GitHub Secret scanning과 Push protection을 켠다.
-  - Claude Code hook이 편집 내용에서 비밀 정보와 개인 경로를 막는다.
-  - 공개 글은 게시 전에 승인을 받는다.
-  - 테스트 픽스처의 가짜 자격 증명은 `gitleaks:allow` 주석이나 픽스처 경로 allowlist로 명시한다.
-- **잔여 위험**: 규칙 밖 형식의 비밀은 놓칠 수 있다. 리뷰 체크리스트로 보완한다.
-- **검증**: SEC-T18-01 (gitleaks가 pre-commit, pre-push, CI에서 동작), SEC-T18-02 (개인 경로 규칙이 샘플을 잡아냄)
-  - 정적 연결 검사: `scripts/lint/check-secret-scanning.sh`(CI `build-test`). 두 hook이 gitleaks를 실행하고 gitleaks가 없으면 멈추는지, bootstrap이 hook을 설치하는지, CI `gitleaks` job이 PR과 main을 검사하는지, `.gitleaks.toml`이 기본 규칙과 개인 경로 규칙을 유지하는지 본다.
-  - 실제 동작: `scripts/lint/check-secret-scanning.test.sh`(CI `gitleaks` job, `OVERGROVE_REQUIRE_GITLEAKS=1`). 실제 pre-commit hook이 staged 개인 경로를, pre-push hook이 push할 커밋의 개인 경로와 main push를 막는지 확인한다. 저장소 규칙이 `/Users/<이름>/`, `/home/<이름>/`, 한 글자 이름을 잡고 `runner`·`Shared`·`~/` 같은 자리표시자는 통과시키는지도 본다. gitleaks가 없는 환경(`build-test`)에서는 "gitleaks가 없으면 hook이 실패한다"만 확인한다. 샘플은 실행 중에 조립해 커밋된 문자열이 없다.
-  - **#95에서 발견해 고침**: 개인 경로 규칙의 `/home/<이름>/` 절반이 동작하지 않았다. gitleaks 기본 설정(`useDefault`)의 전역 allowlist가 `/home/...`처럼 생긴 시스템 경로 비밀을 허용하기 때문이다. 규칙이 경로 전체가 아니라 `<이름>/`을 비밀로 보고하게 했다(`secretGroup`). 자리표시자 allowlist는 여전히 전체 일치를 본다.
-  - **수동**: GitHub Secret scanning과 Push protection 설정은 관리자 API라 CI에서 볼 수 없다. [github-settings.md](../process/github-settings.md)의 `security_and_analysis` 조회 명령으로 확인한다(2026-11-07 확인: 둘 다 켜짐). Claude Code hook과 공개 글 승인은 하네스·절차 통제다.
-- **상태**: 적용됨 (저장소 셋업, 검증 자동화 #95)
-
-### T19. 디스크에 남는 저장소 데이터
-
-- **설명**: 재실행 직후 첫 화면을 빨리 그리려고 조회 결과를 디스크에 남기면(#109, [ADR-0018](../adr/0018-launch-snapshot-disk-cache.md)), 앱이 닫힌 뒤에도 저장소 데이터가 사용자 계정에 남는다. 남긴 값에 자격 증명, 원격 URL, config 값, 파일 이름, 커밋 내용이 섞이면 백업·진단 수집·다른 프로세스로 새어 나갈 수 있다. 또 앱이 다음 실행 때 그 파일을 읽으므로, 바꿔 넣은 파일이 파서를 공격하거나 오래된 "안전" 결과로 git 실행을 건너뛰게 만들 수 있다.
-- **대응** (ADR-0018):
-  - 저장하는 필드를 전용 타입(`LaunchSnapshot`)이 정한다. 워크트리 경로, 브랜치 짧은 이름, HEAD 짧은 SHA, 개수와 상태 플래그, stash 개수만 담는다. config 값, 설정 검사 결과, 원격 이름·URL, 자격 증명, 오류 문구, 작업 트리 파일 이름, 커밋 내용, 그래프는 저장하지 않는다.
-  - 표시 전용이다. 스냅샷으로 그린 동안 git이나 외부 앱을 부르는 동작을 막고, `RepoSafetyContext`·설정 검사·`TerminalGuard`·fetch 판단에 쓰지 않는다. 첫 조회는 스냅샷과 관계없이 설정 검사부터 한다.
-  - 파일은 신뢰하지 않는 입력으로 읽는다. 일반 파일(링크 거부), 256 KiB 이하, 고정 스키마, 숫자·행 수·문자열 길이 상한, 절대 경로만. 하나라도 어긋나면 전체를 버리고 지운다.
-  - 무효화: 형식·앱 버전, git 실행 파일 경로와 `lstat`(장치·inode·크기·mtime·ctime, 버전은 진단용 기록), 저장소 ID 해시, 공통 git 디렉터리와 워크트리 git 디렉터리 파일들의 `lstat` 지문, 7일 경과. 저장소 제거·새로고침 실패·조회 차단 때 지운다.
-  - `~/Library/Caches/<bundle id>/LaunchSnapshots/`, 디렉터리 `0700`·파일 `0600`, 파일 이름은 저장소 ID의 SHA-256.
-- **잔여 위험**: 워크트리 경로와 브랜치 이름은 앱이 닫힌 뒤에도 남는다. 경로는 이미 `UserDefaults`에도 있다. 같은 계정의 프로세스는 파일을 읽고 바꿀 수 있다(계정 장악은 범위 밖, §1.2). 바꿔 넣은 파일은 표시를 잠깐 속일 수 있을 뿐 명령을 실행하게 하지 못한다. `xcode-select`로 developer dir만 바꾸고 이전 git이 남아 있으면 스냅샷이 무효화되지 않아, 첫 조회 전까지 옛 숫자가 보인다(첫 조회는 지금의 git으로 한다).
-- **검증** (구현 #109): SEC-T19-01 (적대적 개요 — 자격 증명 원격 URL, 토큰이 든 config 값, 설정 검사 finding, 파일 이름, 오류 문구 — 로 만든 스냅샷 JSON에 그 값들이 없음), SEC-T19-02 (손상·과대·링크·스키마 위반·범위 밖 숫자·65행 스냅샷은 버려지고 파일이 지워짐, 앱은 평소 조회로 계속), SEC-T19-03 (스냅샷 상태에서 Terminal·Finder·Compare·행 메뉴가 막히고, 스냅샷이 있어도 첫 조회가 설정 검사부터 실행됨), SEC-T19-04 (지문·버전·저장소 해시가 다르거나 7일이 지나면 보여 주지 않음, 저장소 제거 때 파일 삭제, 파일·디렉터리 권한)
-- **상태**: 적용됨 (ADR-0018, #109)
+- 형식은 `SEC-T<위협 번호>-<이슈 번호>-<순번>`이다. 예: 이슈 #500에서 T9 테스트를 둘 더하면 `SEC-T9-<500>-1`과 `SEC-T9-<500>-2`처럼 꺾쇠 없이 쓰고, 테스트 이름은 `testSECT9_<500>_1_…`처럼 꺾쇠 없이 쓴다. 이슈 번호가 겹치지 않으므로 동시에 열린 PR이 같은 번호를 고를 일이 없다.
+- 그 전의 두 자리 ID(`SEC-T9-05` 등)는 그대로 쓴다. 목록은 `scripts/lint/sec-ids-legacy.txt`에 고정되어 있고, 새 두 자리 ID는 `scripts/lint/check-sec-ids.sh`가 거부한다.
+- ID는 그 위협 파일의 **검증** 목록에서 `  - SEC-T…-… (설명)` 형태로 한 번만 정의한다. 다른 곳의 언급은 참조다.
 
 ---
 
@@ -456,7 +130,7 @@ fetch에는 `--no-recurse-submodules --upload-pack=git-upload-pack`을 붙인다
 | `PATH` | `/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin` |
 | `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK` | 부모 값 |
 
-gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalog.md)에 있다.
+gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalog.md)에, glab·gt 전용은 §5.1에 있다.
 
 셸 프록시 변수(`HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`, `NO_PROXY`와 소문자 변형)는 넘기지 않는다([ADR-0022](../adr/0022-no-shell-proxy-env-vars.md)). Finder에서 실행한 앱에는 어차피 닿지 않아 실행 방식마다 동작이 달라지고, 부모 환경을 신뢰하게 되기 때문이다. 프록시는 전역 `http.proxy`로 둔다([가이드](../guides/self-hosted-git.ko.md#프록시)).
 

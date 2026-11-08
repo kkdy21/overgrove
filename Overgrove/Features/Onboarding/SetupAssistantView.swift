@@ -101,20 +101,26 @@ struct SetupAssistantView: View {
             }
         case .missing:
             SetupProblem(
-                title: "git was not found", message: "Install the Xcode Command Line Tools, then check again:",
+                title: String(localized: "git was not found"),
+                message: String(localized: "Install the Xcode Command Line Tools, then check again:"),
                 command: "xcode-select --install", onCheckAgain: setup.checkGit)
         case .unsupported(let found):
             SetupProblem(
-                title: "git \(GitVersion.minimumSupported) or later is required (found \(found))",
-                message: "Update the Xcode Command Line Tools, then check again.", command: nil,
+                title: String(
+                    localized:
+                        "git \(GitVersion.minimumSupported.description) or later is required (found \(found.description))"
+                ),
+                message: String(localized: "Update the Xcode Command Line Tools, then check again."), command: nil,
                 onCheckAgain: setup.checkGit)
         case .failed(let message):
             SetupProblem(
-                title: "git could not be checked", message: message, command: nil, onCheckAgain: setup.checkGit)
+                title: String(localized: "git could not be checked"), message: message, command: nil,
+                onCheckAgain: setup.checkGit)
         case .chosenRejected(let path, let reason):
             // ADR-0019 §4: the chosen git is not replaced behind the user's back; they pick the default here.
             SetupProblem(
-                title: "The git chosen in Settings cannot be used", message: "\(path): \(reason)", command: nil,
+                title: String(localized: "The git chosen in Settings cannot be used"), message: "\(path): \(reason)",
+                command: nil,
                 onCheckAgain: setup.checkGit,
                 onUseDefault: setup.canUseDefaultGit ? { setup.useDefaultGit() } : nil)
         }
@@ -130,9 +136,9 @@ struct SetupAssistantView: View {
         }
     }
 
-    /// `git 2.50.1 at /usr/bin/git` (a plain String, so no localized interpolation of the version).
+    /// `git 2.50.1 at /usr/bin/git`. The version and path go in as text, not as localized numbers.
     static func gitReady(_ version: GitVersion, _ path: String) -> String {
-        "git \(version) at \(path)"
+        String(localized: "git \(version.description) at \(path)")
     }
 
     /// Check Again only while GitHub CLI is not ready.
@@ -155,8 +161,8 @@ struct SetupAssistantView: View {
 /// One numbered card: a check mark when done, otherwise the step number.
 private struct SetupStepCard<Content: View, Accessory: View>: View {
     let number: Int
-    let title: String
-    var subtitle: String?
+    let title: LocalizedStringKey
+    var subtitle: LocalizedStringKey?
     let isDone: Bool
     @ViewBuilder let content: Content
     @ViewBuilder let accessory: Accessory
@@ -171,7 +177,7 @@ private struct SetupStepCard<Content: View, Accessory: View>: View {
                 }
             }
             .font(Tokens.Font.title)
-            .accessibilityLabel(isDone ? "Step \(number), done" : "Step \(number)")
+            .accessibilityLabel(isDone ? Text("Step \(number), done") : Text("Step \(number)"))
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(title).font(Tokens.Font.headline)

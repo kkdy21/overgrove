@@ -78,8 +78,8 @@ final class PullRequestModelsTests: XCTestCase {
         XCTAssertNil(PullRequestCardModel(pullRequest(), repository: nil).browserURL)
     }
 
-    /// SEC-T9-09 (PR display): on another host, only that host's page for this repository and number opens.
-    func testSECT9_09_OtherHostPullRequestPage() throws {
+    /// SEC-T9-117-02 (PR display): on another host, only that host's page for this repository and number opens.
+    func testSECT9_117_02_OtherHostPullRequestPage() throws {
         let ghe = try XCTUnwrap(
             GitHubRepository(owner: "team", name: "app", host: XCTUnwrap(RemoteHost("ghe.example"))))
         XCTAssertNotNil(

@@ -116,8 +116,8 @@ final class IssueModelsTests: XCTestCase {
         }
     }
 
-    /// SEC-T9-09 (issue display): on another host, rows and the detail open only that host's issue pages over https.
-    func testSECT9_09_OtherHostIssuePage() throws {
+    /// SEC-T9-117-02 (issue display): on another host, rows and the detail open only that host's issue pages over https.
+    func testSECT9_117_02_OtherHostIssuePage() throws {
         let host = try XCTUnwrap(RemoteHost("ghe.example"))
         let repository = try XCTUnwrap(GitHubRepository(owner: "team", name: "app", host: host))
         let issue = Self.issue(5, url: "https://ghe.example/team/app/issues/5")
