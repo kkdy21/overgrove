@@ -166,6 +166,8 @@ final class AppState {
     var rowActions: any RowActionPerforming = LiveRowActions.shared
     /// Open in Terminal waiting for "Open Anyway" (`TerminalGuard`, #73).
     var terminalConfirmation: TerminalConfirmation?
+    /// The file Quick Look shows (#399); `nil` when the panel is closed.
+    var quickLookURL: URL?
     /// The panel layout, written when a change finishes (drag frames stay inside `PanelSplitView`); saved per
     /// repository by `commitPanelLayout`.
     var panelLayout: PanelLayout = .default

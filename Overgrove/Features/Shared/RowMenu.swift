@@ -20,6 +20,9 @@ struct RowMenuActions {
     var showWorktreeInfo: @MainActor (GitPath) -> Void = { _ in }
     var revealWorktree: @MainActor (GitPath) -> Void = { _ in }
     var openTerminal: @MainActor (GitPath) -> Void = { _ in }
+    /// Quick Look is offered (macOS 15 and later, #399).
+    var canQuickLook = false
+    var quickLook: @MainActor (_ worktree: GitPath?, _ path: GitPath) -> Void = { _, _ in }
     var showStash: @MainActor (ObjectID) -> Void = { _ in }
     var openInBrowser: @MainActor (URL) -> Void = { _ in }
     var linkedBranchTip: @MainActor (Int) -> ObjectID? = { _ in nil }
@@ -59,5 +62,10 @@ struct FileRowMenu: View {
         Button("Reveal in Finder") { actions.revealFile(worktree, path) }
             // A path that is not valid UTF-8 has no file-level actions (GitPath).
             .disabled(!path.isRepresentable)
+        // Working tree files on macOS 15 and later (#399): commit and stash files are not on disk as shown.
+        if actions.canQuickLook, worktree != nil {
+            Button("Quick Look") { actions.quickLook(worktree, path) }
+                .disabled(!path.isRepresentable)
+        }
     }
 }

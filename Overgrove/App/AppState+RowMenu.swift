@@ -17,6 +17,8 @@ extension AppState {
             showWorktreeInfo: { [weak self] in self?.showWorktree($0, info: true) },
             revealWorktree: { [weak self] in self?.revealWorktree($0) },
             openTerminal: { [weak self] in self?.openTerminal(at: $0) },
+            canQuickLook: QuickLook.isAvailable(),
+            quickLook: { [weak self] in self?.quickLook($1, in: $0) },
             showStash: { [weak self] in self?.selectStash($0) },
             openInBrowser: { [weak self] in self?.openInBrowser($0) },
             linkedBranchTip: { [weak self] in self?.linkedBranchTip(of: $0) },
@@ -45,6 +47,15 @@ extension AppState {
     func fullPath(of path: GitPath, in worktree: GitPath?) -> String? {
         guard path.isRepresentable, let root = worktree ?? focusedWorktreePath else { return nil }
         return URL(fileURLWithPath: root.display).appendingPathComponent(path.display).path
+    }
+
+    /// Quick Look for a working tree file row (#399): macOS 15 and later, a regular file inside the worktree.
+    func quickLook(_ path: GitPath, in worktree: GitPath?, available: Bool = QuickLook.isAvailable()) {
+        guard available, let root = worktree ?? focusedWorktreePath else { return }
+        switch QuickLook.target(path, in: URL(fileURLWithPath: root.display, isDirectory: true)) {
+        case .success(let url): quickLookURL = url
+        case .failure(let refusal): alert = AppAlert(title: "Can’t Preview", message: refusal.message)
+        }
     }
 
     /// Reveal in Finder for a file row: only when its real location is inside the worktree (T14).
