@@ -1,6 +1,6 @@
 # ADR-0018: 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 둔다
 
-> 상태: Accepted · 날짜: 2026-11-08 · 관련: #328, #109, ADR-0008, ADR-0009, [overview.md §5·§8](../architecture/overview.md#5-캐시와-무효화), [security-review.md T19](../design/security-review.md#t19-디스크에-남는-저장소-데이터), [performance-budget.md PB-1](../performance/performance-budget.md)
+> 상태: Accepted · 날짜: 2026-11-08 · 관련: #328, #109, ADR-0008, ADR-0009, [overview.md §5·§8](../architecture/overview.md#5-캐시와-무효화), [security-review.md T19](../design/threats/T19.md), [performance-budget.md PB-1](../performance/performance-budget.md)
 >
 > 개정: 2026-11-08 #109 구현 중 무효화 기준 정정 (§1·§3: git 버전 → git 실행 파일 경로와 `lstat`, 버전은 진단용 기록)
 
@@ -14,7 +14,7 @@ v0.1의 결과 캐시(`RepositoryService`, overview.md §5)는 메모리에만 �
 - 앱이 다음 실행 때 읽는 파일이 하나 늘어난다. 그 파일은 같은 계정의 다른 프로세스가 바꿀 수 있다.
 - 오래된 값을 보여 줄 수 있다. 보안 판단(설정 검사, ADR-0009)에 쓰이면 위험하다.
 
-그래서 무엇을 저장하고 무엇을 저장하지 않을지, 언제 버릴지, 읽을 때 어떻게 다룰지를 구현 전에 정한다. 새 위협은 [security-review.md T19](../design/security-review.md#t19-디스크에-남는-저장소-데이터)로 추가한다.
+그래서 무엇을 저장하고 무엇을 저장하지 않을지, 언제 버릴지, 읽을 때 어떻게 다룰지를 구현 전에 정한다. 새 위협은 [security-review.md T19](../design/threats/T19.md)로 추가한다.
 
 ## 결정
 

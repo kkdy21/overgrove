@@ -62,8 +62,9 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 
 **ID 중복 검사 (#282)**:
 - `scripts/lint/check-sec-ids.sh`가 CI `build-test`에서 다음을 확인한다.
-  - SEC ID는 security-review.md의 **검증** 줄에서 `SEC-Tn-xx (` 형태로 한 번만, 자기 위협 절(`### Tn.`) 아래에 정의된다. 본문의 다른 곳에서 참조하는 것은 괜찮다.
-  - 문서·테스트(`SEC-Tn-xx`, `SEC-Tn-xx/yy`, `testSECTn_xx`)·스크립트·워크플로에서 언급한 SEC ID는 모두 정의되어 있다.
+  - SEC ID는 자기 위협 파일(`docs/design/threats/T<n>.md`)의 **검증** 목록에서 `  - SEC-T<n>-… (` 항목으로 한 번만 정의된다(#457). 다른 곳에서 참조하는 것은 괜찮다.
+  - 새 SEC ID는 `SEC-T<n>-<이슈 번호>-<순번>`이다. #457 전의 두 자리 ID는 `scripts/lint/sec-ids-legacy.txt`에 고정되어 있고, 새 두 자리 ID는 실패한다([security-review.md §2.1](../design/security-review.md#21-sec-id-규칙)).
+  - 문서·테스트(`SEC-Tn-xx`, `SEC-Tn-xx/yy`, `SEC-T<n>-<이슈>-<k>`, `testSECTn_xx`, `testSECT<n>_<이슈>_<k>`)·스크립트·워크플로에서 언급한 SEC ID는 모두 정의되어 있다.
   - parsing-spec 표의 PAR 행과 §4.1의 E 행도 ID가 겹치지 않는다.
   - PERF ID는 benchmark-plan.md §3 표에 한 번만 정의된다(§3.1의 테스트 표는 ID를 일부러 반복한다). 문서·테스트(`PERF-nn`, `test_PERF_nn_…`)·스크립트·워크플로에서 쓴 PERF ID는 모두 §3에 있어야 한다(#288). 아직 머지되지 않은 PR의 PERF ID는 그 PR이 §3에 행을 더한 뒤에 쓴다.
 - 병렬 PR이 같은 새 번호를 고르면, 나중에 main을 merge한 쪽의 CI가 실패한다. 그쪽이 다음 빈 번호로 바꾼다.
