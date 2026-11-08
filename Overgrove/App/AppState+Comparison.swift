@@ -26,9 +26,14 @@ extension AppState {
     }
 
     /// The worktree list failed to load (#374): a comparison or patch still running was asked on the old basis, so it
-    /// is dropped rather than shown as new under the stale notice. S-11 itself stays open.
-    func comparisonListFailed() {
+    /// is dropped rather than shown as new under the stale notice. S-11 itself stays open, except after a security stop
+    /// (`.blocked`, #401): that is not "could not be read", so S-11 closes and the security state shows instead.
+    func comparisonListFailed(_ error: RepositoryLoadError) {
         guard comparison != nil else { return }
+        if case .blocked = error {
+            closeComparison()
+            return
+        }
         comparisonTask?.cancel()
         comparisonPatchTask?.cancel()
         comparisonTask = nil
