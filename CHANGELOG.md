@@ -45,6 +45,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- The repository switcher shows the remote owner next to the name: the GitHub owner or GitLab namespace of the
+  repository whose issues the panel reads.
+
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
   each problem comes with the command that fixes it.

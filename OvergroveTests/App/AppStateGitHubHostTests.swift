@@ -303,4 +303,28 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertNil(state.issuePanel.repository)
         XCTAssertEqual(issues.requests, [])
     }
+
+    // MARK: Switcher owner (#477)
+
+    /// #477: the repository switcher names the owner of the issue source this load picked from inspected remotes: the
+    /// GitHub owner, or the GitLab namespace. Without a source there is no owner.
+    func testTheSwitcherNamesTheIssueSourcesOwner() async {
+        let github = await loadedState(
+            remotes: ["https://github.com/team/app"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]))
+        XCTAssertEqual(github.displayedRepository?.owner, "team")
+        XCTAssertEqual(github.displayedRepository?.repository, github.repository?.repository)
+
+        let gitlab = await loadedState(
+            remotes: ["git@gitlab.example.com:group/sub/app.git"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]),
+            gitlab: StubGitLabHostChecker(loggedIn: ["gitlab.example.com"]))
+        XCTAssertEqual(gitlab.displayedRepository?.owner, "group/sub")
+
+        let none = await loadedState(
+            remotes: ["https://ghe.example/team/app"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]))
+        XCTAssertNil(none.displayedRepository?.owner, "no source picked: the name alone")
+        XCTAssertNotNil(none.displayedRepository)
+    }
 }

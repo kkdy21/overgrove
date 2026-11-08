@@ -3,7 +3,8 @@ import Foundation
 /// The repository open in the main window, with what the toolbar shows about it.
 struct RepositoryContext: Equatable, Sendable {
     let repository: Repository
-    /// Remote owner for the repository switcher (`api` + `acme`); `nil` without a recognized GitHub remote.
+    /// Remote owner for the repository switcher (`api` + `acme`); `nil` until a verified load picks an issue source
+    /// (`AppState.displayedRepository`, #477).
     let owner: String?
 
     /// Directory name, as the repository switcher shows it (screens.md S-01).
