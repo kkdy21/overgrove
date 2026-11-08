@@ -160,4 +160,18 @@ final class AppStateGitHubHostTests: XCTestCase {
         await state.issuePanel.task?.value
         XCTAssertEqual(issues.requests, [])
     }
+
+    /// ADR-0025 §4: the issue panel and the status bar name the account gh uses on the repository's host.
+    func testTheRepositoryHostsAccountIsShown() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let account = GHAccount(host: ghe, login: "me", otherCount: 1)
+        let checker = QueuedGHAuthReporter([
+            GHAuthReport(status: .notLoggedIn, hosts: [ghe], accounts: [ghe: account])
+        ])
+        let state = await loadedState(
+            remotes: ["git@ghe.example:team/app.git"], issues: StubIssueLoader([.issues([issue])]), checker: checker)
+        XCTAssertEqual(state.issueListModel.account, account)
+        XCTAssertEqual(state.ghAccount, account)
+        XCTAssertEqual(state.issueListModel.account?.switchCommand, "gh auth switch --hostname ghe.example")
+    }
 }

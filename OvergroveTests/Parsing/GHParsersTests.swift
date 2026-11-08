@@ -97,4 +97,22 @@ final class GHParsersTests: XCTestCase {
         }
         XCTAssertThrowsError(try GHAuthParser.parse(data("[]")))
     }
+
+    /// ADR-0025 §4: each host's active account and how many others gh has there; an odd login hides only that account.
+    func testPARGH01_ReportListsEachHostsActiveAccount() throws {
+        let json = """
+            {"hosts":{"github.com":[{"active":false,"state":"success","login":"old"},\
+            {"active":true,"state":"success","login":"mina-dev"},{"active":false,"state":"success","login":"bot"}],\
+            "ghe.example":[{"active":true,"state":"success","login":"me"}],\
+            "odd.example":[{"active":true,"state":"success","login":"a b\\u202e"}],\
+            "broken.example":[{"active":true,"state":"error","login":"me"}]}}
+            """
+        let report = try GHAuthParser.parseReport(data(json))
+        let github = try XCTUnwrap(RemoteHost("github.com"))
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        XCTAssertEqual(report.accounts[github], GHAccount(host: github, login: "mina-dev", otherCount: 2))
+        XCTAssertEqual(report.accounts[ghe], GHAccount(host: ghe, login: "me", otherCount: 0))
+        XCTAssertEqual(report.accounts.count, 2, "no account for an odd login or a broken one")
+        XCTAssertEqual(report.hosts.count, 4, "the hosts are still trusted")
+    }
 }

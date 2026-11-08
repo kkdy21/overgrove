@@ -19,6 +19,9 @@ struct IssueListSection: View {
             SidebarSectionHeader(
                 title: "ISSUES", count: model.count, isExpanded: $isExpanded, isLoading: model.isLoading)
             if isExpanded {
+                if let account = model.account {
+                    IssueAccountRow(account: account)
+                }
                 if let notice = model.notice {
                     SidebarNotice(symbol: notice.symbol, text: notice.text)
                         .help(notice.detail ?? notice.text)
@@ -67,6 +70,51 @@ struct IssueListSection: View {
         }
         if target != selectedNumber { onSelect(target) }
         return .handled
+    }
+}
+
+/// Under the ISSUES header (ADR-0025 §4): the gh account the issues are read as, `login@host`. With more accounts on
+/// the host, `+n more` and the command to switch, to copy into Terminal; Overgrove never switches accounts.
+private struct IssueAccountRow: View {
+    let account: GHAccount
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
+            HStack(spacing: Tokens.Spacing.xs) {
+                Image(systemName: "person.crop.circle").accessibilityHidden(true)
+                Text(account.text).lineLimit(1).truncationMode(.middle)
+                if let more = account.moreText {
+                    Text(more).foregroundStyle(Tokens.Color.textTertiary)
+                }
+            }
+            .font(Tokens.Font.caption)
+            .foregroundStyle(Tokens.Color.textSecondary)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("gh account \(account.text)" + (account.moreText.map { ", \($0)" } ?? ""))
+            .help("Issues and pull requests are read as \(account.text).")
+            if let command = account.switchCommand {
+                HStack(spacing: Tokens.Spacing.xs) {
+                    Text("$ " + command)
+                        .font(Tokens.Font.monoSmall)
+                        .textSelection(.enabled)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Button {
+                        // Copying to the clipboard is not a write (ADR-0011, ADR-0021 §3).
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(command, forType: .string)
+                    } label: {
+                        Image(systemName: "doc.on.doc").hitTarget()
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Copy the command to switch accounts in Terminal")
+                    .accessibilityLabel("Copy command \(command)")
+                }
+            }
+        }
+        .padding(.leading, Tokens.Spacing.md + Tokens.Spacing.lg)
+        .padding(.trailing, Tokens.Spacing.md)
+        .padding(.bottom, Tokens.Spacing.xs)
     }
 }
 
