@@ -107,7 +107,7 @@ final class UntrustedRepositoryTests: XCTestCase {
         var safety = try XCTUnwrap(RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
         let repository = Repository(
             rootURL: local.root, commonGitDirectoryURL: local.root.appendingPathComponent(".git"), isBare: false)
-        let client = GitClient(environment: local.environment)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting)
 
         safety.blocksLocalTransport = true
         do {

@@ -13,6 +13,8 @@ struct MainWindowView: View {
 
     var body: some View {
         window
+            // The graph panel's zoom (#121); other panels keep their size.
+            .environment(\.graphZoom, state.settings.graphZoom)
             .focusedSceneValue(\.repositoryActions, focusedActions)
             .focusedSceneValue(\.navigationActions, navigationActions)
             .focusedSceneValue(\.searchActions, searchActions)
@@ -74,9 +76,19 @@ struct MainWindowView: View {
 
     private var navigationActions: FocusedNavigationActions {
         FocusedNavigationActions(
+            canGoBack: state.canGoBackInSelection, canGoForward: state.canGoForwardInSelection,
+            goBack: { [state] in Self.announceMove(state.goBackInSelection(), in: state) },
+            goForward: { [state] in Self.announceMove(state.goForwardInSelection(), in: state) },
             canJumpToHead: state.canJumpToHead, jumpToHead: state.jumpToHead,
             canToggleWorktreeInfo: state.canToggleWorktreeInfo, toggleWorktreeInfo: state.toggleWorktreeInfo,
             focus: state.focus, fullPath: state.fullPathToCopy, copy: state.copy)
+    }
+
+    /// After Back or Forward (interaction.md §1.4), VoiceOver hears what is selected now.
+    @MainActor
+    private static func announceMove(_ moved: Bool, in state: AppState) -> Bool {
+        if moved, let text = state.selectionAnnouncement { AccessibilityNotification.Announcement(text).post() }
+        return moved
     }
 
     private var window: some View {
@@ -86,6 +98,7 @@ struct MainWindowView: View {
                     hasRepository: state.repository != nil, worktreeStatus: state.worktreeList,
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
                     onSelectWorktree: state.selectWorktree, branchModel: state.branchListModel,
+                    selectedCommit: state.selectedCommitOID,
                     remoteURLTooltips: state.remoteURLTooltips,
                     stashRows: state.stashes.map(StashRow.init),
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,

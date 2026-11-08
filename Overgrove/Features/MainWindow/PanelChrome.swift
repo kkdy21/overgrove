@@ -60,15 +60,17 @@ struct PanelEmptyState: View {
 
 // MARK: - The three panels of S-01
 
-/// Sidebar: filter header, then WORKTREES / LOCAL / REMOTE / STASHES / ISSUES.
+/// Sidebar: filter header, then WORKTREES / LOCAL / REMOTE / TAGS / STASHES / ISSUES.
 struct SidebarPanel: View {
     let hasRepository: Bool
     var worktreeStatus: WorktreeListStatus = .idle
     var worktreeModel: WorktreeListModel?
     var selectedWorktree: GitPath?
     var onSelectWorktree: (GitPath) -> Void = { _ in }
-    /// LOCAL and REMOTE (#72).
+    /// LOCAL and REMOTE (#72), and TAGS (#377).
     var branchModel: BranchListModel?
+    /// The selected commit, for the chosen TAGS row's highlight (#377).
+    var selectedCommit: ObjectID?
     /// Remote name → URL text for the REMOTE group tooltips (#86).
     var remoteURLTooltips: [String: String] = [:]
     /// STASHES (#71).
@@ -110,6 +112,7 @@ struct SidebarPanel: View {
                                 title: "REMOTE", count: branchModel.remoteCount,
                                 nodes: SidebarFilter.branches(branchModel.remote, query: query),
                                 folderHelp: Self.remoteFolderHelp(remoteURLTooltips), isFiltered: query != nil)
+                            TagListSection(model: branchModel.tags, query: query, selectedCommit: selectedCommit)
                         }
                         if case .loaded = worktreeStatus {
                             StashListSection(

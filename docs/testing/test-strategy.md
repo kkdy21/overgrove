@@ -114,6 +114,7 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 - git 실행 파일은 앱과 같은 방식으로 정한다 (ADR-0008).
   - CI의 git 버전을 테스트 로그 첫 줄에 출력한다.
   - 다른 git으로 돌릴 때는 `OVERGROVE_TEST_GIT=<git 실행 파일의 절대 경로>`를 준다(xcodebuild에서는 `TEST_RUNNER_` 접두사). 테스트는 `GitEnvironment.discover` 대신 `GitEnvironment.discoverForTesting`(`OvergroveTests/Support/TestGit.swift`)으로 git을 찾는다. `OVERGROVE_TEST_GIT_VERSION=<x.y.z>`를 함께 주면 실제 버전이 다를 때 실패한다. 앱의 탐색과 환경 변수 allowlist는 그대로다(#99).
+  - 로컬 저장소를 네트워크 원격 대신 쓰는 fetch 픽스처는 `GitEnvironment.fetchingLocalRemotesForTesting`으로 만든 클라이언트를 쓴다. 앱은 `lazyFetchControlVersion`(2.45.1) 미만 git에서 로컬 경로 원격을 거부하므로(#361), 그런 git에서는 픽스처의 보고 버전만 그 기준으로 올려 fetch의 다른 방어층을 계속 검사한다. 거부 자체를 검사하는 테스트(SEC-T5-23)는 실제 버전을 쓴다.
   - 옛 git에 없는 기능에 기대는 대조군은 실제 `git version`으로 판정해 건너뛰고, XCTSkip 메시지에 필요한 최소 버전을 적는다. 방어 assertion은 모든 버전에서 실행한다.
   - 최소 지원 버전(2.36)을 포함한 로컬 매트릭스 결과는 [git 호환성 보고서](../qa/reports/2026-11-08-git-compatibility.md)에 있다. CI에서는 `git-compat.yml`이 Apple Git, 러너의 Homebrew git, 소스에서 빌드한 git 2.36을 주 1회와 관련 경로 PR에서 돌린다(필수 검사 아님, [ADR-0020](../adr/0020-git-compatibility-matrix-in-ci.md)).
 

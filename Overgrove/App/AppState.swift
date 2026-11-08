@@ -68,7 +68,24 @@ final class AppState {
     var worktreeList: WorktreeListStatus = .idle
     /// The focused worktree (information-architecture.md §2.2). `nil` focuses the main worktree.
     var focusedWorktreePath: GitPath?
-    var selection: MainSelection?
+    /// The detail panel's subject. Each change the user makes is recorded for Back and Forward (#378).
+    var selection: MainSelection? {
+        didSet {
+            guard let selection, selection != oldValue, !isMovingInSelectionHistory else { return }
+            let entry = SelectionHistory.Entry(selection: selection, focus: focusedWorktreePath)
+            if isSelectingAutomatically {
+                selectionHistory.replaceCurrent(entry)
+            } else {
+                selectionHistory.record(entry)
+            }
+        }
+    }
+    /// Back and Forward over `selection` (`⌘[` / `⌘]`, interaction.md §1.4, #378). Cleared with the repository.
+    var selectionHistory = SelectionHistory()
+    /// Set while the app, not the user, picks the selection (a refresh's fallback): it replaces the current entry.
+    @ObservationIgnored var isSelectingAutomatically = false
+    /// Set while Back or Forward restores an entry, which must not be recorded again.
+    @ObservationIgnored var isMovingInSelectionHistory = false
     /// The file picked in the detail panel; the diff viewer (S-10, #232) shows it. Cleared when the focus moves.
     /// Every change starts (or, for `nil`, cancels) loading its diff.
     var selectedFile: FileSelection? {
@@ -292,6 +309,7 @@ final class AppState {
         issueLinks = .empty
         focusedWorktreePath = nil
         selection = nil
+        selectionHistory.clear()
         selectedFile = nil
         stashTask?.cancel()
         stashGeneration += 1
