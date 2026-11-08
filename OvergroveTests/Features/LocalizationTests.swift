@@ -20,7 +20,6 @@ final class LocalizationTests: XCTestCase {
     /// Files with stage 1 strings among others: only these keys are checked.
     private static let stageOneKeysIn = ["PanelChrome": Set(["Graph", "History"])]
 
-    private static let placeholder = try! NSRegularExpression(pattern: "%(?:[0-9]+\\$)?(@|lld|ld|d)")
 
     private func catalogStrings() throws -> [String: [String: Any]] {
         let data = try Data(contentsOf: Self.catalog)
@@ -37,9 +36,10 @@ final class LocalizationTests: XCTestCase {
         return (state, value)
     }
 
-    private func placeholders(_ text: String) -> [String] {
+    private func placeholders(_ text: String) throws -> [String] {
+        let pattern = try NSRegularExpression(pattern: "%(?:[0-9]+\\$)?(@|lld|ld|d)")
         let range = NSRange(text.startIndex..., in: text)
-        return Self.placeholder.matches(in: text, range: range)
+        return pattern.matches(in: text, range: range)
             .compactMap { Range($0.range(at: 1), in: text).map { String(text[$0]) } }
             .sorted()
     }
@@ -51,7 +51,7 @@ final class LocalizationTests: XCTestCase {
             guard let ko = korean(entry) else { continue }
             XCTAssertEqual(ko.state, "translated", key)
             XCTAssertFalse(ko.value.trimmingCharacters(in: .whitespaces).isEmpty, key)
-            XCTAssertEqual(placeholders(ko.value), placeholders(key), key)
+            XCTAssertEqual(try placeholders(ko.value), try placeholders(key), key)
         }
     }
 
