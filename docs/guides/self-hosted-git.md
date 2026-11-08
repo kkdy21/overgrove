@@ -87,7 +87,7 @@ A proxy set in a repository's own config is replaced by your global value (or by
 
 For SSH remotes, use `ProxyCommand` or `ProxyJump` in `~/.ssh/config`. A global `core.gitProxy` (for `git://` remotes) is not used.
 
-Whether shell proxy variables should be passed through is an open decision ([#153](https://github.com/kkdy21/overgrove/issues/153)).
+Shell proxy variables will stay unused: an app opened from Finder never sees them, so passing them would make Fetch behave differently depending on how Overgrove was started ([ADR-0022](../adr/0022-no-shell-proxy-env-vars.md)). If you use `HTTPS_PROXY` in your shell, put the same value in `git config --global http.proxy` as shown above.
 
 ## Remote URL examples
 
