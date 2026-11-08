@@ -9,6 +9,8 @@ struct WorktreeDetailView: View {
     let model: WorktreeDetailModel
     /// `Compare with Base…` (`⌘⇧B`, S-11); `nil` disables it.
     var onCompare: (() -> Void)?
+    /// The Security card's "Treat as untrusted" toggle (#107); `nil` hides it.
+    var onSetUntrusted: ((Bool) -> Void)?
 
     var body: some View {
         ScrollView {
@@ -21,7 +23,7 @@ struct WorktreeDetailView: View {
                     SlowStatusCard(hint: slow)
                 }
                 if let security = model.security {
-                    SecurityCard(model: security, report: model.securityReport)
+                    SecurityCard(model: security, report: model.securityReport, onSetUntrusted: onSetUntrusted)
                 } else if let reason = model.securityUnavailable {
                     DetailCard {
                         Text("Security").font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textPrimary)
@@ -116,6 +118,8 @@ private struct SecurityCard: View {
     let model: WorktreeSecurityModel
     /// `Copy Report` (#110); `nil` hides the button.
     var report: SecurityReport.Source?
+    /// "Treat as untrusted" (#107); `nil` hides the toggle.
+    var onSetUntrusted: ((Bool) -> Void)?
     @State private var expanded: Set<String> = []
     @Environment(\.rowMenu) private var actions
 
@@ -157,6 +161,24 @@ private struct SecurityCard: View {
             }
             if let note = model.limitNote {
                 banner(symbol: "list.bullet", tint: Tokens.Color.statusWarning, title: "Report shortened", text: note)
+            }
+            if let warning = model.localRemoteWarning {
+                banner(
+                    symbol: "externaldrive.badge.exclamationmark", tint: Tokens.Color.statusWarning,
+                    title: "Remotes on this Mac", text: warning)
+            }
+            if let note = model.untrustedNote {
+                banner(symbol: "hand.raised", tint: Tokens.Color.statusWarning, title: "Untrusted", text: note)
+            }
+            if let onSetUntrusted {
+                Toggle(
+                    "Treat as untrusted",
+                    isOn: Binding(get: { model.isUntrusted }, set: { onSetUntrusted($0) })
+                )
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .font(Tokens.Font.callout)
+                .help("Do not fetch remotes on this Mac, and ask before Open in Terminal (#107).")
             }
             ForEach(model.rows) { row in
                 SecurityRowView(row: row, isExpanded: expanded.contains(row.id)) {

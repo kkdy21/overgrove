@@ -67,6 +67,45 @@ final class WorktreeDetailRenderTests: XCTestCase {
         }
     }
 
+    /// #107: a trusted repository with a remote on this Mac shows the warning and the toggle; untrusted shows the
+    /// mode instead.
+    func testLocalRemoteWarningAndUntrustedModeRender() throws {
+        let now = Date()
+        let inspection = WorktreeInspection(
+            inspection: RepoConfigInspector.inspect(
+                ConfigParser.Listing(
+                    entries: [
+                        ConfigEntry(
+                            scope: .local, section: "remote", subsection: "origin", variable: "url",
+                            value: "/srv/git/api.git")
+                    ], isPartial: false)),
+            failure: nil, inspectedAt: now.addingTimeInterval(-60),
+            gitVersion: GitVersion(major: 2, minor: 50, patch: 1),
+            commonArguments: GitEnvironment.commonArguments, diffArguments: ["diff", "--no-ext-diff", "--no-textconv"],
+            hookExecutables: [], realPath: nil)
+        let entry = WorktreeListing.entry(
+            "/tmp/dev/api", branch: "main", isMain: true, state: .loaded(WorktreeListing.state(branch: "main")))
+        for isUntrusted in [false, true] {
+            let model = WorktreeDetailModel(
+                entry: entry, inspection: inspection, fetchStatus: .never, now: now, home: "/tmp/dev",
+                isUntrusted: isUntrusted)
+            XCTAssertEqual(model.security?.localRemoteWarning == nil, isUntrusted)
+            XCTAssertEqual(model.security?.untrustedNote == nil, !isUntrusted)
+            for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+                let appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
+                let bitmap = try render(
+                    WorktreeDetailView(model: model, onSetUntrusted: { _ in }), appearance: appearance)
+                XCTAssertGreaterThan(bitmap.pixelsWide, 0)
+                if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+                    let png = bitmap.representation(using: .png, properties: [:])
+                {
+                    let file = "worktree-detail-\(isUntrusted ? "untrusted" : "local-remote")-\(name).png"
+                    try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent(file))
+                }
+            }
+        }
+    }
+
     func testSegmentAndLoadingStatesRender() throws {
         let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
         let loading = WorktreeDetailModel(
