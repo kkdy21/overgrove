@@ -8,8 +8,19 @@ extension AppState {
     var comparisonModel: ComparisonModel? {
         guard let comparison else { return nil }
         let state: WorkingState? =
-            if case .loaded(let state) = entry(at: comparison.worktree)?.state { state } else { nil }
-        return ComparisonModel(session: comparison, workingState: state)
+            if case .loaded(let state) = entry(at: comparison.worktree)?.state {
+                state
+            } else {
+                isComparisonStale ? comparison.workingState : nil
+            }
+        return ComparisonModel(session: comparison, workingState: state, isListStale: isComparisonStale)
+    }
+
+    /// The worktree list failed to load while S-11 is open (#374): it stays shown, dimmed, and runs nothing new until
+    /// a load succeeds (interaction.md §4.1). `‹ Graph` still closes it.
+    var isComparisonStale: Bool {
+        guard comparison != nil, case .failed = worktreeList else { return false }
+        return true
     }
 
     /// Whether `path` (default: the focused worktree) can be compared: its status loaded (#157 needs it).
@@ -39,14 +50,15 @@ extension AppState {
 
     func chooseComparisonBase(_ base: FullRefName) {
         // Only a branch the repository listed (#157 checks again).
-        guard let worktree = comparison?.worktree, comparison?.bases.contains(base) == true else { return }
+        guard !isComparisonStale, let worktree = comparison?.worktree, comparison?.bases.contains(base) == true
+        else { return }
         comparisonBases[worktree] = base
         comparison?.base = base
         runComparison()
     }
 
     func setIncludeUncommitted(_ include: Bool) {
-        guard comparison != nil, comparison?.includeUncommitted != include else { return }
+        guard comparison != nil, !isComparisonStale, comparison?.includeUncommitted != include else { return }
         comparison?.includeUncommitted = include
         runComparison()
     }
@@ -56,7 +68,7 @@ extension AppState {
     }
 
     private func runComparison() {
-        guard let session = comparison, let repository else { return }
+        guard let session = comparison, !isComparisonStale, let repository else { return }
         comparisonTask?.cancel()
         comparisonPatchTask?.cancel()
         comparisonGeneration += 1
@@ -81,6 +93,9 @@ extension AppState {
             switch result {
             case .success(let comparison):
                 self.comparison?.base = comparison.base
+                if case .loaded(let state) = self.entry(at: session.worktree)?.state {
+                    self.comparison?.workingState = state
+                }
                 self.comparison?.result = .loaded(comparison)
             case .failure(let error):
                 self.comparison?.base = base
@@ -92,7 +107,7 @@ extension AppState {
     /// Picks a file in S-11: committed (and uncommitted) changes come from the comparison patch, untracked files from
     /// the same preview as S-02.
     func selectComparisonFile(_ file: ComparisonFile) {
-        guard let session = comparison, case .loaded(let result) = session.result, let repository,
+        guard let session = comparison, !isComparisonStale, case .loaded(let result) = session.result, let repository,
             // Untracked selections come only from the listed untracked files, and tracked ones from FILES CHANGED.
             let row = (file.isUntracked ? comparisonModel?.untracked : comparisonModel?.files)?
                 .first(where: { $0.path == file.path }),

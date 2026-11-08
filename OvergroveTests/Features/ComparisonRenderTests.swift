@@ -82,4 +82,25 @@ final class ComparisonRenderTests: XCTestCase {
             XCTAssertGreaterThan(bitmap.pixelsWide, 0)
         }
     }
+
+    /// #374: a stale S-11 (the worktree list failed to load) renders dimmed under its notice, in light and dark.
+    func testStaleComparisonRenders() throws {
+        let session = session
+        let model = ComparisonModel(session: session, workingState: nil, isListStale: true)
+        XCTAssertEqual(model.staleNotice, ComparisonModel.listFailedNotice)
+        for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
+            let center = try render(
+                ComparisonCenterView(
+                    session: session, model: model, onBack: {}, onChooseBase: { _ in }, onIncludeUncommitted: { _ in }),
+                size: CGSize(width: 900, height: 300), appearance: appearance)
+            XCTAssertGreaterThan(center.pixelsWide, 0)
+            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+                let png = center.representation(using: .png, properties: [:])
+            {
+                try png.write(
+                    to: URL(fileURLWithPath: directory).appendingPathComponent("comparison-stale-\(name).png"))
+            }
+        }
+    }
 }
