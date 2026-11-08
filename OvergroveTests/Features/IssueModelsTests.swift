@@ -19,7 +19,7 @@ final class IssueModelsTests: XCTestCase {
     func testRowsAreMostRecentlyUpdatedFirst() {
         let model = IssueListModel(
             content: .loaded(
-                repository: Self.repository,
+                repository: .github(Self.repository),
                 issues: [Self.issue(1, updated: 10), Self.issue(3, updated: 30), Self.issue(2, updated: 30)]),
             isLoading: false)
         XCTAssertEqual(model.rows.map(\.number), ["#3", "#2", "#1"])
@@ -29,7 +29,8 @@ final class IssueModelsTests: XCTestCase {
 
     func testShowsUpToTheTwoHundredIssuesGhReturns() {
         let issues = (1...200).map { Self.issue($0, updated: TimeInterval($0)) }
-        let model = IssueListModel(content: .loaded(repository: Self.repository, issues: issues), isLoading: false)
+        let model = IssueListModel(
+            content: .loaded(repository: .github(Self.repository), issues: issues), isLoading: false)
         XCTAssertEqual(model.rows.count, 200)
         XCTAssertEqual(model.rows.first?.id, 200)
         XCTAssertTrue(GHCommand.issueList(repo: Self.repository).arguments.contains("200"))
@@ -37,11 +38,11 @@ final class IssueModelsTests: XCTestCase {
 
     func testStatesShowOneNoticeAndNoCount() {
         let cases: [(IssueListContent, String)] = [
-            (.loaded(repository: Self.repository, issues: []), "No open issues"),
+            (.loaded(repository: .github(Self.repository), issues: []), "No open issues"),
             (.noGitHubRemote, "No GitHub remote"),
             (.notInstalled, "GitHub CLI not installed"),
             (.notLoggedIn, "Not logged in to GitHub"),
-            (.failed(repository: Self.repository, detail: "HTTP 404"), "Cannot read issues for team/app"),
+            (.failed(repository: .github(Self.repository), detail: "HTTP 404"), "Cannot read issues for team/app"),
         ]
         for (content, text) in cases {
             let model = IssueListModel(content: content, isLoading: false)
@@ -49,7 +50,7 @@ final class IssueModelsTests: XCTestCase {
             XCTAssertTrue(model.rows.isEmpty)
         }
         XCTAssertEqual(
-            IssueListModel(content: .failed(repository: Self.repository, detail: "HTTP 404"), isLoading: false)
+            IssueListModel(content: .failed(repository: .github(Self.repository), detail: "HTTP 404"), isLoading: false)
                 .notice?.detail, "HTTP 404")
         XCTAssertNil(IssueListModel(content: .notInstalled, isLoading: false).count)
         XCTAssertTrue(IssueListModel(content: nil, isLoading: true).isLoading)
@@ -61,11 +62,13 @@ final class IssueModelsTests: XCTestCase {
         XCTAssertEqual(loggedOut.guidance?.command, "gh auth login")
         XCTAssertTrue(loggedOut.canCheckAgain)
         XCTAssertEqual(IssueListModel(content: .notInstalled, isLoading: false).guidance?.command, "brew install gh")
-        let failed = IssueListModel(content: .failed(repository: Self.repository, detail: "x"), isLoading: false)
+        let failed = IssueListModel(
+            content: .failed(repository: .github(Self.repository), detail: "x"), isLoading: false)
         XCTAssertNil(failed.guidance)
         XCTAssertTrue(failed.canCheckAgain)
         XCTAssertTrue(IssueListModel(content: .noGitHubRemote, isLoading: false).canCheckAgain)
-        let loaded = IssueListModel(content: .loaded(repository: Self.repository, issues: []), isLoading: false)
+        let loaded = IssueListModel(
+            content: .loaded(repository: .github(Self.repository), issues: []), isLoading: false)
         XCTAssertFalse(loaded.canCheckAgain)
         XCTAssertNil(loaded.guidance)
         XCTAssertFalse(IssueListModel(content: nil, isLoading: true).canCheckAgain)
@@ -125,7 +128,7 @@ final class IssueModelsTests: XCTestCase {
         XCTAssertNil(IssueDetailModel.browserURL(for: issue), "not a github.com page")
         XCTAssertNotNil(IssueDetailModel(issue, repository: repository).browserURL)
         XCTAssertEqual(IssueDetailModel(issue, repository: repository).repository, "ghe.example/team/app")
-        let list = IssueListModel(content: .loaded(repository: repository, issues: [issue]), isLoading: false)
+        let list = IssueListModel(content: .loaded(repository: .github(repository), issues: [issue]), isLoading: false)
         XCTAssertNotNil(list.rows.first?.browserURL)
         for url in [
             "https://github.com/team/app/issues/5", "http://ghe.example/team/app/issues/5",

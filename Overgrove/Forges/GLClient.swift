@@ -94,11 +94,11 @@ actor GLClient {
     // MARK: - Commands
 
     /// Whether glab reports `host` as logged in (ADR-0026 §2). glab refuses an unconfigured host without the network.
-    func hostStatus(_ host: GitLabHost) async throws -> GLHostStatus {
+    func hostStatus(_ host: RemoteHost) async throws -> GLHostStatus {
         try await hostStatus(host, executable: try await preparedExecutable())
     }
 
-    private func hostStatus(_ host: GitLabHost, executable: URL) async throws -> GLHostStatus {
+    private func hostStatus(_ host: RemoteHost, executable: URL) async throws -> GLHostStatus {
         let output = try await run(.authStatus(host: host), executable: executable, acceptsAnyExit: true)
         let hosts: [GLHostStatus]
         do {

@@ -6,7 +6,7 @@
 enum GLCommand: Sendable, Hashable {
     case version
     /// Login state for one host. glab refuses a host it has no configuration for without using the network.
-    case authStatus(host: GitLabHost)
+    case authStatus(host: RemoteHost)
     /// Open issues of one project (glab's default state), one GitLab API page.
     case issueList(project: GitLabProject)
 

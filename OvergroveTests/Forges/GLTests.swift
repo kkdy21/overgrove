@@ -3,7 +3,7 @@ import XCTest
 
 @testable import Overgrove
 
-private let host = GitLabHost("gitlab.example.com")!
+private let host = RemoteHost("gitlab.example.com")!
 private let project = GitLabProject(host: host, namespace: ["group", "sub"], name: "app")!
 
 /// glab allowlist arguments and validation (git-command-catalog.md §5.1, ADR-0026 §2–§3).
@@ -25,15 +25,16 @@ final class GLCommandTests: XCTestCase {
     /// SEC-T9-154-2: repository values that could change the URL or read as an option are refused.
     func testSECT9_154_2_HostileHostsAndPathsAreRefused() {
         for name in [
-            "", "localhost", "-gitlab.example.com", "gitlab-.example.com", "Gitlab.example.com",
-            "gitlab.example.com:22",
+            "", "localhost", "-gitlab.example.com", "gitlab-.example.com", "gitlab.example.com:22", "1.2.3.0x4",
             "user@gitlab.example.com", "10.0.0.1", "gitlab.example.com/x", "gitlab..example.com", "gitlab.example.com.",
             "gitlab.exämple.com", String(repeating: "a", count: 64) + ".com", "gitlab.example.com\n",
         ] {
-            XCTAssertNil(GitLabHost(name), name)
+            XCTAssertNil(RemoteHost(name), name)
         }
-        XCTAssertNotNil(GitLabHost("gitlab.com"))
-        XCTAssertNotNil(GitLabHost("git-lab.internal.example"))
+        XCTAssertNotNil(RemoteHost("gitlab.com"))
+        XCTAssertNotNil(RemoteHost("git-lab.internal.example"))
+        // RemoteHost (#117) lowercases, so `--hostname` and the URL always carry the lowercase name.
+        XCTAssertEqual(RemoteHost("GitLab.Example.com")?.name, "gitlab.example.com")
         for (namespace, name) in [
             ([], "app"), (["group"], ""), (["group"], "-x"), (["group"], ".hidden"), (["group"], ".."),
             (["-group"], "app"), (["gr oup"], "app"), (["group"], "app?x=1"), (["group"], "app#frag"),
