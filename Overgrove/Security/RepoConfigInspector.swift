@@ -34,6 +34,9 @@ struct RepoConfigInspection: Sendable, Equatable {
     let isPartialClone: Bool
     /// Remotes past `RepoConfigInspector.maximumRemotes`, counted but not listed (#262).
     var omittedRemotes = 0
+    /// A repository-controlled config-defined hook could not be neutralized (its name, or too many), so queries and
+    /// fetch stop (#354).
+    var hasUnneutralizedHooks = false
 
     /// Arguments for `GitClient`. `nil` when the report blocks queries (fail closed).
     var safetyContext: RepoSafetyContext? {
@@ -59,6 +62,9 @@ enum RepoConfigInspector {
     /// - Filter drivers beyond this cannot all be neutralized: each adds eight arguments to every git command, and the
     ///   command line would outgrow the argument limit. Queries stop (fail closed).
     static let maximumNeutralizedDrivers = 256
+    /// Config-defined hooks (`hook.<name>.*`, git 2.54+) beyond this cannot all be neutralized, so queries stop
+    /// (#354). Each adds two arguments to every git command.
+    static let maximumNeutralizedHooks = 256
     /// Fetch-only overrides (`http.<url>.sslVerify`, `http.<url>.proxy`) beyond this disable fetch; queries go on.
     static let maximumFetchOverrides = 256
     /// Remotes listed (configuration order). Fetch uses fewer still (`maximumFetchedRemotes`, #259); the rest are
@@ -92,6 +98,11 @@ enum RepoConfigInspector {
         var resetProxies: [String] = []
         var seenProxies = Set<String>()
         var hasUntrustedHelper = false
+        var neutralizedHooks: [String] = []
+        // Bytes, as git compares subsections: `String` equality would merge canonically equivalent names (NFC and
+        // NFD), and git runs both (#354).
+        var seenHooks = Set<[UInt8]>()
+        var hasUnneutralizedHooks = false
         var fetchBlockingReason: String?
 
         if listing.isPartial {
@@ -117,6 +128,18 @@ enum RepoConfigInspector {
                     blockingReason = "A filter driver name contains characters that cannot be neutralized safely."
                 } else if seenDrivers.insert(driver).inserted {
                     neutralizedDrivers.append(driver)
+                }
+            case ("hook", _):
+                // A config-defined hook (git 2.54+, #354).
+                guard let name = entry.subsection else { continue }
+                if !ConfigParser.isNeutralizableHookName(name) {
+                    hasUnneutralizedHooks = true
+                } else if seenHooks.insert(Array(name.utf8)).inserted {
+                    if neutralizedHooks.count < maximumNeutralizedHooks {
+                        neutralizedHooks.append(name)
+                    } else {
+                        hasUnneutralizedHooks = true
+                    }
                 }
             case ("credential", "helper"):
                 hasUntrustedHelper = true
@@ -152,12 +175,16 @@ enum RepoConfigInspector {
             fetchBlockingReason =
                 "This repository sets TLS or proxy options for too many URLs to override; fetching is disabled."
         }
-        let neutralization = neutralizedDrivers.flatMap { driver in
-            [
-                "-c", "filter.\(driver).clean=", "-c", "filter.\(driver).smudge=", "-c", "filter.\(driver).process=",
-                "-c", "filter.\(driver).required=false",
-            ]
+        if hasUnneutralizedHooks {
+            blockingReason = "This repository defines hooks in its settings that Overgrove cannot turn off."
         }
+        let neutralization =
+            neutralizedDrivers.flatMap { driver in
+                [
+                    "-c", "filter.\(driver).clean=", "-c", "filter.\(driver).smudge=",
+                    "-c", "filter.\(driver).process=", "-c", "filter.\(driver).required=false",
+                ]
+            } + neutralizedHooks.flatMap { ["-c", "hook.\($0).enabled=false"] }
 
         var fetchAuthentication: [String] = []
         if hasUntrustedHelper {
@@ -233,6 +260,7 @@ enum RepoConfigInspector {
             isPartialClone: listing.entries.contains(where: isPartialCloneSetting)
         )
         inspection.omittedRemotes = omittedRemotes
+        inspection.hasUnneutralizedHooks = hasUnneutralizedHooks
         return inspection
     }
 
@@ -273,6 +301,9 @@ enum RepoConfigInspector {
             return ("T14", .reported)
         case "sequence" where variable == "editor":
             return ("T14", .reported)
+        // Config-defined hooks (git 2.54+): each named hook is turned off with `hook.<name>.enabled=false` (#354).
+        case "hook":
+            return ("T2", entry.subsection == nil ? .reported : .neutralized)
         case "alias" where value.hasPrefix("!"):
             return ("T14", .reported)
         case "remote":

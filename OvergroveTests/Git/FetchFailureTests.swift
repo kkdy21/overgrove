@@ -50,7 +50,8 @@ final class FetchFailureTests: XCTestCase {
             let report = RepoSecurityReport(findings: [], blockingReason: nil)
             let endpoint = FetchFailureGuidance.Endpoint(remoteURL: url)
             let guidance = try XCTUnwrap(
-                FetchFailureGuidance(error: error, remote: origin, endpoint: endpoint, report: report), file: file,
+                FetchFailureGuidance(
+                    error: error, remote: origin, endpoint: endpoint, report: report, hookExecutables: []), file: file,
                 line: line)
             return (error, guidance)
         }

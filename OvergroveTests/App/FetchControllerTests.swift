@@ -71,7 +71,7 @@ final class FetchControllerTests: XCTestCase {
     private func failure(_ remote: String, _ error: GitError) -> FetchFailureGuidance {
         FetchFailureGuidance(
             error: error, remote: RemoteName(remote)!,
-            report: RepoSecurityReport(findings: [], blockingReason: nil))!
+            report: RepoSecurityReport(findings: [], blockingReason: nil), hookExecutables: [])!
     }
 
     func testSuccessfulFetchIsRecordedAndRefreshes() async {
