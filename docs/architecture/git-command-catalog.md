@@ -255,7 +255,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `version` | `["--version"]` | 첫 줄 `gh version X.Y.Z (...)` | 온보딩 표시 |
 | `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
 | `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
-| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 최근 머지·닫힌 PR(updatedAt 최신 200개). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
+| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 머지·닫힌 PR 중 최근에 만든 200개(gh 기본 정렬, gh 2.95.0 확인). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
 
 실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
 
