@@ -234,3 +234,123 @@ final class AppStateComparisonTests: XCTestCase {
         XCTAssertEqual(state.comparison?.worktree, login)
     }
 }
+
+/// Answers loads in order; a `nil` slot fails the load (the listing could not be read).
+final class FailingRepositoryLoader: RepositoryLoading, @unchecked Sendable {
+    private let lock = NSLock()
+    private var answers: [WorktreeListing?]
+
+    init(_ answers: [WorktreeListing?]) { self.answers = answers }
+
+    func load(_ repository: Repository) async throws(RepositoryLoadError) -> WorktreeListing {
+        let answer = lock.withLock { answers.count > 1 ? answers.removeFirst() : answers[0] }
+        guard let answer else { throw .git(.timeout(seconds: 15)) }
+        return answer
+    }
+}
+
+/// #374: the worktree list failing to load leaves an open S-11 shown but stale (interaction.md §4.1): dimmed with a
+/// notice, and nothing in it runs git again until a load succeeds. `‹ Graph` still closes it.
+@MainActor
+final class AppStateComparisonStaleTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private var suiteName: String!
+    private let feature = GitPath("/tmp/dev/api-wt/42-rate-limit")
+
+    override func setUp() async throws {
+        suiteName = "overgrove-tests-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)
+    }
+
+    override func tearDown() async throws {
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    private func comparedState(
+        _ loader: StubComparisonLoader, answers: [WorktreeListing?], diff: StubDiffLoader = StubDiffLoader()
+    ) async -> AppState {
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: FailingRepositoryLoader(answers), inspector: RecordingInspector(), diffLoader: diff,
+            comparisonLoader: loader)
+        let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        state.selectWorktree(feature)
+        state.showComparison()
+        await state.comparisonTask?.value
+        return state
+    }
+
+    func testFailedListLoadKeepsTheComparisonStale() async {
+        let loader = StubComparisonLoader()
+        let diff = StubDiffLoader()
+        let state = await comparedState(loader, answers: [.mockup, nil, nil, .mockup], diff: diff)
+        XCTAssertNil(state.comparisonModel?.staleNotice)
+        let before = state.comparisonModel
+
+        state.reload()
+        await state.loadTask?.value
+        guard case .failed = state.worktreeList else { return XCTFail("the list load should fail") }
+        XCTAssertEqual(state.comparison?.worktree, feature, "S-11 stays open")
+        XCTAssertEqual(state.comparisonModel?.staleNotice, ComparisonModel.listFailedNotice)
+        XCTAssertEqual(state.comparisonModel?.files, before?.files, "the last result stays shown, WIP pills too")
+
+        let requests = loader.compareRequests.count
+        let base = state.comparison?.base
+        state.setIncludeUncommitted(false)
+        state.chooseComparisonBase(FullRefName("refs/remotes/origin/develop")!)
+        state.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
+        state.selectComparisonFile(ComparisonFile(path: GitPath("new0.swift"), isUntracked: true))
+        await state.comparisonTask?.value
+        XCTAssertEqual(loader.compareRequests.count, requests, "no new comparison on a stale basis")
+        XCTAssertEqual(loader.patchRequests, [])
+        XCTAssertEqual(diff.requests.count, 0, "no untracked preview either")
+        XCTAssertEqual(state.comparison?.includeUncommitted, true)
+        XCTAssertEqual(state.comparison?.base, base, "the base stays")
+
+        // A retry after the failure shows `.loading` until it ends: still stale, still nothing runs.
+        state.reload()
+        guard case .loading = state.worktreeList else { return XCTFail("a retry shows the list as loading") }
+        XCTAssertEqual(state.comparisonModel?.staleNotice, ComparisonModel.listFailedNotice)
+        XCTAssertEqual(state.comparisonModel?.files, before?.files)
+        state.setIncludeUncommitted(false)
+        XCTAssertEqual(loader.compareRequests.count, requests)
+        await state.loadTask?.value
+        XCTAssertNotNil(state.comparisonModel?.staleNotice, "the retry failed too")
+
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertNil(state.comparisonModel?.staleNotice, "a successful load clears it")
+        state.setIncludeUncommitted(false)
+        await state.comparisonTask?.value
+        XCTAssertEqual(loader.compareRequests.count, requests + 1)
+    }
+
+    /// A patch asked before the list failed is dropped, not shown as new under the stale notice.
+    func testListFailureDropsAPatchInFlight() async {
+        let state = await comparedState(StubComparisonLoader(), answers: [.mockup])
+        state.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
+        XCTAssertEqual(state.comparison?.patch, .loading)
+        state.comparisonListFailed()
+        XCTAssertNil(state.comparisonPatchTask)
+        XCTAssertNil(state.comparison?.patch)
+        XCTAssertNil(state.comparison?.selectedFile)
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertNil(state.comparison?.patch, "the dropped patch never lands")
+        XCTAssertNotNil(state.comparison, "S-11 stays open")
+    }
+
+    func testStaleComparisonStillCloses() async {
+        let state = await comparedState(StubComparisonLoader(), answers: [.mockup, nil])
+        state.reload()
+        await state.loadTask?.value
+        state.closeComparison()
+        XCTAssertNil(state.comparison)
+    }
+}

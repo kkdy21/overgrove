@@ -26,6 +26,26 @@ struct GraphRefSet: Sendable, Hashable {
     }
 }
 
+/// The refs a graph page walks and their ref set.
+struct GraphRefs: Sendable {
+    let refs: RefParser.Listing
+    let worktrees: [Worktree]
+    let refSet: GraphRefSet
+
+    init(refs: RefParser.Listing, worktrees: [Worktree]) {
+        self.refs = refs
+        self.worktrees = worktrees
+        refSet = GraphRefSet(refs: refs, worktrees: worktrees)
+    }
+}
+
+/// Refs newer than the cached overview's, seen by the graph's check after a page (#373). The graph uses them while the
+/// overview still has `staleRefSet`; the overview catches up on its own refresh.
+struct GraphLiveRefs: Sendable {
+    let staleRefSet: GraphRefSet
+    let refs: GraphRefs
+}
+
 /// The graph page cache key: repository, ref set, and page bounds.
 struct GraphPageKey: Sendable, Hashable {
     let repositoryID: String
@@ -55,44 +75,120 @@ extension RepositoryService {
     /// HEADs (the refs `GraphRefSet` keys on, #308), with the refs of the cached
     /// overview (loading it first when nothing is cached). Pages are cached by ref set; ⌘R and `forget` drop them.
     /// A ref set that misses refs (`GraphRefSet.isComplete`) is not cached: every page is read again (#333).
+    ///
+    /// The ref set comes from the cached overview, but `log` reads the refs as they are now. So each fresh read is
+    /// checked against the refs read again after it (#373): a page from another history state would otherwise be
+    /// joined to the pages before it at the `--skip` boundary. When the refs moved, the graph keeps the newer refs
+    /// (`graphLiveRefs`) and reads the page once more under them; the new ref set makes `GraphStore` start over. The
+    /// overview itself is left to its own refreshes. If the refs moved again meanwhile, the page is returned like one
+    /// with an incomplete ref set: not cached, and `GraphStore` starts over on the next refresh.
     func graphPage(_ repository: Repository, skip: Int, limit: Int) async -> Result<GraphPageSnapshot, GitError> {
-        if cachedOverview(of: repository) == nil {
-            guard let refresh = await refresh(repository, trigger: .user) else { return .failure(.cancelled) }
-            if case .failure(let error) = refresh.result { return .failure(error) }
+        let first = await graphPageRead(repository, skip: skip, limit: limit)
+        guard case .moved = first else { return first.result }
+        return await graphPageRead(repository, skip: skip, limit: limit).result
+    }
+
+    /// One read of a graph page: checked against the refs as they are after it (#373).
+    private enum GraphPageRead {
+        case checked(Result<GraphPageSnapshot, GitError>)
+        /// The page was read from another history state than its ref set's.
+        case moved(GraphPageSnapshot)
+
+        var result: Result<GraphPageSnapshot, GitError> {
+            switch self {
+            case .checked(let result):
+                return result
+            case .moved(var page):
+                page.isRefSetComplete = false  // not cached, and GraphStore starts over on the next refresh
+                return .success(page)
+            }
         }
-        guard let overview = cachedOverview(of: repository) else { return .failure(.cancelled) }
-        let worktrees = overview.entries.map(\.worktree)
-        let refSet = GraphRefSet(refs: overview.refs, worktrees: worktrees)
-        let key = GraphPageKey(repositoryID: repository.id, refSet: refSet, skip: skip, limit: limit)
-        let isCacheable = GraphRefSet.isComplete(
-            refs: overview.refs, isWorktreeListPartial: overview.isWorktreeListPartial)
+    }
+
+    private func graphPageRead(_ repository: Repository, skip: Int, limit: Int) async -> GraphPageRead {
+        if cachedOverview(of: repository) == nil {
+            guard let refresh = await refresh(repository, trigger: .user) else { return .checked(.failure(.cancelled)) }
+            if case .failure(let error) = refresh.result { return .checked(.failure(error)) }
+        }
+        guard let overview = cachedOverview(of: repository) else { return .checked(.failure(.cancelled)) }
+        let id = repository.id
+        let listed = GraphRefs(refs: overview.refs, worktrees: overview.entries.map(\.worktree))
+        // Newer refs the check saw stand in for the overview's until the overview changes.
+        if let live = graphLiveRefs[id], live.staleRefSet != listed.refSet { graphLiveRefs[id] = nil }
+        let graphRefs = graphLiveRefs[id]?.refs ?? listed
+        let refSet = graphRefs.refSet
+        let key = GraphPageKey(repositoryID: id, refSet: refSet, skip: skip, limit: limit)
+        let isCacheable =
+            graphLiveRefs[id] != nil
+            || GraphRefSet.isComplete(refs: overview.refs, isWorktreeListPartial: overview.isWorktreeListPartial)
         func snapshot(_ page: LogParser.GraphPage) -> GraphPageSnapshot {
             GraphPageSnapshot(
-                commits: page.commits, isPartial: page.isPartial, refSet: refSet, refs: overview.refs,
-                worktrees: worktrees, isRefSetComplete: isCacheable)
+                commits: page.commits, isPartial: page.isPartial, refSet: refSet, refs: graphRefs.refs,
+                worktrees: graphRefs.worktrees, isRefSetComplete: isCacheable)
         }
-        if isCacheable, let cached = graphPages.value(for: key) { return .success(snapshot(cached)) }
+        /// After a fresh read: whether `log` saw `refSet`. On a mismatch the graph keeps the refs read now.
+        func check() async -> Bool {
+            let current = await Self.currentRefs(repository, makeContext(repository))
+            guard let current, current.refSet != refSet else { return current != nil }
+            graphLiveRefs[id] = GraphLiveRefs(staleRefSet: listed.refSet, refs: current)
+            return false
+        }
+        // Cached pages were checked when they were read.
+        if isCacheable, let cached = graphPages.value(for: key) { return .checked(.success(snapshot(cached))) }
 
         // Without a commit-graph file every `--skip` page re-sorts the whole history: stream it once instead (#254).
         // A stream is kept per ref set, so it is a cache too: a ref set that misses refs cannot see them move, and
         // reads every page with --skip instead (review of #346, #333).
         if isCacheable && !Self.hasCommitGraph(repository) {
-            switch await graphStream(for: repository, refSet: refSet).page(skip: skip, limit: limit) {
+            let stream = graphStream(for: repository, refSet: refSet)
+            switch await stream.page(skip: skip, limit: limit) {
             case .commits(let commits):
-                return .success(snapshot(LogParser.GraphPage(commits: commits, isPartial: false)))
+                let page = snapshot(LogParser.GraphPage(commits: commits, isPartial: false))
+                // One check per stream: one `log` read one history state.
+                guard !stream.isRefSetVerified else { return .checked(.success(page)) }
+                guard await check() else {
+                    dropGraphStream(stream)
+                    return .moved(page)
+                }
+                stream.markRefSetVerified()
+                return .checked(.success(page))
             case .cancelled:
-                return .failure(.cancelled)
+                return .checked(.failure(.cancelled))
             case .beyond:
                 break  // the stream stopped before this page: read it with --skip below
             }
         }
 
         switch await Self.readGraphPage(repository, skip: skip, limit: limit, makeContext(repository)) {
-        case .success(let page):
-            if isCacheable { graphPages.insert(page, for: key) }
-            return .success(snapshot(page))
+        case .success(let read):
+            let page = snapshot(read)
+            // An incomplete ref set cannot be checked; GraphStore starts over on every refresh with it (#333).
+            guard isCacheable else { return .checked(.success(page)) }
+            guard await check() else { return .moved(page) }
+            graphPages.insert(read, for: key)
+            return .checked(.success(page))
         case .failure(let error):
-            return .failure(error)
+            return .checked(.failure(error))
+        }
+    }
+
+    /// Non-isolated: the refs `graphPage` walks now, from the refs and the worktree list read again (#373). Read after
+    /// a page, so a match means `log` saw the same refs (a ref that moved and moved back between the two reads is not
+    /// seen). `nil` when they cannot be read or are incomplete, which counts as moved.
+    private static func currentRefs(_ repository: Repository, _ context: Context) async -> GraphRefs? {
+        let directory = repository.rootURL ?? repository.commonGitDirectoryURL
+        do {
+            let inspection = try await inspect(directory, probe: nil, context)
+            guard let safety = inspection.safetyContext else { return nil }
+            async let refsRead = context.client.run(.refs, in: directory, safety: safety)
+            async let listRead = context.client.run(.worktreeList, in: directory, safety: safety)
+            let (refsOutput, listOutput) = try await (refsRead, listRead)
+            let refs = try RefParser.parse(refsOutput.stdout, truncated: refsOutput.isTruncated)
+            let list = try WorktreeParser.parse(listOutput.stdout, truncated: listOutput.isTruncated)
+            guard GraphRefSet.isComplete(refs: refs, isWorktreeListPartial: list.isPartial) else { return nil }
+            return GraphRefs(refs: refs, worktrees: uniquePaths(list.worktrees))
+        } catch {
+            return nil
         }
     }
 
@@ -123,8 +219,15 @@ extension RepositoryService {
         return stream
     }
 
-    /// Stops and forgets a repository's stream (⌘R, `forget`).
+    /// Stops and forgets `stream` only: a newer stream of the same repository started meanwhile stays.
+    private func dropGraphStream(_ stream: GraphStream) {
+        graphStreams.removeAll { $0.stream === stream }
+        stream.cancel()
+    }
+
+    /// Stops and forgets a repository's stream, and the newer refs the graph's check saw (⌘R, `forget`).
     func dropGraphStream(of repositoryID: String) {
+        graphLiveRefs[repositoryID] = nil
         while let index = graphStreams.firstIndex(where: { $0.repositoryID == repositoryID }) {
             graphStreams.remove(at: index).stream.cancel()
         }

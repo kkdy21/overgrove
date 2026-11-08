@@ -97,6 +97,8 @@ struct GraphLaneCell: View {
     let width: CGFloat
     /// How far the lanes are scrolled sideways (#255); the cell shows `offset ..< offset + width`.
     var offset: CGFloat = 0
+    /// A stash of this commit is drawn right above: its dashed line comes down to this node (#384).
+    var hasStashAbove = false
 
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.graphZoom) private var zoom
@@ -122,6 +124,16 @@ struct GraphLaneCell: View {
             }
             drawWipLine(&context, center: center)
             let nodeX = geometry.x(row.column)
+            if hasStashAbove {
+                var line = Path()
+                line.move(to: CGPoint(x: nodeX, y: 0))
+                line.addLine(to: CGPoint(x: nodeX, y: center))
+                context.stroke(
+                    line, with: .color(lane(row.colorIndex)),
+                    style: StrokeStyle(
+                        lineWidth: 1.5 * geometry.scale, lineCap: .round,
+                        dash: [3 * geometry.scale, 3 * geometry.scale]))
+            }
             if hasRefs && nodeX > offset {
                 var connector = Path()
                 connector.move(to: CGPoint(x: offset, y: center))

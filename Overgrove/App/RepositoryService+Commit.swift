@@ -31,6 +31,18 @@ extension RepositoryService {
         }
     }
 
+    /// The files changed from `base` to `target` (S-12, #388): `commitFiles` with `base` in the parent's place, so
+    /// `diff-tree` compares the two trees. No new command (git-command-catalog.md, #122). Not cached: pairs are many and
+    /// the list is cheap next to the graph.
+    func compareCommits(_ repository: Repository, base: ObjectID, target: ObjectID) async
+        -> Result<NumstatParser.Files, GitError>
+    {
+        await Self.run(repository, makeContext(repository)) { client, directory, safety in
+            let output = try await client.run(.commitFiles(target, firstParent: base), in: directory, safety: safety)
+            return try NumstatParser.parseCommitFiles(output.stdout, truncated: output.isTruncated)
+        }
+    }
+
     private static func readCommit(
         _ repository: Repository, _ commit: ObjectID, _ context: Context
     ) async -> Result<CommitDetail, GitError> {

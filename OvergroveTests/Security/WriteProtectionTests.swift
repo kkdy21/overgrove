@@ -135,6 +135,7 @@ final class WriteProtectionTests: XCTestCase {
                     includeWorkingTree: true), repo
             ),
             (.commitsAhead(base: FullRefName("refs/remotes/origin/main")!, limit: 100), repo),
+            (.submodulePaths, repo),
             (.status, fixture.worktree("wt-behind")),
             (.worktreeDiff(path: GitPath("docs/guide.md"), staged: false), fixture.worktree("wt-behind")),
             (.fileHistory(path: GitPath("docs/manual.md"), limit: 10), fixture.worktree("wt-behind")),

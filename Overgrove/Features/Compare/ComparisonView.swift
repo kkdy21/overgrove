@@ -27,10 +27,15 @@ struct ComparisonCenterView: View {
                 )
                 .toggleStyle(.switch)
                 .controlSize(.small)
+                .disabled(model.staleNotice != nil)
             }
-            summary
-            Tokens.Color.borderSeparator.frame(height: 1)
-            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let notice = model.staleNotice { ComparisonStaleNotice(text: notice) }
+            Group {
+                summary
+                Tokens.Color.borderSeparator.frame(height: 1)
+                content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .staleComparison(model.staleNotice != nil)
         }
     }
 
@@ -44,7 +49,7 @@ struct ComparisonCenterView: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .disabled(session.bases.isEmpty)
+        .disabled(session.bases.isEmpty || model.staleNotice != nil)
         .help("Choose the base branch")
     }
 
@@ -128,6 +133,7 @@ struct ComparisonListView: View {
                 }
             }
             .padding(Tokens.Spacing.md)
+            .staleComparison(model.staleNotice != nil)
         }
     }
 
@@ -222,5 +228,30 @@ struct ComparisonListView: View {
         .accessibilityAction {
             if row.isSelectable { onSelect(ComparisonFile(path: row.path, isUntracked: isUntracked)) }
         }
+    }
+}
+
+/// The line under S-11's header when the worktree list failed to load after the comparison ran (#374).
+private struct ComparisonStaleNotice: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle").foregroundStyle(Tokens.Color.statusWarning)
+                .accessibilityHidden(true)
+            Text(text).foregroundStyle(Tokens.Color.textSecondary)
+            Spacer(minLength: 0)
+        }
+        .font(Tokens.Font.callout)
+        .padding(.horizontal, Tokens.Spacing.md)
+        .frame(minHeight: Tokens.Size.rowSidebar)
+        .accessibilityElement(children: .combine)
+    }
+}
+
+extension View {
+    /// A stale S-11 (#374): dimmed like other stale data (interaction.md §4.1) and not interactive.
+    fileprivate func staleComparison(_ isStale: Bool) -> some View {
+        opacity(isStale ? Tokens.Opacity.stale : 1).allowsHitTesting(!isStale)
     }
 }

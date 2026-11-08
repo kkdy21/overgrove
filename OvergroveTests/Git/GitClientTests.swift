@@ -31,13 +31,14 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .comparePatch(
         base: FullRefName("refs/heads/main")!, path: GitPath("new.txt"), originalPath: GitPath("old.txt"),
         includeWorkingTree: true),
+    .submodulePaths,
 ]
 
 /// SEC-T9-01, SEC-T13-01 (docs/design/security-review.md) and catalog §3–§4.
 final class GitCommandTests: XCTestCase {
     func testSECT13_01_OnlyReadOnlySubcommandsExist() throws {
         let allowed: [String: Set<String>?] = [
-            "version": nil, "rev-parse": nil, "config": ["--list"], "worktree": ["list"], "status": nil,
+            "version": nil, "rev-parse": nil, "config": ["--list", "--file"], "worktree": ["list"], "status": nil,
             "for-each-ref": nil, "rev-list": nil, "stash": ["list", "show"], "log": nil, "diff-tree": nil, "diff": nil,
         ]
         for command in allReadOnlyCommands {
@@ -191,6 +192,7 @@ final class GitCommandTests: XCTestCase {
                 "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--merge-base", "--end-of-options",
                 "refs/heads/main", "--", "old.txt", "new.txt",
             ],
+            ["config", "--file", ".gitmodules", "--no-includes", "-z", "--get-regexp", "^submodule\\..*\\.path$"],
         ]
         XCTAssertEqual(allReadOnlyCommands.count, expected.count)
         for (command, subcommand) in zip(allReadOnlyCommands, expected) {
@@ -219,6 +221,7 @@ final class GitCommandTests: XCTestCase {
                 "-c", "fetch.pruneTags=false", "-c", "remote.team/fork.v2.pruneTags=false",
                 "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=",
                 "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
+                "-c", "http.delegation=none",
                 "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",
                 "-c", "transfer.credentialsInUrl=die", "-c", "promisor.acceptFromServer=none",
             ]

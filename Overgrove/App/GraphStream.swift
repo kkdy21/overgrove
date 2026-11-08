@@ -36,6 +36,7 @@ final class GraphStream: @unchecked Sendable {
     private var waiters: [UUID: (needed: Int, continuation: CheckedContinuation<Void, Never>)] = [:]
     private var task: Task<Void, Never>?
     private var cancelled = false
+    private var refSetVerified = false
 
     init(maximum: Int = ReadOnlyGitCommand.maximumLimit) {
         self.maximum = maximum
@@ -63,6 +64,12 @@ final class GraphStream: @unchecked Sendable {
 
     /// `cancel()` was called: the stream stopped early on request, not because the history or git ended it.
     var isCancelled: Bool { lock.withLock { cancelled } }
+
+    /// `RepositoryService` checked that git read the ref set this stream is kept for (#373). Checked once, after the
+    /// first page arrived: by then git has resolved its refs.
+    var isRefSetVerified: Bool { lock.withLock { refSetVerified } }
+
+    func markRefSetVerified() { lock.withLock { refSetVerified = true } }
 
     /// A stdout chunk, in order. A parse error ends the stream early.
     func receive(_ chunk: Data) {

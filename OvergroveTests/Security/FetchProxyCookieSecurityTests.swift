@@ -132,6 +132,98 @@ final class FetchProxyCookieSecurityTests: XCTestCase {
         }
     }
 
+    // MARK: - SEC-T11-09
+
+    /// #367: with the user's own proxy (which offers Digest), a repository's `proxyAuthMethod=basic` would make fetch
+    /// send the proxy password as cleartext Basic. Checked for the generic, per-URL, and per-remote keys.
+    func testSECT11_09_RepositoryCannotChooseTheProxyAuthMethod() async throws {
+        let userProxy = try await LocalHTTPAuthServer.start(response: .proxyAuthenticationRequired)
+        defer { userProxy.stop() }
+        try await plainGit([
+            "config", "--file", home.appendingPathComponent(".gitconfig").path, "http.proxy",
+            "http://alice:proxy-secret@127.0.0.1:\(userProxy.port)",
+        ])
+        func sentBasic(skipping: Int) -> Bool {
+            userProxy.requestHeads.dropFirst(skipping).contains {
+                $0.range(of: "\r\nProxy-Authorization: Basic", options: .caseInsensitive) != nil
+            }
+        }
+        for key in ["http.proxyAuthMethod", "http.\(remote.url("")).proxyAuthMethod", "remote.origin.proxyAuthMethod"] {
+            try await repository.git(["config", key, "basic"])
+
+            let before = userProxy.requestHeads.count
+            try await plainGit(["-c", "credential.helper=", "fetch", "origin"])
+            XCTAssertTrue(sentBasic(skipping: before), "\(key) control: plain git must send Basic to the proxy")
+
+            let sent = userProxy.requestHeads.count
+            try await appFetch()
+            XCTAssertGreaterThan(userProxy.requestHeads.count, sent, "\(key): the app's fetch uses the user's proxy")
+            XCTAssertFalse(sentBasic(skipping: sent), "\(key): the app's fetch must not send Basic")
+            XCTAssertTrue(
+                userProxy.requestHeads[sent...].contains { $0.contains("Proxy-Authorization: Digest") },
+                "\(key): it answers the proxy's Digest challenge instead")
+            try await repository.git(["config", "--unset", key])
+        }
+    }
+
+    // MARK: - SEC-T11-10
+
+    /// #367: `proxySSLCertPasswordProtected` makes git ask the trusted helper for the password of the user's proxy
+    /// certificate. A repository does not get to trigger that query.
+    func testSECT11_10_RepositoryCannotTriggerAProxyCertificatePasswordQuery() async throws {
+        let config = home.appendingPathComponent(".gitconfig").path
+        let helper = try executables.canaryProgram(named: "cert-helper", canary: canary)
+        let certificate = home.appendingPathComponent("proxy-client.pem")
+        try "not a certificate\n".write(to: certificate, atomically: true, encoding: .utf8)
+        // The user's TLS proxy on a closed port: git asks for the password while it sets up the connection.
+        try await plainGit(["config", "--file", config, "http.proxy", "https://127.0.0.1:9"])
+        try await plainGit(["config", "--file", config, "http.proxySSLCert", certificate.path])
+        try await plainGit(["config", "--file", config, "credential.helper", helper.path])
+        let marker = canary.appendingPathComponent("cert-helper")
+
+        try await plainGit(["fetch", "origin"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path), "no query without the setting")
+
+        for key in ["http.proxySSLCertPasswordProtected", "http.\(remote.url("")).proxySSLCertPasswordProtected"] {
+            try await repository.git(["config", key, "true"])
+            try await plainGit(["fetch", "origin"])
+            XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path), "\(key) control: plain git asks")
+            try FileManager.default.removeItem(at: marker)
+
+            try await appFetch()
+            XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path), "\(key): the app's fetch does not ask")
+            try await repository.git(["config", "--unset", key])
+        }
+    }
+
+    // MARK: - SEC-T11-11
+
+    /// #367: Kerberos ticket forwarding. A repository's `http.delegation=always` (generic, or per URL, which wins over a
+    /// generic pin) would let fetch forward the user's ticket to a host the repository named. Not measured against a
+    /// real KDC (no Kerberos setup here): checked at the argument level, with git itself resolving the effective value
+    /// for the remote URL through `config --get-urlmatch`.
+    func testSECT11_11_RepositoryCannotTurnOnTicketDelegation() async throws {
+        func effective(_ prefix: [String]) async throws -> String {
+            let result = try await plainGit(prefix + ["config", "--get-urlmatch", "http.delegation", remote.url()])
+            return String(decoding: result.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        for key in ["http.delegation", "http.\(remote.url("")).delegation"] {
+            try await repository.git(["config", key, "always"])
+            let control = try await effective([])
+            XCTAssertEqual(control, "always", "\(key) control: plain git would delegate")
+
+            let client = GitClient(environment: repository.environment, parentEnvironment: ["HOME": home.path])
+            let listing = try await client.run(.configList, in: repository.root, safety: .preInspection)
+            let safety = try XCTUnwrap(
+                RepoConfigInspector.inspect(try ConfigParser.parse(listing.stdout)).safetyContext)
+            let arguments =
+                safety.fetchAuthentication + FetchCommand.fetch(remote: RemoteName("origin")!).configurationOverrides()
+            let resolved = try await effective(arguments)
+            XCTAssertEqual(resolved, "none", "\(key): the app's fetch delegates nothing")
+            try await repository.git(["config", "--unset", key])
+        }
+    }
+
     // MARK: - SEC-T11-08
 
     /// A repository's cookie file (generic, and under a URL, which a generic override does not reach) is not read

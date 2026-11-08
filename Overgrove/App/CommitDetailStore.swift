@@ -8,6 +8,17 @@ protocol CommitLoading: Sendable {
         _ repository: Repository, of commit: ObjectID, parent: ObjectID?, path: GitPath, originalPath: GitPath?
     ) async
         -> Result<PatchParser.Listing, GitError>
+    /// The files changed from `base` to `target` (S-12, #388).
+    func files(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
+        -> Result<NumstatParser.Files, GitError>
+}
+
+extension CommitLoading {
+    func files(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
+        -> Result<NumstatParser.Files, GitError>
+    {
+        .failure(.executableNotFound(path: "git"))
+    }
 }
 
 /// The app's loader: `RepositoryService.commitDetail` (cached by object ID) and `commitPatch`.
@@ -29,6 +40,13 @@ struct LiveCommitLoader: CommitLoading {
         guard let service = try? await services().1 else { return .failure(.executableNotFound(path: "git")) }
         return await service.commitPatch(
             repository, of: commit, parent: parent, path: path, originalPath: originalPath)
+    }
+
+    func files(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
+        -> Result<NumstatParser.Files, GitError>
+    {
+        guard let service = try? await services().1 else { return .failure(.executableNotFound(path: "git")) }
+        return await service.compareCommits(repository, base: base, target: target)
     }
 }
 

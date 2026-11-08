@@ -8,6 +8,9 @@ struct RowMenuActions {
     var copy: @MainActor (String) -> Void = { _ in }
     var copyMessage: @MainActor (String) -> Void = { _ in }
     var showCommit: @MainActor (ObjectID) -> Void = { _ in }
+    /// `Compare with Selected Commit` on a graph row (S-12, #388): whether it is on, and opening it.
+    var canCompareCommit: @MainActor (ObjectID) -> Bool = { _ in false }
+    var compareCommit: @MainActor (ObjectID) -> Void = { _ in }
     /// The full message when S-03 has loaded it, else the subject.
     var commitMessage: @MainActor (CommitNode) -> String = { $0.subject }
     /// The absolute path of `path` in `worktree` (the focused worktree when `nil`).

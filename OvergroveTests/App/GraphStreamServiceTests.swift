@@ -101,6 +101,27 @@ final class GraphStreamServiceTests: XCTestCase {
         XCTAssertEqual(logCalls(), pages.count, "--skip pages, as before #254")
     }
 
+    /// #373: a stream started after the refs moved, before the overview was refreshed, reads the new refs. Its pages
+    /// come back with the new ref set, never labelled with the old one.
+    func testAStreamStartedAfterTheRefsMovedCarriesTheNewRefSet() async throws {
+        let service = try makeService()
+        let refreshed = await service.refresh(model, trigger: .user)
+        let refresh = try XCTUnwrap(refreshed)
+        let overview = try refresh.result.get()
+        let stale = GraphRefSet(refs: overview.refs, worktrees: overview.entries.map(\.worktree))
+
+        try await repository.git(["commit", "-q", "--allow-empty", "-m", "moved"])  // no refresh
+        let page = try await service.graphPage(model, skip: 0, limit: 10).get()
+
+        XCTAssertNotEqual(page.refSet, stale, "not labelled with the refs the overview had")
+        XCTAssertEqual(page.commits.first?.subject, "moved")
+        let head = String(decoding: try await repository.git(["rev-parse", "HEAD"]).stdout, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertEqual(page.refs.branches.first { $0.fullName == "refs/heads/main" }?.target.hex, head)
+        let next = try await service.graphPage(model, skip: 10, limit: 10).get()
+        XCTAssertEqual(next.refSet, page.refSet, "later pages continue under the new ref set")
+    }
+
     func testRefreshStartsANewStream() async throws {
         let service = try makeService()
         try await loadOverviewThenResetCalls(service)

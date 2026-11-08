@@ -3,7 +3,7 @@ import XCTest
 
 @testable import Overgrove
 
-/// SEC-T14-11: Open on GitHub URLs (#398) are github.com over https with paths assembled from validated parts, so
+/// SEC-T14-12: Open on GitHub URLs (#398) are github.com over https with paths assembled from validated parts, so
 /// repository text (paths, ref names) cannot change the host or scheme, add a query or fragment, or leave the
 /// repository's pages.
 final class GitHubLinksTests: XCTestCase {
@@ -60,7 +60,7 @@ final class GitHubLinksTests: XCTestCase {
     }
 
     /// Branch names allow `#`, `%`, `;`, `@`, `'`, and non-ASCII (bidi included); each is encoded in its component.
-    func testSECT14_11_HostileBranchNamesStayInsideTheRepositoryPage() throws {
+    func testSECT14_12_HostileBranchNamesStayInsideTheRepositoryPage() throws {
         let cases = [
             "feat/#1": "/acme/api.v2/tree/feat/%231",
             "a%2Fb": "/acme/api.v2/tree/a%252Fb",

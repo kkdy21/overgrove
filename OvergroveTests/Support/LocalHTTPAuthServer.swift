@@ -37,6 +37,9 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
         case unauthorized
         /// `200` with an empty body (an empty dumb-HTTP ref list, so git ends normally) and `Set-Cookie: <cookie>`.
         case emptyWithCookie(String)
+        /// `407` offering Digest and Basic, as a proxy that wants credentials: git (curl) answers with the strongest
+        /// scheme it may use (#367).
+        case proxyAuthenticationRequired
     }
 
     private let response: Response
@@ -136,6 +139,10 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
                     "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"overgrove-test\"\r\n"
                 case .emptyWithCookie(let cookie):
                     "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: \(cookie)\r\n"
+                case .proxyAuthenticationRequired:
+                    "HTTP/1.1 407 Proxy Authentication Required\r\n"
+                        + "Proxy-Authenticate: Digest realm=\"overgrove-test\", nonce=\"n\", qop=\"auth\"\r\n"
+                        + "Proxy-Authenticate: Basic realm=\"overgrove-test\"\r\n"
                 }
             let reply = status + "Content-Length: 0\r\nConnection: close\r\n\r\n"
             connection.send(content: Data(reply.utf8), completion: .contentProcessed { _ in connection.cancel() })
