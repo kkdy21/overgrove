@@ -174,4 +174,22 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(state.ghAccount, account)
         XCTAssertEqual(state.issueListModel.account?.switchCommand, "gh auth switch --hostname ghe.example")
     }
+
+    /// A failed check shows no account from the check before; the trusted hosts stay.
+    func testAFailedCheckClearsTheAccount() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let account = GHAccount(host: ghe, login: "me", otherCount: 0)
+        let checker = QueuedGHAuthReporter([
+            GHAuthReport(status: .notLoggedIn, hosts: [ghe], accounts: [ghe: account]), nil,
+        ])
+        let state = await loadedState(
+            remotes: ["git@ghe.example:team/app.git"], issues: StubIssueLoader([.issues([issue])]), checker: checker)
+        XCTAssertEqual(state.issueListModel.account, account)
+        state.checkIssuesAgain()
+        await state.ghCheckTask?.value
+        await state.issuePanel.task?.value
+        XCTAssertNil(state.issueListModel.account)
+        XCTAssertNil(state.ghAccount)
+        XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
+    }
 }

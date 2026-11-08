@@ -99,7 +99,7 @@ final class GHParsersTests: XCTestCase {
     }
 
     /// ADR-0025 §4: each host's active account and how many others gh has there; an odd login hides only that account.
-    func testPARGH01_ReportListsEachHostsActiveAccount() throws {
+    func testPARGH07_ReportListsEachHostsActiveAccount() throws {
         let json = """
             {"hosts":{"github.com":[{"active":false,"state":"success","login":"old"},\
             {"active":true,"state":"success","login":"mina-dev"},{"active":false,"state":"success","login":"bot"}],\

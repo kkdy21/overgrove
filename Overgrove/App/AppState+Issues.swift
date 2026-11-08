@@ -25,9 +25,10 @@ extension AppState {
             account: issuePanel.repository.flatMap { ghAccounts[$0.host] })
     }
 
-    /// The account gh uses for the open repository's GitHub host, or for github.com without one (ADR-0025 §4).
+    /// The account gh uses for the open repository's GitHub host, else github.com's (ADR-0025 §4). Either way the
+    /// host is named, so another host's account is never shown as if it read this repository.
     var ghAccount: GHAccount? {
-        ghAccounts[issuePanel.repository?.host ?? GitHubRepository.publicHost]
+        issuePanel.repository.flatMap { ghAccounts[$0.host] } ?? ghAccounts[GitHubRepository.publicHost]
     }
 
     /// What `#n` badges need (#82): the fetched numbers are links, the rest grey.
@@ -120,10 +121,9 @@ extension AppState {
             self.ghStatus = report?.status
             self.isCheckingGitHub = false
             // A failed check keeps what was trusted.
-            if let report {
-                self.ghAccounts = report.accounts
-                self.trustGitHubHosts(report.hosts)
-            }
+            // A failed check keeps the trusted hosts but shows no account it can no longer vouch for.
+            self.ghAccounts = report?.accounts ?? [:]
+            if let report { self.trustGitHubHosts(report.hosts) }
         }
     }
 

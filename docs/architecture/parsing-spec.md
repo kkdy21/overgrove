@@ -391,6 +391,7 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | PAR-GH-02 | 미로그인, state 실패, 빈 hosts |
 | PAR-GH-03 | 이슈 목록 (라벨, 담당자, 선택 필드 누락) |
 | PAR-GH-04 | 예상 밖 JSON → 실패 |
+| PAR-GH-07 | 호스트별 활성 계정과 나머지 계정 수, 이상한 login·실패 상태 계정은 그 계정만 숨김 (ADR-0025 §4) |
 
 ### 10.3 PullRequestParser — `gh pr list --json number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url`
 
