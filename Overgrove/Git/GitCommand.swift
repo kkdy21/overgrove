@@ -277,6 +277,12 @@ enum FetchCommand: Sendable, Hashable {
                 // write. Fetch never needs one. URL-specific keys win over these, so the inspector also resets the
                 // repository's own (#355).
                 "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
+                // git's fixes for credential leaks through crafted URLs, which a repository could turn off; URL-specific
+                // keys are forced on by the inspector. Older git ignores the keys (#356).
+                "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",
+                // A URL with a password is refused (2.37+; the inspection covers older git), and a promisor remote the
+                // server advertises is not accepted (2.49+) (#356).
+                "-c", "transfer.credentialsInUrl=die", "-c", "promisor.acceptFromServer=none",
             ]
         }
     }

@@ -38,9 +38,9 @@
 |---|---|---|
 | Windows, Linux | N1 | 계획 없음 |
 | App Store, 서명·공증 바이너리 | N2 | 계획 없음 |
-| push, PR 생성, 머지, 리뷰 작성 | N3 | 하네스에서 수행 |
+| push, PR 생성, 머지, 리뷰 작성 | N3, ADR-0021 | 하네스에서 수행 |
 | Pull (버튼 포함) | N3, ADR-0011 | `later` |
-| 스테이징 토글, 인터랙티브 리베이스, 커밋 정리, stash apply/pop/drop | N4 | `later` |
+| 스테이징 토글, 인터랙티브 리베이스, 커밋 정리, stash apply/pop/drop | N4, ADR-0021 | `later` |
 | 워크트리 제거·prune 같은 앱 안의 로컬 쓰기 작업 | #155 결정: 조회 전용 유지. 쓰기는 터미널과 AI 에이전트가 맡는다 | `later` (#156) |
 | 자체 Git 엔진 | N5 | 계획 없음 |
 | 이슈 생성·수정, PR 상태 표시 | N6, ADR-0004 | `later` |

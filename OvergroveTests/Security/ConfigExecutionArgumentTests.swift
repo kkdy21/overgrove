@@ -103,6 +103,14 @@ final class ConfigExecutionArgumentTests: XCTestCase {
         try assertEveryCommandSets("i18n.logOutputEncoding=UTF-8")
     }
 
+    /// SEC-T15-18 (argument part): no command reads a mailmap, so a repository's mailmap file (any path, or a FIFO)
+    /// is never opened (#356).
+    func testSECT15_18_EveryCommandTurnsTheMailmapOff() throws {
+        try assertEveryCommandSets("log.mailmap=false")
+        try assertEveryCommandSets("mailmap.file=")
+        try assertEveryCommandSets("mailmap.blob=")
+    }
+
     /// SEC-T7 (argument part of SEC-T7-01): signature checking is off on every command.
     func testEveryCommandDisablesSignatureDisplay() throws {
         try assertEveryCommandSets("log.showSignature=false")

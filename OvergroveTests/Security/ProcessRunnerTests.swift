@@ -99,8 +99,8 @@ final class ProcessRunnerTests: XCTestCase {
         XCTAssertFalse(result.stdoutTruncated)
     }
 
-    /// SEC-T15-18: the stdout limit counts observed bytes: the observer never sees more, and the producer is stopped.
-    func testSECT15_18_StdoutObserverStopsAtTheLimit() async throws {
+    /// SEC-T15-21: the stdout limit counts observed bytes: the observer never sees more, and the producer is stopped.
+    func testSECT15_21_StdoutObserverStopsAtTheLimit() async throws {
         let limits = ProcessLimits(timeout: .seconds(10), stdoutLimit: 64 * 1024, stderrLimit: 1024)
         let chunks = Chunks()
         let clock = ContinuousClock()
