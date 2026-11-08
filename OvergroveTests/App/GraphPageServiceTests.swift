@@ -130,6 +130,29 @@ final class GraphPageServiceTests: XCTestCase {
         XCTAssertEqual(logCalls(), reads, "the page checked under the new refs was cached")
     }
 
+    /// #418: the newer refs the #373 check keeps do not outlive a ref that moves back. Once the overview is refreshed,
+    /// the graph walks the overview's refs again, even when they equal the ones the check replaced.
+    func testLiveRefsGoWhenTheOverviewRefreshes() async throws {
+        try await repository.git(["commit-graph", "write", "--reachable"])
+        let service = try makeService()
+        let first = try await page(service, skip: 0, limit: 3)
+
+        try repository.write("g.txt", "g\n")  // no refresh: the check sees the new refs
+        try await repository.git(["add", "g.txt"])
+        try await repository.git(["commit", "-q", "-m", "c7"])
+        let moved = try await page(service, skip: 3, limit: 3)
+        XCTAssertNotEqual(moved.refSet, first.refSet)
+        let underLive = try await page(service, skip: 0, limit: 3)  // checked and cached under the live refs
+        XCTAssertEqual(underLive.commits.first?.subject, "c7")
+
+        try await repository.git(["reset", "-q", "--hard", "HEAD~1"])  // back to the overview's refs
+        _ = await service.refresh(model, trigger: .fetchCompleted)
+        let back = try await page(service, skip: 0, limit: 3)
+
+        XCTAssertEqual(back.refSet, first.refSet, "the abandoned refs are gone")
+        XCTAssertEqual(back.commits.map(\.subject), ["c6", "c5", "c4"])
+    }
+
     func testPagesLineUpWithOneRead() async throws {
         let service = try makeService()
         let whole = try await page(service, skip: 0, limit: 100)
