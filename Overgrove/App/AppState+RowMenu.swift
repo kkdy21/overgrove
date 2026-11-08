@@ -24,8 +24,23 @@ extension AppState {
             quickLook: { [weak self] in self?.quickLook($1, in: $0) },
             showStash: { [weak self] in self?.selectStash($0) },
             openInBrowser: { [weak self] in self?.openInBrowser($0) },
+            gitHubCommitURL: { [weak self] oid in self?.gitHub.flatMap { GitHubLinks.commit($0.repository, oid) } },
+            gitHubBranchURL: { [weak self] ref in
+                self?.gitHub.flatMap { GitHubLinks.branch($0.repository, remoteRef: ref, remote: $0.remote) }
+            },
+            gitHubFileURL: { [weak self] oid, path in
+                self?.gitHub.flatMap { GitHubLinks.file($0.repository, commit: oid, path: path) }
+            },
             linkedBranchTip: { [weak self] in self?.linkedBranchTip(of: $0) },
             showHistory: { [weak self] in self?.showHistory(of: $1, in: $0) })
+    }
+
+    /// The github.com repository and its remote, from the loaded worktree list (#398).
+    var gitHub: (repository: GitHubRepository, remote: String)? {
+        guard case .loaded(let listing) = worktreeList, let repository = listing.githubRepository,
+            let remote = listing.githubRemoteName
+        else { return nil }
+        return (repository, remote)
     }
 
     /// Copies `text` as it is shown (`RowActions.clipboardText`).

@@ -223,7 +223,8 @@ struct CommitDetailView: View {
         .onTapGesture { if row.isSelectable { onSelectFile(row.stat) } }
         .contextMenu {
             FileRowMenu(
-                worktree: nil, path: row.stat.path, showDiff: { if row.isSelectable { onSelectFile(row.stat) } })
+                worktree: nil, path: row.stat.path, showDiff: { if row.isSelectable { onSelectFile(row.stat) } },
+                commit: ObjectID(model.fullSHA))
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
