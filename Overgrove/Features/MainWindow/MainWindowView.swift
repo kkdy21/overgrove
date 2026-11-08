@@ -86,6 +86,7 @@ struct MainWindowView: View {
                     hasRepository: state.repository != nil, worktreeStatus: state.worktreeList,
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
                     onSelectWorktree: state.selectWorktree, branchModel: state.branchListModel,
+                    selectedCommit: state.selectedCommitOID,
                     remoteURLTooltips: state.remoteURLTooltips,
                     stashRows: state.stashes.map(StashRow.init),
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
