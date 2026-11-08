@@ -17,7 +17,7 @@
 | [0001](0001-product-name-overgrove.md) | 제품명 Overgrove | Accepted |
 | [0002](0002-license-mit.md) | 라이선스 MIT | Accepted |
 | [0003](0003-minimum-macos-14.md) | 최소 macOS 14 | Accepted |
-| [0004](0004-github-integration-gh-issues-only.md) | GitHub 연동은 gh CLI 위임, 이슈 조회만 | Accepted (§2는 [0023](0023-pull-request-status-from-gh-pr-list.md)으로 대체, GitHub 밖 제공자는 [0026](0026-gitlab-and-gitea-issue-providers.md)으로 확장) |
+| [0004](0004-github-integration-gh-issues-only.md) | GitHub 연동은 gh CLI 위임, 이슈 조회만 | Accepted (§2는 [0023](0023-pull-request-status-from-gh-pr-list.md), §8은 [0025](0025-github-hosts-and-accounts.md)로 대체, GitHub 밖 제공자는 [0026](0026-gitlab-and-gitea-issue-providers.md)으로 확장) |
 | [0005](0005-documentation-language.md) | 문서 언어 (내부 한국어, 외부 접점 영어) | Accepted |
 | [0006](0006-zero-external-dependencies.md) | 외부 의존성 0개 | Accepted |
 | [0007](0007-swift-format-toolchain.md) | 포맷·린트는 툴체인 내장 swift-format | Accepted |
@@ -37,4 +37,6 @@
 | [0021](0021-read-only-scope-after-v0-1.md) | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
 | [0022](0022-no-shell-proxy-env-vars.md) | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
 | [0023](0023-pull-request-status-from-gh-pr-list.md) | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |
+| [0024](0024-keep-gh-delegation-over-github-app.md) | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰을 앱이 직접 다루지 않음) | Accepted |
+| [0025](0025-github-hosts-and-accounts.md) | GitHub 호스트는 gh에 로그인된 것만 신뢰, 계정은 앱이 바꾸지 않음 (ADR-0004 §8 대체) | Accepted |
 | [0026](0026-gitlab-and-gitea-issue-providers.md) | GitLab·Gitea 이슈는 glab·gt에 위임, 그 CLI에 로그인된 호스트만 신뢰 (ADR-0004를 GitHub 밖 제공자로 확장) | Accepted |

@@ -40,7 +40,9 @@ final class ConfigExecutionArgumentTests: XCTestCase {
             .untrackedPreview(file), .fileHistory(path: GitPath("a.txt"), limit: 10),
             .compareFiles(base: FullRefName("refs/heads/main")!, includeWorkingTree: true),
             .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("a.txt"), includeWorkingTree: true),
-            .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 10), .submodulePaths,
+            .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 10),
+            .commitsBetween(base: parent, target: oid, limit: 10),
+            .submodulePaths,
         ]
     }
 

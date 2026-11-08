@@ -31,6 +31,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Pull request status (ADR-0023): worktree and local branch rows show the linked PR's state and number, and the
   worktree detail shows a Pull request card. A PR is linked only when its head owner, repository, and branch match the
   branch's upstream, so a same-named branch from a fork never attaches.
+- Commit comparison (S-12): a COMMITS section lists the commits the target has that the base does not, newest first
+  (up to 500), and each row opens that commit.
 
 ### Changed
 

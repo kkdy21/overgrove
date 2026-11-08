@@ -16,8 +16,10 @@ struct SettingsView: View {
                 .tabItem { Label("General", systemImage: "gearshape") }
             RepositoriesSettingsView(registry: registry, actions: actions)
                 .tabItem { Label("Repositories", systemImage: "folder") }
-            AdvancedSettingsView(model: GitExecutableSettingsModel(settings: settings, registry: registry))
-                .tabItem { Label("Advanced", systemImage: "gearshape.2") }
+            AdvancedSettingsView(
+                model: GitExecutableSettingsModel(settings: settings, registry: registry), settings: settings
+            )
+            .tabItem { Label("Advanced", systemImage: "gearshape.2") }
         }
         .frame(width: Self.width)
     }

@@ -268,6 +268,23 @@ final class GraphStoreTests: XCTestCase {
 
     /// #306: the end coming into view during a check that finds nothing moved still loads the next page afterwards,
     /// since the rows already on screen will not appear again.
+    /// #411: a next page the service could not check (`isRefSetComplete` false) is not joined to rows read from a
+    /// complete ref set: the history may have moved under it. The graph starts over instead.
+    func testAnUncheckedNextPageIsNotJoinedToCheckedRows() async throws {
+        let loader = FakeGraphLoader(count: 1_500)
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+
+        loader.addCommitsOnHiddenRef(3)
+        loader.missRefs()
+        store.rowAppeared(450)
+        try await waitUntil { loader.skips.count == 3 && store.status == .loaded && !store.isLoadingMore }
+
+        XCTAssertEqual(loader.skips, [0, 500, 0], "started over instead of appending")
+        XCTAssertEqual(store.rows, GraphEngine.layout(Array(loader.commits.prefix(500))).rows)
+    }
+
     func testANextPageAskedForDuringAnUnchangedCheckLoadsAfterIt() async throws {
         let loader = GatedGraphLoader(count: 1_500)
         let store = GraphStore(loader: loader)
@@ -284,6 +301,53 @@ final class GraphStoreTests: XCTestCase {
         try await waitUntil { store.rows.count == 1_000 && !store.isLoadingMore }
         XCTAssertEqual(loader.pages.skips, [0, 0, 500])
         XCTAssertEqual(store.rows, GraphEngine.layout(FakeGraphLoader.linear(1_000)).rows)
+    }
+
+    /// #410: a refresh that lands while a next page is being read cancels that read. When the check finds nothing
+    /// moved, the next page is read again: the rows at the end are already on screen and will not ask for it.
+    func testANextPageInFlightWhenARefreshStartsIsReadAfterAnUnchangedCheck() async throws {
+        let loader = GatedGraphLoader(count: 1_500)
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+
+        loader.gate()
+        store.rowAppeared(450)
+        try await waitUntil { loader.pendingCount == 1 }  // the next page is in flight
+        store.refresh(focus: nil)
+        try await waitUntil { loader.pendingCount == 2 }  // and the check starts
+        loader.releaseOldest()  // the cancelled next page answers late
+        try await waitUntil { loader.pages.skips.count == 2 }
+        loader.releaseOldest()  // the check: nothing moved
+        try await waitUntil { loader.pages.skips.count == 3 && loader.pendingCount == 1 }  // the next page, again
+        loader.releaseOldest()
+        try await waitUntil { store.rows.count == 1_000 && !store.isLoadingMore }
+        XCTAssertEqual(loader.pages.skips, [0, 500, 0, 500])
+        XCTAssertEqual(store.rows, GraphEngine.layout(FakeGraphLoader.linear(1_000)).rows)
+    }
+
+    /// #410: when the check finds the history moved, the graph starts over, so the cancelled next page is not asked for.
+    func testANextPageInFlightIsDroppedWhenTheCheckFindsAMove() async throws {
+        let loader = GatedGraphLoader(count: 1_500)
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+
+        loader.gate()
+        store.rowAppeared(450)
+        try await waitUntil { loader.pendingCount == 1 }
+        loader.pages.moveRefs()
+        store.refresh(focus: nil)
+        try await waitUntil { loader.pendingCount == 2 }
+        let decorated = store.decorationGeneration
+        loader.releaseOldest()
+        try await waitUntil { loader.pages.skips.count == 2 }
+        loader.releaseOldest()
+        // The restart lays out the new first page with its new ref set, which redecorates: the check was handled.
+        try await waitUntil { store.decorationGeneration > decorated }
+        try await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(loader.pages.skips, [0, 500, 0], "the new first page only")
+        XCTAssertEqual(loader.pendingCount, 0)
     }
 
     /// #306: a check answered with `.cancelled` ends the check, so the next page is appended rather than taken for
