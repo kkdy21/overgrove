@@ -71,3 +71,15 @@ extension GitEnvironment {
         return environment
     }
 }
+
+extension GitEnvironment {
+    /// For test fixtures that use a local repository as a stand-in for a network remote. Before
+    /// `lazyFetchControlVersion` the app refuses local remotes (#361, SEC-T5-23), so on such a git (`OVERGROVE_TEST_GIT`)
+    /// these fixtures report that version instead, and keep testing the other layers of fetch (hooks, uploadpack,
+    /// ref scope, …) on the git under test. The only other gate that reads the version is the partial clone check, and
+    /// these fixtures are not partial clones. Tests of the refusal itself use the real version.
+    var fetchingLocalRemotesForTesting: GitEnvironment {
+        GitClient.allowsLocalTransport(version)
+            ? self : GitEnvironment(executable: executable, version: GitEnvironment.lazyFetchControlVersion)
+    }
+}

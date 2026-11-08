@@ -86,6 +86,8 @@ extension AppState {
     /// An issue that is no longer open falls back to the focused worktree.
     func issuesDidLoad(_ issues: [Issue]) {
         guard let number = selectedIssueNumber, !issues.contains(where: { $0.number == number }) else { return }
+        isSelectingAutomatically = true
+        defer { isSelectingAutomatically = false }
         selection = focusedWorktreePath.map(MainSelection.wip)
     }
 

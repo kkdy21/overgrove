@@ -144,6 +144,9 @@ extension AppState {
         branchListModel = Self.branchModel(listing)
         issueLinks = IssueLinkIndex(listing: listing)
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
+        // The fallbacks below are the app's choice, not the user's: they replace the current history entry (#378).
+        isSelectingAutomatically = true
+        defer { isSelectingAutomatically = false }
         if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
         // S-11 belongs to one worktree; if it is gone (removed in Terminal), the comparison closes too (#311).
         if let compared = comparison?.worktree, !listing.entries.contains(where: { $0.worktree.path == compared }) {

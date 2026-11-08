@@ -104,7 +104,7 @@ struct SecurityScenario {
     }
 
     func client() -> GitClient {
-        GitClient(environment: environment, parentEnvironment: parentEnvironment)
+        GitClient(environment: environment.fetchingLocalRemotesForTesting, parentEnvironment: parentEnvironment)
     }
 
     /// Inspects `repository` and runs an app command with the resulting safety context.
