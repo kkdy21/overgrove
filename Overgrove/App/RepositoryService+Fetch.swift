@@ -48,10 +48,20 @@ extension RepositoryService {
         // Stopped during the inspection: not a failure to report (security review of #77).
         if Task.isCancelled { return .cancelled }
 
+        // Hooks Terminal git would run: read once, and only when a failure needs guidance (#354).
+        var hookExecutables: [String]?
+        func hooks() -> [String] {
+            if let hookExecutables { return hookExecutables }
+            let found = LiveWorktreeInspector.hookExecutables(in: repository.commonGitDirectoryURL)
+            hookExecutables = found
+            return found
+        }
+
         guard var safety = inspection.safetyContext else {
             let blocked = GitError.configInspectionFailed(reason: inspection.report.blockingReason ?? "")
             return .finished(
-                failures: remotes.compactMap { Self.guidance(blocked, $0, inspection.report) }, remoteLimit: limit)
+                failures: remotes.compactMap { Self.guidance(blocked, $0, inspection.report, hooks: hooks()) },
+                remoteLimit: limit)
         }
         safety.blocksLocalTransport = untrusted
         var failures: [FetchFailureGuidance] = []
@@ -68,7 +78,7 @@ extension RepositoryService {
                 let gitError = (error as? GitError) ?? .launchFailed(errno: -1)
                 if untrusted, case .transportNotAllowed("file", _) = gitError {
                     failures.append(Self.untrustedLocalRemote(remote, inspection.report))
-                } else if let guidance = Self.guidance(gitError, remote, inspection.report) {
+                } else if let guidance = Self.guidance(gitError, remote, inspection.report, hooks: hooks()) {
                     failures.append(guidance)
                 }
             }
@@ -77,11 +87,11 @@ extension RepositoryService {
     }
 
     private static func guidance(
-        _ error: GitError, _ remote: RepoConfigInspection.Remote, _ report: RepoSecurityReport
+        _ error: GitError, _ remote: RepoConfigInspection.Remote, _ report: RepoSecurityReport, hooks: [String]
     ) -> FetchFailureGuidance? {
         FetchFailureGuidance(
             error: error, remote: remote.name, endpoint: FetchFailureGuidance.Endpoint(remoteURL: remote.url),
-            report: report)
+            report: report, hookExecutables: hooks)
     }
 
     /// Overgrove's own text: the remote is on this Mac and the repository is untrusted. No command is offered.
@@ -93,7 +103,8 @@ extension RepositoryService {
     private static func untrustedLocalRemote(
         _ remote: RepoConfigInspection.Remote, _ report: RepoSecurityReport
     ) -> FetchFailureGuidance {
-        guidance(.configInspectionFailed(reason: untrustedLocalReason), remote, report)
+        // `configInspectionFailed` never offers a command, so the hooks do not matter here.
+        guidance(.configInspectionFailed(reason: untrustedLocalReason), remote, report, hooks: [])
             ?? FetchFailureGuidance(configurationError: .configInspectionFailed(reason: untrustedLocalReason))
     }
 

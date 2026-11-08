@@ -57,17 +57,28 @@ final class CanaryHarnessTests: XCTestCase {
         let harness = try await CanaryHarness.make(fixture: fixture)
         let queries = try await harness.queries()
 
-        let controls: [(label: String, dropping: Set<String>, expected: Set<String>)] = [
-            // The failing process filter aborts plain status, so whether the clean filter ran first depends on
-            // file order; `T4-filter-clean` is proven by the worktreeDiff row instead.
-            ("status (main worktree", [], ["T1-fsmonitor", "T4-filter-process"]),
-            ("worktreeDiff unstaged", [], ["T1-fsmonitor", "T4-filter-clean"]),
-            ("worktreeDiff unstaged", ["--no-ext-diff", "--no-textconv"], ["T3-external-diff", "T4-filter-smudge"]),
-            ("worktreeDiff unstaged", ["--no-textconv"], ["T3-textconv", "T4-filter-smudge"]),
-            ("worktreeNumstat unstaged", [], ["T1-fsmonitor", "T4-filter-clean"]),
-            ("graphPage", [], ["T7-gpg-program"]),
-            ("fetch origin", [], ["T5-alternateRefsCommand", "T2-hook-reference-transaction"]),
-            ("fetch origin", ["--upload-pack=git-upload-pack"], ["T5-uploadpack"]),
+        // Config-defined hooks exist from git 2.54 (#354); older git ignores the fixture's `hook.*` keys.
+        let configHooks: Set<String> =
+            harness.environment.version >= GitVersion.configDefinedHooks ? ["T2-config-hook"] : []
+        // `anyOf`: at least one of these must fire as well. A whole-tree command re-hashes `docs/manual.md` (process
+        // filter, which fails and stops git) and `src/filter-target.txt` (clean filter) while refreshing the index,
+        // in an order that varies between runs (#347). So it proves one of them, not which; `T4-filter-clean` is
+        // proven by the worktreeDiff rows, which are limited to one `.txt` path.
+        let controls: [(label: String, dropping: Set<String>, expected: Set<String>, anyOf: Set<String>)] = [
+            ("status (main worktree", [], ["T1-fsmonitor", "T4-filter-process"], []),
+            ("worktreeDiff unstaged", [], ["T1-fsmonitor", "T4-filter-clean"], []),
+            (
+                "worktreeDiff unstaged", ["--no-ext-diff", "--no-textconv"], ["T3-external-diff", "T4-filter-smudge"],
+                []
+            ),
+            ("worktreeDiff unstaged", ["--no-textconv"], ["T3-textconv", "T4-filter-smudge"], []),
+            ("worktreeNumstat unstaged", [], ["T1-fsmonitor"], ["T4-filter-clean", "T4-filter-process"]),
+            ("graphPage", [], ["T7-gpg-program"], []),
+            (
+                "fetch origin", [],
+                Set(["T5-alternateRefsCommand", "T2-hook-reference-transaction"]).union(configHooks), []
+            ),
+            ("fetch origin", ["--upload-pack=git-upload-pack"], ["T5-uploadpack"], []),
         ]
         for control in controls {
             let query = try XCTUnwrap(queries.first { $0.label.hasPrefix(control.label) }, control.label)
@@ -75,9 +86,11 @@ final class CanaryHarnessTests: XCTestCase {
             let result = try await harness.runPlain(query, dropping: control.dropping)
             let fired = Set(fixture.canaries())
             XCTAssertTrue(
-                control.expected.isSubset(of: fired),
-                "plain \(query) without \(control.dropping.sorted()) should run \(control.expected.sorted()) "
-                    + "but ran \(fired.sorted()) (exit \(result.termination))")
+                control.expected.isSubset(of: fired)
+                    && (control.anyOf.isEmpty || !control.anyOf.isDisjoint(with: fired)),
+                "plain \(query) without \(control.dropping.sorted()) should run \(control.expected.sorted())"
+                    + (control.anyOf.isEmpty ? "" : " and one of \(control.anyOf.sorted())")
+                    + " but ran \(fired.sorted()) (exit \(result.termination))")
         }
     }
 
