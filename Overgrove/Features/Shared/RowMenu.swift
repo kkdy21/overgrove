@@ -20,6 +20,10 @@ struct RowMenuActions {
     var showWorktreeInfo: @MainActor (GitPath) -> Void = { _ in }
     var revealWorktree: @MainActor (GitPath) -> Void = { _ in }
     var openTerminal: @MainActor (GitPath) -> Void = { _ in }
+    /// An editor is chosen in Settings (#124); Open in Editor is shown only then.
+    var hasEditor = false
+    var openEditor: @MainActor (GitPath) -> Void = { _ in }
+    var openFileInEditor: @MainActor (_ worktree: GitPath?, _ path: GitPath) -> Void = { _, _ in }
     var showStash: @MainActor (ObjectID) -> Void = { _ in }
     var openInBrowser: @MainActor (URL) -> Void = { _ in }
     var linkedBranchTip: @MainActor (Int) -> ObjectID? = { _ in nil }
@@ -59,5 +63,10 @@ struct FileRowMenu: View {
         Button("Reveal in Finder") { actions.revealFile(worktree, path) }
             // A path that is not valid UTF-8 has no file-level actions (GitPath).
             .disabled(!path.isRepresentable)
+        // Working tree files only: commit and stash files are not on disk as shown (#124).
+        if actions.hasEditor, worktree != nil {
+            Button("Open in Editor") { actions.openFileInEditor(worktree, path) }
+                .disabled(!path.isRepresentable)
+        }
     }
 }

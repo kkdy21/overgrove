@@ -84,6 +84,20 @@ final class OutputEncodingSecurityTests: XCTestCase {
         XCTAssertEqual(commits.map(\.subject), ["add f", hostileSubject])
         let plainOutput = try await plain(command)
         XCTAssertThrowsError(try LogParser.parseGraph(plainOutput), "control: the fields shift")
+
+        // The commits between two compared commits (S-12, #389) use the same format.
+        func oid(_ revision: String) async throws -> ObjectID {
+            let output = try await repository.git(["rev-parse", revision])
+            return try XCTUnwrap(
+                ObjectID(String(decoding: output.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+            )
+        }
+        let between = ReadOnlyGitCommand.commitsBetween(
+            base: try await oid("HEAD~2"), target: try await oid("HEAD"), limit: 10)
+        let appBetween = try await app(between)
+        XCTAssertEqual(try LogParser.parseGraph(appBetween).commits.map(\.subject), ["add f", hostileSubject])
+        let plainBetween = try await plain(between)
+        XCTAssertThrowsError(try LogParser.parseGraph(plainBetween), "control: the fields shift")
     }
 
     /// Negative control: without Overgrove's arguments the same repository does shift the fields.

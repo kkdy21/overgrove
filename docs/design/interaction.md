@@ -256,8 +256,8 @@ stateDiagram-v2
 |---|---|---|
 | 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03). 그래프 행에는 v0.2.0부터 `Compare with Selected Commit`(S-12, #122. 다른 커밋이 주 선택일 때만 켜짐) | Open on GitHub, Copy Permalink |
 | WIP 행 | Show Changes (S-02), Show Worktree Info (S-05) | — |
-| 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder | Quick Look, Open With… |
-| 워크트리 행 | Show Changes, Show Info, Copy Path, Copy Branch Name, Reveal in Finder, Open in Terminal | Open in 사용자 지정 터미널·에디터 |
+| 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder 작업 트리 파일 행(S-02)에는 에디터를 고르면 `Open in Editor`(#124) | Quick Look, Open With… |
+| 워크트리 행 | Show Changes, Show Info, Copy Path, Copy Branch Name, Reveal in Finder, Open in Terminal. v0.2.0부터 Open in Terminal은 Settings에서 고른 터미널로 열고, 에디터를 고르면 `Open in Editor`(#124) | — |
 | 브랜치 행 | Show in Graph, Copy Name, Copy Upstream Name | — |
 | 태그 행 (v0.2.0, #123) | Show in Graph, Copy Tag Name, Copy SHA (가리키는 커밋) | Show on GitHub |
 | 원격 그룹 행 | Copy Remote URL (자격 증명 제거), Fetch This Remote → v0.1 제외 | Fetch This Remote |
@@ -269,7 +269,9 @@ stateDiagram-v2
 **보안 조건** ([security-review.md](security-review.md)):
 
 - **Reveal in Finder** — 경로를 `PathValidator`로 확인한다. 실제 경로가 저장소(또는 워크트리) 밖이면 열지 않고 `This path points outside the repository`를 보여 준다 (T14). `NSWorkspace.activateFileViewerSelecting`을 쓰고 파일을 실행하지 않는다.
-- **Open in Terminal** — `NSWorkspace`로 Terminal.app에 폴더 URL을 넘긴다. 셸 문자열을 만들지 않으므로 `Overgrove/Execution/` 규칙과 충돌하지 않는다. 그 워크트리의 설정을 검사하지 못했거나, 검사 결과에 항목이 하나라도 있거나(사용자가 칠 git의 pager·editor·`!` alias 포함, #278), 실행 가능한 hook이 있으면 먼저 `Open in Terminal?` 확인을 받는다. 버튼은 `Open Anyway`와 `Cancel`(기본)이다(security-review.md T14, #73). 사용자 지정 터미널(iTerm, Ghostty 등)은 `later`.
+- **외부 앱을 여는 원칙 (#124).** Terminal, 사용자 지정 터미널·에디터, 브라우저, Finder 같은 외부 앱은 모두 `NSWorkspace`로만 연다(`open(_:withApplicationAt:configuration:)`, `open(URL)`, `activateFileViewerSelecting`). 넘기는 것은 검사한 폴더·파일 URL 하나 또는 https 페이지 하나뿐이다. 셸 문자열, `Process`, AppSettings에 저장한 명령줄, AppleScript, `$PATH` 같은 인자 템플릿은 쓰지 않는다. Quick Look(#399)과 Open on GitHub(#398)도 이 원칙을 따른다.
+- **사용자 지정 터미널·에디터 (#124).** Settings › Advanced › Apps에서 `.app`을 고른다(`NSOpenPanel`, 응용 프로그램만). 고를 때 번들인지, 유효한 bundle identifier(영숫자·`.`·`-`)와 실행 파일이 있는지만 확인하고 Apple 서명 여부는 보여 주기만 한다. 저장하는 것은 bundle identifier 하나이고, 열 때마다 `urlForApplication(withBundleIdentifier:)`로 찾는다. 경로는 저장하지 않는다. 앱별 명령줄 인자는 지원하지 않는다. 앱이 없으면 열지 않고 알린다. 에디터로 워크트리 폴더를 열 때도 Open in Terminal과 같은 확인(`TerminalGuard`)을 거친다. 에디터와 그 확장은 작업 공간의 설정·작업(tasks)을 실행할 수 있고, 에디터가 실행하는 git은 저장소 설정을 따르기 때문이다. 작업 트리 파일 하나를 열 때는 묻지 않고, 실제 위치가 워크트리 안인지만 확인한다(T14).
+- **Open in Terminal** — `NSWorkspace`로 Terminal.app에 폴더 URL을 넘긴다. 셸 문자열을 만들지 않으므로 `Overgrove/Execution/` 규칙과 충돌하지 않는다. 그 워크트리의 설정을 검사하지 못했거나, 검사 결과에 항목이 하나라도 있거나(사용자가 칠 git의 pager·editor·`!` alias 포함, #278), 실행 가능한 hook이 있으면 먼저 `Open in Terminal?` 확인을 받는다. 버튼은 `Open Anyway`와 `Cancel`(기본)이다(security-review.md T14, #73). v0.2.0부터 Settings에서 고른 터미널로 연다(#124).
 - **Open With… / 기본 앱으로 열기는 넣지 않는다.** 저장소 안의 `.command`, `.app`, 스크립트를 실행할 수 있기 때문이다.
 - **Copy Remote URL** — 항상 자격 증명을 제거한 URL을 복사한다. "Show full remote URLs" 설정을 켜도 마찬가지다 (T11).
 - **Open in Browser** — `https://` URL만 연다.

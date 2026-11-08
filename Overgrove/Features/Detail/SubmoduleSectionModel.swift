@@ -71,6 +71,12 @@ struct SubmoduleSectionModel: Equatable {
             return (parts.joined(separator: " · "), .changed, nil)
         case .notCheckedOut:
             return ("not checked out", .quiet, "The submodule has no checkout here (git submodule update was not run).")
+        case .gitDirectoryMissing:
+            return (
+                "git directory missing", .quiet,
+                "Its .git names a git directory that does not exist (an interrupted git submodule update or a partial "
+                    + "copy), so nothing runs there."
+            )
         case .notInspected(let reason):
             return ("not inspected", .attention, help(for: reason))
         case .failed(let error):

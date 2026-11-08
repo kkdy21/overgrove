@@ -47,6 +47,9 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case comparePatch(base: FullRefName, path: GitPath, originalPath: GitPath? = nil, includeWorkingTree: Bool)
     /// Commits on HEAD that `base` does not have (`<base>..HEAD`), newest first.
     case commitsAhead(base: FullRefName, limit: Int)
+    /// Commits `target` has that `base` does not (`<base>..<target>`), newest first: the commits between two compared
+    /// commits (S-12, #389). Both are object IDs the graph loaded.
+    case commitsBetween(base: ObjectID, target: ObjectID, limit: Int)
     /// Submodule paths from the worktree's `.gitmodules` (S-02, #108). `--file` reads only that file, `--no-includes`
     /// keeps `include.path` there from pulling in another file, and nothing runs. The caller checks first that
     /// `.gitmodules` is a regular file inside the worktree, not a symbolic link git would follow.
@@ -184,6 +187,12 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             return [
                 "log", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit)), "--end-of-options",
                 "\(base.value)..HEAD", "--",
+            ]
+        case .commitsBetween(let base, let target, let limit):
+            // An `ObjectID` is hex only, so `<base>..<target>` is one unambiguous range that cannot start with `-`.
+            return [
+                "log", "-z", Self.logFormat, "-n", String(Self.clampLimit(limit)), "--end-of-options",
+                "\(base.hex)..\(target.hex)", "--",
             ]
         }
     }

@@ -55,14 +55,31 @@ struct MaskedText: Sendable, Hashable {
             case "\t":
                 printable.append(scalar)
             default:
-                if !CharacterSet.controlCharacters.contains(scalar) { printable.append(scalar) }
+                if !CharacterSet.controlCharacters.contains(scalar), !Self.isInvisibleMark(scalar) {
+                    printable.append(scalar)
+                }
             }
         }
         endLine()
-        // Counted in scalars, not `Character`s: a run of combining marks is one `Character` of any length (#362).
+        // Masked again on what is shown: dropping control, format, and invisible characters (ESC, DEL, VT, zero-width,
+        // bidi, variation selectors) can join the pieces of a token they split, and the first pass saw them apart
+        // (#375). Masking again never reveals what the first pass hid. The limit comes last, so it never cuts a token
+        // the second pass would have caught.
         var view = String.UnicodeScalarView()
-        view.append(contentsOf: printable.prefix(Self.maximumLength))
-        text = String(view)
+        view.append(contentsOf: printable)
+        let shown = CredentialMasker.mask(String(view)).unicodeScalars
+        // Counted in scalars, not `Character`s: a run of combining marks is one `Character` of any length (#362).
+        var limited = String.UnicodeScalarView()
+        limited.append(contentsOf: shown.prefix(Self.maximumLength))
+        text = String(limited)
+    }
+
+    /// A character the text renderer draws as nothing although it is not `Cf`: variation selectors, CGJ, Khmer inherent
+    /// vowels, Hangul fillers, and unassigned default-ignorable code points (measured with CoreText in the #375 review).
+    /// Left in, a token it splits looks whole on screen while the masking pattern misses it. Dropping it changes
+    /// nothing that is drawn.
+    private static func isInvisibleMark(_ scalar: Unicode.Scalar) -> Bool {
+        scalar.properties.isDefaultIgnorableCodePoint
     }
 
     /// Only spaces and tabs, or git's `remote:` sideband prefix with nothing after it.

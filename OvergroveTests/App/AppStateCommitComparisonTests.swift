@@ -151,6 +151,49 @@ final class AppStateCommitComparisonTests: XCTestCase {
         XCTAssertNil(state.commitComparisonTask)
         for _ in 0..<10 { await Task.yield() }
         XCTAssertNil(state.commitComparison)
+
+    /// COMMITS (#389): read with the files for the same pair, again after `⇄`; a row opens that commit's S-03.
+    func testCommitsBetweenAreListed() async throws {
+        let loader = StubCommitLoader()
+        let middle = CommitNode(
+            oid: SampleGraphLoader.oid("2"), parents: [], authorName: "Bob", authorEmail: "b@example.com",
+            authorDate: Date(timeIntervalSince1970: 0), subject: "middle", coAuthors: [])
+        loader.commitsBetween = LogParser.GraphPage(commits: [middle], isPartial: true)
+        let state = try await loadedState(loader)
+        state.selectCommit(base)
+        state.showCommitComparison(with: target)
+        await state.commitComparisonTask?.value
+
+        let model = try XCTUnwrap(state.commitComparisonModel)
+        XCTAssertEqual(model.commits.map(\.oid), [middle.oid])
+        XCTAssertTrue(model.hasMoreCommits)
+        XCTAssertNil(model.commitsNotice)
+        XCTAssertEqual(loader.commitRangeRequests.map(\.base), [base])
+        XCTAssertEqual(loader.commitRangeRequests.map(\.target), [target])
+
+        state.swapCommitComparison()
+        await state.commitComparisonTask?.value
+        XCTAssertEqual(loader.commitRangeRequests.last?.base, target)
+        XCTAssertEqual(loader.commitRangeRequests.last?.target, base)
+
+        state.showCommitFromComparison(middle.oid)
+        XCTAssertNil(state.commitComparison)
+        XCTAssertEqual(state.selection, .commit(middle.oid))
+    }
+
+    /// The commits failing does not hide the file list, and the other way round.
+    func testCommitsFailureIsShownOnItsOwn() async throws {
+        let loader = StubCommitLoader()
+        loader.commitsFailure = .timeout(seconds: 15)
+        let state = try await loadedState(loader)
+        state.selectCommit(base)
+        state.showCommitComparison(with: target)
+        await state.commitComparisonTask?.value
+        let model = try XCTUnwrap(state.commitComparisonModel)
+        XCTAssertEqual(model.state, .loaded)
+        XCTAssertTrue(model.commits.isEmpty)
+        XCTAssertNotNil(model.commitsNotice)
+        XCTAssertNotEqual(model.commitsNotice, "Reading commits…")
     }
 
     func testAFailureIsShown() async throws {
@@ -196,5 +239,32 @@ final class CommitComparisonModelTests: XCTestCase {
         let model = CommitComparisonModel(session: CommitComparisonSession(base: oid("a"), target: oid("b"))) { _ in nil
         }
         XCTAssertEqual(model.state, .loading("Comparing \(oid("a").short) with \(oid("b").short)…"))
+        XCTAssertEqual(model.commitsNotice, "Reading commits…")
+    }
+
+    /// COMMITS rows come from the log, escaped, with the AI badge; none says which way to look.
+    func testCommitRows() {
+        let node = CommitNode(
+            oid: oid("c"), parents: [], authorName: "Eve\u{202E}", authorEmail: "e@example.com",
+            authorDate: Date(timeIntervalSince1970: 0), subject: "fix\u{7}",
+            coAuthors: ["Claude <noreply@anthropic.com>"])
+        var session = CommitComparisonSession(base: oid("a"), target: oid("b"))
+        session.commits = .loaded(LogParser.GraphPage(commits: [node], isPartial: false))
+        // The graph does not have it: the row still shows the log's subject.
+        let model = CommitComparisonModel(session: session) { _ in nil }
+        XCTAssertEqual(model.commits.map(\.oid), [node.oid])
+        XCTAssertFalse(model.commits[0].subject.unicodeScalars.contains("\u{7}"))
+        XCTAssertFalse(model.commits[0].author.unicodeScalars.contains("\u{202E}"))
+        XCTAssertTrue(model.commits[0].isAIAssisted)
+        XCTAssertFalse(model.hasMoreCommits)
+
+        session.commits = .loaded(LogParser.GraphPage(commits: [], isPartial: false))
+        XCTAssertEqual(
+            CommitComparisonModel(session: session) { _ in nil }.commitsNotice,
+            "\(oid("b").short) has no commits that \(oid("a").short) does not have")
+        session.commits = .failed("fatal\u{202E}")
+        XCTAssertFalse(
+            CommitComparisonModel(session: session) { _ in nil }.commitsNotice?.unicodeScalars.contains("\u{202E}")
+                ?? true)
     }
 }

@@ -11,11 +11,20 @@ protocol CommitLoading: Sendable {
     /// The files changed from `base` to `target` (S-12, #388).
     func files(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
         -> Result<NumstatParser.Files, GitError>
+    /// The commits `target` has that `base` does not (S-12, #389).
+    func commits(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
+        -> Result<LogParser.GraphPage, GitError>
 }
 
 extension CommitLoading {
     func files(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
         -> Result<NumstatParser.Files, GitError>
+    {
+        .failure(.executableNotFound(path: "git"))
+    }
+
+    func commits(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
+        -> Result<LogParser.GraphPage, GitError>
     {
         .failure(.executableNotFound(path: "git"))
     }
@@ -47,6 +56,13 @@ struct LiveCommitLoader: CommitLoading {
     {
         guard let service = try? await services().1 else { return .failure(.executableNotFound(path: "git")) }
         return await service.compareCommits(repository, base: base, target: target)
+    }
+
+    func commits(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
+        -> Result<LogParser.GraphPage, GitError>
+    {
+        guard let service = try? await services().1 else { return .failure(.executableNotFound(path: "git")) }
+        return await service.commitsBetween(repository, base: base, target: target)
     }
 }
 

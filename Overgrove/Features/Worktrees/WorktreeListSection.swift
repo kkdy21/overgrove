@@ -346,5 +346,9 @@ private struct WorktreeRowMenu: View {
             .disabled(row.isDimmed || !row.id.isRepresentable)
         Button("Open in Terminal") { actions.openTerminal(row.id) }
             .disabled(row.isDimmed || !row.id.isRepresentable)
+        if actions.hasEditor {
+            Button("Open in Editor") { actions.openEditor(row.id) }
+                .disabled(row.isDimmed || !row.id.isRepresentable)
+        }
     }
 }
