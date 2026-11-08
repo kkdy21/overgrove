@@ -66,16 +66,35 @@ final class FetchFailureTests: XCTestCase {
         XCTAssertEqual(guidance.commands, ["git --no-pager remote -v"])
     }
 
+    /// A token in the user part of the URL (the usual way a token is pasted): a network failure, and the token is
+    /// nowhere in what the screens show.
     func testSECT11_02_ClosedPortWithCredentialsIsNetworkAndMasked() async throws {
-        let (error, guidance) = try await failedFetch(url: "https://alice:\(secret)@127.0.0.1:1/r.git")
+        let (error, guidance) = try await failedFetch(url: "https://\(secret)@127.0.0.1:1/r.git")
         guard case .networkUnavailable = error else { return XCTFail("got \(error)") }
         XCTAssertEqual(guidance.category, .network)
         XCTAssertEqual(guidance.summary, "Could not reach 127.0.0.1")
+        assertNoSecret(in: error, guidance)
+    }
+
+    /// A password in the URL, with a safety context that lets it through (as if the inspection had missed it): git
+    /// 2.37+ refuses it because fetch pins `transfer.credentialsInUrl=die` (#356), older git fails to connect. Either
+    /// way the password is nowhere in what the screens show.
+    func testSECT11_02_PasswordInTheURLIsMaskedWhateverGitDoes() async throws {
+        let (error, guidance) = try await failedFetch(url: "https://alice:\(secret)@127.0.0.1:1/r.git")
+        if local.environment.version >= GitVersion(major: 2, minor: 37, patch: 0) {
+            XCTAssertTrue(error.detail?.text.contains("plaintext credentials") ?? false, "\(error)")
+        }
+        assertNoSecret(in: error, guidance)
+    }
+
+    private func assertNoSecret(
+        in error: GitError, _ guidance: FetchFailureGuidance, file: StaticString = #filePath, line: UInt = #line
+    ) {
         let everything =
             [guidance.summary, guidance.guidance, guidance.detail?.text ?? "", guidance.detailTail ?? ""]
             + guidance.commands + [error.message, error.detail?.text ?? ""]
         for text in everything {
-            XCTAssertFalse(text.contains(secret), text)
+            XCTAssertFalse(text.contains(secret), text, file: file, line: line)
         }
     }
 
