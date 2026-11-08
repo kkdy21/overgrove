@@ -186,6 +186,68 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertTrue(result.neutralization.isEmpty, "queries open no connection")
     }
 
+    /// #367: how fetch authenticates to the user's proxy is not the repository's choice. `proxyAuthMethod=basic` would
+    /// send the proxy password in the clear where the proxy offers Digest, and `proxySSLCertPasswordProtected` makes git
+    /// ask the trusted helper for a certificate password. Each key (generic, per URL, per remote) is reset under its own
+    /// key to the trusted value, else to git's default.
+    func testLocalProxyAuthSettingsAreReplacedWithTrustedValues() {
+        let result = inspect([
+            entry(.global, "http.proxyauthmethod", "negotiate"),
+            entry(.global, "http.https://git.corp.invalid.proxyauthmethod", "ntlm"),
+            entry(.local, "remote.origin.url", "https://git.corp.invalid/o/r.git"),
+            entry(.local, "http.proxyauthmethod", "basic"),
+            entry(.local, "http.https://elsewhere.invalid.proxyauthmethod", "basic"),
+            entry(.local, "remote.origin.proxyauthmethod", "basic"),
+            entry(.local, "remote.gone.proxyauthmethod", "basic"),
+            entry(.local, "http.proxysslcertpasswordprotected", "true"),
+            entry(.local, "http.https://x.invalid.proxysslcertpasswordprotected", "true"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            [
+                "-c", "http.proxyauthmethod=negotiate",
+                "-c", "http.https://elsewhere.invalid.proxyauthmethod=negotiate",
+                "-c", "remote.origin.proxyauthmethod=ntlm",
+                "-c", "remote.gone.proxyauthmethod=negotiate",
+                "-c", "http.proxysslcertpasswordprotected=false",
+                "-c", "http.https://x.invalid.proxysslcertpasswordprotected=false",
+            ])
+        XCTAssertEqual(Set(result.report.findings.map(\.threat)), ["T11"])
+        XCTAssertEqual(Set(result.report.findings.map(\.handling)), [.neutralized])
+        XCTAssertNil(result.fetchBlockingReason)
+        XCTAssertTrue(result.neutralization.isEmpty, "queries open no connection")
+    }
+
+    /// #367: without trusted values, the authentication method falls back to git's own default (`anyauth`, written out
+    /// so git prints no "unsupported method" warning).
+    func testLocalProxyAuthMethodWithoutTrustedValueIsAnyauth() {
+        XCTAssertEqual(
+            inspect([
+                entry(.local, "remote.o.proxyauthmethod", "basic"), entry(.local, "http.proxyauthmethod", "basic"),
+            ])
+            .fetchAuthentication,
+            ["-c", "remote.o.proxyauthmethod=anyauth", "-c", "http.proxyauthmethod=anyauth"])
+    }
+
+    /// #367: certificate files for the TLS connection to the proxy are the user's, like `http.sslCAInfo`: a repository
+    /// that sets its own turns fetch off (generic or per URL). Queries go on.
+    func testLocalProxyCertificateFilesBlockFetchOnly() {
+        for key in [
+            "http.proxysslcainfo", "http.proxysslcert", "http.proxysslkey", "http.https://x.invalid.proxysslcainfo",
+        ] {
+            let result = inspect([entry(.local, key, "/tmp/evil.pem")])
+            XCTAssertFalse(result.report.isBlocked, key)
+            XCTAssertNotNil(result.fetchBlockingReason, key)
+            XCTAssertEqual(result.report.findings.map(\.handling), [.warned], key)
+        }
+        XCTAssertNil(inspect([entry(.global, "http.proxysslcainfo", "/etc/corp-ca.pem")]).fetchBlockingReason)
+    }
+
+    /// #367: `-c remote.a=b.proxyauthmethod=` would set `remote.a` instead.
+    func testRemoteProxyAuthMethodKeyContainingEqualsBlocks() {
+        XCTAssertTrue(inspect([entry(.local, "remote.a=b.proxyauthmethod", "basic")]).report.isBlocked)
+    }
+
     /// #355: a repository's cookie file would be read (and with `saveCookies`, written) by fetch. A URL-specific key
     /// wins over the generic `-c http.cookieFile=` that fetch pins, so each one is reset under its own key.
     func testLocalCookieSettingsAreTurnedOffUnderTheirOwnKeys() {
