@@ -13,6 +13,7 @@ final class AppSettings {
     /// `LiveGitClient`, which checks it on every discovery.
     nonisolated static let gitExecutablePathKey = "settings.gitExecutablePath"
     static let graphZoomStepKey = "settings.graphZoomStep"
+    static let showsGraphStashesKey = "settings.showsGraphStashes"
 
     /// The auto fetch section is shown (the scheduler exists since #79).
     static let isAutoFetchAvailable = true
@@ -70,6 +71,11 @@ final class AppSettings {
 
     var graphZoom: GraphZoom { GraphZoom(step: graphZoomStep) }
 
+    /// Stashes drawn in the graph above their base commits (#384); on by default, one value for every window.
+    var showsGraphStashes: Bool {
+        didSet { defaults.set(showsGraphStashes, forKey: Self.showsGraphStashesKey) }
+    }
+
     /// View › Zoom In `⌘+`, Zoom Out `⌘−`, Actual Size `⌘0`.
     func zoomGraphIn() { graphZoomStep = graphZoom.zoomedIn.step }
     func zoomGraphOut() { graphZoomStep = graphZoom.zoomedOut.step }
@@ -83,6 +89,9 @@ final class AppSettings {
             Self.autoFetchIntervals.contains(interval) ? interval : Self.defaultAutoFetchInterval
         showsFullRemoteURLs = defaults.bool(forKey: Self.showsFullRemoteURLsKey)
         gitExecutablePath = defaults.string(forKey: Self.gitExecutablePathKey).flatMap { $0.isEmpty ? nil : $0 }
+        showsGraphStashes =
+            defaults.object(forKey: Self.showsGraphStashesKey) == nil
+            ? true : defaults.bool(forKey: Self.showsGraphStashesKey)
         graphZoomStep =
             defaults.object(forKey: Self.graphZoomStepKey) == nil
             ? GraphZoom.actualSizeStep : GraphZoom(step: defaults.integer(forKey: Self.graphZoomStepKey)).step
