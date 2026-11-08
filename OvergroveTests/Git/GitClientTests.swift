@@ -219,7 +219,7 @@ final class GitCommandTests: XCTestCase {
             fetch.configurationOverrides(),
             [
                 "-c", "fetch.pruneTags=false", "-c", "remote.team/fork.v2.pruneTags=false",
-                "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=",
+                "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=", "-c", "transfer.bundleURI=false",
                 "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
                 "-c", "http.delegation=none",
                 "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",
