@@ -56,22 +56,35 @@ final class TransferBundleURITests: XCTestCase {
         _ = try await client.fetch(
             .fetch(remote: RemoteName("origin")!), in: repository, safety: try XCTUnwrap(inspection.safetyContext))
         let afterApp = try await bundleRefs(in: local.root)
+        // Today's git does not read the key for fetch, so this holds without the override too; the override is in
+        // the argument snapshot (GitClientTests) as defense in depth.
         XCTAssertEqual(afterApp, "", "the app's fetch wrote no refs/bundles")
 
-        // Measurement: plain fetch, without the override, does not follow the advertised bundles either.
+        // Measurement: plain fetch, without the override, does not follow the advertised bundles either. A new commit
+        // first, so the fetch has objects to get.
+        try await source.git(["commit", "-q", "--allow-empty", "-m", "two"])
+        let tip = String(decoding: try await source.git(["rev-parse", "main"]).stdout, as: UTF8.self)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         let plain = ["fetch", "--no-tags", "origin", "+refs/heads/*:refs/remotes/origin/*"]
-        _ = try await ProcessRunner().run(
+        let plainRun = try await ProcessRunner().run(
             ProcessRequest(
                 executable: local.environment.executable, arguments: local.environment.arguments(for: plain),
                 environment: GitEnvironment.environment(parent: [:], allowsTransport: true),
                 currentDirectory: local.root, limits: .fetch))
+        XCTAssertEqual(
+            plainRun.termination, .exited(code: 0), String(decoding: plainRun.stderr, as: UTF8.self))
+        let fetched = String(
+            decoding: try await local.git(["rev-parse", "refs/remotes/origin/main"]).stdout, as: UTF8.self
+        )
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertEqual(fetched, tip, "the plain fetch got the new commit")
         let afterPlain = try await bundleRefs(in: local.root)
         XCTAssertEqual(afterPlain, "", "git's fetch does not read transfer.bundleURI")
 
         // Control: clone does follow them, so the server's bundle list is live.
         let clone = local.root.deletingLastPathComponent().appendingPathComponent("clone-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: clone) }
-        _ = try await ProcessRunner().run(
+        let cloneRun = try await ProcessRunner().run(
             ProcessRequest(
                 executable: local.environment.executable,
                 arguments: local.environment.arguments(
@@ -82,6 +95,7 @@ final class TransferBundleURITests: XCTestCase {
         guard local.environment.version >= GitVersion(major: 2, minor: 40, patch: 0) else {
             throw XCTSkip("the clone control needs git 2.40+ (found \(local.environment.version))")
         }
+        XCTAssertEqual(cloneRun.termination, .exited(code: 0), String(decoding: cloneRun.stderr, as: UTF8.self))
         let cloned = try await bundleRefs(in: clone)
         XCTAssertTrue(cloned.contains("refs/bundles/"), "control: clone followed the advertised bundle (\(cloned))")
     }
