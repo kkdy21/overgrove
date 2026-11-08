@@ -77,6 +77,8 @@ final class GraphStore {
     private var repository: Repository?
     private var focus: WorktreeListing.Entry?
     private var refSet: GraphRefSet?
+    /// The loaded rows' ref set holds every ref their pages walked (`GraphPageSnapshot.isRefSetComplete`).
+    private var isRefSetComplete = true
     private var refs = RefParser.Listing(branches: [], tags: [], isPartial: false, skippedRecords: 0)
     private var worktrees: [Worktree] = []
     private var layoutState = GraphLayoutState.initial
@@ -108,13 +110,18 @@ final class GraphStore {
     /// A ref set that misses refs (`GraphPageSnapshot.isRefSetComplete`) cannot show a move, so every refresh starts
     /// over (#333): comparing the first page would miss deeper moves. The selection stays when its commit is reloaded;
     /// the scroll position does not.
-    func refresh(focus: WorktreeListing.Entry?) {
+    ///
+    /// - Parameter refsMayHaveMoved: The refresh read the refs or the worktree list (`Trigger.mayMoveGraphRefs`).
+    ///   When it did not (a file save, #275), a skipped ref cannot have moved unseen, so an incomplete ref set keeps
+    ///   its rows instead of starting over (#434).
+    func refresh(focus: WorktreeListing.Entry?, refsMayHaveMoved: Bool = true) {
         self.focus = focus
         decorate()
         guard status == .loaded else {
             if repository != nil { restart() }
             return
         }
+        if !refsMayHaveMoved && !isRefSetComplete { return }
         task?.cancel()
         generation += 1
         isLoadingMore = false
@@ -159,6 +166,7 @@ final class GraphStore {
         indexByOID = [:]
         layoutState = .initial
         refSet = nil
+        isRefSetComplete = true
         isComplete = false
         isLoadingMore = false
         isChecking = false
@@ -240,6 +248,7 @@ final class GraphStore {
     }
 
     private func append(_ page: GraphPageSnapshot) {
+        isRefSetComplete = page.isRefSetComplete
         let laid = GraphEngine.layout(page.commits, continuing: layoutState)
         for (offset, commit) in page.commits.enumerated() { indexByOID[commit.oid] = commits.count + offset }
         commits += page.commits

@@ -92,7 +92,7 @@ extension AppState {
             hasVerifiedListing = true
             supersededRetries = 0
             needsFullLoad = false
-            apply(listing, isVerified: true)
+            apply(listing, isVerified: true, trigger: finished)
             // Loads that brought the whole sidebar (ADR-0018 §3), not a single worktree or a file event.
             switch finished {
             case .user?, .automatic?, .fetchCompleted?:
@@ -125,17 +125,18 @@ extension AppState {
     }
 
     /// First load reads the graph; later loads keep it unless the history moved (GraphStore.refresh).
-    private func updateGraph(_ listing: WorktreeListing) {
+    private func updateGraph(_ listing: WorktreeListing, refsMayHaveMoved: Bool) {
         let focus = listing.entries.first { $0.worktree.path == focusedWorktreePath }
         if graph.status == .idle, let repository {
             graph.load(repository.repository, focus: focus)
         } else {
-            graph.refresh(focus: focus)
+            graph.refresh(focus: focus, refsMayHaveMoved: refsMayHaveMoved)
         }
     }
 
     /// - Parameter isVerified: The listing came from this load's inspection, not from the cache painted before it.
-    private func apply(_ listing: WorktreeListing, isVerified: Bool) {
+    /// - Parameter trigger: The load that brought `listing`; `nil` for a cached paint or a preview.
+    private func apply(_ listing: WorktreeListing, isVerified: Bool, trigger: RepositoryService.Trigger? = nil) {
         worktreeList = .loaded(listing)
         // Watch only what this load verified (#226), never a cached paint (#119).
         if isVerified, let repository {
@@ -168,7 +169,7 @@ extension AppState {
         // gh's login state is read alongside, for the status bar (#83); a repository without a GitHub remote runs no gh.
         if isVerified, issuePanel.show(listing.githubRepository) { checkGitHub() }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
-        updateGraph(listing)
+        updateGraph(listing, refsMayHaveMoved: trigger?.mayMoveGraphRefs ?? true)
         // Keep the picked file only while it is still listed in the same group.
         // Same rule as `selectFile`: the row must still exist and still be selectable.
         if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true {

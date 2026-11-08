@@ -6,8 +6,9 @@ import Foundation
 ///
 /// The match is by namespace. A ref the parser skips (`RefParser.Listing.skippedRecords`, e.g. a non-UTF-8 name) or
 /// one past a truncated ref or worktree listing is still walked but not in the key, so the key cannot see it move.
-/// Such a set is therefore never used to cache pages, and `GraphStore` treats every refresh with it as a move and
-/// starts over from the first page (`isComplete`, #333). That costs the scroll position in those rare repositories.
+/// Such a set is therefore never used to cache pages, and `GraphStore` treats every refresh that may have read the refs
+/// again as a move and starts over from the first page (`isComplete`, #333). That costs the scroll position in those
+/// rare repositories; a file save that reads no refs keeps it (#434).
 ///
 /// The exact sorted list is the identity, not a hash of it, so two different ref sets can never share cached pages.
 struct GraphRefSet: Sendable, Hashable {
@@ -63,7 +64,8 @@ struct GraphPageSnapshot: Sendable, Equatable {
     let refs: RefParser.Listing
     let worktrees: [Worktree]
     /// `refSet` holds every ref the page walked (`GraphRefSet.isComplete`). When it does not, an unchanged `refSet`
-    /// does not mean an unchanged history, and `GraphStore` starts over on every refresh (#333).
+    /// does not mean an unchanged history, and `GraphStore` starts over on every refresh that may have read the refs
+    /// (#333, #434).
     var isRefSetComplete = true
 }
 
