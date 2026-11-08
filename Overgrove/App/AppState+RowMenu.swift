@@ -25,9 +25,8 @@ extension AppState {
             showStash: { [weak self] in self?.selectStash($0) },
             openInBrowser: { [weak self] in self?.openInBrowser($0) },
             gitHubCommitURL: { [weak self] oid in self?.gitHub.flatMap { GitHubLinks.commit($0.repository, oid) } },
-            gitHubBranchURL: { [weak self] ref in
-                self?.gitHub.flatMap { GitHubLinks.branch($0.repository, remoteRef: ref, remote: $0.remote) }
-            },
+            // The target already names the tracked remote's repository (#406); no single GitHub remote is assumed.
+            gitHubBranchURL: { GitHubLinks.tree($0) },
             gitHubFileURL: { [weak self] oid, path in
                 self?.gitHub.flatMap { GitHubLinks.file($0.repository, commit: oid, path: path) }
             },
@@ -35,12 +34,11 @@ extension AppState {
             showHistory: { [weak self] in self?.showHistory(of: $1, in: $0) })
     }
 
-    /// The github.com repository and its remote, from the loaded worktree list (#398).
+    /// The GitHub repository and its remote on a trusted host, from the loaded worktree list (#398, ADR-0025).
     var gitHub: (repository: GitHubRepository, remote: String)? {
-        guard case .loaded(let listing) = worktreeList, let repository = listing.githubRepository,
-            let remote = listing.githubRemoteName
+        guard case .loaded(let listing) = worktreeList, let match = listing.githubMatch(trusting: trustedGitHubHosts)
         else { return nil }
-        return (repository, remote)
+        return (match.repository, match.name)
     }
 
     /// Copies `text` as it is shown (`RowActions.clipboardText`).

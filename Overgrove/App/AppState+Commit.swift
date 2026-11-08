@@ -24,7 +24,7 @@ extension AppState {
         guard let oid = selectedCommitOID, let commit = commitDetail.commit, commit.oid == oid else { return nil }
         return CommitDetailModel(
             commit: commit, detail: commitDetail.detail, pills: graph.pills[oid] ?? [],
-            showsAllFiles: commitDetail.showsAllFiles, issueRepository: issuePanel.repository?.slug)
+            showsAllFiles: commitDetail.showsAllFiles, issueRepository: issuePanel.repository?.ownerAndName)
     }
 
     /// The commit's lane color index, for its pills in S-03.

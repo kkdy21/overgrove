@@ -18,7 +18,7 @@
 gh auth login                                  # GitHub 로그인
 gh repo fork kkdy21/overgrove --clone --remote # origin=내 fork, upstream=kkdy21/overgrove
 cd overgrove
-./scripts/bootstrap.sh                         # Git hooks 설치, 도구 점검
+./scripts/bootstrap.sh                         # 도구 점검, Git hooks 설치(core.hooksPath 설정을 먼저 알림). 빌드만 하면 --build
 claude                                         # Claude Code 실행 → "백로그 확인해서 진행해줘"
 ```
 

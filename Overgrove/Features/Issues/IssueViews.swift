@@ -182,7 +182,9 @@ struct IssueDetailView: View {
                     if let url = model.browserURL { NSWorkspace.shared.open(url) }
                 }
                 .disabled(model.browserURL == nil)
-                .help(model.browserURL == nil ? "This link is not a github.com issue page." : model.urlText)
+                .help(
+                    model.browserURL == nil
+                        ? "This link is not an issue page on this repository's host." : model.urlText)
                 Button("Copy URL") {
                     // Copying to the clipboard is not a repository write (ADR-0011).
                     NSPasteboard.general.clearContents()
@@ -381,7 +383,8 @@ private struct FlowLayout: Layout {
     }
 }
 
-/// An issue row's menu (interaction.md §5): Open in Browser opens only a github.com issue page over https.
+/// An issue row's menu (interaction.md §5): Open in Browser opens only an issue page on the
+/// repository's host over https.
 private struct IssueRowMenu: View {
     let row: IssueRow
 
