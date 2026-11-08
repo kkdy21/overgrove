@@ -32,12 +32,16 @@ enum QuickLook {
         UTType("public.xhtml"), UTType("org.ietf.mhtml"), UTType("com.microsoft.internet-shortcut"),
     ].compactMap { $0 }
 
-    /// Whether `url`'s extension, or the type it maps to, is one Overgrove does not preview.
+    /// Whether `url`'s extension, or any type that extension maps to, is one Overgrove does not preview. Every type
+    /// declaring the extension is checked, not only the preferred one, since installed apps can change which one
+    /// Launch Services prefers.
     static func isWebContent(_ url: URL) -> Bool {
         let pathExtension = url.pathExtension.lowercased()
         guard !pathExtension.isEmpty else { return false }
         return webContentExtensions.contains(pathExtension)
-            || isWebContent(type: UTType(filenameExtension: pathExtension))
+            || UTType.types(tag: pathExtension, tagClass: .filenameExtension, conformingTo: nil).contains {
+                isWebContent(type: $0)
+            }
     }
 
     static func isWebContent(type: UTType?) -> Bool {
@@ -61,7 +65,12 @@ enum QuickLook {
             case .inside = PathValidator.containment(of: real, in: worktree)
         else { return .failure(.outsideRepository) }
         // Both the name in the repository and the real file's: either decides the preview extension's type.
-        guard !isWebContent(real), !isWebContent(worktree.appendingPathComponent(relative)) else {
+        // Both the name in the repository and the real file's, and the type the system reports for the file, decide
+        // which preview extension draws it.
+        let reported = (try? real.resourceValues(forKeys: [.contentTypeKey]))?.contentType
+        guard !isWebContent(real), !isWebContent(worktree.appendingPathComponent(relative)),
+            !isWebContent(type: reported)
+        else {
             return .failure(.webContent)
         }
         guard Int64(info.st_size) <= maximumSize else { return .failure(.tooLarge) }

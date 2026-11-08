@@ -101,6 +101,10 @@ final class QuickLookTests: XCTestCase {
     func testSECT14_468_1_ConformanceDecidesForUnlistedExtensions() {
         XCTAssertTrue(QuickLook.refusedTypes.contains { UTType("public.xhtml")!.conforms(to: $0) })
         XCTAssertTrue(QuickLook.isWebContent(type: UTType(filenameExtension: "xht")))
+        // An extension no list names, declared as HTML: refused by conformance alone.
+        let declared = UTType(tag: "zzhtml", tagClass: .filenameExtension, conformingTo: .html)
+        XCTAssertTrue(QuickLook.isWebContent(type: declared))
+        XCTAssertFalse(QuickLook.webContentExtensions.contains("zzhtml"))
         XCTAssertFalse(QuickLook.isWebContent(type: UTType(filenameExtension: "png")))
         XCTAssertFalse(QuickLook.isWebContent(type: nil))
     }
