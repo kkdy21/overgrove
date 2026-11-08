@@ -61,7 +61,7 @@ scripts/make-bench-repo.sh --commits 3000 --files 500 --worktrees 4 <dir>  # 스
 | PERF-06 | status 새로고침 (파일 1만 개) | PB-5 | signpost `refresh-status` | Phase 3 |
 | PERF-07 | 10만 커밋 적재 시 최대 메모리 | PB-6 | `XCTMemoryMetric` | Phase 3 |
 | PERF-08 | git 계층 기준선 (B01–B18) | 전체 하한 | `measure-git-baseline.sh` | 지금, git 버전 변경 시 |
-| PERF-09 | Diff 뷰어 파싱·행·첫 프레임 (500줄, 1만 줄, 약 10MB) | PB-9 | XCTest, 합성 patch | Phase 3 |
+| PERF-09 | Diff 뷰어 파싱·행(단어 강조·공백 표시 포함, #387)·첫 프레임 (500줄, 1만 줄, 1만 줄 단어 다름, 약 10MB) | PB-9 | XCTest, 합성 patch | Phase 3 |
 | PERF-10 | 자동 새로고침 중 파일 쓰기 폭주 (파일 6,000개를 8초 동안, #119) | PB-10 | XCTest, 실제 FSEvents + 표준 픽스처, git 호출 기록 | Phase 3 |
 | PERF-11 | 파일 이력(S-09) 첫 100개 (`--follow`) | PB-7 | XCTest, bench 저장소 (#98) | Phase 4 |
 | PERF-12 | 커밋·stash 상세(S-03, S-04) 파일 목록 | PB-8 | XCTest, bench 저장소 (#98) | Phase 4 |

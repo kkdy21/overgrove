@@ -94,7 +94,7 @@ final class DiffViewerIntegrationTests: XCTestCase {
         let context = try await context()
         let doc = try document(await load(context, .untracked, "untracked.txt"), "untracked.txt")
         let rows = doc.unifiedRows()
-        XCTAssertTrue(rows.contains { if case .line(.added, nil, 1, _) = $0 { true } else { false } }, "\(rows)")
+        XCTAssertTrue(rows.contains { if case .line(.added, nil, 1, _, _) = $0 { true } else { false } }, "\(rows)")
     }
 
     func testModeOnlyAndTypeChanges() async throws {
