@@ -182,17 +182,25 @@ struct ComparisonModel: Equatable {
     {
         var parts: [String] = []
         if let counts = comparison.counts {
-            parts.append("\(counts.ahead) \(counts.ahead == 1 ? "commit" : "commits") ahead · \(counts.behind) behind")
+            let ahead = counts.ahead
+            parts.append(
+                (ahead == 1 ? String(localized: "\(ahead) commit ahead") : String(localized: "\(ahead) commits ahead"))
+                    + " · " + String(localized: "\(counts.behind) behind"))
         } else {
             let count = comparison.commits.count
+            let shown = "\(count)\(comparison.isCommitListPartial ? "+" : "")"
             parts.append(
-                "\(count)\(comparison.isCommitListPartial ? "+" : "") \(count == 1 ? "commit" : "commits") ahead")
+                count == 1 ? String(localized: "\(shown) commit ahead") : String(localized: "\(shown) commits ahead"))
         }
         if comparison.includesWorkingTree {
-            parts.append("uncommitted: \(uncommittedFiles) \(uncommittedFiles == 1 ? "file" : "files")")
+            parts.append(
+                uncommittedFiles == 1
+                    ? String(localized: "uncommitted: \(uncommittedFiles) file")
+                    : String(localized: "uncommitted: \(uncommittedFiles) files"))
         }
         let files = comparison.files.count
-        parts.append("\(WipDetailModel.formatted(files)) \(files == 1 ? "file" : "files")")
+        let fileCount = WipDetailModel.formatted(files)
+        parts.append(files == 1 ? String(localized: "\(fileCount) file") : String(localized: "\(fileCount) files"))
         parts.append(totalLineChange)
         return parts.joined(separator: " · ")
     }

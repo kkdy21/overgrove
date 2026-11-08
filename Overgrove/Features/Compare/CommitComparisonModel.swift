@@ -83,7 +83,7 @@ struct CommitComparisonModel: Equatable {
         case .loading:
             commits = []
             hasMoreCommits = false
-            commitsNotice = "Reading commits…"
+            commitsNotice = String(localized: "Reading commits…")
         case .failed(let message):
             commits = []
             hasMoreCommits = false
@@ -99,7 +99,8 @@ struct CommitComparisonModel: Equatable {
             hasMoreCommits = page.isPartial
             // The target may be behind the base (picked in either order); ⇄ shows the other direction.
             commitsNotice =
-                page.commits.isEmpty ? "\(target.shortSHA) has no commits that \(base.shortSHA) does not have" : nil
+                page.commits.isEmpty
+                ? String(localized: "\(target.shortSHA) has no commits that \(base.shortSHA) does not have") : nil
         }
         switch session.files {
         case .loading:
@@ -125,7 +126,9 @@ struct CommitComparisonModel: Equatable {
             let deleted = list.files.compactMap(\.deleted).reduce(0, +)
             totalLineChange = "+\(added) −\(deleted)"
             let count = WipDetailModel.formatted(list.files.count)
-            summary = "\(count) \(list.files.count == 1 ? "file" : "files") · \(totalLineChange)"
+            let files =
+                list.files.count == 1 ? String(localized: "\(count) file") : String(localized: "\(count) files")
+            summary = files + " · " + totalLineChange
             isPartial = list.isPartial
             state =
                 list.files.isEmpty

@@ -10,15 +10,26 @@ final class LocalizationTests: XCTestCase {
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     private static let catalog = repo.appendingPathComponent("Overgrove/Resources/Localizable.xcstrings")
 
-    /// Stage 1 screens (#120): every string the compiler extracts from these files must have Korean. Screens other
-    /// PRs are changing (sidebar, status bar, issue panel, S-05) come in stage 2 and are not listed yet.
-    private static let stageOneSources = [
+    /// Translated screens: every string the compiler extracts from these files must have Korean. Stage 1 (#120) and
+    /// the screens of #454 so far; the status bar's gh field, the issue panel, and the PR pill and card come later.
+    private static let translatedSources = [
+        // #120
         "SettingsView", "GitExecutableSettingsView", "GitExecutableSettingsModel", "SetupAssistantView",
         "GraphHeaderViews", "GraphColumnLayout", "GraphAuthorFilter", "DiffViewerView", "NavigationCommands",
         "SearchCommands", "GraphZoomCommands", "OvergroveApp",
+        // #454: S-03, S-04, S-09, S-11, S-12, the sidebar's worktree, branch, tag, and stash sections, row menus
+        "CommitDetailView", "CommitDetailModel", "StashViews", "StashModels", "FileHistoryView", "FileHistoryModel",
+        "CommitComparisonView", "CommitComparisonModel", "ComparisonView", "ComparisonModel", "BranchListModel",
+        "BranchListSection", "TagListModel", "TagListSection", "WorktreeListModel", "WorktreeListSection", "RowMenu",
+        "GraphRowModel", "AppState+Comparison",
     ]
-    /// Files with stage 1 strings among others: only these keys are checked.
-    private static let stageOneKeysIn = ["PanelChrome": Set(["Graph", "History"])]
+    /// Files with translated strings among others: only these keys are checked.
+    private static let translatedKeysIn = [
+        "PanelChrome": Set(["Graph", "History"]),
+        "StatusBar": Set(["just now", "%lld min ago", "%lld h ago", "%lld d ago"]),
+        "WipDetailModel": Set(["Conflicted", "Staged", "Unstaged", "Untracked"]),
+        "GHStatusGuidanceView": Set(["Copy", "Copy command %@"]),
+    ]
 
     private static let placeholder = try! NSRegularExpression(pattern: "%(?:[0-9]+\\$)?(@|lld|ld|d)")
 
@@ -55,23 +66,23 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    /// The strings the compiler extracted from the stage 1 sources (the build's `.stringsdata`) all have Korean.
-    func testStageOneStringsAreTranslated() throws {
+    /// The strings the compiler extracted from the translated sources (the build's `.stringsdata`) all have Korean.
+    func testTranslatedSourcesHaveKorean() throws {
         let strings = try catalogStrings()
         let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
         var checked = 0
-        for name in Self.stageOneSources + Array(Self.stageOneKeysIn.keys) {
+        for name in Self.translatedSources + Array(Self.translatedKeysIn.keys) {
             let files = objects.map { $0.appendingPathComponent("\(name).stringsdata") }
                 .filter { FileManager.default.fileExists(atPath: $0.path) }
             XCTAssertFalse(files.isEmpty, "no strings extracted from \(name).swift")
             for file in files {
-                for key in try Self.extractedKeys(file) where Self.stageOneKeysIn[name]?.contains(key) ?? true {
+                for key in try Self.extractedKeys(file) where Self.translatedKeysIn[name]?.contains(key) ?? true {
                     checked += 1
                     XCTAssertNotNil(strings[key].flatMap(korean), "\(name).swift: no Korean for “\(key)”")
                 }
             }
         }
-        XCTAssertGreaterThan(checked, 100)
+        XCTAssertGreaterThan(checked, 250)
     }
 
     /// The Korean table is in the app bundle and translates; the tests themselves run in English.

@@ -62,6 +62,13 @@
 | Use Default | 기본값 사용 |
 | Setup Assistant | 설정 도우미 |
 | Show / Copy / Reveal in Finder / Open in Terminal | 보기 / 복사 / Finder에서 보기 / 터미널에서 열기 |
+| Base / Target (비교) | 기준 / 대상 |
+| Compare with Base | 기준과 비교 |
+| ahead / behind (VoiceOver) | 앞섬 / 뒤처짐 |
+| Committed / Uncommitted | 커밋됨 / 미커밋 |
+| Annotated tag / Lightweight tag | 주석 태그 / 경량 태그 |
+| Co-author / Committer / Parent | 공동 작성자 / 커미터 / 부모 |
+| path missing | 경로 없음 |
 
 ## Git 출력·호출
 

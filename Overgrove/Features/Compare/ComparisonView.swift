@@ -148,8 +148,10 @@ struct ComparisonListView: View {
                         .accessibilityHidden(true)
                     Text("Uncommitted changes").font(Tokens.Font.callout)
                     Spacer()
-                    Text(count == 1 ? "\(count) file" : "\(count) files" as LocalizedStringKey).font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.textSecondary)
+                    Text(count == 1 ? "\(count) file" : "\(count) files" as LocalizedStringKey).font(
+                        Tokens.Font.caption
+                    )
+                    .foregroundStyle(Tokens.Color.textSecondary)
                 }
             }
             // TODO(#69): picking a commit opens its detail (S-03).

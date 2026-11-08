@@ -137,9 +137,9 @@ struct CommitComparisonListView: View {
     private var commits: some View {
         DetailCard {
             sectionTitle(
-                "COMMITS"
-                    + (model.commitsNotice == nil
-                        ? " (\(WipDetailModel.formatted(model.commits.count))\(model.hasMoreCommits ? "+" : ""))" : ""))
+                model.commitsNotice == nil
+                    ? "COMMITS (\(WipDetailModel.formatted(model.commits.count))\(model.hasMoreCommits ? "+" : ""))"
+                    : "COMMITS")
             if let notice = model.commitsNotice {
                 Text(notice).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
