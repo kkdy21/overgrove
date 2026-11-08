@@ -16,11 +16,28 @@ extension AppState {
         return ComparisonModel(session: comparison, workingState: state, isListStale: isComparisonStale)
     }
 
-    /// The worktree list failed to load while S-11 is open (#374): it stays shown, dimmed, and runs nothing new until
-    /// a load succeeds (interaction.md §4.1). `‹ Graph` still closes it.
+    /// The worktree list is not loaded while S-11 is open (#374): S-11 opens only on a loaded list, so this means a
+    /// load failed, or a retry after a failure is still running (the list shows `.loading` then). It stays shown,
+    /// dimmed, and runs nothing new until a load succeeds (interaction.md §4.1). `‹ Graph` still closes it.
     var isComparisonStale: Bool {
-        guard comparison != nil, case .failed = worktreeList else { return false }
+        guard comparison != nil else { return false }
+        if case .loaded = worktreeList { return false }
         return true
+    }
+
+    /// The worktree list failed to load (#374): a comparison or patch still running was asked on the old basis, so it
+    /// is dropped rather than shown as new under the stale notice. S-11 itself stays open.
+    func comparisonListFailed() {
+        guard comparison != nil else { return }
+        comparisonTask?.cancel()
+        comparisonPatchTask?.cancel()
+        comparisonTask = nil
+        comparisonPatchTask = nil
+        comparisonGeneration += 1
+        if comparison?.patch == .loading {
+            comparison?.patch = nil
+            comparison?.selectedFile = nil
+        }
     }
 
     /// Whether `path` (default: the focused worktree) can be compared: its status loaded (#157 needs it).

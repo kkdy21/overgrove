@@ -266,10 +266,12 @@ final class AppStateComparisonStaleTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
     }
 
-    private func comparedState(_ loader: StubComparisonLoader, answers: [WorktreeListing?]) async -> AppState {
+    private func comparedState(
+        _ loader: StubComparisonLoader, answers: [WorktreeListing?], diff: StubDiffLoader = StubDiffLoader()
+    ) async -> AppState {
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: FailingRepositoryLoader(answers), inspector: RecordingInspector(), diffLoader: StubDiffLoader(),
+            loader: FailingRepositoryLoader(answers), inspector: RecordingInspector(), diffLoader: diff,
             comparisonLoader: loader)
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
@@ -287,7 +289,8 @@ final class AppStateComparisonStaleTests: XCTestCase {
 
     func testFailedListLoadKeepsTheComparisonStale() async {
         let loader = StubComparisonLoader()
-        let state = await comparedState(loader, answers: [.mockup, nil, .mockup])
+        let diff = StubDiffLoader()
+        let state = await comparedState(loader, answers: [.mockup, nil, nil, .mockup], diff: diff)
         XCTAssertNil(state.comparisonModel?.staleNotice)
         let before = state.comparisonModel
 
@@ -296,16 +299,30 @@ final class AppStateComparisonStaleTests: XCTestCase {
         guard case .failed = state.worktreeList else { return XCTFail("the list load should fail") }
         XCTAssertEqual(state.comparison?.worktree, feature, "S-11 stays open")
         XCTAssertEqual(state.comparisonModel?.staleNotice, ComparisonModel.listFailedNotice)
-        XCTAssertEqual(state.comparisonModel?.files, before?.files, "the last result stays shown")
+        XCTAssertEqual(state.comparisonModel?.files, before?.files, "the last result stays shown, WIP pills too")
 
         let requests = loader.compareRequests.count
+        let base = state.comparison?.base
         state.setIncludeUncommitted(false)
         state.chooseComparisonBase(FullRefName("refs/remotes/origin/develop")!)
         state.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
+        state.selectComparisonFile(ComparisonFile(path: GitPath("new0.swift"), isUntracked: true))
         await state.comparisonTask?.value
         XCTAssertEqual(loader.compareRequests.count, requests, "no new comparison on a stale basis")
         XCTAssertEqual(loader.patchRequests, [])
+        XCTAssertEqual(diff.requests.count, 0, "no untracked preview either")
         XCTAssertEqual(state.comparison?.includeUncommitted, true)
+        XCTAssertEqual(state.comparison?.base, base, "the base stays")
+
+        // A retry after the failure shows `.loading` until it ends: still stale, still nothing runs.
+        state.reload()
+        guard case .loading = state.worktreeList else { return XCTFail("a retry shows the list as loading") }
+        XCTAssertEqual(state.comparisonModel?.staleNotice, ComparisonModel.listFailedNotice)
+        XCTAssertEqual(state.comparisonModel?.files, before?.files)
+        state.setIncludeUncommitted(false)
+        XCTAssertEqual(loader.compareRequests.count, requests)
+        await state.loadTask?.value
+        XCTAssertNotNil(state.comparisonModel?.staleNotice, "the retry failed too")
 
         state.reload()
         await state.loadTask?.value
@@ -313,6 +330,20 @@ final class AppStateComparisonStaleTests: XCTestCase {
         state.setIncludeUncommitted(false)
         await state.comparisonTask?.value
         XCTAssertEqual(loader.compareRequests.count, requests + 1)
+    }
+
+    /// A patch asked before the list failed is dropped, not shown as new under the stale notice.
+    func testListFailureDropsAPatchInFlight() async {
+        let state = await comparedState(StubComparisonLoader(), answers: [.mockup])
+        state.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
+        XCTAssertEqual(state.comparison?.patch, .loading)
+        state.comparisonListFailed()
+        XCTAssertNil(state.comparisonPatchTask)
+        XCTAssertNil(state.comparison?.patch)
+        XCTAssertNil(state.comparison?.selectedFile)
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertNil(state.comparison?.patch, "the dropped patch never lands")
+        XCTAssertNotNil(state.comparison, "S-11 stays open")
     }
 
     func testStaleComparisonStillCloses() async {

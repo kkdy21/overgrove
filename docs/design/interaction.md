@@ -183,7 +183,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 - **화면을 막지 않는다.** 새로고침 중에도 이전 데이터를 그대로 보여 주고 상태바에 `Refreshing…`과 작은 스피너만 둔다. 워크트리 하나의 status가 500ms를 넘기면 그 행에만 작은 스피너를 붙인다.
 - 결과가 오면 제자리에서 바꾼다. 정렬이 안정적이므로 행이 튀지 않는다. 배지 수가 바뀌면 `motion.duration-fast` 동안 옅게 페이드한다. Reduce Motion이면 애니메이션을 끈다.
 - 실패하면 이전 데이터를 `opacity.stale`로 흐리게 두고, 상태바에 `Refresh failed — Details`를 띄운다.
-  - 워크트리 목록 읽기가 실패했을 때 S-11 비교가 열려 있으면 닫지 않는다. 마지막 결과를 `opacity.stale`로 흐리게 두고, 머리글 아래에 `The worktree list could not be read, so this comparison may be out of date.`를 띄운다. 목록 읽기가 다시 성공할 때까지 기준 브랜치 선택, `Include uncommitted`, 파일 선택은 막고 git을 다시 실행하지 않는다. `‹ Graph`와 `⎋`로는 닫을 수 있다(#374).
+  - 워크트리 목록 읽기가 실패했을 때 S-11 비교가 열려 있으면 닫지 않는다. 마지막 결과를 `opacity.stale`로 흐리게 두고, 머리글 아래에 `The worktree list could not be read, so this comparison may be out of date.`를 띄운다. 실패한 뒤의 재시도가 도는 동안에도 같다. 목록 읽기가 다시 성공할 때까지 기준 브랜치 선택, `Include uncommitted`, 파일 선택은 막고 git을 다시 실행하지 않는다. 실패 전에 시작된 비교·patch는 버린다. `‹ Graph`와 `⎋`로는 닫을 수 있다(#374).
 
 ### 4.2 fetch (원격)
 

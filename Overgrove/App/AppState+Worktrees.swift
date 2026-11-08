@@ -117,6 +117,7 @@ extension AppState {
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
             branchListModel = nil
+            comparisonListFailed()
             snapshot = nil
             // The memory cache is dropped on failure (overview.md §5); so is the snapshot (ADR-0018 §3).
             deleteLaunchSnapshot()
