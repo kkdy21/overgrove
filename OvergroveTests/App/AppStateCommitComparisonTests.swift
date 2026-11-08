@@ -151,6 +151,7 @@ final class AppStateCommitComparisonTests: XCTestCase {
         XCTAssertNil(state.commitComparisonTask)
         for _ in 0..<10 { await Task.yield() }
         XCTAssertNil(state.commitComparison)
+    }
 
     /// COMMITS (#389): read with the files for the same pair, again after `⇄`; a row opens that commit's S-03.
     func testCommitsBetweenAreListed() async throws {
