@@ -1,6 +1,6 @@
 # ADR-0004: GitHub 연동은 gh CLI에 위임하고, 1차 범위는 이슈 조회만 한다
 
-> 상태: Accepted, §2(PR 상태는 later)는 [ADR-0023](0023-pull-request-status-from-gh-pr-list.md), §8(github.com만)은 [ADR-0024](0024-github-hosts-and-accounts.md)로 대체 · 날짜: 2026-11-05 · 관련: HANDOFF §7, G8, N6, N7, [architecture/git-command-catalog.md](../architecture/git-command-catalog.md)
+> 상태: Accepted, §2(PR 상태는 later)는 [ADR-0023](0023-pull-request-status-from-gh-pr-list.md), §8(github.com만)은 [ADR-0025](0025-github-hosts-and-accounts.md)로 대체 · 날짜: 2026-11-05 · 관련: HANDOFF §7, G8, N6, N7, [architecture/git-command-catalog.md](../architecture/git-command-catalog.md)
 
 ## 맥락
 
