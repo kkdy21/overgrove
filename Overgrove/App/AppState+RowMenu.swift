@@ -23,9 +23,8 @@ extension AppState {
             showStash: { [weak self] in self?.selectStash($0) },
             openInBrowser: { [weak self] in self?.openInBrowser($0) },
             gitHubCommitURL: { [weak self] oid in self?.gitHub.flatMap { GitHubLinks.commit($0.repository, oid) } },
-            gitHubBranchURL: { [weak self] ref in
-                self?.gitHub.flatMap { GitHubLinks.branch($0.repository, remoteRef: ref, remote: $0.remote) }
-            },
+            // The target already names the tracked remote's repository (#406); no single GitHub remote is assumed.
+            gitHubBranchURL: { GitHubLinks.tree($0) },
             gitHubFileURL: { [weak self] oid, path in
                 self?.gitHub.flatMap { GitHubLinks.file($0.repository, commit: oid, path: path) }
             },

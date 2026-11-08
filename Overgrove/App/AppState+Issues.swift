@@ -9,7 +9,8 @@ extension AppState {
         return BranchListModel(
             refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
             remoteNames: listing.remoteNames,
-            detachedHeads: Set(listing.entries.filter(\.worktree.isDetached).compactMap(\.worktree.head)))
+            detachedHeads: Set(listing.entries.filter(\.worktree.isDetached).compactMap(\.worktree.head)),
+            githubRemotes: listing.githubRemotes)
     }
 
     // MARK: Issues (#81)

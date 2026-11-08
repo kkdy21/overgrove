@@ -29,7 +29,8 @@ struct RowMenuActions {
     /// Open on GitHub (#398): the page of a commit, a remote-tracking ref of the GitHub remote, or a file at a commit;
     /// `nil` without a github.com remote or for anything that cannot be named on GitHub.
     var gitHubCommitURL: @MainActor (ObjectID) -> URL? = { _ in nil }
-    var gitHubBranchURL: @MainActor (_ remoteRef: String) -> URL? = { _ in nil }
+    /// A branch row's page on GitHub, in the repository of the remote it tracks (#406).
+    var gitHubBranchURL: @MainActor (GitHubBranchTarget) -> URL? = { _ in nil }
     var gitHubFileURL: @MainActor (_ commit: ObjectID, _ path: GitPath) -> URL? = { _, _ in nil }
     var linkedBranchTip: @MainActor (Int) -> ObjectID? = { _ in nil }
     /// S-09 for `path` in `worktree` (the focused worktree when `nil`), #70.
