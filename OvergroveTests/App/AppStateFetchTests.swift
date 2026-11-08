@@ -59,6 +59,30 @@ final class AppStateFetchTests: XCTestCase {
         await state.loadTask?.value
     }
 
+    /// #423: marking the open repository untrusted from Settings (the registry directly) stops a running fetch at
+    /// once, as S-05 does, before any other main-actor work can start the next remote.
+    func testSettingsToggleStopsARunningFetchImmediately() async throws {
+        let root = try XCTUnwrap(PathValidator.canonical(FileManager.default.temporaryDirectory))
+            .appendingPathComponent("overgrove-untrusted-now-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let registry = RepositoryRegistry(defaults: defaults)
+        registry.add(RegisteredRepository(rootPath: root.path, commonDirectoryPath: root.path + "/.git"))
+        let entry = try XCTUnwrap(registry.repositories.first)
+        let fetcher = GatedFetcher()
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: TriggerRecordingLoader(),
+            fetcher: fetcher, fetchRecords: FetchRecordStore(defaults: defaults))
+        state.openRegistered(entry.id)
+        state.fetch.fetch()
+        await fetcher.waitForFetches(1)
+
+        registry.setUntrusted(true, for: entry.id)
+        XCTAssertEqual(state.fetch.task?.isCancelled, true, "no yield: stopped inside the toggle")
+        fetcher.release(0, with: .cancelled)
+        await state.fetch.task?.value
+    }
+
     /// #107: the open repository becoming untrusted stops a fetch that started while it was trusted, so no later
     /// remote is fetched as trusted, whether S-05 or Settings (the registry directly) changed it. Becoming trusted
     /// leaves a fetch running.

@@ -13,10 +13,12 @@ final class GatedFetcher: RepositoryFetching, @unchecked Sendable {
     /// The `untrusted` argument of each fetch, in order (#107).
     var untrusted: [Bool] { lock.withLock { untrustedFlags } }
 
-    func fetch(_ repository: Repository, untrusted: Bool, onStart: @escaping @Sendable ([String]) -> Void) async
-        -> FetchRun
-    {
-        await withCheckedContinuation { continuation in
+    func fetch(
+        _ repository: Repository, untrusted readUntrusted: @escaping @Sendable () async -> Bool,
+        onStart: @escaping @Sendable ([String]) -> Void
+    ) async -> FetchRun {
+        let untrusted = await readUntrusted()
+        return await withCheckedContinuation { continuation in
             lock.withLock {
                 untrustedFlags.append(untrusted)
                 waiting.append((repository, onStart, continuation))

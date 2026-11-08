@@ -77,6 +77,10 @@ final class RepositoryRegistry {
 
     private let defaults: UserDefaults
     private(set) var repositories: [RegisteredRepository]
+    /// Called inside `setUntrusted` when a repository becomes untrusted, before anything else runs on the main actor,
+    /// so a running fetch stops at once wherever the flag changed (S-05, Settings, another window, #423). A handler
+    /// that returns `false` is removed (its window is gone).
+    @ObservationIgnored private var untrustedHandlers: [@MainActor (RegisteredRepository.ID) -> Bool] = []
 
     /// The repository shown last, opened again at launch.
     var lastSelected: RegisteredRepository.ID? {
@@ -119,6 +123,12 @@ final class RepositoryRegistry {
         else { return }
         repositories[index].isUntrusted = isUntrusted
         save()
+        if isUntrusted { untrustedHandlers = untrustedHandlers.filter { $0(id) } }
+    }
+
+    /// Registers `handler` for repositories becoming untrusted (see `untrustedHandlers`).
+    func onBecameUntrusted(_ handler: @escaping @MainActor (RegisteredRepository.ID) -> Bool) {
+        untrustedHandlers.append(handler)
     }
 
     /// Forgets a repository. Its folder is not touched.

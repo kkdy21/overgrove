@@ -288,7 +288,7 @@ final class AppState {
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
         autoRefresh.request = { [weak self] change in self?.requestAutoRefresh(change) ?? false }
-        observeUntrustedFlag()
+        stopFetchWhenUntrusted()
     }
 
     /// The registered repositories, in the order they were added.

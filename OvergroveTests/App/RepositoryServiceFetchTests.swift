@@ -127,6 +127,26 @@ final class RepositoryServiceFetchTests: XCTestCase {
         XCTAssertEqual(run, .finished(failures: []))
     }
 
+    /// #423: the untrusted flag is read again before each remote, not only when the fetch starts. A repository marked
+    /// untrusted after the first remote has its next local remote turned off, even before the window stops the fetch.
+    func testUntrustedFlagIsReadBeforeEachRemote() async throws {
+        try await repository.git(["remote", "add", "origin", origin.path])
+        try await repository.git(["remote", "add", "second", origin.path])
+        try await repository.git(["push", "-q", "origin", "main"])
+        try await repository.git(["update-ref", "-d", "refs/remotes/origin/main"])
+        let reads = Counter()
+
+        let run = await service().fetch(model, untrusted: { reads.next() > 1 })
+        guard case .finished(let failures, _) = run else { return XCTFail("got \(run)") }
+        XCTAssertEqual(failures.map(\.remote?.value), ["second"], "only the remote after the change is turned off")
+        XCTAssertTrue(failures.first?.guidance.contains("untrusted") == true)
+        let first = try await hasRef("refs/remotes/origin/main")
+        XCTAssertTrue(first, "the first remote fetched while trusted")
+        let second = try await hasRef("refs/remotes/second/main")
+        XCTAssertFalse(second, "no git ran for the second remote")
+        XCTAssertEqual(reads.value, 2, "read once per remote")
+    }
+
     /// #107: an untrusted repository does not run git for a local remote at all; it is reported as turned off, with
     /// no command to copy. Remotes that are not local still fetch. A remote that only becomes local through
     /// configuration (`insteadOf`) is refused by the transport list and reported the same way.
@@ -199,5 +219,19 @@ final class RepositoryServiceFetchTests: XCTestCase {
         let run = await task.value
         // Cancelled during inspection or before the first remote; either way nothing is reported as a failure.
         if case .finished(let failures, _) = run { XCTAssertEqual(failures, []) }
+    }
+}
+
+/// Counts calls from any task.
+private final class Counter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var value: Int { lock.withLock { count } }
+    /// The call number, starting at 1.
+    func next() -> Int {
+        lock.withLock {
+            count += 1
+            return count
+        }
     }
 }

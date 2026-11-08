@@ -255,35 +255,21 @@ extension AppState {
     }
 
     /// The S-05 toggle: marks the open repository untrusted, or trusted again (#107). A fetch already running stops
-    /// when the repository becomes untrusted (`observeUntrustedFlag`).
+    /// when the repository becomes untrusted (`stopFetchWhenUntrusted`).
     func setRepositoryUntrusted(_ isUntrusted: Bool) {
         guard let repository else { return }
         registry.setUntrusted(isUntrusted, for: repository.repository.id)
-        // At once, so no later remote starts before the observer below runs.
-        if isUntrusted && fetch.status.isFetching { fetch.stop() }
     }
 
-    /// A fetch reads the untrusted flag when it starts. When the open repository becomes untrusted while one runs,
-    /// from S-05, Settings, or another window, it stops, so no later remote is fetched as trusted (security review of
-    /// #107). Only that change stops it: a fetch that started untrusted keeps running when, say, another repository is
-    /// added. Re-registers after every change, as `withObservationTracking` reports one change at a time.
-    func observeUntrustedFlag() {
-        observeUntrustedFlag(wasUntrusted: isRepositoryUntrusted, repositoryID: repository?.repository.id)
-    }
-
-    private func observeUntrustedFlag(wasUntrusted: Bool, repositoryID: String?) {
-        withObservationTracking {
-            _ = isRepositoryUntrusted
-        } onChange: { [weak self] in
-            // Called before the change is stored: read the new value on the next turn.
-            Task { @MainActor in
-                guard let self else { return }
-                let id = self.repository?.repository.id
-                let isUntrusted = self.isRepositoryUntrusted
-                // Another repository opened: its fetch starts afresh (`FetchController.open` stops the old one).
-                if id == repositoryID, !wasUntrusted, isUntrusted, self.fetch.status.isFetching { self.fetch.stop() }
-                self.observeUntrustedFlag(wasUntrusted: isUntrusted, repositoryID: id)
-            }
+    /// When the open repository becomes untrusted while a fetch runs, from S-05, Settings, or another window, the fetch
+    /// stops inside the toggle, so no later remote is fetched as trusted (security review of #107, #423). The fetch
+    /// also reads the flag again before each remote. Only that change stops it: a fetch that started untrusted keeps
+    /// running when, say, another repository is added.
+    func stopFetchWhenUntrusted() {
+        registry.onBecameUntrusted { [weak self] id in
+            guard let self else { return false }
+            if self.repository?.repository.id == id, self.fetch.status.isFetching { self.fetch.stop() }
+            return true
         }
     }
 
