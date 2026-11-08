@@ -105,6 +105,9 @@ final class GraphStore {
 
     /// The repository was refreshed: keep what is shown when the first page still has the same ref set, start over
     /// when it moved. Pages are cached by ref set, so an unchanged history reads nothing new.
+    /// A ref set that misses refs (`GraphPageSnapshot.isRefSetComplete`) cannot show a move, so every refresh starts
+    /// over (#333): comparing the first page would miss deeper moves. The selection stays when its commit is reloaded;
+    /// the scroll position does not.
     func refresh(focus: WorktreeListing.Entry?) {
         self.focus = focus
         decorate()
@@ -216,7 +219,8 @@ final class GraphStore {
         // A later page failing keeps what is shown; scrolling to the end tries again.
         case .success(let page):
             if isChecking {
-                guard page.refSet != refSet else {  // nothing moved: keep rows, selection, and scroll
+                // Nothing moved: keep rows, selection, and scroll. An incomplete ref set cannot tell (#333).
+                guard !page.isRefSetComplete || page.refSet != refSet else {
                     finishCheck(keepingRows: true)
                     return
                 }
