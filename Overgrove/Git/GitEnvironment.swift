@@ -61,8 +61,9 @@ struct GitEnvironment: Sendable, Equatable {
     /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
     static let allowedProtocols = "https:ssh:git:file:http"
 
-    /// The list for an untrusted repository (#107, ADR-0009): no `file`, so a local path or `file://` remote, whose
-    /// `git-upload-pack` would run here with the other repository's unchecked settings, is refused before it starts.
+    /// The list for an untrusted repository (#107, ADR-0009) and for git older than `lazyFetchControlVersion` (#361):
+    /// no `file`, so a local path or `file://` remote, whose `git-upload-pack` would run here with the other
+    /// repository's unchecked settings, is refused before it starts.
     static let allowedRemoteProtocols = "https:ssh:git:http"
 
     /// The first git on the newest line whose `GIT_NO_LAZY_FETCH` also stops a lazy fetch during fetch (#212, #317).

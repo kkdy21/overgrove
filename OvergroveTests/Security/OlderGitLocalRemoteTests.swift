@@ -7,8 +7,8 @@ import XCTest
 /// `file://`): that runs git in the other repository with the other repository's own settings, which the app's
 /// arguments do not reach (#361, security-review.md T5).
 ///
-/// The canary: the other repository is a partial clone missing blobs, and its own `remote.origin.uploadpack` records
-/// that it ran. Serving the fetch makes the other side lazy-fetch the missing blobs through that setting on older git.
+/// The canary: the other repository is set up so that serving the fetch runs one of its own settings on older git, and
+/// that setting records that it ran.
 final class OlderGitLocalRemoteTests: XCTestCase {
     private let older = GitVersion(major: 2, minor: 45, patch: 0)
     private var origin: RemoteName { RemoteName("origin")! }
