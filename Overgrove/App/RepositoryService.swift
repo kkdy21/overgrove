@@ -86,6 +86,8 @@ actor RepositoryService {
     var graphPages = BoundedCache<GraphPageKey, LogParser.GraphPage>(capacity: RepositoryService.cachedGraphPages)
     /// Streamed histories for repositories without a commit-graph file (#254), newest last; one per repository.
     var graphStreams: [(repositoryID: String, refSet: GraphRefSet, stream: GraphStream)] = []
+    /// Refs newer than the cached overview's, seen by the graph's check (#373), by repository.
+    var graphLiveRefs: [String: GraphLiveRefs] = [:]
 
     /// - Parameters:
     ///   - sleep: Waits out the debounce; tests pass a gate instead of real time.

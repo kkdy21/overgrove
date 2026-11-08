@@ -117,8 +117,17 @@ final class GraphPageServiceTests: XCTestCase {
         XCTAssertNotEqual(next.refSet, first.refSet, "not joined under the old ref set")
         XCTAssertEqual(next.commits.map(\.subject), ["c4", "c3", "c2"], "the new history's commits 3..<6")
         let again = try await page(service, skip: 0, limit: 3)
-        XCTAssertEqual(again.refSet, next.refSet, "the overview now has the new refs")
+        XCTAssertEqual(again.refSet, next.refSet, "the graph now walks the new refs")
         XCTAssertEqual(again.commits.map(\.subject), ["c7", "c6", "c5"])
+
+        // The overview catches up on its own refresh; the graph's stand-in refs go, and the cached page still fits.
+        let caughtUp = await service.refresh(model, trigger: .fetchCompleted)
+        let overview = try XCTUnwrap(caughtUp).result.get()
+        XCTAssertEqual(GraphRefSet(refs: overview.refs, worktrees: overview.entries.map(\.worktree)), next.refSet)
+        let reads = logCalls()
+        let settled = try await page(service, skip: 0, limit: 3)
+        XCTAssertEqual(settled, again)
+        XCTAssertEqual(logCalls(), reads, "the page checked under the new refs was cached")
     }
 
     func testPagesLineUpWithOneRead() async throws {
