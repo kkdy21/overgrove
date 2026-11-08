@@ -141,7 +141,7 @@ extension AppState {
         if isVerified, let repository {
             autoRefresh.update(FileChangeClassifier(listing: listing, repository: repository.repository))
         }
-        branchListModel = Self.branchModel(listing)
+        branchListModel = Self.branchModel(listing, isVerified: isVerified)
         issueLinks = IssueLinkIndex(listing: listing)
         // Like the gh repository below, PR links use only remotes this load inspected (ADR-0023 §4).
         if isVerified {

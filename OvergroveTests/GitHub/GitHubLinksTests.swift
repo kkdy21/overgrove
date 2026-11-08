@@ -20,6 +20,9 @@ final class GitHubLinksTests: XCTestCase {
             "https://github.com/acme/api.v2/tree/feat/42-rate-limit")
         XCTAssertNil(GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "HEAD")))
         XCTAssertNil(GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "")))
+        // A target not built by `GitHubBranchTarget` is checked again.
+        XCTAssertNil(GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "a..b")))
+        XCTAssertNil(GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "-x")))
         // Which remote and branch a row names (other remotes, `HEAD`, invalid refs, prefixes of remote names) is
         // decided by `GitHubBranchTarget` (#406, GitHubBranchTargetTests).
     }
@@ -63,10 +66,17 @@ final class GitHubLinksTests: XCTestCase {
             "\u{202E}abc": "/acme/api.v2/tree/%E2%80%AEabc",
         ]
         for (branch, expected) in cases {
-            let target = try XCTUnwrap(
+            let remote = try XCTUnwrap(
                 GitHubBranchTarget.forRemoteRef("refs/remotes/origin/\(branch)", remotes: ["origin": repository]),
                 branch)
-            let built = try XCTUnwrap(GitHubLinks.tree(target), branch)
+            // The local path (`branch.<n>.merge`) gives the same target (#406 security review).
+            let local = Branch(
+                fullName: "refs/heads/local", kind: .local, target: oid,
+                upstreamStatus: .tracking(upstream: "refs/remotes/origin/x", ahead: 0, behind: 0), isHead: false,
+                committerDate: nil, symbolicTarget: nil, upstreamRemote: "origin",
+                upstreamRemoteRef: "refs/heads/\(branch)")
+            XCTAssertEqual(GitHubBranchTarget.forLocal(local, remotes: ["origin": repository]), remote, branch)
+            let built = try XCTUnwrap(GitHubLinks.tree(remote), branch)
             XCTAssertEqual(built.scheme, "https", branch)
             XCTAssertEqual(built.host, "github.com", branch)
             XCTAssertNil(built.query, branch)

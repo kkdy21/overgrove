@@ -4,13 +4,15 @@ import Foundation
 extension AppState {
     // MARK: Branches (#72)
 
-    static func branchModel(_ listing: WorktreeListing) -> BranchListModel? {
+    /// - Parameter isVerified: Open on GitHub links use only remotes this load inspected, like the PR links (#406);
+    ///   a cached paint has none.
+    static func branchModel(_ listing: WorktreeListing, isVerified: Bool = true) -> BranchListModel? {
         guard let refs = listing.refs else { return nil }
         return BranchListModel(
             refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
             remoteNames: listing.remoteNames,
             detachedHeads: Set(listing.entries.filter(\.worktree.isDetached).compactMap(\.worktree.head)),
-            githubRemotes: listing.githubRemotes)
+            githubRemotes: isVerified ? listing.githubRemotes : [:])
     }
 
     // MARK: Issues (#81)

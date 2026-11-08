@@ -4,7 +4,8 @@ import Foundation
 /// branch tracks, not only the one the issue panel uses. In a fork flow (`origin` is my fork, `upstream` the
 /// original), a local branch tracking `origin/feat` opens `https://github.com/<me>/<repo>/tree/feat`.
 ///
-/// Only remotes the verified listing inspected and `GitHubRemote` accepted (github.com, valid `OWNER/NAME`) count.
+/// Only remotes a verified listing inspected (a cached paint passes none) and `GitHubRemote` accepted (github.com, valid
+/// `OWNER/NAME`) count.
 /// The remote name never comes from splitting a ref on `/`, because remote names may contain `/`:
 /// - a local branch uses `branch.<name>.remote` and `branch.<name>.merge` (`Branch.upstreamRemote`,
 ///   `upstreamRemoteRef`, ADR-0023 §4); the branch on GitHub is the merge ref without `refs/heads/`;

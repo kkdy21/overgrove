@@ -98,5 +98,18 @@ final class AppStateGitHubLinkTests: XCTestCase {
         XCTAssertNil(url("refs/heads/lab"), "a remote that is not on github.com")
         XCTAssertEqual(url("refs/remotes/origin/feat/x"), "https://github.com/me/api/tree/feat/x")
         XCTAssertEqual(url("refs/remotes/upstream/main"), "https://github.com/acme/api/tree/main")
+
+        // A cached paint (not this load's inspection) gives no links.
+        let cached = try XCTUnwrap(
+            AppState.branchModel(
+                {
+                    var listing = WorktreeListing(entries: [], isPartial: false)
+                    listing.githubRemotes = ["origin": fork]
+                    listing.refs = RefParser.Listing(
+                        branches: [branch("refs/remotes/origin/feat/x", kind: .remote(remote: "origin"))], tags: [],
+                        isPartial: false, skippedRecords: 0)
+                    return listing
+                }(), isVerified: false))
+        XCTAssertTrue(rows(cached.remote).allSatisfy { $0.gitHubTarget == nil })
     }
 }

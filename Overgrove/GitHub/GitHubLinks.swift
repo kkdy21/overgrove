@@ -14,7 +14,9 @@ enum GitHubLinks {
     /// branch tracks, resolved and validated by `GitHubBranchTarget`. `nil` for an empty name or `HEAD`; each
     /// `/`-separated part is encoded on its own.
     static func tree(_ target: GitHubBranchTarget) -> URL? {
-        guard !target.branch.isEmpty, target.branch != "HEAD" else { return nil }
+        // `GitHubBranchTarget` already validated the ref; checked again here as defense in depth.
+        guard !target.branch.isEmpty, target.branch != "HEAD", FullRefName("refs/heads/" + target.branch) != nil
+        else { return nil }
         return url(
             target.repository,
             ["tree"] + target.branch.split(separator: "/", omittingEmptySubsequences: false).map(String.init))
