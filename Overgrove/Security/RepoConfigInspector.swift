@@ -371,6 +371,9 @@ enum RepoConfigInspector {
             return ("T5", .neutralized)
         case "fetch" where variable == "prunetags" || variable == "bundleuri":
             return ("T13", .neutralized)
+        // Clone only today (#195); fetch turns it off anyway.
+        case "transfer" where variable == "bundleuri":
+            return ("T13", .neutralized)
         case "gpg" where variable == "program":
             return ("T7", .reported)
         case "log" where variable == "showsignature":
