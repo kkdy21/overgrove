@@ -1,6 +1,6 @@
 # 정보 구조 (Information Architecture)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), 태그 섹션·선택 이력 설계 추가 (#123, v0.2.0) · 관련: [screens.md](screens.md), [interaction.md](interaction.md), [../architecture/overview.md](../architecture/overview.md), ADR-0010, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 태그 섹션·선택 이력 설계 추가 (#123, v0.2.0), S-12 두 커밋 비교 추가 (#122, v0.2.0) · 관련: [screens.md](screens.md), [interaction.md](interaction.md), [../architecture/overview.md](../architecture/overview.md), ADR-0010, ADR-0011
 
 이 문서는 Overgrove가 보여 주는 **객체**, 객체 사이의 **관계**, 사용자가 객체 사이를 **이동하는 길**을 정한다. 화면별 배치는 [screens.md](screens.md), 조작 방식은 [interaction.md](interaction.md)에 있다.
 
@@ -102,6 +102,7 @@ flowchart LR
         CM[커밋 행]
         DV[S-10 Diff 뷰어]
         FH[S-09 파일 이력]
+        CC[S-12 두 커밋 비교]
     end
     subgraph Detail[상세 패널]
         S02[S-02 WIP 상세]
@@ -127,6 +128,8 @@ flowchart LR
     S03 -- "파일: Show History" --> FH
     S02 -- "파일: Show History" --> FH
     FH -- "커밋 선택" --> S03
+    CM -. "메뉴: Compare with Selected Commit" .-> CC
+    CC -- "파일 선택" --> DV
 ```
 
 | 사용자가 고른 것 | 포커스 워크트리 | 중앙 영역 | 상세 패널 |
@@ -140,7 +143,8 @@ flowchart LR
 | 사이드바 이슈 | 유지 | 그래프. 연결된 브랜치가 있으면 그 팁을 강조만 하고 선택은 하지 않음 | S-06 |
 | 상세 패널의 파일 | 유지 | **S-10 Diff 뷰어로 전환** | 그대로 (파일 목록 유지, ↑↓로 다음 파일) |
 | 파일 컨텍스트 메뉴 "Show History" | 유지 | **S-09 파일 이력으로 전환** | 이력에서 고른 커밋의 S-03 |
-| `⎋` (S-09, S-10에서) | 유지 | 그래프로 복귀, 이전 선택 복원 | 이전 상세 |
+| 그래프 커밋 행 메뉴 "Compare with Selected Commit" (v0.2.0, #122) | 유지 | **S-12 두 커밋 비교로 전환**(주 선택 커밋이 기준, 메뉴를 연 행이 대상) | 두 커밋과 파일 목록. 파일을 고르면 중앙에 패치 |
+| `⎋` (S-09, S-10, S-11, S-12에서) | 유지 | 그래프로 복귀, 이전 선택 복원 | 이전 상세 |
 | `⌘[` / `⌘]` (선택 이력) | **그 항목을 골랐을 때의 포커스로 복원** | S-09·S-10이 덮여 있으면 그래프로 복귀. 그 항목이 그래프에 있으면 스크롤하고 선택 | 그 항목의 상세 |
 
 ### 3.2 stash와 그래프
