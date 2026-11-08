@@ -131,6 +131,17 @@ check "force quoted -f"                     2 "$B" 'git push "-f" origin feat/1-
 check "-C quoted path with space, main"     2 "$B" 'git -C "/a b" push origin main'
 check "-c quoted value with space, mirror"  2 "$B" "git -c 'user.name=a b' push --mirror"
 check "bare push on main, redirect"         2 "$M" 'git push origin 2>/dev/null'
+# Re-review of #342: `cd` targets end at `;`, `cd` also follows `(` and a newline, a failing `cd` moves nowhere.
+check "cd main; bare push"                  2 "$B" "cd $M; git push"
+check "cd main;bare push"                   2 "$B" "cd $M;git push"
+check "cd main&&bare push"                  2 "$B" "cd $M&&git push"
+check "braces: cd main; bare push"          2 "$B" "{ cd $M; git push; }"
+check "branch push, cd main, bare push"     2 "$B" "git push origin feat/1-x; cd $M; git push"
+check "subshell: cd main && bare push"      2 "$B" "(cd $M && git push)"
+check "newline: cd main, bare push"         2 "$B" $'echo hi\ncd '"$M"$'\ngit push'
+check "cd missing dir; bare push on main"   2 "$M" 'cd no-such-dir-342; git push'
+check "cd main without cwd"                 2 "" "cd $M && git push"
+check "comment after bare push on main"     2 "$M" 'git push origin #feat'
 # Not pushes, or pushes of a branch: allowed.
 check "-C main checkout log, then push HEAD" 0 "$B" "git -C $M log -1; git push origin HEAD"
 check "cd main in subshell, push on branch" 0 "$B" "(cd $M && git status); git push -u origin HEAD"

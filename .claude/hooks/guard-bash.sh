@@ -57,7 +57,9 @@ if scan_has "$pushre"; then
     [[ "$d" != /* ]] && d="$2/$d"
     printf '%s' "$d"
   }
-  cdre="(^|[;&|{][[:space:]]*)cd[[:space:]]+(--[[:space:]]+)?$arg"
+  # A `cd` starts a command (line start, newline, `;`, `&`, `|`, `{`, `(`); its unquoted target stops at `;&|)`.
+  nl=$'\n'
+  cdre="(^|[;&|{($nl][[:space:]]*)cd[[:space:]]+(--[[:space:]]+)?(\"[^\"]*\"|$q[^$q]*$q|[^[:space:];&|)]+)"
   cre="-C[[:space:]]+$arg"
   rest=$scan
   before=""
@@ -69,8 +71,13 @@ if scan_has "$pushre"; then
     while [[ $top =~ \([^\(\)]*\) ]]; do top=${top/"${BASH_REMATCH[0]}"/}; done
     dir=$cwd
     while [[ $top =~ $cdre ]]; do
-      [[ "${BASH_REMATCH[3]}" != "-" && -n "$dir" ]] && dir=$(resolve "${BASH_REMATCH[3]}" "$dir")
+      target=${BASH_REMATCH[3]}
       top=${top#*"${BASH_REMATCH[0]}"}
+      [[ "$target" == "-" ]] && continue
+      [[ -z "$dir" && "$target" != [/~\"$q]* ]] && continue
+      # A `cd` that would fail leaves the shell where it was, and a following `;` push runs there.
+      next=$(resolve "$target" "$dir")
+      [[ -d "$next" ]] && dir=$next
     done
     t=$m
     while [[ $t =~ $cre ]]; do
@@ -90,6 +97,7 @@ if scan_has "$pushre"; then
     for w in ${words[@]+"${words[@]}"}; do
       if ((skip)); then skip=0; continue; fi
       case "$w" in
+        '#'*) break ;; # a comment: the rest is not part of the push
         -o | --push-option | --repo | --receive-pack | --exec) skip=1 ;;
         [0-9]'>' | [0-9]'>>' | '>' | '>>' | '<' | '&>') skip=1 ;;
         -* | [0-9]'>'* | '>'* | '<'* | '&>'*) ;;
