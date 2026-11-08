@@ -25,6 +25,8 @@ final class LocalizationTests: XCTestCase {
         // #454: S-02, submodules, search, the toolbar, the repository switcher, fetch details, Settings › Apps
         "WipDetailModel", "WipDetailView", "SubmoduleSectionModel", "SubmoduleSectionView", "GraphSearch",
         "RepositorySwitcher", "FetchFailureDetailsView", "MainToolbar", "ExternalAppsSettingsView", "GraphView",
+        // #454: the Terminal confirmation and repository registration messages
+        "TerminalGuard", "AppState+Registration", "RepositoryRegistrar",
     ]
     /// Files with translated strings among others: only these keys are checked.
     private static let translatedKeysIn = [

@@ -7,7 +7,7 @@ import Foundation
 /// editor, and `!` aliases. A worktree whose settings were checked and hold no finding at all opens directly; anything
 /// else (not checked, blocked, any finding whatever its threat or handling, or a hook) is confirmed (#278).
 enum TerminalGuard {
-    static let untrustedReason = "This repository is marked untrusted."
+    static var untrustedReason: String { String(localized: "This repository is marked untrusted.") }
 
     /// Key names listed in the confirmation at most; the rest are counted.
     static let maximumListedKeys = 8
@@ -21,7 +21,7 @@ enum TerminalGuard {
     static func reasons(inspection: RepoConfigInspection?, hooks: [String], isUntrusted: Bool = false) -> [String] {
         let untrusted = isUntrusted ? [untrustedReason] : []
         guard let report = inspection?.report else {
-            return untrusted + ["The repository’s settings could not be checked."] + hooks
+            return untrusted + [String(localized: "The repository’s settings could not be checked.")] + hooks
         }
         var reasons = untrusted
         if let blocked = report.blockingReason {
@@ -34,7 +34,7 @@ enum TerminalGuard {
             .filter { seen.insert($0).inserted }
         reasons += keys.prefix(maximumListedKeys)
         let more = keys.count - min(keys.count, maximumListedKeys) + report.omittedFindings
-        if more > 0 { reasons.append("+\(more) more settings") }
+        if more > 0 { reasons.append(String(localized: "+\(more) more settings")) }
         return reasons + hooks
     }
 }
@@ -47,19 +47,23 @@ struct TerminalConfirmation: Identifiable, Equatable {
     /// The app the folder opens in (#124): a terminal, or an editor, which runs workspace settings and tasks too.
     var role: ExternalAppRole = .terminal
     var bundleIdentifier = ExternalApps.defaultTerminal
-    var appName = "Terminal"
+    var appName = String(localized: "Terminal", comment: "App role")
 
-    var title: String { "Open in \(appName)?" }
+    var title: String { String(localized: "Open in \(appName)?") }
 
     var message: String {
         let lead =
             switch role {
             case .terminal:
-                "Shell prompt tools, and git commands you type, use this repository’s own settings in this folder, "
-                    + "which can run commands:"
+                String(
+                    localized:
+                        "Shell prompt tools, and git commands you type, use this repository’s own settings in this folder, which can run commands:"
+                )
             case .editor:
-                "Editors and their extensions can run this repository’s own settings and tasks in this folder, and "
-                    + "git commands they run use its settings, which can run commands:"
+                String(
+                    localized:
+                        "Editors and their extensions can run this repository’s own settings and tasks in this folder, and git commands they run use its settings, which can run commands:"
+                )
             }
         return lead + "\n\n" + reasons.joined(separator: "\n")
     }

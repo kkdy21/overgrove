@@ -477,6 +477,16 @@
         }
       }
     },
+    "+%lld more settings" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 %lld개 더"
+          }
+        }
+      }
+    },
     "A bare repository has no working tree." : {
       "localizations" : {
         "ko" : {
@@ -884,6 +894,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Git 저장소나 그 워크트리 하나를 고르세요."
+          }
+        }
+      }
+    },
+    "Choose a folder, not a file." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일이 아니라 폴더를 고르세요."
           }
         }
       }
@@ -1438,6 +1458,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "편집기"
+          }
+        }
+      }
+    },
+    "Editors and their extensions can run this repository’s own settings and tasks in this folder, and git commands they run use its settings, which can run commands:" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 폴더에서는 편집기와 그 확장이 저장소의 자체 설정과 작업을 실행할 수 있고, 그들이 실행하는 git 명령도 그 설정을 씁니다. 이 설정은 명령을 실행할 수 있습니다:"
           }
         }
       }
@@ -2416,6 +2446,16 @@
         }
       }
     },
+    "Open in %@?" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 열까요?"
+          }
+        }
+      }
+    },
     "Open in Editor" : {
       "localizations" : {
         "ko" : {
@@ -2462,6 +2502,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove"
+          }
+        }
+      }
+    },
+    "Overgrove added the repository at %@." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove가 %@에 있는 저장소를 추가했습니다."
           }
         }
       }
@@ -2758,6 +2808,16 @@
         }
       }
     },
+    "Repository Not Found" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소를 찾을 수 없음"
+          }
+        }
+      }
+    },
     "Reset Column Widths" : {
       "localizations" : {
         "ko" : {
@@ -2886,6 +2946,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "설정 도우미…"
+          }
+        }
+      }
+    },
+    "Shell prompt tools, and git commands you type, use this repository’s own settings in this folder, which can run commands:" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 폴더에서는 셸 프롬프트 도구와 직접 입력하는 git 명령이 이 저장소의 자체 설정을 씁니다. 이 설정은 명령을 실행할 수 있습니다:"
           }
         }
       }
@@ -3232,6 +3302,46 @@
         }
       }
     },
+    "The folder could not be found." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "폴더를 찾을 수 없습니다."
+          }
+        }
+      }
+    },
+    "The folder of “%@” is missing or was replaced (%@). Restore it, or remove the repository from Overgrove." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%1$@”의 폴더가 없거나 바뀌었습니다(%2$@). 폴더를 되돌리거나 Overgrove에서 저장소를 제거하세요."
+          }
+        }
+      }
+    },
+    "The folder you chose is a symbolic link." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "고른 폴더는 심볼릭 링크입니다."
+          }
+        }
+      }
+    },
+    "The folder's path contains control characters (such as a line break), so Overgrove will not add it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "폴더 경로에 제어 문자(줄바꿈 등)가 있어 Overgrove가 추가하지 않습니다."
+          }
+        }
+      }
+    },
     "The git chosen in Settings cannot be used" : {
       "localizations" : {
         "ko" : {
@@ -3292,6 +3402,16 @@
         }
       }
     },
+    "The repository’s settings could not be checked." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 설정을 확인하지 못했습니다."
+          }
+        }
+      }
+    },
     "The submodule has no checkout here (git submodule update was not run)." : {
       "localizations" : {
         "ko" : {
@@ -3332,6 +3452,26 @@
         }
       }
     },
+    "This folder is a Git directory (such as .git) or a folder inside one, not a repository folder. Choose the repository or one of its worktrees; a bare repository (such as repo.git) can be chosen directly." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 폴더는 저장소 폴더가 아니라 Git 디렉터리(.git 등)이거나 그 안의 폴더입니다. 저장소나 그 워크트리를 고르세요. 베어 저장소(repo.git 등)는 직접 고를 수 있습니다."
+          }
+        }
+      }
+    },
+    "This repository is marked untrusted." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소는 신뢰하지 않음으로 표시되어 있습니다."
+          }
+        }
+      }
+    },
     "This repository lists more than %lld worktrees. Overgrove loads the changes of the first %lld." : {
       "localizations" : {
         "ko" : {
@@ -3348,6 +3488,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이 저장소에는 워크트리가 %1$lld개보다 많습니다. Overgrove는 처음 %2$lld개의 상태만 불러옵니다."
+          }
+        }
+      }
+    },
+    "This repository's Git settings point outside the folder you chose (for example core.worktree, or a .git file that points into another repository), so Overgrove will not add it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소의 Git 설정이 고른 폴더 밖을 가리키므로(예: core.worktree, 다른 저장소를 가리키는 .git 파일) Overgrove가 추가하지 않습니다."
           }
         }
       }
