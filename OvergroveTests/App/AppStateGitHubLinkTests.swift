@@ -58,6 +58,31 @@ final class AppStateGitHubLinkTests: XCTestCase {
         XCTAssertNil(without.rowMenuActions.gitHubCommitURL(oid))
     }
 
+    /// SEC-T14-470-1: commit and file links come only from remotes this load inspected for this repository, like
+    /// branch links (#406): with the listing still on screen but no verified source (a cached paint), or a source of
+    /// another repository, there is no link.
+    func testSECT14_470_1_CommitAndFileLinksNeedThisLoadsVerifiedRemotes() async throws {
+        let oid = ObjectID(String(repeating: "c", count: 40))!
+        let state = await state(github: GitHubRepository(owner: "acme", name: "api"), remote: "origin")
+        XCTAssertNotNil(state.rowMenuActions.gitHubCommitURL(oid))
+        let verified = try XCTUnwrap(state.verifiedGitHubSource)
+
+        state.verifiedGitHubSource = nil
+        guard case .loaded = state.worktreeList else { return XCTFail("the listing stays on screen") }
+        XCTAssertNil(state.rowMenuActions.gitHubCommitURL(oid))
+        XCTAssertNil(state.rowMenuActions.gitHubFileURL(oid, GitPath("src/a.swift")))
+
+        let other = Repository(
+            rootURL: URL(fileURLWithPath: "/tmp/dev/other"),
+            commonGitDirectoryURL: URL(fileURLWithPath: "/tmp/dev/other/.git"), isBare: false)
+        state.verifiedGitHubSource = VerifiedGitHubSource(
+            repository: other, remotes: verified.remotes, branches: verified.branches)
+        XCTAssertNil(state.rowMenuActions.gitHubCommitURL(oid), "another repository's remotes")
+
+        state.verifiedGitHubSource = verified
+        XCTAssertNotNil(state.rowMenuActions.gitHubCommitURL(oid))
+    }
+
     private func rows(_ nodes: [BranchNode]) -> [BranchRow] {
         nodes.flatMap { node -> [BranchRow] in
             switch node {

@@ -34,9 +34,14 @@ extension AppState {
             showHistory: { [weak self] in self?.showHistory(of: $1, in: $0) })
     }
 
-    /// The GitHub repository and its remote on a trusted host, from the loaded worktree list (#398, ADR-0025).
+    /// The GitHub repository and its remote on a trusted host, for commit and file Open on GitHub (#398, ADR-0025).
+    /// Only remotes this load inspected for this repository count, as for branch links (#406, #470): a cached paint's
+    /// remotes give no link.
     var gitHub: (repository: GitHubRepository, remote: String)? {
-        guard case .loaded(let listing) = worktreeList, let match = listing.githubMatch(trusting: trustedGitHubHosts)
+        guard case .loaded = worktreeList, let source = verifiedGitHubSource,
+            source.repository == repository?.repository,
+            let match = GitHubRemote.match(
+                remotes: source.remotes.map { (name: $0.name, url: $0.url) }, trusting: trustedGitHubHosts)
         else { return nil }
         return (match.repository, match.name)
     }
