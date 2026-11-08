@@ -40,4 +40,28 @@ final class SetupAssistantRenderTests: XCTestCase {
             }
         }
     }
+
+    /// #383: a supported but older git is ready, with the note on what it does not fetch.
+    func testOlderGitShowsTheNote() async throws {
+        let setup = SetupAssistantState(
+            gitChecker: StubGitSetupChecker(
+                .ready(version: GitVersion(major: 2, minor: 39, patch: 3), path: "/usr/bin/git")),
+            ghChecker: StubGHAuthChecker(.notLoggedIn))
+        setup.checkGit()
+        await setup.gitTask?.value
+        let view = SetupAssistantView(
+            setup: setup, repositoryPath: "~/dev/api", isAddingRepository: false, onChooseFolder: {})
+        let host = NSHostingView(rootView: view.frame(width: Self.size.width, height: Self.size.height))
+        host.appearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        host.frame = NSRect(origin: .zero, size: Self.size)
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        XCTAssertGreaterThan(bitmap.pixelsWide, 0)
+        if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+            let png = bitmap.representation(using: .png, properties: [:])
+        {
+            try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("setup-assistant-older-git.png"))
+        }
+    }
 }

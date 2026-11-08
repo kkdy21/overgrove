@@ -213,10 +213,11 @@ stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575ab
 | PAR-LOG-10 | 파일 이력(§5.3): numstat, rename(이전·새 경로), 바이너리, 커밋마다의 경로 |
 | PAR-LOG-11 | 파일 이력의 잘린 출력과 잘못된 numstat |
 | PAR-LOG-12 | 파일 이력에서 제목 안의 여분 NUL → 실패(재동기화하지 않음) |
+| PAR-LOG-13 | 스트리밍 그래프(`GraphStreamParser`, #254): 어떤 크기로 잘라 넣어도 전체 출력의 `parseGraph`와 같음, 레코드의 마지막 NUL이 오는 즉시 그 커밋을 냄, 레코드 안에서 끝나면 잘림이 아닐 때 실패, 잘못된 레코드는 전체 스트림 기준 오프셋으로 실패 |
 
 ---
 
-## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)`
+## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)`
 
 **형식.** 레코드는 LF로 끝나고, 필드 8개는 NUL로 나눈다. refname에는 제어 문자가 들어갈 수 없으므로(`check-ref-format` 규칙) LF 구분이 안전하다. 예시는 Apple Git 2.54.0, `LC_ALL=C` 출력이다.
 
@@ -234,7 +235,7 @@ refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀
 | `%(*objectname)` | 주석 태그가 가리키는 커밋 OID. 경량 태그·브랜치는 빈 값 (확인) |
 | `%(upstream)` | 전체 ref 이름 또는 빈 값 |
 | `%(HEAD)` | `*`(메인 워크트리가 체크아웃한 브랜치) 또는 공백 |
-| `%(committerdate:unix)` | epoch 초. 태그는 비어 있을 수 있음 |
+| `%(creatordate:unix)` | epoch 초. 커밋(브랜치, 가벼운 태그)은 committer 날짜, 주석 태그는 tagger 날짜다. `committerdate`는 주석 태그에서 비어 있어 TAGS 정렬에 쓸 수 없었다(#377). 그래도 비어 있을 수 있다(tagger 없는 태그 객체) |
 | `%(symref)` | `refs/remotes/origin/HEAD` 같은 심볼릭 ref의 대상 |
 | `%(upstream:track,nobracket)` | 빈 값, `ahead N`, `behind M`, `ahead N, behind M`, `gone` 다섯 가지(#54, Apple Git 2.54.0 확인). 빈 값은 `%(upstream)`이 있으면 "같음", 없으면 "upstream 없음"이다. upstream 없이 값이 있으면 형식 위반이다 |
 

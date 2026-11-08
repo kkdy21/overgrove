@@ -24,6 +24,9 @@ struct ProcessLimits: Sendable, Equatable {
     static let fetch = ProcessLimits(timeout: .seconds(120), stdoutLimit: 1 << 20, stderrLimit: 256 << 10)
     /// `gh` commands.
     static let gh = ProcessLimits(timeout: .seconds(15), stdoutLimit: 5 << 20, stderrLimit: 64 << 10)
+    /// The streamed graph (#254): one process for up to 100,000 commits. Delivered bytes count against the stdout
+    /// limit (about 20–30 MB for the bench repository's history); nothing is collected.
+    static let stream = ProcessLimits(timeout: .seconds(120), stdoutLimit: 64 << 20, stderrLimit: 64 << 10)
 }
 
 /// What to run. The executable must be an absolute path. The environment is complete: nothing is inherited.
@@ -82,18 +85,24 @@ struct ProcessRunner: Sendable {
     /// (`stdoutTruncated`/`stderrTruncated`/`timedOut`). Task cancellation terminates the process, waits until it
     /// is reaped, and throws `CancellationError`.
     ///
-    /// - Parameter stderrObserver: Receives stderr as it arrives, in order, never beyond `stderrLimit` (fetch
-    ///   progress, #76). It runs on the process's private queue, so it must return quickly. The bytes are raw:
-    ///   mask them before showing or logging any text.
+    /// - Parameters:
+    ///   - stderrObserver: Receives stderr as it arrives, in order, never beyond `stderrLimit` (fetch progress, #76).
+    ///     It runs on the process's private queue, so it must return quickly. The bytes are raw: mask them before
+    ///     showing or logging any text.
+    ///   - stdoutObserver: Receives stdout as it arrives, in order, instead of collecting it: `ProcessResult.stdout`
+    ///     stays empty (the streamed graph, #254). `stdoutLimit` caps the bytes delivered in total, exactly as it caps
+    ///   collected output: past it the observer gets nothing more, `stdoutTruncated` is set, and the process is
+    ///     terminated. Same queue and speed rules as `stderrObserver`.
     func run(
         _ request: ProcessRequest,
-        stderrObserver: (@Sendable (Data) -> Void)? = nil
+        stderrObserver: (@Sendable (Data) -> Void)? = nil,
+        stdoutObserver: (@Sendable (Data) -> Void)? = nil
     ) async throws -> ProcessResult {
         try Self.validate(request)
         try Task.checkCancellation()
         let child = try ChildProcess.spawn(request)
         onLaunch?(child.pid)
-        child.start(stderrObserver: stderrObserver)
+        child.start(stderrObserver: stderrObserver, stdoutObserver: stdoutObserver)
         return try await withTaskCancellationHandler {
             try await child.result()
         } onCancel: {
@@ -156,6 +165,9 @@ private final class ChildProcess: @unchecked Sendable {
     private var finished = false
     private var continuation: CheckedContinuation<ProcessResult, Error>?
     private var stderrObserver: (@Sendable (Data) -> Void)?
+    private var stdoutObserver: (@Sendable (Data) -> Void)?
+    /// Bytes handed to `stdoutObserver` so far; counted against `stdoutLimit` instead of the collected buffer.
+    private var stdoutDelivered = 0
     private var outcome: Result<ProcessResult, Error>?
 
     private init(pid: pid_t, stdoutFD: Int32, stderrFD: Int32, limits: ProcessLimits) {
@@ -228,9 +240,10 @@ private final class ChildProcess: @unchecked Sendable {
 
     // MARK: Entry points
 
-    func start(stderrObserver: (@Sendable (Data) -> Void)?) {
+    func start(stderrObserver: (@Sendable (Data) -> Void)?, stdoutObserver: (@Sendable (Data) -> Void)?) {
         queue.async { [self] in
             self.stderrObserver = stderrObserver
+            self.stdoutObserver = stdoutObserver
             stdoutSource = makeReader(fd: stdoutFD, isStdout: true)
             stderrSource = makeReader(fd: stderrFD, isStdout: false)
 
@@ -308,7 +321,9 @@ private final class ChildProcess: @unchecked Sendable {
             if count > 0 {
                 let chunk = Data(bytes: buffer, count: count)
                 let overflowed: Bool
-                if isStdout {
+                if isStdout, let stdoutObserver {
+                    overflowed = deliver(chunk, to: stdoutObserver, limit: limit)
+                } else if isStdout {
                     overflowed = Self.append(chunk, to: &stdout, limit: limit, truncated: &stdoutTruncated)
                 } else {
                     let kept = stderr.count
@@ -356,6 +371,19 @@ private final class ChildProcess: @unchecked Sendable {
             stderrSource = nil
             if abandoned { stderrTruncated = true }
         }
+    }
+
+    /// Hands up to `limit` bytes in total to the stdout observer. Returns true the first time data had to be dropped.
+    private func deliver(_ chunk: Data, to observer: @Sendable (Data) -> Void, limit: Int) -> Bool {
+        let room = max(0, limit - stdoutDelivered)
+        let kept = chunk.count <= room ? chunk : chunk.prefix(room)
+        if !kept.isEmpty {
+            stdoutDelivered += kept.count
+            observer(kept)
+        }
+        guard chunk.count > room else { return false }
+        defer { stdoutTruncated = true }
+        return !stdoutTruncated
     }
 
     /// Appends up to `limit` bytes in total. Returns true the first time data had to be dropped.
@@ -438,7 +466,8 @@ private final class ChildProcess: @unchecked Sendable {
             return
         }
         finished = true
-        stderrObserver = nil  // drop the caller's closure and whatever it captured
+        stderrObserver = nil  // drop the caller's closures and whatever they captured
+        stdoutObserver = nil
         for source in sources { source.cancel() }
         sources.removeAll()
         timeoutTimer = nil

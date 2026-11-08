@@ -41,7 +41,9 @@ final class GraphBenchmarkTests: XCTestCase {
         let wholeTime = try await PerfSamples.measure(runs: 1, warmUp: 0) {
             whole = try await page(skip: 0, limit: 100_000)
         }
-        report.record("whole history in one process (\(whole.commits.count))", value: PerfReport.format(wholeTime.p50))
+        report.record(
+            "whole history in one process (\(whole.commits.count)\(whole.isPartial ? ", cut at the 10 MB query cap" : ""))",
+            value: PerfReport.format(wholeTime.p50))
 
         for depth in [500, 10_000, 40_000, 80_000] where depth < whole.commits.count {
             let samples = try await PerfSamples.measure(runs: 5, warmUp: 0) {
@@ -54,7 +56,53 @@ final class GraphBenchmarkTests: XCTestCase {
         report.record(
             "layout per page (\(layout.samples.count) pages)", layout, budget: Self.frame,
             budgetLabel: "16.7 ms (one frame, PB-4)", usesMaximum: true)
+
+        try await recordAppPath(root: root, client: client, hasCommitGraph: hasCommitGraph, into: &report)
         report.finish()
+    }
+
+    /// The app's own path (#254): `RepositoryService.graphPage`, which reads `--skip` pages with a commit-graph file
+    /// and serves pages from one streamed `log` without one. The overview is loaded first and not timed.
+    private func recordAppPath(
+        root: URL, client: GitClient, hasCommitGraph: Bool, into report: inout PerfReport
+    ) async throws {
+        let repository = Repository(
+            rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false)
+        func loadedService() async -> RepositoryService {
+            let service = RepositoryService(client: client)
+            _ = await service.refresh(repository, trigger: .user)
+            return service
+        }
+        report.note(
+            "app path: " + (RepositoryService.hasCommitGraph(repository) ? "--skip pages" : "one streamed log (#254)"))
+
+        var services: [RepositoryService] = []
+        for _ in 0..<11 { services.append(await loadedService()) }
+        var run = 0
+        let first = try await PerfSamples.measure(runs: 11) {
+            _ = try await services[run].graphPage(repository, skip: 0, limit: Self.pageSize).get()
+            run += 1
+        }
+        report.record(
+            "app path: first page (\(Self.pageSize))", first,
+            budget: hasCommitGraph ? .milliseconds(500) : .seconds(1),
+            budgetLabel: hasCommitGraph ? "500 ms (PB-3)" : "1.0 s (PB-3b)")
+
+        // Scrolling to the end: what each next page costs once the previous one is shown (PB-4 waits at the end).
+        let service = await loadedService()
+        var waits: [Duration] = []
+        var skip = 0
+        let started = ContinuousClock.now
+        while true {
+            let pageStarted = ContinuousClock.now
+            let page = try await service.graphPage(repository, skip: skip, limit: Self.pageSize).get()
+            waits.append(ContinuousClock.now - pageStarted)
+            if page.commits.count < Self.pageSize { break }
+            skip += Self.pageSize
+        }
+        let total = ContinuousClock.now - started
+        report.record("app path: each page while scrolling (\(waits.count) pages)", PerfSamples(waits))
+        report.record("app path: whole history, page by page", value: PerfReport.format(total))
     }
 
     /// PERF-05.

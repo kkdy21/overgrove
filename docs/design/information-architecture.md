@@ -1,6 +1,6 @@
 # 정보 구조 (Information Architecture)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), 태그 섹션·선택 이력 설계 추가 (#123, v0.2.0) · 관련: [screens.md](screens.md), [interaction.md](interaction.md), [../architecture/overview.md](../architecture/overview.md), ADR-0010, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 태그 섹션·선택 이력 설계 추가 (#123, v0.2.0), S-12 두 커밋 비교 추가 (#122, v0.2.0) · 관련: [screens.md](screens.md), [interaction.md](interaction.md), [../architecture/overview.md](../architecture/overview.md), ADR-0010, ADR-0011
 
 이 문서는 Overgrove가 보여 주는 **객체**, 객체 사이의 **관계**, 사용자가 객체 사이를 **이동하는 길**을 정한다. 화면별 배치는 [screens.md](screens.md), 조작 방식은 [interaction.md](interaction.md)에 있다.
 
@@ -102,6 +102,7 @@ flowchart LR
         CM[커밋 행]
         DV[S-10 Diff 뷰어]
         FH[S-09 파일 이력]
+        CC[S-12 두 커밋 비교]
     end
     subgraph Detail[상세 패널]
         S02[S-02 WIP 상세]
@@ -127,6 +128,8 @@ flowchart LR
     S03 -- "파일: Show History" --> FH
     S02 -- "파일: Show History" --> FH
     FH -- "커밋 선택" --> S03
+    CM -. "메뉴: Compare with Selected Commit" .-> CC
+    CC -- "파일 선택" --> DV
 ```
 
 | 사용자가 고른 것 | 포커스 워크트리 | 중앙 영역 | 상세 패널 |
@@ -140,7 +143,8 @@ flowchart LR
 | 사이드바 이슈 | 유지 | 그래프. 연결된 브랜치가 있으면 그 팁을 강조만 하고 선택은 하지 않음 | S-06 |
 | 상세 패널의 파일 | 유지 | **S-10 Diff 뷰어로 전환** | 그대로 (파일 목록 유지, ↑↓로 다음 파일) |
 | 파일 컨텍스트 메뉴 "Show History" | 유지 | **S-09 파일 이력으로 전환** | 이력에서 고른 커밋의 S-03 |
-| `⎋` (S-09, S-10에서) | 유지 | 그래프로 복귀, 이전 선택 복원 | 이전 상세 |
+| 그래프 커밋 행 메뉴 "Compare with Selected Commit" (v0.2.0, #122) | 유지 | **S-12 두 커밋 비교로 전환**(주 선택 커밋이 기준, 메뉴를 연 행이 대상) | 두 커밋과 파일 목록. 파일을 고르면 중앙에 패치 |
+| `⎋` (S-09, S-10, S-11, S-12에서) | 유지 | 그래프로 복귀, 이전 선택 복원 | 이전 상세 |
 | `⌘[` / `⌘]` (선택 이력) | **그 항목을 골랐을 때의 포커스로 복원** | S-09·S-10이 덮여 있으면 그래프로 복귀. 그 항목이 그래프에 있으면 스크롤하고 선택 | 그 항목의 상세 |
 
 ### 3.2 stash와 그래프
@@ -218,12 +222,14 @@ flowchart LR
 
 ### 4.5 TAGS 섹션 (#123, v0.2.0)
 
+구현: #377 (`TagListModel`, `TagListSection`).
+
 v0.1은 태그를 그래프의 ref 알약으로만 보였다. 릴리스 태그로 "그 버전의 커밋"을 찾으려면 그래프를 스크롤해야 했다. TAGS 섹션은 태그 목록에서 바로 그 커밋으로 간다. 조회 전용이고 태그를 만들거나 지우거나 옮기는 동작은 없다(ADR-0011).
 
 | 항목 | 규칙 |
 |---|---|
 | 위치 | REMOTE와 STASHES 사이(§4.1). 처음에는 접힘 |
-| 데이터 | 이미 하는 refs 조회(`for-each-ref refs/tags`, [parsing-spec.md §6](../architecture/parsing-spec.md))를 쓴다. 새 git 명령이 없다. 다만 지금 형식의 `%(committerdate)`는 주석 태그(태그 객체)에서 비어 있으므로, 날짜 정렬을 하려면 구현 이슈에서 `%(creatordate:unix)`로 바꾸거나 더한다(git-command-catalog·파서·PAR 테스트를 함께 고침) |
+| 데이터 | 이미 하는 refs 조회(`for-each-ref refs/tags`, [parsing-spec.md §6](../architecture/parsing-spec.md))를 쓴다. 새 git 명령이 없다. 날짜 필드는 `%(creatordate:unix)`다. `%(committerdate)`는 주석 태그에서 비어 있어 #377에서 바꿨다(커밋에서는 두 값이 같다) |
 | 행 | `tag` 심볼 + 짧은 이름(`refs/tags/` 제외). 오른쪽 끝에 만든 날짜의 상대 시각(`3d`, REMOTE 행과 같은 모양). 그 커밋에 detached HEAD로 서 있는 워크트리가 있으면 `tree` 심볼(§4.3). 주석 태그와 가벼운 태그는 모양을 나누지 않고 툴팁과 VoiceOver에만 적는다(`Annotated tag v1.4.0, 3 days ago` / `Lightweight tag v1.4.0`) |
 | 정렬 | §4.2 |
 | 표시 상한 | 처음 200개(정렬 순서)만 행으로 그린다. 나머지는 마지막에 `N more tags — filter to find one` 안내 행 하나로 줄인다. 사이드바 필터(`⌥⌘F`)는 상한과 관계없이 전체 태그 이름에서 찾는다. 섹션 머리의 수는 전체 개수다 |

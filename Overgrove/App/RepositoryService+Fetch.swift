@@ -81,7 +81,7 @@ extension RepositoryService {
                     failures.append(
                         untrusted
                             ? Self.untrustedLocalRemote(remote, inspection.report)
-                            : Self.localRemoteNeedsNewerGit(remote, inspection.report))
+                            : Self.localRemoteNeedsNewerGit(remote))
                 } else if let guidance = Self.guidance(gitError, remote, inspection.report, hooks: hooks()) {
                     failures.append(guidance)
                 }
@@ -109,11 +109,8 @@ extension RepositoryService {
         "This git version cannot fetch remotes on this Mac (local paths and file:// URLs) safely. Overgrove needs git "
         + "\(GitEnvironment.lazyFetchControlVersion) or later to fetch them."
 
-    private static func localRemoteNeedsNewerGit(
-        _ remote: RepoConfigInspection.Remote, _ report: RepoSecurityReport
-    ) -> FetchFailureGuidance {
-        guidance(.configInspectionFailed(reason: olderGitLocalReason), remote, report, hooks: [])
-            ?? FetchFailureGuidance(configurationError: .configInspectionFailed(reason: olderGitLocalReason))
+    private static func localRemoteNeedsNewerGit(_ remote: RepoConfigInspection.Remote) -> FetchFailureGuidance {
+        FetchFailureGuidance(gitVersionLimitFor: remote.name, reason: olderGitLocalReason)
     }
 
     private static func untrustedLocalRemote(

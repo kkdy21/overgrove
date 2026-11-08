@@ -185,6 +185,7 @@ ID 원본 위치: SEC → [design/security-review.md](design/security-review.md)
 | S-09 | 파일 이력 |
 | S-10 | Diff 뷰어 |
 | S-11 | 기준 브랜치 대비 변경 (PR식 비교, #157·#158) |
+| S-12 | 두 커밋 비교 (v0.2.0, #122) |
 
 ### 2.7.1 단축키
 

@@ -22,6 +22,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// alone, git shows a rename as a whole new file (#309).
     case stashPatch(ObjectID, path: GitPath, originalPath: GitPath? = nil, fromUntracked: Bool)
     case graphPage(skip: Int, limit: Int)
+    /// The newest `limit` commits of the same history in one process, read as it streams (`GitClient.stream`, #254).
+    /// Without a commit-graph file `--date-order` sorts the whole history before the first line, so every `--skip`
+    /// page paid that again (~400 ms each on the bench repository); one stream pays it once.
+    case graphStream(limit: Int)
     case commitMeta(ObjectID)
     /// `firstParent` is set for merge commits, which are compared with their first parent.
     case commitFiles(ObjectID, firstParent: ObjectID?)
@@ -91,7 +95,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .refs:
             return [
                 "for-each-ref",
-                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)",
+                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)",
                 "refs/heads", "refs/remotes", "refs/tags",
             ]
         case .aheadBehind(let local, let upstream):
@@ -115,15 +119,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             let revisions = fromUntracked ? ["\(oid.hex)^3"] : ["\(oid.hex)^1", oid.hex]
             return options + ["--end-of-options"] + revisions + (try Self.pathspec(path, originalPath: originalPath))
         case .graphPage(let skip, let limit):
-            // Branches, remote-tracking refs, tags, and every worktree's HEAD (#308): `--all` with `refs/*` excluded
-            // adds only the HEADs. Notes, `refs/prefetch` (`git maintenance`), `refs/original` (filter-branch),
-            // `refs/stash`, and other namespaces (`refs/pull`) are not walked: they have no ref pill and are not in the
-            // page cache key (`GraphRefSet`).
-            return [
-                "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z",
-                Self.logFormat,
-                "--skip=\(max(0, skip))", "-n", String(Self.clampLimit(limit)),
-            ]
+            return Self.graphRevisionArguments + ["--skip=\(max(0, skip))", "-n", String(Self.clampLimit(limit))]
+        case .graphStream(let limit):
+            // The same walk without `--skip`, so stream pages and `--skip` fallback pages agree (review of #346).
+            return Self.graphRevisionArguments + ["-n", String(Self.clampLimit(limit))]
         case .commitMeta(let oid):
             return [
                 "log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B",
@@ -221,7 +220,18 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         return ["--"] + Array(try pathspec(originalPath).dropFirst()) + Array(arguments.dropFirst())
     }
 
-    private static func clampLimit(_ limit: Int) -> Int { min(max(limit, 1), 100_000) }
+    /// The graph's walk and format, shared by `graphPage` and `graphStream`: branches, remote-tracking refs, tags,
+    /// and every worktree's HEAD (#308). `--all` with `refs/*` excluded adds only the HEADs. Notes, `refs/prefetch`
+    /// (`git maintenance`), `refs/original` (filter-branch), `refs/stash`, and other namespaces (`refs/pull`) are not
+    /// walked: they have no ref pill and are not in the page cache key (`GraphRefSet`).
+    static let graphRevisionArguments = [
+        "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z", logFormat,
+    ]
+
+    /// The most commits one command reads (`-n`); the streamed graph's ceiling too.
+    static let maximumLimit = 100_000
+
+    private static func clampLimit(_ limit: Int) -> Int { min(max(limit, 1), maximumLimit) }
 }
 
 /// The only command that touches a remote (git-command-catalog.md §4). It writes `refs/remotes/<remote>/*` only.

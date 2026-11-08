@@ -52,7 +52,18 @@ final class GraphPageServiceTests: XCTestCase {
     /// #308: the graph walks branches, remote-tracking refs, tags, and every worktree's HEAD, and nothing else. Notes,
     /// background prefetch (`git maintenance`), and `filter-branch` backups had commits in the graph with no ref pill,
     /// and moving them did not change the page cache key.
+    /// Without a commit-graph file the page comes from the streamed graph (#254); review of #346.
     func testGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads() async throws {
+        XCTAssertFalse(RepositoryService.hasCommitGraph(model), "the stream path")
+        try await assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: false)
+    }
+
+    /// With a commit-graph file each page is its own `--skip` read.
+    func testGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeadsWithACommitGraph() async throws {
+        try await assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: true)
+    }
+
+    private func assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: Bool) async throws {
         func commit(_ message: String) async throws -> String {
             func output(_ arguments: [String]) async throws -> String {
                 String(decoding: try await repository.git(arguments).stdout, as: UTF8.self)
@@ -75,6 +86,10 @@ final class GraphPageServiceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: linked) }
         try await repository.git(["worktree", "add", "-q", "--detach", "--", linked.path, try await commit("detached")])
 
+        if writingCommitGraph {
+            try await repository.git(["commit-graph", "write", "--reachable"])
+            XCTAssertTrue(RepositoryService.hasCommitGraph(model), "the --skip path")
+        }
         let subjects = Set(try await page(try makeService(), skip: 0, limit: 100).commits.map(\.subject))
         for shown in ["c6", "c0", "tag only", "remote only", "detached"] {
             XCTAssertTrue(subjects.contains(shown), "\(shown) missing from \(subjects)")

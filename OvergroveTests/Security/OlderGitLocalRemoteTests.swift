@@ -126,6 +126,8 @@ final class OlderGitLocalRemoteTests: XCTestCase {
         guard case .finished(let failures, _) = run else { return XCTFail("got \(run)") }
         XCTAssertEqual(failures.map(\.remote), [origin])
         XCTAssertEqual(failures.first?.guidance, RepositoryService.olderGitLocalReason)
+        // #383: the summary names the git, not the repository, as the cause.
+        XCTAssertEqual(failures.first?.summary, "Overgrove does not fetch origin with this git")
         XCTAssertEqual(failures.first?.commands, [])
 
         let untrusted = await service.fetch(repository(local), untrusted: true)
