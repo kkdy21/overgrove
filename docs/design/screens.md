@@ -468,7 +468,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 ## S-06 이슈 패널
 
-**목적.** GitHub 이슈를 읽기 전용으로 보여 주고 브랜치·워크트리·커밋과의 연결을 드러낸다 (ADR-0004).
+**목적.** GitHub 이슈를 읽기 전용으로 보여 주고 브랜치·워크트리·커밋과의 연결을 드러낸다 (ADR-0004). v0.2.0부터 GitLab 이슈도 같은 패널에 보인다(glab, ADR-0026, #154). GitHub 저장소가 원격에 없을 때만, glab이 그 호스트에 로그인됐다고 보고한 GitLab 프로젝트를 읽는다. PR 상태는 GitHub만이다.
 
 **진입.** 사이드바 ISSUES 섹션(목록) → 항목 선택 시 상세 패널(상세).
 
@@ -501,7 +501,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 라벨 | 라벨 이름만 중립 알약으로 표시한다. GitHub 라벨 색은 쓰지 않는다 (상태 색과 충돌하고 대비를 보장할 수 없음) |
 | LINKED | 연결된 워크트리, 브랜치, 커밋(최근 5개). 누르면 해당 항목 선택 |
 | 본문 | v0.1에서는 표시하지 않는다. Markdown 렌더링과 원격 이미지 로드를 피하기 위해서다. `Open in Browser`로 본다. 그 자리에 `The issue body is not shown in Overgrove. Open it in your browser to read or reply.` 한 줄을 둔다 |
-| Open in Browser | `gh`가 준 URL이 `https://`이고 호스트가 저장소 원격의 GitHub 호스트와 같을 때만 연다 |
+| Open in Browser | `gh`가 준 URL이 `https://`이고 호스트가 저장소 원격의 GitHub 호스트와 같을 때만 연다. GitLab은 glab의 `web_url`이 그 프로젝트의 `https://HOST/NAMESPACE/NAME/-/issues/<iid>` 또는 `…/-/work_items/<iid>`와 정확히 같을 때만 연다(경로는 ASCII 대소문자 무시, ADR-0026 §5) |
 
 **데이터.** `Issue`, `GHAuthStatus`, `GHAccount`, 연결 계산 결과.
 
@@ -510,6 +510,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | `gh` 미설치 | `GitHub CLI not installed` 안내 행 → S-07 | — |
 | 미로그인 | `Not logged in to GitHub` + `Run gh auth login in Terminal` | — |
 | GitHub 원격 없음 | `No GitHub remote` | — |
+| 호스트에 로그인 안 됨 (v0.2.0, #154) | 호스팅 형태의 원격이 있지만 gh도 glab도 그 호스트에 로그인돼 있지 않음: `Not logged in to HOST` + 복사용 `gh auth login --hostname HOST`, `glab auth login --hostname HOST` + `Check Again`. 그 호스트에서는 아무것도 읽지 않는다(ADR-0026 §7) | — |
 | 권한 없음 / 저장소 없음 | `Cannot read issues for owner/repo` + `Details` | — |
 | 이슈 없음 | `No open issues` | — |
 | 불러오는 중 | 섹션 헤더에 작은 스피너 | — |

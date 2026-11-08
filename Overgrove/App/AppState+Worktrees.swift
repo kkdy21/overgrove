@@ -9,6 +9,7 @@ extension AppState {
     /// cancels this one, and its result is dropped.
     func reload() {
         issuePanel.markStale()
+        gitlabQuestion = nil
         refresh(.user)
     }
 
@@ -178,16 +179,27 @@ extension AppState {
         // gh's login state is read alongside, for the status bar (#83). Without a remote in a GitHub form, no gh runs;
         // a remote on a host not trusted yet reads only gh's login list (ADR-0025 §1).
         // Pull requests load at the same times as the issues (ADR-0023 §6).
+        // Without a GitHub repository, GitLab is asked next, only about hosts glab is logged in to (ADR-0026 §2).
         if isVerified {
-            let github = listing.githubRepository(trusting: trustedGitHubHosts)
-            if issuePanel.show(github) {
-                checkGitHub()
-                pullRequestStore.load(github)
-            } else if github == nil {
+            if let github = listing.githubRepository(trusting: trustedGitHubHosts) {
+                gitlabCheckTask?.cancel()
+                gitlabCheckGeneration += 1
+                gitlabQuestion = nil
+                if issuePanel.show(.github(github)) {
+                    checkGitHub()
+                    pullRequestStore.load(github)
+                }
+            } else {
                 pullRequestStore.load(nil)
                 // A remote on a host not trusted yet: gh's login list may trust it, and then the check picks the
                 // repository again (ADR-0025 §1).
-                if trustedGitHubHosts.mayTrustMore(listing.remotes.map(\.url)), !isCheckingGitHub { checkGitHub() }
+                if trustedGitHubHosts.mayTrustMore(listing.remotes.map(\.url)) {
+                    // gh's login list first: glab is asked only about hosts gh does not handle (ADR-0026 §2).
+                    isWaitingForGitHubBeforeGitLab = true
+                    if !isCheckingGitHub { checkGitHub() }
+                } else {
+                    showOtherIssueSource(remotes: listing.remotes.map { (name: $0.name, url: $0.url) })
+                }
             }
         }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)

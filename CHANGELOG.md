@@ -10,6 +10,10 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Added
 
+- Issue panel: GitLab issues through `glab` for a repository without a GitHub remote, read only after glab reports the
+  remote's host logged in (ADR-0026). A remote on a host no CLI is logged in to shows "Not logged in to HOST" with the
+  gh and glab login commands to copy.
+
 - Project bootstrap: product requirements, MVP scope, glossary, roadmap, and architecture decision records.
 - Architecture, Git command catalog, parsing specification, and security review (threat model T1–T18).
 - Information architecture, screen specs, interaction design, design tokens, and app icon.

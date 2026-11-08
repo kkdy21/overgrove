@@ -143,6 +143,39 @@ struct TestExecutables {
         return fake
     }
 
+    /// A stand-in for `glab` (#154): `--version` prints `versionLine`; `auth …` prints `authJSON` and exits `authExit`;
+    /// `issue …` prints `issuesJSON` (and `stderr`) and exits `issueExit`. Every call's arguments are appended to
+    /// `calls`, one call per line with arguments separated by spaces; the last call's environment and directory are
+    /// recorded like `fakeGH`.
+    func fakeGlab(
+        versionLine: String = "glab 1.128.0 (519ea19f7)", authJSON: String = "", authExit: Int32 = 0,
+        issuesJSON: String = "[]", issueExit: Int32 = 0, stderr: String = ""
+    ) throws -> FakeGlab {
+        let name = "fake-glab-\(UUID().uuidString)"
+        let fake = FakeGlab(root: directory.appendingPathComponent(name, isDirectory: true))
+        try FileManager.default.createDirectory(at: fake.root, withIntermediateDirectories: true)
+        try Data(versionLine.utf8).write(to: fake.root.appendingPathComponent("version"))
+        try Data(authJSON.utf8).write(to: fake.root.appendingPathComponent("auth"))
+        try Data(issuesJSON.utf8).write(to: fake.root.appendingPathComponent("issues"))
+        try Data(stderr.utf8).write(to: fake.root.appendingPathComponent("stderr"))
+        let root = fake.root.path
+        _ = try script(
+            "\(name)/glab",
+            """
+            echo "$*" >> '\(root)/calls'
+            pwd -P > '\(root)/pwd'
+            /usr/bin/env > '\(root)/env'
+            case "$1" in
+              --version) cat '\(root)/version'; echo; exit 0 ;;
+              auth) cat '\(root)/auth'; exit \(authExit) ;;
+              issue) cat '\(root)/issues'; cat '\(root)/stderr' >&2; exit \(issueExit) ;;
+            esac
+            exit 2
+            """
+        )
+        return fake
+    }
+
     /// A directory holding `git-remote-<name>`, a stand-in for a remote helper the user installed (e.g. in
     /// `/opt/homebrew/bin`). When git runs it, it creates `<canary>/<name>-ran` and exits 1 (#161, T5).
     func canaryRemoteHelper(named name: String, canary: URL) throws -> URL {
@@ -340,6 +373,38 @@ struct FakeGH {
     /// The child's environment. The shell adds `PWD`, `SHLVL`, and `_` itself; they are removed here.
     var recordedEnvironment: [String: String]? {
         guard let text = try? String(contentsOf: environmentFile, encoding: .utf8) else { return nil }
+        var environment: [String: String] = [:]
+        for line in text.split(separator: "\n") {
+            let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { continue }
+            environment[String(parts[0])] = String(parts[1])
+        }
+        for key in ["PWD", "SHLVL", "_", "OLDPWD"] { environment[key] = nil }
+        return environment
+    }
+}
+
+struct FakeGlab {
+    let root: URL
+
+    var executable: URL { root.appendingPathComponent("glab") }
+
+    /// Every call, in order, as its arguments joined by spaces.
+    var calls: [String] {
+        ((try? String(contentsOf: root.appendingPathComponent("calls"), encoding: .utf8)) ?? "")
+            .split(separator: "\n").map(String.init)
+    }
+
+    var recordedDirectory: String? {
+        (try? String(contentsOf: root.appendingPathComponent("pwd"), encoding: .utf8))?
+            .trimmingCharacters(in: .newlines)
+    }
+
+    /// The last call's environment, without what the shell adds itself.
+    var recordedEnvironment: [String: String]? {
+        guard let text = try? String(contentsOf: root.appendingPathComponent("env"), encoding: .utf8) else {
+            return nil
+        }
         var environment: [String: String] = [:]
         for line in text.split(separator: "\n") {
             let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)

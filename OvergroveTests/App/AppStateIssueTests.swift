@@ -15,11 +15,64 @@ final class StubIssueLoader: IssueLoading, @unchecked Sendable {
 
     var requests: [String] { lock.withLock { calls } }
 
-    func issues(in repository: GitHubRepository) async -> IssueLoadResult {
+    func issues(in source: IssueSource) async -> IssueLoadResult {
         lock.withLock {
-            calls.append(repository.slug)
+            calls.append(source.slug)
             return results.count > 1 ? results.removeFirst() : results[0]
         }
+    }
+}
+
+/// Answers glab login checks from a fixed set of logged-in hosts and records the hosts asked about.
+final class StubGitLabHostChecker: GitLabHostChecking, @unchecked Sendable {
+    private let lock = NSLock()
+    private let loggedIn: Set<String>
+    private var asked: [String] = []
+
+    init(loggedIn: Set<String> = []) {
+        self.loggedIn = loggedIn
+    }
+
+    var hosts: [String] { lock.withLock { asked } }
+
+    func isLoggedIn(_ host: RemoteHost) async -> Bool {
+        lock.withLock {
+            asked.append(host.name)
+            return loggedIn.contains(host.name)
+        }
+    }
+}
+
+/// Holds every glab answer until `release()`, then says logged in: a late answer must not change a panel that moved
+/// on.
+final class GatedGitLabHostChecker: GitLabHostChecking, @unchecked Sendable {
+    private let lock = NSLock()
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var isReleased = false
+    private var asked: [String] = []
+
+    var hosts: [String] { lock.withLock { asked } }
+
+    func release() {
+        let continuations = lock.withLock {
+            isReleased = true
+            defer { waiting = [] }
+            return waiting
+        }
+        for continuation in continuations { continuation.resume() }
+    }
+
+    func isLoggedIn(_ host: RemoteHost) async -> Bool {
+        await withCheckedContinuation { continuation in
+            let resumeNow = lock.withLock {
+                asked.append(host.name)
+                if isReleased { return true }
+                waiting.append(continuation)
+                return false
+            }
+            if resumeNow { continuation.resume() }
+        }
+        return true
     }
 }
 
@@ -373,11 +426,12 @@ final class LiveIssueLoaderTests: XCTestCase {
         return LiveIssueLoader(
             client: GHClient(
                 parentEnvironment: [:], neutralDirectory: neutral,
-                executableCandidates: fake.map { [$0.executable] } ?? []))
+                executableCandidates: fake.map { [$0.executable] } ?? []),
+            gitlab: GLClient(parentEnvironment: [:], neutralDirectory: neutral, executableCandidates: []))
     }
 
     func testMapsGhResults() async throws {
-        let repository = IssueModelsTests.repository
+        let repository = IssueSource.github(IssueModelsTests.repository)
         let json = """
             [{"number":3,"title":"t","state":"OPEN","labels":[],"assignees":[],\
             "updatedAt":"2026-11-01T00:00:00Z","url":"https://github.com/team/app/issues/3"}]
