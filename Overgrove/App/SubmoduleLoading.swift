@@ -118,7 +118,7 @@ final class SubmodulePanel {
             let began = now()
             var result: Result?
             do throws(RepositoryLoadError) {
-                // `nil`: the service has no loaded status for it (e.g. evicted); keep what is shown.
+                // `nil`: the service has no loaded status for it (e.g. evicted); see `finish`.
                 if let listing = try await loader.submodules(repository, worktree: path) { result = .loaded(listing) }
             } catch {
                 if error == .git(.cancelled) { return }
@@ -135,7 +135,13 @@ final class SubmodulePanel {
     ) {
         task = nil
         guard request?.matches(path, state) == true else { return }
-        if let result { request?.result = result }
+        if let result {
+            request?.result = result
+        } else if request?.result == .pending {
+            // A first read with nothing to go on (the service no longer has that status, #431): say so rather than
+            // "Checking…" forever. A later `nil` keeps what is shown.
+            request?.result = .failed
+        }
         let earliest = now() + max(Self.minimumInterval, elapsed * 10)
         earliestRead = earliest
         if wantsRefresh {

@@ -88,10 +88,13 @@ struct ComparisonModel: Equatable {
     let staleNotice: String?
 
     static let listFailedNotice = "The worktree list could not be read, so this comparison may be out of date."
+    /// The worktree is still listed but its status was not read on the last load (#413).
+    static let worktreeUnreadNotice = "This worktree's status could not be read, so this comparison may be out of date."
 
-    /// - Parameter isListStale: The worktree list failed to load after the comparison ran.
-    init(session: ComparisonSession, workingState: WorkingState?, isListStale: Bool = false) {
-        staleNotice = isListStale ? Self.listFailedNotice : nil
+    /// - Parameter staleNotice: Why the result may be out of date (`listFailedNotice`, `worktreeUnreadNotice`), or
+    ///   `nil` when it is current.
+    init(session: ComparisonSession, workingState: WorkingState?, staleNotice: String? = nil) {
+        self.staleNotice = staleNotice
         let baseName = session.base.map(Self.shortName) ?? "base branch"
         self.baseName = baseName
         let uncommitted = Set(((workingState?.staged ?? []) + (workingState?.unstaged ?? [])).map(\.path))
