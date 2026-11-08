@@ -17,7 +17,8 @@ struct IssueListSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             SidebarSectionHeader(
-                title: "ISSUES", count: model.count, isExpanded: $isExpanded, isLoading: model.isLoading)
+                title: String(localized: "ISSUES", comment: "Sidebar section"), count: model.count,
+                isExpanded: $isExpanded, isLoading: model.isLoading)
             if isExpanded {
                 if let account = model.account {
                     IssueAccountRow(account: account)
@@ -90,7 +91,9 @@ private struct IssueAccountRow: View {
             .font(Tokens.Font.caption)
             .foregroundStyle(Tokens.Color.textSecondary)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("gh account \(account.text)" + (account.moreText.map { ", \($0)" } ?? ""))
+            .accessibilityLabel(
+                String(localized: "gh account \(account.text)") + (account.moreText.map { ", \($0)" } ?? "")
+            )
             .help("Issues and pull requests are read as \(account.text).")
             if let command = account.switchCommand {
                 HStack(spacing: Tokens.Spacing.xs) {

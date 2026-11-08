@@ -607,6 +607,16 @@
         }
       }
     },
+    "+%lld more" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "외 %lld개"
+          }
+        }
+      }
+    },
     "+%lld more settings" : {
       "localizations" : {
         "ko" : {
@@ -1711,6 +1721,16 @@
         }
       }
     },
+    "Copy the command to switch accounts in Terminal" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널에서 계정을 바꾸는 명령 복사"
+          }
+        }
+      }
+    },
     "Could not load more: %@" : {
       "localizations" : {
         "ko" : {
@@ -2614,6 +2634,16 @@
         }
       }
     },
+    "ISSUES" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈"
+          }
+        }
+      }
+    },
     "Include the file's history under earlier names (git log --follow)" : {
       "localizations" : {
         "ko" : {
@@ -2720,6 +2750,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이슈"
+          }
+        }
+      }
+    },
+    "Issues and pull requests are read as %@." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈와 풀 리퀘스트를 %@ 계정으로 읽습니다."
           }
         }
       }
@@ -6163,6 +6203,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "fsmonitor 꺼짐"
+          }
+        }
+      }
+    },
+    "gh account %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gh 계정 %@"
+          }
+        }
+      }
+    },
+    "gh: not installed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gh: 설치 안 됨"
+          }
+        }
+      }
+    },
+    "gh: not logged in" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gh: 로그인 안 됨"
           }
         }
       }

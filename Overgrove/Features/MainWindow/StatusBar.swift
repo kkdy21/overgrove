@@ -137,10 +137,12 @@ struct StatusBarItem: Equatable, Identifiable {
             StatusBarItem(kind: .gh, text: "gh: @\(login)", symbol: "person.crop.circle.badge.checkmark", tone: .ok)
         case .notLoggedIn:
             StatusBarItem(
-                kind: .gh, text: "gh: not logged in", symbol: "person.crop.circle.badge.xmark", tone: .neutral)
+                kind: .gh, text: String(localized: "gh: not logged in"), symbol: "person.crop.circle.badge.xmark",
+                tone: .neutral)
         case .notInstalled:
             StatusBarItem(
-                kind: .gh, text: "gh: not installed", symbol: "person.crop.circle.badge.questionmark", tone: .neutral)
+                kind: .gh, text: String(localized: "gh: not installed"),
+                symbol: "person.crop.circle.badge.questionmark", tone: .neutral)
         }
     }
 
