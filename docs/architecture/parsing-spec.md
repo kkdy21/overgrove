@@ -369,6 +369,7 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 
 - 로그인 판정: `hosts["github.com"]`에 `active == true && state == "success"`인 항목이 있다.
 - 로그인 호스트(ADR-0025 §1): 계정이 하나 이상 있는 `hosts`의 키를 `RemoteHost`로 검증해 소문자로 모은다. 통과하지 못한 키는 버린다. github.com 로그인이 없어도 다른 호스트는 모은다.
+- 활성 계정(ADR-0025 §4, 표시용): 호스트마다 `active == true && state == "success"`인 항목의 login이 GitHub login 규칙(1–39자 영숫자·`-`)을 통과하면 `GHAccount`로 남기고, 그 호스트의 나머지 계정 수를 함께 센다. 규칙을 통과하지 못한 login은 그 계정만 숨기고 보고 전체를 실패로 보지 않는다(github.com의 상태 판정은 그대로 실패).
 - 종료 코드는 판단에 쓰지 않는다. `--json`이면 인증 문제가 있어도 0이다.
 - `scopes`와 `tokenSource`는 표시하지 않는다. 그 밖의 필드도 판단에 필요한 것만 쓴다.
 
@@ -390,6 +391,7 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | PAR-GH-02 | 미로그인, state 실패, 빈 hosts |
 | PAR-GH-03 | 이슈 목록 (라벨, 담당자, 선택 필드 누락) |
 | PAR-GH-04 | 예상 밖 JSON → 실패 |
+| PAR-GH-07 | 호스트별 활성 계정과 나머지 계정 수, 이상한 login·실패 상태 계정은 그 계정만 숨김 (ADR-0025 §4) |
 
 ### 10.3 PullRequestParser — `gh pr list --json number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url`
 
@@ -416,6 +418,33 @@ ADR-0023 §3. 공개 저장소에는 누구나 PR을 열 수 있으므로 항목
 |---|---|
 | PAR-GH-05 | PR 목록(상태 셋, 리뷰 결정 셋, 소수 초, 초안), 모르는 값은 `unknown`·없음 |
 | PAR-GH-06 | 배열 아닌 출력·깨진 JSON·잘린 배열 → 실패 |
+
+
+### 10.4 GLAuthParser·GLIssueParser — glab (#154, ADR-0026)
+
+`glab auth status --hostname H --output json`은 `{"hosts":[{host, state, user, …}]}`이다(glab 1.128.0). `state == "success"`이고 `user`가 비어 있지 않을 때만 로그인으로 본다. 설정에 없는 호스트는 `{"error":…}`를 내므로 해석 실패가 되고, 클라이언트는 이를 로그인 안 됨으로 다룬다. 토큰 값은 이 JSON에 없다.
+
+`glab issue list --output json`은 GitLab API 이슈 객체 배열이다. 목록 전체가 실패하는 것은 최상위가 배열이 아닐 때뿐이다.
+
+| 필드 | 규칙 |
+|---|---|
+| `iid` | 양의 Int. 없거나 형식이 다르면 그 항목만 버린다 |
+| `title` | 필수. 1,000자에서 자른다 |
+| `state` | `opened` → 열림, `closed` → 닫힘. 다른 값은 그 항목만 버린다 |
+| `web_url` | `https://`로 시작해야 한다. `/-/issues/<iid>`와 `/-/work_items/<iid>` 모두 온다 |
+| `updated_at` | 필수. ISO 8601 |
+| `labels` | 문자열 배열. 50개, 이름 100자에서 자른다 |
+| `assignees[].username` | 선택 |
+| `description` | 읽지 않는다 |
+
+항목은 200개까지만 둔다. 픽스처는 glab 1.128.0의 실제 출력에서 이름·URL·본문만 바꾼 것이다(`OvergroveTests/Forges/GLFixtures.swift`).
+
+| 테스트 | 사례 |
+|---|---|
+| PAR-GL-01 | 로그아웃(실제 출력)·로그인·user 없는 success·설정 없는 호스트·JSON 아님 |
+| PAR-GL-02 | 이슈 목록(실제 출력 기반): 상태, 라벨, 담당자, work_items URL |
+| PAR-GL-03 | 형식이 틀린 항목만 버림, 배열 아닌 출력·잘린 배열 → 실패 |
+| PAR-GL-04 | `glab --version` 첫 줄: `glab X.Y.Z`만 받음(gt, 숫자만, `version` 낀 형식 거부) |
 
 ---
 

@@ -152,9 +152,22 @@ final class AppState {
     /// The hosts whose GitHub remotes gh may be asked about (ADR-0025 §1): github.com, plus the hosts gh reported a
     /// login for at the last successful check.
     var trustedGitHubHosts = GitHubRemote.publicOnly
+    /// Each host's active gh account from the last successful check (ADR-0025 §4).
+    var ghAccounts: [RemoteHost: GHAccount] = [:]
     /// The last verified listing's remotes and branches, to pick the GitHub repository again when gh's login list
     /// changes what is trusted. Never a cached paint's (#119).
     var verifiedGitHubSource: VerifiedGitHubSource?
+    /// Asks glab about a remote's host when no GitHub repository is found (ADR-0026 §2).
+    let gitlabChecker: any GitLabHostChecking
+    /// The glab login check in flight; tests await it.
+    var gitlabCheckTask: Task<Void, Never>?
+    var gitlabCheckGeneration = 0
+    /// The GitLab projects glab was last asked about; the same list is not asked again until ⌘R, Check Again, or
+    /// another repository (auto refresh and gh's login list arriving do not run glab twice).
+    var gitlabQuestion: [GitLabProject]?
+    /// glab waits for the gh login check in flight: gh's list decides which hosts gh handles, so glab is never asked
+    /// about a host gh is logged in to (ADR-0026 §2, gh first).
+    var isWaitingForGitHubBeforeGitLab = false
     /// The toolbar search (#74): dims graph rows that do not match; ⌘G/⌘⇧G step through matches.
     var searchText = ""
     /// The sidebar's Filter field (⌥⌘F, #74).
@@ -235,6 +248,7 @@ final class AppState {
     ///   - fetchRecords: The last fetch of each repository (`UserDefaults`).
     ///   - gitChecker, ghChecker: The setup assistant's git and GitHub CLI checks (S-07); `ghChecker` also feeds the
     ///     status bar's gh field (#83).
+    ///   - gitlabChecker: Whether glab is logged in to a remote's host, before its GitLab issues are read (ADR-0026).
     ///   - settings: App preferences (S-08); shared by every window. A fresh one from `UserDefaults` if `nil`.
     ///   - fileWatcher: File events for auto refresh (#119); FSEvents by default.
     init(
@@ -255,6 +269,7 @@ final class AppState {
         fetchRecords: FetchRecordStore = FetchRecordStore(),
         gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
         ghChecker: any GHAuthChecking = LiveGHAuthChecker.live,
+        gitlabChecker: any GitLabHostChecking = LiveGitLabHostChecker.live,
         settings: AppSettings? = nil,
         fileWatcher: any FileEventWatching = LiveFileEventWatcher.live,
         launchSnapshots: LaunchSnapshotStore? = nil,
@@ -266,6 +281,7 @@ final class AppState {
         self.launchSnapshots = launchSnapshots
         self.gitIdentity = gitIdentity
         self.ghChecker = ghChecker
+        self.gitlabChecker = gitlabChecker
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
         self.commitLoader = commitLoader
@@ -354,6 +370,10 @@ final class AppState {
         issuePanel.clear()
         pullRequestStore.clear()
         verifiedGitHubSource = nil
+        gitlabCheckTask?.cancel()
+        gitlabCheckGeneration += 1
+        gitlabQuestion = nil
+        isWaitingForGitHubBeforeGitLab = false
         graph.clear()
         commitDetail.clear()
         history.reset()

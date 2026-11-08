@@ -13,6 +13,35 @@ struct GHAuthReport: Sendable, Hashable {
     let status: GHAuthStatus
     /// Empty when gh is missing or lists no host.
     let hosts: Set<RemoteHost>
+    /// Each host's active account, for display only (ADR-0025 §4); a host without a usable active account is absent.
+    let accounts: [RemoteHost: GHAccount]
+
+    init(status: GHAuthStatus, hosts: Set<RemoteHost>, accounts: [RemoteHost: GHAccount] = [:]) {
+        self.status = status
+        self.hosts = hosts
+        self.accounts = accounts
+    }
+}
+
+/// The account gh uses on one host (ADR-0025 §4). Overgrove only shows it: switching is the user's, in Terminal.
+struct GHAccount: Sendable, Hashable {
+    let host: RemoteHost
+    /// A GitHub login (`GHAuthParser.isGitHubLogin`).
+    let login: String
+    /// The host's other accounts in gh.
+    let otherCount: Int
+
+    /// `login@host`.
+    var text: String { PathValidator.displayable("\(login)@\(host.name)") }
+
+    /// `+2 more`, `nil` with one account.
+    var moreText: String? { otherCount > 0 ? "+\(otherCount) more" : nil }
+
+    /// `gh auth switch --hostname HOST` to copy, `nil` with one account. Only the validated host goes in, never the
+    /// login, and the text is escaped like every clipboard value (ADR-0021 §3).
+    var switchCommand: String? {
+        otherCount > 0 ? RowActions.clipboardText("gh auth switch --hostname \(host.name)") : nil
+    }
 }
 
 /// A GitHub issue from `gh issue list --json` (parsing-spec.md §10.2).

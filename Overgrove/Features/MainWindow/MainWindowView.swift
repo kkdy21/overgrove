@@ -197,6 +197,7 @@ struct MainWindowView: View {
             StatusBar(
                 items: StatusBarItem.items(
                     snapshot: state.snapshot, fetchStatus: state.fetchStatus, ghStatus: state.ghStatus,
+                    ghAccount: state.ghAccount,
                     now: context.date, hasFetchDetails: !state.fetch.failures.isEmpty,
                     isRefreshing: state.isRefreshing, fetchRemoteLimit: state.fetch.remoteLimit),
                 onFetchDetails: state.fetch.hasDetails ? { showsFetchDetails = true } : nil,
