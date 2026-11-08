@@ -7,8 +7,11 @@ protocol RowActionPerforming: Sendable {
     func copy(_ text: String)
     /// Shows the item in Finder without opening it.
     func reveal(_ url: URL)
-    /// Opens a Terminal window in `folder` (a folder URL handed to Terminal.app; no shell string is built).
-    func openTerminal(at folder: URL)
+    /// Opens `item` (a checked folder or file URL) in the app with `bundleIdentifier` through `NSWorkspace`: no shell
+    /// string, process, or argument is built (#124). `false` when no such app is installed.
+    func open(_ item: URL, inApplication bundleIdentifier: String) -> Bool
+    /// The installed app's name, for confirmations and alerts; `nil` when it is not installed.
+    func applicationName(_ bundleIdentifier: String) -> String?
     /// Opens an `https` page in the default browser.
     func openInBrowser(_ url: URL)
 }
@@ -79,12 +82,21 @@ struct LiveRowActions: RowActionPerforming {
         MainActor.assumeIsolated { NSWorkspace.shared.activateFileViewerSelecting([url]) }
     }
 
-    func openTerminal(at folder: URL) {
+    func open(_ item: URL, inApplication bundleIdentifier: String) -> Bool {
         MainActor.assumeIsolated {
-            guard let terminal = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal")
-            else { return }
-            NSWorkspace.shared.open(
-                [folder], withApplicationAt: terminal, configuration: NSWorkspace.OpenConfiguration())
+            guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+                return false
+            }
+            NSWorkspace.shared.open([item], withApplicationAt: app, configuration: NSWorkspace.OpenConfiguration())
+            return true
+        }
+    }
+
+    func applicationName(_ bundleIdentifier: String) -> String? {
+        MainActor.assumeIsolated {
+            NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier).map {
+                PathValidator.displayable(FileManager.default.displayName(atPath: $0.path))
+            }
         }
     }
 

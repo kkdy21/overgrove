@@ -17,6 +17,9 @@ extension AppState {
             showWorktreeInfo: { [weak self] in self?.showWorktree($0, info: true) },
             revealWorktree: { [weak self] in self?.revealWorktree($0) },
             openTerminal: { [weak self] in self?.openTerminal(at: $0) },
+            hasEditor: settings.editorApp != nil,
+            openEditor: { [weak self] in self?.openEditor(at: $0) },
+            openFileInEditor: { [weak self] in self?.openFileInEditor($1, in: $0) },
             showStash: { [weak self] in self?.selectStash($0) },
             openInBrowser: { [weak self] in self?.openInBrowser($0) },
             linkedBranchTip: { [weak self] in self?.linkedBranchTip(of: $0) },
@@ -63,19 +66,48 @@ extension AppState {
         rowActions.reveal(folder)
     }
 
-    /// Opens directly only when the worktree's settings were checked and hold nothing that runs code; otherwise
-    /// asks first (`TerminalGuard`).
+    /// Opens the worktree in the chosen terminal (Terminal.app by default, #124). Opens directly only when the
+    /// worktree's settings were checked and hold nothing that runs code; otherwise asks first (`TerminalGuard`).
     func openTerminal(at path: GitPath) {
+        openFolder(path, role: .terminal, bundleIdentifier: settings.terminalBundleIdentifier)
+    }
+
+    /// Open in Editor on a worktree row (#124): the same check as the terminal, since editors run workspace settings
+    /// and tasks and their git uses the repository's settings.
+    func openEditor(at path: GitPath) {
+        guard let editor = settings.editorApp else { return }
+        openFolder(path, role: .editor, bundleIdentifier: editor)
+    }
+
+    private func openFolder(_ path: GitPath, role: ExternalAppRole, bundleIdentifier: String) {
+        let action = "Open in \(role.title)"
         // Never from a launch snapshot's rows (ADR-0018 §5): its paths are not this load's.
-        guard !worktreeList.isSnapshot, let folder = existingFolder(path, action: "Open in Terminal") else { return }
+        guard !worktreeList.isSnapshot, let folder = existingFolder(path, action: action) else { return }
+        guard let name = rowActions.applicationName(bundleIdentifier) else {
+            alert = AppAlert(title: "Can’t \(action)", message: Self.missingApp(role))
+            return
+        }
         let hooks =
             repository.map { LiveWorktreeInspector.hookExecutables(in: $0.repository.commonGitDirectoryURL) } ?? []
         let reasons = TerminalGuard.reasons(
             inspection: entry(at: path)?.inspection, hooks: hooks, isUntrusted: isRepositoryUntrusted)
         if reasons.isEmpty {
-            rowActions.openTerminal(at: folder)
+            open(folder, in: bundleIdentifier, role: role)
         } else {
-            terminalConfirmation = TerminalConfirmation(folder: folder, reasons: reasons)
+            terminalConfirmation = TerminalConfirmation(
+                folder: folder, reasons: reasons, role: role, bundleIdentifier: bundleIdentifier, appName: name)
+        }
+    }
+
+    /// Open in Editor on a working tree file row (#124): one file, checked to be inside its worktree (T14), opens
+    /// without asking.
+    func openFileInEditor(_ path: GitPath, in worktree: GitPath?) {
+        guard let editor = settings.editorApp, path.isRepresentable, let root = worktree ?? focusedWorktreePath
+        else { return }
+        let rootURL = URL(fileURLWithPath: root.display, isDirectory: true)
+        switch RowActions.revealTarget(rootURL.appendingPathComponent(path.display), within: rootURL) {
+        case .success(let url): open(url, in: editor, role: .editor)
+        case .failure(let refusal): alert = AppAlert(title: "Can’t Open in Editor", message: refusal.message)
         }
     }
 
@@ -83,7 +115,17 @@ extension AppState {
     func confirmOpenTerminal() {
         guard let confirmation = terminalConfirmation else { return }
         terminalConfirmation = nil
-        rowActions.openTerminal(at: confirmation.folder)
+        open(confirmation.folder, in: confirmation.bundleIdentifier, role: confirmation.role)
+    }
+
+    private func open(_ item: URL, in bundleIdentifier: String, role: ExternalAppRole) {
+        if !rowActions.open(item, inApplication: bundleIdentifier) {
+            alert = AppAlert(title: "Can’t Open in \(role.title)", message: Self.missingApp(role))
+        }
+    }
+
+    private static func missingApp(_ role: ExternalAppRole) -> String {
+        "The \(role.title.lowercased()) chosen in Settings › Advanced is not installed. Choose another one there."
     }
 
     func openInBrowser(_ url: URL) {

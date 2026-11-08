@@ -15,10 +15,23 @@ final class RecordingRowActions: RowActionPerforming, @unchecked Sendable {
     var revealed: [URL] { lock.withLock { revealedURLs } }
     var terminals: [URL] { lock.withLock { terminalURLs } }
     var opened: [URL] { lock.withLock { openedURLs } }
+    /// Apps that are "installed" (#124); Terminal by default.
+    var installed: [String: String] = [ExternalApps.defaultTerminal: "Terminal"]
+    private var appOpens: [(URL, String)] = []
+    /// Everything opened in an app, with its bundle identifier.
+    var openedInApps: [(item: URL, app: String)] { lock.withLock { appOpens.map { ($0.0, $0.1) } } }
 
     func copy(_ text: String) { lock.withLock { copiedTexts.append(text) } }
     func reveal(_ url: URL) { lock.withLock { revealedURLs.append(url) } }
-    func openTerminal(at folder: URL) { lock.withLock { terminalURLs.append(folder) } }
+    func open(_ item: URL, inApplication bundleIdentifier: String) -> Bool {
+        guard installed[bundleIdentifier] != nil else { return false }
+        lock.withLock {
+            appOpens.append((item, bundleIdentifier))
+            if bundleIdentifier == ExternalApps.defaultTerminal { terminalURLs.append(item) }
+        }
+        return true
+    }
+    func applicationName(_ bundleIdentifier: String) -> String? { installed[bundleIdentifier] }
     func openInBrowser(_ url: URL) { lock.withLock { openedURLs.append(url) } }
 }
 
