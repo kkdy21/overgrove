@@ -74,11 +74,12 @@ struct MaskedText: Sendable, Hashable {
         text = String(limited)
     }
 
-    /// A mark that renders as nothing but is not `Cf` (variation selectors, CGJ, Khmer inherent vowels). Left in, it
-    /// would make a token it splits look whole on screen (#375 review). Only nonspacing marks: Hangul fillers are also
-    /// default-ignorable but take up space, so they stay visible.
+    /// A character the text renderer draws as nothing although it is not `Cf`: variation selectors, CGJ, Khmer inherent
+    /// vowels, Hangul fillers, and unassigned default-ignorable code points (measured with CoreText in the #375 review).
+    /// Left in, a token it splits looks whole on screen while the masking pattern misses it. Dropping it changes
+    /// nothing that is drawn.
     private static func isInvisibleMark(_ scalar: Unicode.Scalar) -> Bool {
-        scalar.properties.isDefaultIgnorableCodePoint && scalar.properties.generalCategory == .nonspacingMark
+        scalar.properties.isDefaultIgnorableCodePoint
     }
 
     /// Only spaces and tabs, or git's `remote:` sideband prefix with nothing after it.

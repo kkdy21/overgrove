@@ -116,25 +116,26 @@ final class SECT11CredentialTests: XCTestCase {
     }
 
     /// SEC-T11-12: characters that render as nothing but are not control or format characters (variation selectors,
-    /// CGJ, Khmer inherent vowels) are dropped too, so a token they split does not look whole on screen while the
+    /// CGJ, Khmer inherent vowels, Hangul fillers, unassigned default-ignorables) are dropped too, so a token they split does not look whole on screen while the
     /// pattern misses it.
     func testSECT11_12_InvisibleNonFormatSplitsStayMasked() {
         let token = "ghp_" + String(repeating: "E", count: 24)
-        for separator in ["\u{FE0F}", "\u{034F}", "\u{17B4}", "\u{E0100}"] {
+        for separator in [
+            "\u{FE0F}", "\u{034F}", "\u{17B4}", "\u{E0100}", "\u{3164}", "\u{115F}", "\u{FFA0}", "\u{E0080}",
+        ] {
             let shown = MaskedText(masking: "fatal: \(token.prefix(10))\(separator)\(token.dropFirst(10))\n").text
             XCTAssertFalse(shown.contains(token.dropFirst(10)), separator.debugDescription)
             XCTAssertFalse(shown.unicodeScalars.contains { $0 == separator.unicodeScalars.first! })
         }
     }
 
-    /// SEC-T11-12: only invisible marks are dropped. Korean file names (NFC and the decomposed form macOS uses) and a
-    /// Hangul filler, which takes up space, reach the error detail unchanged.
-    func testSECT11_12_VisibleTextIsKept() {
+    /// SEC-T11-12: Korean file names (NFC and the decomposed form macOS uses) reach the error detail unchanged. A Hangul
+    /// filler is default-ignorable and drawn as nothing, so it is dropped like the other invisible characters.
+    func testSECT11_12_KoreanFileNamesAreKept() {
         let composed = "보고서.txt"
         let decomposed = composed.decomposedStringWithCanonicalMapping
-        let filler = "a\u{3164}.txt"
-        let shown = MaskedText(masking: "error: \(composed) \(decomposed) \(filler)\n").text
-        XCTAssertEqual(shown, "error: \(composed) \(decomposed) \(filler)\n")
+        let shown = MaskedText(masking: "error: \(composed) \(decomposed) a\u{3164}.txt\n").text
+        XCTAssertEqual(shown, "error: \(composed) \(decomposed) a.txt\n")
     }
 
     /// SEC-T11-12: a split token that straddles the length limit is masked before the limit cuts it.
