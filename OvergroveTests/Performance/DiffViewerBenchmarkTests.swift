@@ -14,8 +14,9 @@ import XCTest
 final class DiffViewerBenchmarkTests: XCTestCase {
     private static let runs = 11  // the first is a warm-up and is dropped (performance-budget.md §1)
 
-    /// A patch of `lines` changed lines, 60 characters each, in hunks of 20.
-    private static func patch(lines: Int) -> Data {
+    /// A patch of `lines` changed lines, 60 characters each, in hunks of 20. With `wordsDiffer`, each added line differs
+    /// from its removed line by one word, so every pair goes through the word-level comparison (#387).
+    private static func patch(lines: Int, wordsDiffer: Bool = false) -> Data {
         var text = "diff --git a/big.swift b/big.swift\n--- a/big.swift\n+++ b/big.swift\n"
         text.reserveCapacity(lines * 64)
         let body = String(repeating: "x", count: 58)
@@ -24,7 +25,13 @@ final class DiffViewerBenchmarkTests: XCTestCase {
             let count = min(20, lines - line)
             let half = count / 2
             text += "@@ -\(line + 1),\(half) +\(line + 1),\(count - half) @@ func f\(line)()\n"
-            for index in 0..<count { text += (index < half ? "-" : "+") + "\t" + body + "\n" }
+            for index in 0..<count {
+                let removed = index < half
+                let content =
+                    wordsDiffer
+                    ? "let alpha = \(removed ? "beta" : "bravo").gamma(delta, epsilon) + zeta * eta // theta" : body
+                text += (removed ? "-" : "+") + "\t" + content + "\n"
+            }
             line += count
         }
         return Data(text.utf8)
@@ -35,8 +42,12 @@ final class DiffViewerBenchmarkTests: XCTestCase {
         var report = PerfReport(id: "PERF-09", title: "Diff viewer rendering (PB-9)")
         report.note("git excluded; parsing and rows run off the main thread")
         // 500 lines (typical), the 10,000-line gate, and about 10 MB (the output cap).
-        for lines in [500, DiffDocument.largeLineThreshold, 160_000] {
-            let data = Self.patch(lines: lines)
+        let cases = [
+            (500, false), (DiffDocument.largeLineThreshold, false), (DiffDocument.largeLineThreshold, true),
+            (160_000, false),
+        ]
+        for (lines, wordsDiffer) in cases {
+            let data = Self.patch(lines: lines, wordsDiffer: wordsDiffer)
             var parse: [Duration] = []
             var opened: [Duration] = []
             var splitRows: [Duration] = []
@@ -49,11 +60,11 @@ final class DiffViewerBenchmarkTests: XCTestCase {
                 let document = DiffDocument(
                     listing: listing, path: GitPath("big.swift"), source: .init(label: "Unstaged", kindLetter: "M"))
                 started = ContinuousClock.now
-                let built = document.unifiedRows()
+                let built = document.unifiedRows(marked: true)
                 let rowTime = ContinuousClock.now - started
                 XCTAssertEqual(built.count, lines + (lines + 19) / 20)
                 started = ContinuousClock.now
-                _ = document.splitRows()
+                _ = document.splitRows(marked: true)
                 let splitTime = ContinuousClock.now - started
 
                 // The first frame on the main thread: rows are built off it, so this stays small at any size.
@@ -74,7 +85,7 @@ final class DiffViewerBenchmarkTests: XCTestCase {
                     screen.append(firstScreen)
                 }
             }
-            let size = "\(lines) lines, \(data.count / 1024) KiB"
+            let size = "\(lines) lines, \(data.count / 1024) KiB" + (wordsDiffer ? ", words differ" : "")
             let isGated = lines <= DiffDocument.largeLineThreshold
             report.record("\(size): parse", PerfSamples(parse))
             report.record(

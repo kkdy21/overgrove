@@ -17,11 +17,25 @@ struct DiffDocument: Equatable, Sendable {
         case noNewline
     }
 
+    /// What the viewer draws over a line's text (#387), in Unicode scalar offsets into that text.
+    struct LineMarks: Equatable, Sendable {
+        /// Words changed against the paired line (`added-word-bg` / `removed-word-bg`).
+        var changed: [Range<Int>] = []
+        /// The spaces each TAB was expanded to (`Show Whitespace` draws `→`).
+        var tabs: [Range<Int>] = []
+        /// Whitespace at the end of an added or removed line (`·`).
+        var trailing: Range<Int>?
+        /// The line ended with CR, which the text drops (`␍`).
+        var hasCarriageReturn = false
+
+        static let none = LineMarks()
+    }
+
     /// One unified row.
     enum Row: Equatable, Sendable {
         case fileHeader(String)
         case hunkHeader(String)
-        case line(kind: LineKind, old: Int?, new: Int?, text: String)
+        case line(kind: LineKind, old: Int?, new: Int?, text: String, marks: LineMarks = .none)
         case notice(String)
     }
 
@@ -30,6 +44,7 @@ struct DiffDocument: Equatable, Sendable {
         let kind: LineKind
         let number: Int?
         let text: String
+        var marks: LineMarks = .none
     }
 
     /// One split row: the old side on the left, the new side on the right; either may be empty.
@@ -78,7 +93,8 @@ struct DiffDocument: Equatable, Sendable {
     // MARK: Rows
 
     /// Unified rows: file headers only when a patch has more than one block (a type change).
-    func unifiedRows() -> [Row] {
+    /// - Parameter marked: Adds word changes and whitespace marks (#387); the viewer asks for them.
+    func unifiedRows(marked: Bool = false) -> [Row] {
         if listing.files.isEmpty { return [.notice(Self.noChanges)] }
         var rows: [Row] = []
         for file in listing.files {
@@ -87,13 +103,17 @@ struct DiffDocument: Equatable, Sendable {
                 rows.append(.notice(notice))
                 continue
             }
+            var budget = WordBudget()
             for hunk in file.hunks {
                 rows.append(.hunkHeader(Self.hunkTitle(hunk)))
-                for line in hunk.lines {
+                let shown = marked ? Self.marks(hunk.lines, budget: &budget) : nil
+                for (index, line) in hunk.lines.enumerated() {
                     let kind = Self.kind(line.kind)
                     rows.append(
                         .line(
-                            kind: kind, old: line.oldNumber, new: line.newNumber, text: Self.display(line, kind: kind)))
+                            kind: kind, old: line.oldNumber, new: line.newNumber,
+                            text: shown?[index].text ?? Self.display(line, kind: kind),
+                            marks: shown?[index].marks ?? .none))
                 }
             }
         }
@@ -101,7 +121,7 @@ struct DiffDocument: Equatable, Sendable {
     }
 
     /// Split rows: within a hunk, each run of removed lines is paired with the added lines that follow it.
-    func splitRows() -> [SplitRow] {
+    func splitRows(marked: Bool = false) -> [SplitRow] {
         if listing.files.isEmpty { return [.notice(Self.noChanges)] }
         var rows: [SplitRow] = []
         for file in listing.files {
@@ -110,15 +130,61 @@ struct DiffDocument: Equatable, Sendable {
                 rows.append(.notice(notice))
                 continue
             }
+            var budget = WordBudget()
             for hunk in file.hunks {
                 rows.append(.hunkHeader(Self.hunkTitle(hunk)))
-                rows += Self.pairs(hunk.lines)
+                rows += Self.pairs(hunk.lines, marks: marked ? Self.marks(hunk.lines, budget: &budget) : nil)
             }
         }
         return rows
     }
 
-    private static func pairs(_ lines: [PatchLine]) -> [SplitRow] {
+    // MARK: Marks (#387)
+
+    /// What is left of one file's word-diff allowance (`WordDiff` limits, T15).
+    private struct WordBudget {
+        var cells = WordDiff.maximumCellsPerFile
+        var pairedLines = 0
+    }
+
+    /// Marks for each line of a hunk: whitespace from the shown text, and word changes for each removed line paired
+    /// with the added line in the same place of the run that follows it.
+    private static func marks(_ lines: [PatchLine], budget: inout WordBudget) -> [(text: String, marks: LineMarks)] {
+        let shown = lines.map { shownLine($0, kind: kind($0.kind)) }
+        var marks = shown.map { $0.marks }
+        var index = 0
+        while index < lines.count {
+            guard lines[index].kind == .removed else {
+                index += 1
+                continue
+            }
+            var removed: [Int] = []
+            var end = index
+            while end < lines.count, lines[end].kind == .removed || lines[end].kind == .noNewline {
+                if lines[end].kind == .removed { removed.append(end) }
+                end += 1
+            }
+            var added: [Int] = []
+            while end < lines.count, lines[end].kind == .added || lines[end].kind == .noNewline {
+                if lines[end].kind == .added { added.append(end) }
+                end += 1
+            }
+            if removed.count <= WordDiff.maximumRunLines, added.count <= WordDiff.maximumRunLines {
+                for (old, new) in zip(removed, added) where budget.pairedLines < WordDiff.maximumPairedLinesPerFile {
+                    budget.pairedLines += 1
+                    if let changes = WordDiff.changes(old: shown[old].text, new: shown[new].text, budget: &budget.cells)
+                    {
+                        marks[old].changed = changes.old
+                        marks[new].changed = changes.new
+                    }
+                }
+            }
+            index = end
+        }
+        return zip(shown, marks).map { ($0.text, $1) }
+    }
+
+    private static func pairs(_ lines: [PatchLine], marks: [(text: String, marks: LineMarks)]? = nil) -> [SplitRow] {
         var rows: [SplitRow] = []
         var removed: [Side] = []
         var added: [Side] = []
@@ -133,9 +199,12 @@ struct DiffDocument: Equatable, Sendable {
             added = []
         }
         var previous: PatchLine.Kind?
-        for line in lines {
+        for (index, line) in lines.enumerated() {
             let kind = kind(line.kind)
-            let side = Side(kind: kind, number: line.oldNumber ?? line.newNumber, text: display(line, kind: kind))
+            let side = Side(
+                kind: kind, number: line.oldNumber ?? line.newNumber,
+                text: marks?[index].text ?? display(line, kind: kind),
+                marks: marks?[index].marks ?? .none)
             switch line.kind {
             case .removed:
                 if !added.isEmpty { flush() }
@@ -146,8 +215,8 @@ struct DiffDocument: Equatable, Sendable {
                 flush()
                 rows.append(
                     .pair(
-                        left: Side(kind: .context, number: line.oldNumber, text: side.text),
-                        right: Side(kind: .context, number: line.newNumber, text: side.text)))
+                        left: Side(kind: .context, number: line.oldNumber, text: side.text, marks: side.marks),
+                        right: Side(kind: .context, number: line.newNumber, text: side.text, marks: side.marks)))
             case .noNewline:
                 // Belongs to the line before it: the same side, or both for context.
                 switch previous {
@@ -171,29 +240,79 @@ struct DiffDocument: Equatable, Sendable {
     /// One line, safe to show: lossy UTF-8, a trailing CR (CRLF files) dropped, TABs expanded, control, format
     /// (bidi), and separator characters escaped, and very long lines cut.
     static func display(_ line: PatchLine, kind: LineKind) -> String {
-        if kind == .noNewline { return "No newline at end of file" }
+        shownLine(line, kind: kind).text
+    }
+
+    /// `display` with where its whitespace went (#387). Each character is escaped on its own, so TAB columns and the
+    /// marks' offsets follow the text as shown.
+    /// The common case, printable ASCII and TABs only, built as bytes: no escaping can be needed (PERF-09). `nil` for
+    /// any other byte, which takes the general path.
+    private static func asciiLine(_ content: some Collection<UInt8>, kind: LineKind, marks: inout LineMarks)
+        -> (text: String, marks: LineMarks)?
+    {
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(content.count + 8)
+        var tabs: [Range<Int>] = []
+        for byte in content {
+            if byte == 0x09 {
+                let spaces = tabWidth - bytes.count % tabWidth
+                tabs.append(bytes.count..<(bytes.count + spaces))
+                bytes.append(contentsOf: repeatElement(0x20, count: spaces))
+            } else if (0x20..<0x7F).contains(byte) {
+                bytes.append(byte)
+            } else {
+                return nil
+            }
+            if bytes.count > maximumLineScalars { return nil }
+        }
+        marks.tabs = tabs
+        if kind == .added || kind == .removed {
+            let start = bytes.count - bytes.reversed().prefix { $0 == 0x20 }.count
+            if start < bytes.count { marks.trailing = start..<bytes.count }
+        }
+        return (String(decoding: bytes, as: UTF8.self), marks)
+    }
+
+    private static func shownLine(_ line: PatchLine, kind: LineKind) -> (text: String, marks: LineMarks) {
+        if kind == .noNewline { return ("No newline at end of file", .none) }
+        var marks = LineMarks.none
         var content = line.content
-        if content.last == 0x0D { content = content.dropLast() }
+        if content.last == 0x0D {
+            content = content.dropLast()
+            marks.hasCarriageReturn = true
+        }
+        if let ascii = asciiLine(content, kind: kind, marks: &marks) { return ascii }
         let decoded = String(decoding: content, as: UTF8.self)
-        var expanded = ""
-        expanded.reserveCapacity(decoded.utf8.count)
+        var shown = String.UnicodeScalarView()
         var column = 0
         for character in decoded {
             if character == "\t" {
                 let spaces = tabWidth - column % tabWidth
-                expanded += String(repeating: " ", count: spaces)
+                marks.tabs.append(shown.count..<(shown.count + spaces))
+                shown.append(contentsOf: String(repeating: " ", count: spaces).unicodeScalars)
                 column += spaces
-            } else {
-                expanded.append(character)
+            } else if let ascii = character.asciiValue, (0x20..<0x7F).contains(ascii) {
+                // Printable ASCII needs no escaping; most code is only this.
+                shown.append(Unicode.Scalar(ascii))
                 column += 1
+            } else {
+                let safe = PathValidator.displayable(String(character))
+                shown.append(contentsOf: safe.unicodeScalars)
+                column += safe.count
             }
         }
-        let safe = PathValidator.displayable(expanded)
-        let scalars = safe.unicodeScalars
-        guard scalars.count > maximumLineScalars else { return safe }
+        if kind == .added || kind == .removed {
+            let end = shown.count
+            let start = end - shown.reversed().prefix { $0 == " " }.count
+            if start < end { marks.trailing = start..<end }
+        }
+        guard shown.count > maximumLineScalars else { return (String(shown), marks) }
+        marks.tabs = marks.tabs.filter { $0.upperBound <= maximumLineScalars }
+        marks.trailing = nil
+        let more = shown.count - maximumLineScalars
         var cut = String.UnicodeScalarView()
-        cut.append(contentsOf: scalars.prefix(maximumLineScalars))
-        return String(cut) + " … (\(WipDetailModel.formatted(scalars.count - maximumLineScalars)) more characters)"
+        cut.append(contentsOf: shown.prefix(maximumLineScalars))
+        return (String(cut) + " … (\(WipDetailModel.formatted(more)) more characters)", marks)
     }
 
     private static func kind(_ kind: PatchLine.Kind) -> LineKind {
