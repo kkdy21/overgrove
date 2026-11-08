@@ -820,10 +820,11 @@ S-09, S-11처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 
 | 머리 | `Compare` + 기준 짧은 SHA `→` 대상 짧은 SHA. `⇄` 버튼은 기준과 대상을 바꾼다(파일 목록과 패치를 다시 읽음) |
 | 요약 줄 | 파일 수, `+n −m` |
 | BASE / TARGET | 각 커밋 한 행: 아바타 + 짧은 SHA + 제목 + AI 배지. 행을 누르면 S-12를 닫고 그 커밋의 S-03을 연다 |
+| COMMITS (#389) | 대상에는 있고 기준에는 없는 커밋(`base..target`), 최신순. 행 모양과 누를 때 동작은 BASE/TARGET과 같다. 최대 500개, 넘으면 `COMMITS (500+)`와 `Showing the newest 500 commits`. 없으면 `a91f3c2 has no commits that 3c5d6f1 does not have`(대상이 기준보다 뒤일 때, `⇄`로 반대 방향을 본다). 읽는 중에는 `Reading commits…`, 실패하면 마스킹한 오류 문구. 파일 목록과 따로 읽고 따로 실패한다 |
 | FILES CHANGED | S-11과 같다: 종류 글자(M/A/D/R/C/T) + 경로 + `+n −m`, rename은 `{old → new}`, 경로 오름차순 |
 | 패치 머리 | 경로, 변경 종류, 그 파일의 `+n −m` |
 
-**데이터.** 새 git 명령은 없다. 커밋 상세의 `commitFiles`와 `commitPatch`(`diff-tree`, plumbing이라 저장소 diff 설정의 영향을 받지 않는다)에 부모 자리로 기준 커밋을 넘긴다: 기준→대상 두 트리의 차이다. 두 커밋은 그래프가 불러온 커밋이고 `ObjectID`로 검증되며 `--end-of-options` 뒤에 온다. 모든 diff는 `--no-ext-diff --no-textconv` (T3). [git-command-catalog.md](../architecture/git-command-catalog.md)의 두 행에 이 쓰임을 적었다.
+**데이터.** 파일 목록과 패치에는 새 git 명령이 없다. 커밋 상세의 `commitFiles`와 `commitPatch`(`diff-tree`, plumbing이라 저장소 diff 설정의 영향을 받지 않는다)에 부모 자리로 기준 커밋을 넘긴다: 기준→대상 두 트리의 차이다. 두 커밋은 그래프가 불러온 커밋이고 `ObjectID`로 검증되며 `--end-of-options` 뒤에 온다. 모든 diff는 `--no-ext-diff --no-textconv` (T3). [git-command-catalog.md](../architecture/git-command-catalog.md)의 두 행에 이 쓰임을 적었다. COMMITS는 `commitsBetween`(#389, 두 `ObjectID`의 `log base..target`)이다.
 
 | 상태 | 표현 |
 |---|---|
@@ -836,4 +837,4 @@ S-09, S-11처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 
 
 **구현 메모 (#388).** `AppState+CommitComparison`, `CommitComparisonModel`, `CommitComparisonCenterView`·`CommitComparisonListView`. 파일 목록은 `RepositoryService.compareCommits`(`commitFiles`에 기준을 부모 자리로)이고 캐시하지 않는다. 패치 머리의 출처는 `3c5d6f1 → a91f3c2 · M`. 고충실도 목업은 그리지 않았고, 렌더 테스트(`CommitComparisonRenderTests`) 스크린샷으로 확인했다.
 
-**제외 (later).** 기준과 대상 사이의 커밋 목록(`commitsAhead`가 지금 브랜치 ref만 받아 OID 변형이 필요하다), 사이드바 태그·브랜치에서 바로 비교, `⌘`-클릭으로 두 번째 커밋 고르기, 키보드 단축키, merge base 기준 비교(`A...B`).
+**제외 (later).** 사이드바 태그·브랜치에서 바로 비교, `⌘`-클릭으로 두 번째 커밋 고르기, 키보드 단축키, merge base 기준 비교(`A...B`).

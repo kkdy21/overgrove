@@ -28,6 +28,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Credential masking for URLs, stderr, and logs; path validation for registration and symlink escapes.
 - Value models and parsers for `git config`, `git version`, and `gh` JSON output.
 - Korean README (`README.ko.md`) with an English/Korean switcher at the top of both files.
+- Commit comparison (S-12): a COMMITS section lists the commits the target has that the base does not, newest first
+  (up to 500), and each row opens that commit.
 
 ### Changed
 
