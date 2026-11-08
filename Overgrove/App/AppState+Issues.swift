@@ -8,7 +8,8 @@ extension AppState {
         guard let refs = listing.refs else { return nil }
         return BranchListModel(
             refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
-            remoteNames: listing.remoteNames)
+            remoteNames: listing.remoteNames,
+            detachedHeads: Set(listing.entries.filter(\.worktree.isDetached).compactMap(\.worktree.head)))
     }
 
     // MARK: Issues (#81)

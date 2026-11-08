@@ -49,6 +49,8 @@ struct BranchListModel: Equatable {
     let localCount: Int
     let remote: [BranchNode]
     let remoteCount: Int
+    /// TAGS (#377), from the same refs.
+    let tags: TagListModel
     /// A non-blocking note when branches were skipped (names git cannot take back) or the list was cut.
     let warning: String?
 
@@ -66,7 +68,11 @@ struct BranchListModel: Equatable {
     /// - Parameters:
     ///   - checkedOut: Full ref names checked out in a worktree.
     ///   - remoteNames: Configured remotes, to split `refs/remotes/<remote>/<branch>` when a name has `/`.
-    init(refs: RefParser.Listing, checkedOut: Set<String>, remoteNames: [String]) {
+    ///   - detachedHeads: Commits a worktree has checked out detached, for the TAGS `tree` mark.
+    init(
+        refs: RefParser.Listing, checkedOut: Set<String>, remoteNames: [String], detachedHeads: Set<ObjectID> = []
+    ) {
+        tags = TagListModel(tags: refs.tags, detachedHeads: detachedHeads)
         let symbolic = refs.branches.filter { $0.symbolicTarget != nil }
         let locals = refs.branches.filter { $0.kind == .local }
         let remotes = refs.branches.filter {

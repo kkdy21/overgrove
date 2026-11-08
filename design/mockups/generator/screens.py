@@ -387,7 +387,7 @@ def issue_filter_chip(S, T, xr, cy):
     g_chevron(S, xr - 8, cy, 8, T('text.tertiary'), 'down')
 
 
-def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0, 0.78), scroll_px=0, issue_filter=False):
+def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0, 0.78), scroll_px=0, issue_filter=False, tags=False):
     x0, x1, y0, y1 = LX0, LX1, PT, PB
     panel(S, T, x0, y0, x1, y1, 'sbclip')
     S.open_group(clip='sbclip')
@@ -483,6 +483,25 @@ def sidebar(S, T, focus='feat42', selected='wt:feat42', delta=None, scroll=(0.0,
         S.text(x0 + 59, cy + 4.3, fit(name, 12.5, x1 - 14 - tw_ - 26 - (x0 + 59)), size=12.5, fill=T('text.primary'))
         y += 28
     y += 6
+    # TAGS (#377): under REMOTE, newest first; the relative date on the right, the tree mark for a detached worktree.
+    # Drawn only for the TAGS mockup; the other screens predate the section and keep their layout.
+    if tags:
+        sections.append(['TAGS', 38, y])
+        y = section_header(S, T, x0, x1, y, 'TAGS', 38)
+        for name, when, detached in (('v1.4.0', '3d', False), ('v1.4.0-rc.2', '12d', False), ('v1.3.2', '1mo', True),
+                                     ('v1.3.1', '2mo', False)):
+            cy = y + 14
+            if selected == f'tg:{name}':
+                S.rect(x0 + 6, y + 1, x1 - x0 - 12, 26, r=6, fill=T('surface.selection'))
+            g_tag(S, x0 + 23, cy, 13, T('text.secondary'))
+            S.text(x1 - 14, cy + 4, when, size=11, fill=T('text.tertiary'), anchor='end')
+            if detached:
+                g_tree(S, x1 - 14 - tw(when, 11) - 14, cy, 12, T('text.secondary'))
+            S.text(x0 + 35, cy + 4.3, name, size=12.5, fill=T('text.primary'))
+            y += 28
+        S.text(x0 + 16, y + 18, '34 more tags — filter to find one', size=11, fill=T('text.tertiary'))
+        y += 28
+        y += 6
     # STASHES
     sections.append(['STASHES', 2, y])
     y = section_header(S, T, x0, x1, y, 'STASHES', 2)
@@ -1931,8 +1950,22 @@ def s09(mode):
     return finish(S, T)
 
 
+def s01_tags(mode):
+    T = Theme(mode)
+    S = window(T, 'Overgrove — S-01 sidebar TAGS')
+    toolbar(S, T)
+    sidebar(S, T, selected='tg:v1.4.0', scroll_px=150, scroll=(0.2, 0.95), tags=True)
+    graph_panel(S, T, wip=WIP42, selected=0)
+    commit_detail(S, T, 0)
+    grip(S, T, LX1 + G / 2)
+    grip(S, T, CX1 + G / 2)
+    statusbar(S, T)
+    return finish(S, T)
+
+
 SCREENS = {
     'main-window': s01,
+    's01-tags-sidebar': s01_tags,
     's02-wip-detail': s02,
     's03-commit-detail': s03,
     's05-worktree-detail': s05,
