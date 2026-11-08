@@ -87,9 +87,18 @@ struct SetupAssistantView: View {
         case nil:
             ProgressView().controlSize(.small)
         case .ready(let version, let path):
-            Label(Self.gitReady(version, path), systemImage: "checkmark.circle")
-                .font(Tokens.Font.callout)
-                .foregroundStyle(Tokens.Color.textPrimary)
+            VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
+                Label(Self.gitReady(version, path), systemImage: "checkmark.circle")
+                    .font(Tokens.Font.callout)
+                    .foregroundStyle(Tokens.Color.textPrimary)
+                // A supported but older git works, with fewer fetches (#383).
+                if OlderGitNote.applies(to: version) {
+                    Label(OlderGitNote.text, systemImage: "info.circle")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         case .missing:
             SetupProblem(
                 title: "git was not found", message: "Install the Xcode Command Line Tools, then check again:",

@@ -100,6 +100,19 @@ struct FetchFailureGuidance: Sendable, Equatable {
         )
     }
 
+    /// The git in use is too old to fetch `remote` (a remote on this Mac before `lazyFetchControlVersion`, #361). The
+    /// summary names the git, not the repository, as the cause (#383). No command is offered.
+    init(gitVersionLimitFor remote: RemoteName, reason: String) {
+        self.init(
+            remote: remote,
+            reason: .blockedByConfiguration,
+            summary: "Overgrove does not fetch \(remote.value) with this git",
+            guidance: reason,
+            commands: [],
+            detail: nil
+        )
+    }
+
     /// Guidance for a failed fetch of `remote`. `nil` for cancellation, which is not a failure (interaction.md §4.2).
     ///
     /// - Parameters:
