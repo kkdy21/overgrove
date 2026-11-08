@@ -82,6 +82,7 @@ Overgrove/
 ├── Git/            # GitClient(actor), GitCommand(ReadOnlyGitCommand, FetchCommand), GitEnvironment, RepoConfigInspector, GitError,
 │                   # FetchFailureGuidance, TransportName
 ├── GitHub/         # GHClient(actor), GHCommand(gh 명령 allowlist), GHError, GitHubRepository, GitHubRemote(원격 → OWNER/NAME)
+├── Forges/         # (v0.2.0, ADR-0026) GLClient·GLCommand(glab allowlist), GTClient·GTCommand(gt allowlist)
 ├── Parsing/        # WorktreeParser, StatusParser, StashParser, LogParser, RevListParser, RefParser, NumstatParser,
 │                   # ConfigParser, VersionParser, ProbeParser, GHAuthParser, IssueParser, IssueRefExtractor,
 │                   # FetchProgressParser
@@ -135,7 +136,7 @@ OvergroveTests/
 | 0001 | 제품명 Overgrove | Accepted |
 | 0002 | 라이선스 MIT | Accepted |
 | 0003 | 최소 macOS 14 | Accepted |
-| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted (§2는 0023, §8은 0025로 대체) |
+| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted (§2는 0023, §8은 0025로 대체, GitHub 밖 제공자는 0026으로 확장) |
 | 0005 | 문서 언어 (내부 한국어, 외부 접점 영어) | Accepted |
 | 0006 | 외부 의존성 0개 | Accepted |
 | 0007 | 포맷·린트는 툴체인 내장 swift-format | Accepted |
@@ -157,6 +158,7 @@ OvergroveTests/
 | 0023 | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |
 | 0024 | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰 직접 사용 안 함) | Accepted |
 | 0025 | GitHub 호스트는 gh에 로그인된 것만 신뢰, 계정은 앱이 바꾸지 않음 (ADR-0004 §8 대체) | Accepted |
+| 0026 | GitLab·Gitea 이슈는 glab·gt에 위임, 그 CLI에 로그인된 호스트만 신뢰 (ADR-0004를 GitHub 밖 제공자로 확장) | Accepted |
 
 ### 2.6 테스트 ID
 
