@@ -12,7 +12,9 @@ struct StashListSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SidebarSectionHeader(title: "STASHES", count: rows.count, isExpanded: $isExpanded)
+            SidebarSectionHeader(
+                title: String(localized: "STASHES", comment: "Sidebar section"), count: rows.count,
+                isExpanded: $isExpanded)
             if isExpanded {
                 if rows.isEmpty {
                     Text("No stashes")
@@ -22,7 +24,9 @@ struct StashListSection: View {
                         .frame(height: Tokens.Size.rowSidebar)
                 } else {
                     if isPartial {
-                        SidebarNotice(symbol: "exclamationmark.triangle", text: "Some stashes could not be listed.")
+                        SidebarNotice(
+                            symbol: "exclamationmark.triangle",
+                            text: String(localized: "Some stashes could not be listed."))
                     }
                     // Lazy: a crafted reflog can list tens of thousands of entries (security review of #71, T15).
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -139,7 +143,7 @@ struct StashDetailView: View {
         }
     }
 
-    private func infoRow(_ label: String, _ value: String, mono: Bool) -> some View {
+    private func infoRow(_ label: LocalizedStringKey, _ value: String, mono: Bool) -> some View {
         GridRow {
             Text(label).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
             Text(value)

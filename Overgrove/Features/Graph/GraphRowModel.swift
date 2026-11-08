@@ -155,13 +155,15 @@ struct GraphCommitText: Sendable, Equatable {
     static func compact(_ date: Date, now: Date) -> String {
         let seconds = max(0, Int(now.timeIntervalSince(date)))
         switch seconds {
-        case ..<60: return "now"
-        case ..<3_600: return "\(seconds / 60)m"
-        case ..<86_400: return "\(seconds / 3_600)h"
-        case ..<(7 * 86_400): return "\(seconds / 86_400)d"
-        case ..<(30 * 86_400): return "\(seconds / (7 * 86_400))w"
-        case ..<(365 * 86_400): return "\(seconds / (30 * 86_400))mo"
-        default: return "\(seconds / (365 * 86_400))y"
+        case ..<60: return String(localized: "now", comment: "Graph date column")
+        case ..<3_600: return String(localized: "\(seconds / 60)m", comment: "Graph date column: minutes ago")
+        case ..<86_400: return String(localized: "\(seconds / 3_600)h", comment: "Graph date column: hours ago")
+        case ..<(7 * 86_400): return String(localized: "\(seconds / 86_400)d", comment: "Graph date column: days ago")
+        case ..<(30 * 86_400):
+            return String(localized: "\(seconds / (7 * 86_400))w", comment: "Graph date column: weeks ago")
+        case ..<(365 * 86_400):
+            return String(localized: "\(seconds / (30 * 86_400))mo", comment: "Graph date column: months ago")
+        default: return String(localized: "\(seconds / (365 * 86_400))y", comment: "Graph date column: years ago")
         }
     }
 }

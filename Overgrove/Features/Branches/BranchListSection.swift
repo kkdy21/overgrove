@@ -17,9 +17,18 @@ struct BranchListSection: View {
     @State private var isExpanded = true
     @State private var openFolders: Set<String> = []
 
+    /// `title` stays `LOCAL` or `REMOTE` (it picks the empty text and the relative dates); only the header is localized.
+    private var displayTitle: String {
+        switch title {
+        case "LOCAL": String(localized: "LOCAL", comment: "Sidebar section")
+        case "REMOTE": String(localized: "REMOTE", comment: "Sidebar section")
+        default: title
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SidebarSectionHeader(title: title, count: count, isExpanded: $isExpanded)
+            SidebarSectionHeader(title: displayTitle, count: count, isExpanded: $isExpanded)
             if isExpanded {
                 if let warning {
                     SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
@@ -27,7 +36,11 @@ struct BranchListSection: View {
                 if nodes.isEmpty {
                     Text(
                         isFiltered
-                            ? "No matching branches" : title == "LOCAL" ? "No local branches" : "No remote branches"
+                            ? "No matching branches"
+                            : title == "LOCAL"
+                                ? "No local branches"
+                                : "No remote branches"
+                                    as LocalizedStringKey
                     )
                     .font(Tokens.Font.callout)
                     .foregroundStyle(Tokens.Color.textTertiary)

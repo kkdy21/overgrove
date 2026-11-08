@@ -132,10 +132,10 @@ struct StatusBarItem: Equatable, Identifiable {
     static func relative(_ date: Date, now: Date) -> String {
         let seconds = max(0, Int(now.timeIntervalSince(date)))
         switch seconds {
-        case ..<60: return "just now"
-        case ..<3_600: return "\(seconds / 60) min ago"
-        case ..<86_400: return "\(seconds / 3_600) h ago"
-        default: return "\(seconds / 86_400) d ago"
+        case ..<60: return String(localized: "just now")
+        case ..<3_600: return String(localized: "\(seconds / 60) min ago")
+        case ..<86_400: return String(localized: "\(seconds / 3_600) h ago")
+        default: return String(localized: "\(seconds / 86_400) d ago")
         }
     }
 }

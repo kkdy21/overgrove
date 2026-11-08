@@ -388,10 +388,10 @@ struct WipDetailModel: Equatable {
 extension WorkingChangeGroup {
     var title: String {
         switch self {
-        case .conflicted: "Conflicted"
-        case .staged: "Staged"
-        case .unstaged: "Unstaged"
-        case .untracked: "Untracked"
+        case .conflicted: String(localized: "Conflicted", comment: "File group")
+        case .staged: String(localized: "Staged", comment: "File group")
+        case .unstaged: String(localized: "Unstaged", comment: "File group")
+        case .untracked: String(localized: "Untracked", comment: "File group")
         }
     }
 

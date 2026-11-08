@@ -180,7 +180,10 @@ extension AppState {
         let target = repository.repository
         let label =
             file.isUntracked
-            ? "Untracked" : (row.hasUncommittedChanges ? "Committed + uncommitted" : "Committed")
+            ? WorkingChangeGroup.untracked.title
+            : (row.hasUncommittedChanges
+                ? String(localized: "Committed + uncommitted", comment: "Diff source")
+                : String(localized: "Committed", comment: "Diff source"))
         let source = DiffDocument.Source(label: label, kindLetter: row.kindLetter)
         comparisonPatchTask = Task { [weak self] in
             let loaded: DiffLoadResult

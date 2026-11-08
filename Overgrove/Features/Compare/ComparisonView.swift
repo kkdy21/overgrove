@@ -92,8 +92,9 @@ struct ComparisonCenterView: View {
                     onBack: onBack, showsBackButton: false)
             } else {
                 PanelEmptyState(
-                    symbol: "doc.text", title: "Select a file",
-                    message: "Pick a file in the list to see its changes compared with \(model.baseName).")
+                    symbol: "doc.text", title: String(localized: "Select a file"),
+                    message: String(
+                        localized: "Pick a file in the list to see its changes compared with \(model.baseName)."))
             }
         }
     }
@@ -119,8 +120,9 @@ struct ComparisonListView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: Tokens.Spacing.md) {
                 Text(
-                    "compared with \(model.baseName)"
-                        + (session.includeUncommitted ? ", including uncommitted changes" : "")
+                    session.includeUncommitted
+                        ? "compared with \(model.baseName), including uncommitted changes"
+                        : "compared with \(model.baseName)" as LocalizedStringKey
                 )
                 .font(Tokens.Font.caption)
                 .foregroundStyle(Tokens.Color.textTertiary)
@@ -139,14 +141,14 @@ struct ComparisonListView: View {
 
     private var commits: some View {
         DetailCard {
-            sectionTitle("COMMITS AHEAD", count: model.commits.count, more: model.hasMoreCommits)
+            sectionTitle(String(localized: "COMMITS AHEAD"), count: model.commits.count, more: model.hasMoreCommits)
             if let count = model.uncommittedFileCount {
                 HStack(spacing: Tokens.Spacing.sm) {
                     Image(systemName: "circle.dashed").foregroundStyle(Tokens.Color.textTertiary)
                         .accessibilityHidden(true)
                     Text("Uncommitted changes").font(Tokens.Font.callout)
                     Spacer()
-                    Text("\(count) \(count == 1 ? "file" : "files")").font(Tokens.Font.caption)
+                    Text(count == 1 ? "\(count) file" : "\(count) files" as LocalizedStringKey).font(Tokens.Font.caption)
                         .foregroundStyle(Tokens.Color.textSecondary)
                 }
             }
@@ -166,7 +168,8 @@ struct ComparisonListView: View {
     private var files: some View {
         DetailCard {
             HStack {
-                sectionTitle("FILES CHANGED", count: model.totalFileCount, more: model.isFileListPartial)
+                sectionTitle(
+                    String(localized: "FILES CHANGED"), count: model.totalFileCount, more: model.isFileListPartial)
                 Spacer()
                 Text(model.totalLineChange).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
             }
@@ -181,13 +184,13 @@ struct ComparisonListView: View {
 
     private var untracked: some View {
         DetailCard {
-            sectionTitle("UNTRACKED", count: model.untracked.count, more: false)
+            sectionTitle(String(localized: "UNTRACKED"), count: model.untracked.count, more: false)
             ForEach(model.untracked) { row in fileRow(row, isUntracked: true) }
         }
     }
 
     private func sectionTitle(_ title: String, count: Int, more: Bool) -> some View {
-        Text("\(title) (\(WipDetailModel.formatted(count))\(more ? "+" : ""))")
+        Text("\(title) (\(WipDetailModel.formatted(count))\(more ? "+" : ""))" as String)
             .font(Tokens.Font.sectionHeader)
             .tracking(Tokens.Font.sectionHeaderTracking)
             .foregroundStyle(Tokens.Color.textTertiary)

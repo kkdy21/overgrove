@@ -39,7 +39,8 @@ struct StashDetailModel: Equatable {
         let isSelectable: Bool
         /// `src/a.swift, 2 lines added, 1 removed, from untracked files` (interaction.md §6.1).
         var accessibilityLabel: String {
-            WipDetailModel.fileAccessibilityLabel(file, extras: isFromUntracked ? ["from untracked files"] : [])
+            WipDetailModel.fileAccessibilityLabel(
+                file, extras: isFromUntracked ? [String(localized: "from untracked files")] : [])
         }
         var id: GitPath { file.path }
     }
@@ -69,9 +70,9 @@ struct StashDetailModel: Equatable {
         branch = stash.branch.map(PathValidator.displayable)
         baseCommit = stash.baseCommit.map { Self.baseCommitText($0, message: stash.message) }
         var parts: [String] = []
-        if stash.includesIndex { parts.append("index") }
-        parts.append("working tree")
-        if stash.includesUntracked { parts.append("untracked") }
+        if stash.includesIndex { parts.append(String(localized: "index", comment: "Stash includes")) }
+        parts.append(String(localized: "working tree", comment: "Stash includes"))
+        if stash.includesUntracked { parts.append(String(localized: "untracked", comment: "Stash includes")) }
         includes = parts.joined(separator: " · ")
         switch state {
         case .loading:
@@ -96,7 +97,8 @@ struct StashDetailModel: Equatable {
     static func baseCommitText(_ base: ObjectID, message: String) -> String {
         let parts = message.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: false)
         if parts.count == 2, parts[0].count >= 7, base.hex.hasPrefix(parts[0]) {
-            return "\(base.short)  \(PathValidator.displayable(String(parts[1])))  (from message)"
+            return "\(base.short)  \(PathValidator.displayable(String(parts[1])))  "
+                + String(localized: "(from message)")
         }
         return base.short
     }

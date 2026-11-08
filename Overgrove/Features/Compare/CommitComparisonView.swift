@@ -66,9 +66,11 @@ struct CommitComparisonCenterView: View {
                     onBack: onBack, showsBackButton: false)
             } else {
                 PanelEmptyState(
-                    symbol: "doc.text", title: "Select a file",
-                    message: "Pick a file in the list to see how it changed from \(model.base.shortSHA) to "
-                        + "\(model.target.shortSHA).")
+                    symbol: "doc.text", title: String(localized: "Select a file"),
+                    message: String(
+                        localized:
+                            "Pick a file in the list to see how it changed from \(model.base.shortSHA) to \(model.target.shortSHA)."
+                    ))
             }
         }
     }
@@ -105,7 +107,7 @@ struct CommitComparisonListView: View {
         }
     }
 
-    private func sectionTitle(_ title: String) -> some View {
+    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .font(Tokens.Font.sectionHeader)
             .tracking(Tokens.Font.sectionHeaderTracking)

@@ -28,7 +28,8 @@ struct CommitComparisonModel: Equatable {
         let author: String
         let isAIAssisted: Bool
         var accessibilityLabel: String {
-            "Commit \(shortSHA), \(subject), by \(author)" + (isAIAssisted ? ", AI-assisted" : "")
+            String(localized: "Commit \(shortSHA), \(subject), by \(author)")
+                + (isAIAssisted ? ", " + String(localized: "AI-assisted") : "")
         }
     }
 
@@ -66,7 +67,7 @@ struct CommitComparisonModel: Equatable {
         title = "\(base.shortSHA) → \(target.shortSHA)"
         switch session.files {
         case .loading:
-            state = .loading("Comparing \(base.shortSHA) with \(target.shortSHA)…")
+            state = .loading(String(localized: "Comparing \(base.shortSHA) with \(target.shortSHA)…"))
             rows = []
             hidden = 0
             summary = nil
@@ -92,7 +93,7 @@ struct CommitComparisonModel: Equatable {
             isPartial = list.isPartial
             state =
                 list.files.isEmpty
-                ? .noChanges("No changes between \(base.shortSHA) and \(target.shortSHA)") : .loaded
+                ? .noChanges(String(localized: "No changes between \(base.shortSHA) and \(target.shortSHA)")) : .loaded
         }
     }
 }
