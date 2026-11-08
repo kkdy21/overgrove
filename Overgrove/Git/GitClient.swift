@@ -25,6 +25,9 @@ struct RepoSafetyContext: Sendable, Equatable {
     /// The repository is a partial clone (a promisor remote). Fetch must not run on git that cannot turn off lazy
     /// fetching (#212).
     let isPartialClone: Bool
+    /// Remotes whose URLs and settings are all in a built-in transport form (`TransportName.isBuiltInFetchForm`).
+    /// Fetch refuses any other remote before git starts (#350, T5). Empty by default (fail closed).
+    let fetchableRemotes: Set<String>
 
     static let preInspection = RepoSafetyContext(
         neutralization: [],
@@ -32,7 +35,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         trustedSSHCommand: nil,
         isInspected: false,
         fetchBlockingReason: nil,
-        isPartialClone: false
+        isPartialClone: false,
+        fetchableRemotes: []
     )
 
     init(
@@ -40,7 +44,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         fetchAuthentication: [String],
         trustedSSHCommand: String?,
         fetchBlockingReason: String? = nil,
-        isPartialClone: Bool = false
+        isPartialClone: Bool = false,
+        fetchableRemotes: Set<String> = []
     ) {
         self.init(
             neutralization: inspectedNeutralization,
@@ -48,7 +53,8 @@ struct RepoSafetyContext: Sendable, Equatable {
             trustedSSHCommand: trustedSSHCommand,
             isInspected: true,
             fetchBlockingReason: fetchBlockingReason,
-            isPartialClone: isPartialClone
+            isPartialClone: isPartialClone,
+            fetchableRemotes: fetchableRemotes
         )
     }
 
@@ -58,8 +64,10 @@ struct RepoSafetyContext: Sendable, Equatable {
         trustedSSHCommand: String?,
         isInspected: Bool,
         fetchBlockingReason: String?,
-        isPartialClone: Bool
+        isPartialClone: Bool,
+        fetchableRemotes: Set<String>
     ) {
+        self.fetchableRemotes = fetchableRemotes
         self.neutralization = neutralization
         self.fetchAuthentication = fetchAuthentication
         self.trustedSSHCommand = trustedSSHCommand
@@ -179,6 +187,11 @@ actor GitClient {
         }
         if let reason = safety.fetchBlockingReason {
             throw GitError.configInspectionFailed(reason: reason)
+        }
+        // Only a remote the inspection found in a built-in transport form (#350, T5). A remote it did not list (no
+        // `remote.<n>.url`, or past `RepoConfigInspector.maximumRemotes`) is refused too.
+        guard case .fetch(let remote) = command, safety.fetchableRemotes.contains(remote.value) else {
+            throw GitError.configInspectionFailed(reason: TransportName.nonBuiltInRemoteReason)
         }
         let arguments = environment.arguments(
             for: command.subcommandArguments(),

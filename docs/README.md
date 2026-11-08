@@ -125,6 +125,7 @@ OvergroveTests/
 | T16 | 로그를 통한 정보 유출 |
 | T17 | 공급망 (의존성, GitHub Actions) |
 | T18 | 공개 저장소에 비밀 정보·개인 경로 커밋 |
+| T19 | 디스크에 남는 저장소 데이터 (실행 간 캐시) |
 
 ### 2.5 ADR 번호
 
@@ -147,6 +148,8 @@ OvergroveTests/
 | 0014 | 메인 창의 자체 패널 테마와 사용자 정의 분할 레이아웃 | Accepted |
 | 0015 | 의존 이슈를 기다리지 않는다 (stand-in, 머지 순서는 `pr-policy`) | Accepted |
 | 0016 | 보드 Status는 워크플로우가 project 전용 토큰으로 맞춘다 | Accepted |
+| 0017 | 디자인 토큰은 Swift 스크립트로 Asset Catalog와 Swift 상수를 생성해 커밋 | Accepted |
+| 0018 | 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 | Accepted |
 | 0019 | 사용자가 고른 git 실행 파일을 믿는 조건 | Accepted |
 
 ### 2.6 테스트 ID

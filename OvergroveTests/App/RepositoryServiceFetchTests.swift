@@ -68,6 +68,23 @@ final class RepositoryServiceFetchTests: XCTestCase {
             "git wrote FETCH_HEAD, which later stands in for the time when there is no record")
     }
 
+    /// SEC-T5-22 (#354): a failed fetch offers a git command for Terminal only when the repository has neither
+    /// configuration findings nor executables in its hooks directory; a hostile repository could fail the fetch on
+    /// purpose to get its hook run by a pasted command.
+    func testSECT5_22_FetchGuidanceWithholdsTheCommandWhenHooksExist() async throws {
+        let missing = origin.deletingLastPathComponent().appendingPathComponent("missing-\(UUID().uuidString).git")
+        try await repository.git(["remote", "add", "broken", missing.path])
+        guard case .finished(let clean, _) = await service().fetch(model) else { return XCTFail("not finished") }
+        XCTAssertTrue(clean.first?.commands.contains { $0.hasPrefix("git ") } ?? false, "\(clean.map(\.commands))")
+
+        let hook = repository.root.appendingPathComponent(".git/hooks/post-checkout")
+        try Data("not a program\n".utf8).write(to: hook)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
+        guard case .finished(let hooked, _) = await service().fetch(model) else { return XCTFail("not finished") }
+        XCTAssertEqual(hooked.count, 1)
+        XCTAssertFalse(hooked.first?.commands.contains { $0.hasPrefix("git ") } ?? true, "\(hooked.map(\.commands))")
+    }
+
     /// SEC-T15-10 (#259): a repository listing more remotes than one Fetch takes fetches only the first
     /// `maximumFetchedRemotes`, in configuration order, and says how many it skipped. Counted as git processes
     /// through the logging stand-in.

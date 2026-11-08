@@ -50,7 +50,7 @@ scripts/make-fixture-repo.sh --force <dir>       # 비어 있지 않은 <dir>을
 
 ## 2. 이력과 참조
 
-### 2.1 커밋 그래프 (main 기준, `--exclude=refs/stash --all` 21개)
+### 2.1 커밋 그래프 (main 기준, 브랜치·원격·태그·워크트리 HEAD 21개, #308)
 
 ```
 * e4bd61e feat: local-only change on main              (main, origin/main 보다 1개 앞)
@@ -102,7 +102,7 @@ scripts/make-fixture-repo.sh --force <dir>       # 비어 있지 않은 <dir>을
 | `stash@{0}` | `On feat/ahead: fixture: with untracked` | 추적 파일 1개 수정 + 미추적 파일 1개 (`-u`). `--include-untracked` numstat에 `stash-untracked.txt`가 나온다 | PAR-STASH-01, PAR-NUMSTAT-05, INT-05 |
 | `stash@{1}` | `On main: fixture: tracked change` | `src/stash-target.txt` 1줄 추가 | PAR-STASH-01, INT-06 |
 
-**주의 (실측).** `git log --all`은 `refs/stash`를 따라가므로 stash 커밋과 그 index·untracked 부모 커밋이 그래프에 섞인다. 그래서 `--all`로 세면 24개, `--exclude=refs/stash --all`로 세면 21개다. 병합 커밋 수도 `--all`이면 2개(stash 커밋 포함), 제외하면 1개다. 그래프 조회는 반드시 `--exclude=refs/stash`를 쓴다 (ADR-0010, INT-07).
+**주의 (실측).** `git log --all`은 `refs/stash`를 따라가므로 stash 커밋과 그 index·untracked 부모 커밋이 그래프에 섞인다. 그래서 `--all`로 세면 24개, `--exclude=refs/stash --all`로 세면 21개다. 병합 커밋 수도 `--all`이면 2개(stash 커밋 포함), 제외하면 1개다. 그래프 조회는 `--all` 대신 `--branches --remotes --tags --exclude=refs/* --all`을 쓴다. stash·notes·prefetch·`refs/original`을 따라가지 않고, 브랜치·원격·태그와 워크트리 HEAD만 따라간다 (ADR-0010, INT-07, #308).
 
 ---
 
@@ -260,6 +260,7 @@ worktrees/wt-no-upstream   staged=0 unstaged=0 untracked=0 conflicted=0
 |---|---|---|---|
 | `T1-fsmonitor` | T1 | `core.fsmonitor = payloads/t1-fsmonitor.sh` | index를 읽는 명령 (status, diff) |
 | `T2-hook-<name>` | T2 | `core.hooksPath = payloads/hooks/` (`post-index-change`, `reference-transaction`, `post-checkout`, `post-merge`, `pre-auto-gc`, `post-rewrite`, `pre-commit`) | index 쓰기, ref 갱신(fetch), auto gc |
+| `T2-config-hook` | T2 | 설정형 hook `hook.fixture.command = payloads/t2-config-hook.sh`, `hook.fixture.event`에 githooks의 모든 이벤트(#354). git 2.54 이상만 인식하고 이전 git은 무시한다 | 2.54 이상에서 hook 이벤트가 일어날 때 |
 | `T3-textconv` | T3 | `diff.fixture.textconv` + `.git/info/attributes`의 `*.txt diff=fixture` | patch 출력 (`diff`, `show -p`) |
 | `T3-external-diff` | T3 | `diff.external`. **`include.path`로 불러온 파일에만 있다** | `git diff` |
 | `T4-filter-clean` | T4 | `filter.fixture.clean` + `*.txt filter=fixture`. 생성 마지막에 `src/filter-target.txt`의 mtime만 바꾼다 | 워크트리 내용을 다시 해시할 때 (status, 워크트리 diff) |
@@ -367,12 +368,12 @@ worktrees/wt-no-upstream   staged=0 unstaged=0 untracked=0 conflicted=0
   | worktreeDiff unstaged | `--no-textconv` | `T3-textconv`, `T4-filter-smudge` | M09 |
   | worktreeNumstat unstaged | — | `T1-fsmonitor`, `T4-filter-clean` (git 2.54.0 실측, #230) | M04 |
   | graphPage | — | `T7-gpg-program` | M12 |
-  | fetch origin | — | `T5-alternateRefsCommand`, `T2-hook-reference-transaction` | M23 |
+  | fetch origin | — | `T5-alternateRefsCommand`, `T2-hook-reference-transaction` (2.54 이상은 #354의 canary 포함) | M23 |
   | fetch origin | `--upload-pack=git-upload-pack` | `T5-uploadpack` | M20 |
 
 - 무력화 인자를 빼는 변형으로 INT-19가 status, worktreeDiff, untrackedPreview를 각각 잡아내는 것을 확인했다(#61 작업 중 수동 확인).
 - **SEC-T4 대조군은 결정적이어야 한다(#273)**: `RepoConfigInspectorFixtureTests`의 대조군 status는 `fixture` 드라이버의 `clean=`·`process=` 무력화만 빼고, 나머지 무력화는 그대로 둔다. 빈 `process=`도 설정된 process로 취급되어 `clean`보다 우선하므로 둘 다 빼야 한다. `*.md`의 mtime도 앞당겨 둔다. 이전에는 무력화를 전부 뺐는데, `T4-filter-process`는 git의 handshake(`git-filter-client`, `version=2`)에 답하지 않고 끝나므로 status가 `fatal: the remote end hung up unexpectedly`(128)로 중단됐다. 이 일은 갓 만든 픽스처의 `*.md`가 racily clean이라 다시 읽힐 때만 일어나서 간헐적이었다. mtime을 바꾸면 300/300 재현된다.
-- **INT-19가 닿는 canary**: T1, T2(fetch의 `reference-transaction`), T3(textconv·external), T4(clean·smudge·process), T5(uploadpack·alternateRefs), T7. 모두 대조군으로 실제 실행 경로임을 확인한다. **닿지 않는 것**: 인덱스 쓰기 hook(`post-index-change` 등, 앱 명령은 `--no-optional-locks`로 인덱스를 쓰지 않음), auto gc hook(`pre-auto-gc`), T5의 ssh·git·ext·redirected 원격 fetch, T6 인증 경로, T8(auto maintenance, `GIT_TRACE` 판정). 이것들은 이 도구 위에서 SEC 매트릭스가 다룬다. T1–T8은 #92(`OvergroveTests/Security/ConfigExecution*Tests.swift`, `TransportExecutionTests.swift`)에서 다뤘고, 픽스처에 없는 시나리오(서브모듈, 커밋된 `.gitattributes`, `.git/hooks/`, `diff.<d>.command`, `required=true`, credential helper 순서, 서명 커밋의 파일 이력)는 `SecurityScenario`(격리된 HOME의 임시 저장소)로 만들고, `fd::`·`insteadOf` → `ext::`·신뢰 `core.sshCommand`는 `CanaryHarness.runPlainSetup`으로 악성 픽스처에 설정을 더한 뒤 검사를 다시 한다. T6은 HTTP 서버 없이 앱의 fetch 인자 그대로 `git credential fill`을 실행해 대신 검증한다(§8.2 M35–38과 같은 방식).
+- **INT-19가 닿는 canary**: T1, T2(fetch의 `reference-transaction`, #354), T3(textconv·external), T4(clean·smudge·process), T5(uploadpack·alternateRefs), T7. 모두 대조군으로 실제 실행 경로임을 확인한다. **닿지 않는 것**: 인덱스 쓰기 hook(`post-index-change` 등, 앱 명령은 `--no-optional-locks`로 인덱스를 쓰지 않음), auto gc hook(`pre-auto-gc`), T5의 ssh·git·ext·redirected 원격 fetch, T6 인증 경로, T8(auto maintenance, `GIT_TRACE` 판정). 이것들은 이 도구 위에서 SEC 매트릭스가 다룬다. T1–T8은 #92(`OvergroveTests/Security/ConfigExecution*Tests.swift`, `TransportExecutionTests.swift`)에서 다뤘고, 픽스처에 없는 시나리오(서브모듈, 커밋된 `.gitattributes`, `.git/hooks/`, `diff.<d>.command`, `required=true`, credential helper 순서, 서명 커밋의 파일 이력)는 `SecurityScenario`(격리된 HOME의 임시 저장소)로 만들고, `fd::`·`insteadOf` → `ext::`·신뢰 `core.sshCommand`는 `CanaryHarness.runPlainSetup`으로 악성 픽스처에 설정을 더한 뒤 검사를 다시 한다. T6은 HTTP 서버 없이 앱의 fetch 인자 그대로 `git credential fill`을 실행해 대신 검증한다(§8.2 M35–38과 같은 방식).
 
 ### 9.2 통합 테스트 (#62)
 

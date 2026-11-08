@@ -136,6 +136,38 @@ final class SetupAssistantStateTests: XCTestCase {
         XCTAssertFalse(setup.isPresented)
     }
 
+    /// #106, ADR-0019 §4: a refused Settings choice offers Use Default, which forgets the choice and checks again.
+    func testUseDefaultForgetsTheChoiceAndChecksAgain() async {
+        let rejected = GitSetupStatus.chosenRejected(
+            path: "/opt/homebrew/bin/git", reason: "No file exists at that path.")
+        let git = StubGitSetupChecker(rejected)
+        var forgotten = 0
+        let setup = SetupAssistantState(
+            gitChecker: git, ghChecker: StubGHAuthChecker(nil),
+            useDefaultGit: {
+                forgotten += 1
+                git.set(self.ready)
+            })
+        XCTAssertTrue(setup.canUseDefaultGit)
+        setup.checkGit()
+        await setup.gitTask?.value
+        XCTAssertEqual(setup.git, rejected)
+        XCTAssertFalse(setup.canFinish(hasRepository: true))
+
+        setup.useDefaultGit()
+        await setup.gitTask?.value
+        XCTAssertEqual(forgotten, 1)
+        XCTAssertEqual(setup.git, ready)
+
+        XCTAssertFalse(SetupAssistantState(gitChecker: git, ghChecker: StubGHAuthChecker(nil)).canUseDefaultGit)
+    }
+
+    func testLiveCheckerMapsARefusedChoice() {
+        XCTAssertEqual(
+            LiveGitSetupChecker.status(for: .chosenExecutableRejected(path: "/x/git", reason: "Not executable.")),
+            .chosenRejected(path: "/x/git", reason: "Not executable."))
+    }
+
     func testGitHubCheckFailureIsShownAsUnknown() async {
         let setup = SetupAssistantState(gitChecker: StubGitSetupChecker(ready), ghChecker: StubGHAuthChecker(nil))
         setup.checkGitHub()

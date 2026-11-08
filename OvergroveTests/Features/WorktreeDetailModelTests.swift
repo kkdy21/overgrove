@@ -28,8 +28,7 @@ final class WorktreeDetailModelTests: XCTestCase {
             failure: failure, inspectedAt: now, gitVersion: GitVersion(major: 2, minor: 50, patch: 1),
             commonArguments: common,
             diffArguments: diff
-                ?? (try! ReadOnlyGitCommand.worktreeDiff(path: GitPath("f"), staged: false)
-                    .subcommandArguments()),
+                ?? TestFixtures.arguments(.worktreeDiff(path: GitPath("f"), staged: false)),
             hookExecutables: hooks, realPath: realPath)
     }
 
@@ -73,7 +72,7 @@ final class WorktreeDetailModelTests: XCTestCase {
     /// Each §6 row turns ⚠ for its own keys (as git prints them, lowercased), listing key names only.
     func testEachRowListsItsRepositoryKeys() throws {
         let cases: [(String, [String])] = [
-            ("Hooks disabled", ["core.hookspath"]),
+            ("Hooks disabled", ["core.hookspath", "hook.lint.command", "hook.lint.event"]),
             ("fsmonitor disabled", ["core.fsmonitor"]),
             ("External diff and textconv disabled", ["diff.external", "diff.go.textconv"]),
             ("Filters neutralized", ["filter.lfs.process", "filter.lfs.clean"]),
@@ -101,6 +100,27 @@ final class WorktreeDetailModelTests: XCTestCase {
         let row = try row("Hooks disabled", in: security([], hooks: ["hooks/pre-commit", "hooks/post-checkout"]))
         XCTAssertEqual(row.mark, .neutralized)
         XCTAssertEqual(row.details, ["hooks/pre-commit", "hooks/post-checkout"])
+    }
+
+    /// #354: a config-defined hook that cannot be neutralized shows ✕ on the hooks row and stops queries.
+    func testUnneutralizableConfigHookShowsUnknown() throws {
+        let model = security([entry(.local, "hook.a=b.command")])
+        XCTAssertEqual(try row("Hooks disabled", in: model).mark, .unknown)
+        XCTAssertNotNil(model.blockingReason)
+    }
+
+    /// #354: the hooks row checks the arguments that really run: a repository hook without its
+    /// `hook.<name>.enabled=false` (here dropped on purpose) shows ✕.
+    func testConfigHookWithoutItsArgumentShowsUnknown() throws {
+        let inspected = RepoConfigInspector.inspect(
+            ConfigParser.Listing(entries: [entry(.local, "hook.lint.command")], isPartial: false))
+        XCTAssertTrue(WorktreeSecurityModel.configHooksNeutralized(inspected))
+        let regressed = RepoConfigInspection(
+            report: inspected.report, neutralization: [], fetchAuthentication: inspected.fetchAuthentication,
+            trustedSSHCommand: inspected.trustedSSHCommand, remotes: inspected.remotes,
+            fetchBlockingReason: inspected.fetchBlockingReason, isCacheable: inspected.isCacheable,
+            isPartialClone: inspected.isPartialClone)
+        XCTAssertFalse(WorktreeSecurityModel.configHooksNeutralized(regressed))
     }
 
     /// The ✓ conditions come from the real arguments: dropping one shows ✕.

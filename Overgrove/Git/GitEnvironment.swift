@@ -16,6 +16,13 @@ struct GitEnvironment: Sendable, Equatable {
         "-c", "core.askPass=",
         "-c", "protocol.ext.allow=never",
         "-c", "protocol.fd.allow=never",
+        // Related repository settings are neutralized (#350, T5).
+        "-c", "alias.remote-https=",
+        "-c", "alias.remote-ssh=",
+        "-c", "alias.remote-git=",
+        "-c", "alias.remote-file=",
+        "-c", "alias.remote-http=",
+        "-c", "help.autocorrect=0",
         "-c", "core.alternateRefsCommand=",
         "-c", "log.showSignature=false",
         "-c", "gc.auto=0",
@@ -30,7 +37,15 @@ struct GitEnvironment: Sendable, Equatable {
         // separators included, and some encodings (JOHAB, CP1361) turn message text into NUL bytes that shift fields
         // (#205). Pinning the output to UTF-8 overrides both.
         "-c", "i18n.logOutputEncoding=UTF-8",
+        // A repository's log.follow=true makes `git log -- <one path>` follow renames, so S-09's "Follow renames" off
+        // still followed (#310). `fileHistory` passes `--follow` itself when it wants it; an option beats the config.
+        "-c", "log.follow=false",
     ]
+
+    /// The neutralizing arguments of #350: one per allowed transport, and one more. Part of `commonArguments`; a test
+    /// keeps the two in step.
+    static let remoteHelperArguments: [String] =
+        allowedProtocols.split(separator: ":").flatMap { ["-c", "alias.remote-\($0)="] } + ["-c", "help.autocorrect=0"]
 
     /// Fixed search path for the child; the user's shell PATH is never used (SEC-T10-02).
     static let path = "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin"
@@ -129,8 +144,64 @@ struct GitEnvironment: Sendable, Equatable {
             directory = await activeDeveloperDirectory(runner: runner, environment: environment)
         }
         guard let directory else { throw GitError.executableNotFound(path: "/usr/bin/git") }
-        let executable = directory.appendingPathComponent("usr/bin/git")
+        return try await probe(
+            executable: directory.appendingPathComponent("usr/bin/git"), runner: runner,
+            parentEnvironment: parentEnvironment)
+    }
 
+    /// The git to use: the one chosen in Settings when it passes ADR-0019's rules, else the default (#106).
+    ///
+    /// A chosen git is checked on every call. If it fails any rule or its `git version` check, this throws
+    /// `chosenExecutableRejected` with the reason and never falls back to the default git (fail closed). The
+    /// `/usr/bin/git` shim means the default.
+    ///
+    /// - Parameter protectedDirectories: Called only for a chosen git, so the default git reads no repository file
+    ///   (`GitExecutablePolicy.protectedDirectories(for:)` of the registered repositories).
+    static func resolve(
+        chosenPath: String?,
+        protectedDirectories: @Sendable () -> [URL],
+        runner: ProcessRunner = ProcessRunner(),
+        parentEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        developerDirectory: (() async -> URL?)? = nil
+    ) async throws -> GitEnvironment {
+        guard let chosenPath, !chosenPath.isEmpty, !GitExecutablePolicy.isShim(chosenPath) else {
+            return try await discover(
+                runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
+        }
+        let shown = PathValidator.displayable(chosenPath)
+        let resolved: URL
+        do {
+            switch try GitExecutablePolicy.check(path: chosenPath, protectedDirectories: protectedDirectories()) {
+            case .useDefault:
+                return try await discover(
+                    runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
+            case .chosen(_, let real):
+                resolved = real
+            }
+        } catch let rejection as GitExecutablePolicy.Rejection {
+            throw GitError.chosenExecutableRejected(path: shown, reason: rejection.message)
+        }
+        do {
+            // The real file that passed the rules, so a link swapped afterwards does not change what runs.
+            return try await probe(executable: resolved, runner: runner, parentEnvironment: parentEnvironment)
+        } catch GitError.cancelled {
+            throw GitError.cancelled
+        } catch let error as GitError {
+            // Too old, not git, or failing to run: the same refusal, so Use Default is offered (ADR-0019 §4).
+            throw GitError.chosenExecutableRejected(path: shown, reason: error.message)
+        }
+    }
+
+    /// Runs `git version` on `executable` with the query environment and checks the minimum version (ADR-0008 §3).
+    ///
+    /// Only the version check: callers decide which executable may be probed. The default comes from `discover`; a
+    /// git chosen in Settings must pass ADR-0019's path, ownership, and permission rules first (#106).
+    static func probe(
+        executable: URL,
+        runner: ProcessRunner = ProcessRunner(),
+        parentEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) async throws -> GitEnvironment {
+        let environment = environment(parent: parentEnvironment, allowsTransport: false)
         let result: ProcessResult
         do {
             result = try await runner.run(
