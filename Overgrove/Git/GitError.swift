@@ -59,10 +59,16 @@ struct MaskedText: Sendable, Hashable {
             }
         }
         endLine()
-        // Counted in scalars, not `Character`s: a run of combining marks is one `Character` of any length (#362).
+        // Masked again on what is shown: dropping control and format characters (ESC, DEL, zero-width, bidi) can join
+        // the pieces of a token they split, and the first pass saw them apart (#375). Masking twice changes nothing
+        // already masked. The limit comes last, so it never cuts a token the second pass would have caught.
         var view = String.UnicodeScalarView()
-        view.append(contentsOf: printable.prefix(Self.maximumLength))
-        text = String(view)
+        view.append(contentsOf: printable)
+        let shown = CredentialMasker.mask(String(view)).unicodeScalars
+        // Counted in scalars, not `Character`s: a run of combining marks is one `Character` of any length (#362).
+        var limited = String.UnicodeScalarView()
+        limited.append(contentsOf: shown.prefix(Self.maximumLength))
+        text = String(limited)
     }
 
     /// Only spaces and tabs, or git's `remote:` sideband prefix with nothing after it.
