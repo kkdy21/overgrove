@@ -9,6 +9,9 @@ final class AppSettings {
     static let autoFetchKey = "settings.autoFetch"
     static let autoFetchIntervalKey = "settings.autoFetchIntervalMinutes"
     static let showsFullRemoteURLsKey = "settings.showsFullRemoteURLs"
+    /// The git chosen in Settings (ADR-0019, #106); absent or empty means the default git. Read off the main actor by
+    /// `LiveGitClient`, which checks it on every discovery.
+    nonisolated static let gitExecutablePathKey = "settings.gitExecutablePath"
 
     /// The auto fetch section is shown (the scheduler exists since #79).
     static let isAutoFetchAvailable = true
@@ -39,6 +42,18 @@ final class AppSettings {
         didSet { defaults.set(showsFullRemoteURLs, forKey: Self.showsFullRemoteURLsKey) }
     }
 
+    /// The git chosen in Settings, as entered; `nil` for the default git. Saved only after it passed ADR-0019's
+    /// checks (`GitExecutableChoice`). A stored value is untrusted and is checked again on every discovery.
+    var gitExecutablePath: String? {
+        didSet {
+            if let gitExecutablePath, !gitExecutablePath.isEmpty {
+                defaults.set(gitExecutablePath, forKey: Self.gitExecutablePathKey)
+            } else {
+                defaults.removeObject(forKey: Self.gitExecutablePathKey)
+            }
+        }
+    }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         autoFetch = defaults.bool(forKey: Self.autoFetchKey)
@@ -46,5 +61,6 @@ final class AppSettings {
         autoFetchIntervalMinutes =
             Self.autoFetchIntervals.contains(interval) ? interval : Self.defaultAutoFetchInterval
         showsFullRemoteURLs = defaults.bool(forKey: Self.showsFullRemoteURLsKey)
+        gitExecutablePath = defaults.string(forKey: Self.gitExecutablePathKey).flatMap { $0.isEmpty ? nil : $0 }
     }
 }
