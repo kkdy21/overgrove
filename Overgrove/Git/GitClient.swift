@@ -28,6 +28,8 @@ struct RepoSafetyContext: Sendable, Equatable {
     /// Remotes whose URLs and settings are all in a built-in transport form (`TransportName.isBuiltInFetchForm`).
     /// Fetch refuses any other remote before git starts (#350, T5). Empty by default (fail closed).
     let fetchableRemotes: Set<String>
+    /// Remotes with a password in a URL (`RepoConfigInspector.remotesWithPassword`). Fetch refuses them (#356).
+    let remotesWithPassword: Set<String>
 
     static let preInspection = RepoSafetyContext(
         neutralization: [],
@@ -36,7 +38,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         isInspected: false,
         fetchBlockingReason: nil,
         isPartialClone: false,
-        fetchableRemotes: []
+        fetchableRemotes: [],
+        remotesWithPassword: []
     )
 
     init(
@@ -45,7 +48,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         trustedSSHCommand: String?,
         fetchBlockingReason: String? = nil,
         isPartialClone: Bool = false,
-        fetchableRemotes: Set<String> = []
+        fetchableRemotes: Set<String> = [],
+        remotesWithPassword: Set<String> = []
     ) {
         self.init(
             neutralization: inspectedNeutralization,
@@ -54,7 +58,8 @@ struct RepoSafetyContext: Sendable, Equatable {
             isInspected: true,
             fetchBlockingReason: fetchBlockingReason,
             isPartialClone: isPartialClone,
-            fetchableRemotes: fetchableRemotes
+            fetchableRemotes: fetchableRemotes,
+            remotesWithPassword: remotesWithPassword
         )
     }
 
@@ -65,9 +70,11 @@ struct RepoSafetyContext: Sendable, Equatable {
         isInspected: Bool,
         fetchBlockingReason: String?,
         isPartialClone: Bool,
-        fetchableRemotes: Set<String>
+        fetchableRemotes: Set<String>,
+        remotesWithPassword: Set<String>
     ) {
         self.fetchableRemotes = fetchableRemotes
+        self.remotesWithPassword = remotesWithPassword
         self.neutralization = neutralization
         self.fetchAuthentication = fetchAuthentication
         self.trustedSSHCommand = trustedSSHCommand
@@ -190,6 +197,9 @@ actor GitClient {
         }
         // Only a remote the inspection found in a built-in transport form (#350, T5). A remote it did not list (no
         // `remote.<n>.url`, or past `RepoConfigInspector.maximumRemotes`) is refused too.
+        if case .fetch(let remote) = command, safety.remotesWithPassword.contains(remote.value) {
+            throw GitError.configInspectionFailed(reason: Self.passwordInURLReason)
+        }
         guard case .fetch(let remote) = command, safety.fetchableRemotes.contains(remote.value) else {
             throw GitError.configInspectionFailed(reason: TransportName.nonBuiltInRemoteReason)
         }
@@ -215,6 +225,10 @@ actor GitClient {
             stderrObserver: progress.map(Self.progressObserver)
         )
     }
+
+    static let passwordInURLReason =
+        "This remote's URL contains a password, so Overgrove does not fetch it: git would send the password and "
+        + "could save it to your credential helper. Remove it from the URL and use a credential helper instead."
 
     /// Turns raw stderr chunks into progress updates. Only phases and numbers leave the parser, never server text.
     ///

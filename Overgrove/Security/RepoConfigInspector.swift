@@ -11,6 +11,9 @@ struct RepoConfigInspection: Sendable, Equatable {
         /// Every URL of the remote, after any `url.<base>.insteadOf` rewrite, is in a built-in transport form, and no
         /// `remote.<n>.vcs` is set (#350). Fetch runs only these remotes.
         let isBuiltInTransport: Bool
+        /// A URL of the remote carries a password, as written or after a rewrite (#356). Fetch refuses the remote:
+        /// git would send it, and after a successful fetch ask the trusted helper to store it for that host.
+        var hasPasswordInURL = false
     }
 
     let report: RepoSecurityReport
@@ -41,7 +44,8 @@ struct RepoConfigInspection: Sendable, Equatable {
             trustedSSHCommand: trustedSSHCommand,
             fetchBlockingReason: fetchBlockingReason,
             isPartialClone: isPartialClone,
-            fetchableRemotes: Set(remotes.filter(\.isBuiltInTransport).map(\.name.value))
+            fetchableRemotes: Set(remotes.filter(\.isBuiltInTransport).map(\.name.value)),
+            remotesWithPassword: Set(remotes.filter(\.hasPasswordInURL).map(\.name.value))
         )
     }
 }
@@ -82,6 +86,8 @@ enum RepoConfigInspector {
         var neutralizedDrivers: [String] = []
         var seenDrivers = Set<String>()
         var restoreTLS: [String] = []
+        var credentialSwitches: [String] = []
+        var seenCredentialSwitches = Set<[UInt8]>()
         var seenTLS = Set<String>()
         var resetProxies: [String] = []
         var seenProxies = Set<String>()
@@ -119,8 +125,19 @@ enum RepoConfigInspector {
                 if seenTLS.insert(entry.key).inserted { restoreTLS.append(entry.key) }
             case ("http", "proxy"):
                 if seenProxies.insert(entry.key).inserted { resetProxies.append(entry.key) }
-            case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"):
+            case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"),
+                ("http", "proxysslcainfo"), ("http", "proxysslcert"), ("http", "proxysslkey"):
                 fetchBlockingReason = "This repository sets its own TLS certificate files; fetching is disabled."
+            case ("http", "curloptresolve"):
+                fetchBlockingReason = "This repository pins host names to addresses; fetching is disabled."
+            case ("extensions", "refstorage"):
+                fetchBlockingReason =
+                    "This repository keeps its references in a location it chose; fetching is disabled."
+            // URL-specific keys win over the generic ones fetch pins, so each is forced on under its own key (#356).
+            case ("credential", "protectprotocol"), ("credential", "sanitizeprompt"):
+                if seenCredentialSwitches.insert(Array(entry.key.utf8)).inserted {
+                    credentialSwitches.append(entry.key)
+                }
             default:
                 break
             }
@@ -153,6 +170,7 @@ enum RepoConfigInspector {
             }
         }
         fetchAuthentication += restoreTLS.flatMap { ["-c", "\($0)=true"] }
+        fetchAuthentication += credentialSwitches.flatMap { ["-c", "\($0)=true"] }
         // A repository-local proxy could receive credentials released by a trusted helper (review of #150).
         // Re-assert the trusted value for the same key, or an empty value (no proxy). One pass collects the last
         // trusted value per proxy key, instead of a scan of the whole listing per key.
@@ -185,10 +203,12 @@ enum RepoConfigInspector {
         }
         let builtInRemotes = builtInRemoteNames(
             listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
+        let withPassword = remotesWithPassword(listing, among: listedRemotes.map(\.name.value))
         let remotes = listedRemotes.map {
             RepoConfigInspection.Remote(
                 name: $0.name, url: $0.url, displayURL: CredentialMasker.mask($0.url),
-                isBuiltInTransport: builtInRemotes.contains($0.name.value))
+                isBuiltInTransport: builtInRemotes.contains($0.name.value),
+                hasPasswordInURL: withPassword.contains($0.name.value))
         }
 
         let dependsOnHEAD = listing.entries.contains {
@@ -232,6 +252,9 @@ enum RepoConfigInspector {
             return ("T4", .neutralized)
         case "credential" where variable == "helper":
             return ("T6", .neutralized)
+        // Off switches for git's credential CVE fixes (CVE-2024-50349, CVE-2024-52006); forced on for fetch (#356).
+        case "credential" where variable == "protectprotocol" || variable == "sanitizeprompt":
+            return ("T6", .neutralized)
         case "core":
             switch variable {
             case "sshcommand", "gitproxy": return ("T5", .neutralized)
@@ -270,6 +293,10 @@ enum RepoConfigInspector {
         case "http":
             if variable == "sslverify" || variable == "proxy" { return ("T11", .neutralized) }
             if ["sslcainfo", "sslcapath", "sslcert", "sslkey"].contains(variable) { return ("T11", .warned) }
+            // The same policy for the proxy's TLS files and for pinning a host to an address (git 2.37+) (#356).
+            if ["proxysslcainfo", "proxysslcert", "proxysslkey", "curloptresolve"].contains(variable) {
+                return ("T11", .warned)
+            }
             return nil
         case "diff" where variable == "external" || variable == "textconv" || variable == "command":
             return ("T3", .reported)
@@ -295,6 +322,20 @@ enum RepoConfigInspector {
             return (nil, .reported)
         case "gc" where variable == "auto", "maintenance":
             return ("T8", .reported)
+        // git 2.42+: a shell command `git gc` / `repack` runs. The app never runs gc; Terminal git would (#356).
+        case "gc" where variable == "recentobjectshook":
+            return ("T14", .reported)
+        // A file outside the repository read by every `git log` (a FIFO stalls it); the common arguments turn the
+        // mailmap off (#356).
+        case "mailmap" where variable == "file" || variable == "blob", "log" where variable == "mailmap":
+            return ("T15", .neutralized)
+        // Promisor remotes the server advertises (git 2.49+); fetch accepts none (#356).
+        case "promisor":
+            return ("T5", .neutralized)
+        // git 2.54: a location for the ref store, written by fetch and read by every query. Only the plain backend
+        // names keep the refs inside the repository (#356).
+        case "extensions" where variable == "refstorage" && !isPlainRefStorage(value):
+            return ("T13", .warned)
         case "uploadpack" where variable == "packobjectshook":
             return (nil, .reported)
         case "safe" where variable == "directory":
@@ -366,6 +407,58 @@ extension RepoConfigInspector {
             if isBuiltIn { builtIn.insert(name) }
         }
         return builtIn
+    }
+
+    /// The backend names alone keep the ref store inside the repository; a value with a location does not (git 2.54).
+    static func isPlainRefStorage(_ value: String) -> Bool {
+        ["files", "reftable"].contains(value.lowercased())
+    }
+
+    /// The remotes among `candidates` with a password in a URL, as written or after any matching
+    /// `url.<base>.insteadOf` rewrite, in any scope (#356). git 2.37+ refuses such a URL itself with
+    /// `transfer.credentialsInUrl=die` (fetch pins it); this covers older git. Only `<scheme>://` URLs carry
+    /// credentials. Bounded like `builtInRemoteNames`; a value it cannot check (too long, lossy) is left to that check,
+    /// which refuses it.
+    static func remotesWithPassword(_ listing: ConfigParser.Listing, among candidates: [String]) -> Set<String> {
+        let checked = Set(candidates)
+        var rewrites: [(base: [UInt8], prefix: [UInt8])] = []
+        var urls: [String: [[UInt8]]] = [:]
+        for entry in listing.entries {
+            switch (entry.section, entry.variable) {
+            case ("url", "insteadof"):
+                let base = entry.subsection ?? ""
+                let prefix = entry.value ?? ""
+                if rewrites.count < maximumInsteadOfRewrites, isCheckable(base), isCheckable(prefix) {
+                    rewrites.append((Array(base.utf8), Array(prefix.utf8)))
+                }
+            case ("remote", "url"):
+                guard let name = entry.subsection, checked.contains(name), let url = entry.value, isCheckable(url),
+                    urls[name, default: []].count < maximumURLsPerRemote
+                else { continue }
+                urls[name, default: []].append(Array(url.utf8))
+            default:
+                continue
+            }
+        }
+        var found = Set<String>()
+        for (name, values) in urls {
+            let carriesPassword = values.contains { url in
+                hasPassword(url)
+                    || rewrites.contains { hasPrefix(url, $0.prefix) && hasPassword($0.base + url[$0.prefix.count...]) }
+            }
+            if carriesPassword { found.insert(name) }
+        }
+        return found
+    }
+
+    /// `<scheme>://<user>:<password>@…`: a `:` in the userinfo, which ends at the last `@` before the path.
+    static func hasPassword(_ url: [UInt8]) -> Bool {
+        let separator: [UInt8] = Array("://".utf8)
+        guard let start = (0...max(0, url.count - separator.count)).first(where: { url[$0...].starts(with: separator) })
+        else { return false }
+        let authority = url[(start + separator.count)...].prefix { $0 != 0x2F }
+        guard let at = authority.lastIndex(of: 0x40) else { return false }
+        return authority[..<at].contains(0x3A)
     }
 
     /// git's `starts_with` on bytes.

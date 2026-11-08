@@ -136,6 +136,7 @@ final class GitEnvironmentTests: XCTestCase {
                 "-c", "log.showSignature=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
                 "-c", "diff.autoRefreshIndex=false", "-c", "color.ui=never", "-c", "diff.suppressBlankEmpty=false",
                 "-c", "i18n.logOutputEncoding=UTF-8", "-c", "log.follow=false",
+                "-c", "log.mailmap=false", "-c", "mailmap.file=", "-c", "mailmap.blob=",
             ]
         )
     }

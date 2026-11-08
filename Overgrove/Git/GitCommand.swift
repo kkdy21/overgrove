@@ -263,6 +263,12 @@ enum FetchCommand: Sendable, Hashable {
                 // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.40+, #99);
                 // older git ignores the key (security review of #210).
                 "-c", "fetch.bundleURI=",
+                // git's fixes for credential leaks through crafted URLs, which a repository could turn off; URL-specific
+                // keys are forced on by the inspector. Older git ignores the keys (#356).
+                "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",
+                // A URL with a password is refused (2.37+; the inspection covers older git), and a promisor remote the
+                // server advertises is not accepted (2.49+) (#356).
+                "-c", "transfer.credentialsInUrl=die", "-c", "promisor.acceptFromServer=none",
             ]
         }
     }

@@ -106,6 +106,81 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertNotNil(result.safetyContext?.fetchBlockingReason)
     }
 
+    // MARK: - Settings from newer git (#356)
+
+    /// The switches that turn off git's credential CVE fixes are forced on under their own key for fetch (the generic
+    /// keys are also pinned by `FetchCommand`), since a URL-specific key would win over the generic one.
+    func testSECT6_06_CredentialProtectionSwitchesAreForcedOn() {
+        let result = inspect([
+            entry(.local, "credential.protectprotocol", "false"),
+            entry(.local, "credential.https://x.invalid.sanitizeprompt", "false"),
+            entry(.global, "credential.https://y.invalid.protectprotocol", "false"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            ["-c", "credential.protectprotocol=true", "-c", "credential.https://x.invalid.sanitizeprompt=true"])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T6", "T6"])
+        XCTAssertTrue(
+            FetchCommand.fetch(remote: RemoteName("origin")!).configurationOverrides().contains(
+                "credential.protectProtocol=true"))
+    }
+
+    func testPasswordsInRemoteURLsAreFound() {
+        XCTAssertTrue(RepoConfigInspector.hasPassword(Array("https://a:b@h/r".utf8)))
+        XCTAssertTrue(RepoConfigInspector.hasPassword(Array("ssh://a:@h/r".utf8)))
+        XCTAssertFalse(RepoConfigInspector.hasPassword(Array("https://alice@h/r".utf8)))
+        XCTAssertFalse(
+            RepoConfigInspector.hasPassword(Array("https://h/a:b@c".utf8)), "an @ in the path is not userinfo")
+        XCTAssertFalse(
+            RepoConfigInspector.hasPassword(Array("git@github.com:o/r.git".utf8)), "scp form has no password")
+        XCTAssertFalse(RepoConfigInspector.hasPassword([]))
+
+        let result = inspect([
+            entry(.local, "remote.plain.url", "https://h.invalid/r"),
+            entry(.local, "remote.direct.url", "https://u:p@h.invalid/r"),
+            entry(.local, "remote.rewritten.url", "corp:r"),
+            entry(.global, "url.https://u:p@corp.invalid/.insteadof", "corp:"),
+        ])
+        XCTAssertEqual(
+            result.remotes.filter(\.hasPasswordInURL).map(\.name.value), ["direct", "rewritten"],
+            "a rewrite that adds a password counts")
+        XCTAssertEqual(result.safetyContext?.remotesWithPassword, ["direct", "rewritten"])
+    }
+
+    func testRefStorageWithALocationIsReportedAndBlocksFetch() {
+        for plain in ["files", "reftable", "REFTABLE"] {
+            let result = inspect([entry(.local, "extensions.refstorage", plain)])
+            XCTAssertTrue(result.report.findings.isEmpty, plain)
+            XCTAssertNil(result.fetchBlockingReason, plain)
+        }
+        let result = inspect([entry(.local, "extensions.refstorage", "files:///tmp/elsewhere")])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T13"])
+        XCTAssertNotNil(result.fetchBlockingReason)
+        XCTAssertNotNil(result.safetyContext, "queries go on")
+    }
+
+    func testProxyTLSFilesAndPinnedAddressesBlockFetchOnly() {
+        for key in [
+            "http.proxysslcainfo", "http.https://x.invalid.proxysslcert", "http.proxysslkey",
+            "http.curloptresolve", "http.https://x.invalid.curloptresolve",
+        ] {
+            let result = inspect([entry(.local, key, "/tmp/x")])
+            XCTAssertEqual(result.report.findings.map(\.handling), [.warned], key)
+            XCTAssertNotNil(result.fetchBlockingReason, key)
+            XCTAssertNotNil(result.safetyContext, key)
+        }
+    }
+
+    func testNewerExecutionAndFileSettingsAreReported() {
+        let result = inspect([
+            entry(.local, "gc.recentobjectshook", "touch x"), entry(.local, "mailmap.file", "/tmp/fifo"),
+            entry(.local, "mailmap.blob", "HEAD:.mailmap"), entry(.local, "log.mailmap", "true"),
+            entry(.local, "promisor.acceptfromserver", "all"),
+        ])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T14", "T15", "T15", "T15", "T5"])
+        XCTAssertEqual(result.report.findings.first?.handling, .reported, "Terminal git would run it")
+    }
+
     func testKeysContainingEqualsBlock() {
         XCTAssertTrue(inspect([entry(.local, "http.https://example.com/a.b=c.sslverify", "false")]).report.isBlocked)
         XCTAssertTrue(inspect([entry(.local, "credential.https://x=y.helper", "!evil")]).report.isBlocked)

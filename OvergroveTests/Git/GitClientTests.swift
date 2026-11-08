@@ -212,6 +212,8 @@ final class GitCommandTests: XCTestCase {
             [
                 "-c", "fetch.pruneTags=false", "-c", "remote.team/fork.v2.pruneTags=false",
                 "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=",
+                "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",
+                "-c", "transfer.credentialsInUrl=die", "-c", "promisor.acceptFromServer=none",
             ]
         )
     }
