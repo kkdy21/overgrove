@@ -40,10 +40,13 @@ struct GraphRefs: Sendable {
 }
 
 /// Refs newer than the cached overview's, seen by the graph's check after a page (#373). The graph uses them while the
-/// overview still has `staleRefSet`; the overview catches up on its own refresh.
+/// overview still has `staleRefSet` and has not read the refs again since `checkedAt` (#418); the overview catches up on
+/// its own refresh.
 struct GraphLiveRefs: Sendable {
     let staleRefSet: GraphRefSet
     let refs: GraphRefs
+    /// When the check that read `refs` started.
+    let checkedAt: ContinuousClock.Instant
 }
 
 /// The graph page cache key: repository, ref set, and page bounds.
@@ -88,6 +91,18 @@ extension RepositoryService {
         return await graphPageRead(repository, skip: skip, limit: limit).result
     }
 
+    /// What the check after a fresh page read found (#373, #411).
+    private enum GraphRefCheck {
+        /// `log` saw the page's ref set.
+        case same
+        /// The refs moved; the graph now keeps the newer ones (`graphLiveRefs`).
+        case moved
+        /// The refs could not be read, or were incomplete.
+        case unknown
+        /// The request was cancelled meanwhile.
+        case cancelled
+    }
+
     /// One read of a graph page: checked against the refs as they are after it (#373).
     private enum GraphPageRead {
         case checked(Result<GraphPageSnapshot, GitError>)
@@ -113,8 +128,13 @@ extension RepositoryService {
         guard let overview = cachedOverview(of: repository) else { return .checked(.failure(.cancelled)) }
         let id = repository.id
         let listed = GraphRefs(refs: overview.refs, worktrees: overview.entries.map(\.worktree))
-        // Newer refs the check saw stand in for the overview's until the overview changes.
-        if let live = graphLiveRefs[id], live.staleRefSet != listed.refSet { graphLiveRefs[id] = nil }
+        // Newer refs the check saw stand in for the overview's until the overview changes, or reads the refs again
+        // after the check: they may have moved back to the overview's (#418).
+        if let live = graphLiveRefs[id],
+            live.staleRefSet != listed.refSet || cachedRefsTime(of: repository).map({ $0 > live.checkedAt }) == true
+        {
+            graphLiveRefs[id] = nil
+        }
         let graphRefs = graphLiveRefs[id]?.refs ?? listed
         let refSet = graphRefs.refSet
         let key = GraphPageKey(repositoryID: id, refSet: refSet, skip: skip, limit: limit)
@@ -126,12 +146,23 @@ extension RepositoryService {
                 commits: page.commits, isPartial: page.isPartial, refSet: refSet, refs: graphRefs.refs,
                 worktrees: graphRefs.worktrees, isRefSetComplete: isCacheable)
         }
-        /// After a fresh read: whether `log` saw `refSet`. On a mismatch the graph keeps the refs read now.
-        func check() async -> Bool {
-            let current = await Self.currentRefs(repository, makeContext(repository))
-            guard let current, current.refSet != refSet else { return current != nil }
-            graphLiveRefs[id] = GraphLiveRefs(staleRefSet: listed.refSet, refs: current)
-            return false
+        /// After a fresh read: whether `log` saw `refSet`. On a mismatch the graph keeps the refs read now. A cancelled
+        /// request or refs that cannot be read are their own answers, not a move (#411).
+        func check() async -> GraphRefCheck {
+            let context = makeContext(repository)
+            let checkedAt = context.now
+            let current = await Self.currentRefs(repository, context)
+            if Task.isCancelled { return .cancelled }
+            guard let current else { return .unknown }
+            guard current.refSet != refSet else { return .same }
+            graphLiveRefs[id] = GraphLiveRefs(staleRefSet: listed.refSet, refs: current, checkedAt: checkedAt)
+            return .moved
+        }
+        /// A page whose refs could not be checked: not cached, and not joined to checked rows (`GraphStore`, #411).
+        func unchecked(_ page: GraphPageSnapshot) -> GraphPageSnapshot {
+            var page = page
+            page.isRefSetComplete = false
+            return page
         }
         // Cached pages were checked when they were read.
         if isCacheable, let cached = graphPages.value(for: key) { return .checked(.success(snapshot(cached))) }
@@ -146,12 +177,18 @@ extension RepositoryService {
                 let page = snapshot(LogParser.GraphPage(commits: commits, isPartial: false))
                 // One check per stream: one `log` read one history state.
                 guard !stream.isRefSetVerified else { return .checked(.success(page)) }
-                guard await check() else {
+                switch await check() {
+                case .same:
+                    stream.markRefSetVerified()
+                    return .checked(.success(page))
+                case .moved:
                     dropGraphStream(stream)
                     return .moved(page)
+                case .unknown:
+                    return .checked(.success(unchecked(page)))  // the stream stays; its next page checks again
+                case .cancelled:
+                    return .checked(.failure(.cancelled))  // the stream stays for the next request
                 }
-                stream.markRefSetVerified()
-                return .checked(.success(page))
             case .cancelled:
                 return .checked(.failure(.cancelled))
             case .beyond:
@@ -164,9 +201,17 @@ extension RepositoryService {
             let page = snapshot(read)
             // An incomplete ref set cannot be checked; GraphStore starts over on every refresh with it (#333).
             guard isCacheable else { return .checked(.success(page)) }
-            guard await check() else { return .moved(page) }
-            graphPages.insert(read, for: key)
-            return .checked(.success(page))
+            switch await check() {
+            case .same:
+                graphPages.insert(read, for: key)
+                return .checked(.success(page))
+            case .moved:
+                return .moved(page)
+            case .unknown:
+                return .checked(.success(unchecked(page)))
+            case .cancelled:
+                return .checked(.failure(.cancelled))
+            }
         case .failure(let error):
             return .checked(.failure(error))
         }
