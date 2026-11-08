@@ -1,6 +1,6 @@
 # 상호작용 명세 (Interaction)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), 패널 크기 조절 추가 (#166), 선택 이력 설계 추가 (#123, v0.2.0) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 패널 크기 조절 추가 (#166), 선택 이력 설계 추가 (#123, v0.2.0), 두 커밋 비교 진입 추가 (#122, v0.2.0) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
 
 이 문서는 선택과 포커스, 키보드, 새로고침과 fetch, 취소, 컨텍스트 메뉴, 접근성을 정한다. 화면 배치는 [screens.md](screens.md)에 있다.
 
@@ -18,7 +18,7 @@
 
 - 주 선택은 비지 않는다. 선택을 해제하면 포커스 워크트리의 `wip`로 돌아간다. WIP가 비어 있으면 `worktreeInfo`로 돌아간다. 상세 패널이 빈 채로 남는 순간을 만들지 않는다.
 - 사이드바와 그래프는 같은 주 선택을 공유한다. 사이드바에서 브랜치를 고르면 그래프의 팁 커밋 행이 선택되고 사이드바 브랜치 행도 강조된다. 그 뒤 그래프에서 다른 커밋을 고르면 사이드바 강조는 사라진다.
-- v0.1은 **다중 선택이 없다.** 두 커밋 비교는 `later`다.
+- **다중 선택은 없다.** 두 커밋 비교(S-12, v0.2.0 #122)도 다중 선택 없이 한다: 주 선택인 커밋을 기준으로, 다른 커밋 행의 메뉴 `Compare with Selected Commit`으로 연다.
 - 저장소를 다시 열면 포커스 워크트리와 주 선택을 복원한다. 대상이 사라졌으면 기본값(main 워크트리의 `wip`)으로 돌아간다.
 
 ### 1.2 패널 포커스
@@ -29,7 +29,7 @@
 
 ### 1.3 중앙 영역 전환
 
-- S-09(파일 이력)과 S-10(Diff 뷰어)은 중앙 영역을 **잠시 덮는다.** 왼쪽 위 `‹ Graph` 버튼이나 `⎋`로 그래프에 돌아간다.
+- S-09(파일 이력), S-10(Diff 뷰어), S-11(기준 대비), S-12(두 커밋 비교)는 중앙 영역을 **잠시 덮는다.** 왼쪽 위 `‹ Graph` 버튼이나 `⎋`로 그래프에 돌아간다.
 - 돌아가면 그래프 스크롤 위치와 이전 주 선택을 그대로 복원한다.
 - 덮인 상태에서 사이드바 항목을 고르면 그래프로 돌아간 뒤 그 항목을 선택한다.
 
@@ -41,7 +41,7 @@
 |---|---|
 | 명령 | `⌘[` Back, `⌘]` Forward (Navigate 메뉴). 갈 곳이 없으면 메뉴 항목이 꺼진다 |
 | 기록하는 것 | 주 선택(§1.1)이 **다른 대상으로** 바뀔 때마다 하나: `wip(worktree)`, `worktreeInfo(worktree)`, `commit(sha)`, `stash(oid)`, `issue(number)`. 사이드바 태그나 브랜치를 골라 커밋이 선택되면 `commit`으로 기록한다. 각 항목은 그때의 포커스 워크트리를 함께 기억한다 |
-| 기록하지 않는 것 | 같은 워크트리 안의 `Changes` ↔ `Worktree` 세그먼트 전환(`⌘I`, 보기 전환이라서), 보조 선택(파일)과 S-10 Diff 뷰어, S-09 파일 이력 열기·닫기(`⎋`가 맡는다), 새로고침이나 자동 갱신이 선택을 다시 정하는 것, 이력 이동 자체. 바로 앞 항목과 같은 대상이면 새로 쌓지 않는다 |
+| 기록하지 않는 것 | 같은 워크트리 안의 `Changes` ↔ `Worktree` 세그먼트 전환(`⌘I`, 보기 전환이라서), 보조 선택(파일)과 S-10 Diff 뷰어, S-09·S-11·S-12 열기·닫기(`⎋`가 맡는다), 새로고침이나 자동 갱신이 선택을 다시 정하는 것, 이력 이동 자체. 바로 앞 항목과 같은 대상이면 새로 쌓지 않는다 |
 | 쌓는 방식 | 브라우저와 같다. Back으로 간 뒤 새로 고르면 앞쪽(Forward) 기록은 버린다 |
 | 이동 | 그 항목을 다시 고른 것처럼 한다: 기억한 포커스 워크트리로 되돌리고(정보 구조의 예외, [information-architecture.md §2.2](information-architecture.md#22-포커스-워크트리)), S-09·S-10이 덮여 있으면 그래프로 돌아가고, 그래프에 있는 대상이면 스크롤해 선택하고, 상세 패널을 그 대상으로 연다. 키보드 포커스는 옮기지 않는다 |
 | 사라진 대상 | 지운 stash, 제거된 워크트리, 지금 그래프 범위에 없는 커밋(예: fetch로 사라진 원격 브랜치에만 있던 커밋), 목록에 없는 이슈는 건너뛰고 그 다음 항목으로 간다. 갈 수 있는 항목이 하나도 없으면 시스템 경고음만 내고 그대로 둔다. 건너뛴 항목은 기록에서 지운다 |
@@ -250,7 +250,7 @@ stateDiagram-v2
 
 | 대상 | v0.1 포함 | later |
 |---|---|---|
-| 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03) | Open on GitHub, Compare with…, Copy Permalink |
+| 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03). 그래프 행에는 v0.2.0부터 `Compare with Selected Commit`(S-12, #122. 다른 커밋이 주 선택일 때만 켜짐) | Open on GitHub, Copy Permalink |
 | WIP 행 | Show Changes (S-02), Show Worktree Info (S-05) | — |
 | 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder | Quick Look, Open With… |
 | 워크트리 행 | Show Changes, Show Info, Copy Path, Copy Branch Name, Reveal in Finder, Open in Terminal | Open in 사용자 지정 터미널·에디터 |
