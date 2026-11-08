@@ -32,6 +32,12 @@ final class RecordingRowActions: RowActionPerforming, @unchecked Sendable {
         return true
     }
     func applicationName(_ bundleIdentifier: String) -> String? { installed[bundleIdentifier] }
+    /// Where each installed app is; `/Applications/<name>.app` unless set.
+    var locations: [String: URL] = [:]
+    func applicationURL(_ bundleIdentifier: String) -> URL? {
+        guard let name = installed[bundleIdentifier] else { return nil }
+        return locations[bundleIdentifier] ?? URL(fileURLWithPath: "/Applications/\(name).app")
+    }
     func openInBrowser(_ url: URL) { lock.withLock { openedURLs.append(url) } }
 }
 

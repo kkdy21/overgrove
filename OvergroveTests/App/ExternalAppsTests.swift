@@ -168,6 +168,56 @@ final class ExternalAppsTests: XCTestCase {
         XCTAssertEqual(actions.openedInApps.count, 2)
     }
 
+    /// A file row cannot open a folder without its confirmation (a link to the worktree or a subfolder), nor anything
+    /// macOS would run instead of open: executables, Terminal command files, packages, FIFOs.
+    func testOnlyRegularFilesOpenFromAFileRow() async throws {
+        let settings = AppSettings(defaults: defaults)
+        settings.editorApp = "com.example.editor"
+        let (state, actions, root) = try await state(settings: settings, inspection: clean())
+        let sub = root.appendingPathComponent("sub", isDirectory: true)
+        try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("here"), withDestinationURL: root)
+        try FileManager.default.createSymbolicLink(at: root.appendingPathComponent("down"), withDestinationURL: sub)
+        let script = root.appendingPathComponent("run.sh")
+        try Data("echo x\n".utf8).write(to: script)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        try Data("x\n".utf8).write(to: root.appendingPathComponent("go.command"))
+        try Data("x\n".utf8).write(to: root.appendingPathComponent("open.terminal"))
+        try FileManager.default.createDirectory(
+            at: root.appendingPathComponent("Fake.app/Contents"), withIntermediateDirectories: true)
+        XCTAssertEqual(mkfifo(root.appendingPathComponent("pipe").path, 0o600), 0)
+
+        for name in ["here", "down", "sub", "run.sh", "go.command", "open.terminal", "Fake.app", "pipe"] {
+            state.alert = nil
+            state.openFileInEditor(GitPath(name), in: GitPath(root.path))
+            XCTAssertNotNil(state.alert, name)
+            XCTAssertNil(state.terminalConfirmation, name)
+        }
+        XCTAssertTrue(actions.openedInApps.isEmpty, "\(actions.openedInApps)")
+    }
+
+    /// An untrusted repository asks before a file opens too; an app found inside a repository is never opened.
+    func testUntrustedFilesAskAndAppsInsideARepositoryAreRefused() async throws {
+        let settings = AppSettings(defaults: defaults)
+        settings.editorApp = "com.example.editor"
+        let (state, actions, root) = try await state(settings: settings, inspection: clean())
+        state.registry.add(RegisteredRepository(rootPath: root.path, commonDirectoryPath: root.path + "/.git"))
+        state.setRepositoryUntrusted(true)
+        state.openFileInEditor(GitPath("a.txt"), in: GitPath(root.path))
+        XCTAssertEqual(state.terminalConfirmation?.reasons, [TerminalGuard.untrustedReason])
+        XCTAssertTrue(actions.openedInApps.isEmpty)
+        state.terminalConfirmation = nil
+        state.setRepositoryUntrusted(false)
+
+        actions.locations["com.example.editor"] = root.appendingPathComponent("Planted.app")
+        state.openFileInEditor(GitPath("a.txt"), in: GitPath(root.path))
+        XCTAssertEqual(state.alert?.title, "Can’t Open in Editor")
+        state.alert = nil
+        state.openEditor(at: GitPath(root.path))
+        XCTAssertEqual(state.alert?.title, "Can’t Open in Editor")
+        XCTAssertTrue(actions.openedInApps.isEmpty)
+    }
+
     func testWithoutAnEditorNothingOpensAndAMissingAppSaysSo() async throws {
         let settings = AppSettings(defaults: defaults)
         let (state, actions, root) = try await state(settings: settings, inspection: clean())

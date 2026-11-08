@@ -83,10 +83,7 @@ extension AppState {
         let action = "Open in \(role.title)"
         // Never from a launch snapshot's rows (ADR-0018 §5): its paths are not this load's.
         guard !worktreeList.isSnapshot, let folder = existingFolder(path, action: action) else { return }
-        guard let name = rowActions.applicationName(bundleIdentifier) else {
-            alert = AppAlert(title: "Can’t \(action)", message: Self.missingApp(role))
-            return
-        }
+        guard let name = usableApplication(bundleIdentifier, role: role) else { return }
         let hooks =
             repository.map { LiveWorktreeInspector.hookExecutables(in: $0.repository.commonGitDirectoryURL) } ?? []
         let reasons = TerminalGuard.reasons(
@@ -99,15 +96,79 @@ extension AppState {
         }
     }
 
-    /// Open in Editor on a working tree file row (#124): one file, checked to be inside its worktree (T14), opens
-    /// without asking.
+    /// Open in Editor on a working tree file row (#124): one regular file whose real location is inside its
+    /// worktree (T14). A link to a folder, a package, an executable, or a file macOS would run instead of open is
+    /// refused, so a file row cannot open a folder without the folder's confirmation. Opens without asking unless the
+    /// repository is marked untrusted.
     func openFileInEditor(_ path: GitPath, in worktree: GitPath?) {
         guard let editor = settings.editorApp, path.isRepresentable, let root = worktree ?? focusedWorktreePath
         else { return }
         let rootURL = URL(fileURLWithPath: root.display, isDirectory: true)
+        let target: URL
         switch RowActions.revealTarget(rootURL.appendingPathComponent(path.display), within: rootURL) {
-        case .success(let url): open(url, in: editor, role: .editor)
-        case .failure(let refusal): alert = AppAlert(title: "Can’t Open in Editor", message: refusal.message)
+        case .success(let url): target = url
+        case .failure(let refusal):
+            alert = AppAlert(title: "Can’t Open in Editor", message: refusal.message)
+            return
+        }
+        guard Self.isOpenableFile(target) else {
+            alert = AppAlert(
+                title: "Can’t Open in Editor",
+                message: "Overgrove opens regular files only: not folders, packages, executables, or files macOS runs.")
+            return
+        }
+        guard let name = usableApplication(editor, role: .editor) else { return }
+        if isRepositoryUntrusted {
+            terminalConfirmation = TerminalConfirmation(
+                folder: target, reasons: [TerminalGuard.untrustedReason], role: .editor, bundleIdentifier: editor,
+                appName: name)
+        } else {
+            open(target, in: editor, role: .editor)
+        }
+    }
+
+    /// File types macOS runs or follows when "opened" (Terminal command files, locations, apps), refused for files.
+    static let runnableExtensions: Set<String> = [
+        "command", "tool", "terminal", "webloc", "inetloc", "fileloc", "app", "workflow", "action", "scpt",
+        "scptd", "applescript", "pkg", "mpkg",
+    ]
+
+    /// A regular file, not a package, without an execute bit, and not of a type macOS runs.
+    static func isOpenableFile(_ url: URL) -> Bool {
+        guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isPackageKey]),
+            values.isRegularFile == true, values.isPackage != true,
+            !FileManager.default.isExecutableFile(atPath: url.path)
+        else { return false }
+        return !runnableExtensions.contains(url.pathExtension.lowercased())
+    }
+
+    /// The chosen app's name when it is installed and not inside a registered repository or one of this
+    /// repository's worktrees (a repository could hold an app claiming the same bundle identifier, #124).
+    private func usableApplication(_ bundleIdentifier: String, role: ExternalAppRole) -> String? {
+        let action = "Open in \(role.title)"
+        guard let url = rowActions.applicationURL(bundleIdentifier),
+            let name = rowActions.applicationName(bundleIdentifier)
+        else {
+            alert = AppAlert(title: "Can’t \(action)", message: Self.missingApp(role))
+            return nil
+        }
+        if isInsideRepository(url) {
+            alert = AppAlert(
+                title: "Can’t \(action)",
+                message: "The \(role.title.lowercased()) found for the chosen app is inside a repository, so Overgrove "
+                    + "does not open it.")
+            return nil
+        }
+        return name
+    }
+
+    private func isInsideRepository(_ url: URL) -> Bool {
+        let real = (PathValidator.canonical(url) ?? url).path
+        var roots = registry.repositories.flatMap { [$0.rootPath, $0.commonDirectoryPath].compactMap { $0 } }
+        if case .loaded(let listing) = worktreeList { roots += listing.entries.map(\.worktree.path.display) }
+        return roots.contains { root in
+            let realRoot = (PathValidator.canonical(URL(fileURLWithPath: root)) ?? URL(fileURLWithPath: root)).path
+            return real == realRoot || real.hasPrefix(realRoot + "/")
         }
     }
 
