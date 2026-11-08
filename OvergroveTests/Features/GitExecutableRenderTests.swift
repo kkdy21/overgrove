@@ -48,7 +48,7 @@ final class GitExecutableRenderTests: XCTestCase {
             isAppleSigned: { _ in signed }, resetSharedClient: {})
     }
 
-    /// Homebrew git chosen, old enough to show the partial-clone note.
+    /// Homebrew git chosen, old enough to show the older-git note.
     func testAdvancedTabWithAChosenGit() async throws {
         let model = model(
             chosen: "/opt/homebrew/bin/git",
@@ -59,7 +59,7 @@ final class GitExecutableRenderTests: XCTestCase {
             }, signed: false)
         await model.refresh()
         guard case .ready(let report) = model.state else { return XCTFail("got \(model.state)") }
-        XCTAssertFalse(report.canFetchPartialClones)
+        XCTAssertTrue(report.hasOlderGitLimits)
         XCTAssertEqual(AdvancedSettingsView.summary(report), "git 2.40.0 · Not signed by Apple")
         try render(
             AdvancedSettingsView(model: model), size: CGSize(width: SettingsView.width, height: 260),

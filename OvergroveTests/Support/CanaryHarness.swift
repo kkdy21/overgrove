@@ -43,7 +43,9 @@ struct CanaryHarness {
     /// Inspects the fixture's configuration the way the app does before any other query.
     static func make(fixture: FixtureRepo) async throws -> CanaryHarness {
         let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: fixture.environment)
-        let client = GitClient(environment: environment, parentEnvironment: fixture.environment)
+        // Its origin is a local repository (#361): `fetchingLocalRemotesForTesting`.
+        let client = GitClient(
+            environment: environment.fetchingLocalRemotesForTesting, parentEnvironment: fixture.environment)
         let config = try await client.run(.configList, in: fixture.repository, safety: .preInspection)
         let inspection = RepoConfigInspector.inspect(try ConfigParser.parse(config.stdout))
         guard let safety = inspection.safetyContext else {
@@ -125,6 +127,7 @@ struct CanaryHarness {
                 .stashPatch(untrackedStash, path: GitPath("stash-untracked.txt"), fromUntracked: true),
                 "stashPatch stash@{0} stash-untracked.txt (untracked part)"),
             query(.graphPage(skip: 0, limit: 500), "graphPage (includes malicious/signed)"),
+            query(.graphStream(limit: 500), "graphStream (includes malicious/signed)"),
             query(.commitMeta(signed), "commitMeta malicious/signed"),
             query(.commitFiles(main, firstParent: nil), "commitFiles main"),
             query(.commitFiles(merge, firstParent: mergeParent), "commitFiles merge commit"),
@@ -167,7 +170,7 @@ struct CanaryHarness {
     enum CaseName: String, CaseIterable {
         case version, probeGitDirectory, probeRepository, configList, worktreeList, status, refs, aheadBehind
         case stashList, stashFiles
-        case stashPatch, graphPage, commitMeta, commitFiles, commitPatch, worktreeDiff, worktreeNumstat
+        case stashPatch, graphPage, graphStream, commitMeta, commitFiles, commitPatch, worktreeDiff, worktreeNumstat
         case untrackedPreview, fileHistory
         case compareFiles, comparePatch, commitsAhead
     }
@@ -186,6 +189,7 @@ struct CanaryHarness {
         case .stashFiles: .stashFiles
         case .stashPatch: .stashPatch
         case .graphPage: .graphPage
+        case .graphStream: .graphStream
         case .commitMeta: .commitMeta
         case .commitFiles: .commitFiles
         case .commitPatch: .commitPatch

@@ -59,8 +59,8 @@ struct AdvancedSettingsView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(Self.summary(report)).foregroundStyle(.secondary)
-                if !report.canFetchPartialClones {
-                    Label(Self.partialCloneNote, systemImage: "info.circle")
+                if report.hasOlderGitLimits {
+                    Label(OlderGitNote.text, systemImage: "info.circle")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -84,9 +84,6 @@ struct AdvancedSettingsView: View {
     static func summary(_ report: GitExecutableReport) -> String {
         "git \(report.version) · " + (report.isAppleSigned ? "Apple-signed" : "Not signed by Apple")
     }
-
-    static let partialCloneNote =
-        "Partial clones cannot be fetched with this git. Fetching them needs git \(GitEnvironment.lazyFetchControlVersion) or later."
 
     private func choose() {
         Task {

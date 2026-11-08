@@ -31,7 +31,7 @@ final class RepositoryServiceFetchTests: XCTestCase {
     }
 
     private func service() -> RepositoryService {
-        RepositoryService(client: GitClient(environment: repository.environment))
+        RepositoryService(client: GitClient(environment: repository.environment.fetchingLocalRemotesForTesting))
     }
 
     private func hasRef(_ name: String) async throws -> Bool {
@@ -103,7 +103,9 @@ final class RepositoryServiceFetchTests: XCTestCase {
         let gated = try executables.gatedGit(forwardingTo: repository.environment.executable, markers: markers)
         FileManager.default.createFile(atPath: markers.appendingPathComponent("release").path, contents: nil)
         let service = RepositoryService(
-            client: GitClient(environment: GitEnvironment(executable: gated, version: repository.environment.version)),
+            client: GitClient(
+                environment: GitEnvironment(executable: gated, version: repository.environment.version)
+                    .fetchingLocalRemotesForTesting),
             maximumFetchedRemotes: 2)
 
         let remotes = Remotes()

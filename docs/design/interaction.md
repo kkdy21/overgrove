@@ -1,6 +1,6 @@
 # 상호작용 명세 (Interaction)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), 패널 크기 조절 추가 (#166), 선택 이력 설계 추가 (#123, v0.2.0) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 패널 크기 조절 추가 (#166), 선택 이력 설계 추가 (#123, v0.2.0), 두 커밋 비교 진입 추가 (#122, v0.2.0) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [screens.md](screens.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), ADR-0008, ADR-0011
 
 이 문서는 선택과 포커스, 키보드, 새로고침과 fetch, 취소, 컨텍스트 메뉴, 접근성을 정한다. 화면 배치는 [screens.md](screens.md)에 있다.
 
@@ -18,7 +18,7 @@
 
 - 주 선택은 비지 않는다. 선택을 해제하면 포커스 워크트리의 `wip`로 돌아간다. WIP가 비어 있으면 `worktreeInfo`로 돌아간다. 상세 패널이 빈 채로 남는 순간을 만들지 않는다.
 - 사이드바와 그래프는 같은 주 선택을 공유한다. 사이드바에서 브랜치를 고르면 그래프의 팁 커밋 행이 선택되고 사이드바 브랜치 행도 강조된다. 그 뒤 그래프에서 다른 커밋을 고르면 사이드바 강조는 사라진다.
-- v0.1은 **다중 선택이 없다.** 두 커밋 비교는 `later`다.
+- **다중 선택은 없다.** 두 커밋 비교(S-12, v0.2.0 #122)도 다중 선택 없이 한다: 주 선택인 커밋을 기준으로, 다른 커밋 행의 메뉴 `Compare with Selected Commit`으로 연다.
 - 저장소를 다시 열면 포커스 워크트리와 주 선택을 복원한다. 대상이 사라졌으면 기본값(main 워크트리의 `wip`)으로 돌아간다.
 
 ### 1.2 패널 포커스
@@ -29,19 +29,19 @@
 
 ### 1.3 중앙 영역 전환
 
-- S-09(파일 이력)과 S-10(Diff 뷰어)은 중앙 영역을 **잠시 덮는다.** 왼쪽 위 `‹ Graph` 버튼이나 `⎋`로 그래프에 돌아간다.
+- S-09(파일 이력), S-10(Diff 뷰어), S-11(기준 대비), S-12(두 커밋 비교)는 중앙 영역을 **잠시 덮는다.** 왼쪽 위 `‹ Graph` 버튼이나 `⎋`로 그래프에 돌아간다.
 - 돌아가면 그래프 스크롤 위치와 이전 주 선택을 그대로 복원한다.
 - 덮인 상태에서 사이드바 항목을 고르면 그래프로 돌아간 뒤 그 항목을 선택한다.
 
 ### 1.4 선택 이력
 
-(#123, v0.2.0 설계. 구현은 별도 이슈.) 사이드바와 그래프를 오가며 커밋, 워크트리, stash를 살피다가 "아까 보던 것"으로 돌아가는 동작이다. Finder, Safari, Xcode의 뒤로/앞으로와 같은 모델이다.
+(#123, v0.2.0 설계. 구현: #378, `SelectionHistory`와 `AppState+SelectionHistory`.) 사이드바와 그래프를 오가며 커밋, 워크트리, stash를 살피다가 "아까 보던 것"으로 돌아가는 동작이다. Finder, Safari, Xcode의 뒤로/앞으로와 같은 모델이다.
 
 | 항목 | 규칙 |
 |---|---|
 | 명령 | `⌘[` Back, `⌘]` Forward (Navigate 메뉴). 갈 곳이 없으면 메뉴 항목이 꺼진다 |
 | 기록하는 것 | 주 선택(§1.1)이 **다른 대상으로** 바뀔 때마다 하나: `wip(worktree)`, `worktreeInfo(worktree)`, `commit(sha)`, `stash(oid)`, `issue(number)`. 사이드바 태그나 브랜치를 골라 커밋이 선택되면 `commit`으로 기록한다. 각 항목은 그때의 포커스 워크트리를 함께 기억한다 |
-| 기록하지 않는 것 | 같은 워크트리 안의 `Changes` ↔ `Worktree` 세그먼트 전환(`⌘I`, 보기 전환이라서), 보조 선택(파일)과 S-10 Diff 뷰어, S-09 파일 이력 열기·닫기(`⎋`가 맡는다), 새로고침이나 자동 갱신이 선택을 다시 정하는 것, 이력 이동 자체. 바로 앞 항목과 같은 대상이면 새로 쌓지 않는다 |
+| 기록하지 않는 것 | 같은 워크트리 안의 `Changes` ↔ `Worktree` 세그먼트 전환(`⌘I`, 보기 전환이라서), 보조 선택(파일)과 S-10 Diff 뷰어, S-09·S-11·S-12 열기·닫기(`⎋`가 맡는다), 새로고침이나 자동 갱신이 선택을 다시 정하는 것, 이력 이동 자체. 바로 앞 항목과 같은 대상이면 새로 쌓지 않는다 |
 | 쌓는 방식 | 브라우저와 같다. Back으로 간 뒤 새로 고르면 앞쪽(Forward) 기록은 버린다 |
 | 이동 | 그 항목을 다시 고른 것처럼 한다: 기억한 포커스 워크트리로 되돌리고(정보 구조의 예외, [information-architecture.md §2.2](information-architecture.md#22-포커스-워크트리)), S-09·S-10이 덮여 있으면 그래프로 돌아가고, 그래프에 있는 대상이면 스크롤해 선택하고, 상세 패널을 그 대상으로 연다. 키보드 포커스는 옮기지 않는다 |
 | 사라진 대상 | 지운 stash, 제거된 워크트리, 지금 그래프 범위에 없는 커밋(예: fetch로 사라진 원격 브랜치에만 있던 커밋), 목록에 없는 이슈는 건너뛰고 그 다음 항목으로 간다. 갈 수 있는 항목이 하나도 없으면 시스템 경고음만 내고 그대로 둔다. 건너뛴 항목은 기록에서 지운다 |
@@ -147,7 +147,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⌘1`~`⌘4` | Finder(보기 방식), Xcode(내비게이터)에서도 앱 고유 용도로 쓰는 영역이다. 시스템 예약 아님. 유지 |
 | `Space` (Quick Look) | 저장소 파일을 Quick Look 플러그인에 넘기게 된다. 보안 검토 전까지 `later` |
 | `⌘[` / `⌘]` (선택 이력 뒤로/앞으로) | v0.1 범위 밖이었다. v0.2.0에서 **채택**(#123, §1.4). Finder·Safari·Xcode 문서 탐색의 뒤로/앞으로와 같아 의미가 바로 읽힌다. 시스템 예약 아님. 앱의 다른 단축키와 겹치지 않는다 |
-| `⌘+` / `⌘−` (확대) | 그래프 행 높이와 글자 크기 배율. `later` (§6.3) |
+| `⌘+` / `⌘−` / `⌘0` (확대) | 그래프 행 높이와 글자 크기 배율. v0.2.0에서 **채택**(#121, §6.3). 보기 메뉴의 Zoom In·Zoom Out·Actual Size. 브라우저·텍스트 편집기의 확대 관례와 같다. 시스템 예약 아님 |
 
 ---
 
@@ -250,7 +250,7 @@ stateDiagram-v2
 
 | 대상 | v0.1 포함 | later |
 |---|---|---|
-| 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03) | Open on GitHub, Compare with…, Copy Permalink |
+| 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03). 그래프 행에는 v0.2.0부터 `Compare with Selected Commit`(S-12, #122. 다른 커밋이 주 선택일 때만 켜짐) | Open on GitHub, Copy Permalink |
 | WIP 행 | Show Changes (S-02), Show Worktree Info (S-05) | — |
 | 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder | Quick Look, Open With… |
 | 워크트리 행 | Show Changes, Show Info, Copy Path, Copy Branch Name, Reveal in Finder, Open in Terminal | Open in 사용자 지정 터미널·에디터 |
@@ -317,7 +317,13 @@ stateDiagram-v2
 
 - 모든 텍스트는 SwiftUI 텍스트 스타일(`Font.body`, `.callout` 등)로 지정한다. 포인트 크기를 직접 쓰지 않는다.
 - 사이드바와 그래프의 행 높이는 고정이다(`size.row-sidebar` 28, `size.row-worktree` 46, `size.row-graph` 30).
-- macOS는 iOS 같은 전역 Dynamic Type이 없다. 그래프는 가상화를 위해 행 높이를 `size.row-graph`(30px)로 고정한다. 그래서 v0.1의 그래프는 글자 크기 확대에 대응하지 않는다. `⌘+`/`⌘−` 확대(행 높이와 글자를 함께 키움)는 `later`로 두고 이 제약을 [scope-mvp.md](../scope-mvp.md)에 적는다.
+- macOS는 iOS 같은 전역 Dynamic Type이 없다. 그래프는 가상화를 위해 행 높이를 `size.row-graph`(30px)로 고정한다. v0.1의 그래프는 글자 크기 확대에 대응하지 않았다.
+- **그래프 확대 (#121, v0.2.0).** 보기 메뉴의 `Zoom In ⌘+`, `Zoom Out ⌘−`, `Actual Size ⌘0`. 그래프 패널만 확대한다(행 높이, 레인 간격, 노드, 그래프 행의 글자와 알약, 열 너비). 사이드바와 상세 패널은 그대로다.
+  - 단계는 85·100·115·130·150%이고 행 높이는 각각 26·30·34·39·45pt다. 단계마다 행 높이가 고정이라 가상화가 유지된다.
+  - 앱 전역 값 하나(`AppSettings.graphZoomStep`)로 모든 창에 적용하고 다음 실행에도 유지한다. 그래프에 포커스가 없어도 동작한다.
+  - 확대·축소 때 선택한 커밋이 화면 가운데에 오도록 스크롤하고, 레인이 옆으로 스크롤된 상태면 그 커밋의 레인이 보이게 맞춘다.
+  - 열 너비는 100% 기준으로 저장하고 그릴 때 배율을 곱한다. 확대한 상태에서 열 경계를 끌어도 저장값은 100% 기준이다.
+  - **포인트 크기 예외.** 그래프 행의 글자는 100%에서 디자인 토큰의 텍스트 스타일 그대로 쓰고, 다른 단계에서는 그 스타일의 macOS 크기(body 13, callout 12, subheadline 11, caption 10pt)에 배율을 곱한 포인트 크기를 쓴다(`GraphTypography`). macOS에서 텍스트 스타일을 확대할 방법이 없어서 둔, 이 규칙의 유일한 예외다.
 
 ### 6.4 대비
 

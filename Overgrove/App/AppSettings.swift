@@ -12,6 +12,7 @@ final class AppSettings {
     /// The git chosen in Settings (ADR-0019, #106); absent or empty means the default git. Read off the main actor by
     /// `LiveGitClient`, which checks it on every discovery.
     nonisolated static let gitExecutablePathKey = "settings.gitExecutablePath"
+    static let graphZoomStepKey = "settings.graphZoomStep"
 
     /// The auto fetch section is shown (the scheduler exists since #79).
     static let isAutoFetchAvailable = true
@@ -54,6 +55,26 @@ final class AppSettings {
         }
     }
 
+    /// The graph zoom step (#121, `GraphZoom.scales`), one for every window. A stored value outside the steps falls
+    /// back to the nearest one.
+    var graphZoomStep: Int {
+        didSet {
+            let step = GraphZoom(step: graphZoomStep).step
+            guard step == graphZoomStep else {
+                graphZoomStep = step
+                return
+            }
+            defaults.set(graphZoomStep, forKey: Self.graphZoomStepKey)
+        }
+    }
+
+    var graphZoom: GraphZoom { GraphZoom(step: graphZoomStep) }
+
+    /// View › Zoom In `⌘+`, Zoom Out `⌘−`, Actual Size `⌘0`.
+    func zoomGraphIn() { graphZoomStep = graphZoom.zoomedIn.step }
+    func zoomGraphOut() { graphZoomStep = graphZoom.zoomedOut.step }
+    func resetGraphZoom() { graphZoomStep = GraphZoom.actualSizeStep }
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         autoFetch = defaults.bool(forKey: Self.autoFetchKey)
@@ -62,5 +83,8 @@ final class AppSettings {
             Self.autoFetchIntervals.contains(interval) ? interval : Self.defaultAutoFetchInterval
         showsFullRemoteURLs = defaults.bool(forKey: Self.showsFullRemoteURLsKey)
         gitExecutablePath = defaults.string(forKey: Self.gitExecutablePathKey).flatMap { $0.isEmpty ? nil : $0 }
+        graphZoomStep =
+            defaults.object(forKey: Self.graphZoomStepKey) == nil
+            ? GraphZoom.actualSizeStep : GraphZoom(step: defaults.integer(forKey: Self.graphZoomStepKey)).step
     }
 }

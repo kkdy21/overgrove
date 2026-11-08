@@ -75,7 +75,7 @@ UI 계층(첫 프레임, hitch)은 아직 재지 않는다. 아래 테스트는 
 |---|---|---|---|
 | PERF-01 | `RepositoryOverviewBenchmarkTests.test_PERF_01_tenWorktreeOverview` | bench 저장소, 조회 한도 1·4·기본·10 | 기본 한도 p95 < 1.0초 (PB-1, 렌더링 제외) |
 | PERF-02 | `RepositoryOverviewBenchmarkTests.test_PERF_02_cachedWorktreeSwitch` | bench 저장소, 캐시 읽기 1,000회 | 캐시 읽기 p95 < 100ms (PB-2, 뷰 제외). 선택 새로고침은 status 35ms와 참고 비교 |
-| PERF-03 | `GraphBenchmarkTests.test_PERF_03_graphFirstPageAndPaging` | bench 저장소 | 첫 페이지 p95 < 500ms (PB-3). commit-graph가 없으면 < 1.0초 (PB-3b). 페이지별 레이아웃 최대 < 16.7ms |
+| PERF-03 | `GraphBenchmarkTests.test_PERF_03_graphFirstPageAndPaging` | bench 저장소 | 첫 페이지 p95 < 500ms (PB-3). commit-graph가 없으면 < 1.0초 (PB-3b). 페이지별 레이아웃 최대 < 16.7ms. "app path" 행은 `RepositoryService.graphPage`(commit-graph가 없으면 스트림, #254)의 첫 페이지와 스크롤 중 페이지 비용 |
 | PERF-04 | `GraphEnginePerformanceTests.test_GRA_09_*` | 합성 이력 10만 | `XCTClockMetric`, `XCTMemoryMetric` 기준값(`.xcbaseline`). 항상 실행 |
 | PERF-05 | `GraphBenchmarkTests.test_PERF_05_pageLayoutFitsAFrame` | 합성 이력 10만 | 스크롤 중 메인 액터가 하는 페이지 레이아웃 최대 < 16.7ms (PB-4 대리 측정). hitch ratio는 XCUITest 이후 |
 | PERF-11 | `DetailBenchmarkTests.test_PERF_11_fileHistoryFirstPage` | bench 저장소, 파일 하나의 `--follow` 이력 | 첫 페이지(100) p95 < 1.0초 (PB-7, 렌더링 제외) |
