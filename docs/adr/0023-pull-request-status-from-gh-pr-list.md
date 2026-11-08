@@ -71,5 +71,5 @@ v0.2.0(#115)에서는 워크트리마다 연결된 PR의 상태를 보이려고 
 ## 후속 작업
 
 - [ ] 구현: `GHCommand.prList`, 파서, 잇기 규칙, 사이드바 알약과 S-05 카드, 캐시와 갱신 (#115)
-- [ ] SEC 테스트 (#115): 인자 스냅샷, 적대적 PR JSON(제어·bidi 제목, 같은 이름의 fork PR이 붙지 않음, 다른 호스트 URL, 잘린 출력), gh 환경 allowlist
+- [ ] SEC 테스트 (#115): 인자 스냅샷, 적대적 PR JSON(제어·bidi 제목, 같은 이름의 fork PR이 붙지 않음, head 저장소가 null·빈 PR은 그 PR만 잇지 않음, 대소문자만 다른 소유자·저장소 이름, 다른 저장소·호스트 URL, 잘린 출력), gh 환경 allowlist
 - [x] 카탈로그 §5와 금지 목록, security-review.md, screens.md, information-architecture.md, overview.md 갱신 (#397, 이 PR)
