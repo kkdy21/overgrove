@@ -212,7 +212,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 | case | 서브커맨드 인자 배열 | 작업 디렉터리 | 비고 | 위협 |
 |---|---|---|---|---|
-| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false -c credential.protectProtocol=true -c credential.sanitizePrompt=true -c transfer.credentialsInUrl=die -c promisor.acceptFromServer=none`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
+| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false -c http.delegation=none -c credential.protectProtocol=true -c credential.sanitizePrompt=true -c transfer.credentialsInUrl=die -c promisor.acceptFromServer=none`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
 
 - 원격마다 따로 실행한다 (`--all`을 쓰지 않음). 원격별로 인증 실패를 구분해 보여 주려는 것이다. 참고로 `--all`도 `--upload-pack`을 원격별 하위 fetch에 전달하는 것은 확인했다.
 - `--upload-pack=git-upload-pack`은 로컬 `remote.<n>.uploadpack`을 무력화한다. `-c remote.<n>.uploadpack=`로는 무력화되지 않는다 (확인).
@@ -226,6 +226,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
     - `-c fetch.writeCommitGraph=false`: fetch 뒤 commit-graph 파일 쓰기를 끈다.
     - `-c fetch.bundleURI=`: 로컬 `fetch.bundleURI`(git 2.40+, #99 호환성 매트릭스에서 2.39.5·2.40.4로 확인)가 있으면 fetch가 그 URI(원격이 아닌 임의 위치)에서 bundle을 받아 `refs/bundles/*`를 쓴다. bundle list가 `creationToken`을 쓰면 `.git/config`에 `fetch.bundleCreationToken`까지 기록한다(#210 보안 검토, 확인). 빈 값이면 꺼진다. 2.40 미만 git은 이 키를 무시한다.
     - `-c http.cookieFile= -c http.saveCookies=false`: generic 키의 쿠키 파일 읽기와 저장을 끈다(저장소 값과 사용자 값 모두). 저장소의 URL별 키는 §2.3이 같은 키로 끈다. 사용자(신뢰 scope)의 URL별 키는 그대로 둔다(#355).
+    - `-c http.delegation=none`: Kerberos 티켓 위임을 끈다(저장소 값과 사용자 generic 값 모두. `always`면 저장소가 고른 원격 호스트에 티켓이 갈 수 있다). fetch에는 필요 없다. 저장소의 URL별 키는 inspector가 같은 키로 끈다. 사용자의 URL별 키는 그대로 둔다(#367).
     - `-c credential.protectProtocol=true -c credential.sanitizePrompt=true`: git의 자격 증명 CVE 수정(CVE-2024-52006, CVE-2024-50349)을 저장소가 끄지 못하게 한다. URL별 키는 §2.3이 같은 키로 켠다(#356).
     - `-c transfer.credentialsInUrl=die`: URL에 비밀번호가 있으면 접속 전에 실패한다(2.37+). 그 미만 git은 키를 무시하므로 `RepoConfigInspector.remotesWithPassword`가 그 원격을 미리 거부한다(#356).
     - `-c promisor.acceptFromServer=none`: 서버가 광고하는 promisor 원격을 받지 않는다(2.49+, #356).
