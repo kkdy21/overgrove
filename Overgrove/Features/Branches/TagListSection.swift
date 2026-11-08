@@ -12,9 +12,18 @@ struct TagListSection: View {
 
     @Environment(\.rowMenu) private var actions
     /// Repositories often have hundreds of tags, so the section starts closed (§4.1).
-    @State private var isExpanded = false
+    @State private var isExpanded: Bool
     /// The row chosen last: several tags can name one commit, and only the chosen one is highlighted.
     @State private var chosenID: String?
+
+    /// - Parameter isInitiallyExpanded: `false` in the app (§4.1); previews and render tests open it.
+    init(model: TagListModel, query: String? = nil, selectedCommit: ObjectID? = nil, isInitiallyExpanded: Bool = false)
+    {
+        self.model = model
+        self.query = query
+        self.selectedCommit = selectedCommit
+        _isExpanded = State(initialValue: isInitiallyExpanded)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
