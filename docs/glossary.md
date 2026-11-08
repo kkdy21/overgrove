@@ -73,6 +73,8 @@
 | Pull request / Draft / Merged / Open / Closed | 풀 리퀘스트 / 초안 / 병합됨 / 열림 / 닫힘 |
 | Approved / Changes requested / Review required | 승인됨 / 변경 요청됨 / 리뷰 필요 |
 | Open in Browser / Copy URL | 브라우저에서 열기 / URL 복사 |
+| Issue / Linked | 이슈 / 연결됨 |
+| Refreshing… / Never fetched / Fetched 2 min ago | 새로 고치는 중… / 페치한 적 없음 / 2분 전 페치함 |
 
 ## Git 출력·호출
 

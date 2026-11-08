@@ -49,11 +49,12 @@ struct StatusBarItem: Equatable, Identifiable {
                 kind: .fetch, text: fetch.text + " · " + fetchRemoteLimit.short, symbol: fetch.symbol, tone: fetch.tone)
         }
         var items = [
-            StatusBarItem(kind: .readOnly, text: "Read-only", symbol: "checkmark.shield", tone: .ok),
+            StatusBarItem(kind: .readOnly, text: String(localized: "Read-only"), symbol: "checkmark.shield", tone: .ok),
             fetch,
         ]
         if isRefreshing {
-            items.append(StatusBarItem(kind: .refreshing, text: "Refreshing…", symbol: nil, tone: .neutral))
+            items.append(
+                StatusBarItem(kind: .refreshing, text: String(localized: "Refreshing…"), symbol: nil, tone: .neutral))
         }
         if let snapshot {
             if let worktree = snapshot.focusedWorktree, worktree.hasUpstream {
@@ -70,12 +71,15 @@ struct StatusBarItem: Equatable, Identifiable {
             let count = snapshot.worktreeCount
             items.append(
                 StatusBarItem(
-                    kind: .worktrees, text: "\(count) \(count == 1 ? "worktree" : "worktrees")", symbol: nil,
+                    kind: .worktrees,
+                    text: count == 1 ? String(localized: "1 worktree") : String(localized: "\(count) worktrees"),
+                    symbol: nil,
                     tone: .neutral))
             if snapshot.prunableCount > 0 {
                 items.append(
                     StatusBarItem(
-                        kind: .prunable, text: "\(snapshot.prunableCount) prunable", symbol: "questionmark.folder",
+                        kind: .prunable, text: String(localized: "\(snapshot.prunableCount) prunable"),
+                        symbol: "questionmark.folder",
                         tone: .warning))
             }
         }
@@ -88,30 +92,35 @@ struct StatusBarItem: Equatable, Identifiable {
     private static func fetchItem(_ status: FetchStatus, now: Date, hasDetails: Bool) -> StatusBarItem {
         switch status {
         case .never:
-            return StatusBarItem(kind: .fetch, text: "Never fetched", symbol: "arrow.clockwise", tone: .neutral)
+            return StatusBarItem(
+                kind: .fetch, text: String(localized: "Never fetched"), symbol: "arrow.clockwise", tone: .neutral)
         case .idle(let last):
             return StatusBarItem(
-                kind: .fetch, text: "Fetched \(relative(last, now: now))", symbol: "arrow.clockwise", tone: .neutral)
+                kind: .fetch, text: String(localized: "Fetched \(relative(last, now: now))"), symbol: "arrow.clockwise",
+                tone: .neutral)
         case .estimated(let last):
             return StatusBarItem(
-                kind: .fetch, text: "Fetched \(relative(last, now: now)) (estimated)", symbol: "arrow.clockwise",
+                kind: .fetch, text: String(localized: "Fetched \(relative(last, now: now)) (estimated)"),
+                symbol: "arrow.clockwise",
                 tone: .neutral)
         case .fetching(let remotes, let since, _):
-            let what: String
-            switch remotes.count {
-            case 0: what = ""
-            case 1: what = " " + remotes[0]
-            default: what = " \(remotes.count) remotes"
-            }
             let seconds = max(0, Int(now.timeIntervalSince(since)))
-            return StatusBarItem(
-                kind: .fetch, text: "Fetching\(what)… \(seconds) s", symbol: "arrow.down.circle", tone: .neutral)
+            let text =
+                switch remotes.count {
+                case 0: String(localized: "Fetching… \(seconds) s")
+                case 1: String(localized: "Fetching \(remotes[0])… \(seconds) s")
+                default: String(localized: "Fetching \(remotes.count) remotes… \(seconds) s")
+                }
+            return StatusBarItem(kind: .fetch, text: text, symbol: "arrow.down.circle", tone: .neutral)
         case .failed(let last):
-            var text = last.map { "Last fetched \(relative($0, now: now)) · last attempt failed" } ?? "Fetch failed"
-            if hasDetails { text += " — Details" }
+            var text =
+                last.map { String(localized: "Last fetched \(relative($0, now: now)) · last attempt failed") }
+                ?? String(localized: "Fetch failed")
+            if hasDetails { text += String(localized: " — Details") }
             return StatusBarItem(kind: .fetch, text: text, symbol: "exclamationmark.triangle", tone: .warning)
         case .cancelled:
-            return StatusBarItem(kind: .fetch, text: "Fetch cancelled", symbol: "arrow.clockwise", tone: .neutral)
+            return StatusBarItem(
+                kind: .fetch, text: String(localized: "Fetch cancelled"), symbol: "arrow.clockwise", tone: .neutral)
         }
     }
 

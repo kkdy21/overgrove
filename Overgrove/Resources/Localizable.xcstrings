@@ -1,6 +1,16 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    " — Details" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : " — 자세히"
+          }
+        }
+      }
+    },
     "#%lld" : {
       "localizations" : {
         "ko" : {
@@ -381,12 +391,32 @@
         }
       }
     },
+    "%lld of %lld remotes" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 %2$lld개 중 %1$lld개"
+          }
+        }
+      }
+    },
     "%lld points" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld포인트"
+          }
+        }
+      }
+    },
+    "%lld prunable" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "정리 대상 %lld개"
           }
         }
       }
@@ -427,6 +457,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld개 추적 안 됨"
+          }
+        }
+      }
+    },
+    "%lld worktrees" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 %lld개"
           }
         }
       }
@@ -563,6 +603,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "설정 %lld개 더"
+          }
+        }
+      }
+    },
+    "1 worktree" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 1개"
           }
         }
       }
@@ -1451,6 +1501,16 @@
         }
       }
     },
+    "Copy Number" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "번호 복사"
+          }
+        }
+      }
+    },
     "Copy Path" : {
       "localizations" : {
         "ko" : {
@@ -1912,6 +1972,26 @@
         }
       }
     },
+    "Fetched %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 페치함"
+          }
+        }
+      }
+    },
+    "Fetched %@ (estimated)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 페치함(추정)"
+          }
+        }
+      }
+    },
     "Fetching %@ is turned off for this repository" : {
       "localizations" : {
         "ko" : {
@@ -1932,12 +2012,42 @@
         }
       }
     },
+    "Fetching %@… %lld s" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 페치 중… %2$lld초"
+          }
+        }
+      }
+    },
+    "Fetching %lld remotes… %lld s" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 %1$lld개 페치 중… %2$lld초"
+          }
+        }
+      }
+    },
     "Fetching now" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "지금 페치 중"
+          }
+        }
+      }
+    },
+    "Fetching… %lld s" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치 중… %lld초"
           }
         }
       }
@@ -2168,6 +2278,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub CLI가 설치되어 있지 않습니다"
+          }
+        }
+      }
+    },
+    "GitHub CLI setup" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI 설정"
           }
         }
       }
@@ -2484,6 +2604,16 @@
         }
       }
     },
+    "LINKED" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결됨"
+          }
+        }
+      }
+    },
     "LOCAL" : {
       "comment" : "Sidebar section",
       "localizations" : {
@@ -2525,6 +2655,16 @@
         }
       }
     },
+    "Last fetched %@ · last attempt failed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마지막 페치 %@ · 최근 시도 실패"
+          }
+        }
+      }
+    },
     "Lightweight tag %@" : {
       "localizations" : {
         "ko" : {
@@ -2541,6 +2681,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "줄 수를 볼 수 없음"
+          }
+        }
+      }
+    },
+    "Linked branch" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결된 브랜치"
+          }
+        }
+      }
+    },
+    "Linked worktree" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결된 워크트리"
           }
         }
       }
@@ -2692,6 +2852,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "다음 일치 항목"
+          }
+        }
+      }
+    },
+    "No branch, worktree, or loaded commit mentions this issue." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 이슈를 언급하는 브랜치, 워크트리, 불러온 커밋이 없습니다."
           }
         }
       }
@@ -3116,6 +3286,16 @@
         }
       }
     },
+    "Opens the setup assistant" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 도우미를 엽니다"
+          }
+        }
+      }
+    },
     "Other repository settings" : {
       "localizations" : {
         "ko" : {
@@ -3232,6 +3412,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove가 이 워크트리 항목을 조회하지 않으므로 설정을 검사하지 않습니다."
+          }
+        }
+      }
+    },
+    "Overgrove does not suggest running git in Terminal for this repository: its configuration or hooks are not known to be safe." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소의 설정이나 hook이 안전한지 알 수 없어서, 터미널에서 git을 실행하라고 안내하지 않습니다."
           }
         }
       }
@@ -3453,6 +3643,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "로컬 데이터 새로 고침 (⌘R)"
+          }
+        }
+      }
+    },
+    "Refreshing…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새로 고치는 중…"
           }
         }
       }
@@ -3738,6 +3938,16 @@
         }
       }
     },
+    "Running \"git status\" once in Terminal refreshes it and makes this fast again. Terminal git also runs the repository's own hooks and settings, so do this only for a repository you trust." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널에서 \"git status\"를 한 번 실행하면 index가 새로 고쳐져 다시 빨라집니다. 터미널의 git은 저장소 자체의 hook과 설정도 실행하므로 신뢰하는 저장소에서만 하세요."
+          }
+        }
+      }
+    },
     "Runs %@" : {
       "localizations" : {
         "ko" : {
@@ -3910,6 +4120,16 @@
         }
       }
     },
+    "Show Linked Branch" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결된 브랜치 보기"
+          }
+        }
+      }
+    },
     "Show Sidebar" : {
       "localizations" : {
         "ko" : {
@@ -4010,6 +4230,16 @@
         }
       }
     },
+    "Show why the fetch failed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치가 실패한 이유 보기"
+          }
+        }
+      }
+    },
     "Showing first %@ files · %@ more" : {
       "localizations" : {
         "ko" : {
@@ -4046,6 +4276,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "스태시의 변경 내용을 보여 줍니다"
+          }
+        }
+      }
+    },
+    "Shows why the fetch failed and what to do" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치가 실패한 이유와 할 일을 보여 줍니다"
           }
         }
       }
@@ -4131,12 +4371,32 @@
         }
       }
     },
+    "Status %@ s" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "status %@초"
+          }
+        }
+      }
+    },
     "Status could not be read, so the configuration is not inspected." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "상태를 읽지 못해 설정을 검사하지 않습니다."
+          }
+        }
+      }
+    },
+    "Status took %@ s. If files were rewritten outside git (a formatter or a build), git re-reads them every time until its index is refreshed. Overgrove does not write the index." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "status에 %@초가 걸렸습니다. git 밖에서 파일을 다시 썼다면(포매터나 빌드) index가 새로 고쳐질 때까지 git이 매번 그 파일을 다시 읽습니다. Overgrove는 index를 쓰지 않습니다."
           }
         }
       }
@@ -4672,6 +4932,16 @@
         }
       }
     },
+    "This repository has %lld remotes. Overgrove fetched the first %lld, in the order of its configuration, and skipped the rest." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소에는 원격이 %1$lld개 있습니다. Overgrove는 설정 순서대로 처음 %2$lld개를 페치하고 나머지는 건너뛰었습니다."
+          }
+        }
+      }
+    },
     "This repository has no remote to fetch from. Add one in Terminal with \"git remote add\"." : {
       "localizations" : {
         "ko" : {
@@ -5152,6 +5422,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "외 %lld개"
+          }
+        }
+      }
+    },
+    "and %lld more branches or worktrees" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "외 브랜치·워크트리 %lld개"
           }
         }
       }
