@@ -70,11 +70,31 @@ struct WorktreeListing: Sendable, Equatable {
     /// The configured remote names (from the repository's inspection), to split `refs/remotes/<remote>/<branch>`
     /// when a remote name contains `/`.
     var remoteNames: [String] = []
-    /// The github.com repository whose issues the sidebar shows (#81), from the inspected remotes; `nil` without one.
-    var githubRepository: GitHubRepository?
-    /// Each inspected remote whose URL is a github.com repository, by remote name: the head repositories a local
-    /// branch's pull request may come from (ADR-0023 §4).
-    var githubRemotes: [String: GitHubRepository] = [:]
+    /// The inspected remotes' names and URLs, in configuration order: where the GitHub repository comes from (#81,
+    /// ADR-0025).
+    var remotes: [Remote] = []
+
+    struct Remote: Sendable, Equatable {
+        let name: String
+        let url: String
+    }
+
+    /// The GitHub repository whose issues and pull requests the app shows (#81), from the inspected remotes on
+    /// `hosts`; `nil` without one.
+    func githubRepository(trusting hosts: TrustedHosts) -> GitHubRepository? {
+        githubMatch(trusting: hosts)?.repository
+    }
+
+    /// The same repository with the remote it came from (Open on GitHub for its branches, #398).
+    func githubMatch(trusting hosts: TrustedHosts) -> (name: String, repository: GitHubRepository)? {
+        GitHubRemote.match(remotes: remotes.map { ($0.name, $0.url) }, trusting: hosts)
+    }
+
+    /// Each inspected remote whose URL is a GitHub repository on `hosts`, by remote name: the head repositories a
+    /// local branch's pull request may come from (ADR-0023 §4).
+    func githubRemotes(trusting hosts: TrustedHosts) -> [String: GitHubRepository] {
+        GitHubRemote.repositories(remotes: remotes.map { ($0.name, $0.url) }, trusting: hosts)
+    }
 
     /// Some listed worktrees were not queried because of the per-load limit (#226); the sidebar says so (#243).
     var isQueryLimited: Bool {
@@ -94,10 +114,7 @@ extension WorktreeListing {
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
             remoteNames: overview.inspection.remotes.map(\.name.value),
-            githubRepository: GitHubRemote.repository(
-                remotes: overview.inspection.remotes.map { (name: $0.name.value, url: $0.url) }),
-            githubRemotes: GitHubRemote.repositories(
-                remotes: overview.inspection.remotes.map { (name: $0.name.value, url: $0.url) }))
+            remotes: overview.inspection.remotes.map { Remote(name: $0.name.value, url: $0.url) })
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {
@@ -242,9 +259,10 @@ struct LiveRepositoryLoader: RepositoryLoading, LineCountLoading {
 }
 
 extension LiveRepositoryLoader: RepositoryFetching {
-    func fetch(_ repository: Repository, untrusted: Bool, onStart: @escaping @Sendable ([String]) -> Void) async
-        -> FetchRun
-    {
+    func fetch(
+        _ repository: Repository, untrusted: @escaping @Sendable () async -> Bool,
+        onStart: @escaping @Sendable ([String]) -> Void
+    ) async -> FetchRun {
         guard let (_, service) = try? await services() else {
             // No usable git executable: nothing can be fetched or even inspected.
             return .finished(failures: [FetchFailureGuidance(configurationError: .launchFailed(errno: -1))])

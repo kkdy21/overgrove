@@ -3,10 +3,12 @@ import Observation
 
 /// Fetches a repository's remotes for the main window (#77, interaction.md §4.2).
 protocol RepositoryFetching: Sendable {
-    /// Fetches every remote. `untrusted`: the repository is marked untrusted (#107), so remotes on this Mac are not
-    /// fetched. `onStart` gets the remote names once they are known.
-    func fetch(_ repository: Repository, untrusted: Bool, onStart: @escaping @Sendable ([String]) -> Void) async
-        -> FetchRun
+    /// Fetches every remote. `untrusted` reads whether the repository is marked untrusted (#107), before each remote
+    /// (#423); remotes on this Mac are then not fetched. `onStart` gets the remote names once they are known.
+    func fetch(
+        _ repository: Repository, untrusted: @escaping @Sendable () async -> Bool,
+        onStart: @escaping @Sendable ([String]) -> Void
+    ) async -> FetchRun
 }
 
 /// One failed remote, as the Details sheet shows it (`FetchFailureGuidance`, #78). Every text is app-written except
@@ -115,7 +117,14 @@ final class FetchController {
         let onStart: @Sendable ([String]) -> Void = { remotes in
             Task { @MainActor in self.started(remotes, generation: generation) }
         }
-        let untrusted = isUntrusted(repository)
+        // Read on the main actor before each remote, so a change during the fetch applies to the next one (#423). The
+        // value at the start still counts: a repository removed from Settings mid-fetch reads as not untrusted, and
+        // must not turn trusted for the remotes left (review of #439). A controller that is gone counts as untrusted.
+        let startedUntrusted = isUntrusted(repository)
+        let untrusted: @Sendable () async -> Bool = { [weak self] in
+            if startedUntrusted { return true }
+            return await MainActor.run { self.map { $0.isUntrusted(repository) } ?? true }
+        }
         task = Task { [weak self] in
             let run = await fetcher.fetch(repository, untrusted: untrusted, onStart: onStart)
             self?.finish(run, repository: repository, generation: generation, lastFetched: lastFetched)

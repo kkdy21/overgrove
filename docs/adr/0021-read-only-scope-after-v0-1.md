@@ -7,7 +7,7 @@
 v0.1.0은 조회와 `git fetch`만 한다(N3, N4, [ADR-0011](0011-no-pull-in-v0-1.md)). #155는 그다음에 어떤 쓰기 작업을 앱에 넣을지 물었다. 판단에 쓴 제약은 다음과 같다.
 
 - **역할 분담.** AI 주도 개발에서는 코딩, 커밋, PR 같은 쓰기를 에이전트가 각 워크트리에서 한다. 사람에게 필요한 것은 여러 워크트리를 한눈에 보는 관제와 검토다. 이것이 Overgrove의 자리다.
-- **잠금 충돌.** 에이전트가 작업 중인 워크트리에 앱이 쓰면 `index.lock`이 충돌하고 작업이 꼬인다. 조회는 index를 쓰지 않는다: `--no-optional-locks`, `GIT_OPTIONAL_LOCKS=0`, `-c diff.autoRefreshIndex=false`를 함께 건다([security-review.md T13](../design/security-review.md#t13-의도치-않은-쓰기-명령-실행), #208).
+- **잠금 충돌.** 에이전트가 작업 중인 워크트리에 앱이 쓰면 `index.lock`이 충돌하고 작업이 꼬인다. 조회는 index를 쓰지 않는다: `--no-optional-locks`, `GIT_OPTIONAL_LOCKS=0`, `-c diff.autoRefreshIndex=false`를 함께 건다([security-review.md T13](../design/threats/T13.md), #208).
 - **hooks를 끈다.** 앱은 신뢰할 수 없는 저장소를 다루려고 hooks, fsmonitor, 필터, 외부 diff를 무력화한다([ADR-0008](0008-git-invocation-model.md), [ADR-0009](0009-repo-config-neutralization.md)). commit처럼 hooks에 기대는 작업을 앱에서 하면 저장소의 안전장치(gitleaks, 커밋 형식 검사)를 우회하게 된다.
 - **실행 경로가 늘어난다.** pull, checkout, merge, stash apply는 merge driver, 필터, 작업 트리 쓰기를 부른다. 위협 모델(T1–T19)과 명령 allowlist(`ReadOnlyGitCommand`, `FetchCommand`)가 그만큼 넓어진다.
 - **정리 작업도 안전하지 않다.** `git worktree remove`는 `--force` 없이도 ignored 파일을 확인 없이 지운다(#156에 재현 기록). 깨끗해 보이는 워크트리에도 `.env`, 로컬 DB, 빌드 캐시가 남아 있을 수 있다.

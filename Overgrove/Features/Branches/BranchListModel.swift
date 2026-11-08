@@ -26,6 +26,14 @@ struct BranchRow: Identifiable, Equatable {
     var tip: ObjectID?
     /// The configured upstream's short name (`origin/main`), escaped, for Copy Upstream Name (#73).
     var upstreamName: String?
+    /// The configured upstream's full ref name as git gave it (`refs/remotes/origin/main`), for Open on GitHub (#398).
+    var upstreamRef: String?
+
+    /// The remote-tracking ref Open on GitHub names: the row itself for a remote row, the upstream for a local one.
+    var remoteRef: String? { id.hasPrefix("refs/remotes/") ? id : upstreamRef }
+    /// Where Open on GitHub goes (#406): the repository of the remote this branch tracks (a remote row: its own remote),
+    /// so a branch tracking a fork opens the fork. `nil` when that remote is not a github.com repository.
+    var gitHubTarget: GitHubBranchTarget?
 }
 
 /// A row or a folder of rows (`feat/`, a remote) in the sidebar tree.
@@ -69,8 +77,10 @@ struct BranchListModel: Equatable {
     ///   - checkedOut: Full ref names checked out in a worktree.
     ///   - remoteNames: Configured remotes, to split `refs/remotes/<remote>/<branch>` when a name has `/`.
     ///   - detachedHeads: Commits a worktree has checked out detached, for the TAGS `tree` mark.
+    ///   - githubRemotes: The verified listing's github.com remotes by name, for Open on GitHub (#406).
     init(
-        refs: RefParser.Listing, checkedOut: Set<String>, remoteNames: [String], detachedHeads: Set<ObjectID> = []
+        refs: RefParser.Listing, checkedOut: Set<String>, remoteNames: [String], detachedHeads: Set<ObjectID> = [],
+        githubRemotes: [String: GitHubRepository] = [:]
     ) {
         tags = TagListModel(tags: refs.tags, detachedHeads: detachedHeads)
         let symbolic = refs.branches.filter { $0.symbolicTarget != nil }
@@ -85,7 +95,8 @@ struct BranchListModel: Equatable {
         let localRows = locals.map { branch in
             Self.row(
                 branch, name: String(branch.fullName.dropFirst("refs/heads/".count)),
-                isCheckedOut: checkedOut.contains(branch.fullName), isDefault: branch.fullName == defaultName)
+                isCheckedOut: checkedOut.contains(branch.fullName), isDefault: branch.fullName == defaultName,
+                gitHub: GitHubBranchTarget.forLocal(branch, remotes: githubRemotes))
         }
         let pinned = localRows.filter(\.isDefault)
         local = pinned.map(BranchNode.branch) + Self.folders(localRows.filter { !$0.isDefault }, idPrefix: "local")
@@ -107,7 +118,9 @@ struct BranchListModel: Equatable {
             let cut = String(decoding: rest.utf8.dropFirst(remote.utf8.count + 1), as: UTF8.self)
             let name = cut.isEmpty ? rest : cut
             byRemote[remote, default: []].append(
-                Self.row(branch, name: name, isCheckedOut: false, isDefault: false))
+                Self.row(
+                    branch, name: name, isCheckedOut: false, isDefault: false,
+                    gitHub: GitHubBranchTarget.forRemoteRef(branch.fullName, remotes: githubRemotes)))
         }
         // `origin` first, then the rest by name (information-architecture.md §4.2).
         let order = byRemote.keys.sorted { lhs, rhs in
@@ -169,7 +182,9 @@ struct BranchListModel: Equatable {
         return folderNodes + loose.sorted(by: byName).map(BranchNode.branch)
     }
 
-    private static func row(_ branch: Branch, name: String, isCheckedOut: Bool, isDefault: Bool) -> BranchRow {
+    private static func row(
+        _ branch: Branch, name: String, isCheckedOut: Bool, isDefault: Bool, gitHub: GitHubBranchTarget?
+    ) -> BranchRow {
         let display = PathValidator.displayable(name)
         let full = PathValidator.displayable(branch.shortName)
         let upstream = branch.upstreamStatus
@@ -199,7 +214,8 @@ struct BranchListModel: Equatable {
             ahead: upstream.ahead, behind: upstream.behind, isUpstreamGone: isGone, date: branch.committerDate,
             issueNumber: issueNumber, help: help.joined(separator: "\n"),
             accessibilityLabel: label.joined(separator: ", "), tip: branch.target,
-            upstreamName: branch.upstream.map { PathValidator.displayable(Self.short($0)) })
+            upstreamName: branch.upstream.map { PathValidator.displayable(Self.short($0)) },
+            upstreamRef: branch.upstream, gitHubTarget: gitHub)
     }
 
     /// `refs/remotes/origin/main` → `origin/main`.
@@ -219,7 +235,8 @@ extension BranchRow {
             id: id, name: name, fullDisplayName: fullDisplayName, isCheckedOut: isCheckedOut, isDefault: isDefault,
             ahead: ahead, behind: behind, isUpstreamGone: isUpstreamGone, date: date, issueNumber: issueNumber,
             help: help,
-            accessibilityLabel: accessibilityLabel, tip: tip, upstreamName: upstreamName)
+            accessibilityLabel: accessibilityLabel, tip: tip, upstreamName: upstreamName, upstreamRef: upstreamRef,
+            gitHubTarget: gitHubTarget)
     }
 }
 

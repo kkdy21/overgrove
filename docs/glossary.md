@@ -69,6 +69,7 @@
 | Annotated tag / Lightweight tag | 주석 태그 / 경량 태그 |
 | Co-author / Committer / Parent | 공동 작성자 / 커미터 / 부모 |
 | path missing | 경로 없음 |
+| Open on GitHub / Quick Look | GitHub에서 열기 / 훑어보기(macOS 표기) |
 
 ## Git 출력·호출
 

@@ -117,6 +117,42 @@ final class AppStateCommitComparisonTests: XCTestCase {
         XCTAssertNil(state.commitComparison, "S-11 and S-12 are never open together")
     }
 
+    /// #405: a security stop on the worktree list closes S-12 even without S-11, cancelling its loads and patch; any
+    /// other list failure leaves it as it is (two commits do not go out of date).
+    func testASecurityStopClosesItAlone() async throws {
+        let state = try await loadedState()
+        state.selectCommit(base)
+        state.showCommitComparison(with: target)
+        await state.commitComparisonTask?.value
+        XCTAssertNil(state.comparison, "S-12 alone, without S-11")
+
+        let before = state.commitComparison
+        state.comparisonListFailed(.git(.timeout(seconds: 15)))
+        XCTAssertEqual(state.commitComparison, before, "a transient failure leaves S-12 as it is")
+
+        state.selectCommitComparisonFile(CommitDetailModelTests.stat("a.go", .modified, 2, 1))
+        XCTAssertNotNil(state.commitComparisonPatchTask)
+        state.comparisonListFailed(.blocked(reason: "filter driver name not allowed"))
+        XCTAssertNil(state.commitComparison, "a security stop closes S-12")
+        XCTAssertNil(state.commitComparisonModel)
+        XCTAssertNil(state.commitComparisonTask)
+        XCTAssertNil(state.commitComparisonPatchTask, "the patch in flight is cancelled")
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertNil(state.commitComparison, "nothing in flight brings it back")
+    }
+
+    /// #405: a security stop while S-12 is still loading cancels the file list and commits.
+    func testASecurityStopCancelsLoads() async throws {
+        let state = try await loadedState()
+        state.selectCommit(base)
+        state.showCommitComparison(with: target)
+        XCTAssertNotNil(state.commitComparisonTask)
+        state.comparisonListFailed(.blocked(reason: "hook found"))
+        XCTAssertNil(state.commitComparisonTask)
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertNil(state.commitComparison)
+    }
+
     /// COMMITS (#389): read with the files for the same pair, again after `⇄`; a row opens that commit's S-03.
     func testCommitsBetweenAreListed() async throws {
         let loader = StubCommitLoader()

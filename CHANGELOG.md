@@ -36,9 +36,14 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Korean localization, first part: Settings, the setup assistant, the graph header and columns, the diff viewer, and
   the menu commands follow the system language through a String Catalog. Git names, commands, and copied values stay
   as they are.
+- Open on GitHub for branches opens the repository of the remote each branch tracks, so in a fork flow a branch
+  tracking your fork opens the fork.
 
 ### Changed
 
+- `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
+  finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
+  each problem comes with the command that fixes it.
 - Process: the project board follows issues, pull requests, and claims automatically (`board-sync`, ADR-0016), and
   running several maintainer sessions in parallel has explicit rules (separate worktrees, assign before starting).
 

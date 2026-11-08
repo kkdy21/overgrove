@@ -1,3 +1,4 @@
+import QuickLook
 import SwiftUI
 
 /// S-01, the main window (screens.md S-01, ADR-0014): toolbar, three boxed panels on `PanelSplitView`, status bar.
@@ -28,6 +29,8 @@ struct MainWindowView: View {
                     model: repositoryMenu, isAdding: state.isAddingRepository, actions: repositoryActions,
                     dismiss: { isManagingRepositories = false })
             }
+            // Quick Look (QLPreviewPanel) for a checked working tree file, macOS 15 and later (#399).
+            .quickLookPreview($state.quickLookURL)
             .alert(item: $state.alert) { alert in
                 Alert(title: Text(alert.title), message: Text(alert.message))
             }

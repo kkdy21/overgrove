@@ -95,23 +95,28 @@ actor GHClient {
     // MARK: - Commands
 
     /// Login state for github.com (parsing-spec.md §10.1).
+    func authStatus() async throws -> GHAuthStatus {
+        try await authReport().status
+    }
+
+    /// Login state for github.com and the hosts gh is logged in to (parsing-spec.md §10.1, ADR-0025 §1).
     ///
     /// A missing gh is `.notInstalled`, not an error, so the issue panel can explain it (ADR-0004 §4). With
     /// `--json`, gh exits 0 even when authentication is broken, so the decision comes from the JSON alone; the exit
     /// code only explains output that is not JSON (for example, a gh too old to know `--json`).
-    func authStatus() async throws -> GHAuthStatus {
+    func authReport() async throws -> GHAuthReport {
         let result: ProcessResult
         do {
             result = try await launch(.authStatus)
         } catch GHError.notInstalled {
-            return .notInstalled
+            return GHAuthReport(status: .notInstalled, hosts: [])
         }
         try checkLimits(result)
         do {
-            return try GHAuthParser.parse(result.stdout, host: GHCommand.host)
+            return try GHAuthParser.parseReport(result.stdout)
         } catch let error as ParseError {
             switch failure(result) {
-            case .notLoggedIn: return .notLoggedIn
+            case .notLoggedIn: return GHAuthReport(status: .notLoggedIn, hosts: [])
             case let failure where result.termination != .exited(code: 0): throw failure
             default: throw GHError(error)
             }
@@ -125,21 +130,21 @@ actor GHClient {
         return String(text.split(separator: "\n", omittingEmptySubsequences: true).first ?? "")
     }
 
-    /// Open issues of a github.com repository (parsing-spec.md §10.2).
+    /// Open issues of a GitHub repository (parsing-spec.md §10.2).
     func issues(in repository: GitHubRepository) async throws -> [Issue] {
         let output = try await run(.issueList(repo: repository))
         do {
-            return try IssueParser.parse(output.stdout)
+            return try IssueParser.parse(output.stdout, host: repository.host)
         } catch let error as ParseError {
             throw GHError(error)
         }
     }
 
-    /// Pull requests of a github.com repository (parsing-spec.md §10.3, ADR-0023).
+    /// Pull requests of a GitHub repository (parsing-spec.md §10.3, ADR-0023).
     func pullRequests(in repository: GitHubRepository) async throws -> [PullRequest] {
         let output = try await run(.prList(repo: repository))
         do {
-            return try PullRequestParser.parse(output.stdout)
+            return try PullRequestParser.parse(output.stdout, host: repository.host)
         } catch let error as ParseError {
             throw GHError(error)
         }

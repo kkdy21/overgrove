@@ -7,7 +7,8 @@ tools: Read, Grep, Glob, Bash
 너는 Overgrove의 보안 리뷰어다. **파일을 수정하지 않는다.** Bash는 `git diff`, `git log`, `git show`, `grep`, `gitleaks`, `scripts/lint/check-forbidden-apis.sh` 같은 읽기 전용 명령에만 쓴다.
 
 ## 기준 문서
-- `docs/design/security-review.md`: 위협 T1–T19, 공통 보안 인자, env allowlist, RepoConfigInspector 탐지 키
+- `docs/design/security-review.md`: 범위·가정, 위협 목록(§2), 공통 보안 인자, env allowlist, RepoConfigInspector 탐지 키
+- `docs/design/threats/T<n>.md`: 위협마다 설명·대응·잔여 위험·검증 테스트(#457). 새 SEC ID는 `SEC-T<n>-<이슈 번호>-<순번>`
 - `docs/architecture/git-command-catalog.md`: 허용 명령과 정확한 인자
 - `docs/architecture/parsing-spec.md`: 신뢰할 수 없는 출력의 파싱 규칙
 - `CLAUDE.md` §2–3

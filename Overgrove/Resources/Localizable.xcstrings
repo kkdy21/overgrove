@@ -2876,6 +2876,16 @@
         }
       }
     },
+    "Open on GitHub" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub에서 열기"
+          }
+        }
+      }
+    },
     "Open the focused worktree in Terminal" : {
       "localizations" : {
         "ko" : {
@@ -3142,6 +3152,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "조회 중단"
+          }
+        }
+      }
+    },
+    "Quick Look" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "훑어보기"
           }
         }
       }

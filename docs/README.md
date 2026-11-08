@@ -29,7 +29,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | 설계 | [design/references.md](design/references.md) | macOS Git 클라이언트·HIG 레퍼런스 패턴 조사 (브랜드 요소는 쓰지 않음) |
 | 설계 | [design/mockups.md](design/mockups.md) | 주요 화면 목업 갤러리 (라이트·다크, 원본 SVG와 생성 스크립트) |
 | 설계 원본 | [`design/`](../design/) | `tokens/tokens.json`(토큰 원본), `icon/`(아이콘 SVG 원본), `mockups/`(주요 화면 목업과 `generator/` 생성기·색 검증기) |
-| 보안 | [design/security-review.md](design/security-review.md) | 위협 모델(T-xx), 대응, 보안 테스트 매핑, 체크리스트 |
+| 보안 | [design/security-review.md](design/security-review.md), [design/threats/](design/threats/) | 위협 모델의 범위·공통 규칙·체크리스트, 위협마다 파일 하나(T-xx 대응, 보안 테스트 매핑, #457) |
 | 테스트 | [testing/test-strategy.md](testing/test-strategy.md) | 테스트 피라미드, 테스트 ID 체계, CI 실행 범위 |
 | 테스트 | [testing/fixtures.md](testing/fixtures.md) | 임시 저장소 픽스처 명세 (`scripts/make-fixture-repo.sh`) |
 | 성능 | [performance/performance-budget.md](performance/performance-budget.md) | 성능 예산 (측정 가능한 수치) |
@@ -81,7 +81,8 @@ Overgrove/
 ├── Execution/      # ProcessRunner — 앱 전체에서 Process를 만드는 유일한 곳
 ├── Git/            # GitClient(actor), GitCommand(ReadOnlyGitCommand, FetchCommand), GitEnvironment, RepoConfigInspector, GitError,
 │                   # FetchFailureGuidance, TransportName
-├── GitHub/         # GHClient(actor), GHCommand(gh 명령 allowlist), GHError, GitHubRepository, GitHubRemote(원격 → OWNER/NAME)
+├── GitHub/         # GHClient(actor), GHCommand(gh 명령 allowlist), GHError, GitHubRepository, GitHubRemote(원격 → [HOST/]OWNER/NAME)
+├── Forges/         # (v0.2.0, ADR-0026) GLClient·GLCommand(glab allowlist), GTClient·GTCommand(gt allowlist)
 ├── Parsing/        # WorktreeParser, StatusParser, StashParser, LogParser, RevListParser, RefParser, NumstatParser,
 │                   # ConfigParser, VersionParser, ProbeParser, GHAuthParser, IssueParser, IssueRefExtractor,
 │                   # FetchProgressParser
@@ -101,9 +102,9 @@ OvergroveTests/
 
 `Repository`, `Worktree`, `WorkingState`, `FileChange`, `UpstreamStatus`, `Stash`, `StashDetail`, `CommitNode`, `CommitDetail`, `FileHistoryEntry`, `Branch`, `Issue`, `GHAuthStatus`, `FetchRecord`, `GitPath`(raw 바이트 + 표시 문자열), `ConfigEntry`, `RepoSecurityReport`, `SubmoduleStatus`·`SubmoduleListing`(#108)
 
-보조 타입: `ObjectID`(SHA-1·SHA-256 검증), `ConflictKind`(unmerged XY 7종), `FileStat`(커밋·stash 파일 통계), `WorkingLineCounts`(WIP 상세의 staged·unstaged 파일별 줄 수, #230), `Tag`, `GitVersion`(최소 2.36 판정), `GitHubRepository`(`--repo`용 검증된 `OWNER/NAME`, `Overgrove/GitHub/`), `FetchProgress`(fetch 진행 단계와 숫자), `AIAgentRule`(co-author 트레일러로 AI 작성 커밋 판정, #160). 정의는 `Overgrove/Models/`에 있다. 파서 실패는 `Overgrove/Parsing/ParseError`로 내고, `GitError`가 `parseFailed`로 감싼다.
+보조 타입: `ObjectID`(SHA-1·SHA-256 검증), `ConflictKind`(unmerged XY 7종), `FileStat`(커밋·stash 파일 통계), `WorkingLineCounts`(WIP 상세의 staged·unstaged 파일별 줄 수, #230), `Tag`, `GitVersion`(최소 2.36 판정), `GitHubRepository`(`--repo`용 검증된 `[HOST/]OWNER/NAME`, `Overgrove/GitHub/`), `RemoteHost`·`HostedRemoteURL`·`TrustedHosts`(제공자와 무관한 원격 호스트 판별과 신뢰, ADR-0025), `FetchProgress`(fetch 진행 단계와 숫자), `AIAgentRule`(co-author 트레일러로 AI 작성 커밋 판정, #160). 정의는 `Overgrove/Models/`에 있다. 파서 실패는 `Overgrove/Parsing/ParseError`로 내고, `GitError`가 `parseFailed`로 감싼다.
 
-### 2.4 위협 ID (상세: design/security-review.md)
+### 2.4 위협 ID (상세: design/threats/T<n>.md, 목록: design/security-review.md §2)
 
 | ID | 위협 |
 |---|---|
@@ -135,7 +136,7 @@ OvergroveTests/
 | 0001 | 제품명 Overgrove | Accepted |
 | 0002 | 라이선스 MIT | Accepted |
 | 0003 | 최소 macOS 14 | Accepted |
-| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted (§2는 0023으로 대체) |
+| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted (§2는 0023, §8은 0025로 대체, GitHub 밖 제공자는 0026으로 확장) |
 | 0005 | 문서 언어 (내부 한국어, 외부 접점 영어) | Accepted |
 | 0006 | 외부 의존성 0개 | Accepted |
 | 0007 | 포맷·린트는 툴체인 내장 swift-format | Accepted |
@@ -156,6 +157,8 @@ OvergroveTests/
 | 0022 | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
 | 0023 | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |
 | 0024 | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰 직접 사용 안 함) | Accepted |
+| 0025 | GitHub 호스트는 gh에 로그인된 것만 신뢰, 계정은 앱이 바꾸지 않음 (ADR-0004 §8 대체) | Accepted |
+| 0026 | GitLab·Gitea 이슈는 glab·gt에 위임, 그 CLI에 로그인된 호스트만 신뢰 (ADR-0004를 GitHub 밖 제공자로 확장) | Accepted |
 
 ### 2.6 테스트 ID
 
@@ -168,7 +171,7 @@ OvergroveTests/
 | `PERF-{nn}` | 성능 측정 | `PERF-02` |
 | `QA-{영역}-{nn}` | 수동 QA 체크리스트 항목. 영역: WT, ST, SH, SY, GR, CD, IS, ON, SEC, A11Y, DM, PF | `QA-WT-03` |
 
-ID 원본 위치: SEC → [design/security-review.md](design/security-review.md), PAR → [architecture/parsing-spec.md](architecture/parsing-spec.md), GRA → [testing/test-strategy.md §4.2](testing/test-strategy.md), INT → [testing/fixtures.md §7](testing/fixtures.md), PERF → [performance/benchmark-plan.md §3](performance/benchmark-plan.md), QA → [qa/checklist.md](qa/checklist.md).
+ID 원본 위치: SEC → [design/threats/](design/threats/) 각 파일의 **검증** 목록(형식은 [security-review.md §2.1](design/security-review.md#21-sec-id-규칙)), PAR → [architecture/parsing-spec.md](architecture/parsing-spec.md), GRA → [testing/test-strategy.md §4.2](testing/test-strategy.md), INT → [testing/fixtures.md §7](testing/fixtures.md), PERF → [performance/benchmark-plan.md §3](performance/benchmark-plan.md), QA → [qa/checklist.md](qa/checklist.md).
 
 테스트 지원 규약: 픽스처는 `OvergroveTests/Support/FixtureRepo.swift`가 `scripts/make-fixture-repo.sh`를 실행해 만든다. 실패한 테스트의 픽스처를 남기려면 `OVERGROVE_KEEP_FIXTURES=1`을 설정한다. 테스트가 실행할 git을 바꾸려면 `OVERGROVE_TEST_GIT`(절대 경로)과 `OVERGROVE_TEST_GIT_VERSION`을 쓴다([test-strategy.md §4.3](testing/test-strategy.md), #99).
 

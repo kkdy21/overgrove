@@ -1,6 +1,6 @@
 import Foundation
 
-/// Parses `gh auth status --hostname github.com --json hosts` (parsing-spec.md §10.1).
+/// Parses `gh auth status --json hosts` (parsing-spec.md §10.1, ADR-0025 §1).
 ///
 /// The exit code is not used: with `--json`, gh exits 0 even when authentication is broken. Token-related fields
 /// (`scopes`, `tokenSource`) are ignored.
@@ -15,13 +15,28 @@ enum GHAuthParser {
         let login: String?
     }
 
+    /// The login state for `host` (github.com for the status bar and setup assistant).
     static func parse(_ data: Data, host: String = "github.com") throws -> GHAuthStatus {
-        let response: Response
+        try status(decode(data), host: host)
+    }
+
+    /// github.com's login state, plus every host gh lists an account for: the hosts whose remotes the app may hand
+    /// to gh (ADR-0025 §1). A host name that is not a `RemoteHost` is left out.
+    static func parseReport(_ data: Data) throws -> GHAuthReport {
+        let response = try decode(data)
+        let hosts = response.hosts.compactMap { name, accounts in accounts.isEmpty ? nil : RemoteHost(name) }
+        return GHAuthReport(status: try status(response, host: GHCommand.host), hosts: Set(hosts))
+    }
+
+    private static func decode(_ data: Data) throws -> Response {
         do {
-            response = try JSONDecoder().decode(Response.self, from: data)
+            return try JSONDecoder().decode(Response.self, from: data)
         } catch {
             throw ParseError(parser: "GHAuthParser", offset: 0, reason: "unexpected JSON")
         }
+    }
+
+    private static func status(_ response: Response, host: String) throws -> GHAuthStatus {
         guard
             let account = response.hosts[host]?.first(where: { $0.active == true && $0.state == "success" }),
             let login = account.login
@@ -63,7 +78,9 @@ enum IssueParser {
         let url: String
     }
 
-    static func parse(_ data: Data) throws -> [Issue] {
+    /// - Parameter host: The repository's host; an issue URL elsewhere fails (ADR-0025 §5).
+    static func parse(_ data: Data, host: RemoteHost = GitHubRepository.publicHost) throws -> [Issue] {
+        let prefix = "https://\(host.name)/"
         let raw: [RawIssue]
         do {
             raw = try JSONDecoder().decode([RawIssue].self, from: data)
@@ -80,8 +97,8 @@ enum IssueParser {
             guard let updatedAt = plain.date(from: item.updatedAt) ?? fractional.date(from: item.updatedAt) else {
                 throw ParseError(parser: "IssueParser", offset: index, reason: "invalid updatedAt")
             }
-            // Only github.com links are opened from the app.
-            guard item.url.hasPrefix("https://github.com/"), let url = URL(string: item.url) else {
+            // Only links on the repository's host are opened from the app.
+            guard item.url.hasPrefix(prefix), let url = URL(string: item.url) else {
                 throw ParseError(parser: "IssueParser", offset: index, reason: "unexpected URL")
             }
             return Issue(
@@ -113,6 +130,10 @@ enum PullRequestParser {
     }
 
     private struct Entry: Decodable {
+        /// The repository's host, handed in through `JSONDecoder.userInfo`.
+        // swift-format-ignore: NeverForceUnwrap
+        static let hostKey = CodingUserInfoKey(rawValue: "host")!
+
         let value: PullRequest?
 
         private enum Keys: String, CodingKey {
@@ -128,7 +149,8 @@ enum PullRequestParser {
             let item = try decoder.container(keyedBy: Keys.self)
             let number = try item.decode(Int.self, forKey: .number)
             let urlText = try item.decode(String.self, forKey: .url)
-            guard number > 0, urlText.hasPrefix("https://github.com/"), let url = URL(string: urlText) else {
+            let host = (decoder.userInfo[hostKey] as? RemoteHost) ?? GitHubRepository.publicHost
+            guard number > 0, urlText.hasPrefix("https://\(host.name)/"), let url = URL(string: urlText) else {
                 return nil
             }
             let state: PullRequest.State =
@@ -172,9 +194,12 @@ enum PullRequestParser {
     /// The most `GHCommand.prList` asks for; anything past it is ignored.
     static let limit = 200
 
-    static func parse(_ data: Data) throws -> [PullRequest] {
+    /// - Parameter host: The repository's host; an entry whose URL is elsewhere is dropped (ADR-0025 §5).
+    static func parse(_ data: Data, host: RemoteHost = GitHubRepository.publicHost) throws -> [PullRequest] {
+        let decoder = JSONDecoder()
+        decoder.userInfo[Entry.hostKey] = host
         do {
-            return try JSONDecoder().decode([Entry].self, from: data).prefix(limit).compactMap(\.value)
+            return try decoder.decode([Entry].self, from: data).prefix(limit).compactMap(\.value)
         } catch {
             throw ParseError(parser: "PullRequestParser", offset: 0, reason: "unexpected JSON")
         }

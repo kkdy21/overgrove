@@ -92,7 +92,7 @@ extension AppState {
             hasVerifiedListing = true
             supersededRetries = 0
             needsFullLoad = false
-            apply(listing, isVerified: true)
+            apply(listing, isVerified: true, trigger: finished)
             // Loads that brought the whole sidebar (ADR-0018 §3), not a single worktree or a file event.
             switch finished {
             case .user?, .automatic?, .fetchCompleted?:
@@ -125,27 +125,32 @@ extension AppState {
     }
 
     /// First load reads the graph; later loads keep it unless the history moved (GraphStore.refresh).
-    private func updateGraph(_ listing: WorktreeListing) {
+    private func updateGraph(_ listing: WorktreeListing, refsMayHaveMoved: Bool) {
         let focus = listing.entries.first { $0.worktree.path == focusedWorktreePath }
         if graph.status == .idle, let repository {
             graph.load(repository.repository, focus: focus)
         } else {
-            graph.refresh(focus: focus)
+            graph.refresh(focus: focus, refsMayHaveMoved: refsMayHaveMoved)
         }
     }
 
     /// - Parameter isVerified: The listing came from this load's inspection, not from the cache painted before it.
-    private func apply(_ listing: WorktreeListing, isVerified: Bool) {
+    /// - Parameter trigger: The load that brought `listing`; `nil` for a cached paint or a preview.
+    private func apply(_ listing: WorktreeListing, isVerified: Bool, trigger: RepositoryService.Trigger? = nil) {
         worktreeList = .loaded(listing)
         // Watch only what this load verified (#226), never a cached paint (#119).
         if isVerified, let repository {
             autoRefresh.update(FileChangeClassifier(listing: listing, repository: repository.repository))
         }
-        branchListModel = Self.branchModel(listing)
+        branchListModel = Self.branchModel(listing, isVerified: isVerified, trusting: trustedGitHubHosts)
         issueLinks = IssueLinkIndex(listing: listing)
         // Like the gh repository below, PR links use only remotes this load inspected (ADR-0023 §4).
-        if isVerified {
-            pullRequestStore.update(branches: listing.refs?.branches ?? [], remotes: listing.githubRemotes)
+        if isVerified, let repository {
+            let source = VerifiedGitHubSource(
+                repository: repository.repository, remotes: listing.remotes, branches: listing.refs?.branches ?? [])
+            verifiedGitHubSource = source
+            pullRequestStore.update(
+                branches: source.branches, remotes: listing.githubRemotes(trusting: trustedGitHubHosts))
         }
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
         // The fallbacks below are the app's choice, not the user's: they replace the current history entry (#378).
@@ -167,16 +172,23 @@ extension AppState {
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
         // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
         // a failed refresh; security review of #81).
-        // gh's login state is read alongside, for the status bar (#83); a repository without a GitHub remote runs no gh.
+        // gh's login state is read alongside, for the status bar (#83). Without a remote in a GitHub form, no gh runs;
+        // a remote on a host not trusted yet reads only gh's login list (ADR-0025 §1).
         // Pull requests load at the same times as the issues (ADR-0023 §6).
-        if isVerified, issuePanel.show(listing.githubRepository) {
-            checkGitHub()
-            pullRequestStore.load(listing.githubRepository)
-        } else if isVerified, listing.githubRepository == nil {
-            pullRequestStore.load(nil)
+        if isVerified {
+            let github = listing.githubRepository(trusting: trustedGitHubHosts)
+            if issuePanel.show(github) {
+                checkGitHub()
+                pullRequestStore.load(github)
+            } else if github == nil {
+                pullRequestStore.load(nil)
+                // A remote on a host not trusted yet: gh's login list may trust it, and then the check picks the
+                // repository again (ADR-0025 §1).
+                if trustedGitHubHosts.mayTrustMore(listing.remotes.map(\.url)), !isCheckingGitHub { checkGitHub() }
+            }
         }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
-        updateGraph(listing)
+        updateGraph(listing, refsMayHaveMoved: trigger?.mayMoveGraphRefs ?? true)
         // Keep the picked file only while it is still listed in the same group.
         // Same rule as `selectFile`: the row must still exist and still be selectable.
         if let file = selectedFile, wipDetailModel?.row(for: file)?.isSelectable != true {
@@ -267,35 +279,21 @@ extension AppState {
     }
 
     /// The S-05 toggle: marks the open repository untrusted, or trusted again (#107). A fetch already running stops
-    /// when the repository becomes untrusted (`observeUntrustedFlag`).
+    /// when the repository becomes untrusted (`stopFetchWhenUntrusted`).
     func setRepositoryUntrusted(_ isUntrusted: Bool) {
         guard let repository else { return }
         registry.setUntrusted(isUntrusted, for: repository.repository.id)
-        // At once, so no later remote starts before the observer below runs.
-        if isUntrusted && fetch.status.isFetching { fetch.stop() }
     }
 
-    /// A fetch reads the untrusted flag when it starts. When the open repository becomes untrusted while one runs,
-    /// from S-05, Settings, or another window, it stops, so no later remote is fetched as trusted (security review of
-    /// #107). Only that change stops it: a fetch that started untrusted keeps running when, say, another repository is
-    /// added. Re-registers after every change, as `withObservationTracking` reports one change at a time.
-    func observeUntrustedFlag() {
-        observeUntrustedFlag(wasUntrusted: isRepositoryUntrusted, repositoryID: repository?.repository.id)
-    }
-
-    private func observeUntrustedFlag(wasUntrusted: Bool, repositoryID: String?) {
-        withObservationTracking {
-            _ = isRepositoryUntrusted
-        } onChange: { [weak self] in
-            // Called before the change is stored: read the new value on the next turn.
-            Task { @MainActor in
-                guard let self else { return }
-                let id = self.repository?.repository.id
-                let isUntrusted = self.isRepositoryUntrusted
-                // Another repository opened: its fetch starts afresh (`FetchController.open` stops the old one).
-                if id == repositoryID, !wasUntrusted, isUntrusted, self.fetch.status.isFetching { self.fetch.stop() }
-                self.observeUntrustedFlag(wasUntrusted: isUntrusted, repositoryID: id)
-            }
+    /// When the open repository becomes untrusted while a fetch runs, from S-05, Settings, or another window, the fetch
+    /// stops inside the toggle, so no later remote is fetched as trusted (security review of #107, #423). The fetch
+    /// also reads the flag again before each remote. Only that change stops it: a fetch that started untrusted keeps
+    /// running when, say, another repository is added.
+    func stopFetchWhenUntrusted() {
+        registry.onBecameUntrusted { [weak self] id in
+            guard let self else { return false }
+            if self.repository?.repository.id == id, self.fetch.status.isFetching { self.fetch.stop() }
+            return true
         }
     }
 

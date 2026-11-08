@@ -42,8 +42,7 @@ final class AppStatePullRequestTests: XCTestCase {
 
     private var listing: WorktreeListing {
         var listing = WorktreeListing.mockup
-        listing.githubRepository = IssueModelsTests.repository
-        listing.githubRemotes = ["origin": IssueModelsTests.repository]
+        listing.setGitHubRemote(IssueModelsTests.repository)
         listing.refs = RefParser.Listing(
             branches: [PullRequestLinksTests.branch("feat/42-rate-limit"), PullRequestLinksTests.branch("main")],
             tags: [], isPartial: false, skippedRecords: 0)
@@ -105,8 +104,7 @@ final class AppStatePullRequestTests: XCTestCase {
 
     func testWithoutAGitHubRemoteGhIsNotRun() async {
         var noRemote = listing
-        noRemote.githubRepository = nil
-        noRemote.githubRemotes = [:]
+        noRemote.setGitHubRemote(nil)
         let loader = StubPullRequestLoader([.pullRequests([pullRequest(7)])])
         let state = await loadedState(loader, listing: noRemote)
         XCTAssertEqual(loader.requests, [])

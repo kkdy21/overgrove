@@ -252,7 +252,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 - 실행 파일은 `/opt/homebrew/bin/gh`, `/usr/local/bin/gh` 순서로 찾는다.
 - 작업 디렉터리는 **저장소 밖**의 중립 디렉터리다. 앱 전용 임시 디렉터리(`<사용자 임시 디렉터리>/io.github.kkdy21.overgrove.gh-neutral`, 모드 `0700`, 처음 쓸 때 만듦)를 쓴다. `gh`가 내부적으로 실행하는 git이 저장소 설정을 읽지 않게 하려는 것이다.
-- `--repo OWNER/NAME`을 항상 명시한다. OWNER는 `[A-Za-z0-9-]{1,39}`이고 `-`로 시작하지 않는다. NAME은 `[A-Za-z0-9._-]{1,100}`이다.
+- `--repo HOST/OWNER/NAME`을 항상 명시한다(github.com 포함, ADR-0025 §3). HOST는 `RemoteHost`다. OWNER는 `[A-Za-z0-9-]{1,39}`이고 `-`로 시작하지 않는다. NAME은 `[A-Za-z0-9._-]{1,100}`이다.
 - 환경 변수 allowlist는 다음과 같다. `GH_TOKEN`, `GITHUB_TOKEN`, `GH_HOST`, `GH_REPO`, `GH_ENTERPRISE_TOKEN`, `GH_CONFIG_DIR`, `BROWSER`, `GH_BROWSER`, `EDITOR`는 전달하지 않는다.
 
   ```
@@ -265,28 +265,67 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | case | 인자 배열 | 파서 → 모델 | 비고 |
 |---|---|---|---|
 | `version` | `["--version"]` | 첫 줄 `gh version X.Y.Z (...)` | 온보딩 표시 |
-| `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
-| `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
-| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 머지·닫힌 PR 중 최근에 만든 200개(gh 기본 정렬, gh 2.95.0 확인). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
+| `authStatus` | `["auth", "status", "--json", "hosts"]` | `GHAuthParser` → `GHAuthReport`(github.com의 `GHAuthStatus` + 로그인된 호스트) | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). github.com 로그인 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 계정이 하나라도 있는 호스트 키 중 `RemoteHost` 규칙을 통과한 것이 신뢰 호스트다(ADR-0025 §1). gh는 로그인된 모든 호스트의 토큰을 검사하므로 그 호스트들에 접속한다(사용자가 로그인한 호스트뿐). 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
+| `issueList(repo:)` | `["issue", "list", "--repo", "<HOST/OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
+| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<HOST/OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 머지·닫힌 PR 중 최근에 만든 200개(gh 기본 정렬, gh 2.95.0 확인). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
 
 실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
 
 - 실행 파일은 위 두 경로를 순서대로 보고, 실행 가능한 일반 파일(심볼릭 링크는 따라감)인 첫 경로를 쓴다. 호출할 때마다 다시 찾으므로 앱 실행 중에 gh를 설치해도 반영된다. 둘 다 없으면 `authStatus()`는 `GHAuthStatus.notInstalled`를 돌려주고, 그 밖의 명령은 `GHError.notInstalled`를 던진다.
 - 작업 디렉터리는 위의 앱 전용 중립 디렉터리다. 비어 있고 저장소가 아니다. 만들지 못하면 실행이 `launchFailed`로 실패한다.
-- 원본 출력은 `GHClient` 밖으로 나가지 않는다. 호출자는 파싱된 값(`GHAuthStatus`, `[Issue]`, 버전 첫 줄)만 받는다.
+- 원본 출력은 `GHClient` 밖으로 나가지 않는다. 호출자는 파싱된 값(`GHAuthStatus`, `GHAuthReport`, `[Issue]`, 버전 첫 줄)만 받는다.
 - 실행 제한은 §2.5의 gh 값이다. 타임아웃과 stdout 잘림은 종료 코드와 관계없이 실패(`timeout`, `outputTruncated`)로 본다. 잘린 JSON은 해석하지 않는다.
 - `authStatus`: 판단은 JSON으로만 한다. JSON이 아니면 종료 코드 4는 `GHAuthStatus.notLoggedIn`, 그 밖의 0이 아닌 코드는 `nonZeroExit`(예: `--json`을 모르는 옛 gh의 `unknown flag: --json`), 0은 `parseFailed`다.
 - 그 밖의 명령은 종료 코드 0만 성공이다. 종료 코드 4(gh의 "인증 필요")는 `GHError.notLoggedIn`, 나머지는 마스킹한 stderr를 담은 `nonZeroExit`다.
 - 에러 타입은 `GitError`와 따로 둔 `GHError`다. gh 문제는 이슈 패널만 끄기 때문이다 (ADR-0004 §4). 사용자에게는 `gh auth login`, `brew install gh`를 복사 가능한 명령으로만 보여 준다.
 - `XDG_CONFIG_HOME`도 전달하지 않는다. gh는 `~/.config/gh`의 설정을 읽는다. 셸에서만 `XDG_CONFIG_HOME`이나 `GH_CONFIG_DIR`을 바꿔 쓰는 사용자는 앱에서 로그인하지 않은 것으로 보인다 (의도된 동작, T10 잔여 위험과 같음).
 
-GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 때만 `OWNER/NAME`을 뽑는다. 그 밖의 호스트는 이슈 패널을 끄고 "github.com 원격 없음"을 보여 준다.
+GitHub 원격 판별([ADR-0025](../adr/0025-github-hosts-and-accounts.md)): `configList`의 원격 URL이 다음 중 하나와 맞고 HOST가 신뢰 호스트일 때만 `[HOST/]OWNER/NAME`을 뽑는다. 신뢰 호스트는 `github.com`과 `authStatus`가 보고한 로그인 호스트다. 로그인 목록을 읽기 전이나 읽지 못했을 때는 `github.com`뿐이다. 그 밖의 호스트는 이슈 패널을 끄고 "No GitHub remote"를 보여 준다.
 
-- `https://github.com/OWNER/NAME(.git)?`
-- `git@github.com:OWNER/NAME(.git)?`
-- `ssh://git@github.com/OWNER/NAME(.git)?`
+- `https://HOST/OWNER/NAME(.git)?`
+- `git@HOST:OWNER/NAME(.git)?`
+- `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받되 호스트 판단에 쓰지 않는다)
+
+HOST는 소문자로 바꾼 ASCII DNS 이름이다. 라벨 1–63자의 영숫자·`-`(앞뒤 `-` 금지), 라벨 2개 이상, 전체 253자 이하이고, 마지막 라벨이 숫자로 시작하면(10진·8진·16진 IPv4) 거부한다. userinfo·포트(https)·경로가 섞인 값도 거부한다. URL 형식과 호스트 신뢰는 제공자와 무관한 `RemoteHost`·`HostedRemoteURL`·`TrustedHosts`(`Overgrove/Models/RemoteHost.swift`)가 맡고, `GitHubRemote`는 경로가 정확히 `OWNER/NAME`인지만 본다. `--repo`는 github.com을 포함해 항상 `HOST/OWNER/NAME`이다. `GH_HOST`·`GH_ENTERPRISE_TOKEN`·`GH_TOKEN`은 환경 allowlist에 없다.
+
+판별할 원격이 신뢰 전 호스트를 가리키고 로그인 목록을 아직 읽지 않았으면, 목록을 한 번 읽은 뒤 다시 고른다. 원격이 세 형식 중 어느 것도 아니면 gh를 실행하지 않는다.
 
 여러 원격이 맞으면 gh와 같은 순서로 고른다: `upstream`, `github`, `origin`, 그다음 설정 순서. fork에서는 이슈가 `upstream`에 있기 때문이다. 판별은 검증된 목록(`RepoConfigInspector` 검사를 거친 조회)의 원격으로만 하고, 캐시에서 먼저 그린 목록으로는 gh를 실행하지 않는다 (`GitHubRemote`, #81).
+
+### 5.1 GLCommand와 GTCommand (다른 제공자 CLI)
+
+v0.2.0, [ADR-0026](../adr/0026-gitlab-and-gitea-issue-providers.md). GitLab은 `glab`(#154), Gitea는 `gt`(#449)다. 아직 구현하지 않았다. 타입은 `Overgrove/Forges/`에 둔다. 공통 규칙은 §5와 같다.
+
+- 실행 파일 경로는 `/opt/homebrew/bin/<cli>`, `/usr/local/bin/<cli>`뿐이다.
+- 작업 디렉터리는 중립 디렉터리이고, 실행 제한은 §2.5의 gh 값이다.
+- 원본 출력은 클라이언트 밖으로 나가지 않는다.
+- 저장소는 인자로 항상 명시한다.
+- 해당 CLI가 그 호스트에 로그인됐다고 보고하기 전에는 이슈 목록을 실행하지 않는다(ADR-0026 §2).
+- 다른 명령보다 먼저 `version`의 첫 줄을 확인한다(glab `glab X.Y.Z (…)` 1.128.0 이상, gt `gt version X.Y.Z (…)` 1.1.0 이상). 맞지 않으면 설치되지 않은 것으로 본다. `gt`는 Graphite CLI와 이름이 겹칠 수 있다.
+- stderr는 화면·로그에 쓰지 않는다. 종료 코드와 분류만 쓴다(`CredentialMasker`가 GitLab·Gitea 토큰을 다 가리지 못한다, ADR-0026 §4).
+
+환경 변수는 `HOME`, `USER`, `TMPDIR`만 부모에서 넘기고, 나머지는 아래 고정값이다. `GITLAB_TOKEN`, `GITLAB_ACCESS_TOKEN`, `OAUTH_TOKEN`, `GITLAB_HOST`·`GITLAB_URI`·`GL_HOST`, `GITLAB_REPO`, `GLAB_CONFIG_DIR`, `GLAB_CA_CERT`, `GLAB_SKIP_TLS_VERIFY`, `GLAB_CLIENT_*`, `GLAB_PROXY`, `GITEA_TOKEN`, `GITEA_CLI_HOST`, `GITEA_INSTANCE_*`, `GITEA_CLI_CONFIG_DIR`, `GITEA_CLI_DATA_DIR`, `GITEA_CLI_REPO`, `GLAB_DEBUG`, `GLAB_DEBUG_HTTP`(요청 헤더를 출력할 수 있다), `GODEBUG`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `GIT_*`, `BROWSER`, `EDITOR`, `XDG_CONFIG_HOME`, 프록시 변수는 넘기지 않는다.
+
+```
+glab: PATH(§2.4와 같음), LC_ALL=C, GIT_TERMINAL_PROMPT=0, NO_COLOR=1,
+      GLAB_SEND_TELEMETRY=false, GLAB_CHECK_UPDATE=false, GLAB_NO_PROMPT=true, GLAB_PAGER=cat,
+      GLAB_DISPLAY_HYPERLINKS=false, GLAB_SHOW_WHATS_NEW=false, GLAB_NOTIFY_SKILL_UPDATES=false,
+      GLAB_DUO_CLI_AUTO_DOWNLOAD=false, GLAB_DUO_CLI_AUTO_RUN=false,
+      GLAB_ORBIT_CLI_AUTO_DOWNLOAD=false, GLAB_ORBIT_CLI_AUTO_RUN=false
+gt:   PATH(§2.4와 같음), LC_ALL=C, GIT_TERMINAL_PROMPT=0, NO_COLOR=1, TERM=dumb,
+      GITEA_CLI_NO_UPDATE_NOTIFIER=1, GITEA_CLI_NO_EXTENSIONS=1, GITEA_CLI_COLOR=never, GITEA_CLI_PAGER=cat
+```
+
+| case | 인자 배열 | 파서 → 모델 | 비고 |
+|---|---|---|---|
+| `GLCommand.version` | `["--version"]` | 첫 줄 `glab X.Y.Z (...)` | 온보딩 표시 |
+| `GLCommand.authStatus(host:)` | `["auth", "status", "--hostname", "<HOST>", "--output", "json"]` | host·user·state만 | 설정에 없는 호스트는 glab이 네트워크 없이 거절한다. 설정에 있는 호스트(기본 설정의 토큰 없는 `gitlab.com` 포함)에는 `GET /api/v4/user`가 나간다(1.128.0 확인). `--all`과 `-t/--show-token`은 쓰지 않는다. 실패한 호스트가 있으면 0이 아닌 코드로 끝나므로 판단은 JSON으로 한다 |
+| `GLCommand.issueList(host:path:)` | `["issue", "list", "--repo", "https://<HOST>/<NAMESPACE>/<NAME>", "--output", "json", "--per-page", "50"]` | iid, title, state, labels, assignees.username, updated_at, web_url만 | 열린 이슈(기본값). 필드 선택이 없어 본문까지 오지만 읽지 않는다. 본문 때문에 5MB를 넘으면 잘림으로 실패한다. glab은 텔레메트리(`POST /api/v4/usage_data/track_event`)와 업데이트 확인을 기본으로 하고, 위 고정값이 둘 다 끈다(1.128.0 확인) |
+| `GTCommand.version` | `["--version"]` | 첫 줄 `gt version X.Y.Z (...)` | 온보딩 표시 |
+| `GTCommand.authStatus` | `["auth", "status", "--json", "host,user,credential_available"]` | host·user·credential_available | 로컬 자격 증명만 본다(네트워크 없음, `--verify`는 쓰지 않음). `--json`이면 종료 코드는 0이다(gt 1.1.0 도움말) |
+| `GTCommand.issueList(instance:repo:)` | `["issue", "list", "--host", "<INSTANCE URL>", "--repo", "<OWNER/NAME>", "--state", "open", "--kind", "issues", "--limit", "200", "--no-input", "--json", "number,title,state,labels,assignees,updated_at,url"]` | 필드 그대로 | `--repo`를 주어 git 원격 탐색을 막는다. 계정이 없는 인스턴스는 gt가 종료 코드 4로 거절한다 |
+
+`glab`은 사용자 설정 파일(`config.yml`)이 없으면 첫 실행에 만든다. 그래서 `~/.config/glab-cli/config.yml`과 `~/Library/Application Support/glab-cli/config.yml`이 둘 다 없으면 실행하지 않고 "GitLab CLI not set up"으로 본다(ADR-0026 §6). gt의 인스턴스 URL(`--host`)은 `gt auth status`의 `host`를 검증한 값을 그대로 쓴다(https만, base path 0–5개 구성 요소).
 
 ---
 
@@ -324,6 +363,6 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 다음은 1차 범위에서 **어떤 형태로도 실행하지 않는다**. 코드 리뷰와 `security-reviewer` 에이전트가 이 목록을 기준으로 검사한다.
 
-`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr list` 밖의 모든 `gh pr`(ADR-0023), `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`.
+`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr list` 밖의 모든 `gh pr`(ADR-0023), `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`, `glab`·`gt`의 이슈 목록·로그인 상태·버전 밖의 모든 명령(쓰기, `api`, 확장, `auth login/logout`, `--show-token`, `--web`, ADR-0026).
 
 `config`는 `--list --show-scope -z --includes` 조합만 허용한다.

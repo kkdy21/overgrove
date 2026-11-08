@@ -392,6 +392,45 @@ final class GraphStoreTests: XCTestCase {
             store.rows, GraphEngine.layout(Array(loader.commits.prefix(1_000))).rows, "no stitching at --skip")
     }
 
+    /// #434: a refresh that read neither the refs nor the worktree list (a file save, #275) cannot show a skipped ref
+    /// moving, so even with an incomplete ref set the rows, scroll, and selection stay and nothing is read.
+    func testARefreshThatReadNoRefsKeepsAnIncompleteRefSetsRows() async throws {
+        let loader = FakeGraphLoader(count: 1_500)
+        loader.missRefs()
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+        store.rowAppeared(450)
+        try await waitUntil { store.rows.count == 1_000 && !store.isLoadingMore }
+        store.select(FakeGraphLoader.oid(700))
+
+        store.refresh(focus: nil, refsMayHaveMoved: false)
+        try await Task.sleep(for: .milliseconds(50))
+
+        XCTAssertEqual(loader.skips, [0, 500], "nothing read again")
+        XCTAssertEqual(store.rows.count, 1_000)
+        XCTAssertEqual(store.selected, FakeGraphLoader.oid(700))
+        XCTAssertEqual(store.status, .loaded)
+    }
+
+    /// #434: only a file event that touched neither refs nor the worktree list leaves the graph's refs alone.
+    func testWhichRefreshesMayMoveTheGraphsRefs() {
+        let path = GitPath("/tmp/dev/repo")
+        XCTAssertTrue(RepositoryService.Trigger.user.mayMoveGraphRefs)
+        XCTAssertTrue(RepositoryService.Trigger.automatic.mayMoveGraphRefs)
+        XCTAssertTrue(RepositoryService.Trigger.fetchCompleted.mayMoveGraphRefs)
+        XCTAssertTrue(RepositoryService.Trigger.worktreeSelected(path).mayMoveGraphRefs, "its status may re-read refs")
+        XCTAssertTrue(
+            RepositoryService.Trigger.filesChanged(worktrees: [path], refs: true, worktreeList: false)
+                .mayMoveGraphRefs)
+        XCTAssertTrue(
+            RepositoryService.Trigger.filesChanged(worktrees: [], refs: false, worktreeList: true)
+                .mayMoveGraphRefs)
+        XCTAssertFalse(
+            RepositoryService.Trigger.filesChanged(worktrees: [path], refs: false, worktreeList: false)
+                .mayMoveGraphRefs)
+    }
+
     /// A complete ref set keeps today's behaviour: a refresh that finds nothing moved keeps the rows and selection.
     func testARefreshWithACompleteUnchangedRefSetKeepsTheRows() async throws {
         let loader = FakeGraphLoader(count: 1_500)
