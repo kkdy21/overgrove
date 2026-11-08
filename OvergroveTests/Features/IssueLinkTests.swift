@@ -122,7 +122,7 @@ final class IssueLinkTests: XCTestCase {
         let index = IssueLinkIndex(listing: Self.listing([Self.branch("refs/heads/12-docs")]))
         let model = IssueListModel(
             content: .loaded(
-                repository: IssueModelsTests.repository,
+                repository: .github(IssueModelsTests.repository),
                 issues: [
                     IssueModelsTests.issue(12, updated: 0), IssueModelsTests.issue(42, updated: 10),
                     IssueModelsTests.issue(50, updated: 20),

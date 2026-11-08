@@ -49,14 +49,14 @@ final class AppStateGitHubHostTests: XCTestCase {
     private func loadedState(
         remotes: [String], issues: StubIssueLoader,
         pullRequests: StubPullRequestLoader = StubPullRequestLoader([.unavailable]),
-        checker: QueuedGHAuthReporter
+        checker: QueuedGHAuthReporter, gitlab: StubGitLabHostChecker = StubGitLabHostChecker()
     ) async -> AppState {
         var listing = WorktreeListing.mockup
         listing.remotes = remotes.enumerated().map { WorktreeListing.Remote(name: "r\($0.offset)", url: $0.element) }
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
             loader: StubRepositoryLoader(result: .success(listing)), issueLoader: issues,
-            pullRequestLoader: pullRequests, ghChecker: checker)
+            pullRequestLoader: pullRequests, ghChecker: checker, gitlabChecker: gitlab)
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(
@@ -66,6 +66,7 @@ final class AppStateGitHubHostTests: XCTestCase {
         state.reload()
         await state.loadTask?.value
         await state.ghCheckTask?.value
+        await state.gitlabCheckTask?.value
         await state.issuePanel.task?.value
         await state.pullRequestStore.task?.value
         return state
@@ -95,7 +96,8 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(checker.checks, 1, "the login list is read once to decide")
         XCTAssertEqual(issues.requests, [])
         XCTAssertEqual(pullRequests.requests, [])
-        XCTAssertEqual(state.issueListModel.notice?.text, "No GitHub remote")
+        // No CLI is logged in to the host (ADR-0026 §7): the notice names it, nothing is read from it.
+        XCTAssertEqual(state.issueListModel.notice?.text, "Not logged in to ghe.example")
     }
 
     /// A failed check trusts nothing new.
@@ -140,8 +142,9 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
         state.checkIssuesAgain()
         await state.ghCheckTask?.value
+        await state.gitlabCheckTask?.value
         await state.issuePanel.task?.value
-        XCTAssertEqual(state.issueListModel.notice?.text, "No GitHub remote")
+        XCTAssertEqual(state.issueListModel.notice?.text, "Not logged in to ghe.example")
         XCTAssertNil(state.pullRequestStore.repository)
     }
 
@@ -191,5 +194,113 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertNil(state.issueListModel.account)
         XCTAssertNil(state.ghAccount)
         XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
+    }
+
+    // MARK: GitLab (#154, ADR-0026)
+
+    private let gitlabIssue = IssueModelsTests.issue(
+        7, "Pipeline", url: "https://gitlab.example.com/group/app/-/work_items/7")
+
+    /// SEC-T11-154-4: a GitLab remote is read only after glab reports its host logged in; otherwise nothing is read
+    /// and the notice names the host with one login command per CLI.
+    func testSECT11_154_4_GitLabIssuesOnlyForAHostGlabIsLoggedIn() async {
+        let issues = StubIssueLoader([.issues([gitlabIssue])])
+        let none = StubGitLabHostChecker()
+        let loggedOut = await loadedState(
+            remotes: ["git@gitlab.example.com:group/app.git"], issues: issues,
+            checker: QueuedGHAuthReporter([report(["github.com"])]), gitlab: none)
+        XCTAssertEqual(none.hosts, ["gitlab.example.com"])
+        XCTAssertEqual(issues.requests, [])
+        XCTAssertEqual(loggedOut.issueListModel.notice?.text, "Not logged in to gitlab.example.com")
+        XCTAssertEqual(
+            loggedOut.issueListModel.setupCommands,
+            ["gh auth login --hostname gitlab.example.com", "glab auth login --hostname gitlab.example.com"])
+        XCTAssertTrue(loggedOut.issueListModel.canCheckAgain)
+
+        let glab = StubGitLabHostChecker(loggedIn: ["gitlab.example.com"])
+        let state = await loadedState(
+            remotes: ["git@gitlab.example.com:group/app.git"], issues: issues,
+            checker: QueuedGHAuthReporter([report(["github.com"])]), gitlab: glab)
+        XCTAssertEqual(issues.requests, ["gitlab.example.com/group/app"])
+        XCTAssertEqual(state.issueListModel.rows.map(\.number), ["#7"])
+        XCTAssertNotNil(state.issueListModel.rows.first?.browserURL, "this project's work item page")
+        XCTAssertNil(state.pullRequestStore.repository, "pull requests stay GitHub only")
+        XCTAssertNil(state.issueListModel.account, "GitLab issues are not read as a gh account")
+        state.selectIssue(7)
+        XCTAssertEqual(state.issueDetailModel?.repository, "gitlab.example.com/group/app")
+    }
+
+    /// A GitHub repository wins: glab is never asked (ADR-0026 §2).
+    func testAGitHubRemoteRunsNoGlab() async {
+        let glab = StubGitLabHostChecker(loggedIn: ["gitlab.example.com"])
+        let issues = StubIssueLoader([.issues([IssueModelsTests.issue(12)])])
+        _ = await loadedState(
+            remotes: ["https://gitlab.example.com/group/app", "https://github.com/team/app"], issues: issues,
+            checker: QueuedGHAuthReporter([report(["github.com"])]), gitlab: glab)
+        XCTAssertEqual(glab.hosts, [])
+        XCTAssertEqual(issues.requests, ["team/app"])
+    }
+
+    /// Auto refresh does not run glab again for the same answer; ⌘R does.
+    func testGlabIsAskedAgainOnlyOnCommandR() async {
+        let glab = StubGitLabHostChecker()
+        let state = await loadedState(
+            remotes: ["https://gitlab.example.com/group/app"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]), gitlab: glab)
+        XCTAssertEqual(glab.hosts.count, 1)
+        state.refresh(.filesChanged(worktrees: [], refs: false, worktreeList: true))
+        await state.loadTask?.value
+        await state.gitlabCheckTask?.value
+        XCTAssertEqual(glab.hosts.count, 1, "the same remotes: no glab")
+        state.reload()
+        await state.loadTask?.value
+        await state.ghCheckTask?.value
+        await state.gitlabCheckTask?.value
+        XCTAssertEqual(glab.hosts.count, 2)
+    }
+
+    /// gh first (ADR-0026 §2): a remote on a host gh is logged in to is read through gh, and glab is never asked about
+    /// it, even when glab is logged in there too.
+    func testAHostGhIsLoggedInToIsNeverAskedOfGlab() async {
+        let glab = StubGitLabHostChecker(loggedIn: ["ghe.example"])
+        let issues = StubIssueLoader([.issues([issue])])
+        _ = await loadedState(
+            remotes: ["git@ghe.example:team/app.git"], issues: issues,
+            checker: QueuedGHAuthReporter([report(["github.com", "ghe.example"])]), gitlab: glab)
+        XCTAssertEqual(glab.hosts, [])
+        XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
+    }
+
+    /// A glab answer that arrives after another repository opened is dropped.
+    func testALateGlabAnswerAfterAnotherRepositoryIsDropped() async {
+        let glab = GatedGitLabHostChecker()
+        let issues = StubIssueLoader([.issues([gitlabIssue])])
+        var listing = WorktreeListing.mockup
+        listing.remotes = [WorktreeListing.Remote(name: "origin", url: "https://gitlab.example.com/group/app")]
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: StubRepositoryLoader(result: .success(listing)), issueLoader: issues,
+            pullRequestLoader: StubPullRequestLoader([.unavailable]),
+            ghChecker: QueuedGHAuthReporter([report(["github.com"])]), gitlabChecker: glab)
+        func context(_ path: String) -> RepositoryContext {
+            let root = URL(fileURLWithPath: path, isDirectory: true)
+            return RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil)
+        }
+        state.open(context("/tmp/dev/api"))
+        state.reload()
+        await state.loadTask?.value
+        await state.ghCheckTask?.value
+        let pending = state.gitlabCheckTask
+        for _ in 0..<150 where glab.hosts.isEmpty { try? await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertEqual(glab.hosts, ["gitlab.example.com"], "glab is waiting with its answer")
+        state.open(context("/tmp/dev/other"))
+        glab.release()
+        await pending?.value
+        await state.issuePanel.task?.value
+        XCTAssertNil(state.issuePanel.repository)
+        XCTAssertEqual(issues.requests, [])
     }
 }

@@ -16,6 +16,15 @@ struct IssueRow: Identifiable, Equatable {
     let urlText: String
 
     init(_ issue: Issue, linkKind: IssueLinkIndex.Kind? = nil, host: RemoteHost = GitHubRepository.publicHost) {
+        self.init(issue, linkKind: linkKind, browserURL: IssueDetailModel.browserURL(for: issue, host: host))
+    }
+
+    /// A row of `source`'s issues: Open in Browser follows that provider's issue page rule.
+    init(_ issue: Issue, linkKind: IssueLinkIndex.Kind? = nil, source: IssueSource) {
+        self.init(issue, linkKind: linkKind, browserURL: source.browserURL(for: issue))
+    }
+
+    private init(_ issue: Issue, linkKind: IssueLinkIndex.Kind?, browserURL: URL?) {
         id = issue.number
         number = "#\(issue.number)"
         title = PathValidator.displayable(issue.title)
@@ -27,7 +36,7 @@ struct IssueRow: Identifiable, Equatable {
             case nil: nil
             }
         accessibilityLabel = (["Issue \(issue.number)", title] + [link].compactMap { $0 }).joined(separator: ", ")
-        browserURL = IssueDetailModel.browserURL(for: issue, host: host)
+        self.browserURL = browserURL
         urlText = PathValidator.displayable(issue.url.absoluteString)
     }
 }
@@ -49,11 +58,24 @@ struct IssueListModel: Equatable {
     let notice: Notice?
     /// What to run in Terminal when gh is missing or logged out (shared with S-07, #85). Overgrove never runs it.
     private(set) var guidance: GHStatusGuidance?
+    /// Login commands to copy for a host no CLI is logged in to (ADR-0026 §7), one per CLI. The host in them passed
+    /// `RemoteHost`, so it is a plain DNS name. Overgrove never runs them.
+    private(set) var hostCommands: [String] = []
     /// Check Again is offered: every state except a loaded list.
     let canCheckAgain: Bool
     let isLoading: Bool
     /// The gh account the issues are read as (ADR-0025 §4), only while a repository's issues are shown or failed.
     let account: GHAccount?
+
+    /// The line above the commands under the notice: gh's guidance, or the host login hint.
+    var setupMessage: String? {
+        guidance?.message ?? (hostCommands.isEmpty ? nil : "Run one of these in Terminal, then check again:")
+    }
+
+    /// The commands to copy under the notice.
+    var setupCommands: [String] {
+        guidance?.command.map { [$0] } ?? hostCommands
+    }
 
     /// The rows whose number or title contains the sidebar filter (#74); the count stays the list's.
     func filtered(_ query: String?) -> IssueListModel {
@@ -81,7 +103,7 @@ struct IssueListModel: Equatable {
                     if (lhs.kind != nil) != (rhs.kind != nil) { return lhs.kind != nil }
                     return (lhs.issue.updatedAt, lhs.issue.number) > (rhs.issue.updatedAt, rhs.issue.number)
                 }
-                .map { IssueRow($0.issue, linkKind: $0.kind, host: repository.host) }
+                .map { IssueRow($0.issue, linkKind: $0.kind, source: repository) }
             count = issues.count
             notice = issues.isEmpty ? Notice(symbol: "checkmark.circle", text: "No open issues", detail: nil) : nil
         // Degraded states (#83): Git features are unaffected; only this section explains and offers Check Again.
@@ -91,6 +113,13 @@ struct IssueListModel: Equatable {
             notice = Notice(
                 symbol: "network.slash", text: "No GitHub remote",
                 detail: "Issues appear for repositories with a remote on github.com or a host gh is logged in to.")
+        case .notLoggedInToHost(let host):
+            rows = []
+            count = nil
+            notice = Notice(
+                symbol: "person.crop.circle.badge.exclamationmark", text: "Not logged in to \(host.name)",
+                detail: "Issues appear when GitHub CLI or GitLab CLI is logged in to this host.")
+            hostCommands = ["gh auth login --hostname \(host.name)", "glab auth login --hostname \(host.name)"]
         case .notInstalled:
             rows = []
             count = nil
@@ -143,13 +172,17 @@ struct IssueDetailModel: Equatable {
         _ issue: Issue, repository: GitHubRepository?, links: IssueLinkIndex.Links = .init(),
         commits: [CommitLink] = []
     ) {
+        self.init(issue, source: repository.map(IssueSource.github), links: links, commits: commits)
+    }
+
+    init(_ issue: Issue, source: IssueSource?, links: IssueLinkIndex.Links = .init(), commits: [CommitLink] = []) {
         linkedWorktrees = links.worktrees
         linkedBranches = links.branches
         linkedCommits = commits
         hiddenLinkCount = links.hiddenCount
         number = "#\(issue.number)"
         title = PathValidator.displayable(issue.title)
-        self.repository = repository?.slug
+        repository = source?.slug
         switch issue.state {
         case .open:
             stateText = "Open"
@@ -161,7 +194,8 @@ struct IssueDetailModel: Equatable {
         updatedAt = issue.updatedAt
         labels = issue.labels.map { PathValidator.displayable($0.name) }
         assignees = issue.assignees.map { "@" + PathValidator.displayable($0) }
-        browserURL = Self.browserURL(for: issue, host: repository?.host ?? GitHubRepository.publicHost)
+        browserURL =
+            source.map { $0.browserURL(for: issue) } ?? Self.browserURL(for: issue, host: GitHubRepository.publicHost)
         urlText = PathValidator.displayable(issue.url.absoluteString)
     }
 
@@ -184,7 +218,7 @@ struct IssueDetailModel: Equatable {
 extension IssueListModel {
     fileprivate static func offersCheckAgain(_ content: IssueListContent?) -> Bool {
         switch content {
-        case .noGitHubRemote, .notInstalled, .notLoggedIn, .failed: true
+        case .noGitHubRemote, .notInstalled, .notLoggedIn, .notLoggedInToHost, .failed: true
         case .loaded, nil: false
         }
     }
