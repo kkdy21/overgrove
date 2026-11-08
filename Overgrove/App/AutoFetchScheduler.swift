@@ -19,7 +19,7 @@ final class AutoFetchScheduler {
     private var loop: Task<Void, Never>?
     private var loopInterval: Int?
     private(set) var isWindowActive = false
-    /// When auto fetch last started one (ticks and catch-ups both count).
+    /// When auto fetch last started one for the open repository (ticks and catch-ups both count).
     private var lastAutomaticStart: Date?
 
     /// - Parameters:
@@ -56,6 +56,12 @@ final class AutoFetchScheduler {
                 self.tick()
             }
         }
+    }
+
+    /// Another repository opened in the window (#479): the catch-up bound belongs to the repository it was fetched for,
+    /// so the new one may catch up on the next activation if its last fetch is old enough.
+    func repositoryChanged() {
+        lastAutomaticStart = nil
     }
 
     /// The window was closed: no more auto fetches.

@@ -45,6 +45,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Auto fetch catches up a repository newly opened in a window when the window becomes active, instead of waiting out
+  the previous repository's interval.
+
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
   each problem comes with the command that fixes it.

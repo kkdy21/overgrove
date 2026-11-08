@@ -326,6 +326,8 @@ final class AppState {
     /// Opens `context` in the main window: restores its panel layout and clears the previous repository's data.
     func open(_ context: RepositoryContext) {
         repository = context
+        // The previous repository's automatic fetch does not hold back this one's catch-up (#479).
+        autoFetch.repositoryChanged()
         panelLayout = layoutStore.layout(for: context.repository.id)
         graphColumns = layoutStore.columns(for: context.repository.id)
         clearRepositoryData()
