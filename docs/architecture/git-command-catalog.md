@@ -154,11 +154,13 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 보충 규칙:
 
-- **서브모듈 상태(#108)**: 서브모듈은 각자 신뢰할 수 없는 저장소다. `submodulePaths`의 경로와 상위 `status`의 서브모듈 항목을 합친 뒤(최대 `RepositoryService.maximumInspectedSubmodules`개), 서브모듈마다 다음을 통과해야 그 안에서 명령을 실행한다.
+- **서브모듈 상태(#108)**: 서브모듈은 각자 신뢰할 수 없는 저장소다. 상위 `status`가 바뀌었다고 보고한 서브모듈 항목을 먼저, 그다음 `submodulePaths`의 경로를 합친 뒤(같은 경로는 한 번, 최대 `RepositoryService.maximumInspectedSubmodules`개. `.gitmodules`에 가짜 항목을 앞에 많이 두어도 실제로 바뀐 서브모듈이 상한 밖으로 밀리지 않는다), 서브모듈마다 다음을 통과해야 그 안에서 명령을 실행한다.
   1. 경로가 워크트리 안의 상대 경로이고(`.`·`..`·빈 구성 요소 없음), 구성 요소가 심볼릭 링크가 아니다.
   2. 서브모듈의 `.git`이 파일이면 그 git 디렉터리가 상위 저장소의 `<공통>/modules/` 또는 워크트리 git 디렉터리의 `modules/` 아래에 있다. `.git`이 폴더면 서브모듈 폴더 안에 있다.
-  3. `probeRepository`(검사 전 허용)의 최상위 폴더가 서브모듈 폴더와 같다.
+  3. `probeRepository`(검사 전 허용)의 최상위 폴더가 서브모듈 폴더와 같고, `--git-common-dir`이 2단계의 git 디렉터리와 같다. git 디렉터리의 `core.worktree`나 `commondir`이 다른 곳을 가리키면 여기서 거부한다(SEC-T14-11).
   4. `configList`를 서브모듈 폴더에서 실행해 `RepoConfigInspector`로 검사하고, 그 서브모듈 자신의 `RepoSafetyContext`로만 `status`를 실행한다. 차단되면 아무것도 실행하지 않는다. `status`는 `--ignore-submodules=dirty`를 그대로 가지므로 중첩 서브모듈로 재귀하지 않는다.
+
+  다시 읽기는 `SubmodulePanel`이 조절한다. 같은 status에서는 진행 중인 읽기를 취소하지 않고, 그동안 온 새로고침은 끝난 뒤 한 번으로 합친다. 다음 읽기는 직전 읽기가 끝나고 `max(2초, 소요 × 10)`이 지난 뒤에 시작한다(SEC-T15-18).
 
 - **원격 이름과 URL**은 `configList` 결과의 `remote.<name>.url`에서 얻는다. 별도 명령을 쓰지 않는다. URL은 표시 전에 `CredentialMasker`를 거친다.
 - **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 사이드바 LOCAL의 로컬 브랜치는 `refs`의 `%(upstream:track,nobracket)`에서 한 번에 얻고, 브랜치마다 `rev-list`를 실행하지 않는다(#54, 2026-11-06 측정 S5). `aheadBehind`는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에만 쓴다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).

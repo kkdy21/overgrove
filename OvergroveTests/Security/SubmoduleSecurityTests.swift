@@ -104,8 +104,10 @@ final class SubmoduleSecurityTests: XCTestCase {
 
     // MARK: T1, T4: the submodule's own configuration
 
-    /// SEC-T1-04: `core.fsmonitor` in a submodule's own configuration does not run when its status is read: the
-    /// submodule is inspected and queried with its own safety context. Control: plain status inside it runs it.
+    /// SEC-T1-04: `core.fsmonitor` in a submodule's own configuration does not run when its status is read. This
+    /// guards the common arguments inside submodules (they neutralize fsmonitor whatever the safety context);
+    /// SEC-T4-09 is the test that tells the submodule's own context from the superproject's. Control: plain status
+    /// inside it runs it.
     func testSECT1_04_SubmoduleFSMonitorDoesNotRunFromItsStatus() async throws {
         let (root, submodule, gitDirectory) = try await superproject()
         try await scenario.plain(
@@ -124,7 +126,8 @@ final class SubmoduleSecurityTests: XCTestCase {
     }
 
     /// SEC-T4-09: a filter defined in the submodule (its config and `info/attributes`) does not run when its status
-    /// is read. Control: plain status inside it runs the filter.
+    /// is read. The superproject's inspection knows nothing of this driver, so the test fails if `status` ran with
+    /// the superproject's safety context instead of the submodule's own. Control: plain status inside it runs it.
     func testSECT4_09_SubmoduleFilterDoesNotRunFromItsStatus() async throws {
         let (root, submodule, gitDirectory) = try await superproject()
         try await scenario.plain(
@@ -166,6 +169,65 @@ final class SubmoduleSecurityTests: XCTestCase {
             ["-c", "core.fsmonitor=" + (try scenario.payload("T14-foreign", tail: "exit 1"))] + (try statusArguments),
             in: submodule)
         XCTAssertTrue(scenario.canaries().contains("T14-foreign"), "control: git follows the .git file")
+    }
+
+    /// What plain git reports as the top level and common directory inside `folder`, for the controls below.
+    private func plainProbe(in folder: URL) async throws -> String {
+        let output = try await scenario.plain(["rev-parse", "--show-toplevel", "--git-common-dir"], in: folder)
+        return String(decoding: output.stdout, as: UTF8.self)
+    }
+
+    /// SEC-T14-11: `core.worktree` in the submodule's git directory moving its top level elsewhere fails the probe
+    /// cross-check: no status runs for a folder other than the one shown. Control: plain git reports the other top level.
+    func testSECT14_11_SubmoduleCoreWorktreeElsewhereIsNotQueried() async throws {
+        let (root, submodule, gitDirectory) = try await superproject()
+        let elsewhere = try await repository("elsewhere", files: ["e.txt": "e\n"])
+        try await scenario.plain(
+            ["--git-dir", gitDirectory.path, "config", "core.worktree", elsewhere.path], in: root,
+            requireSuccess: true)
+
+        let listed = try state("libs/sub", in: try await submodules(of: root))
+        XCTAssertEqual(listed.state, .notInspected(.outsideRepository))
+
+        let probe = try await plainProbe(in: submodule)
+        XCTAssertTrue(probe.contains(elsewhere.lastPathComponent), "control: git takes core.worktree, \(probe)")
+    }
+
+    /// SEC-T14-11: a `commondir` file in the submodule's git directory (under `modules/`, so the `.git` file check
+    /// passes) naming another repository fails the probe cross-check. Control: plain git takes that common directory.
+    func testSECT14_11_SubmoduleCommondirElsewhereIsNotQueried() async throws {
+        let (root, submodule, gitDirectory) = try await superproject()
+        let foreign = try await repository("foreign-common", files: ["f.txt": "f\n"])
+        try "\(foreign.appendingPathComponent(".git").path)\n".write(
+            to: gitDirectory.appendingPathComponent("commondir"), atomically: true, encoding: .utf8)
+
+        let listed = try state("libs/sub", in: try await submodules(of: root))
+        XCTAssertEqual(listed.state, .notInspected(.outsideRepository))
+
+        let probe = try await plainProbe(in: submodule)
+        XCTAssertTrue(probe.contains("foreign-common"), "control: git follows commondir, \(probe)")
+    }
+
+    /// SEC-T14-11: a `.git` directory inside the submodule folder is accepted, but a `commondir` in it naming
+    /// another repository fails the probe cross-check. Control: plain git takes that common directory.
+    func testSECT14_11_GitFolderCommondirElsewhereIsNotQueried() async throws {
+        let (root, _, _) = try await superproject()
+        let own = root.appendingPathComponent("libs/own", isDirectory: true)
+        try FileManager.default.createDirectory(at: own, withIntermediateDirectories: true)
+        try await scenario.plain(["init", "-q", "-b", "main", own.path], in: root, requireSuccess: true)
+        try await scenario.plain(
+            ["config", "--file", ".gitmodules", "submodule.own.path", "libs/own"], in: root, requireSuccess: true)
+        let clean = try state("libs/own", in: try await submodules(of: root))
+        XCTAssertEqual(clean.state, .clean, "a .git folder inside it is inspected and read")
+
+        let foreign = try await repository("foreign-folder", files: ["f.txt": "f\n"])
+        try "\(foreign.appendingPathComponent(".git").path)\n".write(
+            to: own.appendingPathComponent(".git/commondir"), atomically: true, encoding: .utf8)
+        let listed = try state("libs/own", in: try await submodules(of: root))
+        XCTAssertEqual(listed.state, .notInspected(.outsideRepository))
+
+        let probe = try await plainProbe(in: own)
+        XCTAssertTrue(probe.contains("foreign-folder"), "control: git follows commondir, \(probe)")
     }
 
     /// SEC-T14-11: hostile `.gitmodules` paths and a symbolic link submodule path are not inspected.
@@ -224,17 +286,28 @@ final class SubmoduleSecurityTests: XCTestCase {
 
     // MARK: T15
 
-    /// SEC-T15-18: at most `maximumInspectedSubmodules` are inspected; the rest are counted.
+    /// SEC-T15-18: at most `maximumInspectedSubmodules` are inspected; the rest are counted. Changed gitlinks go
+    /// first, so cheap made-up entries ahead of them in `.gitmodules` cannot push a real change past the cap.
     func testSECT15_18_SubmodulesAreCapped() async throws {
-        let (root, _, _) = try await superproject()
+        let (root, submodule, _) = try await superproject()
+        try await scenario.plain(
+            ["config", "--file", ".gitmodules", "--remove-section", "submodule.libs/sub"], in: root,
+            requireSuccess: true)
         let extra = RepositoryService.maximumInspectedSubmodules + 3
         for index in 0..<extra {
             try await scenario.plain(
                 ["config", "--file", ".gitmodules", "submodule.m\(index).path", "missing/\(index)"], in: root,
                 requireSuccess: true)
         }
+        try await scenario.plain(
+            ["config", "--file", ".gitmodules", "submodule.libs/sub.path", "libs/sub"], in: root, requireSuccess: true)
+        try await scenario.plain(["commit", "-q", "--allow-empty", "-m", "moved"], in: submodule, requireSuccess: true)
+
         let listing = try await submodules(of: root)
         XCTAssertEqual(listing.submodules.count, RepositoryService.maximumInspectedSubmodules)
         XCTAssertEqual(listing.omitted, extra + 1 - RepositoryService.maximumInspectedSubmodules)
+        let changed = try state("libs/sub", in: listing)
+        XCTAssertTrue(changed.isListed, "listed last in .gitmodules, inspected first because its gitlink changed")
+        XCTAssertEqual(changed.state, .clean)
     }
 }

@@ -47,5 +47,12 @@ final class SubmoduleListParserTests: XCTestCase {
         XCTAssertThrowsError(try parse("submodule.a.path\na"))
         XCTAssertThrowsError(try parse("core.fsmonitor\nx\0"))
         XCTAssertThrowsError(try parse("submodule.a.url\nx\0"))
+
+        // Past `limit` distinct paths the listing stops and is partial; duplicates do not count.
+        let many = Data("submodule.a.path\na\0submodule.a2.path\na\0submodule.b.path\nb\0submodule.c.path\nc\0".utf8)
+        let limited = try SubmoduleListParser.parse(many, limit: 2)
+        XCTAssertEqual(limited.paths, [GitPath("a"), GitPath("b")])
+        XCTAssertTrue(limited.isPartial)
+        XCTAssertFalse(try SubmoduleListParser.parse(many, limit: 3).isPartial)
     }
 }

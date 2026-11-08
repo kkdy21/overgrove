@@ -15,12 +15,14 @@ import Foundation
 /// 4. its own configuration is inspected (`configList`, then `RepoConfigInspector`), and `status` runs with that
 ///    submodule's own safety context. When the inspection blocks, nothing else runs.
 /// Only the selected worktree's submodules are read, on demand, and at most `maximumInspectedSubmodules` of them
-/// (T15). The submodules' configurations are not cached: they are read only when the WIP detail asks.
+/// (T15). The submodules' configurations are not cached here; `SubmodulePanel` paces how often they are read again.
 extension RepositoryService {
     /// Submodules inspected per request; the rest are counted (`SubmoduleListing.omitted`, SEC-T15-18).
     static let maximumInspectedSubmodules = 32
     /// Submodules inspected at the same time (each runs up to three git processes).
     static let concurrentSubmoduleInspections = 4
+    /// `.gitmodules` paths kept from one read; past this the listing is partial and only counted as one more.
+    static let maximumListedSubmodules = 4 * maximumInspectedSubmodules
 
     /// The submodules of `worktree`, or `nil` when it has no loaded status in the cache (as `lineCounts`).
     func submodules(of repository: Repository, worktree path: GitPath) async -> SubmoduleListing? {
@@ -39,34 +41,47 @@ extension RepositoryService {
         else { return nil }
 
         let (listedPaths, isPartial, isRefused) = await gitmodulesPaths(in: folder, safety: safety, context)
-        // Changed gitlinks the parent's status reported, so one missing from `.gitmodules` still shows.
-        let changed = (state.staged + state.unstaged + state.conflicted).filter(\.isSubmodule).map(\.path)
-        var seen = Set(listedPaths)
-        let candidates =
-            listedPaths.map { ($0, true) } + changed.filter { seen.insert($0).inserted }.map { ($0, false) }
-
+        let candidates = candidates(listed: listedPaths, state: state)
         let admitted = Array(candidates.prefix(maximumInspectedSubmodules))
         let omitted = candidates.count - admitted.count + (isPartial ? 1 : 0)
         let common = context.repository.commonGitDirectoryURL
-        var results: [SubmoduleStatus] = []
-        for start in stride(from: 0, to: admitted.count, by: concurrentSubmoduleInspections) {
-            let chunk = admitted[start..<min(start + concurrentSubmoduleInspections, admitted.count)]
-            results += await withTaskGroup(of: (Int, SubmoduleStatus).self) { group in
-                for (offset, (path, isListed)) in chunk.enumerated() {
-                    group.addTask {
-                        let state = await submoduleState(
-                            path, in: folder, commonDirectory: common, worktreeGitDirectory: worktreeGitDirectory,
-                            context)
-                        return (offset, SubmoduleStatus(path: path, isListed: isListed, state: state))
-                    }
+        // A sliding window: one slow submodule holds one slot, not a whole batch.
+        let results = await withTaskGroup(of: (Int, SubmoduleStatus).self) { group in
+            func start(_ index: Int) {
+                let (path, isListed) = admitted[index]
+                group.addTask {
+                    let state = await submoduleState(
+                        path, in: folder, commonDirectory: common, worktreeGitDirectory: worktreeGitDirectory, context)
+                    return (index, SubmoduleStatus(path: path, isListed: isListed, state: state))
                 }
-                var collected: [(Int, SubmoduleStatus)] = []
-                for await result in group { collected.append(result) }
-                return collected.sorted { $0.0 < $1.0 }.map(\.1)
             }
-            if Task.isCancelled { return nil }
+            var next = 0
+            while next < min(concurrentSubmoduleInspections, admitted.count) {
+                start(next)
+                next += 1
+            }
+            var collected: [(Int, SubmoduleStatus)] = []
+            while let result = await group.next() {
+                collected.append(result)
+                if next < admitted.count, !Task.isCancelled {
+                    start(next)
+                    next += 1
+                }
+            }
+            return collected.sorted { $0.0 < $1.0 }.map(\.1)
         }
+        if Task.isCancelled { return nil }
         return SubmoduleListing(submodules: results, omitted: omitted, isGitmodulesRefused: isRefused)
+    }
+
+    /// Changed gitlinks from the parent's status first (with whether `.gitmodules` lists them), so one missing from
+    /// `.gitmodules` still shows and made-up entries ahead of it there cannot push it past the cap; then the rest of
+    /// `.gitmodules` in its order. Each path once.
+    static func candidates(listed: [GitPath], state: WorkingState) -> [(GitPath, isListed: Bool)] {
+        let listedSet = Set(listed)
+        var seen = Set<GitPath>()
+        let changed = (state.staged + state.unstaged + state.conflicted).filter(\.isSubmodule).map(\.path)
+        return (changed + listed).filter { seen.insert($0).inserted }.map { ($0, listedSet.contains($0)) }
     }
 
     /// The paths `.gitmodules` lists. It is read only when it is a regular file inside the worktree: git would follow
@@ -80,7 +95,8 @@ extension RepositoryService {
         guard info.st_mode & S_IFMT == S_IFREG else { return ([], false, true) }
         do {
             let output = try await context.client.run(.submodulePaths, in: folder, safety: safety)
-            let listing = try SubmoduleListParser.parse(output.stdout, truncated: output.isTruncated)
+            let listing = try SubmoduleListParser.parse(
+                output.stdout, truncated: output.isTruncated, limit: maximumListedSubmodules)
             return (listing.paths, listing.isPartial, false)
         } catch {
             return ([], false, true)

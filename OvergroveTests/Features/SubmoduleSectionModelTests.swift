@@ -63,6 +63,51 @@ private final class ScriptedSubmoduleLoader: SubmoduleLoading, @unchecked Sendab
     }
 }
 
+/// Holds every read until `releaseAll()`, and counts them.
+private final class GatedSubmoduleLoader: SubmoduleLoading, @unchecked Sendable {
+    private let lock = NSLock()
+    private var calls = 0
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    var callCount: Int { lock.withLock { calls } }
+    var waitingCount: Int { lock.withLock { waiting.count } }
+    let answer: SubmoduleListing
+
+    init(answer: SubmoduleListing) { self.answer = answer }
+
+    func submodules(
+        _ repository: Repository, worktree: GitPath
+    ) async throws(RepositoryLoadError) -> SubmoduleListing? {
+        await withCheckedContinuation { continuation in
+            lock.withLock {
+                calls += 1
+                waiting.append(continuation)
+            }
+        }
+        return answer
+    }
+
+    func releaseAll() {
+        let released = lock.withLock {
+            let released = waiting
+            waiting = []
+            return released
+        }
+        for continuation in released { continuation.resume() }
+    }
+}
+
+/// A manual clock, and the waits the panel asked for (returned at once).
+private final class PacingClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current = ContinuousClock.now
+    private var recorded: [Duration] = []
+    var waits: [Duration] { lock.withLock { recorded } }
+
+    func now() -> ContinuousClock.Instant { lock.withLock { current } }
+    func advance(_ duration: Duration) { lock.withLock { current += duration } }
+    func sleep(_ duration: Duration) { lock.withLock { recorded.append(duration) } }
+}
+
 /// `SubmodulePanel` (#108): one request per worktree status, a refresh asks again, a new status resets.
 @MainActor
 final class SubmodulePanelTests: XCTestCase {
@@ -84,7 +129,7 @@ final class SubmodulePanelTests: XCTestCase {
             submodules: [SubmoduleStatus(path: GitPath("libs/a"), isListed: true, state: .clean)], omitted: 0,
             isGitmodulesRefused: false)
         let loader = ScriptedSubmoduleLoader(answer: answer)
-        let panel = SubmodulePanel(loader: loader)
+        let panel = SubmodulePanel(loader: loader, sleep: { _ in })
         let state = WorktreeListing.state(branch: "main")
 
         panel.request(repository, path: path, state: state)
@@ -98,5 +143,36 @@ final class SubmodulePanelTests: XCTestCase {
         XCTAssertNil(panel.result(for: GitPath("/tmp/dev/other"), state))
         panel.clear()
         XCTAssertNil(panel.result(for: path, state))
+    }
+
+    /// SEC-T15-18: repeated loads do not restart a running read or stack reads: refreshes during a read become one
+    /// read after it, no sooner than `max(2 s, duration × 10)` after the last one ended.
+    func testRefreshesArePacedAndNeverCancelARunningRead() async {
+        let answer = SubmoduleListing(submodules: [], omitted: 1, isGitmodulesRefused: false)
+        let loader = GatedSubmoduleLoader(answer: answer)
+        let clock = PacingClock()
+        let panel = SubmodulePanel(loader: loader, now: { clock.now() }, sleep: { clock.sleep($0) })
+        let state = WorktreeListing.state(branch: "main")
+
+        panel.request(repository, path: path, state: state)
+        await waitUntil { loader.waitingCount == 1 }
+        for _ in 0..<5 { panel.request(repository, path: path, state: state, refresh: true) }
+        XCTAssertEqual(loader.callCount, 1, "refreshes during a read neither cancel it nor start another")
+
+        clock.advance(.seconds(1))
+        loader.releaseAll()
+        await waitUntil { loader.waitingCount == 1 }
+        XCTAssertEqual(panel.result(for: path, state), .loaded(answer))
+        XCTAssertEqual(loader.callCount, 2, "the refreshes became one read")
+        XCTAssertEqual(clock.waits, [.seconds(10)], "after a 1 s read, the next waits 10 s")
+
+        loader.releaseAll()
+        await waitUntil { panel.result(for: path, state) == .loaded(answer) && loader.waitingCount == 0 }
+        try? await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(loader.callCount, 2, "no refresh pending: nothing more runs")
+        panel.request(repository, path: path, state: state, refresh: true)
+        await waitUntil { loader.waitingCount == 1 }
+        XCTAssertEqual(clock.waits, [.seconds(10), .seconds(2)], "a fast read still waits the 2 s minimum")
+        loader.releaseAll()
     }
 }

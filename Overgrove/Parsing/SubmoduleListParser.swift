@@ -7,16 +7,17 @@ import Foundation
 /// the worktree, as the repository wrote it: untrusted (it may be absolute, contain `..`, or not be UTF-8), so callers
 /// validate it before using it as a folder (`PathValidator.submoduleFolder`). Duplicate paths are reported once, in
 /// first-seen order. An entry without a value (`submodule.x.path` written as a bare boolean) has no path and is skipped.
+/// At most `limit` paths are kept; past that the listing is partial (T15: a huge `.gitmodules` builds no huge list).
 enum SubmoduleListParser {
     struct Listing: Sendable, Equatable {
         let paths: [GitPath]
-        /// The output was cut at the size limit and the last entry was dropped.
+        /// The output was cut at the size limit and the last entry was dropped, or more than `limit` paths were listed.
         let isPartial: Bool
     }
 
     private static let name = "SubmoduleListParser"
 
-    static func parse(_ data: Data, truncated: Bool = false) throws -> Listing {
+    static func parse(_ data: Data, truncated: Bool = false, limit: Int = .max) throws -> Listing {
         guard truncated || data.isEmpty || data.last == 0 else {
             throw ParseError(parser: name, offset: data.count, reason: "output does not end with NUL")
         }
@@ -42,6 +43,7 @@ enum SubmoduleListParser {
             }
             let value = Data(record[record.index(after: newline)...])
             guard !value.isEmpty, seen.insert(value).inserted else { continue }
+            guard paths.count < limit else { return Listing(paths: paths, isPartial: true) }
             paths.append(GitPath(raw: value))
         }
         return Listing(paths: paths, isPartial: truncated)
