@@ -16,18 +16,15 @@ final class GitHubLinksTests: XCTestCase {
         XCTAssertEqual(
             GitHubLinks.commit(repository, oid)?.absoluteString, "https://github.com/acme/api.v2/commit/" + oid.hex)
         XCTAssertEqual(
-            GitHubLinks.branch(repository, remoteRef: "refs/remotes/origin/feat/42-rate-limit", remote: "origin")?
-                .absoluteString,
+            GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "feat/42-rate-limit"))?.absoluteString,
             "https://github.com/acme/api.v2/tree/feat/42-rate-limit")
-        XCTAssertNil(
-            GitHubLinks.branch(repository, remoteRef: "refs/remotes/fork/main", remote: "origin"), "other remote")
-        XCTAssertNil(GitHubLinks.branch(repository, remoteRef: "refs/remotes/origin/HEAD", remote: "origin"))
-        XCTAssertNil(
-            GitHubLinks.branch(repository, remoteRef: "refs/heads/main", remote: "origin"), "not remote-tracking")
-        XCTAssertNil(
-            GitHubLinks.branch(repository, remoteRef: "refs/remotes/origin/a..b", remote: "origin"), "invalid ref")
-        // A remote name that is a prefix of another must not match it.
-        XCTAssertNil(GitHubLinks.branch(repository, remoteRef: "refs/remotes/origin2/main", remote: "origin"))
+        XCTAssertNil(GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "HEAD")))
+        XCTAssertNil(GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "")))
+        // A target not built by `GitHubBranchTarget` is checked again.
+        XCTAssertNil(GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "a..b")))
+        XCTAssertNil(GitHubLinks.tree(GitHubBranchTarget(repository: repository, branch: "-x")))
+        // Which remote and branch a row names (other remotes, `HEAD`, invalid refs, prefixes of remote names) is
+        // decided by `GitHubBranchTarget` (#406, GitHubBranchTargetTests).
     }
 
     /// Repository text cannot change the scheme, the host, add a query or a fragment, or climb out of the repository.
@@ -69,8 +66,17 @@ final class GitHubLinksTests: XCTestCase {
             "\u{202E}abc": "/acme/api.v2/tree/%E2%80%AEabc",
         ]
         for (branch, expected) in cases {
-            let built = try XCTUnwrap(
-                GitHubLinks.branch(repository, remoteRef: "refs/remotes/origin/\(branch)", remote: "origin"), branch)
+            let remote = try XCTUnwrap(
+                GitHubBranchTarget.forRemoteRef("refs/remotes/origin/\(branch)", remotes: ["origin": repository]),
+                branch)
+            // The local path (`branch.<n>.merge`) gives the same target (#406 security review).
+            let local = Branch(
+                fullName: "refs/heads/local", kind: .local, target: oid,
+                upstreamStatus: .tracking(upstream: "refs/remotes/origin/x", ahead: 0, behind: 0), isHead: false,
+                committerDate: nil, symbolicTarget: nil, upstreamRemote: "origin",
+                upstreamRemoteRef: "refs/heads/\(branch)")
+            XCTAssertEqual(GitHubBranchTarget.forLocal(local, remotes: ["origin": repository]), remote, branch)
+            let built = try XCTUnwrap(GitHubLinks.tree(remote), branch)
             XCTAssertEqual(built.scheme, "https", branch)
             XCTAssertEqual(built.host, "github.com", branch)
             XCTAssertNil(built.query, branch)

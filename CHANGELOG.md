@@ -36,6 +36,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Korean localization, first part: Settings, the setup assistant, the graph header and columns, the diff viewer, and
   the menu commands follow the system language through a String Catalog. Git names, commands, and copied values stay
   as they are.
+- Open on GitHub for branches opens the repository of the remote each branch tracks, so in a fork flow a branch
+  tracking your fork opens the fork.
 
 ### Changed
 
