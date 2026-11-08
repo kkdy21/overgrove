@@ -737,6 +737,16 @@
         }
       }
     },
+    "Approved" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "승인됨"
+          }
+        }
+      }
+    },
     "Apps" : {
       "localizations" : {
         "ko" : {
@@ -914,6 +924,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "포커스된 워크트리나 선택한 커밋의 변경 사항이 여기에 보입니다."
+          }
+        }
+      }
+    },
+    "Changes requested" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 요청됨"
           }
         }
       }
@@ -1104,6 +1124,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "닫기"
+          }
+        }
+      }
+    },
+    "Closed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫힘"
           }
         }
       }
@@ -1451,6 +1481,16 @@
         }
       }
     },
+    "Copy URL" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL 복사"
+          }
+        }
+      }
+    },
     "Copy Upstream Name" : {
       "localizations" : {
         "ko" : {
@@ -1648,6 +1688,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이중 클릭하면 열 너비를 내용에 맞춥니다"
+          }
+        }
+      }
+    },
+    "Draft" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "초안"
           }
         }
       }
@@ -2465,6 +2515,16 @@
         }
       }
     },
+    "Merged" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "병합됨"
+          }
+        }
+      }
+    },
     "Message" : {
       "comment" : "Graph column",
       "localizations" : {
@@ -2826,6 +2886,16 @@
         }
       }
     },
+    "Open" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "열림"
+          }
+        }
+      }
+    },
     "Open Repository" : {
       "localizations" : {
         "ko" : {
@@ -2852,6 +2922,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@에서 열까요?"
+          }
+        }
+      }
+    },
+    "Open in Browser" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "브라우저에서 열기"
           }
         }
       }
@@ -3142,6 +3222,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "정리 대상: %@"
+          }
+        }
+      }
+    },
+    "Pull request" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "풀 리퀘스트"
+          }
+        }
+      }
+    },
+    "Pull request #%lld (%@): %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "풀 리퀘스트 #%1$lld (%2$@): %3$@"
           }
         }
       }
@@ -3454,6 +3554,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "포커스된 워크트리를 Finder에서 보기"
+          }
+        }
+      }
+    },
+    "Review required" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "리뷰 필요"
           }
         }
       }
@@ -4342,6 +4452,16 @@
         }
       }
     },
+    "This link is not this repository's pull request page." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 링크는 이 저장소의 풀 리퀘스트 페이지가 아닙니다."
+          }
+        }
+      }
+    },
     "This remote uses a transport that Overgrove blocks for security." : {
       "localizations" : {
         "ko" : {
@@ -4568,6 +4688,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "알 수 없음"
+          }
+        }
+      }
+    },
+    "Unknown state" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없는 상태"
           }
         }
       }
@@ -5318,6 +5448,16 @@
         }
       }
     },
+    "into %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@(으)로"
+          }
+        }
+      }
+    },
     "issue %@" : {
       "localizations" : {
         "ko" : {
@@ -5525,6 +5665,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "정리 대상"
+          }
+        }
+      }
+    },
+    "pull request %lld, %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "풀 리퀘스트 %1$lld, %2$@"
           }
         }
       }

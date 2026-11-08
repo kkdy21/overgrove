@@ -11,7 +11,7 @@ final class LocalizationTests: XCTestCase {
     private static let catalog = repo.appendingPathComponent("Overgrove/Resources/Localizable.xcstrings")
 
     /// Translated screens: every string the compiler extracts from these files must have Korean. Stage 1 (#120) and
-    /// the screens of #454 so far; the status bar's gh field, the issue panel, and the PR pill and card come later.
+    /// the screens of #454 so far; the status bar's gh field and the issue panel come later.
     private static let translatedSources = [
         // #120
         "SettingsView", "GitExecutableSettingsView", "GitExecutableSettingsModel", "SetupAssistantView",
@@ -31,6 +31,8 @@ final class LocalizationTests: XCTestCase {
         "WorktreeDetailModel", "WorktreeDetailView",
         // #454: summaries and guidance the app writes; git's and gh's own output and copyable commands stay as they are
         "GitError", "FetchFailureGuidance",
+        // #454: the PR pill and the S-05 Pull request card (#115)
+        "PullRequestModels", "PullRequestViews",
     ]
     /// Files with translated strings among others: only these keys are checked.
     private static let translatedKeysIn = [

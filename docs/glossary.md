@@ -70,6 +70,9 @@
 | Co-author / Committer / Parent | 공동 작성자 / 커미터 / 부모 |
 | path missing | 경로 없음 |
 | Open on GitHub / Quick Look | GitHub에서 열기 / 훑어보기(macOS 표기) |
+| Pull request / Draft / Merged / Open / Closed | 풀 리퀘스트 / 초안 / 병합됨 / 열림 / 닫힘 |
+| Approved / Changes requested / Review required | 승인됨 / 변경 요청됨 / 리뷰 필요 |
+| Open in Browser / Copy URL | 브라우저에서 열기 / URL 복사 |
 
 ## Git 출력·호출
 
