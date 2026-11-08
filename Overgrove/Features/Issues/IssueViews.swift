@@ -94,11 +94,11 @@ private struct IssueAccountRow: View {
             .help("Issues and pull requests are read as \(account.text).")
             if let command = account.switchCommand {
                 HStack(spacing: Tokens.Spacing.xs) {
+                    // Wraps instead of truncating: the whole command must be readable before it is copied.
                     Text("$ " + command)
                         .font(Tokens.Font.monoSmall)
                         .textSelection(.enabled)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                        .fixedSize(horizontal: false, vertical: true)
                     Button {
                         // Copying to the clipboard is not a write (ADR-0011, ADR-0021 §3).
                         NSPasteboard.general.clearContents()
