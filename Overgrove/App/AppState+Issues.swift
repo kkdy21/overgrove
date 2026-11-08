@@ -20,7 +20,15 @@ extension AppState {
     // MARK: Issues (#81)
 
     var issueListModel: IssueListModel {
-        IssueListModel(content: issuePanel.content, isLoading: issuePanel.isLoading, links: issueLinks)
+        IssueListModel(
+            content: issuePanel.content, isLoading: issuePanel.isLoading, links: issueLinks,
+            account: issuePanel.repository.flatMap { ghAccounts[$0.host] })
+    }
+
+    /// The account gh uses for the open repository's GitHub host, else github.com's (ADR-0025 §4). Either way the
+    /// host is named, so another host's account is never shown as if it read this repository.
+    var ghAccount: GHAccount? {
+        issuePanel.repository.flatMap { ghAccounts[$0.host] } ?? ghAccounts[GitHubRepository.publicHost]
     }
 
     /// What `#n` badges need (#82): the fetched numbers are links, the rest grey.
@@ -113,6 +121,8 @@ extension AppState {
             self.ghStatus = report?.status
             self.isCheckingGitHub = false
             // A failed check keeps what was trusted.
+            // A failed check keeps the trusted hosts but shows no account it can no longer vouch for.
+            self.ghAccounts = report?.accounts ?? [:]
             if let report { self.trustGitHubHosts(report.hosts) }
         }
     }

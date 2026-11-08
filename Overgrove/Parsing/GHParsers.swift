@@ -24,8 +24,19 @@ enum GHAuthParser {
     /// to gh (ADR-0025 §1). A host name that is not a `RemoteHost` is left out.
     static func parseReport(_ data: Data) throws -> GHAuthReport {
         let response = try decode(data)
-        let hosts = response.hosts.compactMap { name, accounts in accounts.isEmpty ? nil : RemoteHost(name) }
-        return GHAuthReport(status: try status(response, host: GHCommand.host), hosts: Set(hosts))
+        var hosts: Set<RemoteHost> = []
+        var active: [RemoteHost: GHAccount] = [:]
+        for (name, accounts) in response.hosts where !accounts.isEmpty {
+            guard let host = RemoteHost(name) else { continue }
+            hosts.insert(host)
+            // Display only (ADR-0025 §4): an odd login on another host hides that account, not the report.
+            if let login = accounts.first(where: { $0.active == true && $0.state == "success" })?.login,
+                isGitHubLogin(login)
+            {
+                active[host] = GHAccount(host: host, login: login, otherCount: accounts.count - 1)
+            }
+        }
+        return GHAuthReport(status: try status(response, host: GHCommand.host), hosts: hosts, accounts: active)
     }
 
     private static func decode(_ data: Data) throws -> Response {

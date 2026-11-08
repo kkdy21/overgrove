@@ -37,6 +37,7 @@ struct StatusBarItem: Equatable, Identifiable {
         snapshot: RepositorySnapshot?,
         fetchStatus: FetchStatus,
         ghStatus: GHAuthStatus?,
+        ghAccount: GHAccount? = nil,
         now: Date,
         hasFetchDetails: Bool = false,
         isRefreshing: Bool = false,
@@ -84,7 +85,7 @@ struct StatusBarItem: Equatable, Identifiable {
             }
         }
         if let ghStatus {
-            items.append(ghItem(ghStatus))
+            items.append(ghItem(ghStatus, account: ghAccount))
         }
         return items
     }
@@ -124,8 +125,14 @@ struct StatusBarItem: Equatable, Identifiable {
         }
     }
 
-    private static func ghItem(_ status: GHAuthStatus) -> StatusBarItem {
-        switch status {
+    /// The repository's host account when gh has one (`gh: mina@ghe.example +1`), else github.com's state.
+    private static func ghItem(_ status: GHAuthStatus, account: GHAccount?) -> StatusBarItem {
+        if let account, status != .notInstalled {
+            let more = account.otherCount > 0 ? " +\(account.otherCount)" : ""
+            return StatusBarItem(
+                kind: .gh, text: "gh: \(account.text)\(more)", symbol: "person.crop.circle.badge.checkmark", tone: .ok)
+        }
+        return switch status {
         case .loggedIn(let login):
             StatusBarItem(kind: .gh, text: "gh: @\(login)", symbol: "person.crop.circle.badge.checkmark", tone: .ok)
         case .notLoggedIn:
