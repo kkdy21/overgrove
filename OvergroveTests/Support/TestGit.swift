@@ -30,26 +30,20 @@ enum TestGit {
         }
     }
 
-    /// A developer directory whose `usr/bin/git` links to the override (the layout `GitEnvironment.discover` expects),
-    /// created under `scratch`. `nil` without an override.
-    static func developerDirectory(environment: [String: String], scratch: URL) throws -> URL? {
+    /// The override's executable, checked to be an absolute path to an executable file. `nil` without an override.
+    ///
+    /// It is probed directly (`GitEnvironment.probe`) and skips ADR-0019's path and ownership rules, which are for a
+    /// git chosen in Settings: matrix runs use gits built in temporary directories. The version checks still apply.
+    static func executable(environment: [String: String]) throws -> URL? {
         guard let path = environment[overrideVariable], !path.isEmpty else { return nil }
         guard path.hasPrefix("/") else { throw Failure.notAbsolute(path) }
         guard FileManager.default.isExecutableFile(atPath: path) else { throw Failure.notExecutable(path) }
-        let root = scratch.appendingPathComponent("test-git-\(UUID().uuidString)", isDirectory: true)
-        let bin = root.appendingPathComponent("usr/bin", isDirectory: true)
-        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
-        try FileManager.default.createSymbolicLink(
-            at: bin.appendingPathComponent("git"), withDestinationURL: URL(fileURLWithPath: path))
-        return root
+        return URL(fileURLWithPath: path)
     }
 
     /// The process's override, resolved once per test process.
-    fileprivate static let processDeveloperDirectory: Result<URL?, any Error> = Result {
-        let scratch = FileManager.default.temporaryDirectory
-            .appendingPathComponent(
-                "overgrove-test-git-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
-        return try developerDirectory(environment: ProcessInfo.processInfo.environment, scratch: scratch)
+    fileprivate static let processExecutable: Result<URL?, any Error> = Result {
+        try executable(environment: ProcessInfo.processInfo.environment)
     }
 }
 
@@ -57,23 +51,16 @@ extension GitEnvironment {
     /// `discover` for tests: the app's discovery, or the `OVERGROVE_TEST_GIT` override (`TestGit`).
     ///
     /// `parentEnvironment` is what the git child inherits through the allowlist, as in `discover` (a fixture passes its
-    /// isolated HOME). `processEnvironment` is where the override is read; `scratch` holds its developer directory.
-    /// Both default to this test process.
+    /// isolated HOME). `processEnvironment` is where the override is read; it defaults to this test process.
     static func discoverForTesting(
         parentEnvironment: [String: String] = ProcessInfo.processInfo.environment,
-        processEnvironment: [String: String]? = nil,
-        scratch: URL? = nil
+        processEnvironment: [String: String]? = nil
     ) async throws -> GitEnvironment {
-        let directory: URL?
-        if let processEnvironment {
-            let scratch = scratch ?? FileManager.default.temporaryDirectory
-            directory = try TestGit.developerDirectory(environment: processEnvironment, scratch: scratch)
-        } else {
-            directory = try TestGit.processDeveloperDirectory.get()
-        }
+        let override =
+            try processEnvironment.map { try TestGit.executable(environment: $0) } ?? TestGit.processExecutable.get()
         let environment: GitEnvironment
-        if let directory {
-            environment = try await discover(parentEnvironment: parentEnvironment, developerDirectory: { directory })
+        if let override {
+            environment = try await probe(executable: override, parentEnvironment: parentEnvironment)
         } else {
             environment = try await discover(parentEnvironment: parentEnvironment)
         }
