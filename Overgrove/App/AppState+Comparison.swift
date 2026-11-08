@@ -13,16 +13,42 @@ extension AppState {
             } else {
                 isComparisonStale ? comparison.workingState : nil
             }
-        return ComparisonModel(session: comparison, workingState: state, isListStale: isComparisonStale)
+        return ComparisonModel(session: comparison, workingState: state, staleNotice: comparisonStaleNotice)
     }
 
-    /// The worktree list is not loaded while S-11 is open (#374): S-11 opens only on a loaded list, so this means a
-    /// load failed, or a retry after a failure is still running (the list shows `.loading` then). It stays shown,
-    /// dimmed, and runs nothing new until a load succeeds (interaction.md §4.1). `‹ Graph` still closes it.
-    var isComparisonStale: Bool {
-        guard comparison != nil else { return false }
-        if case .loaded = worktreeList { return false }
-        return true
+    /// Why an open S-11 may be out of date, or `nil` when it is current (interaction.md §4.1):
+    /// - the worktree list is not loaded (#374): S-11 opens only on a loaded list, so a load failed, or a retry after a
+    ///   failure is still running (the list shows `.loading` then);
+    /// - its worktree is listed but its status was not read on the last load (#413: past the query limit, or its
+    ///   status failed). A worktree whose folder is gone or whose configuration blocks queries closes S-11 instead
+    ///   (`comparisonListApplied`).
+    /// While stale, S-11 stays shown, dimmed, and runs nothing new. `‹ Graph` still closes it.
+    var comparisonStaleNotice: String? {
+        guard let comparison else { return nil }
+        guard case .loaded = worktreeList else { return ComparisonModel.listFailedNotice }
+        if case .loaded = entry(at: comparison.worktree)?.state { return nil }
+        return ComparisonModel.worktreeUnreadNotice
+    }
+
+    var isComparisonStale: Bool { comparisonStaleNotice != nil }
+
+    /// A load brought a new list while S-11 is open. S-11 belongs to one worktree, so it closes when that worktree is
+    /// gone from the list (removed in Terminal, #311), its folder is gone (`prunable`, #413), or it is not queried for
+    /// safety (its own configuration blocks, or it belongs to another repository, #413). When its status is merely
+    /// unread (past the limit, failed), S-11 goes stale like after a failed list load, and work in flight is dropped.
+    func comparisonListApplied(_ listing: WorktreeListing) {
+        guard let compared = comparison?.worktree else { return }
+        guard let entry = listing.entries.first(where: { $0.worktree.path == compared }) else {
+            return closeComparison()
+        }
+        switch entry.state {
+        case .loaded:
+            return
+        case .missing, .notQueried(.inspectionBlocked), .notQueried(.foreignRepository):
+            closeComparison()
+        case .failed, .notQueried:
+            dropComparisonWork()
+        }
     }
 
     /// The worktree list failed to load (#374): a comparison or patch still running was asked on the old basis, so it
@@ -34,6 +60,11 @@ extension AppState {
             closeComparison()
             return
         }
+        dropComparisonWork()
+    }
+
+    /// Cancels a comparison or patch asked on a basis that is no longer current, keeping S-11 open.
+    private func dropComparisonWork() {
         comparisonTask?.cancel()
         comparisonPatchTask?.cancel()
         comparisonTask = nil
