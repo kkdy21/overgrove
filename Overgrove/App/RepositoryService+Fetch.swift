@@ -24,11 +24,14 @@ extension RepositoryService {
     /// through configuration (`insteadOf`) is refused by git and reported the same way.
     ///
     /// - Parameters:
-    ///   - untrusted: The repository is marked untrusted (the registry's flag). No default, so a caller that forgets
-    ///     it does not fetch as trusted by accident (as `allowsTransport`, #215).
+    ///   - untrusted: Whether the repository is marked untrusted (the registry's flag), read again before each remote
+    ///     so a change during the fetch applies to the next remote (#423). Once untrusted, the rest of the fetch stays
+    ///     untrusted. No default, so a caller that forgets it does not fetch as trusted by accident (as
+    ///     `allowsTransport`, #215).
     ///   - onStart: Called once with the remotes about to be fetched (for `Fetching origin…`).
     func fetch(
-        _ repository: Repository, untrusted: Bool, onStart: @Sendable ([String]) -> Void = { _ in }
+        _ repository: Repository, untrusted: @escaping @Sendable () async -> Bool,
+        onStart: @Sendable ([String]) -> Void = { _ in }
     ) async -> FetchRun {
         let context = makeContext(repository)
         let directory = repository.rootURL ?? repository.commonGitDirectoryURL
@@ -63,11 +66,13 @@ extension RepositoryService {
                 failures: remotes.compactMap { Self.guidance(blocked, $0, inspection.report, hooks: hooks()) },
                 remoteLimit: limit)
         }
-        safety.blocksLocalTransport = untrusted
+        var isUntrusted = false
         var failures: [FetchFailureGuidance] = []
         for remote in remotes {
             if Task.isCancelled { return .cancelled }
-            if untrusted && RemoteLocation.isLocal(remote.url) {
+            if !isUntrusted { isUntrusted = await untrusted() }
+            safety.blocksLocalTransport = isUntrusted
+            if isUntrusted && RemoteLocation.isLocal(remote.url) {
                 failures.append(Self.untrustedLocalRemote(remote, inspection.report))
                 continue
             }
@@ -79,7 +84,7 @@ extension RepositoryService {
                 if case .transportNotAllowed("file", _) = gitError {
                     // Untrusted (#107), or a git too old to fetch local remotes safely (#361).
                     failures.append(
-                        untrusted
+                        isUntrusted
                             ? Self.untrustedLocalRemote(remote, inspection.report)
                             : Self.localRemoteNeedsNewerGit(remote))
                 } else if let guidance = Self.guidance(gitError, remote, inspection.report, hooks: hooks()) {
@@ -88,6 +93,13 @@ extension RepositoryService {
             }
         }
         return .finished(failures: failures, remoteLimit: limit)
+    }
+
+    /// `fetch` with a flag that cannot change during the fetch.
+    func fetch(
+        _ repository: Repository, untrusted: Bool, onStart: @Sendable ([String]) -> Void = { _ in }
+    ) async -> FetchRun {
+        await fetch(repository, untrusted: { untrusted }, onStart: onStart)
     }
 
     private static func guidance(
