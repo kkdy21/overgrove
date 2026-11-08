@@ -361,13 +361,14 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 
 `JSONDecoder`로 디코딩한다. 모르는 필드는 무시하고, 필수 필드가 없으면 `parseFailed`다.
 
-### 10.1 GHAuthParser — `gh auth status --hostname github.com --json hosts`
+### 10.1 GHAuthParser — `gh auth status --json hosts`
 
 ```json
 {"hosts":{"github.com":[{"active":true,"gitProtocol":"https","host":"github.com","login":"<login>","scopes":"...","state":"success","tokenSource":"keyring"}]}}
 ```
 
 - 로그인 판정: `hosts["github.com"]`에 `active == true && state == "success"`인 항목이 있다.
+- 로그인 호스트(ADR-0025 §1): 계정이 하나 이상 있는 `hosts`의 키를 `RemoteHost`로 검증해 소문자로 모은다. 통과하지 못한 키는 버린다. github.com 로그인이 없어도 다른 호스트는 모은다.
 - 종료 코드는 판단에 쓰지 않는다. `--json`이면 인증 문제가 있어도 0이다.
 - `scopes`와 `tokenSource`는 표시하지 않는다. 그 밖의 필드도 판단에 필요한 것만 쓴다.
 
@@ -381,7 +382,7 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | `labels` | `[{name, color}]` | 아니오 (없으면 빈 배열) |
 | `assignees` | `[{login}]` | 아니오 |
 | `updatedAt` | ISO 8601 | 예 |
-| `url` | URL (`https://github.com/`로 시작해야 함) | 예 |
+| `url` | URL (`https://<조회한 저장소의 HOST>/`로 시작해야 함, ADR-0025 §5) | 예 |
 
 | 테스트 | 사례 |
 |---|---|
@@ -402,7 +403,7 @@ ADR-0023 §3. 공개 저장소에는 누구나 PR을 열 수 있으므로 항목
 |---|---|
 | `number` | 양의 Int. 없거나 형식이 다르면 그 항목만 버린다 |
 | `state` | `OPEN`, `CLOSED`, `MERGED`. 모르는 값은 `unknown`. 없으면 그 항목만 버린다 |
-| `url` | `https://github.com/`로 시작해야 한다. 아니면 그 항목만 버린다. 여는 것은 조회한 저장소의 `/pull/<그 번호>`일 때뿐이다(표시 규칙) |
+| `url` | `https://<조회한 저장소의 HOST>/`로 시작해야 한다. 아니면 그 항목만 버린다. 여는 것은 조회한 저장소의 `/pull/<그 번호>`일 때뿐이다(표시 규칙) |
 | `headRepositoryOwner.login`, `headRepository.name`, `headRefName` | 셋 중 하나라도 없거나 null·빈 값이면 `head == nil`. 항목은 남고 어떤 브랜치에도 잇지 않는다(fork를 지운 PR) |
 | `reviewDecision` | `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`. 빈 문자열(gh 2.95.0의 "결정 없음")과 모르는 값은 없음 |
 | `title`, `baseRefName`, `isDraft`, `updatedAt` | 없거나 형식이 다르면 빈 값, `false`, `nil` |

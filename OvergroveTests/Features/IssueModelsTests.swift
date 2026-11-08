@@ -115,4 +115,23 @@ final class IssueModelsTests: XCTestCase {
             XCTAssertNil(IssueDetailModel.browserURL(for: Self.issue(5, url: url)), url)
         }
     }
+
+    /// SEC-T9-117-02 (issue display): on another host, rows and the detail open only that host's issue pages over https.
+    func testSECT9_117_02_OtherHostIssuePage() throws {
+        let host = try XCTUnwrap(RemoteHost("ghe.example"))
+        let repository = try XCTUnwrap(GitHubRepository(owner: "team", name: "app", host: host))
+        let issue = Self.issue(5, url: "https://ghe.example/team/app/issues/5")
+        XCTAssertNotNil(IssueDetailModel.browserURL(for: issue, host: host))
+        XCTAssertNil(IssueDetailModel.browserURL(for: issue), "not a github.com page")
+        XCTAssertNotNil(IssueDetailModel(issue, repository: repository).browserURL)
+        XCTAssertEqual(IssueDetailModel(issue, repository: repository).repository, "ghe.example/team/app")
+        let list = IssueListModel(content: .loaded(repository: repository, issues: [issue]), isLoading: false)
+        XCTAssertNotNil(list.rows.first?.browserURL)
+        for url in [
+            "https://github.com/team/app/issues/5", "http://ghe.example/team/app/issues/5",
+            "https://ghe.example.evil/team/app/issues/5", "https://ghe.example:8443/team/app/issues/5",
+        ] {
+            XCTAssertNil(IssueDetailModel(Self.issue(5, url: url), repository: repository).browserURL, url)
+        }
+    }
 }

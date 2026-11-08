@@ -32,7 +32,7 @@ struct LivePullRequestLoader: PullRequestLoading {
 
 /// The open repository's pull requests and which local branch each belongs to (ADR-0023, #115).
 ///
-/// Loaded alongside the issue list, for the same github.com repository and at the same times (⌘R, Check Again, a new
+/// Loaded alongside the issue list, for the same GitHub repository and at the same times (⌘R, Check Again, a new
 /// repository). Any failure only hides PR status: the issue panel and Git features never depend on it (§6). A load
 /// that finishes after the repository changed is dropped.
 @MainActor
@@ -58,7 +58,7 @@ final class PullRequestStore {
         self.loader = loader
     }
 
-    /// A verified listing's local branches and github.com remotes.
+    /// A verified listing's local branches and GitHub remotes on trusted hosts.
     func update(branches: [Branch], remotes: [String: GitHubRepository]) {
         self.branches = branches
         self.remotes = remotes
@@ -104,7 +104,9 @@ final class PullRequestStore {
     }
 
     private func rebuildLinks() {
-        let links = PullRequestLinkIndex(pullRequests: pullRequests, branches: branches, remotes: remotes)
+        // A PR's head repository is on the listed repository's host; a remote on another host never matches it.
+        let sameHost = remotes.filter { $0.value.host == repository?.host }
+        let links = PullRequestLinkIndex(pullRequests: pullRequests, branches: branches, remotes: sameHost)
         if links != self.links { self.links = links }
     }
 }

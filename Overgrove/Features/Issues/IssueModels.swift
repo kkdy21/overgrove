@@ -9,12 +9,13 @@ struct IssueRow: Identifiable, Equatable {
     /// A linked worktree (`tree`) or local branch (`arrow.triangle.branch`), #82.
     let linkKind: IssueLinkIndex.Kind?
     let accessibilityLabel: String
-    /// Open in Browser (#73): only a github.com issue page for this number (`IssueDetailModel.browserURL(for:)`).
+    /// Open in Browser (#73): only an issue page for this number on the repository's host
+    /// (`IssueDetailModel.browserURL(for:host:)`).
     let browserURL: URL?
     /// What Copy URL puts on the clipboard, escaped.
     let urlText: String
 
-    init(_ issue: Issue, linkKind: IssueLinkIndex.Kind? = nil) {
+    init(_ issue: Issue, linkKind: IssueLinkIndex.Kind? = nil, host: RemoteHost = GitHubRepository.publicHost) {
         id = issue.number
         number = "#\(issue.number)"
         title = PathValidator.displayable(issue.title)
@@ -26,7 +27,7 @@ struct IssueRow: Identifiable, Equatable {
             case nil: nil
             }
         accessibilityLabel = (["Issue \(issue.number)", title] + [link].compactMap { $0 }).joined(separator: ", ")
-        browserURL = IssueDetailModel.browserURL(for: issue)
+        browserURL = IssueDetailModel.browserURL(for: issue, host: host)
         urlText = PathValidator.displayable(issue.url.absoluteString)
     }
 }
@@ -68,13 +69,13 @@ struct IssueListModel: Equatable {
             rows = []
             count = nil
             notice = nil
-        case .loaded(_, let issues):
+        case .loaded(let repository, let issues):
             rows = issues.map { (issue: $0, kind: links.kind($0.number)) }
                 .sorted { lhs, rhs in
                     if (lhs.kind != nil) != (rhs.kind != nil) { return lhs.kind != nil }
                     return (lhs.issue.updatedAt, lhs.issue.number) > (rhs.issue.updatedAt, rhs.issue.number)
                 }
-                .map { IssueRow($0.issue, linkKind: $0.kind) }
+                .map { IssueRow($0.issue, linkKind: $0.kind, host: repository.host) }
             count = issues.count
             notice = issues.isEmpty ? Notice(symbol: "checkmark.circle", text: "No open issues", detail: nil) : nil
         // Degraded states (#83): Git features are unaffected; only this section explains and offers Check Again.
@@ -83,7 +84,7 @@ struct IssueListModel: Equatable {
             count = nil
             notice = Notice(
                 symbol: "network.slash", text: "No GitHub remote",
-                detail: "Issues appear for repositories with a github.com remote.")
+                detail: "Issues appear for repositories with a remote on github.com or a host gh is logged in to.")
         case .notInstalled:
             rows = []
             count = nil
@@ -112,7 +113,7 @@ struct IssueDetailModel: Equatable {
     let number: String
     /// Escaped.
     let title: String
-    /// `OWNER/NAME` the issues were read from: a repository's remote decides it, so it is always shown.
+    /// `[HOST/]OWNER/NAME` the issues were read from: a repository's remote decides it, so it is always shown.
     let repository: String?
     let stateText: String
     let stateSymbol: String
@@ -121,7 +122,7 @@ struct IssueDetailModel: Equatable {
     let labels: [String]
     /// `@login`, escaped.
     let assignees: [String]
-    /// `nil` when gh's URL is not a github.com issue page for this number, so the button is off.
+    /// `nil` when gh's URL is not an issue page for this number on the repository's host, so the button is off.
     let browserURL: URL?
     /// What Copy URL puts on the clipboard.
     let urlText: String
@@ -154,16 +155,16 @@ struct IssueDetailModel: Equatable {
         updatedAt = issue.updatedAt
         labels = issue.labels.map { PathValidator.displayable($0.name) }
         assignees = issue.assignees.map { "@" + PathValidator.displayable($0) }
-        browserURL = Self.browserURL(for: issue)
+        browserURL = Self.browserURL(for: issue, host: repository?.host ?? GitHubRepository.publicHost)
         urlText = PathValidator.displayable(issue.url.absoluteString)
     }
 
-    /// gh's URL, when it is exactly `https://github.com/OWNER/NAME/issues/<number>` with valid names (screens.md
-    /// S-06: https and the remote's GitHub host). The repository part may differ from the remote's (a renamed or
-    /// transferred repository redirects), but nothing else can be opened from here.
-    static func browserURL(for issue: Issue) -> URL? {
+    /// gh's URL, when it is exactly `https://HOST/OWNER/NAME/issues/<number>` with valid names and HOST the
+    /// repository's host (screens.md S-06, ADR-0025 §5). The repository part may differ from the remote's (a renamed
+    /// or transferred repository redirects), but nothing else can be opened from here.
+    static func browserURL(for issue: Issue, host: RemoteHost = GitHubRepository.publicHost) -> URL? {
         guard let parts = URLComponents(url: issue.url, resolvingAgainstBaseURL: false), parts.scheme == "https",
-            parts.host == GHCommand.host, parts.user == nil, parts.password == nil, parts.port == nil,
+            parts.host == host.name, parts.user == nil, parts.password == nil, parts.port == nil,
             parts.query == nil, parts.fragment == nil
         else { return nil }
         let path = parts.percentEncodedPath.split(separator: "/", omittingEmptySubsequences: false)

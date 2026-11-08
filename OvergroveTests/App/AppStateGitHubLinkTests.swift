@@ -18,12 +18,19 @@ final class AppStateGitHubLinkTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 
-    private func state(github: GitHubRepository?, remote: String?) async -> AppState {
+    private func state(
+        github: GitHubRepository?, remote: String?, remotes: [String: GitHubRepository] = [:], branches: [Branch] = []
+    ) async -> AppState {
         let mock = WorktreeListing.entry(
             "/tmp/dev/api", branch: "main", isMain: true, state: .loaded(WorktreeListing.state(branch: "main")))
         var listing = WorktreeListing(entries: [mock], isPartial: false)
-        listing.githubRepository = github
-        listing.githubRemoteName = remote
+        var all = remotes
+        if let github, let remote { all[remote] = github }
+        listing.remotes = all.sorted { $0.key < $1.key }.map {
+            WorktreeListing.Remote(
+                name: $0.key, url: "https://\($0.value.host.name)/\($0.value.owner)/\($0.value.name).git")
+        }
+        listing.refs = RefParser.Listing(branches: branches, tags: [], isPartial: false, skippedRecords: 0)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
             loader: StubRepositoryLoader(result: .success(listing)), graphLoader: SampleGraphLoader(),
@@ -44,14 +51,68 @@ final class AppStateGitHubLinkTests: XCTestCase {
         let actions = with.rowMenuActions
         XCTAssertEqual(actions.gitHubCommitURL(oid)?.absoluteString, "https://github.com/acme/api/commit/" + oid.hex)
         XCTAssertEqual(
-            actions.gitHubBranchURL("refs/remotes/upstream/main")?.absoluteString,
-            "https://github.com/acme/api/tree/main")
-        XCTAssertNil(actions.gitHubBranchURL("refs/remotes/origin/main"), "a branch of another remote")
-        XCTAssertEqual(
             actions.gitHubFileURL(oid, GitPath("src/a.swift"))?.absoluteString,
             "https://github.com/acme/api/blob/\(oid.hex)/src/a.swift")
 
         let without = await state(github: nil, remote: nil)
         XCTAssertNil(without.rowMenuActions.gitHubCommitURL(oid))
+    }
+
+    private func rows(_ nodes: [BranchNode]) -> [BranchRow] {
+        nodes.flatMap { node -> [BranchRow] in
+            switch node {
+            case .branch(let row): [row]
+            case .folder(_, _, _, let children): rows(children)
+            }
+        }
+    }
+
+    /// #406, the fork flow: `origin` is my fork and the issue panel uses `upstream`. A local branch tracking `origin`
+    /// and `origin`'s remote-tracking rows open the fork; `upstream`'s rows open the original; a remote on another
+    /// host has no link.
+    func testBranchesOpenInTheirTrackedRemotesRepository() async throws {
+        let fork = GitHubRepository(owner: "me", name: "api")!
+        let original = GitHubRepository(owner: "acme", name: "api")!
+        let oid = ObjectID(String(repeating: "c", count: 40))!
+        func branch(_ name: String, kind: Branch.Kind, remote: String? = nil, merge: String? = nil) -> Branch {
+            Branch(
+                fullName: name, kind: kind, target: oid,
+                upstreamStatus: remote == nil ? .none : .tracking(upstream: "refs/remotes/x", ahead: 0, behind: 0),
+                isHead: false, committerDate: nil, symbolicTarget: nil, upstreamRemote: remote,
+                upstreamRemoteRef: merge)
+        }
+        let state = await state(
+            github: original, remote: "upstream", remotes: ["origin": fork, "upstream": original],
+            branches: [
+                branch("refs/heads/feat/x", kind: .local, remote: "origin", merge: "refs/heads/feat/x"),
+                branch("refs/heads/main", kind: .local, remote: "upstream", merge: "refs/heads/main"),
+                branch("refs/heads/lab", kind: .local, remote: "gitlab", merge: "refs/heads/lab"),
+                branch("refs/remotes/origin/feat/x", kind: .remote(remote: "origin")),
+                branch("refs/remotes/upstream/main", kind: .remote(remote: "upstream")),
+            ])
+        let model = try XCTUnwrap(state.branchListModel)
+        let all = rows(model.local) + rows(model.remote)
+        let actions = state.rowMenuActions
+        func url(_ id: String) -> String? {
+            all.first { $0.id == id }?.gitHubTarget.flatMap(actions.gitHubBranchURL)?.absoluteString
+        }
+        XCTAssertEqual(url("refs/heads/feat/x"), "https://github.com/me/api/tree/feat/x", "tracks the fork")
+        XCTAssertEqual(url("refs/heads/main"), "https://github.com/acme/api/tree/main")
+        XCTAssertNil(url("refs/heads/lab"), "a remote that is not on github.com")
+        XCTAssertEqual(url("refs/remotes/origin/feat/x"), "https://github.com/me/api/tree/feat/x")
+        XCTAssertEqual(url("refs/remotes/upstream/main"), "https://github.com/acme/api/tree/main")
+
+        // A cached paint (not this load's inspection) gives no links.
+        let cached = try XCTUnwrap(
+            AppState.branchModel(
+                {
+                    var listing = WorktreeListing(entries: [], isPartial: false)
+                    listing.remotes = [.init(name: "origin", url: "https://github.com/me/api.git")]
+                    listing.refs = RefParser.Listing(
+                        branches: [branch("refs/remotes/origin/feat/x", kind: .remote(remote: "origin"))], tags: [],
+                        isPartial: false, skippedRecords: 0)
+                    return listing
+                }(), isVerified: false))
+        XCTAssertTrue(rows(cached.remote).allSatisfy { $0.gitHubTarget == nil })
     }
 }

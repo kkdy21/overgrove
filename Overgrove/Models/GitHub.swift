@@ -7,6 +7,14 @@ enum GHAuthStatus: Sendable, Hashable {
     case loggedIn(login: String)
 }
 
+/// One `gh auth status` reading (ADR-0025 §1): github.com's state for the status bar, and the hosts gh is logged in
+/// to, which the app trusts besides github.com.
+struct GHAuthReport: Sendable, Hashable {
+    let status: GHAuthStatus
+    /// Empty when gh is missing or lists no host.
+    let hosts: Set<RemoteHost>
+}
+
 /// A GitHub issue from `gh issue list --json` (parsing-spec.md §10.2).
 struct Issue: Sendable, Hashable, Identifiable {
     enum State: String, Sendable, Hashable {

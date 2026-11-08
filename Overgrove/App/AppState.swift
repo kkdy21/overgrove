@@ -149,6 +149,12 @@ final class AppState {
     var ghCheckGeneration = 0
     /// A gh login check is running.
     var isCheckingGitHub = false
+    /// The hosts whose GitHub remotes gh may be asked about (ADR-0025 §1): github.com, plus the hosts gh reported a
+    /// login for at the last successful check.
+    var trustedGitHubHosts = GitHubRemote.publicOnly
+    /// The last verified listing's remotes and branches, to pick the GitHub repository again when gh's login list
+    /// changes what is trusted. Never a cached paint's (#119).
+    var verifiedGitHubSource: VerifiedGitHubSource?
     /// The toolbar search (#74): dims graph rows that do not match; ⌘G/⌘⇧G step through matches.
     var searchText = ""
     /// The sidebar's Filter field (⌥⌘F, #74).
@@ -347,8 +353,16 @@ final class AppState {
         sidebarFilter = ""
         issuePanel.clear()
         pullRequestStore.clear()
+        verifiedGitHubSource = nil
         graph.clear()
         commitDetail.clear()
         history.reset()
     }
+}
+
+/// What a verified load said about the open repository's remotes (ADR-0025 §1).
+struct VerifiedGitHubSource {
+    let repository: Repository
+    let remotes: [WorktreeListing.Remote]
+    let branches: [Branch]
 }
