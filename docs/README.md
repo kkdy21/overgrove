@@ -154,6 +154,7 @@ OvergroveTests/
 | 0020 | git 호환성 매트릭스를 CI에서 돌리는 방법 | Accepted |
 | 0021 | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
 | 0022 | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
+| 0024 | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰 직접 사용 안 함) | Accepted |
 
 ### 2.6 테스트 ID
 

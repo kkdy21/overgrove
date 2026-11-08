@@ -36,3 +36,4 @@
 | [0020](0020-git-compatibility-matrix-in-ci.md) | git 호환성 매트릭스를 CI에서 돌리는 방법 (공식 tarball SHA-256 고정 빌드, 필수 검사 아님) | Accepted |
 | [0021](0021-read-only-scope-after-v0-1.md) | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
 | [0022](0022-no-shell-proxy-env-vars.md) | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
+| [0024](0024-keep-gh-delegation-over-github-app.md) | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰을 앱이 직접 다루지 않음) | Accepted |
