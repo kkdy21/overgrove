@@ -40,6 +40,11 @@ struct GitEnvironment: Sendable, Equatable {
         // A repository's log.follow=true makes `git log -- <one path>` follow renames, so S-09's "Follow renames" off
         // still followed (#310). `fileHistory` passes `--follow` itself when it wants it; an option beats the config.
         "-c", "log.follow=false",
+        // A repository's mailmap file can be any path, a FIFO stalls every `git log`, and the app shows commit
+        // identities as recorded. Every supported git knows these keys (#356).
+        "-c", "log.mailmap=false",
+        "-c", "mailmap.file=",
+        "-c", "mailmap.blob=",
     ]
 
     /// The neutralizing arguments of #350: one per allowed transport, and one more. Part of `commonArguments`; a test
