@@ -34,7 +34,7 @@ struct MainToolbar: ToolbarContent {
             Button(action: toggleSidebar) {
                 Label(isSidebarCollapsed ? "Show Sidebar" : "Hide Sidebar", systemImage: "sidebar.left")
             }
-            .help(isSidebarCollapsed ? "Show Sidebar (⌃⌘S)" : "Hide Sidebar (⌃⌘S)")
+            .help(isSidebarCollapsed ? "Show Sidebar (⌃⌘S)" : "Hide Sidebar (⌃⌘S)" as LocalizedStringKey)
 
             RepositorySwitcher(
                 repository: repository, model: repositoryMenu, isAdding: isAddingRepository,
@@ -64,9 +64,9 @@ struct MainToolbar: ToolbarContent {
                         .keyboardShortcut("b", modifiers: [.command, .shift])
                     } else if action == .fetch {
                         ToolbarActionButton(
-                            title: isFetching ? "Stop" : action.title,
+                            title: isFetching ? String(localized: "Stop") : action.title,
                             symbol: isFetching ? "stop.fill" : action.symbol,
-                            help: isFetching ? "Stop fetching (⌘.)" : action.help, action: onFetch)
+                            help: isFetching ? String(localized: "Stop fetching (⌘.)") : action.help, action: onFetch)
                     } else {
                         ToolbarActionButton(
                             title: action.title, symbol: action.symbol, help: action.help,
@@ -114,11 +114,11 @@ enum ToolbarAction: CaseIterable, Hashable {
 
     var title: String {
         switch self {
-        case .fetch: "Fetch"
-        case .refresh: "Refresh"
-        case .compare: "Compare"
-        case .terminal: "Terminal"
-        case .finder: "Finder"
+        case .fetch: String(localized: "Fetch", comment: "Toolbar")
+        case .refresh: String(localized: "Refresh", comment: "Toolbar")
+        case .compare: String(localized: "Compare", comment: "Toolbar")
+        case .terminal: String(localized: "Terminal", comment: "Toolbar")
+        case .finder: String(localized: "Finder", comment: "Toolbar")
         }
     }
 
@@ -134,11 +134,11 @@ enum ToolbarAction: CaseIterable, Hashable {
 
     var help: String {
         switch self {
-        case .fetch: "Fetch all remotes (⌘⇧R)"
-        case .refresh: "Refresh local data (⌘R)"
-        case .compare: "Compare with base branch (⌘⇧B)"
-        case .terminal: "Open the focused worktree in Terminal"
-        case .finder: "Reveal the focused worktree in Finder"
+        case .fetch: String(localized: "Fetch all remotes (⌘⇧R)", comment: "Toolbar")
+        case .refresh: String(localized: "Refresh local data (⌘R)", comment: "Toolbar")
+        case .compare: String(localized: "Compare with base branch (⌘⇧B)", comment: "Toolbar")
+        case .terminal: String(localized: "Open the focused worktree in Terminal", comment: "Toolbar")
+        case .finder: String(localized: "Reveal the focused worktree in Finder", comment: "Toolbar")
         }
     }
 }

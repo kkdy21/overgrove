@@ -249,7 +249,7 @@ private struct SecurityRowView: View {
                         .hitTarget()
                     }
                     .buttonStyle(.borderless)
-                    .accessibilityLabel(isExpanded ? "Hide keys" : "Show keys")
+                    .accessibilityLabel(isExpanded ? "Hide keys" : "Show keys" as LocalizedStringKey)
                 }
             }
             if isExpanded {

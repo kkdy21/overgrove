@@ -22,12 +22,15 @@ final class LocalizationTests: XCTestCase {
         "CommitComparisonView", "CommitComparisonModel", "ComparisonView", "ComparisonModel", "BranchListModel",
         "BranchListSection", "TagListModel", "TagListSection", "WorktreeListModel", "WorktreeListSection", "RowMenu",
         "GraphRowModel", "AppState+Comparison",
+        // #454: S-02, submodules, search, the toolbar, the repository switcher, fetch details, Settings › Apps
+        "WipDetailModel", "WipDetailView", "SubmoduleSectionModel", "SubmoduleSectionView", "GraphSearch",
+        "RepositorySwitcher", "FetchFailureDetailsView", "MainToolbar", "ExternalAppsSettingsView",
     ]
     /// Files with translated strings among others: only these keys are checked.
     private static let translatedKeysIn = [
         "PanelChrome": Set(["Graph", "History"]),
         "StatusBar": Set(["just now", "%lld min ago", "%lld h ago", "%lld d ago"]),
-        "WipDetailModel": Set(["Conflicted", "Staged", "Unstaged", "Untracked"]),
+        "ExternalApps": Set(["Terminal", "Editor"]),
         "GHStatusGuidanceView": Set(["Copy", "Copy command %@"]),
     ]
 

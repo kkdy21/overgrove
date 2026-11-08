@@ -11,8 +11,8 @@ enum ExternalAppRole: Sendable, Equatable {
 
     var title: String {
         switch self {
-        case .terminal: "Terminal"
-        case .editor: "Editor"
+        case .terminal: String(localized: "Terminal", comment: "App role")
+        case .editor: String(localized: "Editor", comment: "App role")
         }
     }
 }

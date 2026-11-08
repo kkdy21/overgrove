@@ -11,6 +11,16 @@
         }
       }
     },
+    "%@ changed %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 변경 %2$@"
+          }
+        }
+      }
+    },
     "%@ commit ahead" : {
       "localizations" : {
         "ko" : {
@@ -61,12 +71,62 @@
         }
       }
     },
+    "%@ line added, %@ removed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@줄 추가, %2$@줄 삭제"
+          }
+        }
+      }
+    },
+    "%@ lines added, %@ removed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@줄 추가, %2$@줄 삭제"
+          }
+        }
+      }
+    },
+    "%@ match" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@개 일치"
+          }
+        }
+      }
+    },
+    "%@ matches" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@개 일치"
+          }
+        }
+      }
+    },
     "%@ more tags — filter to find one" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "태그 %@개 더 — 필터로 찾으세요"
+          }
+        }
+      }
+    },
+    "%@, %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@"
           }
         }
       }
@@ -91,12 +151,32 @@
         }
       }
     },
+    "%@, %@%@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@%3$@"
+          }
+        }
+      }
+    },
     "%@, %lld items" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@, 항목 %2$lld개"
+          }
+        }
+      }
+    },
+    "%lld" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld"
           }
         }
       }
@@ -291,6 +371,16 @@
         }
       }
     },
+    "%lld%@ changed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld%2$@개 변경됨"
+          }
+        }
+      }
+    },
     "%lldd" : {
       "comment" : "Graph date column: days ago",
       "localizations" : {
@@ -377,6 +467,16 @@
         }
       }
     },
+    "A bare repository has no working tree." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "베어 저장소에는 작업 트리가 없습니다."
+          }
+        }
+      }
+    },
     "A worktree is checked out at this commit" : {
       "localizations" : {
         "ko" : {
@@ -403,6 +503,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "실제 크기"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "추가"
+          }
+        }
+      }
+    },
+    "Add Repository…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 추가…"
           }
         }
       }
@@ -477,12 +597,32 @@
         }
       }
     },
+    "Another worktree entry leads to this folder; its changes are shown under that entry." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 워크트리 항목이 이 폴더로 이어집니다. 변경 사항은 그 항목에 표시합니다."
+          }
+        }
+      }
+    },
     "Apple-signed" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple 서명"
+          }
+        }
+      }
+    },
+    "Apps" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱"
           }
         }
       }
@@ -618,6 +758,26 @@
         }
       }
     },
+    "Changes" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 사항"
+          }
+        }
+      }
+    },
+    "Changes unavailable" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 사항을 볼 수 없음"
+          }
+        }
+      }
+    },
     "Changes vs" : {
       "localizations" : {
         "ko" : {
@@ -658,6 +818,16 @@
         }
       }
     },
+    "Checking submodules…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서브모듈 확인 중…"
+          }
+        }
+      }
+    },
     "Choose Folder…" : {
       "localizations" : {
         "ko" : {
@@ -668,12 +838,32 @@
         }
       }
     },
+    "Choose a Git repository or one of its worktrees." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Git 저장소나 그 워크트리 하나를 고르세요."
+          }
+        }
+      }
+    },
     "Choose a git executable, for example /opt/homebrew/bin/git." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "git 실행 파일을 고르세요. 예: /opt/homebrew/bin/git"
+          }
+        }
+      }
+    },
+    "Choose the %@ to open worktrees in." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리를 열 %@을(를) 고르세요."
           }
         }
       }
@@ -704,6 +894,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "선택한 git"
+          }
+        }
+      }
+    },
+    "Clear" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지우기"
+          }
+        }
+      }
+    },
+    "Clear the filter" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "필터 지우기"
           }
         }
       }
@@ -830,6 +1040,16 @@
         }
       }
     },
+    "Compare with base branch (⌘⇧B)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기준 브랜치와 비교 (⌘⇧B)"
+          }
+        }
+      }
+    },
     "Comparing %@ with %@…" : {
       "localizations" : {
         "ko" : {
@@ -861,6 +1081,16 @@
         }
       }
     },
+    "Conflicted Files" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "충돌 파일"
+          }
+        }
+      }
+    },
     "Copy" : {
       "localizations" : {
         "ko" : {
@@ -887,6 +1117,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "브랜치 이름 복사"
+          }
+        }
+      }
+    },
+    "Copy Command" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "명령 복사"
           }
         }
       }
@@ -967,6 +1207,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "명령 복사: %@"
+          }
+        }
+      }
+    },
+    "Copy path" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "경로 복사"
           }
         }
       }
@@ -1062,12 +1312,32 @@
         }
       }
     },
+    "Done" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료"
+          }
+        }
+      }
+    },
     "Double-click to fit the column to its contents" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "이중 클릭하면 열 너비를 내용에 맞춥니다"
+          }
+        }
+      }
+    },
+    "Editor" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "편집기"
           }
         }
       }
@@ -1122,12 +1392,62 @@
         }
       }
     },
+    "Fetch all remotes (⌘⇧R)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 원격 페치 (⌘⇧R)"
+          }
+        }
+      }
+    },
     "Fetch automatically" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "자동으로 페치"
+          }
+        }
+      }
+    },
+    "Fetch cancelled" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치 취소됨"
+          }
+        }
+      }
+    },
+    "Fetch details" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치 세부 사항"
+          }
+        }
+      }
+    },
+    "Fetch failed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치 실패"
+          }
+        }
+      }
+    },
+    "Fetch finished" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치 완료"
           }
         }
       }
@@ -1152,6 +1472,16 @@
         }
       }
     },
+    "Filter" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "필터"
+          }
+        }
+      }
+    },
     "Filter Sidebar" : {
       "localizations" : {
         "ko" : {
@@ -1172,6 +1502,16 @@
         }
       }
     },
+    "Filter the sidebar" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바 필터"
+          }
+        }
+      }
+    },
     "Find Next" : {
       "localizations" : {
         "ko" : {
@@ -1188,6 +1528,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이전 찾기"
+          }
+        }
+      }
+    },
+    "Finder" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder"
           }
         }
       }
@@ -1323,6 +1673,36 @@
         }
       }
     },
+    "Help with self-hosted Git servers" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "직접 운영하는 Git 서버 도움말"
+          }
+        }
+      }
+    },
+    "Hide Sidebar" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바 숨기기"
+          }
+        }
+      }
+    },
+    "Hide Sidebar (⌃⌘S)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바 숨기기 (⌃⌘S)"
+          }
+        }
+      }
+    },
     "History" : {
       "comment" : "Back button to file history",
       "localizations" : {
@@ -1424,12 +1804,52 @@
         }
       }
     },
+    "Its .git leads outside this repository's modules folder, so nothing runs there." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서브모듈의 .git이 저장소의 modules 폴더 밖으로 이어지므로 그곳에서는 아무것도 실행하지 않습니다."
+          }
+        }
+      }
+    },
+    "Its .git names a git directory that does not exist (an interrupted git submodule update or a partial copy), so nothing runs there." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 서브모듈의 .git이 없는 git 디렉터리를 가리키므로(중단된 git submodule update나 일부만 복사됨) 그곳에서는 아무것도 실행하지 않습니다."
+          }
+        }
+      }
+    },
+    "Its own settings block queries:" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자체 설정 때문에 조회를 막습니다:"
+          }
+        }
+      }
+    },
     "Jump to HEAD" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "HEAD로 이동"
+          }
+        }
+      }
+    },
+    "Jump to HEAD (⌘J)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HEAD로 이동 (⌘J)"
           }
         }
       }
@@ -1461,6 +1881,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "경량 태그 %@"
+          }
+        }
+      }
+    },
+    "Line counts unavailable" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "줄 수를 볼 수 없음"
           }
         }
       }
@@ -1511,6 +1941,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "잠김: %@"
+          }
+        }
+      }
+    },
+    "Manage Repositories…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 관리…"
           }
         }
       }
@@ -1596,6 +2036,16 @@
         }
       }
     },
+    "No matches" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일치 항목 없음"
+          }
+        }
+      }
+    },
     "No matching branches" : {
       "localizations" : {
         "ko" : {
@@ -1636,6 +2086,26 @@
         }
       }
     },
+    "No repositories yet. Add a Git repository or one of its worktrees." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 저장소가 없습니다. Git 저장소나 그 워크트리 하나를 추가하세요."
+          }
+        }
+      }
+    },
+    "No repository" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 없음"
+          }
+        }
+      }
+    },
     "No stashes" : {
       "localizations" : {
         "ko" : {
@@ -1662,6 +2132,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "업스트림 없음"
+          }
+        }
+      }
+    },
+    "None" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "없음"
           }
         }
       }
@@ -1776,6 +2256,26 @@
         }
       }
     },
+    "Open the focused worktree in Terminal" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "포커스된 워크트리를 터미널에서 열기"
+          }
+        }
+      }
+    },
+    "Opened with macOS: Overgrove passes the worktree folder or file and nothing else. A folder whose settings can run commands asks first." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS로 엽니다. Overgrove는 워크트리 폴더나 파일만 넘깁니다. 설정으로 명령을 실행할 수 있는 폴더는 먼저 확인합니다."
+          }
+        }
+      }
+    },
     "Overgrove" : {
       "localizations" : {
         "ko" : {
@@ -1792,6 +2292,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove가 git을 실행하지 못했습니다."
+          }
+        }
+      }
+    },
+    "Overgrove stopped querying this worktree for safety. %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove가 안전을 위해 이 워크트리 조회를 멈췄습니다. %@"
           }
         }
       }
@@ -1897,6 +2407,26 @@
         }
       }
     },
+    "Refresh" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "새로 고침"
+          }
+        }
+      }
+    },
+    "Refresh local data (⌘R)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로컬 데이터 새로 고침 (⌘R)"
+          }
+        }
+      }
+    },
     "Refs" : {
       "comment" : "Graph column",
       "localizations" : {
@@ -1938,6 +2468,36 @@
         }
       }
     },
+    "Remove “%@” from Overgrove" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove에서 “%@” 제거"
+          }
+        }
+      }
+    },
+    "Remove “%@” from Overgrove. The folder is not changed." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove에서 “%@”을(를) 제거합니다. 폴더는 바뀌지 않습니다."
+          }
+        }
+      }
+    },
+    "Removing a repository only takes it out of Overgrove. Its folder is not changed." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소를 제거해도 Overgrove 목록에서만 빠집니다. 폴더는 바뀌지 않습니다."
+          }
+        }
+      }
+    },
     "Reopen anytime from Help › Setup Assistant." : {
       "localizations" : {
         "ko" : {
@@ -1954,6 +2514,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "저장소"
+          }
+        }
+      }
+    },
+    "Repository" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소"
+          }
+        }
+      }
+    },
+    "Repository %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 %@"
+          }
+        }
+      }
+    },
+    "Repository %@ by %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 %1$@, 소유자 %2$@"
           }
         }
       }
@@ -2004,6 +2594,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finder에서 보기"
+          }
+        }
+      }
+    },
+    "Reveal the focused worktree in Finder" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "포커스된 워크트리를 Finder에서 보기"
+          }
+        }
+      }
+    },
+    "Run git worktree prune in Terminal to clean up." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "정리하려면 터미널에서 git worktree prune을 실행하세요."
           }
         }
       }
@@ -2080,6 +2690,16 @@
         }
       }
     },
+    "Setup Assistant…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 도우미…"
+          }
+        }
+      }
+    },
     "Show Changes" : {
       "localizations" : {
         "ko" : {
@@ -2116,6 +2736,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "정보 보기"
+          }
+        }
+      }
+    },
+    "Show Sidebar" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바 보기"
+          }
+        }
+      }
+    },
+    "Show Sidebar (⌃⌘S)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바 보기 (⌃⌘S)"
           }
         }
       }
@@ -2180,6 +2820,16 @@
         }
       }
     },
+    "Showing first %@ files · %@ more" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "처음 %1$@개 파일 표시 · %2$@개 더 있음"
+          }
+        }
+      }
+    },
     "Showing the newest %@ commits" : {
       "localizations" : {
         "ko" : {
@@ -2216,6 +2866,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "일부 변경을 읽지 못해 개수가 정확하지 않을 수 있습니다."
+          }
+        }
+      }
+    },
+    "Some changes could not be read, so this list may be incomplete." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일부 변경을 읽지 못해 목록이 완전하지 않을 수 있습니다."
           }
         }
       }
@@ -2291,6 +2951,46 @@
         }
       }
     },
+    "Stop" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "중지"
+          }
+        }
+      }
+    },
+    "Stop fetching (⌘.)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치 중지 (⌘.)"
+          }
+        }
+      }
+    },
+    "Submodules" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서브모듈"
+          }
+        }
+      }
+    },
+    "Submodules could not be read." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서브모듈을 읽지 못했습니다."
+          }
+        }
+      }
+    },
     "Swap base and target" : {
       "localizations" : {
         "ko" : {
@@ -2322,6 +3022,26 @@
         }
       }
     },
+    "Terminal" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널"
+          }
+        }
+      }
+    },
+    "Terminal (default)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널 (기본)"
+          }
+        }
+      }
+    },
     "The git chosen in Settings cannot be used" : {
       "localizations" : {
         "ko" : {
@@ -2342,12 +3062,42 @@
         }
       }
     },
+    "The path goes through a symbolic link, so Overgrove does not follow it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "경로가 심볼릭 링크를 거치므로 Overgrove가 따라가지 않습니다."
+          }
+        }
+      }
+    },
     "The path is not valid UTF-8, so Overgrove cannot pass it to git." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "경로가 올바른 UTF-8이 아니어서 Overgrove가 git에 넘길 수 없습니다."
+          }
+        }
+      }
+    },
+    "The path leaves the worktree or is not a plain relative path." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "경로가 워크트리 밖으로 나가거나 단순한 상대 경로가 아닙니다."
+          }
+        }
+      }
+    },
+    "The submodule has no checkout here (git submodule update was not run)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이곳에 서브모듈 체크아웃이 없습니다(git submodule update를 실행하지 않음)."
           }
         }
       }
@@ -2408,6 +3158,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이 워크트리 항목은 다른 저장소의 폴더를 가리키므로 Overgrove가 조회하지 않습니다."
+          }
+        }
+      }
+    },
+    "This worktree's path is not valid UTF-8, so Overgrove cannot pass it to git." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 워크트리의 경로가 올바른 UTF-8이 아니어서 Overgrove가 git에 넘길 수 없습니다."
           }
         }
       }
@@ -2596,6 +3356,26 @@
         }
       }
     },
+    "Working tree clean" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작업 트리 깨끗함"
+          }
+        }
+      }
+    },
+    "Worktree directory is missing" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 디렉터리가 없습니다"
+          }
+        }
+      }
+    },
     "Worktrees" : {
       "localizations" : {
         "ko" : {
@@ -2626,6 +3406,36 @@
         }
       }
     },
+    "added" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "추가됨"
+          }
+        }
+      }
+    },
+    "added by them" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대가 추가"
+          }
+        }
+      }
+    },
+    "added by us" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "우리가 추가"
+          }
+        }
+      }
+    },
     "also changed in the working tree" : {
       "localizations" : {
         "ko" : {
@@ -2646,12 +3456,72 @@
         }
       }
     },
+    "binary" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "바이너리"
+          }
+        }
+      }
+    },
+    "binary file" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "바이너리 파일"
+          }
+        }
+      }
+    },
+    "both added" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "양쪽 추가"
+          }
+        }
+      }
+    },
+    "both deleted" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "양쪽 삭제"
+          }
+        }
+      }
+    },
+    "both modified" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "양쪽 수정"
+          }
+        }
+      }
+    },
     "by %@" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "작성자 %@"
+          }
+        }
+      }
+    },
+    "changes (list cut)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 (목록 잘림)"
           }
         }
       }
@@ -2706,6 +3576,16 @@
         }
       }
     },
+    "copied" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "복사됨"
+          }
+        }
+      }
+    },
     "default" : {
       "comment" : "VoiceOver: the default branch",
       "localizations" : {
@@ -2717,12 +3597,52 @@
         }
       }
     },
+    "deleted" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제됨"
+          }
+        }
+      }
+    },
+    "deleted by them" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상대가 삭제"
+          }
+        }
+      }
+    },
+    "deleted by us" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "우리가 삭제"
+          }
+        }
+      }
+    },
     "expanded" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "펼침"
+          }
+        }
+      }
+    },
+    "failed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실패"
           }
         }
       }
@@ -2787,6 +3707,16 @@
         }
       }
     },
+    "git directory missing" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git 디렉터리 없음"
+          }
+        }
+      }
+    },
     "git executable" : {
       "localizations" : {
         "ko" : {
@@ -2813,6 +3743,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "사라짐"
+          }
+        }
+      }
+    },
+    "in %@ loaded commits · older commits are searched as they load" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "불러온 커밋 %@개에서 · 오래된 커밋은 불러오는 대로 검색"
+          }
+        }
+      }
+    },
+    "in all %@ commits" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋 %@개 전체에서"
           }
         }
       }
@@ -2888,6 +3838,56 @@
         }
       }
     },
+    "modified" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "수정됨"
+          }
+        }
+      }
+    },
+    "not checked out" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "체크아웃 안 됨"
+          }
+        }
+      }
+    },
+    "not in .gitmodules" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".gitmodules에 없음"
+          }
+        }
+      }
+    },
+    "not inspected" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검사 안 함"
+          }
+        }
+      }
+    },
+    "not installed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설치 안 됨"
+          }
+        }
+      }
+    },
     "now" : {
       "comment" : "Graph date column",
       "localizations" : {
@@ -2939,12 +3939,42 @@
         }
       }
     },
+    "renamed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이름 바뀜"
+          }
+        }
+      }
+    },
     "renamed from %@" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@에서 이름 바뀜"
+          }
+        }
+      }
+    },
+    "submodule" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서브모듈"
+          }
+        }
+      }
+    },
+    "type changed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "유형 바뀜"
           }
         }
       }
@@ -2965,6 +3995,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "미커밋: 파일 %lld개"
+          }
+        }
+      }
+    },
+    "unsafe configuration" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "안전하지 않은 설정"
           }
         }
       }
@@ -3038,6 +4078,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "“%1$@”은(는) 이미 Overgrove에 있습니다(%2$@)."
+          }
+        }
+      }
+    },
+    "⌘J" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌘J"
+          }
+        }
+      }
+    },
+    "⌥⌘F" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌥⌘F"
           }
         }
       }
