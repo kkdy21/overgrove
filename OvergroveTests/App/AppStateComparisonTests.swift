@@ -404,6 +404,7 @@ final class AppStateComparisonStaleTests: XCTestCase {
     func testUnqueryableWorktreeClosesTheComparison() async {
         for state: WorktreeListing.State in [
             .missing, .notQueried(.inspectionBlocked("hook found")), .notQueried(.foreignRepository),
+            .notQueried(.duplicate),
         ] {
             let comparisons = await comparedState(StubComparisonLoader(), answers: [.mockup, listing(feature: state)])
             comparisons.reload()
@@ -417,19 +418,33 @@ final class AppStateComparisonStaleTests: XCTestCase {
     func testUnreadWorktreeKeepsTheComparisonStale() async {
         for state: WorktreeListing.State in [.notQueried(.limit), .failed(.timeout(seconds: 15))] {
             let loader = StubComparisonLoader()
+            let diff = StubDiffLoader()
             let comparisons = await comparedState(
-                loader, answers: [.mockup, listing(feature: state), .mockup])
+                loader, answers: [.mockup, listing(feature: state), .mockup], diff: diff)
             let before = comparisons.comparisonModel
+            // A patch asked before the load that leaves the status unread is dropped with it.
+            comparisons.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
             comparisons.reload()
             await comparisons.loadTask?.value
             XCTAssertEqual(comparisons.comparison?.worktree, feature, "\(state) keeps S-11")
             XCTAssertEqual(comparisons.comparisonModel?.staleNotice, ComparisonModel.worktreeUnreadNotice)
             XCTAssertEqual(comparisons.comparisonModel?.files, before?.files, "the last rows, WIP pills too")
+            XCTAssertNil(comparisons.comparisonPatchTask)
+            XCTAssertNotEqual(comparisons.comparison?.patch, .loading)
+
             let requests = loader.compareRequests.count
+            let patches = loader.patchRequests.count
             comparisons.setIncludeUncommitted(false)
             comparisons.selectComparisonFile(ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false))
+            comparisons.selectComparisonFile(ComparisonFile(path: GitPath("new0.swift"), isUntracked: true))
+            await comparisons.comparisonTask?.value
+            await comparisons.comparisonPatchTask?.value
+            XCTAssertNil(comparisons.comparisonTask)
+            XCTAssertNil(comparisons.comparisonPatchTask)
+            XCTAssertEqual(comparisons.comparison?.includeUncommitted, true)
             XCTAssertEqual(loader.compareRequests.count, requests)
-            XCTAssertEqual(loader.patchRequests, [])
+            XCTAssertEqual(loader.patchRequests.count, patches)
+            XCTAssertEqual(diff.requests.count, 0)
 
             comparisons.reload()
             await comparisons.loadTask?.value

@@ -33,8 +33,9 @@ extension AppState {
     var isComparisonStale: Bool { comparisonStaleNotice != nil }
 
     /// A load brought a new list while S-11 is open. S-11 belongs to one worktree, so it closes when that worktree is
-    /// gone from the list (removed in Terminal, #311), its folder is gone (`prunable`, #413), or it is not queried for
-    /// safety (its own configuration blocks, or it belongs to another repository, #413). When its status is merely
+    /// gone from the list (removed in Terminal, #311), its folder is gone (`prunable`, #413), its path now leads to
+    /// another entry's folder (`duplicate`), or it is not queried for safety (its own configuration blocks, or it
+    /// belongs to another repository, #413). When its status is merely
     /// unread (past the limit, failed), S-11 goes stale like after a failed list load, and work in flight is dropped.
     func comparisonListApplied(_ listing: WorktreeListing) {
         guard let compared = comparison?.worktree else { return }
@@ -44,7 +45,8 @@ extension AppState {
         switch entry.state {
         case .loaded:
             return
-        case .missing, .notQueried(.inspectionBlocked), .notQueried(.foreignRepository):
+        // `.duplicate`: the path now leads to another entry's folder, so it is not the worktree that was compared.
+        case .missing, .notQueried(.inspectionBlocked), .notQueried(.foreignRepository), .notQueried(.duplicate):
             closeComparison()
         case .failed, .notQueried:
             dropComparisonWork()
