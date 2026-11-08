@@ -1,6 +1,6 @@
 # 화면 명세 (Screens)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159), 패널 테마 레이아웃으로 개정 (#166) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159), 패널 테마 레이아웃으로 개정 (#166), 사이드바 TAGS·선택 이력 설계 (#123, v0.2.0) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
 
 HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. S-11(기준 브랜치 대비 변경)은 #158에서 추가했다. 고충실도 목업은 [mockups.md](mockups.md)에 모았고, 각 절에도 링크를 둔다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다. 패널, 그래프, 알약을 그리는 규칙(수치)은 [art-direction.md](art-direction.md)에 있다.
 
@@ -110,6 +110,22 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 - 패널 머리: 필터 필드(`⌥⌘F`)
 
 워크트리 행 왼쪽의 타일은 그 브랜치의 레인 색이라 그래프의 같은 줄과 색으로 이어진다. 세부 모양은 [art-direction.md §6](art-direction.md#6-사이드바)에 있다.
+
+**TAGS 섹션 (v0.2.0, #123).** REMOTE 아래, STASHES 위다. 처음에는 접혀 있다. 규칙은 [information-architecture.md §4.5](information-architecture.md#45-tags-섹션-123-v020)에 있다. 펼친 모습(와이어프레임, 위 S-01 와이어프레임의 사이드바 열과 같은 폭):
+
+```
+│˅ TAGS            38  │
+│  ⌂ v1.4.0        3d  │   ⌂ = `tag` 심볼, 오른쪽은 만든 날짜의 상대 시각
+│  ⌂ v1.4.0-rc.2  12d  │
+│  ⌂ v1.3.2  🌲   1mo  │   🌲 = 이 커밋에 detached HEAD로 선 워크트리가 있음(`tree` 심볼)
+│  ⌂ v1.3.1       2mo  │
+│  …                   │
+│  38 more tags — filter to find one │   200개를 넘을 때만
+```
+
+- 행 높이는 `size.row-sidebar`(28). 심볼과 글자 색은 REMOTE 브랜치 행과 같다(`text.secondary` 심볼, `text.primary` 이름, `text.tertiary` 시각).
+- 태그 행을 고르면 그래프가 그 커밋으로 스크롤해 선택하고 상세 패널에 S-03이 열린다.
+- 고충실도 목업은 구현 이슈에서 그린다(`design/mockups/generator`).
 
 ### 중앙: 커밋 그래프
 
@@ -268,7 +284,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 **목적.** 커밋 하나의 메타데이터, 메시지, 변경 파일을 보여 준다.
 
-**진입.** 그래프의 커밋 행, 사이드바 브랜치(팁 커밋), S-09에서 커밋 선택.
+**진입.** 그래프의 커밋 행, 사이드바 브랜치(팁 커밋), 사이드바 태그(가리키는 커밋, v0.2.0 #123), S-09에서 커밋 선택, 선택 이력 이동(`⌘[` / `⌘]`, v0.2.0 #123).
 
 ```
 ┌──────────────────────────────────────┐
