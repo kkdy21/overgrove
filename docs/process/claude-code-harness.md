@@ -37,7 +37,9 @@ hook은 **실수를 막는 장치이지 보안 경계가 아니다.** 같은 규
 ### `guard-bash.sh` — 차단하는 명령
 
 - hook 우회: `--no-verify`, `git commit -n`, `core.hooksPath` 변경, `OVERGROVE_ALLOW_MAIN_*` 사용
-- 강제 푸시, `main` 대상 푸시(`main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main`), `main`에서의 인자 없는 `git push`
+- 강제 푸시(`--force`, `-f`, `-uf`처럼 묶인 짧은 옵션, `+feat/x` 같은 `+` refspec), `git push --all`·`--mirror`
+- `main` 대상 푸시(`main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main`, `heads/main`, 뒤에 `&`·`;`·`}`가 붙은 `main`)
+- `main` 체크아웃에서의 인자 없는 `git push`와 `git push origin HEAD`(`@`). 체크아웃은 명령 안의 `git -C <dir>`·`cd <dir>` 대상을 보고, 없으면 세션의 작업 폴더를 본다(#342)
   - 푸시 판정은 명령줄 전체에 적용한다. 줄 이음(`\`), 따옴표 안의 구분자, `xargs`로 대상을 숨길 수 없게 하기 위해서다. 다만 먼저 `gh pr create`·`gh pr edit`의 `--base main`·`--base=main`·`-B main`을 빼고 본다. 이것은 PR의 기준 브랜치이지 푸시 대상이 아니다(#301). `git -C <dir> push`, git 절대 경로, `$(…)` 안의 푸시도 잡는다. 푸시와 함께 다른 곳에 `main`이 있으면(`… | grep main`) 일부러 막는다
 - `main` 브랜치에서의 `git commit`
 - `gh repo delete/archive/rename`, 공개 범위 변경, `gh secret/variable`, `gh auth token/logout/refresh`, `gh api`를 통한 DELETE와 룰셋 변경

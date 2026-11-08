@@ -29,16 +29,37 @@ scan=$(printf '%s' "$cmd" | sed -E -e ':a' \
 scan_has() { printf '%s' "$scan" | grep -Eq -- "$1"; }
 # `git push`, also with global options (`-C <dir>`, `-c <key=value>`), a path to git, or inside `$(…)` or backticks.
 if scan_has 'git([[:space:]]+(-[Cc][[:space:]]+[^[:space:]]+|-[^[:space:]]+))*[[:space:]]+push'; then
-  scan_has '[[:space:]](--force|-f)([[:space:])`]|$)' && block "Force push is not allowed. Use a new commit (we squash-merge anyway)."
-  scan_has '--force-with-lease' && scan_has '(^|[[:space:]:/+"'\''])main["'\'']?([[:space:])`]|$)' && block "Force push to main is not allowed."
-  # `main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main` as a push target.
-  scan_has '([[:space:]:]|refs/heads/)[+]?["'\'']?main["'\'']?([[:space:])`]|$)' && block "Direct push to main is not allowed. Push your branch and open a PR."
-  if [[ -n "$cwd" ]]; then
-    cur=$(git -C "$cwd" symbolic-ref --short -q HEAD 2>/dev/null || true)
-    if [[ "$cur" == "main" ]] && ! scan_has 'git[^;&|]*push[^;&|]*[[:space:]][^-[:space:]][^[:space:]]*[[:space:]]+[^-[:space:]]'; then
-      block "You are on main; a bare 'git push' would push main. Switch to your issue branch."
+  # What may end a word: space, `)`, a backtick, `;`, `&`, `|`, `}`, or the end of the line (`main&`, `{ … main; }`).
+  end='([[:space:])`;&|}]|$)'
+  # `--force`, `-f`, and `-f` bundled with push's other flag-only short options (`-uf`, `-fu`, `-qf`) (#342).
+  scan_has "[[:space:]](--force|-[46dnquv]*f[46dnquv]*o?)$end" && block "Force push is not allowed. Use a new commit (we squash-merge anyway)."
+  # A `+` refspec forces too (`+feat/x`, `'+HEAD:x'`). `date +%s` is not a refspec: it does not start with a ref name.
+  scan_has '[[:space:]]["'\'']?[+]["'\'']?[A-Za-z0-9_@./-]' && block "Force push ('+' refspec) is not allowed. Use a new commit (we squash-merge anyway)."
+  # `--all` pushes every branch, main included; `--mirror` also force-pushes and deletes (#342).
+  scan_has "[[:space:]]--(all|mirror)([=]|$end)" && block "'git push --all' and '--mirror' include main. Push your branch by name."
+  scan_has '--force-with-lease' && scan_has "(^|[[:space:]:/+\"'])main[\"']?$end" && block "Force push to main is not allowed."
+  # `main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main`, `heads/main` as a push target.
+  scan_has "([[:space:]:]|(refs/)?heads/)[+]?[\"']?main[\"']?$end" && block "Direct push to main is not allowed. Push your branch and open a PR."
+  # The checkout the push runs in: every `git -C <dir>` and `cd <dir>` target in the command, or else `cwd` (#342).
+  # Relative targets resolve against `cwd`; `~` is the home folder. Several targets: each one is checked.
+  dirs=()
+  while IFS= read -r dir; do
+    dir="${dir#\"}"; dir="${dir%\"}"; dir="${dir#\'}"; dir="${dir%\'}"
+    [[ "$dir" == "~"* ]] && dir="$HOME${dir#\~}"
+    [[ "$dir" != /* && -n "$cwd" ]] && dir="$cwd/$dir"
+    dirs+=("$dir")
+  done < <(printf '%s' "$scan" | grep -oE "(git([[:space:]]+-c[[:space:]]+[^[:space:]]+)*[[:space:]]+-C|(^|[;&|({][[:space:]]*)cd)[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:];&|)]+)" |
+    sed -E "s/^.*(-C|cd)[[:space:]]+//")
+  [[ ${#dirs[@]} -eq 0 && -n "$cwd" ]] && dirs=("$cwd")
+  for dir in "${dirs[@]}"; do
+    cur=$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null || true)
+    [[ "$cur" == "main" ]] || continue
+    # `git push`, `git push origin`: the current branch. `git push origin HEAD` or `@` names it too (#342).
+    if ! scan_has 'git[^;&|]*push[^;&|]*[[:space:]][^-[:space:]][^[:space:]]*[[:space:]]+[^-[:space:]]' ||
+      scan_has "git[^;&|]*push[^;&|]*[[:space:]][\"']?(HEAD|@)[\"']?$end"; then
+      block "The push runs on main ($dir); it would push main. Switch to your issue branch."
     fi
-  fi
+  done
 fi
 
 # 3) Commits on main.

@@ -86,6 +86,42 @@ check "push origin only on main"            2 "$M" 'git push origin'
 check "bare push on main after cd"          2 "$M" 'echo hi && git push -u'
 check "push branch from main checkout"      0 "$M" 'git push origin feat/1-x'
 
+# #342: push forms both the old and the #301 hook let through.
+check "push --all"                          2 "$B" 'git push --all'
+check "push origin --all"                   2 "$B" 'git push origin --all'
+check "push --mirror"                       2 "$B" 'git push --mirror origin'
+check "push --mirror=x"                     2 "$B" 'git push --mirror=origin'
+check "force via + refspec"                 2 "$B" 'git push origin +feat/1-x'
+check "force via quoted + refspec"          2 "$B" "git push origin '+feat/1-x'"
+check "force via +HEAD refspec"             2 "$B" 'git push origin +HEAD:feat/1-x'
+check "force bundled -uf"                   2 "$B" 'git push -uf origin feat/1-x'
+check "force bundled -fu"                   2 "$B" 'git push -fu origin feat/1-x'
+check "force bundled -qf"                   2 "$B" 'git push -qf origin feat/1-x'
+check "push origin HEAD on main"            2 "$M" 'git push origin HEAD'
+check "push origin @ on main"               2 "$M" 'git push origin @'
+check "push -u origin HEAD on main"         2 "$M" 'git push -u origin HEAD'
+check "push main, single &"                 2 "$B" 'git push origin main&'
+check "push main, single & then more"       2 "$B" 'git push origin main& echo done'
+check "push heads/main"                     2 "$B" 'git push origin heads/main'
+check "push HEAD:heads/main"                2 "$B" 'git push origin HEAD:heads/main'
+check "push main; in braces"                2 "$B" '{ git push origin main; }'
+check "push main} in braces"                2 "$B" '{ git push origin main;}'
+check "git -C main checkout, bare push"     2 "$B" "git -C $M push"
+check "git -C main checkout, HEAD"          2 "$B" "git -C $M push origin HEAD"
+check "git -C quoted main checkout"         2 "$B" "git -C \"$M\" push -u"
+check "cd main checkout, bare push"         2 "$B" "cd $M && git push"
+# Not pushes, or pushes of a branch: allowed.
+check "push branch then date +%s"           0 "$B" 'git push origin feat/1-x && date +%s'
+check "date +%s alone"                      0 "$B" 'date +%s'
+check "push origin HEAD on a branch"        0 "$B" 'git push -u origin HEAD'
+check "git -C branch checkout, bare push"   0 "$M" "git -C $B push"
+check "cd branch checkout, push HEAD"       0 "$M" "cd $B && git push -u origin HEAD"
+check "push branch named feat/main-menu"    0 "$B" 'git push origin feat/main-menu'
+check "push branch named feat/x-main"       0 "$B" 'git push origin feat/x-main'
+check "push -uq (not a bundled force)"      0 "$B" 'git push -uq origin feat/1-x'
+check "push then rm -rf build"              0 "$B" 'git push origin feat/1-x && rm -rf build'
+check "log --all without push"              0 "$B" 'git log --all --oneline'
+
 # Force pushes stay blocked.
 check "force push"                          2 "$B" 'git push --force origin feat/1-x'
 check "force push -f"                       2 "$B" 'git push -f'
