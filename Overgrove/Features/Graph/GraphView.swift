@@ -513,6 +513,9 @@ struct CommitRowMenu: View {
 
     var body: some View {
         Button("Show Changes", action: onShowChanges)
+        // S-12 (#388): against the commit the detail panel shows.
+        Button("Compare with Selected Commit") { actions.compareCommit(commit.oid) }
+            .disabled(!actions.canCompareCommit(commit.oid))
         Divider()
         Button("Copy SHA") { actions.copy(commit.oid.hex) }
         Button("Copy Short SHA") { actions.copy(commit.oid.short) }

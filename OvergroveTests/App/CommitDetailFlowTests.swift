@@ -9,11 +9,25 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
     private var details: [ObjectID] = []
     private var patches: [GitPath] = []
     private var originalPaths: [GitPath?] = []
+    private var patchPairs: [(commit: ObjectID, parent: ObjectID?)] = []
+    private var ranges: [(base: ObjectID, target: ObjectID)] = []
     var failure: GitError?
+    /// What `files(from:to:)` answers (S-12, #388).
+    var comparedFiles: [FileStat] = [CommitDetailModelTests.stat("a.go", .modified, 2, 1)]
 
     var detailRequests: [ObjectID] { lock.withLock { details } }
     var patchRequests: [GitPath] { lock.withLock { patches } }
     var originalPathRequests: [GitPath?] { lock.withLock { originalPaths } }
+    var patchPairRequests: [(commit: ObjectID, parent: ObjectID?)] { lock.withLock { patchPairs } }
+    var rangeRequests: [(base: ObjectID, target: ObjectID)] { lock.withLock { ranges } }
+
+    func files(_ repository: Repository, from base: ObjectID, to target: ObjectID) async
+        -> Result<NumstatParser.Files, GitError>
+    {
+        lock.withLock { ranges.append((base, target)) }
+        if let failure { return .failure(failure) }
+        return .success(NumstatParser.Files(files: comparedFiles, isPartial: false))
+    }
 
     func detail(_ repository: Repository, of commit: ObjectID) async -> Result<CommitDetail, GitError> {
         lock.withLock { details.append(commit) }
@@ -33,6 +47,7 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
         lock.withLock {
             patches.append(path)
             originalPaths.append(originalPath)
+            patchPairs.append((commit, parent))
         }
         return .success(
             TestFixtures.patch("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1 +1 @@\n-x\n+y\n")

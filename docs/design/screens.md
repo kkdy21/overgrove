@@ -831,4 +831,6 @@ S-09, S-11처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 
 
 **선택과 이력.** S-12를 여는 동안 주 선택(기준 커밋)은 그대로다. 사이드바 항목이나 그래프 행을 고르면 S-12를 닫고 그 항목을 고른다. S-12 열기·닫기와 파일 선택은 선택 이력(`⌘[` / `⌘]`, [interaction.md §1.4](interaction.md#14-선택-이력))에 기록하지 않는다.
 
+**구현 메모 (#388).** `AppState+CommitComparison`, `CommitComparisonModel`, `CommitComparisonCenterView`·`CommitComparisonListView`. 파일 목록은 `RepositoryService.compareCommits`(`commitFiles`에 기준을 부모 자리로)이고 캐시하지 않는다. 패치 머리의 출처는 `3c5d6f1 → a91f3c2 · M`. 고충실도 목업은 그리지 않았고, 렌더 테스트(`CommitComparisonRenderTests`) 스크린샷으로 확인했다.
+
 **제외 (later).** 기준과 대상 사이의 커밋 목록(`commitsAhead`가 지금 브랜치 ref만 받아 OID 변형이 필요하다), 사이드바 태그·브랜치에서 바로 비교, `⌘`-클릭으로 두 번째 커밋 고르기, 키보드 단축키, merge base 기준 비교(`A...B`).
