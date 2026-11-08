@@ -13,7 +13,7 @@ struct GraphAuthorFilterBar: View {
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {
             Image(systemName: "person.2").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
-            GraphFilterChip(isSelected: selection == .all, accessibilityLabel: "All authors") {
+            GraphFilterChip(isSelected: selection == .all, accessibilityLabel: String(localized: "All authors")) {
                 onSelect(.all)
             } label: {
                 Text("All")
@@ -30,7 +30,7 @@ struct GraphAuthorFilterBar: View {
                 GraphFilterChip(
                     isSelected: selection == .aiAssisted,
                     accessibilityLabel: GraphAuthorSummary.accessibilityLabel(
-                        name: "AI-assisted", count: summary.aiAssistedCount)
+                        name: String(localized: "AI-assisted"), count: summary.aiAssistedCount)
                 ) {
                     onSelect(.aiAssisted)
                 } label: {
@@ -206,9 +206,11 @@ struct GraphColumnHeader: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            title("Refs").frame(width: columns.width(of: .refs) * zoom.scale, alignment: .leading)
-                .overlay(alignment: .trailing) { divider(.refs, widensRight: true).offset(x: Self.handleWidth / 2) }
-            title("Graph").frame(width: graphWidth, alignment: .leading)
+            title(GraphColumnLayout.Column.refs.title).frame(
+                width: columns.width(of: .refs) * zoom.scale, alignment: .leading
+            )
+            .overlay(alignment: .trailing) { divider(.refs, widensRight: true).offset(x: Self.handleWidth / 2) }
+            title(String(localized: "Graph", comment: "Graph column")).frame(width: graphWidth, alignment: .leading)
                 .frame(maxHeight: .infinity)
                 .overlay(alignment: .bottom) {
                     if laneScroll.maxOffset > 0 {
@@ -216,7 +218,7 @@ struct GraphColumnHeader: View {
                     }
                 }
                 .overlay(alignment: .trailing) { separator.offset(x: 0.5) }
-            title("Message").frame(maxWidth: .infinity, alignment: .leading)
+            title(String(localized: "Message", comment: "Graph column")).frame(maxWidth: .infinity, alignment: .leading)
             ForEach(columns.trailingColumns, id: \.self) { column in
                 title(column.title).frame(width: columns.width(of: column) * zoom.scale, alignment: .leading)
                     .overlay(alignment: .leading) {

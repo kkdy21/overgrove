@@ -15,10 +15,10 @@ struct GraphColumnLayout: Codable, Equatable, Sendable {
 
         var title: String {
             switch self {
-            case .refs: "Refs"
-            case .author: "Author"
-            case .date: "Date"
-            case .sha: "SHA"
+            case .refs: String(localized: "Refs", comment: "Graph column")
+            case .author: String(localized: "Author", comment: "Graph column")
+            case .date: String(localized: "Date", comment: "Graph column")
+            case .sha: String(localized: "SHA", comment: "Graph column")
             }
         }
 
