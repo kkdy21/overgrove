@@ -1,6 +1,6 @@
 # ADR-0010: 커밋 그래프 레인은 앱에서 계산한다
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 날짜: 2026-11-05 · 관련: G6, G9, PB-3, PB-4, [architecture/parsing-spec.md](../architecture/parsing-spec.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), Amended §5 (#384, 2026-11-08) · 날짜: 2026-11-05 · 관련: G6, G9, PB-3, PB-4, [architecture/parsing-spec.md](../architecture/parsing-spec.md)
 
 ## 맥락
 
@@ -26,6 +26,10 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
    - 10만 커밋의 뒤쪽 페이지에서 `--skip` 재탐색 비용이 PB-4를 넘으면, 한 프로세스의 출력을 페이지 단위로 소비하는 스트리밍 읽기로 바꾼다. Phase 3 측정 뒤에 이 ADR을 갱신한다.
 4. 레인 색은 **레인이 처음 생길 때의 열 인덱스 mod 8**로 정하고, 그 레인이 끝날 때까지 바꾸지 않는다. 색은 디자인 토큰 `graph.lane.0`~`graph.lane.7`이다 ([design/design-tokens.md](../design/design-tokens.md)). 페이지를 이어 읽어도 기존 레인의 색은 유지된다.
 5. v0.1은 stash 노드를 그래프에 그리지 않는다. stash는 사이드바와 S-04에서만 보여 준다.
+   - **개정 (#384, v0.2.0).** stash를 WIP 행(§6)처럼 GraphEngine 밖 가상 행으로 그린다. 그래프 데이터 명령은 계속 `refs/stash`를 빼고, 엔진 입력·레인·페이지 계산은 바뀌지 않는다.
+   - stash 행은 기준 커밋(첫 부모) 바로 위에 끼워 넣는다. 기준 커밋 레인 색의 속 빈 사각 노드와 기준 커밋으로 가는 점선을 그리고, index·untracked 부모는 그리지 않는다. 그 사이를 지나가는 레인은 stash 행을 곧게 통과한다(곡선은 두 레인의 중간에서 통과).
+   - 같은 기준 커밋의 stash는 `stash@{n}` 순서로 위에서부터 쌓는다. 기준 커밋이 로드된 페이지에 있을 때만 보이고, 그래프 범위 밖(브랜치·태그·워크트리 HEAD에서 닿지 않음)이면 사이드바에만 있다.
+   - 그래프 `⋯` 메뉴의 `Show Stashes`로 켜고 끈다(기본 켬, 앱 전역). 검색·작성자 필터 중에는 숨긴다. 누르면 사이드바에서 고른 것처럼 S-04를 연다.
 6. WIP 행은 GraphEngine 밖에서, 선택한 워크트리의 HEAD 위에 가상 행으로 얹는다.
 7. 서명 관련 포맷(`%G?`, `%GS` 등)은 쓰지 않는다 (T7).
 

@@ -149,9 +149,16 @@ struct GraphChipAvatar: View {
 struct GraphColumnMenu: View {
     let columns: GraphColumnLayout
     let onChange: (GraphColumnLayout) -> Void
+    /// `Show Stashes` (#384): stash rows above their base commits.
+    var showsStashes = true
+    var onSetShowsStashes: ((Bool) -> Void)?
 
     var body: some View {
         Menu {
+            if let onSetShowsStashes {
+                Toggle("Show Stashes", isOn: Binding(get: { showsStashes }, set: onSetShowsStashes))
+                Divider()
+            }
             Section("Columns") {
                 ForEach(GraphColumnLayout.Column.allCases.filter(\.isHideable), id: \.self) { column in
                     Toggle(

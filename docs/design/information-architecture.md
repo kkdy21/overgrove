@@ -145,8 +145,8 @@ flowchart LR
 
 ### 3.2 stash와 그래프
 
-- v0.1의 그래프는 stash를 노드로 그리지 않는다. stash 커밋은 index 커밋과 untracked 커밋을 부모로 가져서 그래프를 어지럽히기 때문이다. stash는 사이드바와 S-04에서만 다룬다.
-- 그래프에 stash 위치를 표시하는 기능은 `later`로 둔다.
+- v0.1의 그래프는 stash를 노드로 그리지 않았다. stash 커밋은 index 커밋과 untracked 커밋을 부모로 가져서 그래프를 어지럽히기 때문이다.
+- v0.2.0(#384)부터 stash는 기준 커밋(첫 부모) 바로 위의 가상 행으로 보인다. index·untracked 부모는 그리지 않아 그래프 모양이 바뀌지 않는다. 기준 커밋이 그래프에 없으면 사이드바에만 있다. 그래프 `⋯` 메뉴의 `Show Stashes`로 끌 수 있다. 규칙은 [ADR-0010 §5](../adr/0010-commit-graph-layout-in-app.md).
 
 ### 3.3 이슈 연결
 
