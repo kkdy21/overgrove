@@ -368,7 +368,7 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 ```
 
 - 로그인 판정: `hosts["github.com"]`에 `active == true && state == "success"`인 항목이 있다.
-- 로그인 호스트(ADR-0025 §1): 계정이 하나 이상 있는 `hosts`의 키를 `RemoteHost`로 검증해 소문자로 모은다. 통과하지 못한 키는 버린다. github.com 로그인이 없어도 다른 호스트는 모은다.
+- 로그인 호스트(ADR-0025 §1): `state == "success"`인 계정이 하나 이상 있는 `hosts`의 키를(활성 여부는 따지지 않는다. 계정이 모두 다른 상태이면 신뢰하지 않는다, #467) `RemoteHost`로 검증해 소문자로 모은다. 통과하지 못한 키는 버린다. github.com 로그인이 없어도 다른 호스트는 모은다.
 - 활성 계정(ADR-0025 §4, 표시용): 호스트마다 `active == true && state == "success"`인 항목의 login이 GitHub login 규칙(1–39자 영숫자·`-`)을 통과하면 `GHAccount`로 남기고, 그 호스트의 나머지 계정 수를 함께 센다. 규칙을 통과하지 못한 login은 그 계정만 숨기고 보고 전체를 실패로 보지 않는다(github.com의 상태 판정은 그대로 실패).
 - 종료 코드는 판단에 쓰지 않는다. `--json`이면 인증 문제가 있어도 0이다.
 - `scopes`와 `tokenSource`는 표시하지 않는다. 그 밖의 필드도 판단에 필요한 것만 쓴다.
