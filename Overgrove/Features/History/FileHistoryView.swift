@@ -87,7 +87,7 @@ struct FileHistoryView: View {
                         .accessibilityAction(named: "Show Diff") { onOpen(entry) }
                     }
                     if store.isLoadingMore {
-                        ProgressView().controlSize(.small).frame(height: GraphGeometry.rowHeight)
+                        ProgressView().controlSize(.small).frame(height: GraphGeometry.standard.rowHeight)
                     } else if let error = store.loadMoreError {
                         HStack(spacing: Tokens.Spacing.sm) {
                             Text("Could not load more: \(error)")
@@ -184,7 +184,7 @@ private struct FileHistoryRowView: View {
             cell(row.text.date, width: Tokens.Size.columnDateIdeal, color: tertiary).help(row.text.absoluteDate)
             cell(row.stat, width: FileHistoryView.statWidth, color: Tokens.Color.textSecondary)
         }
-        .frame(height: GraphGeometry.rowHeight)
+        .frame(height: GraphGeometry.standard.rowHeight)
         .background(isSelected ? Tokens.Color.surfaceSelection : Color.clear)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
@@ -205,7 +205,7 @@ private struct FileHistoryRowView: View {
                 .frame(width: Self.avatar, height: Self.avatar)
                 .background(Circle().fill(Tokens.Color.avatars[row.text.avatarIndex % Tokens.Color.avatars.count]))
         }
-        .frame(width: Self.avatar, height: GraphGeometry.rowHeight)
+        .frame(width: Self.avatar, height: GraphGeometry.standard.rowHeight)
         .accessibilityHidden(true)
     }
 

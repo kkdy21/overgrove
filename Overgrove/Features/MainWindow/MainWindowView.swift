@@ -13,6 +13,8 @@ struct MainWindowView: View {
 
     var body: some View {
         window
+            // The graph panel's zoom (#121); other panels keep their size.
+            .environment(\.graphZoom, state.settings.graphZoom)
             .focusedSceneValue(\.repositoryActions, focusedActions)
             .focusedSceneValue(\.navigationActions, navigationActions)
             .focusedSceneValue(\.searchActions, searchActions)
