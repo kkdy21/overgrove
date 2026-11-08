@@ -25,15 +25,16 @@ v0.2.0(#115)에서는 워크트리마다 연결된 PR의 상태를 보이려고 
      --json number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url
    ```
 
-   - `--state all`: 열린 PR과 최근 머지·닫힌 PR을 함께 받는다(updatedAt 최신 200개, gh 기본 순서).
+   - `--state all`: 열린 PR과 최근 머지·닫힌 PR을 함께 받는다. 200개는 gh의 기본 정렬(만든 시각 내림차순으로 알려져 있으나 #115에서 gh 2.95로 확인해 이 문장을 고친다) 순서의 앞부분이다.
    - `OWNER/NAME`은 이슈와 같은 `GitHubRepository` 검증을 거친다.
    - 필드는 위 13개 allowlist다. CI 상태(`statusCheckRollup`)는 중첩이 크고 출력이 커서 `later`다. 본문, 댓글, 파일, 리뷰 목록은 받지 않는다.
    - 카탈로그 금지 목록의 `gh pr *`는 "`gh pr list` 밖의 모든 `gh pr`"로 바꾼다.
 2. **실행.** `GHClient`를 거친다. 실행 제한은 카탈로그 §2.5의 gh 값(15초, stdout 5MB, stderr 64KB)이고, 잘린 출력은 해석하지 않고 실패로 본다. stderr는 마스킹한 뒤에만 `GHError`에 담는다.
-3. **해석.** 필수 필드가 없으면 실패한다. 알 수 없는 `state`·`reviewDecision`은 `unknown`으로 둔다. 제목·브랜치 이름·로그인 이름은 표시 전에 제어·bidi 문자를 이스케이프한다. URL은 `https://github.com/OWNER/NAME/pull/<번호>`와 정확히 같을 때만 연다(이슈와 같은 규칙).
+3. **해석.** 목록 전체를 실패로 보는 것은 JSON 최상위가 배열이 아니거나 해석할 수 없을 때뿐이다. PR 하나에 `number`·`state`·`url`이 없거나 형식이 맞지 않으면 그 PR만 버린다. `headRepository`·`headRepositoryOwner`가 null이거나 비어 있으면(fork를 지운 PR 등) 그 PR은 목록에 두되 어떤 브랜치에도 잇지 않는다. 한 사람이 PR 하나로 모든 사용자의 PR 표시를 끄지 못하게 하려는 것이다. 알 수 없는 `state`·`reviewDecision`은 `unknown`으로 둔다. 제목·브랜치 이름·로그인 이름은 표시 전에 제어·bidi 문자를 이스케이프한다.
+   - URL은 조회한 저장소의 PR 주소와 같을 때만 연다: `https://github.com/<OWNER>/<NAME>/pull/<번호>`에서 OWNER·NAME은 조회한 값과 ASCII 대소문자 무시로 같고, 번호는 그 PR의 `number`와 같아야 한다. 이슈의 규칙(github.com의 어떤 OWNER/NAME이든 허용)보다 엄격하다. 저장소 이름이 바뀌어 주소가 다르면 버튼이 꺼지고 `Copy URL`만 남는다.
 4. **브랜치와 잇기.** gh를 더 부르지 않고 로컬 정보로만 잇는다.
-   - 로컬 브랜치의 upstream이 `refs/remotes/<원격>/<이름>`이면, 그 원격 URL에서 `OWNER/NAME`을 구한다(검증된 목록의 원격, `GitHubRemote` 판별).
-   - `headRepositoryOwner.login == OWNER`, `headRepository.name == NAME`, `headRefName == <이름>`이 모두 맞는 PR만 잇는다. **브랜치 이름만으로는 잇지 않는다.**
+   - 로컬 브랜치의 upstream 원격 이름과 원격의 브랜치 이름은 `branch.<n>.remote`·`branch.<n>.merge`에서 구한다(refs 조회의 `%(upstream:remotename)`·`%(upstream:remoteref)`, #115에서 카탈로그와 함께). 원격 이름에 `/`가 들어갈 수 있어 `refs/remotes/<원격>/<이름>`을 쪼개지 않는다. 그 원격의 URL에서 `OWNER/NAME`을 구한다(검증된 목록의 원격, `GitHubRemote` 판별).
+   - `headRepositoryOwner.login`과 `OWNER`, `headRepository.name`과 `NAME`이 ASCII 대소문자 무시로 같고(GitHub는 대소문자를 구분하지 않고, 원격 URL에는 사용자가 친 대로 남는다), `headRefName`이 원격 브랜치 이름과 바이트로 정확히 같은 PR만 잇는다. **브랜치 이름만으로는 잇지 않는다.** `isCrossRepository`는 판단에 쓰지 않는다.
    - fork 흐름(origin은 fork, 이슈·PR은 upstream)도 같은 규칙으로 맞는다.
    - 여러 PR이 맞으면 열린 PR을 먼저, 그다음 updatedAt이 최신인 것을 고른다.
    - upstream이 없거나 원격이 github.com이 아니면 잇지 않는다.
@@ -60,6 +61,8 @@ v0.2.0(#115)에서는 워크트리마다 연결된 PR의 상태를 보이려고 
   - 저장소마다 gh 호출이 하나 늘어난다(5분 주기, 이슈와 같은 시점).
   - 최근 200개 밖의 오래된 PR은 보이지 않는다.
   - upstream을 설정하지 않은 브랜치에는 PR을 잇지 않는다. 사칭을 막으려고 받아들인다.
+  - 잇기는 저장소 설정을 믿는 만큼만 믿을 수 있다. 저장소 로컬 `remote.<n>.url`이 공격자 저장소를 가리키거나, 소유자가 이름을 바꾼 뒤 옛 이름을 다른 사람이 차지하면, 그 원격과 맞는 PR이 붙는다. 이때는 fetch도 이미 그곳으로 가므로 새 위험은 아니다(이슈 패널이 저장소 설정으로 조회 대상을 정하는 것과 같다).
+  - 누구나 fork PR을 많이 열어 사용자의 PR을 200개 밖으로 밀어낼 수 있다. 표시가 빠질 뿐 잘못 붙지는 않는다.
 - 다시 검토해야 하는 조건
   - CI 상태를 보이자는 요구가 생길 때(대안 E)
   - GitHub Enterprise를 지원할 때(ADR-0004 §8)
