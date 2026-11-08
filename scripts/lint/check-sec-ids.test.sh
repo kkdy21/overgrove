@@ -9,13 +9,11 @@ fail=0
 
 base_review='# 보안 검토
 
-### T4. 필터
+## 2. 위협별 분석
 
-- **검증**: SEC-T4-01 (필터 → canary 없음), SEC-T4-02 (info attributes)
-
-### T5. 전송
-
-- **검증**: SEC-T5-01 (sshCommand)
+| 위협 | 내용 |
+|---|---|
+| [T4](threats/T4.md) | 필터 |
 
 ## 4. 실험 기록
 
@@ -29,20 +27,45 @@ base_review='# 보안 검토
 | 서브모듈 필터 | 확인됨 | SEC-T4-01 (대조군 포함) |
 '
 
+base_t4='# T4. 필터
+
+- **대응**: 무력화
+- **검증**:
+  - SEC-T4-01 (필터 → canary 없음)
+  - SEC-T4-02 (info attributes)
+- **상태**: 적용됨
+'
+
+base_t5='# T5. 전송
+
+- **검증**:
+  - SEC-T5-01 (sshCommand)
+'
+
+base_legacy='SEC-T4-01
+SEC-T4-02
+SEC-T5-01
+SEC-T4-09
+'
+
 base_parsing='| ID | 입력 | 기대 |
 |---|---|---|
 | PAR-WT-01 | a | b |
 | PAR-WT-02 | c | d |
 '
 
-# case_ <name> <expected exit 0|1, or a message the failure must contain> <review text> [parsing text] [test file]
+# case_ <name> <expected exit 0|1, or a message the failure must contain> [T5 text] [test file] [review text] [T4 text]
+#   [parsing text]
 case_() {
   local tree="$work/$1" expected="$2" message=""
   if [[ "$expected" != 0 ]]; then message="$expected"; expected=1; fi
-  mkdir -p "$tree/docs/design" "$tree/docs/architecture" "$tree/OvergroveTests"
-  printf '%s' "$3" >"$tree/docs/design/security-review.md"
-  printf '%s' "${4:-$base_parsing}" >"$tree/docs/architecture/parsing-spec.md"
-  printf '%s\n' "${5:-// SEC-T4-01/02: canary}" >"$tree/OvergroveTests/SampleTests.swift"
+  mkdir -p "$tree/docs/design/threats" "$tree/docs/architecture" "$tree/OvergroveTests" "$tree/scripts/lint"
+  printf '%s' "${5:-$base_review}" >"$tree/docs/design/security-review.md"
+  printf '%s' "${6:-$base_t4}" >"$tree/docs/design/threats/T4.md"
+  printf '%s' "${3:-$base_t5}" >"$tree/docs/design/threats/T5.md"
+  printf '%s' "${7:-$base_parsing}" >"$tree/docs/architecture/parsing-spec.md"
+  printf '%s' "$base_legacy" >"$tree/scripts/lint/sec-ids-legacy.txt"
+  printf '%s\n' "${4:-// SEC-T4-01/02: canary}" >"$tree/OvergroveTests/SampleTests.swift"
   local got=0 output
   output=$("$CHECK" "$tree" 2>&1) || got=$?
   if [[ "$got" == "$expected" && ( -z "$message" || "$output" == *"$message"* ) ]]; then
@@ -53,18 +76,33 @@ case_() {
   fi
 }
 
-case_ baseline 0 "$base_review"
-case_ reference-outside-verification-is-allowed 0 "$base_review"
-case_ duplicate-definition "SEC-T5-01 is defined more than once" "${base_review/SEC-T5-01 (sshCommand)/SEC-T5-01 (sshCommand), SEC-T5-01 (gitProxy)}"
-case_ duplicate-across-merged-prs "SEC-T4-02 is defined more than once" "${base_review/SEC-T4-02 (info attributes)/SEC-T4-02 (info attributes), SEC-T4-02 (submodule)}"
-case_ wrong-section "SEC-T4-09 is defined under T5" "${base_review/SEC-T5-01 (sshCommand)/SEC-T5-01 (sshCommand), SEC-T4-09 (misplaced)}"
-case_ undefined-in-test "SEC-T5-02 is mentioned" "$base_review" "$base_parsing" 'func testSECT5_02_Missing() {}'
-case_ undefined-grouped-in-test "SEC-T4-03 is mentioned" "$base_review" "$base_parsing" '// SEC-T4-01/03'
-case_ undefined-in-doc-body "SEC-T4-07 is mentioned" "${base_review/서브모듈 필터 | 확인됨 | SEC-T4-01/서브모듈 필터 | 확인됨 | SEC-T4-07}"
-case_ test-name-defined 0 "$base_review" "$base_parsing" 'func testSECT4_02_InfoAttributes() {}'
-case_ duplicate-par-row "PAR-WT-02 has more than one table row" "$base_review" "$base_parsing| PAR-WT-02 | e | f |
+case_ baseline 0
+case_ reference-outside-verification-is-allowed 0
+case_ duplicate-definition "SEC-T5-01 is defined more than once" "${base_t5}  - SEC-T5-01 (gitProxy)
 "
-case_ duplicate-experiment-row "experiment E01 has more than one row" "${base_review/| E02 | c | d |/| E02 | c | d |
+case_ duplicate-across-files "SEC-T4-02 is defined more than once" "${base_t5}  - SEC-T4-02 (also here)
+"
+case_ wrong-file "SEC-T4-09 is defined in T5.md, not T4.md" "${base_t5}  - SEC-T4-09 (misplaced)
+"
+case_ undefined-in-test "SEC-T5-02 is mentioned" "" 'func testSECT5_02_Missing() {}'
+case_ undefined-grouped-in-test "SEC-T4-03 is mentioned" "" '// SEC-T4-01/03'
+case_ undefined-in-doc-body "SEC-T4-07 is mentioned" "" "" "${base_review/서브모듈 필터 | 확인됨 | SEC-T4-01/서브모듈 필터 | 확인됨 | SEC-T4-07}"
+case_ test-name-defined 0 "" 'func testSECT4_02_InfoAttributes() {}'
+# #457: new IDs carry the issue number, so parallel PRs cannot collide; new two-digit IDs are refused.
+case_ new-two-digit-id-refused "SEC-T5-02 is a new two-digit ID" "${base_t5}  - SEC-T5-02 (new)
+"
+case_ issue-id-accepted 0 "${base_t5}  - SEC-T5-457-1 (new)
+  - SEC-T5-458-1 (other PR)
+" 'func testSECT5_457_1_New() {}'
+case_ issue-id-without-running-number "SEC-T5-457 is not SEC-T<n>-<issue>-<k>" "${base_t5}  - SEC-T5-457 (new)
+"
+case_ undefined-issue-id-in-test "SEC-T5-457-2 is mentioned" "" 'func testSECT5_457_2_Missing() {}'
+case_ item-after-the-list-is-not-a-definition "SEC-T5-99 is mentioned" "${base_t5}- **상태**: 적용됨
+  - SEC-T5-99 (outside the 검증 list)
+"
+case_ duplicate-par-row "PAR-WT-02 has more than one table row" "" "" "" "" "$base_parsing| PAR-WT-02 | e | f |
+"
+case_ duplicate-experiment-row "experiment E01 has more than one row" "" "" "${base_review/| E02 | c | d |/| E02 | c | d |
 | E01 | again | x |}"
 
 base_plan='# 벤치마크 계획
@@ -90,8 +128,11 @@ base_plan='# 벤치마크 계획
 perf_case_() {
   local tree="$work/perf-$1" expected="$2" message=""
   if [[ "$expected" != 0 ]]; then message="$expected"; expected=1; fi
-  mkdir -p "$tree/docs/design" "$tree/docs/performance" "$tree/OvergroveTests"
+  mkdir -p "$tree/docs/design/threats" "$tree/docs/performance" "$tree/OvergroveTests" "$tree/scripts/lint"
   printf '%s' "$base_review" >"$tree/docs/design/security-review.md"
+  printf '%s' "$base_t4" >"$tree/docs/design/threats/T4.md"
+  printf '%s' "$base_t5" >"$tree/docs/design/threats/T5.md"
+  printf '%s' "$base_legacy" >"$tree/scripts/lint/sec-ids-legacy.txt"
   printf '%s' "$3" >"$tree/docs/performance/benchmark-plan.md"
   printf '%s\n' "${4:-func test_PERF_01_open() {}}" >"$tree/OvergroveTests/PerfTests.swift"
   local got=0 output
