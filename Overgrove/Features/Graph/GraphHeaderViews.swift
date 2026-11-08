@@ -156,7 +156,7 @@ struct GraphColumnMenu: View {
     var body: some View {
         Menu {
             if let onSetShowsStashes {
-                Toggle("Show Stashes", isOn: Binding(get: { showsStashes }, set: onSetShowsStashes))
+                Toggle("Show Stashes", isOn: Binding(get: { showsStashes }, set: { onSetShowsStashes($0) }))
                 Divider()
             }
             Section("Columns") {
