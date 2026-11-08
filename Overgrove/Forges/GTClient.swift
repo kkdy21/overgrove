@@ -9,7 +9,9 @@ import Foundation
 /// - the environment is rebuilt from an allowlist, with the update notifier and extensions off;
 /// - raw output stays in this actor; gt's stderr is dropped, not masked (ADR-0026 §4).
 ///
-/// gt creates no file on first use (gt 1.1.0, measured), so unlike `GLClient` there is no setup check.
+/// gt creates no file on first use (gt 1.1.0, measured: version, auth status, and issue list change nothing under
+/// HOME or TMPDIR), so unlike `GLClient` there is no setup check, and no check whose HOME could differ from the
+/// child's. A HOME gt has no credentials under only reads as not logged in.
 ///
 /// STAND-IN(#154): the execution and hardening code mirrors #154's `GLClient`; once that merges, the shared parts move
 /// into one helper.

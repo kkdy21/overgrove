@@ -242,6 +242,50 @@ final class GTClientTests: XCTestCase {
         XCTAssertEqual(recorded, neutral.resolvingSymlinksInPath().path, "the neutral directory, never a repository")
     }
 
+    /// Every file under `root` with its size, mode, and modification time, for before/after comparison.
+    private func tree(_ root: URL) throws -> [String] {
+        let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey, .isDirectoryKey]
+        let items = FileManager.default.enumerator(at: root, includingPropertiesForKeys: keys)?.allObjects ?? []
+        return try items.compactMap { $0 as? URL }.map { url in
+            let values = try url.resourceValues(forKeys: Set(keys))
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            return [
+                url.path.replacingOccurrences(of: root.path, with: ""), "\(values.fileSize ?? -1)",
+                "\(values.contentModificationDate?.timeIntervalSince1970 ?? 0)",
+                "\(attributes[.posixPermissions] ?? 0)",
+            ].joined(separator: " ")
+        }.sorted()
+    }
+
+    /// SEC-T13-449-2: a load (version, auth status, issue list) leaves gt's HOME, TMPDIR, and the neutral folder as they
+    /// were: the app makes gt create or change no file (ADR-0026 §6; gt 1.1.0 creates none, measured). With
+    /// `OVERGROVE_TEST_GT` set to a real gt, that binary runs instead of the stand-in; it has no account there, so the
+    /// issue list ends at "not logged in" without a request.
+    func testSECT13_449_2_ALoadChangesNoFile() async throws {
+        let home = executables.directory.appendingPathComponent("home", isDirectory: true)
+        let temporary = executables.directory.appendingPathComponent("tmp", isDirectory: true)
+        for folder in [".config/gitea-cli", "Library/Application Support", "Library/Keychains"] {
+            try FileManager.default.createDirectory(
+                at: home.appendingPathComponent(folder), withIntermediateDirectories: true)
+        }
+        try Data("existing: true\n".utf8).write(to: home.appendingPathComponent(".config/gitea-cli/config.yml"))
+        try FileManager.default.createDirectory(at: temporary, withIntermediateDirectories: true)
+        let realGt = ProcessInfo.processInfo.environment["OVERGROVE_TEST_GT"].map { URL(fileURLWithPath: $0) }
+        let stand = try fake()
+        let gt = GTClient(
+            parentEnvironment: ["HOME": home.path, "USER": "tester", "TMPDIR": temporary.path + "/"],
+            neutralDirectory: neutral, executableCandidates: [realGt ?? stand.executable])
+        let before = try [home, temporary, neutral].map(tree)
+        let repository = try XCTUnwrap(GiteaRepository(instance: instance, owner: "acme", name: "widgets"))
+        do {
+            _ = try await gt.issues(in: repository)
+            XCTAssertNil(realGt, "a real gt without an account cannot list issues")
+        } catch GTError.notLoggedIn {
+            XCTAssertNotNil(realGt, "the stand-in reports the instance as logged in")
+        }
+        XCTAssertEqual(try [home, temporary, neutral].map(tree), before)
+    }
+
     /// SEC-T13-449-1: a `gt` that does not print gt's version line (Graphite's CLI, another tool), or an older gt, runs
     /// nothing else.
     func testSECT13_449_1_OnlyAVerifiedGtRuns() async throws {
