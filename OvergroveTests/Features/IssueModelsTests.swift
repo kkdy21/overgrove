@@ -137,4 +137,31 @@ final class IssueModelsTests: XCTestCase {
             XCTAssertNil(IssueDetailModel(Self.issue(5, url: url), repository: repository).browserURL, url)
         }
     }
+
+    /// ADR-0025 §4 and ADR-0021 §3: `login@host`, `+n more`, and a switch command with the validated host only.
+    func testAccountTextAndSwitchCommand() throws {
+        let host = try XCTUnwrap(RemoteHost("GHE.example"))
+        let one = GHAccount(host: host, login: "me", otherCount: 0)
+        XCTAssertEqual(one.text, "me@ghe.example")
+        XCTAssertNil(one.moreText)
+        XCTAssertNil(one.switchCommand)
+        let many = GHAccount(host: host, login: "octo-login", otherCount: 2)
+        XCTAssertEqual(many.moreText, "+2 more")
+        XCTAssertEqual(many.switchCommand, "gh auth switch --hostname ghe.example")
+        XCTAssertFalse(many.switchCommand?.contains("octo-login") ?? true, "the login never goes into the command")
+    }
+
+    func testAccountShowsOnlyWithARepositorysIssues() throws {
+        let account = GHAccount(host: try XCTUnwrap(RemoteHost("github.com")), login: "me", otherCount: 1)
+        let loaded = IssueListModel(
+            content: .loaded(repository: .github(Self.repository), issues: []), isLoading: false, account: account)
+        XCTAssertEqual(loaded.account, account)
+        let failed = IssueListModel(
+            content: .failed(repository: .github(Self.repository), detail: ""), isLoading: false, account: account)
+        XCTAssertEqual(failed.account, account)
+        for content in [IssueListContent.noGitHubRemote, .notInstalled, .notLoggedIn] {
+            XCTAssertNil(IssueListModel(content: content, isLoading: false, account: account).account)
+        }
+        XCTAssertNil(IssueListModel(content: nil, isLoading: false, account: account).account)
+    }
 }

@@ -164,6 +164,38 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(issues.requests, [])
     }
 
+    /// ADR-0025 §4: the issue panel and the status bar name the account gh uses on the repository's host.
+    func testTheRepositoryHostsAccountIsShown() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let account = GHAccount(host: ghe, login: "me", otherCount: 1)
+        let checker = QueuedGHAuthReporter([
+            GHAuthReport(status: .notLoggedIn, hosts: [ghe], accounts: [ghe: account])
+        ])
+        let state = await loadedState(
+            remotes: ["git@ghe.example:team/app.git"], issues: StubIssueLoader([.issues([issue])]), checker: checker)
+        XCTAssertEqual(state.issueListModel.account, account)
+        XCTAssertEqual(state.ghAccount, account)
+        XCTAssertEqual(state.issueListModel.account?.switchCommand, "gh auth switch --hostname ghe.example")
+    }
+
+    /// A failed check shows no account from the check before; the trusted hosts stay.
+    func testAFailedCheckClearsTheAccount() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let account = GHAccount(host: ghe, login: "me", otherCount: 0)
+        let checker = QueuedGHAuthReporter([
+            GHAuthReport(status: .notLoggedIn, hosts: [ghe], accounts: [ghe: account]), nil,
+        ])
+        let state = await loadedState(
+            remotes: ["git@ghe.example:team/app.git"], issues: StubIssueLoader([.issues([issue])]), checker: checker)
+        XCTAssertEqual(state.issueListModel.account, account)
+        state.checkIssuesAgain()
+        await state.ghCheckTask?.value
+        await state.issuePanel.task?.value
+        XCTAssertNil(state.issueListModel.account)
+        XCTAssertNil(state.ghAccount)
+        XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
+    }
+
     // MARK: GitLab (#154, ADR-0026)
 
     private let gitlabIssue = IssueModelsTests.issue(
@@ -193,6 +225,7 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(state.issueListModel.rows.map(\.number), ["#7"])
         XCTAssertNotNil(state.issueListModel.rows.first?.browserURL, "this project's work item page")
         XCTAssertNil(state.pullRequestStore.repository, "pull requests stay GitHub only")
+        XCTAssertNil(state.issueListModel.account, "GitLab issues are not read as a gh account")
         state.selectIssue(7)
         XCTAssertEqual(state.issueDetailModel?.repository, "gitlab.example.com/group/app")
     }

@@ -198,7 +198,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 경고 | `⚠ 1 prunable`. 누르면 해당 워크트리 선택 | `Worktree.prunable` |
 | 느린 status | `🐢 Status 5.2 s`(`tortoise`, 경고 색). 포커스 워크트리의 마지막 status가 1초를 넘었을 때만. 툴팁에 이유(git 밖에서 바뀐 파일을 index가 갱신될 때까지 매번 다시 읽음)를 적는다. 앱은 index를 쓰지 않는다(#168) | `WorktreeListing.Entry.statusDuration` |
 | 진행 중 작업 | `Refreshing…` (작은 스피너) | — |
-| gh 상태 | `gh: @login ✓` / `gh: not logged in` / `gh: not installed`. 누르면 S-07의 GitHub 단계 | `GHAuthStatus` |
+| gh 상태 | 열린 저장소의 GitHub 호스트(없으면 github.com)에 gh 활성 계정이 있으면 `gh: login@host ✓`, 같은 호스트에 계정이 더 있으면 `gh: login@host +n ✓`(ADR-0025 §4, #451). 없으면 `gh: @login ✓` / `gh: not logged in` / `gh: not installed`. 누르면 S-07의 GitHub 단계 | `GHAuthStatus`, `GHAccount` |
 
 ### 상태
 
@@ -472,6 +472,8 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 **진입.** 사이드바 ISSUES 섹션(목록) → 항목 선택 시 상세 패널(상세).
 
+**계정 행 (ADR-0025 §4, #451).** 이슈를 읽었거나 읽지 못한 동안 ISSUES 머리 아래에 gh가 그 저장소 호스트에서 쓰는 활성 계정을 `login@host`로 보인다. 같은 호스트에 계정이 더 있으면 `+n more`와 복사용 `$ gh auth switch --hostname HOST`를 둔다. 명령에는 검증된 HOST만 넣고 login은 넣지 않으며, 클립보드 값은 제어·bidi 문자를 이스케이프한다(ADR-0021 결정 3). 앱은 계정을 바꾸지 않는다.
+
 **사이드바 목록 행.** `#번호` + 제목(한 줄) + 연결 배지(`tree` 심볼 = 연결된 워크트리 있음, `arrow.triangle.branch` = 연결된 브랜치만 있음). 섹션 헤더 오른쪽에 필터 메뉴: `Open`(기본) / `All` / `Assigned to me` / `Linked`.
 
 ```
@@ -501,7 +503,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 본문 | v0.1에서는 표시하지 않는다. Markdown 렌더링과 원격 이미지 로드를 피하기 위해서다. `Open in Browser`로 본다. 그 자리에 `The issue body is not shown in Overgrove. Open it in your browser to read or reply.` 한 줄을 둔다 |
 | Open in Browser | `gh`가 준 URL이 `https://`이고 호스트가 저장소 원격의 GitHub 호스트와 같을 때만 연다. GitLab은 glab의 `web_url`이 그 프로젝트의 `https://HOST/NAMESPACE/NAME/-/issues/<iid>` 또는 `…/-/work_items/<iid>`와 정확히 같을 때만 연다(경로는 ASCII 대소문자 무시, ADR-0026 §5) |
 
-**데이터.** `Issue`, `GHAuthStatus`, 연결 계산 결과.
+**데이터.** `Issue`, `GHAuthStatus`, `GHAccount`, 연결 계산 결과.
 
 | 상태 | 사이드바 | 상세 |
 |---|---|---|
