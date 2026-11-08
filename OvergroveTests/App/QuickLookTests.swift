@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 import XCTest
 
 @testable import Overgrove
@@ -67,7 +68,7 @@ final class QuickLookTests: XCTestCase {
         XCTAssertEqual(QuickLook.target(GitPath("hard.md"), in: root), .failure(.notAFile))
 
         // Web content may load remote resources in its preview.
-        for name in ["page.html", "pic.SVG", "site.webloc"] {
+        for name in ["page.html", "pic.SVG", "site.webloc", "page.xht", "mail.eml"] {
             try Data("<x/>\n".utf8).write(to: root.appendingPathComponent(name))
             XCTAssertEqual(QuickLook.target(GitPath(name), in: root), .failure(.webContent), name)
         }
@@ -78,6 +79,30 @@ final class QuickLookTests: XCTestCase {
         try handle.truncate(atOffset: UInt64(QuickLook.maximumSize + 1))
         try handle.close()
         XCTAssertEqual(QuickLook.target(GitPath("big.bin"), in: root), .failure(.tooLarge))
+    }
+
+    /// SEC-T14-468-1: every type whose system preview renders web content, or hands off a location, is refused: by
+    /// its extension, and by its type's conformance (macOS 26 measurement, #468). `.xht` previews as `public.xhtml`,
+    /// `.svg` as `public.html`; mail messages render their HTML part; internet shortcuts name a URL.
+    func testSECT14_468_1_WebContentTypesAreRefused() {
+        for name in [
+            "a.html", "a.htm", "a.shtml", "a.shtm", "a.xhtml", "a.xht", "a.xhtm", "a.svg", "a.svgz", "a.webarchive",
+            "a.mht", "a.mhtml", "a.webloc", "a.inetloc", "a.eml", "a.emlx", "a.url", "A.XHT", "b.EML",
+        ] {
+            XCTAssertTrue(QuickLook.isWebContent(URL(fileURLWithPath: "/tmp/\(name)")), name)
+        }
+        for name in ["a.md", "a.txt", "a.png", "a.pdf", "a.json", "a.swift", "a.rtf", "Makefile", "a.xml"] {
+            XCTAssertFalse(QuickLook.isWebContent(URL(fileURLWithPath: "/tmp/\(name)")), name)
+        }
+    }
+
+    /// SEC-T14-468-1: a type another app declares as conforming to HTML (or another refused type) is refused by
+    /// conformance even when its extension is not listed.
+    func testSECT14_468_1_ConformanceDecidesForUnlistedExtensions() {
+        XCTAssertTrue(QuickLook.refusedTypes.contains { UTType("public.xhtml")!.conforms(to: $0) })
+        XCTAssertTrue(QuickLook.isWebContent(type: UTType(filenameExtension: "xht")))
+        XCTAssertFalse(QuickLook.isWebContent(type: UTType(filenameExtension: "png")))
+        XCTAssertFalse(QuickLook.isWebContent(type: nil))
     }
 
     func testTheRowActionShowsOrRefuses() async throws {

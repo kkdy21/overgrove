@@ -1,4 +1,5 @@
 import Foundation
+import UniformTypeIdentifiers
 
 /// Quick Look for working tree files (#399, interaction.md §5, security-review.md T14).
 ///
@@ -15,12 +16,34 @@ enum QuickLook {
         version.majorVersion >= 15
     }
 
-    /// Types whose system preview renders web content, which may load remote resources: previewing such a file
-    /// from an untrusted repository could reach a server the repository chose. Not previewed (security review of
-    /// #399).
+    /// Extensions whose system preview renders web content, which may load remote resources, or names a location:
+    /// previewing such a file from an untrusted repository could reach a server the repository chose. Not previewed
+    /// (security review of #399; measured on macOS 26 for #468: `.xht` and `.xhtm` preview as XHTML, `.svg` as HTML,
+    /// mail messages render their HTML part, internet shortcuts name a URL).
     static let webContentExtensions: Set<String> = [
-        "html", "htm", "xhtml", "shtml", "svg", "svgz", "webarchive", "mht", "mhtml", "webloc", "inetloc",
+        "html", "htm", "shtml", "shtm", "xhtml", "xht", "xhtm", "svg", "svgz", "webarchive", "mht", "mhtml", "webloc",
+        "inetloc", "eml", "emlx", "url",
     ]
+
+    /// The same kinds by type (#468): a file whose extension maps to a type conforming to one of these is refused too,
+    /// so an extension another app declares as HTML, or a new alias of these types, is covered without listing it.
+    static let refusedTypes: [UTType] = [
+        .html, .svg, .webArchive, .internetLocation, .emailMessage,
+        UTType("public.xhtml"), UTType("org.ietf.mhtml"), UTType("com.microsoft.internet-shortcut"),
+    ].compactMap { $0 }
+
+    /// Whether `url`'s extension, or the type it maps to, is one Overgrove does not preview.
+    static func isWebContent(_ url: URL) -> Bool {
+        let pathExtension = url.pathExtension.lowercased()
+        guard !pathExtension.isEmpty else { return false }
+        return webContentExtensions.contains(pathExtension)
+            || isWebContent(type: UTType(filenameExtension: pathExtension))
+    }
+
+    static func isWebContent(type: UTType?) -> Bool {
+        guard let type else { return false }
+        return refusedTypes.contains { type.conforms(to: $0) }
+    }
 
     /// The file to preview, by its real path: a regular file itself (not a symbolic link, a FIFO, a folder, or a hard
     /// link to another place), inside the worktree (`PathValidator.worktreeFile`), not web content, and not larger
@@ -37,7 +60,10 @@ enum QuickLook {
             let real = PathValidator.canonical(worktree.appendingPathComponent(file.relativePath)),
             case .inside = PathValidator.containment(of: real, in: worktree)
         else { return .failure(.outsideRepository) }
-        guard !webContentExtensions.contains(real.pathExtension.lowercased()) else { return .failure(.webContent) }
+        // Both the name in the repository and the real file's: either decides the preview extension's type.
+        guard !isWebContent(real), !isWebContent(worktree.appendingPathComponent(relative)) else {
+            return .failure(.webContent)
+        }
         guard Int64(info.st_size) <= maximumSize else { return .failure(.tooLarge) }
         // The real path: a folder above swapped for a link after this check cannot redirect the panel.
         return .success(real)
