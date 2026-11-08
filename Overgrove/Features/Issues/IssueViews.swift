@@ -237,7 +237,8 @@ struct IssueDetailView: View {
                 .disabled(model.browserURL == nil)
                 .help(
                     model.browserURL == nil
-                        ? "This link is not an issue page on this repository's host." : model.urlText)
+                        ? String(localized: "This link is not an issue page on this repository's host.") : model.urlText
+                )
                 Button("Copy URL") {
                     // Copying to the clipboard is not a repository write (ADR-0011).
                     NSPasteboard.general.clearContents()

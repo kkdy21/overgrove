@@ -1028,6 +1028,16 @@
         }
       }
     },
+    "Cannot read issues for %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 이슈를 읽을 수 없음"
+          }
+        }
+      }
+    },
     "Can’t Open Link" : {
       "localizations" : {
         "ko" : {
@@ -2482,6 +2492,16 @@
         }
       }
     },
+    "GitHub CLI not installed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI 설치 안 됨"
+          }
+        }
+      }
+    },
     "GitHub CLI reported an error." : {
       "localizations" : {
         "ko" : {
@@ -2508,6 +2528,76 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub CLI 설정"
+          }
+        }
+      }
+    },
+    "GitLab CLI %@ is older than Overgrove supports (%@ or later)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitLab CLI %1$@은(는) Overgrove가 지원하는 버전(%2$@ 이상)보다 오래되었습니다."
+          }
+        }
+      }
+    },
+    "GitLab CLI (glab) is not installed." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitLab CLI(glab)가 설치되어 있지 않습니다."
+          }
+        }
+      }
+    },
+    "GitLab CLI could not be started (error %d)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitLab CLI를 시작하지 못했습니다(오류 %d)."
+          }
+        }
+      }
+    },
+    "GitLab CLI did not respond within %lld seconds and was stopped." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitLab CLI가 %lld초 안에 응답하지 않아 중단했습니다."
+          }
+        }
+      }
+    },
+    "GitLab CLI is not logged in to %@." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitLab CLI가 %@에 로그인되어 있지 않습니다."
+          }
+        }
+      }
+    },
+    "GitLab CLI is not set up yet. Run glab once in Terminal." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitLab CLI가 아직 설정되지 않았습니다. 터미널에서 glab을 한 번 실행하세요."
+          }
+        }
+      }
+    },
+    "GitLab CLI reported an error (exit code %d)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitLab CLI가 오류를 알렸습니다(종료 코드 %d)."
           }
         }
       }
@@ -2790,6 +2880,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이슈와 풀 리퀘스트를 %@ 계정으로 읽습니다."
+          }
+        }
+      }
+    },
+    "Issues appear for repositories with a remote on github.com or a host gh is logged in to." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "github.com이나 gh에 로그인한 호스트에 원격이 있는 저장소에서 이슈가 보입니다."
+          }
+        }
+      }
+    },
+    "Issues appear when GitHub CLI or GitLab CLI is logged in to this host." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI나 GitLab CLI가 이 호스트에 로그인되어 있으면 이슈가 보입니다."
           }
         }
       }
@@ -3096,6 +3206,16 @@
         }
       }
     },
+    "No GitHub remote" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub 원격 없음"
+          }
+        }
+      }
+    },
     "No base branch was found (origin/HEAD, main, or master). Choose one to compare with." : {
       "localizations" : {
         "ko" : {
@@ -3222,6 +3342,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "파일 끝에 줄바꿈 없음"
+          }
+        }
+      }
+    },
+    "No open issues" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "열린 이슈 없음"
           }
         }
       }
@@ -3372,6 +3502,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "로그인 안 됨"
+          }
+        }
+      }
+    },
+    "Not logged in to %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에 로그인 안 됨"
+          }
+        }
+      }
+    },
+    "Not logged in to GitHub" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub에 로그인 안 됨"
           }
         }
       }
@@ -3712,6 +3862,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove가 git을 실행하지 못했습니다."
+          }
+        }
+      }
+    },
+    "Overgrove could not understand GitLab CLI's output." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitLab CLI의 출력을 해석하지 못했습니다."
           }
         }
       }
@@ -4334,6 +4494,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "정리하려면 터미널에서 git worktree prune을 실행하세요."
+          }
+        }
+      }
+    },
+    "Run one of these in Terminal, then check again:" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널에서 다음 중 하나를 실행한 뒤 다시 확인하세요:"
           }
         }
       }
@@ -5122,6 +5292,16 @@
         }
       }
     },
+    "The issue body is not shown in Overgrove. Open it in your browser to read or reply." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove는 이슈 본문을 보여 주지 않습니다. 읽거나 답하려면 브라우저에서 여세요."
+          }
+        }
+      }
+    },
     "The only network action is git fetch. Nothing in your repositories is ever changed." : {
       "localizations" : {
         "ko" : {
@@ -5472,6 +5652,16 @@
         }
       }
     },
+    "This link is not an issue page on this repository's host." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 저장소 호스트의 이슈 페이지 링크가 아닙니다."
+          }
+        }
+      }
+    },
     "This link is not this repository's pull request page." : {
       "localizations" : {
         "ko" : {
@@ -5678,6 +5868,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "너무 커서 전체를 보일 수 없음"
+          }
+        }
+      }
+    },
+    "Too many or too large issues to show" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈가 너무 많거나 커서 보여 줄 수 없음"
           }
         }
       }
@@ -6628,12 +6828,32 @@
         }
       }
     },
+    "linked branch" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결된 브랜치"
+          }
+        }
+      }
+    },
     "linked to the selected issue" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "선택한 이슈와 연결됨"
+          }
+        }
+      }
+    },
+    "linked worktree" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결된 워크트리"
           }
         }
       }
