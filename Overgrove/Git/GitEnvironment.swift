@@ -40,6 +40,11 @@ struct GitEnvironment: Sendable, Equatable {
         // A repository's log.follow=true makes `git log -- <one path>` follow renames, so S-09's "Follow renames" off
         // still followed (#310). `fileHistory` passes `--follow` itself when it wants it; an option beats the config.
         "-c", "log.follow=false",
+        // A repository's mailmap file can be any path, a FIFO stalls every `git log`, and the app shows commit
+        // identities as recorded. Every supported git knows these keys (#356).
+        "-c", "log.mailmap=false",
+        "-c", "mailmap.file=",
+        "-c", "mailmap.blob=",
     ]
 
     /// The neutralizing arguments of #350: one per allowed transport, and one more. Part of `commonArguments`; a test
@@ -60,6 +65,10 @@ struct GitEnvironment: Sendable, Equatable {
     /// installed `git-remote-<helper>` through a `<helper>::` URL, `remote.<n>.vcs`, or `url.<base>.insteadOf` (T5).
     /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
     static let allowedProtocols = "https:ssh:git:file:http"
+
+    /// The list for an untrusted repository (#107, ADR-0009): no `file`, so a local path or `file://` remote, whose
+    /// `git-upload-pack` would run here with the other repository's unchecked settings, is refused before it starts.
+    static let allowedRemoteProtocols = "https:ssh:git:http"
 
     /// The first git on the newest line whose `GIT_NO_LAZY_FETCH` also stops a lazy fetch during fetch (#212, #317).
     /// That came with the May 2024 security releases: 2.45.1, and 2.44.1 with backports to 2.39.4, 2.40.2, 2.41.1,
@@ -85,10 +94,13 @@ struct GitEnvironment: Sendable, Equatable {
     ///     `remote.<n>.uploadpack` or credential helper (#212). An empty `GIT_ALLOW_PROTOCOL` refuses every transport
     ///     before anything runs, on every supported git (protocol policy predates 2.36). The default is `false`, so a
     ///     caller that forgets to choose gets no network (#215); only `GitClient.fetch` passes `true`.
+    ///   - allowsLocalTransport: With `allowsTransport`, whether `file` is allowed too; `false` for an untrusted
+    ///     repository (#107).
     static func environment(
         parent: [String: String],
         trustedSSHCommand: String? = nil,
-        allowsTransport: Bool = false
+        allowsTransport: Bool = false,
+        allowsLocalTransport: Bool = true
     ) -> [String: String] {
         var environment: [String: String] = [
             "LC_ALL": "C",
@@ -100,7 +112,8 @@ struct GitEnvironment: Sendable, Equatable {
             "GIT_ASKPASS": "",
             "SSH_ASKPASS": "",
             "GIT_PROXY_COMMAND": "",
-            "GIT_ALLOW_PROTOCOL": allowsTransport ? allowedProtocols : "",
+            "GIT_ALLOW_PROTOCOL": allowsTransport
+                ? (allowsLocalTransport ? allowedProtocols : allowedRemoteProtocols) : "",
             // Second layer: no lazy fetch from a promisor remote, for any command (#212). Older git ignores it, and
             // before the May 2024 security releases it does not cover every path (#317, lazyFetchControlVersion).
             "GIT_NO_LAZY_FETCH": "1",

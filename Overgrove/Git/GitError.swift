@@ -8,7 +8,9 @@ struct MaskedText: Sendable, Hashable {
     static let maximumLength = 64 * 1024
     static let summaryLength = 200
 
-    /// Masked, control characters removed, at most 64 KiB.
+    /// Masked, control characters removed, at most `maximumLength` Unicode scalars. Lines read as a terminal shows
+    /// them: `\r\n` ends a line, and a lone `\r` (how `--progress` rewrites a line) starts it over, so only its last
+    /// state is kept (#362).
     let text: String
 
     init(masking raw: Data) {
@@ -17,14 +19,57 @@ struct MaskedText: Sendable, Hashable {
 
     init(masking raw: String) {
         let masked = CredentialMasker.mask(raw)
-        let printable = String(
-            String.UnicodeScalarView(
-                masked.unicodeScalars.filter {
-                    $0 == "\n" || $0 == "\t" || !CharacterSet.controlCharacters.contains($0)
+        // An array with an explicit line start keeps this linear: counting a scalar view is O(n) (#362 review).
+        var printable: [Unicode.Scalar] = []
+        printable.reserveCapacity(min(masked.utf8.count, Self.maximumLength))
+        var lineStart = 0
+        var startsOver = false
+        // What a `\r` last replaced on this line, restored when the line ends blank: git writes a server's
+        // sideband CRLF as `remote: <message>   \rremote: \n`, which would otherwise leave only `remote: `.
+        var replaced: [Unicode.Scalar] = []
+        func endLine() {
+            if Self.isBlank(printable[lineStart...]), !Self.isBlank(replaced[...]) {
+                printable.removeSubrange(lineStart...)
+                printable.append(contentsOf: replaced)
+            }
+            replaced = []
+        }
+        for scalar in masked.unicodeScalars {
+            if startsOver {
+                startsOver = false
+                if scalar != "\n" {
+                    // A copy, not a slice: a slice would make the next removal copy the whole buffer.
+                    if !Self.isBlank(printable[lineStart...]) { replaced = Array(printable[lineStart...]) }
+                    printable.removeSubrange(lineStart...)
                 }
-            )
-        )
-        text = printable.count > Self.maximumLength ? String(printable.prefix(Self.maximumLength)) : printable
+            }
+            switch scalar {
+            case "\r":
+                // Decided by what follows: a line end with `\n`, else the line starts over. A trailing one leaves
+                // the line as it was.
+                startsOver = true
+            case "\n":
+                endLine()
+                printable.append(scalar)
+                lineStart = printable.count
+            case "\t":
+                printable.append(scalar)
+            default:
+                if !CharacterSet.controlCharacters.contains(scalar) { printable.append(scalar) }
+            }
+        }
+        endLine()
+        // Counted in scalars, not `Character`s: a run of combining marks is one `Character` of any length (#362).
+        var view = String.UnicodeScalarView()
+        view.append(contentsOf: printable.prefix(Self.maximumLength))
+        text = String(view)
+    }
+
+    /// Only spaces and tabs, or git's `remote:` sideband prefix with nothing after it.
+    private static func isBlank(_ line: ArraySlice<Unicode.Scalar>) -> Bool {
+        var rest = line.drop { $0 == " " || $0 == "\t" }
+        if rest.starts(with: "remote:".unicodeScalars) { rest = rest.dropFirst(7) }
+        return rest.allSatisfy { $0 == " " || $0 == "\t" }
     }
 
     /// First non-empty line, at most 200 characters, for one-line messages.

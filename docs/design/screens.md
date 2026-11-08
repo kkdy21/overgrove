@@ -1,6 +1,6 @@
 # 화면 명세 (Screens)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159), 패널 테마 레이아웃으로 개정 (#166) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159), 패널 테마 레이아웃으로 개정 (#166), 사이드바 TAGS·선택 이력 설계 (#123, v0.2.0) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
 
 HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. S-11(기준 브랜치 대비 변경)은 #158에서 추가했다. 고충실도 목업은 [mockups.md](mockups.md)에 모았고, 각 절에도 링크를 둔다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다. 패널, 그래프, 알약을 그리는 규칙(수치)은 [art-direction.md](art-direction.md)에 있다.
 
@@ -110,6 +110,22 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 - 패널 머리: 필터 필드(`⌥⌘F`)
 
 워크트리 행 왼쪽의 타일은 그 브랜치의 레인 색이라 그래프의 같은 줄과 색으로 이어진다. 세부 모양은 [art-direction.md §6](art-direction.md#6-사이드바)에 있다.
+
+**TAGS 섹션 (v0.2.0, #123).** REMOTE 아래, STASHES 위다. 처음에는 접혀 있다. 규칙은 [information-architecture.md §4.5](information-architecture.md#45-tags-섹션-123-v020)에 있다. 펼친 모습(와이어프레임, 위 S-01 와이어프레임의 사이드바 열과 같은 폭):
+
+```
+│˅ TAGS            38  │
+│  ⌂ v1.4.0        3d  │   ⌂ = `tag` 심볼, 오른쪽은 만든 날짜의 상대 시각
+│  ⌂ v1.4.0-rc.2  12d  │
+│  ⌂ v1.3.2  🌲   1mo  │   🌲 = 이 커밋에 detached HEAD로 선 워크트리가 있음(`tree` 심볼)
+│  ⌂ v1.3.1       2mo  │
+│  …                   │
+│  38 more tags — filter to find one │   200개를 넘을 때만
+```
+
+- 행 높이는 `size.row-sidebar`(28). 심볼과 글자 색은 REMOTE 브랜치 행과 같다(`text.secondary` 심볼, `text.primary` 이름, `text.tertiary` 시각).
+- 태그 행을 고르면 그래프가 그 커밋으로 스크롤해 선택하고 상세 패널에 S-03이 열린다.
+- 고충실도 목업은 구현 이슈에서 그린다(`design/mockups/generator`).
 
 ### 중앙: 커밋 그래프
 
@@ -268,7 +284,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 **목적.** 커밋 하나의 메타데이터, 메시지, 변경 파일을 보여 준다.
 
-**진입.** 그래프의 커밋 행, 사이드바 브랜치(팁 커밋), S-09에서 커밋 선택.
+**진입.** 그래프의 커밋 행, 사이드바 브랜치(팁 커밋), 사이드바 태그(가리키는 커밋, v0.2.0 #123), S-09에서 커밋 선택, 선택 이력 이동(`⌘[` / `⌘]`, v0.2.0 #123).
 
 ```
 ┌──────────────────────────────────────┐
@@ -425,7 +441,8 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | Last fetch | 저장소 단위임을 `(repository)`로 밝힌다. **이 화면에 Fetch 버튼을 두지 않는다.** fetch는 저장소 단위이므로 툴바 하나로 통일한다 |
 | 느린 status 카드 | 마지막 status가 1초를 넘으면 정보 카드 아래에 `🐢 Status 5.2 s`와 이유를 보여 준다. 설정 보고가 깨끗하면 복사용 `git status`와 "신뢰하는 저장소에서만"을 붙이고, 발견 항목이 있으면 명령을 제시하지 않는다(#200). 앱은 실행하지 않는다(#168) |
 | Base | 기준 브랜치(기본은 기본 브랜치)와 그 대비 요약. S-02와 같은 **하단 고정 비교 카드**로 보여 준다. `Compare with Base…`는 S-11을 연다 (#158, #166) |
-| Copy Report | SECURITY 머리 오른쪽의 `doc.on.doc` 버튼. 보안 상태를 텍스트로 복사한다. 키 이름과 판정만 담고 값, 경로, 원격 URL, 브랜치 이름, 오류 문구는 넣지 않는다(#110, [security-review.md T11](security-review.md#t11-자격-증명-노출), SEC-T11-06) |
+| Copy Report | SECURITY 머리 오른쪽의 `doc.on.doc` 버튼. 보안 상태를 텍스트로 복사한다. 키 이름과 판정만 담고 값, 경로, 원격 URL, 브랜치 이름, 오류 문구는 넣지 않는다(#110, [security-review.md T11](security-review.md#t11-자격-증명-노출), SEC-T11-06). `Untrusted: yes/no`와 `Remotes on this Mac: n`(개수만)도 넣는다(#107) |
+| 신뢰하지 않음 (#107) | SECURITY 카드의 `Treat as untrusted` 토글. 켜면 이 Mac의 원격(로컬 경로·`file://`)을 fetch하지 않고, Open in Terminal은 항상 확인 후에 연다. 신뢰함이면서 이 Mac에 원격이 있으면 원격 이름(마스킹·이스케이프, 경로·URL 없음)과 함께 "Remotes on this Mac" 경고를 보여 준다. 켜져 있으면 "Untrusted" 상태 줄을 보여 준다. 저장소 단위이고 등록 정보에 저장한다(ADR-0009 후속 작업) |
 | SECURITY | 위협 모델 대응이 이 저장소에 적용되었는지 보여 준다. 항상 켜져 있는 항목(hooks, fsmonitor, ext diff, 마스킹)은 `✓`로 표시한다. `RepoConfigInspector`가 무력화한 저장소 설정이 있으면 `⚠` + 개수, 펼치면 키 이름 목록을 보여 준다(값은 보여 주지 않는다). 항목 정의는 [security-review.md](security-review.md)와 ADR-0009를 따른다 |
 
 **데이터.** `Worktree`, `UpstreamStatus`, `WorkingState`, `FetchRecord`, `RepoConfigInspector` 결과.
@@ -582,6 +599,8 @@ Advanced
 | 상세 로그 | 끔 | `UserDefaults` | 로그에도 마스킹을 적용한다 (T16) |
 
 토큰이나 비밀 값을 입력받는 필드는 **없다.**
+
+**신뢰하지 않음 (#107).** Repositories 탭의 각 행에 `Untrusted` 체크박스가 있다. S-05의 `Treat as untrusted`와 같은 값이다.
 
 **v0.1 구현 범위 (#86).** General(자동 fetch, 원격 URL)과 Repositories(목록, Remove, Add…) 탭을 만든다. 자동 fetch 설정은 저장하지만, 스케줄러(#79)가 들어올 때까지 화면에서 숨긴다(`AppSettings.isAutoFetchAvailable`). untracked 표시와 상세 로그는 뒤로 미룬다. Advanced 탭과 git 실행 파일 행은 v0.2.0(#106)에서 들어왔다. 실제 경로, 버전, Apple 서명 여부, partial clone fetch 안내, `Choose…`, `Use Default`를 보여 준다([ADR-0019](../adr/0019-user-chosen-git-executable.md)). Settings에서 저장소를 지우면 그 저장소를 보던 창도 닫고, 등록·fetch 기록·결과 캐시를 함께 지운다(창의 Remove와 같다).
 

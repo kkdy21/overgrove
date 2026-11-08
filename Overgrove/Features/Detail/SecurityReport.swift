@@ -15,6 +15,8 @@ enum SecurityReport {
         let isMainWorktree: Bool
         let appVersion: String?
         var home = NSHomeDirectory()
+        /// The repository is marked untrusted (#107).
+        var isUntrusted = false
     }
 
     static let footer = "Values, paths, and remote URLs are not included. Credentials are masked."
@@ -24,21 +26,25 @@ enum SecurityReport {
     static func text(_ source: Source) -> String {
         text(
             isMainWorktree: source.isMainWorktree, inspection: source.inspection, appVersion: source.appVersion,
-            home: source.home)
+            home: source.home, isUntrusted: source.isUntrusted)
     }
 
     /// - Parameter isMainWorktree: Named as `main worktree` or `linked worktree`; the branch name is free text a
     ///   repository or its owner chose, so it is not copied.
     static func text(
-        isMainWorktree: Bool, inspection: WorktreeInspection, appVersion: String?, home: String = NSHomeDirectory()
+        isMainWorktree: Bool, inspection: WorktreeInspection, appVersion: String?, home: String = NSHomeDirectory(),
+        isUntrusted: Bool = false
     ) -> String {
         // Full remote URLs never matter here: the report names remotes only.
-        let model = WorktreeSecurityModel(inspection, showsFullRemoteURLs: false)
+        let model = WorktreeSecurityModel(inspection, showsFullRemoteURLs: false, isUntrusted: isUntrusted)
         var lines = ["Overgrove security report", "Worktree: \(isMainWorktree ? "main worktree" : "linked worktree")"]
         var inspected = ["Inspected: \(timestamp(model.inspectedAt))", "local and worktree scopes"]
         if let version = model.gitVersion { inspected.append(version) }
         lines.append(inspected.joined(separator: " · "))
         if let appVersion { lines.append("Overgrove: \(appVersion)") }
+        // #107: the mode and how many remotes are on this Mac, never their names, paths, or URLs.
+        lines.append("Untrusted: \(model.isUntrusted ? "yes" : "no")")
+        lines.append("Remotes on this Mac: \(model.localRemotes.count)")
 
         var notes: [String] = []
         if let reason = model.blockingReason { notes.append("Queries stopped: \(reason)") }

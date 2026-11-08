@@ -74,6 +74,14 @@ final class RepositoryRegistryTests: XCTestCase {
         XCTAssertEqual(stored.count, 1)
         XCTAssertEqual(Set(stored[0].keys), ["rootPath", "commonDirectoryPath"])
         XCTAssertTrue(stored[0].values.allSatisfy { $0 is String })
+
+        // #107: the untrusted flag is stored only when set.
+        registry.setUntrusted(true, for: entry("api").id)
+        let marked = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: try XCTUnwrap(defaults.data(forKey: RepositoryRegistry.repositoriesKey))) as? [[String: Any]])
+        XCTAssertEqual(Set(marked[0].keys), ["rootPath", "commonDirectoryPath", "isUntrusted"])
+        XCTAssertEqual(marked[0]["isUntrusted"] as? Bool, true)
     }
 
     func testCorruptOrInvalidStoredEntriesAreSkipped() throws {

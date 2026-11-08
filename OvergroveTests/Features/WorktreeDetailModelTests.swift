@@ -36,6 +36,38 @@ final class WorktreeDetailModelTests: XCTestCase {
         WorktreeSecurityModel(inspection(entries, hooks: hooks))
     }
 
+    /// #107: a repository with a remote on this Mac warns while it is trusted, naming the remotes (masked, escaped),
+    /// and states the untrusted mode when it is untrusted. Network remotes do not count.
+    func testRemotesOnThisMacWarnUntilTheRepositoryIsUntrusted() {
+        let entries = [
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "origin", variable: "url", value: "/srv/git/api.git"),
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "backup", variable: "url",
+                value: "file:///Volumes/backup/api.git"),
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "github", variable: "url",
+                value: "https://kim:\(secret)@github.com/acme/api.git"),
+        ]
+        let trusted = WorktreeSecurityModel(inspection(entries))
+        XCTAssertFalse(trusted.isUntrusted)
+        XCTAssertEqual(trusted.localRemotes.count, 2)
+        XCTAssertEqual(trusted.localRemotes, ["origin", "backup"])
+        let warning = try? XCTUnwrap(trusted.localRemoteWarning)
+        XCTAssertTrue(warning?.contains("origin") == true, warning ?? "")
+        XCTAssertTrue(warning?.contains("untrusted") == true, warning ?? "")
+        XCTAssertFalse(warning?.contains("/srv/git") == true, "no paths or URLs")
+        XCTAssertNil(trusted.untrustedNote)
+
+        let untrusted = WorktreeSecurityModel(inspection(entries), isUntrusted: true)
+        XCTAssertNil(untrusted.localRemoteWarning)
+        XCTAssertNotNil(untrusted.untrustedNote)
+
+        let network = WorktreeSecurityModel(inspection([entries[2]]))
+        XCTAssertEqual(network.localRemotes, [])
+        XCTAssertNil(network.localRemoteWarning)
+    }
+
     /// #262: a very large configuration shortens the report and the remote list, and S-05 says so.
     func testShortenedReportIsAnnounced() {
         let remotes = (0..<(RepoConfigInspector.maximumRemotes + 2)).map {

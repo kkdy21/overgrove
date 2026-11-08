@@ -214,6 +214,8 @@ final class GitCommandTests: XCTestCase {
                 "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=",
                 "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
                 "-c", "http.delegation=none",
+                "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",
+                "-c", "transfer.credentialsInUrl=die", "-c", "promisor.acceptFromServer=none",
             ]
         )
     }

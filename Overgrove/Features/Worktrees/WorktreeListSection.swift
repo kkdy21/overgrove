@@ -210,7 +210,7 @@ struct WorktreeRowView: View {
         .frame(height: Tokens.Size.rowWorktree)
         .background {
             if isSelected {
-                let shape = RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
+                let shape = RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                 shape
                     .fill(isListFocused ? Tokens.Color.surfaceSelection : Tokens.Color.surfaceSelectionInactive)
                     .overlay {

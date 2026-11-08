@@ -28,6 +28,11 @@ struct RepoSafetyContext: Sendable, Equatable {
     /// Remotes whose URLs and settings are all in a built-in transport form (`TransportName.isBuiltInFetchForm`).
     /// Fetch refuses any other remote before git starts (#350, T5). Empty by default (fail closed).
     let fetchableRemotes: Set<String>
+    /// Remotes with a password in a URL (`RepoConfigInspector.remotesWithPassword`). Fetch refuses them (#356).
+    let remotesWithPassword: Set<String>
+    /// The user marked the repository untrusted (#107): fetch allows no `file` transport. Set by the caller from the
+    /// registry, not from the repository's configuration.
+    var blocksLocalTransport = false
 
     static let preInspection = RepoSafetyContext(
         neutralization: [],
@@ -36,7 +41,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         isInspected: false,
         fetchBlockingReason: nil,
         isPartialClone: false,
-        fetchableRemotes: []
+        fetchableRemotes: [],
+        remotesWithPassword: []
     )
 
     init(
@@ -45,7 +51,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         trustedSSHCommand: String?,
         fetchBlockingReason: String? = nil,
         isPartialClone: Bool = false,
-        fetchableRemotes: Set<String> = []
+        fetchableRemotes: Set<String> = [],
+        remotesWithPassword: Set<String> = []
     ) {
         self.init(
             neutralization: inspectedNeutralization,
@@ -54,7 +61,8 @@ struct RepoSafetyContext: Sendable, Equatable {
             isInspected: true,
             fetchBlockingReason: fetchBlockingReason,
             isPartialClone: isPartialClone,
-            fetchableRemotes: fetchableRemotes
+            fetchableRemotes: fetchableRemotes,
+            remotesWithPassword: remotesWithPassword
         )
     }
 
@@ -65,9 +73,11 @@ struct RepoSafetyContext: Sendable, Equatable {
         isInspected: Bool,
         fetchBlockingReason: String?,
         isPartialClone: Bool,
-        fetchableRemotes: Set<String>
+        fetchableRemotes: Set<String>,
+        remotesWithPassword: Set<String>
     ) {
         self.fetchableRemotes = fetchableRemotes
+        self.remotesWithPassword = remotesWithPassword
         self.neutralization = neutralization
         self.fetchAuthentication = fetchAuthentication
         self.trustedSSHCommand = trustedSSHCommand
@@ -188,6 +198,10 @@ actor GitClient {
         if let reason = safety.fetchBlockingReason {
             throw GitError.configInspectionFailed(reason: reason)
         }
+        // A remote with a password in a URL (#356); git 2.37+ would also refuse it with transfer.credentialsInUrl.
+        if case .fetch(let remote) = command, safety.remotesWithPassword.contains(remote.value) {
+            throw GitError.configInspectionFailed(reason: Self.passwordInURLReason)
+        }
         // Only a remote the inspection found in a built-in transport form (#350, T5). A remote it did not list (no
         // `remote.<n>.url`, or past `RepoConfigInspector.maximumRemotes`) is refused too.
         guard case .fetch(let remote) = command, safety.fetchableRemotes.contains(remote.value) else {
@@ -212,9 +226,14 @@ actor GitClient {
             acceptedExitCodes: [0],
             trustedSSHCommand: safety.trustedSSHCommand,
             allowsTransport: true,
+            allowsLocalTransport: !safety.blocksLocalTransport,
             stderrObserver: progress.map(Self.progressObserver)
         )
     }
+
+    static let passwordInURLReason =
+        "This remote's URL contains a password, so Overgrove does not fetch it: git would send the password and "
+        + "could save it to your credential helper. Remove it from the URL and use a credential helper instead."
 
     /// Turns raw stderr chunks into progress updates. Only phases and numbers leave the parser, never server text.
     ///
@@ -245,13 +264,15 @@ actor GitClient {
         acceptedExitCodes: Set<Int32>,
         trustedSSHCommand: String?,
         allowsTransport: Bool,
+        allowsLocalTransport: Bool = true,
         stderrObserver: (@Sendable (Data) -> Void)? = nil
     ) async throws -> GitOutput {
         let request = ProcessRequest(
             executable: environment.executable,
             arguments: arguments,
             environment: GitEnvironment.environment(
-                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport),
+                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport,
+                allowsLocalTransport: allowsLocalTransport),
             currentDirectory: directory,
             limits: limits
         )

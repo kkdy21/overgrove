@@ -151,6 +151,8 @@ OvergroveTests/
 | 0017 | 디자인 토큰은 Swift 스크립트로 Asset Catalog와 Swift 상수를 생성해 커밋 | Accepted |
 | 0018 | 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 | Accepted |
 | 0019 | 사용자가 고른 git 실행 파일을 믿는 조건 | Accepted |
+| 0020 | git 호환성 매트릭스를 CI에서 돌리는 방법 | Accepted |
+| 0021 | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
 
 ### 2.6 테스트 ID
 

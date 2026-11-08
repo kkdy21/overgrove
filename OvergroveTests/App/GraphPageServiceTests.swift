@@ -127,6 +127,50 @@ final class GraphPageServiceTests: XCTestCase {
         XCTAssertEqual(logCalls(), before + 1, "forget drops the pages")
     }
 
+    /// #333: a ref the parser skips (here a non-UTF-8 branch name) is still walked by `log --branches` but is not in
+    /// `GraphRefSet`. Moving only that ref must not serve the old page from the cache.
+    func testMovingOnlyASkippedRefReadsThePageAgain() async throws {
+        func output(_ arguments: [String]) async throws -> String {
+            String(decoding: try await repository.git(arguments).stdout, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        func commit(_ message: String) async throws -> String {
+            try await output([
+                "commit-tree", "-p", "HEAD", "-m", message, try await output(["rev-parse", "HEAD^{tree}"]),
+            ])
+        }
+        try await repository.git(["pack-refs", "--all"])
+        let packed = repository.root.appendingPathComponent(".git/packed-refs")
+        let original = try Data(contentsOf: packed)
+        // APFS names must be UTF-8, so the ref lives only in packed-refs.
+        func pointSkippedRef(at oid: String) throws {
+            try (original + Data("\(oid) refs/heads/bad-".utf8) + Data([0xFF]) + Data("\n".utf8)).write(to: packed)
+        }
+        try pointSkippedRef(at: try await commit("skipped one"))
+
+        let service = try makeService()
+        let first = try await page(service, skip: 0, limit: 100)
+        XCTAssertGreaterThan(first.refs.skippedRecords, 0, "the non-UTF-8 name is skipped")
+        XCTAssertTrue(first.commits.contains { $0.subject == "skipped one" }, "log still walks it")
+
+        try pointSkippedRef(at: try await commit("skipped two"))
+        _ = await service.refresh(model, trigger: .automatic)
+        let moved = try await page(service, skip: 0, limit: 100)
+        XCTAssertEqual(moved.refSet, first.refSet, "the key cannot see the skipped ref")
+        XCTAssertTrue(moved.commits.contains { $0.subject == "skipped two" }, "the page was read again, not cached")
+        XCTAssertFalse(moved.commits.contains { $0.subject == "skipped one" })
+    }
+
+    func testOnlyACompleteRefSetIsCacheable() {
+        func refs(partial: Bool = false, skipped: Int = 0) -> RefParser.Listing {
+            RefParser.Listing(branches: [], tags: [], isPartial: partial, skippedRecords: skipped)
+        }
+        XCTAssertTrue(GraphRefSet.isComplete(refs: refs(), isWorktreeListPartial: false))
+        XCTAssertFalse(GraphRefSet.isComplete(refs: refs(skipped: 1), isWorktreeListPartial: false))
+        XCTAssertFalse(GraphRefSet.isComplete(refs: refs(partial: true), isWorktreeListPartial: false))
+        XCTAssertFalse(GraphRefSet.isComplete(refs: refs(), isWorktreeListPartial: true))
+    }
+
     func testRefSetCountsWorktreeHeads() {
         let oid = ObjectID(String(repeating: "a", count: 40))!
         let refs = RefParser.Listing(branches: [], tags: [], isPartial: false, skippedRecords: 0)
