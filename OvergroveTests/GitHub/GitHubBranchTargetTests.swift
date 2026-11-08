@@ -60,6 +60,24 @@ final class GitHubBranchTargetTests: XCTestCase {
         XCTAssertNil(GitHubBranchTarget.forLocal(remoteKind, remotes: remotes), "only local branches")
     }
 
+    /// #466: the longest configured remote decides, not the longest GitHub one. With `my` on GitHub and `my/fork`
+    /// elsewhere, `refs/remotes/my/fork/topic` belongs to `my/fork` and opens nothing; it never opens `my`'s
+    /// `tree/fork/topic`.
+    func testTheLongestConfiguredRemoteDecidesEvenWhenItIsNotOnGitHub() {
+        let remotes = ["my": original]
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/fork/topic", remotes: remotes, configuredRemotes: ["my", "my/fork"]))
+        XCTAssertEqual(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/topic", remotes: remotes, configuredRemotes: ["my", "my/fork"]),
+            GitHubBranchTarget(repository: original, branch: "topic"))
+        // A GitHub remote missing from the configured list (a stale map) still counts.
+        XCTAssertEqual(
+            GitHubBranchTarget.forRemoteRef("refs/remotes/my/topic", remotes: remotes, configuredRemotes: []),
+            GitHubBranchTarget(repository: original, branch: "topic"))
+    }
+
     /// Remote names may contain `/`: the longest known remote name wins, and `HEAD` is not a branch.
     func testRemoteRefsMatchTheLongestRemoteName() {
         let remotes = ["my": original, "my/fork": fork]
