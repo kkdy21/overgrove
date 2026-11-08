@@ -77,6 +77,9 @@ final class GraphStore {
     private var repository: Repository?
     private var focus: WorktreeListing.Entry?
     private var refSet: GraphRefSet?
+    /// Every loaded page was checked against a complete ref set (`GraphPageSnapshot.isRefSetComplete`). An unchecked
+    /// next page is then not joined to them (#411).
+    private var areRowsChecked = true
     private var refs = RefParser.Listing(branches: [], tags: [], isPartial: false, skippedRecords: 0)
     private var worktrees: [Worktree] = []
     private var layoutState = GraphLayoutState.initial
@@ -162,6 +165,7 @@ final class GraphStore {
         indexByOID = [:]
         layoutState = .initial
         refSet = nil
+        areRowsChecked = true
         isComplete = false
         isLoadingMore = false
         isChecking = false
@@ -234,8 +238,9 @@ final class GraphStore {
                 selected = selection.flatMap { indexByOID[$0] == nil ? nil : $0 }
                 return
             }
-            if skip > 0, page.refSet != refSet {
-                restart()  // the history moved since the first page
+            // The history moved since the first page, or this page could not be checked against rows that were.
+            if skip > 0, page.refSet != refSet || (areRowsChecked && !page.isRefSetComplete) {
+                restart()
                 return
             }
             append(page)
@@ -243,6 +248,7 @@ final class GraphStore {
     }
 
     private func append(_ page: GraphPageSnapshot) {
+        areRowsChecked = (commits.isEmpty || areRowsChecked) && page.isRefSetComplete
         let laid = GraphEngine.layout(page.commits, continuing: layoutState)
         for (offset, commit) in page.commits.enumerated() { indexByOID[commit.oid] = commits.count + offset }
         commits += page.commits

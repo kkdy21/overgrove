@@ -268,6 +268,23 @@ final class GraphStoreTests: XCTestCase {
 
     /// #306: the end coming into view during a check that finds nothing moved still loads the next page afterwards,
     /// since the rows already on screen will not appear again.
+    /// #411: a next page the service could not check (`isRefSetComplete` false) is not joined to rows read from a
+    /// complete ref set: the history may have moved under it. The graph starts over instead.
+    func testAnUncheckedNextPageIsNotJoinedToCheckedRows() async throws {
+        let loader = FakeGraphLoader(count: 1_500)
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+
+        loader.addCommitsOnHiddenRef(3)
+        loader.missRefs()
+        store.rowAppeared(450)
+        try await waitUntil { loader.skips.count == 3 && store.status == .loaded && !store.isLoadingMore }
+
+        XCTAssertEqual(loader.skips, [0, 500, 0], "started over instead of appending")
+        XCTAssertEqual(store.rows, GraphEngine.layout(Array(loader.commits.prefix(500))).rows)
+    }
+
     func testANextPageAskedForDuringAnUnchangedCheckLoadsAfterIt() async throws {
         let loader = GatedGraphLoader(count: 1_500)
         let store = GraphStore(loader: loader)
