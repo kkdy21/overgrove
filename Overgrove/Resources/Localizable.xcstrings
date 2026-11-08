@@ -1531,6 +1531,26 @@
         }
       }
     },
+    "Conflicted file. The combined diff is not shown yet; resolve it in Terminal." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "충돌 파일입니다. 결합 diff는 아직 보여 주지 않습니다. 터미널에서 해결하세요."
+          }
+        }
+      }
+    },
+    "Content unchanged." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내용은 바뀌지 않았습니다."
+          }
+        }
+      }
+    },
     "Copy" : {
       "localizations" : {
         "ko" : {
@@ -1948,6 +1968,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이 폴더에서는 편집기와 그 확장이 저장소의 자체 설정과 작업을 실행할 수 있고, 그들이 실행하는 git 명령도 그 설정을 씁니다. 이 설정은 명령을 실행할 수 있습니다:"
+          }
+        }
+      }
+    },
+    "Empty file." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "빈 파일입니다."
           }
         }
       }
@@ -3116,6 +3146,16 @@
         }
       }
     },
+    "No content changes." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "내용 변경이 없습니다."
+          }
+        }
+      }
+    },
     "No file changes" : {
       "localizations" : {
         "ko" : {
@@ -3172,6 +3212,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "일치하는 태그 없음"
+          }
+        }
+      }
+    },
+    "No newline at end of file" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일 끝에 줄바꿈 없음"
           }
         }
       }
@@ -3272,6 +3322,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "업스트림 없음"
+          }
+        }
+      }
+    },
+    "No worktree is available to read this stash." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 스태시를 읽을 워크트리가 없습니다."
           }
         }
       }
@@ -3422,6 +3482,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "일반 파일만 미리 볼 수 있습니다. 링크나 특수 파일은 볼 수 없습니다."
+          }
+        }
+      }
+    },
+    "Only the file mode changed." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일 모드만 바뀌었습니다."
           }
         }
       }
@@ -3596,12 +3666,42 @@
         }
       }
     },
+    "Overgrove could not read this diff." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 diff를 읽지 못했습니다."
+          }
+        }
+      }
+    },
+    "Overgrove could not read this file's history." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 파일의 이력을 읽지 못했습니다."
+          }
+        }
+      }
+    },
     "Overgrove could not read this repository's configuration, so it did not fetch. Refresh (⌘R) to try again." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove가 이 저장소의 설정을 읽지 못해 페치하지 않았습니다. 다시 시도하려면 새로 고치세요(⌘R)."
+          }
+        }
+      }
+    },
+    "Overgrove could not read this stash." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 스태시를 읽지 못했습니다."
           }
         }
       }
@@ -3736,12 +3836,32 @@
         }
       }
     },
+    "Overgrove stopped querying this repository for safety." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "안전을 위해 이 저장소의 조회를 멈췄습니다."
+          }
+        }
+      }
+    },
     "Overgrove stopped querying this repository for safety. %@" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "안전을 위해 이 저장소의 조회를 멈췄습니다. %@"
+          }
+        }
+      }
+    },
+    "Overgrove stopped querying this worktree for safety." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "안전을 위해 이 워크트리의 조회를 멈췄습니다."
           }
         }
       }
@@ -5222,6 +5342,16 @@
         }
       }
     },
+    "The worktree folder could not be found." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 폴더를 찾을 수 없습니다."
+          }
+        }
+      }
+    },
     "The worktree folder is missing, so its configuration cannot be inspected." : {
       "localizations" : {
         "ko" : {
@@ -5282,6 +5412,16 @@
         }
       }
     },
+    "This file cannot be previewed: it is not a regular file inside the worktree." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 안의 일반 파일이 아니어서 미리 볼 수 없습니다."
+          }
+        }
+      }
+    },
     "This file has no history yet" : {
       "localizations" : {
         "ko" : {
@@ -5338,6 +5478,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이 링크는 이 저장소의 풀 리퀘스트 페이지가 아닙니다."
+          }
+        }
+      }
+    },
+    "This path is not valid UTF-8, so Overgrove cannot show its diff." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "경로가 올바른 UTF-8이 아니어서 diff를 보여 줄 수 없습니다."
+          }
+        }
+      }
+    },
+    "This path is not valid UTF-8, so Overgrove cannot show its history." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "경로가 올바른 UTF-8이 아니어서 이력을 보여 줄 수 없습니다."
           }
         }
       }
@@ -5772,6 +5932,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove에 오신 것을 환영합니다"
+          }
+        }
+      }
+    },
+    "With this git, Overgrove does not fetch partial clones or remotes on this Mac (local paths and file:// URLs). Fetching them needs git %@ or later." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 git으로는 부분 클론과 이 Mac의 원격(로컬 경로, file:// URL)을 페치하지 않습니다. 페치하려면 git %@ 이상이 필요합니다."
           }
         }
       }

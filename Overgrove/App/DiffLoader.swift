@@ -28,7 +28,7 @@ struct LiveDiffLoader: DiffLoading {
         if let reason = Self.refusal(file, isSubmodule: isSubmodule) { return .unavailable(reason) }
         guard worktree.path.isRepresentable,
             let directory = PathValidator.canonical(URL(fileURLWithPath: worktree.path.display, isDirectory: true))
-        else { return .unavailable("The worktree folder could not be found.") }
+        else { return .unavailable(String(localized: "The worktree folder could not be found.")) }
         do {
             let client = try await self.client()
             guard
@@ -37,7 +37,7 @@ struct LiveDiffLoader: DiffLoading {
             else { return .unavailable(LiveWorktreeInspector.noLongerMatches) }
             guard let safety = inspection.safetyContext else {
                 return .unavailable(
-                    "Overgrove stopped querying this worktree for safety. "
+                    String(localized: "Overgrove stopped querying this worktree for safety.") + " "
                         + PathValidator.displayable(inspection.report.blockingReason ?? ""))
             }
             let command: ReadOnlyGitCommand
@@ -48,7 +48,9 @@ struct LiveDiffLoader: DiffLoading {
             case .untracked:
                 // Only a regular file or symbolic link really inside the worktree (T14); a FIFO would stall git.
                 guard let preview = PathValidator.worktreeFile(file.path, in: directory) else {
-                    return .unavailable("This file cannot be previewed: it is not a regular file inside the worktree.")
+                    return .unavailable(
+                        String(
+                            localized: "This file cannot be previewed: it is not a regular file inside the worktree."))
                 }
                 command = .untrackedPreview(preview)
             case .conflicted:
@@ -59,18 +61,19 @@ struct LiveDiffLoader: DiffLoading {
         } catch let error as GitError {
             return .unavailable(PathValidator.displayable(error.message))
         } catch is ParseError {
-            return .unavailable("Overgrove could not read this diff.")
+            return .unavailable(String(localized: "Overgrove could not read this diff."))
         } catch {
             return .unavailable(GitError.cancelled.message)
         }
     }
 
-    static let conflicted = "Conflicted file. The combined diff is not shown yet; resolve it in Terminal."
+    static let conflicted = String(
+        localized: "Conflicted file. The combined diff is not shown yet; resolve it in Terminal.")
 
     /// Files whose diff is not run at all.
     static func refusal(_ file: FileSelection, isSubmodule: Bool) -> String? {
         if !file.path.isRepresentable {
-            return "This path is not valid UTF-8, so Overgrove cannot show its diff."
+            return String(localized: "This path is not valid UTF-8, so Overgrove cannot show its diff.")
         }
         if file.group == .conflicted { return conflicted }
         // Submodules are diffed since #239: `--submodule=short` overrides `diff.submodule` and

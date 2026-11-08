@@ -50,7 +50,7 @@ struct LiveComparisonLoader: ComparisonLoading {
         includeUncommitted: Bool
     ) async -> DiffLoadResult {
         guard file.isRepresentable, originalPath?.isRepresentable ?? true else {
-            return .unavailable("This path is not valid UTF-8, so Overgrove cannot show its diff.")
+            return .unavailable(String(localized: "This path is not valid UTF-8, so Overgrove cannot show its diff."))
         }
         guard let (_, service) = try? await services() else {
             return .unavailable(GitError.executableNotFound(path: "git").message)
@@ -63,7 +63,7 @@ struct LiveComparisonLoader: ComparisonLoading {
             do {
                 return .patch(try PatchParser.parse(patch.patch, truncated: patch.isTruncated))
             } catch {
-                return .unavailable("Overgrove could not read this diff.")
+                return .unavailable(String(localized: "Overgrove could not read this diff."))
             }
         case .failure(let error):
             return .unavailable(PathValidator.displayable(error.message))

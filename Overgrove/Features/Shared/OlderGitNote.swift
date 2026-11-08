@@ -7,7 +7,10 @@ enum OlderGitNote {
         version < GitEnvironment.lazyFetchControlVersion
     }
 
-    static let text =
-        "With this git, Overgrove does not fetch partial clones or remotes on this Mac (local paths and file:// URLs). "
-        + "Fetching them needs git \(GitEnvironment.lazyFetchControlVersion) or later."
+    static var text: String {
+        String(
+            localized:
+                "With this git, Overgrove does not fetch partial clones or remotes on this Mac (local paths and file:// URLs). Fetching them needs git \(GitEnvironment.lazyFetchControlVersion.description) or later."
+        )
+    }
 }
