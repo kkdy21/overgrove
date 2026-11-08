@@ -300,8 +300,9 @@ final class GraphStoreTests: XCTestCase {
         store.refresh(focus: nil)
         try await waitUntil { loader.pendingCount == 2 }  // and the check starts
         loader.releaseOldest()  // the cancelled next page answers late
+        try await waitUntil { loader.pages.skips.count == 2 }
         loader.releaseOldest()  // the check: nothing moved
-        try await waitUntil { loader.pendingCount == 1 }  // the next page, asked for again
+        try await waitUntil { loader.pages.skips.count == 3 && loader.pendingCount == 1 }  // the next page, again
         loader.releaseOldest()
         try await waitUntil { store.rows.count == 1_000 && !store.isLoadingMore }
         XCTAssertEqual(loader.pages.skips, [0, 500, 0, 500])
@@ -322,8 +323,9 @@ final class GraphStoreTests: XCTestCase {
         store.refresh(focus: nil)
         try await waitUntil { loader.pendingCount == 2 }
         loader.releaseOldest()
+        try await waitUntil { loader.pages.skips.count == 2 }
         loader.releaseOldest()
-        try await waitUntil { store.rows.count == 500 && loader.pendingCount == 0 }
+        try await waitUntil { loader.pages.skips.count == 3 && store.index(of: FakeGraphLoader.oid(0)) == 0 }
         try await Task.sleep(for: .milliseconds(50))
         XCTAssertEqual(loader.pages.skips, [0, 500, 0], "the new first page only")
         XCTAssertEqual(loader.pendingCount, 0)
