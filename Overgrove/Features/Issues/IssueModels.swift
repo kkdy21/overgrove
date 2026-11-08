@@ -52,6 +52,8 @@ struct IssueListModel: Equatable {
     /// Check Again is offered: every state except a loaded list.
     let canCheckAgain: Bool
     let isLoading: Bool
+    /// The gh account the issues are read as (ADR-0025 §4), only while a repository's issues are shown or failed.
+    let account: GHAccount?
 
     /// The rows whose number or title contains the sidebar filter (#74); the count stays the list's.
     func filtered(_ query: String?) -> IssueListModel {
@@ -61,8 +63,12 @@ struct IssueListModel: Equatable {
         return copy
     }
 
-    init(content: IssueListContent?, isLoading: Bool, links: IssueLinkIndex = .empty) {
+    init(content: IssueListContent?, isLoading: Bool, links: IssueLinkIndex = .empty, account: GHAccount? = nil) {
         self.isLoading = isLoading
+        switch content {
+        case .loaded, .failed: self.account = account
+        default: self.account = nil
+        }
         canCheckAgain = Self.offersCheckAgain(content)
         switch content {
         case nil:

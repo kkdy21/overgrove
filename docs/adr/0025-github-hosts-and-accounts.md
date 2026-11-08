@@ -49,5 +49,6 @@ ADR-0004 §8("github.com만")만 이 결정으로 대체한다. gh 위임, 토�
 
 ## 후속 작업
 
-- [ ] 원격 판별·호스트 신뢰·`--repo HOST/…`·링크 호스트 확장, 계정 표시 (#117)
-- [ ] git-command-catalog §5, security-review.md T9·T11·T16, screens.md(상태바·이슈 패널) 갱신 (#117)
+- [x] 원격 판별·호스트 신뢰·`--repo HOST/…`·링크 호스트 확장 (#117)
+- [x] 계정 표시 (#451)
+- [x] git-command-catalog §5, threats/T9.md (#117), screens.md(상태바·이슈 패널) (#451) 갱신

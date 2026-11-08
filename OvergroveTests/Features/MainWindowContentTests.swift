@@ -137,4 +137,21 @@ final class MainWindowContentTests: XCTestCase {
         XCTAssertNil(chip.aheadBadge)
         XCTAssertEqual(chip.accessibilityLabel, "Focused worktree detached @ b2e8a44")
     }
+
+    /// ADR-0025 §4: the repository host's gh account, with how many others; github.com's state otherwise.
+    func testGhFieldShowsTheHostAccount() throws {
+        let now = Date()
+        let account = GHAccount(host: try XCTUnwrap(RemoteHost("ghe.example")), login: "me", otherCount: 1)
+        func gh(_ status: GHAuthStatus, _ account: GHAccount?) -> String? {
+            text(
+                StatusBarItem.items(snapshot: nil, fetchStatus: .never, ghStatus: status, ghAccount: account, now: now),
+                .gh)
+        }
+        XCTAssertEqual(gh(.notLoggedIn, account), "gh: me@ghe.example +1")
+        XCTAssertEqual(
+            gh(.loggedIn(login: "mina"), GHAccount(host: GitHubRepository.publicHost, login: "mina", otherCount: 0)),
+            "gh: mina@github.com")
+        XCTAssertEqual(gh(.loggedIn(login: "mina"), nil), "gh: @mina")
+        XCTAssertEqual(gh(.notInstalled, account), "gh: not installed")
+    }
 }
