@@ -288,7 +288,7 @@ fetch 실패 안내는 `FetchFailureGuidance(error:remote:endpoint:report:)`(`Ov
   - 네트워크: `networkUnavailable`
   - 시간 초과: `timeout`
   - 기타: `remoteNotFound`, `transportNotAllowed`, 설정 때문에 꺼진 fetch(`configInspectionFailed`), 그 밖
-- **필드**: 한 줄 요약(`summary`), 해결 안내(`guidance`), 복사 가능한 명령(`commands`), 마스킹한 stderr(`detail`, 끝 5줄은 `detailTail`)
+- **필드**: 한 줄 요약(`summary`), 해결 안내(`guidance`), 복사 가능한 명령(`commands`), 마스킹한 stderr(`detail`. `\r`로 다시 쓴 줄은 마지막 상태만 남고, 길이는 유니코드 스칼라로 센다. 끝 5줄은 `detailTail`이고 줄마다 300 스칼라까지, #362)
 - **문구**: 모두 앱이 쓴다. 명령에는 검증된 원격 이름, 호스트 이름, 포트만 넣는다. 호스트는 `Endpoint(remoteURL:)`로 자격 증명과 경로를 뺀 이름만 쓴다.
 - **터미널 git**: 터미널의 git은 앱처럼 무력화되지 않는다. 저장소의 hook, 로컬 `core.sshCommand`, 프록시, credential helper, pager가 그대로 실행된다. 그래서 `git` 명령(`git fetch <remote>`, `git --no-pager remote -v`)은 저장소 설정 보고(`RepoSecurityReport`)에 항목이 없을 때만 넣고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다. 보고에 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan`, `ssh-keygen -F`)만 넣고 보안 보고서를 먼저 보라고 안내한다(#200 보안 검토).
 - **취소**: 실패가 아니다. 안내를 만들지 않는다(`nil`). 원격이 없을 때는 `FetchFailureGuidance.noRemotes`를 쓴다.

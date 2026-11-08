@@ -8,7 +8,9 @@ struct MaskedText: Sendable, Hashable {
     static let maximumLength = 64 * 1024
     static let summaryLength = 200
 
-    /// Masked, control characters removed, at most 64 KiB.
+    /// Masked, control characters removed, at most `maximumLength` Unicode scalars. Lines read as a terminal shows
+    /// them: `\r\n` ends a line, and a lone `\r` (how `--progress` rewrites a line) starts it over, so only its last
+    /// state is kept (#362).
     let text: String
 
     init(masking raw: Data) {
@@ -17,14 +19,30 @@ struct MaskedText: Sendable, Hashable {
 
     init(masking raw: String) {
         let masked = CredentialMasker.mask(raw)
-        let printable = String(
-            String.UnicodeScalarView(
-                masked.unicodeScalars.filter {
-                    $0 == "\n" || $0 == "\t" || !CharacterSet.controlCharacters.contains($0)
-                }
-            )
-        )
-        text = printable.count > Self.maximumLength ? String(printable.prefix(Self.maximumLength)) : printable
+        var printable = String.UnicodeScalarView()
+        var lineStart = 0
+        var startsOver = false
+        for scalar in masked.unicodeScalars {
+            if startsOver {
+                startsOver = false
+                if scalar != "\n" { printable.removeLast(printable.count - lineStart) }
+            }
+            switch scalar {
+            case "\r":
+                // Decided by what follows: a line end with `\n`, else the line starts over. A trailing one leaves
+                // the line as it was.
+                startsOver = true
+            case "\n":
+                printable.append(scalar)
+                lineStart = printable.count
+            case "\t":
+                printable.append(scalar)
+            default:
+                if !CharacterSet.controlCharacters.contains(scalar) { printable.append(scalar) }
+            }
+        }
+        // Counted in scalars, not `Character`s: a run of combining marks is one `Character` of any length (#362).
+        text = String(printable.count > Self.maximumLength ? printable.prefix(Self.maximumLength) : printable[...])
     }
 
     /// First non-empty line, at most 200 characters, for one-line messages.

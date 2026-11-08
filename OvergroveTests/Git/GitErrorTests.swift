@@ -25,6 +25,23 @@ final class GitErrorTests: XCTestCase {
 
     private let secret = "s3" + "cr3t"
 
+    /// #362: lines read as a terminal shows them. `\r\n` ends a line; a lone `\r` starts it over; a trailing one leaves
+    /// it; other control characters are removed as before.
+    func testMaskedTextKeepsTheLastStateOfRewrittenLines() {
+        XCTAssertEqual(MaskedText(masking: "a\r\nb").text, "a\nb")
+        XCTAssertEqual(MaskedText(masking: "1%\r50%\r100%\nnext").text, "100%\nnext")
+        XCTAssertEqual(MaskedText(masking: "done\r").text, "done")
+        XCTAssertEqual(MaskedText(masking: "a\u{7}b\u{1B}[0mc\td").text, "ab[0mc\td")
+        XCTAssertEqual(MaskedText(masking: "token=ghp_\(String(repeating: "a", count: 36))\rok").text, "ok")
+    }
+
+    /// #362: the length cap counts Unicode scalars, so a run of combining marks (one `Character`) is cut too.
+    func testMaskedTextCapsScalarsNotCharacters() {
+        let flood = "a" + String(repeating: "\u{301}", count: MaskedText.maximumLength * 2)
+        let text = MaskedText(masking: flood).text
+        XCTAssertEqual(text.unicodeScalars.count, MaskedText.maximumLength)
+    }
+
     func testSuccessIsNil() {
         XCTAssertNil(classify(exit: 0))
     }
