@@ -108,4 +108,15 @@ final class GitHubLinksTests: XCTestCase {
         XCTAssertEqual(match?.name, "upstream")
         XCTAssertEqual(match?.repository.slug, "acme/api")
     }
+
+    /// SEC-T9-117-02 (Open on GitHub): a repository on another host links to that host only, over https.
+    func testSECT9_117_02_OtherHostLinksStayOnThatHost() throws {
+        let host = try XCTUnwrap(RemoteHost("ghe.example"))
+        let ghe = try XCTUnwrap(GitHubRepository(owner: "acme", name: "api", host: host))
+        XCTAssertEqual(
+            GitHubLinks.commit(ghe, oid)?.absoluteString, "https://ghe.example/acme/api/commit/" + oid.hex)
+        let file = GitHubLinks.file(ghe, commit: oid, path: GitPath("@evil.example/x"))
+        XCTAssertEqual(file?.host, "ghe.example")
+        XCTAssertEqual(file?.scheme, "https")
+    }
 }

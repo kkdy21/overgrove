@@ -24,9 +24,12 @@ final class AppStateGitHubLinkTests: XCTestCase {
         let mock = WorktreeListing.entry(
             "/tmp/dev/api", branch: "main", isMain: true, state: .loaded(WorktreeListing.state(branch: "main")))
         var listing = WorktreeListing(entries: [mock], isPartial: false)
-        listing.githubRepository = github
-        listing.githubRemoteName = remote
-        listing.githubRemotes = remotes
+        var all = remotes
+        if let github, let remote { all[remote] = github }
+        listing.remotes = all.sorted { $0.key < $1.key }.map {
+            WorktreeListing.Remote(
+                name: $0.key, url: "https://\($0.value.host.name)/\($0.value.owner)/\($0.value.name).git")
+        }
         listing.refs = RefParser.Listing(branches: branches, tags: [], isPartial: false, skippedRecords: 0)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
@@ -104,7 +107,7 @@ final class AppStateGitHubLinkTests: XCTestCase {
             AppState.branchModel(
                 {
                     var listing = WorktreeListing(entries: [], isPartial: false)
-                    listing.githubRemotes = ["origin": fork]
+                    listing.remotes = [.init(name: "origin", url: "https://github.com/me/api.git")]
                     listing.refs = RefParser.Listing(
                         branches: [branch("refs/remotes/origin/feat/x", kind: .remote(remote: "origin"))], tags: [],
                         isPartial: false, skippedRecords: 0)

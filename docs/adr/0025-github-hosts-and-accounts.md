@@ -1,6 +1,6 @@
 # ADR-0025: GitHub 호스트는 gh에 로그인된 것만 신뢰하고, 계정은 앱이 바꾸지 않는다
 
-> 상태: Accepted · 날짜: 2026-11-08 · 관련: #446, #117, ADR-0004, ADR-0021, ADR-0023, T9, T11, T16, [git-command-catalog.md §5](../architecture/git-command-catalog.md#5-ghcommand-gh-allowlist)
+> 상태: Accepted · 날짜: 2026-11-08 · 개정: 2026-11-08 #117 구현 중 --repo에 항상 호스트를 넣도록 정정(§3) · 관련: #446, #117, ADR-0004, ADR-0021, ADR-0023, T9, T11, T16, [git-command-catalog.md §5](../architecture/git-command-catalog.md#5-ghcommand-gh-allowlist)
 
 ## 맥락
 
@@ -23,7 +23,7 @@ ADR-0004 §8("github.com만")만 이 결정으로 대체한다. gh 위임, 토�
    - `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받아들이되 호스트 판단에는 쓰지 않는다)
 
    HOST는 소문자로 바꾼 ASCII DNS 이름만 받는다. 라벨은 1–63자의 영숫자와 `-`(앞뒤 `-` 금지)이고, 전체는 253자 이하다. IP 주소 리터럴, 사용자 정보(`user:pass@`), 경로·쿼리가 섞인 값은 받지 않는다. OWNER·NAME은 기존 `GitHubRepository` 규칙 그대로다. `GitHubRepository`에 `host`를 더하고 기본값은 `github.com`이다.
-3. **gh 호출.** 호스트는 `--repo`로만 고른다. `github.com`이면 지금처럼 `OWNER/NAME`, 그 밖이면 `HOST/OWNER/NAME`이다. `GH_HOST`, `GH_ENTERPRISE_TOKEN`, `GH_TOKEN` 같은 변수는 환경 allowlist에 넣지 않는다. 중립 작업 디렉터리와 실행 제한은 그대로다.
+3. **gh 호출.** 호스트는 `--repo`로만 고른다. `github.com`을 포함해 항상 `HOST/OWNER/NAME`으로 넘겨 gh가 호스트를 스스로 고르지 않게 한다(#117 보안 검토에서 `OWNER/NAME`에서 바꿈). `GH_HOST`, `GH_ENTERPRISE_TOKEN`, `GH_TOKEN` 같은 변수는 환경 allowlist에 넣지 않는다. 중립 작업 디렉터리와 실행 제한은 그대로다.
 4. **계정.** 앱은 gh 계정을 바꾸지 않는다. 호스트마다 `active` 계정을 상태바의 gh 항목과 이슈 패널 머리에 `login@host`로 보인다. 같은 호스트에 계정이 여럿이면 `+n more`와 함께 복사용 명령 `gh auth switch --hostname HOST`를 둔다. 이 명령은 [ADR-0021](0021-read-only-scope-after-v0-1.md) 결정 3의 클립보드 규칙을 따른다. HOST는 결정 2를 통과한 값만 넣고, 제어·서식(bidi) 문자는 이스케이프한다. login은 표시만 하고 명령에 넣지 않는다.
 5. **링크.** 이슈 URL, PR URL, Open on GitHub(#398)의 호스트 검사를 "github.com 고정"에서 "그 저장소의 HOST와 같고 https"로 넓힌다. PR URL은 [ADR-0023](0023-pull-request-status-from-gh-pr-list.md)처럼 HOST·OWNER·NAME·번호가 모두 맞을 때만 연다.
 

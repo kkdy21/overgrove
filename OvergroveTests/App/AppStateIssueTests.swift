@@ -85,7 +85,7 @@ final class AppStateIssueTests: XCTestCase {
         ghChecker: QueuedGHAuthChecker = QueuedGHAuthChecker([.loggedIn(login: "octocat")])
     ) async -> AppState {
         var listing = WorktreeListing.mockup
-        listing.githubRepository = repository
+        listing.setGitHubRemote(repository)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
             loader: StubRepositoryLoader(result: .success(listing)), issueLoader: loader,
@@ -168,9 +168,9 @@ final class AppStateIssueTests: XCTestCase {
         let loader = StubIssueLoader([.issues([first])])
         let pullRequests = StubPullRequestLoader([.unavailable])
         var verified = WorktreeListing.mockup
-        verified.githubRepository = IssueModelsTests.repository
+        verified.setGitHubRemote(IssueModelsTests.repository)
         var cached = WorktreeListing.mockup
-        cached.githubRepository = GitHubRepository(owner: "old", name: "app")
+        cached.setGitHubRemote(GitHubRepository(owner: "old", name: "app"))
         let repositoryLoader = CachedFailingLoader(first: verified, cached: cached)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
@@ -279,7 +279,7 @@ final class AppStateIssueTests: XCTestCase {
     /// No GitHub remote: Check Again reloads the repository so newly added remotes are read.
     func testCheckAgainWithoutARemoteReloadsTheRepository() async {
         var withRemote = WorktreeListing.mockup
-        withRemote.githubRepository = IssueModelsTests.repository
+        withRemote.setGitHubRemote(IssueModelsTests.repository)
         let repositoryLoader = SequenceRepositoryLoader([.mockup, withRemote])
         let issues = StubIssueLoader([.issues([first])])
         let state = AppState(
@@ -400,5 +400,15 @@ extension Issue {
         Issue(
             number: number, title: title, state: state, labels: labels, assignees: assignees,
             updatedAt: ISO8601DateFormatter().date(from: text)!, url: url)
+    }
+}
+
+extension WorktreeListing {
+    /// One `origin` remote whose https URL is `repository` (none for `nil`).
+    mutating func setGitHubRemote(_ repository: GitHubRepository?) {
+        remotes =
+            repository.map {
+                [Remote(name: "origin", url: "https://\($0.host.name)/\($0.owner)/\($0.name).git")]
+            } ?? []
     }
 }

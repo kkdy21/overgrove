@@ -1,10 +1,10 @@
 import Foundation
 
-/// The github.com repository and branch a sidebar branch row opens on GitHub (#406): the repository of the remote the
+/// The GitHub repository and branch a sidebar branch row opens on GitHub (#406): the repository of the remote the
 /// branch tracks, not only the one the issue panel uses. In a fork flow (`origin` is my fork, `upstream` the
 /// original), a local branch tracking `origin/feat` opens `https://github.com/<me>/<repo>/tree/feat`.
 ///
-/// Only remotes a verified listing inspected (a cached paint passes none) and `GitHubRemote` accepted (github.com, valid
+/// Only remotes a verified listing inspected (a cached paint passes none) and `GitHubRemote` accepted (a trusted host, ADR-0025; valid
 /// `OWNER/NAME`) count.
 /// The remote name never comes from splitting a ref on `/`, because remote names may contain `/`:
 /// - a local branch uses `branch.<name>.remote` and `branch.<name>.merge` (`Branch.upstreamRemote`,
@@ -18,7 +18,7 @@ struct GitHubBranchTarget: Equatable, Sendable {
     let branch: String
 
     /// For a local branch: its upstream's remote and merge ref. `nil` without an upstream, for a local upstream
-    /// (`.`), a remote that is not a github.com repository, or a merge ref outside `refs/heads/`.
+    /// (`.`), a remote that is not a GitHub repository on a trusted host, or a merge ref outside `refs/heads/`.
     static func forLocal(_ branch: Branch, remotes: [String: GitHubRepository]) -> GitHubBranchTarget? {
         guard branch.kind == .local, let remote = branch.upstreamRemote, let repository = remotes[remote],
             let ref = branch.upstreamRemoteRef, FullRefName(ref) != nil
@@ -26,7 +26,7 @@ struct GitHubBranchTarget: Equatable, Sendable {
         return target(repository, ref, prefix: "refs/heads/")
     }
 
-    /// For a remote-tracking ref (`refs/remotes/<remote>/<branch>`): the github.com remote whose name is its longest
+    /// For a remote-tracking ref (`refs/remotes/<remote>/<branch>`): the GitHub remote whose name is its longest
     /// matching prefix. `nil` for another host, an unknown remote, or `<remote>/HEAD`.
     static func forRemoteRef(_ ref: String, remotes: [String: GitHubRepository]) -> GitHubBranchTarget? {
         guard FullRefName(ref) != nil else { return nil }

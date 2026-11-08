@@ -34,12 +34,11 @@ extension AppState {
             showHistory: { [weak self] in self?.showHistory(of: $1, in: $0) })
     }
 
-    /// The github.com repository and its remote, from the loaded worktree list (#398).
+    /// The GitHub repository and its remote on a trusted host, from the loaded worktree list (#398, ADR-0025).
     var gitHub: (repository: GitHubRepository, remote: String)? {
-        guard case .loaded(let listing) = worktreeList, let repository = listing.githubRepository,
-            let remote = listing.githubRemoteName
+        guard case .loaded(let listing) = worktreeList, let match = listing.githubMatch(trusting: trustedGitHubHosts)
         else { return nil }
-        return (repository, remote)
+        return (match.repository, match.name)
     }
 
     /// Copies `text` as it is shown (`RowActions.clipboardText`).

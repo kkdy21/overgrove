@@ -142,11 +142,15 @@ extension AppState {
         if isVerified, let repository {
             autoRefresh.update(FileChangeClassifier(listing: listing, repository: repository.repository))
         }
-        branchListModel = Self.branchModel(listing, isVerified: isVerified)
+        branchListModel = Self.branchModel(listing, isVerified: isVerified, trusting: trustedGitHubHosts)
         issueLinks = IssueLinkIndex(listing: listing)
         // Like the gh repository below, PR links use only remotes this load inspected (ADR-0023 §4).
-        if isVerified {
-            pullRequestStore.update(branches: listing.refs?.branches ?? [], remotes: listing.githubRemotes)
+        if isVerified, let repository {
+            let source = VerifiedGitHubSource(
+                repository: repository.repository, remotes: listing.remotes, branches: listing.refs?.branches ?? [])
+            verifiedGitHubSource = source
+            pullRequestStore.update(
+                branches: source.branches, remotes: listing.githubRemotes(trusting: trustedGitHubHosts))
         }
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
         // The fallbacks below are the app's choice, not the user's: they replace the current history entry (#378).
@@ -168,13 +172,20 @@ extension AppState {
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
         // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
         // a failed refresh; security review of #81).
-        // gh's login state is read alongside, for the status bar (#83); a repository without a GitHub remote runs no gh.
+        // gh's login state is read alongside, for the status bar (#83). Without a remote in a GitHub form, no gh runs;
+        // a remote on a host not trusted yet reads only gh's login list (ADR-0025 §1).
         // Pull requests load at the same times as the issues (ADR-0023 §6).
-        if isVerified, issuePanel.show(listing.githubRepository) {
-            checkGitHub()
-            pullRequestStore.load(listing.githubRepository)
-        } else if isVerified, listing.githubRepository == nil {
-            pullRequestStore.load(nil)
+        if isVerified {
+            let github = listing.githubRepository(trusting: trustedGitHubHosts)
+            if issuePanel.show(github) {
+                checkGitHub()
+                pullRequestStore.load(github)
+            } else if github == nil {
+                pullRequestStore.load(nil)
+                // A remote on a host not trusted yet: gh's login list may trust it, and then the check picks the
+                // repository again (ADR-0025 §1).
+                if trustedGitHubHosts.mayTrustMore(listing.remotes.map(\.url)), !isCheckingGitHub { checkGitHub() }
+            }
         }
         snapshot = WorktreeListModel.snapshot(listing: listing, focused: focusedWorktreePath)
         updateGraph(listing, refsMayHaveMoved: trigger?.mayMoveGraphRefs ?? true)
