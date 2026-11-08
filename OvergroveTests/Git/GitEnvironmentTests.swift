@@ -136,6 +136,7 @@ final class GitEnvironmentTests: XCTestCase {
                 "-c", "log.showSignature=false", "-c", "gc.auto=0", "-c", "maintenance.auto=false",
                 "-c", "diff.autoRefreshIndex=false", "-c", "color.ui=never", "-c", "diff.suppressBlankEmpty=false",
                 "-c", "i18n.logOutputEncoding=UTF-8", "-c", "log.follow=false",
+                "-c", "log.mailmap=false", "-c", "mailmap.file=", "-c", "mailmap.blob=",
             ]
         )
     }
@@ -173,6 +174,32 @@ final class GitEnvironmentTests: XCTestCase {
             XCTFail("expected unsupportedVersion")
         } catch let error as GitError {
             XCTAssertEqual(error, .unsupportedVersion(found: GitVersion(major: 2, minor: 30, patch: 1)))
+        }
+    }
+
+    /// #106: the version check runs on a given executable, apart from finding the default one.
+    func testProbeChecksTheGivenExecutable() async throws {
+        let git = try executables.fakeDeveloperDirectory(versionLine: "git version 2.45.1")
+            .appendingPathComponent("usr/bin/git")
+        let environment = try await GitEnvironment.probe(executable: git)
+        XCTAssertEqual(environment.executable, git)
+        XCTAssertEqual(environment.version, GitVersion(major: 2, minor: 45, patch: 1))
+
+        let old = try executables.fakeDeveloperDirectory(versionLine: "git version 2.35.8")
+            .appendingPathComponent("usr/bin/git")
+        do {
+            _ = try await GitEnvironment.probe(executable: old)
+            XCTFail("expected unsupportedVersion")
+        } catch let error as GitError {
+            XCTAssertEqual(error, .unsupportedVersion(found: GitVersion(major: 2, minor: 35, patch: 8)))
+        }
+
+        let missing = executables.directory.appendingPathComponent("no-such-git")
+        do {
+            _ = try await GitEnvironment.probe(executable: missing)
+            XCTFail("expected executableNotFound")
+        } catch let error as GitError {
+            guard case .executableNotFound = error else { return XCTFail("got \(error)") }
         }
     }
 

@@ -87,9 +87,18 @@ struct SetupAssistantView: View {
         case nil:
             ProgressView().controlSize(.small)
         case .ready(let version, let path):
-            Label(Self.gitReady(version, path), systemImage: "checkmark.circle")
-                .font(Tokens.Font.callout)
-                .foregroundStyle(Tokens.Color.textPrimary)
+            VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
+                Label(Self.gitReady(version, path), systemImage: "checkmark.circle")
+                    .font(Tokens.Font.callout)
+                    .foregroundStyle(Tokens.Color.textPrimary)
+                // A supported but older git works, with fewer fetches (#383).
+                if OlderGitNote.applies(to: version) {
+                    Label(OlderGitNote.text, systemImage: "info.circle")
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
         case .missing:
             SetupProblem(
                 title: "git was not found", message: "Install the Xcode Command Line Tools, then check again:",
@@ -102,6 +111,12 @@ struct SetupAssistantView: View {
         case .failed(let message):
             SetupProblem(
                 title: "git could not be checked", message: message, command: nil, onCheckAgain: setup.checkGit)
+        case .chosenRejected(let path, let reason):
+            // ADR-0019 §4: the chosen git is not replaced behind the user's back; they pick the default here.
+            SetupProblem(
+                title: "The git chosen in Settings cannot be used", message: "\(path): \(reason)", command: nil,
+                onCheckAgain: setup.checkGit,
+                onUseDefault: setup.canUseDefaultGit ? { setup.useDefaultGit() } : nil)
         }
     }
 
@@ -185,6 +200,7 @@ private struct SetupProblem: View {
     let message: String
     let command: String?
     let onCheckAgain: () -> Void
+    var onUseDefault: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
@@ -196,7 +212,10 @@ private struct SetupProblem: View {
                 .foregroundStyle(Tokens.Color.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let command { CopyableCommand(command: command) }
-            Button(action: onCheckAgain) { Label("Check Again", systemImage: "arrow.clockwise") }
+            HStack {
+                Button(action: onCheckAgain) { Label("Check Again", systemImage: "arrow.clockwise") }
+                if let onUseDefault { Button("Use Default", action: onUseDefault) }
+            }
         }
     }
 }

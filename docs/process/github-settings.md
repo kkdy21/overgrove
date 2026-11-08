@@ -38,7 +38,7 @@
 | PR 필수 | 켬. 필수 승인 0명(1인 메인테이너, ADR-0012) |
 | 리뷰 스레드 전부 해결 | 켬 |
 | 허용 머지 방식 | squash |
-| 필수 상태 검사 | `gitleaks`, `pr-policy`, `build-test` (strict: 최신 main 기준) |
+| 필수 상태 검사 | `gitleaks`, `pr-policy`, `build-test`. strict(최신 main 기준)는 끔(2026-11-08, PR이 몰려 머지가 한 줄로 밀리는 문제). 합친 뒤의 의미 충돌은 main의 `ci`가 잡는다. 릴리스 직전에는 다시 켠다 |
 | 우회 권한(bypass) | 없음 |
 
 ### 보안
@@ -50,6 +50,7 @@
 | Dependabot version updates | GitHub Actions만, 주 1회(`.github/dependabot.yml`) |
 | Private vulnerability reporting | 켬 |
 | CodeQL | advanced setup(`.github/workflows/codeql.yml`). `actions`는 모든 PR·main·주간에 돈다. `swift`는 main 푸시·주간·수동 실행만 돈다(#34). 필수 검사가 아니다(아래) |
+| git 호환성 매트릭스 | `.github/workflows/git-compat.yml` ([ADR-0020](../adr/0020-git-compatibility-matrix-in-ci.md)). Apple Git, 러너의 Homebrew git, 공식 tarball(SHA-256 고정)로 빌드한 최소 지원 git으로 INT·SEC 테스트를 돈다. 주 1회, 수동 실행, git·실행·파서·보안 경로 PR. 필수 검사가 아니다 |
 
 **CodeQL Swift를 필수 검사로 두지 않는 이유 (#34)**:
 - Swift 분석은 macOS 러너에서 추적 빌드(`xcodebuild clean build`, build-mode `manual`)를 해야 한다. macOS 분은 Ubuntu의 약 10배로 계산되고, `build-test`와 같은 크기의 빌드가 PR마다 하나 더 생긴다.

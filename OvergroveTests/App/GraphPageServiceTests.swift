@@ -52,7 +52,18 @@ final class GraphPageServiceTests: XCTestCase {
     /// #308: the graph walks branches, remote-tracking refs, tags, and every worktree's HEAD, and nothing else. Notes,
     /// background prefetch (`git maintenance`), and `filter-branch` backups had commits in the graph with no ref pill,
     /// and moving them did not change the page cache key.
+    /// Without a commit-graph file the page comes from the streamed graph (#254); review of #346.
     func testGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads() async throws {
+        XCTAssertFalse(RepositoryService.hasCommitGraph(model), "the stream path")
+        try await assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: false)
+    }
+
+    /// With a commit-graph file each page is its own `--skip` read.
+    func testGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeadsWithACommitGraph() async throws {
+        try await assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: true)
+    }
+
+    private func assertGraphWalksOnlyBranchesRemotesTagsAndWorktreeHeads(writingCommitGraph: Bool) async throws {
         func commit(_ message: String) async throws -> String {
             func output(_ arguments: [String]) async throws -> String {
                 String(decoding: try await repository.git(arguments).stdout, as: UTF8.self)
@@ -75,6 +86,10 @@ final class GraphPageServiceTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: linked) }
         try await repository.git(["worktree", "add", "-q", "--detach", "--", linked.path, try await commit("detached")])
 
+        if writingCommitGraph {
+            try await repository.git(["commit-graph", "write", "--reachable"])
+            XCTAssertTrue(RepositoryService.hasCommitGraph(model), "the --skip path")
+        }
         let subjects = Set(try await page(try makeService(), skip: 0, limit: 100).commits.map(\.subject))
         for shown in ["c6", "c0", "tag only", "remote only", "detached"] {
             XCTAssertTrue(subjects.contains(shown), "\(shown) missing from \(subjects)")
@@ -82,6 +97,37 @@ final class GraphPageServiceTests: XCTestCase {
         for hidden in ["Notes added by 'git notes add'", "prefetched", "filter-branch backup", "pull request ref"] {
             XCTAssertFalse(subjects.contains(hidden), "\(hidden) in the graph")
         }
+    }
+
+    /// #373: the ref set comes from the cached overview, but `log` reads the refs as they are now. A page read after
+    /// the refs moved, before the overview was refreshed, must not continue the pages read before it. It comes back
+    /// with the new ref set (so `GraphStore` starts over) and holds the new history's commits.
+    func testAPageReadAfterTheRefsMovedIsNotJoinedToTheOldPages() async throws {
+        try await repository.git(["commit-graph", "write", "--reachable"])
+        XCTAssertTrue(RepositoryService.hasCommitGraph(model), "the --skip path")
+        let service = try makeService()
+        let first = try await page(service, skip: 0, limit: 3)
+        XCTAssertEqual(first.commits.map(\.subject), ["c6", "c5", "c4"])
+
+        try repository.write("g.txt", "g\n")  // no refresh: the cached overview still has the old refs
+        try await repository.git(["add", "g.txt"])
+        try await repository.git(["commit", "-q", "-m", "c7"])
+        let next = try await page(service, skip: 3, limit: 3)
+
+        XCTAssertNotEqual(next.refSet, first.refSet, "not joined under the old ref set")
+        XCTAssertEqual(next.commits.map(\.subject), ["c4", "c3", "c2"], "the new history's commits 3..<6")
+        let again = try await page(service, skip: 0, limit: 3)
+        XCTAssertEqual(again.refSet, next.refSet, "the graph now walks the new refs")
+        XCTAssertEqual(again.commits.map(\.subject), ["c7", "c6", "c5"])
+
+        // The overview catches up on its own refresh; the graph's stand-in refs go, and the cached page still fits.
+        let caughtUp = await service.refresh(model, trigger: .fetchCompleted)
+        let overview = try XCTUnwrap(caughtUp).result.get()
+        XCTAssertEqual(GraphRefSet(refs: overview.refs, worktrees: overview.entries.map(\.worktree)), next.refSet)
+        let reads = logCalls()
+        let settled = try await page(service, skip: 0, limit: 3)
+        XCTAssertEqual(settled, again)
+        XCTAssertEqual(logCalls(), reads, "the page checked under the new refs was cached")
     }
 
     func testPagesLineUpWithOneRead() async throws {
@@ -125,6 +171,56 @@ final class GraphPageServiceTests: XCTestCase {
         let before = logCalls()
         _ = try await page(service, skip: 0, limit: 3)
         XCTAssertEqual(logCalls(), before + 1, "forget drops the pages")
+    }
+
+    /// #333: a ref the parser skips (here a non-UTF-8 branch name) is still walked by `log --branches` but is not in
+    /// `GraphRefSet`. Moving only that ref must not serve the old page from the cache.
+    func testMovingOnlyASkippedRefReadsThePageAgain() async throws {
+        func output(_ arguments: [String]) async throws -> String {
+            String(decoding: try await repository.git(arguments).stdout, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        func commit(_ message: String) async throws -> String {
+            try await output([
+                "commit-tree", "-p", "HEAD", "-m", message, try await output(["rev-parse", "HEAD^{tree}"]),
+            ])
+        }
+        // `main` as the only packed ref: the appended line must not depend on another ref steering git's lookup (#372).
+        try await repository.git(["branch", "-D", "side"])
+        try await repository.git(["pack-refs", "--all"])
+        let packed = repository.root.appendingPathComponent(".git/packed-refs")
+        // The header promises `sorted`, so git binary-searches the file. The ref below is appended out of order, so the
+        // promise is dropped and git reads the file line by line (#372).
+        let header = try String(contentsOf: packed, encoding: .utf8)
+        XCTAssertTrue(header.hasPrefix("# pack-refs with:"), header)
+        let original = Data(header.replacingOccurrences(of: " sorted", with: "").utf8)
+        // APFS names must be UTF-8, so the ref lives only in packed-refs.
+        func pointSkippedRef(at oid: String) throws {
+            try (original + Data("\(oid) refs/heads/bad-".utf8) + Data([0xFF]) + Data("\n".utf8)).write(to: packed)
+        }
+        try pointSkippedRef(at: try await commit("skipped one"))
+
+        let service = try makeService()
+        let first = try await page(service, skip: 0, limit: 100)
+        XCTAssertGreaterThan(first.refs.skippedRecords, 0, "the non-UTF-8 name is skipped")
+        XCTAssertTrue(first.commits.contains { $0.subject == "skipped one" }, "log still walks it")
+
+        try pointSkippedRef(at: try await commit("skipped two"))
+        _ = await service.refresh(model, trigger: .automatic)
+        let moved = try await page(service, skip: 0, limit: 100)
+        XCTAssertEqual(moved.refSet, first.refSet, "the key cannot see the skipped ref")
+        XCTAssertTrue(moved.commits.contains { $0.subject == "skipped two" }, "the page was read again, not cached")
+        XCTAssertFalse(moved.commits.contains { $0.subject == "skipped one" })
+    }
+
+    func testOnlyACompleteRefSetIsCacheable() {
+        func refs(partial: Bool = false, skipped: Int = 0) -> RefParser.Listing {
+            RefParser.Listing(branches: [], tags: [], isPartial: partial, skippedRecords: skipped)
+        }
+        XCTAssertTrue(GraphRefSet.isComplete(refs: refs(), isWorktreeListPartial: false))
+        XCTAssertFalse(GraphRefSet.isComplete(refs: refs(skipped: 1), isWorktreeListPartial: false))
+        XCTAssertFalse(GraphRefSet.isComplete(refs: refs(partial: true), isWorktreeListPartial: false))
+        XCTAssertFalse(GraphRefSet.isComplete(refs: refs(), isWorktreeListPartial: true))
     }
 
     func testRefSetCountsWorktreeHeads() {

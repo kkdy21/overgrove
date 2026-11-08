@@ -11,12 +11,16 @@ struct RepoConfigInspection: Sendable, Equatable {
         /// Every URL of the remote, after any `url.<base>.insteadOf` rewrite, is in a built-in transport form, and no
         /// `remote.<n>.vcs` is set (#350). Fetch runs only these remotes.
         let isBuiltInTransport: Bool
+        /// A URL of the remote carries a password, as written or after a rewrite (#356). Fetch refuses the remote:
+        /// git would send it, and after a successful fetch ask the trusted helper to store it for that host.
+        var hasPasswordInURL = false
     }
 
     let report: RepoSecurityReport
     /// `-c` arguments for every git command in this repository (filter drivers, T4).
     let neutralization: [String]
-    /// `-c` arguments for `git fetch` only: credential helper reset and trusted re-insertion (T6), TLS restore (T11).
+    /// `-c` arguments for `git fetch` only: credential helper reset and trusted re-insertion (T6), TLS restore, proxy
+    /// and cookie resets (T11).
     let fetchAuthentication: [String]
     /// `core.sshCommand` from a trusted scope; repository-local values are ignored (T5).
     let trustedSSHCommand: String?
@@ -31,6 +35,9 @@ struct RepoConfigInspection: Sendable, Equatable {
     let isPartialClone: Bool
     /// Remotes past `RepoConfigInspector.maximumRemotes`, counted but not listed (#262).
     var omittedRemotes = 0
+    /// A repository-controlled config-defined hook could not be neutralized (its name, or too many), so queries and
+    /// fetch stop (#354).
+    var hasUnneutralizedHooks = false
 
     /// Arguments for `GitClient`. `nil` when the report blocks queries (fail closed).
     var safetyContext: RepoSafetyContext? {
@@ -41,7 +48,8 @@ struct RepoConfigInspection: Sendable, Equatable {
             trustedSSHCommand: trustedSSHCommand,
             fetchBlockingReason: fetchBlockingReason,
             isPartialClone: isPartialClone,
-            fetchableRemotes: Set(remotes.filter(\.isBuiltInTransport).map(\.name.value))
+            fetchableRemotes: Set(remotes.filter(\.isBuiltInTransport).map(\.name.value)),
+            remotesWithPassword: Set(remotes.filter(\.hasPasswordInURL).map(\.name.value))
         )
     }
 }
@@ -55,7 +63,11 @@ enum RepoConfigInspector {
     /// - Filter drivers beyond this cannot all be neutralized: each adds eight arguments to every git command, and the
     ///   command line would outgrow the argument limit. Queries stop (fail closed).
     static let maximumNeutralizedDrivers = 256
-    /// Fetch-only overrides (`http.<url>.sslVerify`, `http.<url>.proxy`) beyond this disable fetch; queries go on.
+    /// Config-defined hooks (`hook.<name>.*`, git 2.54+) beyond this cannot all be neutralized, so queries stop
+    /// (#354). Each adds two arguments to every git command.
+    static let maximumNeutralizedHooks = 256
+    /// Fetch-only overrides (`http.<url>.sslVerify`, `.proxy`, `.cookieFile`, `.saveCookies`, `remote.<name>.proxy`)
+    /// beyond this disable fetch; queries go on.
     static let maximumFetchOverrides = 256
     /// Remotes listed (configuration order). Fetch uses fewer still (`maximumFetchedRemotes`, #259); the rest are
     /// counted in `omittedRemotes`. Remotes never affect neutralization, so this is not fail closed.
@@ -78,14 +90,27 @@ enum RepoConfigInspector {
         var findings: [RepoSecurityReport.Finding] = []
         var omittedFindings = 0
         var blockingReason: String?
-        // Arrays keep first-seen order (it becomes argument order); the sets make each check O(1) (#262).
+        // Arrays keep first-seen order (it becomes argument order); the sets make each check O(1) (#262). Keys are
+        // compared as bytes: git keeps canonically equivalent subsections apart, but `String` equality would fold
+        // them, and one of the two would miss its reset (#355).
         var neutralizedDrivers: [String] = []
         var seenDrivers = Set<String>()
         var restoreTLS: [String] = []
-        var seenTLS = Set<String>()
-        var resetProxies: [String] = []
-        var seenProxies = Set<String>()
+        var credentialSwitches: [String] = []
+        var seenCredentialSwitches = Set<[UInt8]>()
+        var seenTLS = Set<[UInt8]>()
+        var resetProxies: [ConfigEntry] = []
+        var seenProxies = Set<[UInt8]>()
+        var resetProxyAuth: [ConfigEntry] = []
+        var seenProxyAuth = Set<[UInt8]>()
+        var resetCookies: [String] = []
+        var seenCookies = Set<[UInt8]>()
         var hasUntrustedHelper = false
+        var neutralizedHooks: [String] = []
+        // Bytes, as git compares subsections: `String` equality would merge canonically equivalent names (NFC and
+        // NFD), and git runs both (#354).
+        var seenHooks = Set<[UInt8]>()
+        var hasUnneutralizedHooks = false
         var fetchBlockingReason: String?
 
         if listing.isPartial {
@@ -93,9 +118,18 @@ enum RepoConfigInspector {
         }
 
         for entry in listing.entries where entry.scope.isRepositoryControlled {
-            // git splits `-c key=value` at the first "=", so such a key could inject another setting (review of #150).
-            if entry.subsection?.contains("=") == true, ["http", "credential", "filter"].contains(entry.section) {
-                blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
+            // Keys the app overrides with `-c <same key>=…`. git splits `-c key=value` at the first "=", so such a key
+            // could inject another setting (review of #150). A subsection that was not valid UTF-8 was decoded with
+            // U+FFFD, so the override would name a different key than the one git reads (#355 review).
+            let isOverridden =
+                ["http", "credential", "filter"].contains(entry.section)
+                || (entry.section == "remote" && (entry.variable == "proxy" || entry.variable == "proxyauthmethod"))
+            if isOverridden, let subsection = entry.subsection {
+                if subsection.contains("=") {
+                    blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
+                } else if subsection.unicodeScalars.contains("\u{FFFD}") {
+                    blockingReason = "A configuration key is not valid UTF-8 and cannot be overridden safely."
+                }
             }
             guard let (threat, handling) = classify(entry) else { continue }
             if findings.count < maximumFindings {
@@ -112,15 +146,53 @@ enum RepoConfigInspector {
                 } else if seenDrivers.insert(driver).inserted {
                     neutralizedDrivers.append(driver)
                 }
+            case ("hook", _):
+                // A config-defined hook (git 2.54+, #354).
+                guard let name = entry.subsection else { continue }
+                if !ConfigParser.isNeutralizableHookName(name) {
+                    hasUnneutralizedHooks = true
+                } else if seenHooks.insert(Array(name.utf8)).inserted {
+                    if neutralizedHooks.count < maximumNeutralizedHooks {
+                        neutralizedHooks.append(name)
+                    } else {
+                        hasUnneutralizedHooks = true
+                    }
+                }
             case ("credential", "helper"):
                 hasUntrustedHelper = true
             case ("http", "sslverify"):
                 // Always force true: git accepts many spellings of false (0k, 0x0, -0, …), so never guess.
-                if seenTLS.insert(entry.key).inserted { restoreTLS.append(entry.key) }
-            case ("http", "proxy"):
-                if seenProxies.insert(entry.key).inserted { resetProxies.append(entry.key) }
-            case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"):
+                if seenTLS.insert(Array(entry.key.utf8)).inserted { restoreTLS.append(entry.key) }
+            // A remote's own proxy wins over http.proxy for that remote (#355).
+            case ("http", "proxy"), ("remote", "proxy"):
+                if seenProxies.insert(Array(entry.key.utf8)).inserted { resetProxies.append(entry) }
+            // Under its own key: a URL-specific value wins over the generic `-c http.cookieFile=` fetch pins (#355).
+            case ("http", "cookiefile"), ("http", "savecookies"):
+                if seenCookies.insert(Array(entry.key.utf8)).inserted { resetCookies.append(entry.key) }
+            // How fetch authenticates to the user's proxy (#367): `basic` would send the proxy password in the clear,
+            // and a password-protected certificate makes git ask the trusted helper. Reset under each key, like proxies.
+            case ("http", "proxyauthmethod"), ("remote", "proxyauthmethod"), ("http", "proxysslcertpasswordprotected"),
+                ("http", "sslcertpasswordprotected"):
+                if seenProxyAuth.insert(Array(entry.key.utf8)).inserted { resetProxyAuth.append(entry) }
+            // Kerberos ticket forwarding (#367): fetch pins `http.delegation=none`; a URL-specific key wins over it, so
+            // the repository's own are reset under the same key, as for cookies. (Not measured: no Kerberos setup.)
+            case ("http", "delegation"):
+                if entry.subsection != nil, seenCookies.insert(Array(entry.key.utf8)).inserted {
+                    resetCookies.append(entry.key)
+                }
+            case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"),
+                ("http", "proxysslcainfo"), ("http", "proxysslcert"), ("http", "proxysslkey"):
                 fetchBlockingReason = "This repository sets its own TLS certificate files; fetching is disabled."
+            case ("http", "curloptresolve"):
+                fetchBlockingReason = "This repository pins host names to addresses; fetching is disabled."
+            case ("extensions", "refstorage"):
+                fetchBlockingReason =
+                    "This repository keeps its references in a location it chose; fetching is disabled."
+            // URL-specific keys win over the generic ones fetch pins, so each is forced on under its own key (#356).
+            case ("credential", "protectprotocol"), ("credential", "sanitizeprompt"):
+                if seenCredentialSwitches.insert(Array(entry.key.utf8)).inserted {
+                    credentialSwitches.append(entry.key)
+                }
             default:
                 break
             }
@@ -131,16 +203,22 @@ enum RepoConfigInspector {
                 "This repository defines \(neutralizedDrivers.count) filter drivers, more than Overgrove can "
                 + "neutralize (\(maximumNeutralizedDrivers))."
         }
-        if restoreTLS.count + resetProxies.count > maximumFetchOverrides {
+        if restoreTLS.count + resetProxies.count + resetCookies.count + resetProxyAuth.count + credentialSwitches.count
+            > maximumFetchOverrides
+        {
             fetchBlockingReason =
                 "This repository sets TLS or proxy options for too many URLs to override; fetching is disabled."
         }
-        let neutralization = neutralizedDrivers.flatMap { driver in
-            [
-                "-c", "filter.\(driver).clean=", "-c", "filter.\(driver).smudge=", "-c", "filter.\(driver).process=",
-                "-c", "filter.\(driver).required=false",
-            ]
+        if hasUnneutralizedHooks {
+            blockingReason = "This repository defines hooks in its settings that Overgrove cannot turn off."
         }
+        let neutralization =
+            neutralizedDrivers.flatMap { driver in
+                [
+                    "-c", "filter.\(driver).clean=", "-c", "filter.\(driver).smudge=",
+                    "-c", "filter.\(driver).process=", "-c", "filter.\(driver).required=false",
+                ]
+            } + neutralizedHooks.flatMap { ["-c", "hook.\($0).enabled=false"] }
 
         var fetchAuthentication: [String] = []
         if hasUntrustedHelper {
@@ -153,16 +231,50 @@ enum RepoConfigInspector {
             }
         }
         fetchAuthentication += restoreTLS.flatMap { ["-c", "\($0)=true"] }
-        // A repository-local proxy could receive credentials released by a trusted helper (review of #150).
-        // Re-assert the trusted value for the same key, or an empty value (no proxy). One pass collects the last
-        // trusted value per proxy key, instead of a scan of the whole listing per key.
-        var trustedProxies: [String: String] = [:]
-        for entry in listing.entries
-        where !entry.scope.isRepositoryControlled && seenProxies.contains(entry.key) {
-            trustedProxies[entry.key] = entry.value ?? ""
+        fetchAuthentication += credentialSwitches.flatMap { ["-c", "\($0)=true"] }
+        // A repository-local proxy could receive credentials released by a trusted helper (review of #150, #355).
+        // Each one is overridden with what the trusted scopes give for the same URL (`TrustedProxies`), so a company
+        // proxy keeps working; without one, an empty value (no proxy). One pass each over the listing.
+        if !resetProxies.isEmpty || !resetProxyAuth.isEmpty {
+            var remoteURLs: [[UInt8]: String] = [:]
+            for entry in listing.entries where entry.section == "remote" && entry.variable == "url" {
+                // git fetches from a remote's first URL.
+                guard let name = entry.subsection, let url = entry.value else { continue }
+                if remoteURLs[Array(name.utf8)] == nil { remoteURLs[Array(name.utf8)] = url }
+            }
+            func remoteURL(_ entry: ConfigEntry) -> String? {
+                entry.section == "remote" ? entry.subsection.flatMap { remoteURLs[Array($0.utf8)] } : nil
+            }
+            let trusted = TrustedProxies(listing.entries)
+            for entry in resetProxies {
+                fetchAuthentication += [
+                    "-c", "\(entry.key)=\(trusted.value(replacing: entry, remoteURL: remoteURL(entry)))",
+                ]
+            }
+            // The user's own choice for the same key or URL, else git's default (#367). `anyauth` is written out:
+            // an empty method makes git warn on every fetch.
+            let defaults = [
+                "proxyauthmethod": "anyauth", "proxysslcertpasswordprotected": "false",
+                "sslcertpasswordprotected": "false",
+            ]
+            var trustedByVariable: [String: TrustedProxies] = [:]
+            for entry in resetProxyAuth {
+                let variable = entry.variable
+                let isBoolean = variable.hasSuffix("passwordprotected")
+                let lookup =
+                    trustedByVariable[variable]
+                    ?? TrustedProxies(listing.entries, variable: variable, implicitValue: isBoolean ? "true" : "")
+                trustedByVariable[variable] = lookup
+                let value = lookup.value(
+                    replacing: entry, remoteURL: remoteURL(entry), fallback: defaults[variable] ?? "")
+                fetchAuthentication += ["-c", "\(entry.key)=\(value)"]
+            }
         }
-        for key in resetProxies {
-            fetchAuthentication += ["-c", "\(key)=\(trustedProxies[key] ?? "")"]
+        // Off, not a trusted value: a repository's cookie file is never read or written, and no Kerberos ticket is
+        // forwarded (`FetchCommand` also pins the generic keys; a user's own URL-specific keys stay).
+        for key in resetCookies {
+            let value = key.hasSuffix(".savecookies") ? "false" : key.hasSuffix(".delegation") ? "none" : ""
+            fetchAuthentication += ["-c", "\(key)=\(value)"]
         }
 
         let trustedSSHCommand =
@@ -185,10 +297,13 @@ enum RepoConfigInspector {
         }
         let builtInRemotes = builtInRemoteNames(
             listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
+        let withPassword = remotesWithPassword(
+            listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
         let remotes = listedRemotes.map {
             RepoConfigInspection.Remote(
                 name: $0.name, url: $0.url, displayURL: CredentialMasker.mask($0.url),
-                isBuiltInTransport: builtInRemotes.contains($0.name.value))
+                isBuiltInTransport: builtInRemotes.contains($0.name.value),
+                hasPasswordInURL: withPassword.contains($0.name.value))
         }
 
         let dependsOnHEAD = listing.entries.contains {
@@ -213,6 +328,7 @@ enum RepoConfigInspector {
             isPartialClone: listing.entries.contains(where: isPartialCloneSetting)
         )
         inspection.omittedRemotes = omittedRemotes
+        inspection.hasUnneutralizedHooks = hasUnneutralizedHooks
         return inspection
     }
 
@@ -232,6 +348,9 @@ enum RepoConfigInspector {
             return ("T4", .neutralized)
         case "credential" where variable == "helper":
             return ("T6", .neutralized)
+        // Off switches for git's credential CVE fixes (CVE-2024-50349, CVE-2024-52006); forced on for fetch (#356).
+        case "credential" where variable == "protectprotocol" || variable == "sanitizeprompt":
+            return ("T6", .neutralized)
         case "core":
             switch variable {
             case "sshcommand", "gitproxy": return ("T5", .neutralized)
@@ -250,10 +369,15 @@ enum RepoConfigInspector {
             return ("T14", .reported)
         case "sequence" where variable == "editor":
             return ("T14", .reported)
+        // Config-defined hooks (git 2.54+): each named hook is turned off with `hook.<name>.enabled=false` (#354).
+        case "hook":
+            return ("T2", entry.subsection == nil ? .reported : .neutralized)
         case "alias" where value.hasPrefix("!"):
             return ("T14", .reported)
         case "remote":
             if variable == "uploadpack" { return ("T5", .neutralized) }
+            // Wins over http.proxy for this remote; reset for fetch like it (#355).
+            if variable == "proxy" || variable == "proxyauthmethod" { return ("T11", .neutralized) }
             // Settings that would widen what fetch writes; the pinned fetch arguments override them (#209).
             if variable == "fetch", let remote = entry.subsection, writesOutsideRemoteNamespace(value, remote: remote) {
                 return ("T13", .neutralized)
@@ -268,8 +392,17 @@ enum RepoConfigInspector {
             if variable == "url", TransportName.remoteHelper(forURL: value) != nil { return ("T5", .reported) }
             return nil
         case "http":
-            if variable == "sslverify" || variable == "proxy" { return ("T11", .neutralized) }
+            if [
+                "sslverify", "proxy", "cookiefile", "savecookies", "proxyauthmethod", "proxysslcertpasswordprotected",
+                "sslcertpasswordprotected", "delegation",
+            ].contains(variable) {
+                return ("T11", .neutralized)
+            }
             if ["sslcainfo", "sslcapath", "sslcert", "sslkey"].contains(variable) { return ("T11", .warned) }
+            // The same policy for the proxy's TLS files and for pinning a host to an address (git 2.37+) (#356).
+            if ["proxysslcainfo", "proxysslcert", "proxysslkey", "curloptresolve"].contains(variable) {
+                return ("T11", .warned)
+            }
             return nil
         case "diff" where variable == "external" || variable == "textconv" || variable == "command":
             return ("T3", .reported)
@@ -278,6 +411,9 @@ enum RepoConfigInspector {
         case "extensions" where variable == "partialclone":
             return ("T5", .neutralized)
         case "fetch" where variable == "prunetags" || variable == "bundleuri":
+            return ("T13", .neutralized)
+        // Clone only today (#195); fetch turns it off anyway.
+        case "transfer" where variable == "bundleuri":
             return ("T13", .neutralized)
         case "gpg" where variable == "program":
             return ("T7", .reported)
@@ -295,6 +431,20 @@ enum RepoConfigInspector {
             return (nil, .reported)
         case "gc" where variable == "auto", "maintenance":
             return ("T8", .reported)
+        // git 2.42+: a shell command `git gc` / `repack` runs. The app never runs gc; Terminal git would (#356).
+        case "gc" where variable == "recentobjectshook":
+            return ("T14", .reported)
+        // A file outside the repository read by every `git log` (a FIFO stalls it); the common arguments turn the
+        // mailmap off (#356).
+        case "mailmap" where variable == "file" || variable == "blob", "log" where variable == "mailmap":
+            return ("T15", .neutralized)
+        // Promisor remotes the server advertises (git 2.49+); fetch accepts none (#356).
+        case "promisor":
+            return ("T5", .neutralized)
+        // git 2.54: a location for the ref store, written by fetch and read by every query. Only the plain backend
+        // names keep the refs inside the repository (#356).
+        case "extensions" where variable == "refstorage" && !isPlainRefStorage(value):
+            return ("T13", .warned)
         case "uploadpack" where variable == "packobjectshook":
             return (nil, .reported)
         case "safe" where variable == "directory":
@@ -366,6 +516,66 @@ extension RepoConfigInspector {
             if isBuiltIn { builtIn.insert(name) }
         }
         return builtIn
+    }
+
+    /// The backend names alone keep the ref store inside the repository; a value with a location does not (git 2.54).
+    static func isPlainRefStorage(_ value: String) -> Bool {
+        ["files", "reftable"].contains(value.lowercased())
+    }
+
+    /// The remotes among `candidates` with a password in a URL, as written or after any matching
+    /// `url.<base>.insteadOf` rewrite, in any scope (#356). git 2.37+ refuses such a URL itself with
+    /// `transfer.credentialsInUrl=die` (fetch pins it); this covers older git. Only `<scheme>://` URLs carry
+    /// credentials. Bounded like `builtInRemoteNames`: the same candidates (the first `maximumCheckedRemotes`; later
+    /// remotes are not fetchable anyway), URLs per remote, rewrites, and value lengths. A value it cannot check (too
+    /// long, lossy) is left to that check, which refuses it.
+    static func remotesWithPassword(_ listing: ConfigParser.Listing, among candidates: [String]) -> Set<String> {
+        let checked = Set(candidates)
+        var rewrites: [(base: [UInt8], prefix: [UInt8])] = []
+        var urls: [String: [[UInt8]]] = [:]
+        for entry in listing.entries {
+            switch (entry.section, entry.variable) {
+            case ("url", "insteadof"):
+                let base = entry.subsection ?? ""
+                let prefix = entry.value ?? ""
+                if rewrites.count < maximumInsteadOfRewrites, isCheckable(base), isCheckable(prefix) {
+                    rewrites.append((Array(base.utf8), Array(prefix.utf8)))
+                }
+            case ("remote", "url"):
+                guard let name = entry.subsection, checked.contains(name), let url = entry.value, isCheckable(url),
+                    urls[name, default: []].count < maximumURLsPerRemote
+                else { continue }
+                urls[name, default: []].append(Array(url.utf8))
+            default:
+                continue
+            }
+        }
+        var found = Set<String>()
+        for (name, values) in urls {
+            let carriesPassword = values.contains { url in
+                hasPassword(url)
+                    || rewrites.contains { hasPrefix(url, $0.prefix) && hasPassword($0.base + url[$0.prefix.count...]) }
+            }
+            if carriesPassword { found.insert(name) }
+        }
+        return found
+    }
+
+    /// `<scheme>://<user>:<password>@…`: a `:` in the userinfo, which ends at the last `@` before the path.
+    static func hasPassword(_ url: [UInt8]) -> Bool {
+        var index = 0
+        while index + 2 < url.count, !(url[index] == 0x3A && url[index + 1] == 0x2F && url[index + 2] == 0x2F) {
+            index += 1
+        }
+        guard index + 2 < url.count else { return false }
+        var colon = false
+        var colonBeforeAt = false
+        for byte in url[(index + 3)...] {
+            if byte == 0x2F { break }
+            if byte == 0x3A { colon = true }
+            if byte == 0x40 { colonBeforeAt = colonBeforeAt || colon }
+        }
+        return colonBeforeAt
     }
 
     /// git's `starts_with` on bytes.

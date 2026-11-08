@@ -74,6 +74,20 @@ python3 colorcheck.py                                      # 토큰 대비 검�
 - **상태바.** `Read-only`, fetch 시각, ↑↓, 워크트리 수, prunable 경고, gh 상태.
 - 명세: [screens.md S-01](screens.md#s-01-메인-창), [art-direction.md](art-direction.md). 이슈: #159, #166
 
+
+### S-01 사이드바 TAGS (#377)
+
+| Light | Dark |
+|---|---|
+| ![S-01 사이드바 TAGS (light)](../../design/mockups/s01-tags-sidebar-light.png) | ![S-01 사이드바 TAGS (dark)](../../design/mockups/s01-tags-sidebar-dark.png) |
+
+원본: [`s01-tags-sidebar-light.svg`](../../design/mockups/s01-tags-sidebar-light.svg), [`s01-tags-sidebar-dark.svg`](../../design/mockups/s01-tags-sidebar-dark.svg)
+
+- 사이드바를 TAGS가 보이도록 스크롤한 상태. TAGS는 REMOTE 아래, STASHES 위다([information-architecture.md §4.5](information-architecture.md)).
+- 행은 `tag` 심볼, 이름, 오른쪽 끝의 상대 시각. `v1.3.2`에는 detached 워크트리가 있다는 `tree` 표시가 있다. 200개를 넘는 태그는 마지막의 `N more tags — filter to find one` 한 줄로 줄인다.
+- `v1.4.0`을 고른 상태라 상세 패널에 그 커밋의 S-03이 열려 있다. 그래프와 상세 내용은 S-03 목업을 다시 쓴 것이라 선택한 커밋에 `v1.4.0` 알약은 그리지 않았다.
+- 다른 화면의 목업은 TAGS 섹션 이전에 그린 것이라 사이드바에 TAGS 머리가 없다. 앱은 처음에 접힌 TAGS 머리를 REMOTE 아래에 보인다.
+
 ### S-02 WIP 상세
 
 | Light | Dark |

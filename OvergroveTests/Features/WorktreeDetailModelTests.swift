@@ -36,6 +36,38 @@ final class WorktreeDetailModelTests: XCTestCase {
         WorktreeSecurityModel(inspection(entries, hooks: hooks))
     }
 
+    /// #107: a repository with a remote on this Mac warns while it is trusted, naming the remotes (masked, escaped),
+    /// and states the untrusted mode when it is untrusted. Network remotes do not count.
+    func testRemotesOnThisMacWarnUntilTheRepositoryIsUntrusted() {
+        let entries = [
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "origin", variable: "url", value: "/srv/git/api.git"),
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "backup", variable: "url",
+                value: "file:///Volumes/backup/api.git"),
+            ConfigEntry(
+                scope: .local, section: "remote", subsection: "github", variable: "url",
+                value: "https://kim:\(secret)@github.com/acme/api.git"),
+        ]
+        let trusted = WorktreeSecurityModel(inspection(entries))
+        XCTAssertFalse(trusted.isUntrusted)
+        XCTAssertEqual(trusted.localRemotes.count, 2)
+        XCTAssertEqual(trusted.localRemotes, ["origin", "backup"])
+        let warning = try? XCTUnwrap(trusted.localRemoteWarning)
+        XCTAssertTrue(warning?.contains("origin") == true, warning ?? "")
+        XCTAssertTrue(warning?.contains("untrusted") == true, warning ?? "")
+        XCTAssertFalse(warning?.contains("/srv/git") == true, "no paths or URLs")
+        XCTAssertNil(trusted.untrustedNote)
+
+        let untrusted = WorktreeSecurityModel(inspection(entries), isUntrusted: true)
+        XCTAssertNil(untrusted.localRemoteWarning)
+        XCTAssertNotNil(untrusted.untrustedNote)
+
+        let network = WorktreeSecurityModel(inspection([entries[2]]))
+        XCTAssertEqual(network.localRemotes, [])
+        XCTAssertNil(network.localRemoteWarning)
+    }
+
     /// #262: a very large configuration shortens the report and the remote list, and S-05 says so.
     func testShortenedReportIsAnnounced() {
         let remotes = (0..<(RepoConfigInspector.maximumRemotes + 2)).map {
@@ -72,7 +104,7 @@ final class WorktreeDetailModelTests: XCTestCase {
     /// Each §6 row turns ⚠ for its own keys (as git prints them, lowercased), listing key names only.
     func testEachRowListsItsRepositoryKeys() throws {
         let cases: [(String, [String])] = [
-            ("Hooks disabled", ["core.hookspath"]),
+            ("Hooks disabled", ["core.hookspath", "hook.lint.command", "hook.lint.event"]),
             ("fsmonitor disabled", ["core.fsmonitor"]),
             ("External diff and textconv disabled", ["diff.external", "diff.go.textconv"]),
             ("Filters neutralized", ["filter.lfs.process", "filter.lfs.clean"]),
@@ -100,6 +132,27 @@ final class WorktreeDetailModelTests: XCTestCase {
         let row = try row("Hooks disabled", in: security([], hooks: ["hooks/pre-commit", "hooks/post-checkout"]))
         XCTAssertEqual(row.mark, .neutralized)
         XCTAssertEqual(row.details, ["hooks/pre-commit", "hooks/post-checkout"])
+    }
+
+    /// #354: a config-defined hook that cannot be neutralized shows ✕ on the hooks row and stops queries.
+    func testUnneutralizableConfigHookShowsUnknown() throws {
+        let model = security([entry(.local, "hook.a=b.command")])
+        XCTAssertEqual(try row("Hooks disabled", in: model).mark, .unknown)
+        XCTAssertNotNil(model.blockingReason)
+    }
+
+    /// #354: the hooks row checks the arguments that really run: a repository hook without its
+    /// `hook.<name>.enabled=false` (here dropped on purpose) shows ✕.
+    func testConfigHookWithoutItsArgumentShowsUnknown() throws {
+        let inspected = RepoConfigInspector.inspect(
+            ConfigParser.Listing(entries: [entry(.local, "hook.lint.command")], isPartial: false))
+        XCTAssertTrue(WorktreeSecurityModel.configHooksNeutralized(inspected))
+        let regressed = RepoConfigInspection(
+            report: inspected.report, neutralization: [], fetchAuthentication: inspected.fetchAuthentication,
+            trustedSSHCommand: inspected.trustedSSHCommand, remotes: inspected.remotes,
+            fetchBlockingReason: inspected.fetchBlockingReason, isCacheable: inspected.isCacheable,
+            isPartialClone: inspected.isPartialClone)
+        XCTAssertFalse(WorktreeSecurityModel.configHooksNeutralized(regressed))
     }
 
     /// The ✓ conditions come from the real arguments: dropping one shows ✕.

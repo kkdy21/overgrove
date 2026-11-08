@@ -17,7 +17,7 @@
 | [0001](0001-product-name-overgrove.md) | 제품명 Overgrove | Accepted |
 | [0002](0002-license-mit.md) | 라이선스 MIT | Accepted |
 | [0003](0003-minimum-macos-14.md) | 최소 macOS 14 | Accepted |
-| [0004](0004-github-integration-gh-issues-only.md) | GitHub 연동은 gh CLI 위임, 이슈 조회만 | Accepted |
+| [0004](0004-github-integration-gh-issues-only.md) | GitHub 연동은 gh CLI 위임, 이슈 조회만 | Accepted (§2는 [0023](0023-pull-request-status-from-gh-pr-list.md)으로 대체) |
 | [0005](0005-documentation-language.md) | 문서 언어 (내부 한국어, 외부 접점 영어) | Accepted |
 | [0006](0006-zero-external-dependencies.md) | 외부 의존성 0개 | Accepted |
 | [0007](0007-swift-format-toolchain.md) | 포맷·린트는 툴체인 내장 swift-format | Accepted |
@@ -33,3 +33,7 @@
 | [0017](0017-design-token-generation.md) | 디자인 토큰은 Swift 스크립트로 Asset Catalog와 Swift 상수를 생성해 커밋 | Accepted |
 | [0018](0018-launch-snapshot-disk-cache.md) | 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 | Accepted |
 | [0019](0019-user-chosen-git-executable.md) | 사용자가 고른 git 실행 파일을 믿는 조건 (경로·소유자·권한·버전 규칙, fail closed) | Accepted |
+| [0020](0020-git-compatibility-matrix-in-ci.md) | git 호환성 매트릭스를 CI에서 돌리는 방법 (공식 tarball SHA-256 고정 빌드, 필수 검사 아님) | Accepted |
+| [0021](0021-read-only-scope-after-v0-1.md) | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
+| [0022](0022-no-shell-proxy-env-vars.md) | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
+| [0023](0023-pull-request-status-from-gh-pr-list.md) | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |

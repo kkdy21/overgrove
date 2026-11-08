@@ -31,7 +31,8 @@ final class ConfigExecutionArgumentTests: XCTestCase {
             .aheadBehind(local: FullRefName("refs/heads/a")!, upstream: FullRefName("refs/remotes/origin/a")!),
             .stashList, .stashFiles(oid), .stashPatch(oid, path: GitPath("a.txt"), fromUntracked: false),
             .stashPatch(oid, path: GitPath("a.txt"), fromUntracked: true), .graphPage(skip: 0, limit: 10),
-            .commitMeta(oid), .commitFiles(oid, firstParent: nil), .commitFiles(oid, firstParent: parent),
+            .graphStream(limit: 10), .commitMeta(oid), .commitFiles(oid, firstParent: nil),
+            .commitFiles(oid, firstParent: parent),
             .commitPatch(oid, parent: parent, path: GitPath("a.txt")),
             .commitPatch(oid, parent: nil, path: GitPath("a.txt")),
             .worktreeDiff(path: GitPath("a.txt"), staged: false), .worktreeDiff(path: GitPath("a.txt"), staged: true),
@@ -39,7 +40,7 @@ final class ConfigExecutionArgumentTests: XCTestCase {
             .untrackedPreview(file), .fileHistory(path: GitPath("a.txt"), limit: 10),
             .compareFiles(base: FullRefName("refs/heads/main")!, includeWorkingTree: true),
             .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("a.txt"), includeWorkingTree: true),
-            .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 10),
+            .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 10), .submodulePaths,
         ]
     }
 
@@ -100,6 +101,14 @@ final class ConfigExecutionArgumentTests: XCTestCase {
     /// re-encode `-z` output (#205).
     func testSECT15_06_EveryCommandPinsTheOutputEncoding() throws {
         try assertEveryCommandSets("i18n.logOutputEncoding=UTF-8")
+    }
+
+    /// SEC-T15-18 (argument part): no command reads a mailmap, so a repository's mailmap file (any path, or a FIFO)
+    /// is never opened (#356).
+    func testSECT15_18_EveryCommandTurnsTheMailmapOff() throws {
+        try assertEveryCommandSets("log.mailmap=false")
+        try assertEveryCommandSets("mailmap.file=")
+        try assertEveryCommandSets("mailmap.blob=")
     }
 
     /// SEC-T7 (argument part of SEC-T7-01): signature checking is off on every command.

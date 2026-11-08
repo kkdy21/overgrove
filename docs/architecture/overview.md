@@ -87,7 +87,7 @@ flowchart TD
 | `AppState` | `App/` | 창 하나의 상태: 열린 저장소, 패널 레이아웃, 저장소 추가·전환·제거, 알림 |
 | `RepositoryLoading`, `LiveRepositoryLoader` | `App/` | 연 저장소의 `configList` → `RepoConfigInspector` → 워크트리 목록(§3.2). 목록과 워크트리별 확인·조회는 `RepositoryService`(#87)가 하고, 결과(`RepositoryOverview`)를 `WorktreeListing`으로 옮긴다 (#65) |
 | `WorktreeListing` | `App/` | 워크트리마다 status 결과(`loaded`, `missing`, `failed`, `notQueried`)와 목록 잘림 여부. 사이드바 `WorktreeListModel`(`Features/Worktrees/`)의 입력 |
-| `RepositoryRegistry` | `App/` | 등록된 저장소 목록과 마지막 선택(모든 창이 공유). `UserDefaults`에 경로만 저장 (§8) |
+| `RepositoryRegistry` | `App/` | 등록된 저장소 목록과 마지막 선택(모든 창이 공유). `UserDefaults`에 경로와 신뢰하지 않음 표시(#107)만 저장 (§8) |
 | `RepositoryRegistrar` | `App/` | 고른 폴더 → `PathValidator` → probe(`GitClient`, 검사 전 허용 명령) → 등록할 저장소. 같은 공통 git 디렉터리는 한 저장소 (§9) |
 | `RepositoryStore` | `App/` | 선택된 저장소 하나의 화면 상태: 워크트리, 상태, stash, 그래프 페이지, 선택 항목, 로딩·에러 |
 | `IssueStore` | `App/` | gh 로그인 상태, 이슈 목록, 이슈 번호 매칭 결과 |
@@ -190,7 +190,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 
 | 캐시 | 키 | 무효화 조건 |
 |---|---|---|
-| git 실행 파일·버전 | 앱 실행 | 설정에서 git 경로 변경 (v0.2.0). → `LiveGitClient.shared`가 앱 실행당 한 번 `GitEnvironment.discover` |
+| git 실행 파일·버전 | 앱 실행 | 설정에서 git 경로 변경 (v0.2.0, #106). → `LiveGitClient.shared`가 첫 사용 때 `GitEnvironment.resolve`(설정에서 고른 git을 [ADR-0019](../adr/0019-user-chosen-git-executable.md) 규칙으로 검사, 없으면 `discover`). 실패하면 기억하지 않아 다음 사용에서 다시 검사하고, 설정을 바꾸면 `reset()` |
 | 설정 검사 결과 (`RepoConfigInspector`) | 저장소 + 워크트리 폴더 | 그 폴더에서 git이 읽는 설정 파일의 변경, 수동 새로고침. → #88 |
 | 워크트리 목록 | 저장소 | 수동 새로고침, fetch 완료, 창 활성화. → #88 |
 | `WorkingState` (status) | 워크트리 경로 | 수동 새로고침, 워크트리 선택, 창 활성화(마지막 조회 후 5초 이상), fetch 완료. → #88 |
@@ -200,6 +200,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | 그래프 페이지 | 저장소 + ref 집합(브랜치·원격·태그 tip과 워크트리 HEAD의 정렬된 목록 그 자체, 해시 충돌 없음) + skip·limit | ref 집합이 바뀌면 새 키. 수동 새로고침(⌘R)과 `forget`이면 그 저장소 페이지를 모두 버림(목록에 없는 ref 이름공간이 움직일 수 있다). 최대 40페이지 LRU. → #68 (`RepositoryService.graphPage`, `GraphStore`) |
 | 커밋 상세 | 저장소 + object ID | 무효화 없음 (불변). 최대 200개 LRU, `forget`이면 함께 버림. 잘린 결과는 캐시하지 않는다. 파일 patch는 캐시하지 않는다. → #69 (`RepositoryService.commitDetail`, `CommitDetailStore`) |
 | 이슈 목록 | 저장소 원격(owner/name) | 수동 새로고침, 5분 경과. → #81에서 구현 |
+| PR 목록 (v0.2.0) | 저장소 원격(owner/name) | 이슈 목록과 같은 시점: 수동 새로고침, fetch 완료, 5분 경과. 실패해도 이슈 패널은 끄지 않고 PR 표시만 없앤다. → [ADR-0023](../adr/0023-pull-request-status-from-gh-pr-list.md), #115 |
 | 기준 브랜치 비교 (`WorktreeComparison`) | 워크트리 + 기준 ref + 기준 tip + HEAD (+ 작업 트리 포함이면 그 워크트리의 status 조회 시각) | 키가 바뀌면 새 항목. 커밋만 비교하면 불변이라 status가 새로 와도 유지하고, 작업 트리 포함이면 status를 다시 조회할 때 무효. 최대 32개 LRU, `forget`이면 함께 버림. → #157 |
 
 위 캐시는 모두 메모리에만 있다. 실행 간 디스크 캐시는 사이드바 워크트리 요약 스냅샷 하나로 정했다. 표시 전용이고 보안 판단에 쓰지 않는다([ADR-0018](../adr/0018-launch-snapshot-disk-cache.md), 구현 #109).
@@ -288,7 +289,7 @@ fetch 실패 안내는 `FetchFailureGuidance(error:remote:endpoint:report:)`(`Ov
   - 네트워크: `networkUnavailable`
   - 시간 초과: `timeout`
   - 기타: `remoteNotFound`, `transportNotAllowed`, 설정 때문에 꺼진 fetch(`configInspectionFailed`), 그 밖
-- **필드**: 한 줄 요약(`summary`), 해결 안내(`guidance`), 복사 가능한 명령(`commands`), 마스킹한 stderr(`detail`, 끝 5줄은 `detailTail`)
+- **필드**: 한 줄 요약(`summary`), 해결 안내(`guidance`), 복사 가능한 명령(`commands`), 마스킹한 stderr(`detail`. `\r`로 다시 쓴 줄은 마지막 상태만 남고, 길이는 유니코드 스칼라로 센다. 끝 5줄은 `detailTail`이고 줄마다 300 스칼라까지, #362)
 - **문구**: 모두 앱이 쓴다. 명령에는 검증된 원격 이름, 호스트 이름, 포트만 넣는다. 호스트는 `Endpoint(remoteURL:)`로 자격 증명과 경로를 뺀 이름만 쓴다.
 - **터미널 git**: 터미널의 git은 앱처럼 무력화되지 않는다. 저장소의 hook, 로컬 `core.sshCommand`, 프록시, credential helper, pager가 그대로 실행된다. 그래서 `git` 명령(`git fetch <remote>`, `git --no-pager remote -v`)은 저장소 설정 보고(`RepoSecurityReport`)에 항목이 없을 때만 넣고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다. 보고에 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan`, `ssh-keygen -F`)만 넣고 보안 보고서를 먼저 보라고 안내한다(#200 보안 검토).
 - **취소**: 실패가 아니다. 안내를 만들지 않는다(`nil`). 원격이 없을 때는 `FetchFailureGuidance.noRemotes`를 쓴다.
@@ -325,7 +326,7 @@ gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다:
 ## 8. 설정 저장
 
 - `UserDefaults`에 다음만 저장한다.
-  - 등록된 저장소 경로 목록
+  - 등록된 저장소 경로 목록과 저장소별 신뢰하지 않음 표시(#107, 기본 신뢰함)
   - 마지막 선택 저장소
   - 자동 fetch 사용 여부와 주기(기본 꺼짐)
   - 원격 URL 표시 여부(기본: 마스킹)

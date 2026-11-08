@@ -21,7 +21,7 @@ Phase 4 종료 기준(D9, "PB-1–PB-8 충족")의 근거 자료다. 오늘(2026
 | 장비 | Apple M1, 8코어, 16GB, macOS 26.5.2 (기준 측정 기록들과 같은 장비) |
 | git | Xcode 개발자 디렉터리의 `usr/bin/git` 2.50.1 (Apple Git-155), 앱과 같은 인자·환경, 격리한 HOME |
 | 커밋 | `main` `8fe0a7f` + 이 PR의 PERF-11·12 테스트 |
-| 저장소 | `scripts/make-bench-repo.sh --commit-graph`: 커밋 약 10만(`--all`로 보이는 커밋 68,734), 추적 파일 1만, 워크트리 10, stash 5. PB-3b용으로 `--commit-graph` 없이 만든 같은 저장소 |
+| 저장소 | `scripts/make-bench-repo.sh --commit-graph`: 커밋 100,024개(이전 기록의 "68,734"는 10MB 조회 상한에서 잘린 값, [정정](../../performance/results/2026-11-08-pb3b-graph-streaming.md)), 추적 파일 1만, 워크트리 10, stash 5. PB-3b용으로 `--commit-graph` 없이 만든 같은 저장소 |
 | 방법 | `benchmark-plan.md` §7. `TEST_RUNNER_OVERGROVE_BENCH_REPO`, `TEST_RUNNER_OVERGROVE_PERF=1`, `TEST_RUNNER_OVERGROVE_PERF_REPORT_DIR`. 21회 실행에서 첫 회는 버리고 nearest-rank p95(합성 입력은 11회) |
 | 부하 | 다른 에이전트 세션의 빌드·테스트가 함께 돌았다(load average 2.6–6.2). 이전 기록과 비교해 흔들림은 수 ms 안이다 |
 

@@ -88,15 +88,44 @@ final class RepoConfigInspectorTests: XCTestCase {
         )
     }
 
-    func testLocalProxyIsReplacedWithTheTrustedValueOrNothing() {
+    /// A repository's proxy is replaced by what the trusted scopes give for the same URL (#150, #355): the user's
+    /// company proxy keeps working, and the repository's value is gone.
+    func testLocalProxyIsReplacedWithTheTrustedEffectiveValue() {
         let result = inspect([
             entry(.global, "http.proxy", "http://corp-proxy:3128"), entry(.local, "http.proxy", "http://evil:8080"),
             entry(.local, "http.https://github.com.proxy", "http://evil:8080"),
         ])
         XCTAssertEqual(
             result.fetchAuthentication,
-            ["-c", "http.proxy=http://corp-proxy:3128", "-c", "http.https://github.com.proxy="]
+            ["-c", "http.proxy=http://corp-proxy:3128", "-c", "http.https://github.com.proxy=http://corp-proxy:3128"]
         )
+        XCTAssertEqual(
+            inspect([entry(.local, "http.https://github.com.proxy", "http://evil:8080")]).fetchAuthentication,
+            ["-c", "http.https://github.com.proxy="], "no trusted proxy: none")
+    }
+
+    /// The most specific trusted URL key that matches wins (git's urlmatch order: host, then path, then user); a
+    /// trusted key for another host or scheme does not apply.
+    func testTheMostSpecificTrustedProxyForTheURLIsUsed() {
+        let result = inspect([
+            entry(.global, "http.proxy", "http://generic.invalid"),
+            entry(.global, "http.https://*.corp.invalid.proxy", "http://wildcard.invalid"),
+            entry(.global, "http.https://git.corp.invalid.proxy", "http://host.invalid"),
+            entry(.global, "http.https://git.corp.invalid/team.proxy", "http://path.invalid"),
+            entry(.global, "http.http://git.corp.invalid.proxy", "http://other-scheme.invalid"),
+            entry(.local, "http.https://git.corp.invalid/team/repo.git.proxy", "http://evil.invalid"),
+            entry(.local, "http.https://git.corp.invalid:443/other.proxy", "http://evil.invalid"),
+            entry(.local, "http.https://ci.corp.invalid.proxy", "http://evil.invalid"),
+            entry(.local, "http.https://elsewhere.invalid.proxy", "http://evil.invalid"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            [
+                "-c", "http.https://git.corp.invalid/team/repo.git.proxy=http://path.invalid",
+                "-c", "http.https://git.corp.invalid:443/other.proxy=http://host.invalid",
+                "-c", "http.https://ci.corp.invalid.proxy=http://wildcard.invalid",
+                "-c", "http.https://elsewhere.invalid.proxy=http://generic.invalid",
+            ])
     }
 
     func testLocalCertificateFilesBlockFetchOnly() {
@@ -106,9 +135,258 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertNotNil(result.safetyContext?.fetchBlockingReason)
     }
 
+    // MARK: - Settings from newer git (#356)
+
+    /// The switches that turn off git's credential CVE fixes are forced on under their own key for fetch (the generic
+    /// keys are also pinned by `FetchCommand`), since a URL-specific key would win over the generic one.
+    func testSECT6_06_CredentialProtectionSwitchesAreForcedOn() {
+        let result = inspect([
+            entry(.local, "credential.protectprotocol", "false"),
+            entry(.local, "credential.https://x.invalid.sanitizeprompt", "false"),
+            entry(.global, "credential.https://y.invalid.protectprotocol", "false"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            ["-c", "credential.protectprotocol=true", "-c", "credential.https://x.invalid.sanitizeprompt=true"])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T6", "T6"])
+        XCTAssertTrue(
+            FetchCommand.fetch(remote: RemoteName("origin")!).configurationOverrides().contains(
+                "credential.protectProtocol=true"))
+    }
+
+    func testPasswordsInRemoteURLsAreFound() {
+        XCTAssertTrue(RepoConfigInspector.hasPassword(Array("https://a:b@h/r".utf8)))
+        XCTAssertTrue(RepoConfigInspector.hasPassword(Array("ssh://a:@h/r".utf8)))
+        XCTAssertFalse(RepoConfigInspector.hasPassword(Array("https://alice@h/r".utf8)))
+        XCTAssertFalse(
+            RepoConfigInspector.hasPassword(Array("https://h/a:b@c".utf8)), "an @ in the path is not userinfo")
+        XCTAssertFalse(
+            RepoConfigInspector.hasPassword(Array("git@github.com:o/r.git".utf8)), "scp form has no password")
+        XCTAssertFalse(RepoConfigInspector.hasPassword([]))
+
+        let result = inspect([
+            entry(.local, "remote.plain.url", "https://h.invalid/r"),
+            entry(.local, "remote.direct.url", "https://u:p@h.invalid/r"),
+            entry(.local, "remote.rewritten.url", "corp:r"),
+            entry(.global, "url.https://u:p@corp.invalid/.insteadof", "corp:"),
+        ])
+        XCTAssertEqual(
+            result.remotes.filter(\.hasPasswordInURL).map(\.name.value), ["direct", "rewritten"],
+            "a rewrite that adds a password counts")
+        XCTAssertEqual(result.safetyContext?.remotesWithPassword, ["direct", "rewritten"])
+    }
+
+    func testRefStorageWithALocationIsReportedAndBlocksFetch() {
+        for plain in ["files", "reftable", "REFTABLE"] {
+            let result = inspect([entry(.local, "extensions.refstorage", plain)])
+            XCTAssertTrue(result.report.findings.isEmpty, plain)
+            XCTAssertNil(result.fetchBlockingReason, plain)
+        }
+        let result = inspect([entry(.local, "extensions.refstorage", "files:///tmp/elsewhere")])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T13"])
+        XCTAssertNotNil(result.fetchBlockingReason)
+        XCTAssertNotNil(result.safetyContext, "queries go on")
+    }
+
+    func testProxyTLSFilesAndPinnedAddressesBlockFetchOnly() {
+        for key in [
+            "http.proxysslcainfo", "http.https://x.invalid.proxysslcert", "http.proxysslkey",
+            "http.curloptresolve", "http.https://x.invalid.curloptresolve",
+        ] {
+            let result = inspect([entry(.local, key, "/tmp/x")])
+            XCTAssertEqual(result.report.findings.map(\.handling), [.warned], key)
+            XCTAssertNotNil(result.fetchBlockingReason, key)
+            XCTAssertNotNil(result.safetyContext, key)
+        }
+    }
+
+    func testNewerExecutionAndFileSettingsAreReported() {
+        let result = inspect([
+            entry(.local, "gc.recentobjectshook", "touch x"), entry(.local, "mailmap.file", "/tmp/fifo"),
+            entry(.local, "mailmap.blob", "HEAD:.mailmap"), entry(.local, "log.mailmap", "true"),
+            entry(.local, "promisor.acceptfromserver", "all"),
+        ])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T14", "T15", "T15", "T15", "T5"])
+        XCTAssertEqual(result.report.findings.first?.handling, .reported, "Terminal git would run it")
+    }
+
     func testKeysContainingEqualsBlock() {
         XCTAssertTrue(inspect([entry(.local, "http.https://example.com/a.b=c.sslverify", "false")]).report.isBlocked)
         XCTAssertTrue(inspect([entry(.local, "credential.https://x=y.helper", "!evil")]).report.isBlocked)
+        // `-c remote.a=b.proxy=` would set `remote.a` instead (#355).
+        XCTAssertTrue(inspect([entry(.local, "remote.a=b.proxy", "http://evil.invalid")]).report.isBlocked)
+        XCTAssertFalse(inspect([entry(.local, "remote.a=b.url", "https://x.invalid/r")]).report.isBlocked)
+    }
+
+    /// #355 review: invalid UTF-8 in a subsection is decoded as U+FFFD, so `-c <that key>=…` would not reach the key git
+    /// reads. Parsed from bytes, as `config --list -z` gives them.
+    func testKeysThatAreNotValidUTF8Block() throws {
+        func listing(_ key: [UInt8]) throws -> RepoConfigInspection {
+            let record = Array("local\0".utf8) + key + Array("\nhttp://evil.invalid\0".utf8)
+            return RepoConfigInspector.inspect(try ConfigParser.parse(Data(record)))
+        }
+        for (prefix, variable) in [
+            ("http.https://x.invalid/", ".proxy"), ("http.https://x.invalid/", ".sslverify"),
+            ("credential.https://x.invalid/", ".helper"), ("remote.o", ".proxy"),
+        ] {
+            let key = Array(prefix.utf8) + [0xFF] + Array(variable.utf8)
+            XCTAssertTrue(try listing(key).report.isBlocked, prefix + variable)
+        }
+        XCTAssertFalse(
+            try listing(Array("remote.o".utf8) + [0xFF] + Array(".url".utf8)).report.isBlocked,
+            "a key the app never overrides is only listed")
+    }
+
+    /// #355: `remote.<name>.proxy` wins over `http.proxy` for that remote, so a repository's value is reset the same
+    /// way: to the trusted value for the same key, else to nothing.
+    func testLocalRemoteProxyIsReplacedWithTheTrustedEffectiveValue() {
+        let result = inspect([
+            entry(.global, "remote.origin.proxy", "http://corp-proxy:3128"),
+            entry(.global, "http.https://git.corp.invalid.proxy", "http://host.invalid"),
+            entry(.local, "remote.origin.url", "https://github.invalid/o/r.git"),
+            entry(.local, "remote.origin.proxy", "http://evil.invalid:8080"),
+            entry(.local, "remote.fork.url", "https://git.corp.invalid/o/r.git"),
+            entry(.local, "remote.fork.proxy", "http://evil.invalid:8080"),
+            entry(.local, "remote.gone.proxy", "http://evil.invalid:8080"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            [
+                // The trusted value of the same key first, then the trusted proxy for the remote's URL, else none.
+                "-c", "remote.origin.proxy=http://corp-proxy:3128", "-c", "remote.fork.proxy=http://host.invalid",
+                "-c", "remote.gone.proxy=",
+            ])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T11", "T11", "T11"])
+        XCTAssertEqual(result.report.findings.map(\.handling), [.neutralized, .neutralized, .neutralized])
+        XCTAssertTrue(result.neutralization.isEmpty, "queries open no connection")
+    }
+
+    /// #367: how fetch authenticates to the user's proxy is not the repository's choice. `proxyAuthMethod=basic` would
+    /// send the proxy password in the clear where the proxy offers Digest, and `proxySSLCertPasswordProtected` makes git
+    /// ask the trusted helper for a certificate password. Each key (generic, per URL, per remote) is reset under its own
+    /// key to the trusted value, else to git's default.
+    func testLocalProxyAuthSettingsAreReplacedWithTrustedValues() {
+        let result = inspect([
+            entry(.global, "http.proxyauthmethod", "negotiate"),
+            entry(.global, "http.https://git.corp.invalid.proxyauthmethod", "ntlm"),
+            entry(.local, "remote.origin.url", "https://git.corp.invalid/o/r.git"),
+            entry(.local, "http.proxyauthmethod", "basic"),
+            entry(.local, "http.https://elsewhere.invalid.proxyauthmethod", "basic"),
+            entry(.local, "remote.origin.proxyauthmethod", "basic"),
+            entry(.local, "remote.gone.proxyauthmethod", "basic"),
+            entry(.local, "http.proxysslcertpasswordprotected", "true"),
+            entry(.local, "http.https://x.invalid.proxysslcertpasswordprotected", "true"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            [
+                "-c", "http.proxyauthmethod=negotiate",
+                "-c", "http.https://elsewhere.invalid.proxyauthmethod=negotiate",
+                "-c", "remote.origin.proxyauthmethod=ntlm",
+                "-c", "remote.gone.proxyauthmethod=negotiate",
+                "-c", "http.proxysslcertpasswordprotected=false",
+                "-c", "http.https://x.invalid.proxysslcertpasswordprotected=false",
+            ])
+        XCTAssertEqual(Set(result.report.findings.map(\.threat)), ["T11"])
+        XCTAssertEqual(Set(result.report.findings.map(\.handling)), [.neutralized])
+        XCTAssertNil(result.fetchBlockingReason)
+        XCTAssertTrue(result.neutralization.isEmpty, "queries open no connection")
+    }
+
+    /// #367: without trusted values, the authentication method falls back to git's own default (`anyauth`, written out
+    /// so git prints no "unsupported method" warning).
+    func testLocalProxyAuthMethodWithoutTrustedValueIsAnyauth() {
+        XCTAssertEqual(
+            inspect([
+                entry(.local, "remote.o.proxyauthmethod", "basic"), entry(.local, "http.proxyauthmethod", "basic"),
+            ])
+            .fetchAuthentication,
+            ["-c", "remote.o.proxyauthmethod=anyauth", "-c", "http.proxyauthmethod=anyauth"])
+    }
+
+    /// #367 review: `sslCertPasswordProtected` (the remote certificate's twin) makes git ask the trusted helper too.
+    func testLocalSSLCertPasswordProtectedIsReplacedWithTrustedValue() {
+        XCTAssertEqual(
+            inspect([
+                entry(.global, "http.sslcertpasswordprotected", "true"),
+                entry(.local, "http.sslcertpasswordprotected", "false"),
+                entry(.local, "http.https://x.invalid.sslcertpasswordprotected", "true"),
+            ]).fetchAuthentication,
+            [
+                "-c", "http.sslcertpasswordprotected=true",
+                "-c", "http.https://x.invalid.sslcertpasswordprotected=true",
+            ])
+        XCTAssertEqual(
+            inspect([entry(.local, "http.sslcertpasswordprotected", "true")]).fetchAuthentication,
+            ["-c", "http.sslcertpasswordprotected=false"])
+        // A trusted key written without `=` is true for git; the override must not turn it into `-c key=` (false).
+        XCTAssertEqual(
+            inspect([
+                entry(.global, "http.proxysslcertpasswordprotected", nil),
+                entry(.local, "http.proxysslcertpasswordprotected", "false"),
+            ]).fetchAuthentication,
+            ["-c", "http.proxysslcertpasswordprotected=true"])
+    }
+
+    /// #367: Kerberos ticket forwarding is pinned off for fetch (`FetchCommand`), and a repository's URL-specific
+    /// `http.<url>.delegation` (which would win over the pin) is reset to `none` under its own key. A user's own stays.
+    func testLocalDelegationIsTurnedOffUnderItsOwnKey() {
+        let result = inspect([
+            entry(.local, "http.delegation", "always"),
+            entry(.local, "http.https://x.invalid.delegation", "always"),
+            entry(.global, "http.https://corp.invalid.delegation", "policy"),
+        ])
+        XCTAssertEqual(result.fetchAuthentication, ["-c", "http.https://x.invalid.delegation=none"])
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T11", "T11"])
+        XCTAssertEqual(result.report.findings.map(\.handling), [.neutralized, .neutralized])
+        XCTAssertNil(result.fetchBlockingReason)
+    }
+
+    /// #367: `-c remote.a=b.proxyauthmethod=` would set `remote.a` instead.
+    func testRemoteProxyAuthMethodKeyContainingEqualsBlocks() {
+        XCTAssertTrue(inspect([entry(.local, "remote.a=b.proxyauthmethod", "basic")]).report.isBlocked)
+    }
+
+    /// #355: a repository's cookie file would be read (and with `saveCookies`, written) by fetch. A URL-specific key
+    /// wins over the generic `-c http.cookieFile=` that fetch pins, so each one is reset under its own key.
+    func testLocalCookieSettingsAreTurnedOffUnderTheirOwnKeys() {
+        let result = inspect([
+            entry(.local, "http.cookiefile", "/tmp/cookies.txt"),
+            entry(.local, "http.https://x.invalid.cookiefile", "/tmp/cookies.txt"),
+            entry(.worktree, "http.https://x.invalid.savecookies", "true"),
+            entry(.global, "http.https://y.invalid.cookiefile", "/tmp/trusted.txt"),
+        ])
+        XCTAssertEqual(
+            result.fetchAuthentication,
+            [
+                "-c", "http.cookiefile=", "-c", "http.https://x.invalid.cookiefile=",
+                "-c", "http.https://x.invalid.savecookies=false",
+            ],
+            "a user's own (global) setting is left alone")
+        XCTAssertEqual(result.report.findings.map(\.threat), ["T11", "T11", "T11"])
+        XCTAssertNil(result.fetchBlockingReason)
+    }
+
+    /// #355: git keeps canonically equivalent subsections apart (bytes), but Swift `String` equality would fold them,
+    /// so one of two such keys could be left out of the reset. Compared as bytes here for the same reason.
+    func testCanonicallyEquivalentURLKeysAreEachReset() {
+        let composed = "https://caf\u{E9}.invalid"
+        let decomposed = "https://cafe\u{301}.invalid"
+        let result = inspect([
+            entry(.local, "http.\(composed).sslverify", "false"),
+            entry(.local, "http.\(decomposed).sslverify", "false"),
+            entry(.local, "http.\(composed).proxy", "http://evil.invalid"),
+            entry(.local, "http.\(decomposed).proxy", "http://evil.invalid"),
+            entry(.global, "http.\(decomposed).proxy", "http://trusted.invalid"),
+            entry(.local, "http.\(composed).cookiefile", "/tmp/c"),
+            entry(.local, "http.\(decomposed).cookiefile", "/tmp/c"),
+        ])
+        let expected = [
+            "-c", "http.\(composed).sslverify=true", "-c", "http.\(decomposed).sslverify=true",
+            "-c", "http.\(composed).proxy=", "-c", "http.\(decomposed).proxy=http://trusted.invalid",
+            "-c", "http.\(composed).cookiefile=", "-c", "http.\(decomposed).cookiefile=",
+        ]
+        XCTAssertEqual(result.fetchAuthentication.map { Array($0.utf8) }, expected.map { Array($0.utf8) })
     }
 
     func testIncludeIfOnBranchIsNotCacheable() async {
@@ -367,7 +645,7 @@ final class RepoConfigInspectorTests: XCTestCase {
         ])
         XCTAssertEqual(
             result.fetchAuthentication,
-            ["-c", "http.proxy=http://trusted.invalid", "-c", "http.https://x.invalid/.proxy="])
+            ["-c", "http.proxy=http://trusted.invalid", "-c", "http.https://x.invalid/.proxy=http://trusted.invalid"])
     }
 
     // MARK: - Result cache hardening (#88)

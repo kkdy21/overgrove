@@ -7,12 +7,20 @@ import XCTest
 final class GatedFetcher: RepositoryFetching, @unchecked Sendable {
     private let lock = NSLock()
     private var waiting: [(Repository, @Sendable ([String]) -> Void, CheckedContinuation<FetchRun, Never>)] = []
+    private var untrustedFlags: [Bool] = []
 
     var count: Int { lock.withLock { waiting.count } }
+    /// The `untrusted` argument of each fetch, in order (#107).
+    var untrusted: [Bool] { lock.withLock { untrustedFlags } }
 
-    func fetch(_ repository: Repository, onStart: @escaping @Sendable ([String]) -> Void) async -> FetchRun {
+    func fetch(_ repository: Repository, untrusted: Bool, onStart: @escaping @Sendable ([String]) -> Void) async
+        -> FetchRun
+    {
         await withCheckedContinuation { continuation in
-            lock.withLock { waiting.append((repository, onStart, continuation)) }
+            lock.withLock {
+                untrustedFlags.append(untrusted)
+                waiting.append((repository, onStart, continuation))
+            }
         }
     }
 
@@ -71,7 +79,7 @@ final class FetchControllerTests: XCTestCase {
     private func failure(_ remote: String, _ error: GitError) -> FetchFailureGuidance {
         FetchFailureGuidance(
             error: error, remote: RemoteName(remote)!,
-            report: RepoSecurityReport(findings: [], blockingReason: nil))!
+            report: RepoSecurityReport(findings: [], blockingReason: nil), hookExecutables: [])!
     }
 
     func testSuccessfulFetchIsRecordedAndRefreshes() async {
@@ -99,6 +107,25 @@ final class FetchControllerTests: XCTestCase {
         XCTAssertEqual(controller.status, .idle(lastFetched: start))
         XCTAssertEqual(store.entry(for: repository.id)?.last.succeeded, true)
         XCTAssertEqual(finished, 1, "ahead/behind is refreshed after a fetch")
+    }
+
+    /// #107: each fetch (manual or automatic) passes the repository's untrusted flag as it is when the fetch starts.
+    func testTheUntrustedFlagIsReadWhenEachFetchStarts() async {
+        let fetcher = GatedFetcher()
+        let (controller, _) = controller(fetcher)
+        var untrusted = false
+        controller.isUntrusted = { _ in untrusted }
+
+        controller.fetch()
+        await fetcher.waitForFetches(1)
+        fetcher.release(0, with: .finished(failures: []))
+        while controller.status.isFetching { await Task.yield() }
+
+        untrusted = true
+        controller.fetchAutomatically()
+        await fetcher.waitForFetches(2)
+        XCTAssertEqual(fetcher.untrusted, [false, true])
+        fetcher.release(1, with: .finished(failures: []))
     }
 
     func testFailedFetchKeepsTheLastSuccessAndShowsDetails() async {

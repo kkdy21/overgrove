@@ -13,6 +13,8 @@ struct MainWindowView: View {
 
     var body: some View {
         window
+            // The graph panel's zoom (#121); other panels keep their size.
+            .environment(\.graphZoom, state.settings.graphZoom)
             .focusedSceneValue(\.repositoryActions, focusedActions)
             .focusedSceneValue(\.navigationActions, navigationActions)
             .focusedSceneValue(\.searchActions, searchActions)
@@ -74,9 +76,19 @@ struct MainWindowView: View {
 
     private var navigationActions: FocusedNavigationActions {
         FocusedNavigationActions(
+            canGoBack: state.canGoBackInSelection, canGoForward: state.canGoForwardInSelection,
+            goBack: { [state] in Self.announceMove(state.goBackInSelection(), in: state) },
+            goForward: { [state] in Self.announceMove(state.goForwardInSelection(), in: state) },
             canJumpToHead: state.canJumpToHead, jumpToHead: state.jumpToHead,
             canToggleWorktreeInfo: state.canToggleWorktreeInfo, toggleWorktreeInfo: state.toggleWorktreeInfo,
             focus: state.focus, fullPath: state.fullPathToCopy, copy: state.copy)
+    }
+
+    /// After Back or Forward (interaction.md §1.4), VoiceOver hears what is selected now.
+    @MainActor
+    private static func announceMove(_ moved: Bool, in state: AppState) -> Bool {
+        if moved, let text = state.selectionAnnouncement { AccessibilityNotification.Announcement(text).post() }
+        return moved
     }
 
     private var window: some View {
@@ -86,6 +98,7 @@ struct MainWindowView: View {
                     hasRepository: state.repository != nil, worktreeStatus: state.worktreeList,
                     worktreeModel: state.worktreeListModel, selectedWorktree: state.focusedWorktreePath,
                     onSelectWorktree: state.selectWorktree, branchModel: state.branchListModel,
+                    selectedCommit: state.selectedCommitOID,
                     remoteURLTooltips: state.remoteURLTooltips,
                     stashRows: state.stashes.map(StashRow.init),
                     isStashListPartial: state.isStashListPartial, selectedStash: state.selectedStashOID,
@@ -104,14 +117,19 @@ struct MainWindowView: View {
                     authorSummary: state.graphAuthorSummary, authorFilter: state.authorFilter,
                     authorMatches: state.graphAuthorFilter?.matchSet, onSelectAuthor: state.selectAuthorFilter,
                     columns: state.graphColumns, onCommitColumns: state.commitGraphColumns,
+                    stashes: state.stashes, selectedStash: state.selectedStashOID, onSelectStash: state.selectStash,
+                    showsStashes: state.settings.showsGraphStashes,
+                    onSetShowsStashes: { state.settings.showsGraphStashes = $0 },
                     diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile,
                     onShowDiffHistory: state.shownFileHistoryTarget == nil ? nil : { state.showHistoryOfShownFile() },
-                    history: historyCenter, comparison: comparisonCenter)
+                    history: historyCenter, comparison: comparisonCenter,
+                    commitComparison: commitComparisonCenter)
             } detail: {
                 DetailPanel(
                     focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
-                    wipModel: state.wipDetailModel, worktreeModel: state.worktreeDetailModel,
+                    wipModel: state.wipDetailModel, submoduleSection: state.submoduleSection,
+                    worktreeModel: state.worktreeDetailModel,
                     selectedFile: state.selectedFile, onSelectFile: state.selectFile,
                     showsWorktreeSegment: state.selection.flatMap {
                         switch $0 {
@@ -128,8 +146,9 @@ struct MainWindowView: View {
                     onSelectStashFile: state.selectStashFile, issueModel: state.issueDetailModel,
                     onSelectLinkedWorktree: state.selectWorktree, onSelectLinkedCommit: state.selectLinkedCommit,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
-                    comparisonList: comparisonList,
-                    onCompare: state.canCompare() ? { state.showComparison() } : nil)
+                    comparisonList: comparisonList, commitComparisonList: commitComparisonList,
+                    onCompare: state.canCompare() ? { state.showComparison() } : nil,
+                    onSetUntrusted: { state.setRepositoryUntrusted($0) })
             }
             statusBar
         }
@@ -243,6 +262,21 @@ struct MainWindowView: View {
         return ComparisonListView(
             title: state.snapshot?.focusedWorktree?.title ?? "", session: session, model: model,
             onSelect: state.selectComparisonFile, onShowAll: state.showAllComparisonFiles)
+    }
+
+    // MARK: Compare two commits (#388)
+
+    private var commitComparisonCenter: CommitComparisonCenterView? {
+        guard let session = state.commitComparison, let model = state.commitComparisonModel else { return nil }
+        return CommitComparisonCenterView(
+            session: session, model: model, onBack: state.closeCommitComparison, onSwap: state.swapCommitComparison)
+    }
+
+    private var commitComparisonList: CommitComparisonListView? {
+        guard let session = state.commitComparison, let model = state.commitComparisonModel else { return nil }
+        return CommitComparisonListView(
+            session: session, model: model, onSelectFile: state.selectCommitComparisonFile,
+            onShowAll: state.showAllCommitComparisonFiles, onShowCommit: state.showCommitFromComparison)
     }
 
     private func toggleSidebar() {

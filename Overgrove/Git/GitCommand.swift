@@ -22,6 +22,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// alone, git shows a rename as a whole new file (#309).
     case stashPatch(ObjectID, path: GitPath, originalPath: GitPath? = nil, fromUntracked: Bool)
     case graphPage(skip: Int, limit: Int)
+    /// The newest `limit` commits of the same history in one process, read as it streams (`GitClient.stream`, #254).
+    /// Without a commit-graph file `--date-order` sorts the whole history before the first line, so every `--skip`
+    /// page paid that again (~400 ms each on the bench repository); one stream pays it once.
+    case graphStream(limit: Int)
     case commitMeta(ObjectID)
     /// `firstParent` is set for merge commits, which are compared with their first parent.
     case commitFiles(ObjectID, firstParent: ObjectID?)
@@ -43,6 +47,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case comparePatch(base: FullRefName, path: GitPath, originalPath: GitPath? = nil, includeWorkingTree: Bool)
     /// Commits on HEAD that `base` does not have (`<base>..HEAD`), newest first.
     case commitsAhead(base: FullRefName, limit: Int)
+    /// Submodule paths from the worktree's `.gitmodules` (S-02, #108). `--file` reads only that file, `--no-includes`
+    /// keeps `include.path` there from pulling in another file, and nothing runs. The caller checks first that
+    /// `.gitmodules` is a regular file inside the worktree, not a symbolic link git would follow.
+    case submodulePaths
 
     enum Location: Sendable, Equatable {
         /// An app-owned temporary directory outside any repository.
@@ -70,6 +78,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         switch self {
         case .version:
             return ["version"]
+        case .submodulePaths:
+            return [
+                "config", "--file", ".gitmodules", "--no-includes", "-z", "--get-regexp", "^submodule\\..*\\.path$",
+            ]
         case .probeGitDirectory:
             return [
                 "rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir", "--is-bare-repository",
@@ -91,7 +103,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .refs:
             return [
                 "for-each-ref",
-                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)",
+                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)",
                 "refs/heads", "refs/remotes", "refs/tags",
             ]
         case .aheadBehind(let local, let upstream):
@@ -115,15 +127,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
             let revisions = fromUntracked ? ["\(oid.hex)^3"] : ["\(oid.hex)^1", oid.hex]
             return options + ["--end-of-options"] + revisions + (try Self.pathspec(path, originalPath: originalPath))
         case .graphPage(let skip, let limit):
-            // Branches, remote-tracking refs, tags, and every worktree's HEAD (#308): `--all` with `refs/*` excluded
-            // adds only the HEADs. Notes, `refs/prefetch` (`git maintenance`), `refs/original` (filter-branch),
-            // `refs/stash`, and other namespaces (`refs/pull`) are not walked: they have no ref pill and are not in the
-            // page cache key (`GraphRefSet`).
-            return [
-                "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z",
-                Self.logFormat,
-                "--skip=\(max(0, skip))", "-n", String(Self.clampLimit(limit)),
-            ]
+            return Self.graphRevisionArguments + ["--skip=\(max(0, skip))", "-n", String(Self.clampLimit(limit))]
+        case .graphStream(let limit):
+            // The same walk without `--skip`, so stream pages and `--skip` fallback pages agree (review of #346).
+            return Self.graphRevisionArguments + ["-n", String(Self.clampLimit(limit))]
         case .commitMeta(let oid):
             return [
                 "log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B",
@@ -195,7 +202,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .version: .neutral
         case .probeGitDirectory, .probeRepository: .registeredPath
         case .status, .worktreeDiff, .worktreeNumstat, .untrackedPreview, .fileHistory, .compareFiles, .comparePatch,
-            .commitsAhead:
+            .commitsAhead, .submodulePaths:
             .worktree
         default: .repository
         }
@@ -204,6 +211,8 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// `git diff --no-index` exits 1 when the files differ, which is the normal case for a preview.
     var acceptedExitCodes: Set<Int32> {
         if case .untrackedPreview = self { return [0, 1] }
+        // `config --get-regexp` exits 1 when nothing matches (no submodule listed).
+        if case .submodulePaths = self { return [0, 1] }
         return [0]
     }
 
@@ -221,7 +230,18 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         return ["--"] + Array(try pathspec(originalPath).dropFirst()) + Array(arguments.dropFirst())
     }
 
-    private static func clampLimit(_ limit: Int) -> Int { min(max(limit, 1), 100_000) }
+    /// The graph's walk and format, shared by `graphPage` and `graphStream`: branches, remote-tracking refs, tags,
+    /// and every worktree's HEAD (#308). `--all` with `refs/*` excluded adds only the HEADs. Notes, `refs/prefetch`
+    /// (`git maintenance`), `refs/original` (filter-branch), `refs/stash`, and other namespaces (`refs/pull`) are not
+    /// walked: they have no ref pill and are not in the page cache key (`GraphRefSet`).
+    static let graphRevisionArguments = [
+        "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z", logFormat,
+    ]
+
+    /// The most commits one command reads (`-n`); the streamed graph's ceiling too.
+    static let maximumLimit = 100_000
+
+    private static func clampLimit(_ limit: Int) -> Int { min(max(limit, 1), maximumLimit) }
 }
 
 /// The only command that touches a remote (git-command-catalog.md §4). It writes `refs/remotes/<remote>/*` only.
@@ -263,6 +283,22 @@ enum FetchCommand: Sendable, Hashable {
                 // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.40+, #99);
                 // older git ignores the key (security review of #210).
                 "-c", "fetch.bundleURI=",
+                // A repository-local transfer.bundleURI asks the server for bundle URIs. git uses it only for clone
+                // (measured on 2.40.4 to 2.54.0, #195); turned off in case a later git fetch reads it.
+                "-c", "transfer.bundleURI=false",
+                // A cookie file is read into every request, and with saveCookies written back: any path the user can
+                // write. Fetch never needs one. URL-specific keys win over these, so the inspector also resets the
+                // repository's own (#355).
+                "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
+                // Kerberos ticket forwarding (`always` could hand a ticket to a host the repository named). Fetch never
+                // needs it; the inspector resets the repository's URL-specific keys (#367).
+                "-c", "http.delegation=none",
+                // git's fixes for credential leaks through crafted URLs, which a repository could turn off; URL-specific
+                // keys are forced on by the inspector. Older git ignores the keys (#356).
+                "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",
+                // A URL with a password is refused (2.37+; the inspection covers older git), and a promisor remote the
+                // server advertises is not accepted (2.49+) (#356).
+                "-c", "transfer.credentialsInUrl=die", "-c", "promisor.acceptFromServer=none",
             ]
         }
     }

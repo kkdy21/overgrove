@@ -117,6 +117,7 @@ extension AppState {
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
             branchListModel = nil
+            comparisonListFailed()
             snapshot = nil
             // The memory cache is dropped on failure (overview.md §5); so is the snapshot (ADR-0018 §3).
             deleteLaunchSnapshot()
@@ -143,6 +144,9 @@ extension AppState {
         branchListModel = Self.branchModel(listing)
         issueLinks = IssueLinkIndex(listing: listing)
         focusedWorktreePath = WorktreeListModel.focusedPath(in: listing, requested: focusedWorktreePath)
+        // The fallbacks below are the app's choice, not the user's: they replace the current history entry (#378).
+        isSelectingAutomatically = true
+        defer { isSelectingAutomatically = false }
         if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
         // S-11 belongs to one worktree; if it is gone (removed in Terminal), the comparison closes too (#311).
         if let compared = comparison?.worktree, !listing.entries.contains(where: { $0.worktree.path == compared }) {
@@ -242,7 +246,45 @@ extension AppState {
         guard case .worktreeInfo(let path) = selection, let entry = entry(at: path) else { return nil }
         return WorktreeDetailModel(
             entry: entry, inspection: worktreeInspections[path], fetchStatus: fetchStatus, now: Date(),
-            showsFullRemoteURLs: settings.showsFullRemoteURLs)
+            showsFullRemoteURLs: settings.showsFullRemoteURLs, isUntrusted: isRepositoryUntrusted)
+    }
+
+    /// The open repository is marked untrusted (#107, the registry's flag).
+    var isRepositoryUntrusted: Bool {
+        repository.flatMap { registry.repository(withID: $0.repository.id)?.isUntrusted } ?? false
+    }
+
+    /// The S-05 toggle: marks the open repository untrusted, or trusted again (#107). A fetch already running stops
+    /// when the repository becomes untrusted (`observeUntrustedFlag`).
+    func setRepositoryUntrusted(_ isUntrusted: Bool) {
+        guard let repository else { return }
+        registry.setUntrusted(isUntrusted, for: repository.repository.id)
+        // At once, so no later remote starts before the observer below runs.
+        if isUntrusted && fetch.status.isFetching { fetch.stop() }
+    }
+
+    /// A fetch reads the untrusted flag when it starts. When the open repository becomes untrusted while one runs,
+    /// from S-05, Settings, or another window, it stops, so no later remote is fetched as trusted (security review of
+    /// #107). Only that change stops it: a fetch that started untrusted keeps running when, say, another repository is
+    /// added. Re-registers after every change, as `withObservationTracking` reports one change at a time.
+    func observeUntrustedFlag() {
+        observeUntrustedFlag(wasUntrusted: isRepositoryUntrusted, repositoryID: repository?.repository.id)
+    }
+
+    private func observeUntrustedFlag(wasUntrusted: Bool, repositoryID: String?) {
+        withObservationTracking {
+            _ = isRepositoryUntrusted
+        } onChange: { [weak self] in
+            // Called before the change is stored: read the new value on the next turn.
+            Task { @MainActor in
+                guard let self else { return }
+                let id = self.repository?.repository.id
+                let isUntrusted = self.isRepositoryUntrusted
+                // Another repository opened: its fetch starts afresh (`FetchController.open` stops the old one).
+                if id == repositoryID, !wasUntrusted, isUntrusted, self.fetch.status.isFetching { self.fetch.stop() }
+                self.observeUntrustedFlag(wasUntrusted: isUntrusted, repositoryID: id)
+            }
+        }
     }
 
     /// Sidebar REMOTE group tooltips (#86): remote name → its URL as the Show full remote URLs setting says. Built

@@ -25,6 +25,8 @@ struct DiffViewerView: View {
 
     /// screens.md S-10: the choice is remembered.
     @AppStorage("diffViewMode") private var isSplit = false
+    /// `⋯` › Show Whitespace (#387): TABs, trailing whitespace, and CR drawn as marks.
+    @AppStorage("diffShowsWhitespace") private var showsWhitespace = false
     @State private var showsLargeDiff = false
 
     /// The large-diff choice belongs to one document (a staged and an unstaged diff of one path are two).
@@ -71,6 +73,16 @@ struct DiffViewerView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
+            Menu {
+                Toggle("Show Whitespace", isOn: $showsWhitespace)
+            } label: {
+                Image(systemName: "ellipsis")
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Diff options")
+            .accessibilityLabel("Diff options")
         }
     }
 
@@ -91,6 +103,7 @@ struct DiffViewerView: View {
                 }
             } else {
                 DiffBody(document: document, isSplit: isSplit)
+                    .environment(\.diffShowsWhitespace, showsWhitespace)
             }
         }
     }
@@ -135,11 +148,11 @@ private struct DiffBody: View {
             // `Task.detached` does not inherit cancellation, so a slow build can finish after the user moved on;
             // `accept` drops rows for a document that is no longer shown (#307).
             if isSplit, rows.split(for: document.id) == nil {
-                let built = await Task.detached(priority: .userInitiated) { document.splitRows() }.value
+                let built = await Task.detached(priority: .userInitiated) { document.splitRows(marked: true) }.value
                 guard !Task.isCancelled else { return }
                 rows.accept(split: built, for: document.id)
             } else if !isSplit, rows.unified(for: document.id) == nil {
-                let built = await Task.detached(priority: .userInitiated) { document.unifiedRows() }.value
+                let built = await Task.detached(priority: .userInitiated) { document.unifiedRows(marked: true) }.value
                 guard !Task.isCancelled else { return }
                 rows.accept(unified: built, for: document.id)
             }
@@ -204,16 +217,16 @@ private struct UnifiedRowView: View {
                 .font(Tokens.Font.callout)
                 .foregroundStyle(Tokens.Color.textSecondary)
                 .padding(Tokens.Spacing.md)
-        case .line(let kind, let old, let new, let text):
+        case .line(let kind, let old, let new, let text, let marks):
             HStack(spacing: 0) {
                 LineNumber(number: old, kind: kind)
                 LineNumber(number: new, kind: kind)
-                LineText(kind: kind, text: text)
+                LineText(kind: kind, text: text, marks: marks)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(kind.background)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(kind.accessibilityPrefix + text)
+            .accessibilityLabel(kind.accessibilityPrefix + text + DiffLineMarkup.changedSuffix(text, marks))
         }
     }
 }
@@ -241,12 +254,14 @@ private struct SplitRowView: View {
     private func half(_ side: DiffDocument.Side?) -> some View {
         HStack(spacing: 0) {
             LineNumber(number: side?.number, kind: side?.kind ?? .context)
-            LineText(kind: side?.kind ?? .context, text: side?.text ?? "")
+            LineText(kind: side?.kind ?? .context, text: side?.text ?? "", marks: side?.marks ?? .none)
         }
         .frame(minWidth: Self.halfWidth, alignment: .leading)
         .background(side?.kind.background ?? Tokens.Color.surfacePanel.opacity(0))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(side.map { $0.kind.accessibilityPrefix + $0.text } ?? "empty")
+        .accessibilityLabel(
+            side.map { $0.kind.accessibilityPrefix + $0.text + DiffLineMarkup.changedSuffix($0.text, $0.marks) }
+                ?? "empty")
     }
 
     /// Each side starts at least this wide so the two columns line up; no token.
@@ -269,6 +284,9 @@ private struct LineNumber: View {
 private struct LineText: View {
     let kind: DiffDocument.LineKind
     let text: String
+    let marks: DiffDocument.LineMarks
+
+    @Environment(\.diffShowsWhitespace) private var showsWhitespace
 
     var body: some View {
         HStack(spacing: 0) {
@@ -277,7 +295,7 @@ private struct LineText: View {
                 .font(Tokens.Font.mono)
                 .foregroundStyle(kind.gutter)
                 .frame(width: Tokens.Spacing.lg)
-            Text(text)
+            Text(DiffLineMarkup.attributed(text, kind: kind, marks: marks, showsWhitespace: showsWhitespace))
                 .font(kind == .noNewline ? Tokens.Font.caption : Tokens.Font.mono)
                 .foregroundStyle(kind == .noNewline ? Tokens.Color.textTertiary : Tokens.Color.textPrimary)
                 .lineLimit(1)
@@ -360,4 +378,78 @@ struct DiffRowsState {
 
     func unified(for id: UUID) -> [DiffDocument.Row]? { document == id ? unified : nil }
     func split(for id: UUID) -> [DiffDocument.SplitRow]? { document == id ? split : nil }
+}
+
+private struct DiffShowsWhitespaceKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// S-10's `Show Whitespace` (#387).
+    var diffShowsWhitespace: Bool {
+        get { self[DiffShowsWhitespaceKey.self] }
+        set { self[DiffShowsWhitespaceKey.self] = newValue }
+    }
+}
+
+/// A line's text with its marks applied (#387, screens.md S-10): changed words on `added-word-bg` / `removed-word-bg`,
+/// and with `Show Whitespace`, `→` for a TAB, `·` for trailing spaces, and `␍` for a CR, in `text.quaternary`. The marks
+/// replace a space with one scalar each, so every offset stays valid.
+enum DiffLineMarkup {
+    static func attributed(
+        _ text: String, kind: DiffDocument.LineKind, marks: DiffDocument.LineMarks, showsWhitespace: Bool
+    ) -> AttributedString {
+        guard marks != .none else { return AttributedString(text) }
+        var scalars = Array(text.unicodeScalars)
+        var symbols: [Range<Int>] = []
+        if showsWhitespace {
+            for tab in marks.tabs where tab.lowerBound < scalars.count {
+                scalars[tab.lowerBound] = "→"
+                symbols.append(tab.lowerBound..<(tab.lowerBound + 1))
+            }
+            if let trailing = marks.trailing {
+                for index in trailing where index < scalars.count && scalars[index] == " " {
+                    scalars[index] = "·"
+                    symbols.append(index..<(index + 1))
+                }
+            }
+            if marks.hasCarriageReturn {
+                scalars.append("␍")
+                symbols.append((scalars.count - 1)..<scalars.count)
+            }
+        }
+        var attributed = AttributedString(String(String.UnicodeScalarView(scalars)))
+        let wordColor = kind == .added ? Tokens.Color.diffAddedWordBg : Tokens.Color.diffRemovedWordBg
+        for range in marks.changed {
+            if let bounds = bounds(range, in: attributed) { attributed[bounds].backgroundColor = wordColor }
+        }
+        for range in symbols {
+            if let bounds = bounds(range, in: attributed) {
+                attributed[bounds].foregroundColor = Tokens.Color.textQuaternary
+            }
+        }
+        return attributed
+    }
+
+    /// For VoiceOver (screens.md S-10): `, changed: a, b` with at most five words, then a count.
+    static func changedSuffix(_ text: String, _ marks: DiffDocument.LineMarks) -> String {
+        guard !marks.changed.isEmpty else { return "" }
+        let scalars = Array(text.unicodeScalars)
+        let words = marks.changed.compactMap { range -> String? in
+            guard range.upperBound <= scalars.count else { return nil }
+            let word = String(String.UnicodeScalarView(scalars[range])).trimmingCharacters(in: .whitespaces)
+            return word.isEmpty ? nil : word
+        }
+        guard !words.isEmpty else { return "" }
+        let shown = words.prefix(5).joined(separator: ", ")
+        return ", changed: " + shown + (words.count > 5 ? " and \(words.count - 5) more" : "")
+    }
+
+    private static func bounds(_ range: Range<Int>, in text: AttributedString) -> Range<AttributedString.Index>? {
+        let scalars = text.unicodeScalars
+        guard range.lowerBound >= 0, range.upperBound <= scalars.count else { return nil }
+        let start = scalars.index(scalars.startIndex, offsetBy: range.lowerBound)
+        let end = scalars.index(start, offsetBy: range.count)
+        return start..<end
+    }
 }

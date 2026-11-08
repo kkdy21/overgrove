@@ -11,6 +11,8 @@ struct WipDetailView: View {
     let model: WipDetailModel
     let selectedFile: FileSelection?
     let onSelect: (FileSelection) -> Void
+    /// The Submodules card (#108), `nil` when there is nothing to show.
+    var submodules: SubmoduleSectionModel?
 
     @FocusState private var hasFocus: Bool
     @Namespace private var rotor
@@ -25,6 +27,9 @@ struct WipDetailView: View {
                     SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
                 }
                 content
+                if let submodules {
+                    SubmoduleSectionView(model: submodules)
+                }
             }
             .padding(Tokens.Spacing.md)
         }

@@ -60,7 +60,8 @@ jobs:
           echo "ok  forbidden-API check"
           scripts/lint/check-no-dependencies.sh
           scripts/lint/check-no-dependencies.test.sh
-          # SEC-T17-02/03: pinned actions, minimal permissions, untrusted input via env, Dependabot (#95).
+          # SEC-T17-02/03/04: pinned actions, minimal permissions, untrusted input via env, Dependabot (#95), and the
+          # compatibility matrix's pinned test git (#292).
           scripts/lint/check-workflows.sh
           scripts/lint/check-workflows.test.sh
           # SEC-T18-01: secret scanning wired into pre-commit, pre-push and CI; hooks fail without gitleaks (#95).
@@ -78,6 +79,8 @@ jobs:
           done
           echo "ok  JSON"
           scripts/github/board-sync-rules.test.sh
+          # #301: guard-bash blocks and allows what it should (per-segment push checks, every other rule).
+          .claude/hooks/guard-bash.test.sh
 
       - name: Fixture repository smoke test
         run: |

@@ -56,14 +56,25 @@ struct FetchFailureGuidance: Sendable, Equatable {
     }
 
     /// The last few non-empty lines of `detail`, for the "other" Details view (interaction.md §4.2).
+    ///
+    /// `MaskedText` has already kept only the last state of each rewritten progress line. Each line here is cut to
+    /// `maximumDetailLineScalars` Unicode scalars, not `Character`s, which a run of combining marks can make any length:
+    /// the server writes this text, so it does not decide how much the Details view lays out (#362).
     var detailTail: String? {
         guard let detail else { return nil }
-        let lines = detail.text.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        let lines = detail.text.unicodeScalars.split(separator: "\n").map(String.UnicodeScalarView.init).filter {
+            !String($0).trimmingCharacters(in: .whitespaces).isEmpty
+        }
         guard !lines.isEmpty else { return nil }
-        return lines.suffix(Self.detailTailLines).joined(separator: "\n")
+        return lines.suffix(Self.detailTailLines).map { line in
+            line.count > Self.maximumDetailLineScalars
+                ? String(line.prefix(Self.maximumDetailLineScalars)) + "…" : String(line)
+        }.joined(separator: "\n")
     }
 
     static let detailTailLines = 5
+    /// Longest line in `detailTail`, in Unicode scalars (#362).
+    static let maximumDetailLineScalars = 300
 
     /// Shown when a repository has no remote to fetch.
     static let noRemotes = FetchFailureGuidance(
@@ -89,15 +100,34 @@ struct FetchFailureGuidance: Sendable, Equatable {
         )
     }
 
+    /// The git in use is too old to fetch `remote` (a remote on this Mac before `lazyFetchControlVersion`, #361). The
+    /// summary names the git, not the repository, as the cause (#383). No command is offered.
+    init(gitVersionLimitFor remote: RemoteName, reason: String) {
+        self.init(
+            remote: remote,
+            reason: .blockedByConfiguration,
+            summary: "Overgrove does not fetch \(remote.value) with this git",
+            guidance: reason,
+            commands: [],
+            detail: nil
+        )
+    }
+
     /// Guidance for a failed fetch of `remote`. `nil` for cancellation, which is not a failure (interaction.md §4.2).
     ///
     /// - Parameters:
     ///   - endpoint: Where the remote points, from `Endpoint(remoteURL:)`, to name the host in texts and commands.
     ///   - report: The repository's configuration report. Any finding means Terminal git would run settings that
     ///     Overgrove turned off, so no git command is offered.
-    init?(error: GitError, remote: RemoteName, endpoint: Endpoint? = nil, report: RepoSecurityReport) {
+    ///   - hookExecutables: Executable files in the repository's hooks directory (`hookExecutables(in:)`), which
+    ///     Terminal git would run too. Any of them also withholds the command (#354, as the slow status hint, #168).
+    init?(
+        error: GitError, remote: RemoteName, endpoint: Endpoint? = nil, report: RepoSecurityReport,
+        hookExecutables: [String]
+    ) {
         guard error != .cancelled else { return nil }
-        let terminal = Terminal(remote: remote.value, isRepositoryClean: report.findings.isEmpty)
+        let terminal = Terminal(
+            remote: remote.value, isRepositoryClean: report.findings.isEmpty && hookExecutables.isEmpty)
         let content = Self.content(for: error, terminal: terminal, endpoint: endpoint)
         self.init(
             remote: remote,
@@ -146,8 +176,8 @@ struct FetchFailureGuidance: Sendable, Equatable {
         /// A sentence that sends the user to Terminal for `purpose`, with the matching warning.
         func advice(_ purpose: String) -> String {
             guard isRepositoryClean else {
-                return "This repository has settings that Overgrove turned off for safety (see its security report). "
-                    + "Terminal git would apply them, so review them before you run git in this repository."
+                return "This repository has settings or hooks that Overgrove turned off for safety (see its security "
+                    + "report). Terminal git would apply them, so review them before you run git in this repository."
             }
             return "Run \"\(fetch)\" in Terminal \(purpose). Terminal git also runs the repository's own hooks and "
                 + "settings, which Overgrove turns off, so do this only for a repository you trust."

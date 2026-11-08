@@ -28,6 +28,11 @@ struct RepoSafetyContext: Sendable, Equatable {
     /// Remotes whose URLs and settings are all in a built-in transport form (`TransportName.isBuiltInFetchForm`).
     /// Fetch refuses any other remote before git starts (#350, T5). Empty by default (fail closed).
     let fetchableRemotes: Set<String>
+    /// Remotes with a password in a URL (`RepoConfigInspector.remotesWithPassword`). Fetch refuses them (#356).
+    let remotesWithPassword: Set<String>
+    /// The user marked the repository untrusted (#107): fetch allows no `file` transport. Set by the caller from the
+    /// registry, not from the repository's configuration.
+    var blocksLocalTransport = false
 
     static let preInspection = RepoSafetyContext(
         neutralization: [],
@@ -36,7 +41,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         isInspected: false,
         fetchBlockingReason: nil,
         isPartialClone: false,
-        fetchableRemotes: []
+        fetchableRemotes: [],
+        remotesWithPassword: []
     )
 
     init(
@@ -45,7 +51,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         trustedSSHCommand: String?,
         fetchBlockingReason: String? = nil,
         isPartialClone: Bool = false,
-        fetchableRemotes: Set<String> = []
+        fetchableRemotes: Set<String> = [],
+        remotesWithPassword: Set<String> = []
     ) {
         self.init(
             neutralization: inspectedNeutralization,
@@ -54,7 +61,8 @@ struct RepoSafetyContext: Sendable, Equatable {
             isInspected: true,
             fetchBlockingReason: fetchBlockingReason,
             isPartialClone: isPartialClone,
-            fetchableRemotes: fetchableRemotes
+            fetchableRemotes: fetchableRemotes,
+            remotesWithPassword: remotesWithPassword
         )
     }
 
@@ -65,9 +73,11 @@ struct RepoSafetyContext: Sendable, Equatable {
         isInspected: Bool,
         fetchBlockingReason: String?,
         isPartialClone: Bool,
-        fetchableRemotes: Set<String>
+        fetchableRemotes: Set<String>,
+        remotesWithPassword: Set<String>
     ) {
         self.fetchableRemotes = fetchableRemotes
+        self.remotesWithPassword = remotesWithPassword
         self.neutralization = neutralization
         self.fetchAuthentication = fetchAuthentication
         self.trustedSSHCommand = trustedSSHCommand
@@ -155,6 +165,39 @@ actor GitClient {
         )
     }
 
+    /// Runs a read-only command and hands its stdout to `onStdout` as it arrives, in order, instead of collecting it
+    /// (the streamed graph, #254). Same inspection rule, safety arguments, query slot, and error mapping as `run`; the
+    /// returned output has empty `stdout`, and `isTruncated` when `limits.stdoutLimit` stopped the stream. Streams use
+    /// their own single slot, not a query slot, so a long stream never holds back other queries.
+    ///
+    /// `onStdout` runs on the process's private queue: it must return quickly and must not await.
+    func stream(
+        _ command: ReadOnlyGitCommand, in directory: URL?, safety: RepoSafetyContext,
+        limits: ProcessLimits = .stream, onStdout: @escaping @Sendable (Data) -> Void
+    ) async throws -> GitOutput {
+        if command.requiresInspection && !safety.isInspected {
+            throw GitError.configInspectionFailed(reason: "repository configuration has not been inspected")
+        }
+        let workingDirectory = command.location == .neutral ? neutralDirectory : directory
+        guard let workingDirectory else { throw GitError.invalidArgument(reason: "missing working directory") }
+        let arguments = environment.arguments(
+            for: try command.subcommandArguments(),
+            neutralization: safety.neutralization
+        )
+        try await acquire(.stream)
+        defer { release(.stream) }
+        return try await execute(
+            arguments: arguments,
+            in: workingDirectory,
+            location: command.location,
+            limits: limits,
+            acceptedExitCodes: command.acceptedExitCodes,
+            trustedSSHCommand: safety.trustedSSHCommand,
+            allowsTransport: false,
+            stdoutObserver: onStdout
+        )
+    }
+
     /// Runs `git fetch` for one remote with the fetch-only authentication arguments (git-command-catalog.md §2.3, §4).
     ///
     /// Fetches of the same repository (`Repository.id`, shared by its worktrees) run one at a time, in request
@@ -188,6 +231,10 @@ actor GitClient {
         if let reason = safety.fetchBlockingReason {
             throw GitError.configInspectionFailed(reason: reason)
         }
+        // A remote with a password in a URL (#356); git 2.37+ would also refuse it with transfer.credentialsInUrl.
+        if case .fetch(let remote) = command, safety.remotesWithPassword.contains(remote.value) {
+            throw GitError.configInspectionFailed(reason: Self.passwordInURLReason)
+        }
         // Only a remote the inspection found in a built-in transport form (#350, T5). A remote it did not list (no
         // `remote.<n>.url`, or past `RepoConfigInspector.maximumRemotes`) is refused too.
         guard case .fetch(let remote) = command, safety.fetchableRemotes.contains(remote.value) else {
@@ -212,9 +259,22 @@ actor GitClient {
             acceptedExitCodes: [0],
             trustedSSHCommand: safety.trustedSSHCommand,
             allowsTransport: true,
+            allowsLocalTransport: !safety.blocksLocalTransport && Self.allowsLocalTransport(environment.version),
             stderrObserver: progress.map(Self.progressObserver)
         )
     }
+
+    /// Whether this git may fetch a local path or `file://` remote (#361). Fetching one runs git in the other
+    /// repository with that repository's own settings, which the app's arguments do not reach; before
+    /// `lazyFetchControlVersion` that other side is not safe, so `file` leaves the transport list and git refuses the
+    /// remote before anything runs.
+    static func allowsLocalTransport(_ version: GitVersion) -> Bool {
+        version >= GitEnvironment.lazyFetchControlVersion
+    }
+
+    static let passwordInURLReason =
+        "This remote's URL contains a password, so Overgrove does not fetch it: git would send the password and "
+        + "could save it to your credential helper. Remove it from the URL and use a credential helper instead."
 
     /// Turns raw stderr chunks into progress updates. Only phases and numbers leave the parser, never server text.
     ///
@@ -245,19 +305,22 @@ actor GitClient {
         acceptedExitCodes: Set<Int32>,
         trustedSSHCommand: String?,
         allowsTransport: Bool,
-        stderrObserver: (@Sendable (Data) -> Void)? = nil
+        allowsLocalTransport: Bool = true,
+        stderrObserver: (@Sendable (Data) -> Void)? = nil,
+        stdoutObserver: (@Sendable (Data) -> Void)? = nil
     ) async throws -> GitOutput {
         let request = ProcessRequest(
             executable: environment.executable,
             arguments: arguments,
             environment: GitEnvironment.environment(
-                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport),
+                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport,
+                allowsLocalTransport: allowsLocalTransport),
             currentDirectory: directory,
             limits: limits
         )
         let result: ProcessResult
         do {
-            result = try await runner.run(request, stderrObserver: stderrObserver)
+            result = try await runner.run(request, stderrObserver: stderrObserver, stdoutObserver: stdoutObserver)
         } catch ProcessRunnerError.executableNotFound(let path) {
             throw GitError.executableNotFound(path: path)
         } catch ProcessRunnerError.spawnFailed(let code) {
@@ -302,6 +365,10 @@ actor GitClient {
         case query
         case fetch
         case repository(String)
+        /// The streamed graph (#254): one at a time for the whole app, apart from the query slots. A stream may run
+        /// for up to its 120 s timeout; on the query pool a few of them could hold every slot and stall status,
+        /// diffs, and ⌘R (security review of #254, T15).
+        case stream
     }
 
     private struct Slots {
@@ -313,7 +380,7 @@ actor GitClient {
         switch pool {
         case .query: maximumConcurrency
         case .fetch: maximumFetchConcurrency
-        case .repository: 1
+        case .repository, .stream: 1
         }
     }
 
