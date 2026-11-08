@@ -190,7 +190,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 
 | 캐시 | 키 | 무효화 조건 |
 |---|---|---|
-| git 실행 파일·버전 | 앱 실행 | 설정에서 git 경로 변경 (v0.2.0). → `LiveGitClient.shared`가 앱 실행당 한 번 `GitEnvironment.discover` |
+| git 실행 파일·버전 | 앱 실행 | 설정에서 git 경로 변경 (v0.2.0, #106). → `LiveGitClient.shared`가 첫 사용 때 `GitEnvironment.resolve`(설정에서 고른 git을 [ADR-0019](../adr/0019-user-chosen-git-executable.md) 규칙으로 검사, 없으면 `discover`). 실패하면 기억하지 않아 다음 사용에서 다시 검사하고, 설정을 바꾸면 `reset()` |
 | 설정 검사 결과 (`RepoConfigInspector`) | 저장소 + 워크트리 폴더 | 그 폴더에서 git이 읽는 설정 파일의 변경, 수동 새로고침. → #88 |
 | 워크트리 목록 | 저장소 | 수동 새로고침, fetch 완료, 창 활성화. → #88 |
 | `WorkingState` (status) | 워크트리 경로 | 수동 새로고침, 워크트리 선택, 창 활성화(마지막 조회 후 5초 이상), fetch 완료. → #88 |

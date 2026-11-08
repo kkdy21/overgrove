@@ -11,6 +11,7 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
     private let queue = DispatchQueue(label: "overgrove.tests.http-auth")
     private let lock = NSLock()
     private var requests = 0
+    private var heads: [String] = []
 
     /// The bound loopback port.
     let port: UInt16
@@ -18,13 +19,31 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
     /// Complete requests (headers received) answered so far.
     var requestCount: Int { lock.withLock { requests } }
 
+    /// The request line and headers of each complete request, oldest first (at most `maximumHeads`, each cut to
+    /// 16 KiB). A test checks what git sent, e.g. whether a proxy saw `Authorization` or a server saw a cookie.
+    var requestHeads: [String] { lock.withLock { heads } }
+
+    static let maximumHeads = 64
+
     /// `http://127.0.0.1:<port>/<path>`.
     func url(_ path: String = "repo.git", userInfo: String? = nil) -> String {
         "http://\(userInfo.map { "\($0)@" } ?? "")127.0.0.1:\(port)/\(path)"
     }
 
     /// Starts listening on a free loopback port. Throws if the listener is not ready within `timeout`.
-    static func start(timeout: Duration = .seconds(10)) async throws -> LocalHTTPAuthServer {
+    /// What every request gets.
+    enum Response: Sendable {
+        /// `401` with a Basic challenge: git looks for credentials.
+        case unauthorized
+        /// `200` with an empty body (an empty dumb-HTTP ref list, so git ends normally) and `Set-Cookie: <cookie>`.
+        case emptyWithCookie(String)
+    }
+
+    private let response: Response
+
+    static func start(
+        timeout: Duration = .seconds(10), response: Response = .unauthorized
+    ) async throws -> LocalHTTPAuthServer {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         let listener = try NWListener(using: parameters)
@@ -55,14 +74,15 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
                 resume(.failure(URLError(.timedOut)))
             }
         }
-        let server = LocalHTTPAuthServer(listener: listener, port: port)
+        let server = LocalHTTPAuthServer(listener: listener, port: port, response: response)
         listener.newConnectionHandler = { [server] connection in server.serve(connection) }
         return server
     }
 
-    private init(listener: NWListener, port: UInt16) {
+    private init(listener: NWListener, port: UInt16, response: Response) {
         self.listener = listener
         self.port = port
+        self.response = response
     }
 
     func stop() {
@@ -103,16 +123,22 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
                 return
             }
             // Count only complete requests: a connection closed before its headers is not a request.
-            if headersEnded { lock.withLock { requests += 1 } }
-            let response = """
-                HTTP/1.1 401 Unauthorized\r
-                WWW-Authenticate: Basic realm="overgrove-test"\r
-                Content-Length: 0\r
-                Connection: close\r
-                \r
-
-                """
-            connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })
+            if let end = request.range(of: Data("\r\n\r\n".utf8)) {
+                let head = String(decoding: request[..<end.lowerBound].prefix(16 * 1024), as: UTF8.self)
+                lock.withLock {
+                    requests += 1
+                    if heads.count < Self.maximumHeads { heads.append(head) }
+                }
+            }
+            let status =
+                switch response {
+                case .unauthorized:
+                    "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"overgrove-test\"\r\n"
+                case .emptyWithCookie(let cookie):
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: \(cookie)\r\n"
+                }
+            let reply = status + "Content-Length: 0\r\nConnection: close\r\n\r\n"
+            connection.send(content: Data(reply.utf8), completion: .contentProcessed { _ in connection.cancel() })
         }
     }
 }

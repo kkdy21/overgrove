@@ -72,7 +72,7 @@ struct RegisteredRepository: Codable, Equatable, Hashable, Identifiable, Sendabl
 @MainActor
 @Observable
 final class RepositoryRegistry {
-    static let repositoriesKey = "registeredRepositories"
+    nonisolated static let repositoriesKey = "registeredRepositories"
     static let lastSelectedKey = "lastSelectedRepository"
 
     private let defaults: UserDefaults
@@ -135,8 +135,9 @@ final class RepositoryRegistry {
         }
     }
 
-    /// Corrupt data loads as empty; malformed or duplicate entries are skipped.
-    private static func load(from defaults: UserDefaults) -> [RegisteredRepository] {
+    /// Corrupt data loads as empty; malformed or duplicate entries are skipped. Also read off the main actor, for the
+    /// directories a chosen git may not be inside (ADR-0019, `LiveGitClient`).
+    nonisolated static func load(from defaults: UserDefaults) -> [RegisteredRepository] {
         // Each entry decodes on its own, so one damaged entry drops only itself, not the others and their flags
         // (#107).
         guard let data = defaults.data(forKey: repositoriesKey),

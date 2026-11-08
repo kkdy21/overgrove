@@ -236,8 +236,15 @@ final class AppState {
         self.diffLoader = diffLoader
         self.stashLoader = stashLoader
         issuePanel = IssuePanelState(loader: issueLoader)
-        setup = SetupAssistantState(gitChecker: gitChecker, ghChecker: ghChecker)
-        self.settings = settings ?? AppSettings()
+        let appSettings = settings ?? AppSettings()
+        self.settings = appSettings
+        // Use Default for a refused Settings choice (ADR-0019 §4): forget it, then rediscover on next use.
+        setup = SetupAssistantState(
+            gitChecker: gitChecker, ghChecker: ghChecker,
+            useDefaultGit: {
+                appSettings.gitExecutablePath = nil
+                await LiveGitClient.shared.reset()
+            })
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
