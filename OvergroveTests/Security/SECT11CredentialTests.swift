@@ -116,8 +116,8 @@ final class SECT11CredentialTests: XCTestCase {
     }
 
     /// SEC-T11-12: characters that render as nothing but are not control or format characters (variation selectors,
-    /// CGJ, Khmer inherent vowels, Hangul fillers, unassigned default-ignorables) are dropped too, so a token they split
-    /// does not look whole on screen while the pattern misses it.
+    /// CGJ, Khmer inherent vowels, Hangul fillers, unassigned default-ignorables) are dropped too, so a token they
+    /// split does not look whole on screen while the pattern misses it.
     func testSECT11_12_InvisibleNonFormatSplitsStayMasked() {
         let token = "ghp_" + String(repeating: "E", count: 24)
         for separator in [
