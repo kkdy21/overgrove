@@ -31,7 +31,19 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
     }
 
     /// Starts listening on a free loopback port. Throws if the listener is not ready within `timeout`.
-    static func start(timeout: Duration = .seconds(10)) async throws -> LocalHTTPAuthServer {
+    /// What every request gets.
+    enum Response: Sendable {
+        /// `401` with a Basic challenge: git looks for credentials.
+        case unauthorized
+        /// `200` with an empty body (an empty dumb-HTTP ref list, so git ends normally) and `Set-Cookie: <cookie>`.
+        case emptyWithCookie(String)
+    }
+
+    private let response: Response
+
+    static func start(
+        timeout: Duration = .seconds(10), response: Response = .unauthorized
+    ) async throws -> LocalHTTPAuthServer {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         let listener = try NWListener(using: parameters)
@@ -62,14 +74,15 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
                 resume(.failure(URLError(.timedOut)))
             }
         }
-        let server = LocalHTTPAuthServer(listener: listener, port: port)
+        let server = LocalHTTPAuthServer(listener: listener, port: port, response: response)
         listener.newConnectionHandler = { [server] connection in server.serve(connection) }
         return server
     }
 
-    private init(listener: NWListener, port: UInt16) {
+    private init(listener: NWListener, port: UInt16, response: Response) {
         self.listener = listener
         self.port = port
+        self.response = response
     }
 
     func stop() {
@@ -117,15 +130,15 @@ final class LocalHTTPAuthServer: @unchecked Sendable {
                     if heads.count < Self.maximumHeads { heads.append(head) }
                 }
             }
-            let response = """
-                HTTP/1.1 401 Unauthorized\r
-                WWW-Authenticate: Basic realm="overgrove-test"\r
-                Content-Length: 0\r
-                Connection: close\r
-                \r
-
-                """
-            connection.send(content: Data(response.utf8), completion: .contentProcessed { _ in connection.cancel() })
+            let status =
+                switch response {
+                case .unauthorized:
+                    "HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"overgrove-test\"\r\n"
+                case .emptyWithCookie(let cookie):
+                    "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nSet-Cookie: \(cookie)\r\n"
+                }
+            let reply = status + "Content-Length: 0\r\nConnection: close\r\n\r\n"
+            connection.send(content: Data(reply.utf8), completion: .contentProcessed { _ in connection.cancel() })
         }
     }
 }

@@ -157,4 +157,32 @@ final class FetchProxyCookieSecurityTests: XCTestCase {
             try await repository.git(["config", "--unset", key])
         }
     }
+
+    /// SEC-T11-08: with `saveCookies`, git writes its cookie jar over the cookie file when it ends, so a repository
+    /// could make fetch overwrite any file the user can write, partly with what the server sends. The app's fetch
+    /// writes nothing there.
+    func testSECT11_08_RepositoryCookieJarIsNeverWritten() async throws {
+        let server = try await LocalHTTPAuthServer.start(response: .emptyWithCookie("jar-canary=from-server; Path=/"))
+        defer { server.stop() }
+        try await repository.git(["remote", "set-url", "origin", server.url()])
+        let target = home.appendingPathComponent("target.txt")
+        for key in ["http", "http.\(server.url(""))"] {
+            try "ORIGINAL\n".write(to: target, atomically: true, encoding: .utf8)
+            try await repository.git(["config", "\(key).cookieFile", target.path])
+            try await repository.git(["config", "\(key).saveCookies", "true"])
+
+            try await plainGit(["-c", "credential.helper=", "fetch", "origin"])
+            let written = try String(contentsOf: target, encoding: .utf8)
+            XCTAssertTrue(written.contains("jar-canary"), "\(key) control: plain git must overwrite the file")
+
+            try "ORIGINAL\n".write(to: target, atomically: true, encoding: .utf8)
+            let requests = server.requestCount
+            try await appFetch()
+            XCTAssertGreaterThan(server.requestCount, requests, "\(key): the app's fetch reached the server")
+            XCTAssertEqual(
+                try String(contentsOf: target, encoding: .utf8), "ORIGINAL\n", "\(key): the file is untouched")
+            try await repository.git(["config", "--unset", "\(key).cookieFile"])
+            try await repository.git(["config", "--unset", "\(key).saveCookies"])
+        }
+    }
 }
