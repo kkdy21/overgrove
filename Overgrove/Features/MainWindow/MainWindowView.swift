@@ -74,9 +74,19 @@ struct MainWindowView: View {
 
     private var navigationActions: FocusedNavigationActions {
         FocusedNavigationActions(
+            canGoBack: state.canGoBackInSelection, canGoForward: state.canGoForwardInSelection,
+            goBack: { [state] in Self.announceMove(state.goBackInSelection(), in: state) },
+            goForward: { [state] in Self.announceMove(state.goForwardInSelection(), in: state) },
             canJumpToHead: state.canJumpToHead, jumpToHead: state.jumpToHead,
             canToggleWorktreeInfo: state.canToggleWorktreeInfo, toggleWorktreeInfo: state.toggleWorktreeInfo,
             focus: state.focus, fullPath: state.fullPathToCopy, copy: state.copy)
+    }
+
+    /// After Back or Forward (interaction.md §1.4), VoiceOver hears what is selected now.
+    @MainActor
+    private static func announceMove(_ moved: Bool, in state: AppState) -> Bool {
+        if moved, let text = state.selectionAnnouncement { AccessibilityNotification.Announcement(text).post() }
+        return moved
     }
 
     private var window: some View {
