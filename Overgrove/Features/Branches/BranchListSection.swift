@@ -145,5 +145,9 @@ private struct BranchRowMenu: View {
         Button("Copy Name") { actions.copy(row.fullDisplayName) }
         Button("Copy Upstream Name") { if let upstream = row.upstreamName { actions.copy(upstream) } }
             .disabled(row.upstreamName == nil)
+        Divider()
+        let url = row.remoteRef.flatMap(actions.gitHubBranchURL)
+        Button("Open on GitHub") { if let url { actions.openInBrowser(url) } }
+            .disabled(url == nil)
     }
 }

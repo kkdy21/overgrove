@@ -9,9 +9,16 @@ enum GitHubRemote {
 
     /// The first remote, preferred names first and then configuration order, whose URL is a github.com repository.
     static func repository(remotes: [(name: String, url: String)]) -> GitHubRepository? {
+        match(remotes: remotes)?.repository
+    }
+
+    /// The same remote, with its name (Open on GitHub for its remote-tracking branches, #398).
+    static func match(remotes: [(name: String, url: String)]) -> (name: String, repository: GitHubRepository)? {
         let preferred = preferredNames.compactMap { name in remotes.first { $0.name == name } }
         let rest = remotes.filter { !preferredNames.contains($0.name) }
-        return (preferred + rest).lazy.compactMap { repository(fromURL: $0.url) }.first
+        return (preferred + rest).lazy.compactMap { remote in
+            repository(fromURL: remote.url).map { (remote.name, $0) }
+        }.first
     }
 
     /// `OWNER/NAME` from `https://github.com/OWNER/NAME(.git)?`, `git@github.com:OWNER/NAME(.git)?`, or

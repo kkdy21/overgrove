@@ -72,6 +72,8 @@ struct WorktreeListing: Sendable, Equatable {
     var remoteNames: [String] = []
     /// The github.com repository whose issues the sidebar shows (#81), from the inspected remotes; `nil` without one.
     var githubRepository: GitHubRepository?
+    /// The remote `githubRepository` came from (Open on GitHub for its branches, #398).
+    var githubRemoteName: String?
 
     /// Some listed worktrees were not queried because of the per-load limit (#226); the sidebar says so (#243).
     var isQueryLimited: Bool {
@@ -82,6 +84,7 @@ struct WorktreeListing: Sendable, Equatable {
 extension WorktreeListing {
     /// The sidebar's view of a `RepositoryService` load.
     init(overview: RepositoryOverview) {
+        let github = GitHubRemote.match(remotes: overview.inspection.remotes.map { (name: $0.name.value, url: $0.url) })
         self.init(
             entries: overview.entries.map {
                 Entry(
@@ -91,8 +94,7 @@ extension WorktreeListing {
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
             remoteNames: overview.inspection.remotes.map(\.name.value),
-            githubRepository: GitHubRemote.repository(
-                remotes: overview.inspection.remotes.map { (name: $0.name.value, url: $0.url) }))
+            githubRepository: github?.repository, githubRemoteName: github?.name)
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {

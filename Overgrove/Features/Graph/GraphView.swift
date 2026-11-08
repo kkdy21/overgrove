@@ -517,5 +517,9 @@ struct CommitRowMenu: View {
         Button("Copy SHA") { actions.copy(commit.oid.hex) }
         Button("Copy Short SHA") { actions.copy(commit.oid.short) }
         Button("Copy Message") { actions.copyMessage(actions.commitMessage(commit)) }
+        Divider()
+        let url = actions.gitHubCommitURL(commit.oid)
+        Button("Open on GitHub") { if let url { actions.openInBrowser(url) } }
+            .disabled(url == nil)
     }
 }
