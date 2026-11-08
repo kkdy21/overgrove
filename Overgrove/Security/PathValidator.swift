@@ -121,10 +121,18 @@ enum PathValidator {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: gitEntry.path, isDirectory: &isDirectory) else { return nil }
         if isDirectory.boolValue { return canonical(gitEntry) }
-        guard let contents = readSmallFile(gitEntry), contents.hasPrefix("gitdir: ") else { return nil }
+        return gitFileTarget(of: root).flatMap(canonical)
+    }
+
+    /// Where a `.git` *file* in `root` says the git directory is (`gitdir: <path>`), not resolved and not checked to
+    /// exist. `nil` when there is no such file or it is malformed.
+    static func gitFileTarget(of root: URL) -> URL? {
+        guard let contents = readSmallFile(root.appendingPathComponent(".git")), contents.hasPrefix("gitdir: ") else {
+            return nil
+        }
         let target = String(contents.dropFirst("gitdir: ".count)).trimmingCharacters(in: .newlines)
         guard !target.isEmpty, !target.contains("\n") else { return nil }
-        return canonical(target.hasPrefix("/") ? URL(fileURLWithPath: target) : root.appendingPathComponent(target))
+        return target.hasPrefix("/") ? URL(fileURLWithPath: target) : root.appendingPathComponent(target)
     }
 
     /// A path or name made safe to show: format characters (bidi overrides such as U+202E), line and paragraph

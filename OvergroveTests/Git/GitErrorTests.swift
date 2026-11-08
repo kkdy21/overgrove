@@ -53,7 +53,11 @@ final class GitErrorTests: XCTestCase {
     /// #362 review: the line handling is linear, so a server repeating short lines or rewrites cannot hold the CPU.
     func testSECT15_19_MaskedTextStaysLinearOnHostileStderr() {
         let size = ProcessLimits.fetch.stderrLimit
-        for unit in ["\u{E9}\n", "x\r", "remote: m \rremote: \n", "\r"] {
+        // The last ones are dropped-character splits, so the second masking pass (#375) scans a full-length buffer.
+        for unit in [
+            "\u{E9}\n", "x\r", "remote: m \rremote: \n", "\r", "ghp_\u{0}", "x:\u{0}//", "a\u{0}:", "https:\u{0}//u@",
+            "gh\u{0}p_" + String(repeating: "A", count: 20) + " ",
+        ] {
             let input = String(repeating: unit, count: size / unit.utf8.count)
             let started = ContinuousClock.now
             let text = MaskedText(masking: input).text

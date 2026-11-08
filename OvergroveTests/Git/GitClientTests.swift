@@ -23,6 +23,7 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("-x"), includeWorkingTree: false),
     .comparePatch(base: FullRefName("refs/heads/main")!, path: GitPath("a.txt"), includeWorkingTree: true),
     .commitsAhead(base: FullRefName("refs/heads/main")!, limit: 500),
+    .commitsBetween(base: parent, target: oid, limit: 500),
     // Renames pass both names (#309).
     .stashPatch(oid, path: GitPath("new.txt"), originalPath: GitPath("-old.txt"), fromUntracked: false),
     .commitPatch(oid, parent: parent, path: GitPath("new.txt"), originalPath: GitPath("old.txt")),
@@ -73,7 +74,7 @@ final class GitCommandTests: XCTestCase {
             ],
             [
                 "for-each-ref",
-                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)",
+                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)%00%(upstream:remotename)%00%(upstream:remoteref)",
                 "refs/heads", "refs/remotes", "refs/tags",
             ],
             [
@@ -169,6 +170,10 @@ final class GitCommandTests: XCTestCase {
             ],
             [
                 "log", "-z", ReadOnlyGitCommand.logFormat, "-n", "500", "--end-of-options", "refs/heads/main..HEAD",
+                "--",
+            ],
+            [
+                "log", "-z", ReadOnlyGitCommand.logFormat, "-n", "500", "--end-of-options", "\(parent.hex)..\(oid.hex)",
                 "--",
             ],
             [

@@ -135,6 +135,16 @@ actor GHClient {
         }
     }
 
+    /// Pull requests of a github.com repository (parsing-spec.md §10.3, ADR-0023).
+    func pullRequests(in repository: GitHubRepository) async throws -> [PullRequest] {
+        let output = try await run(.prList(repo: repository))
+        do {
+            return try PullRequestParser.parse(output.stdout)
+        } catch let error as ParseError {
+            throw GHError(error)
+        }
+    }
+
     /// Runs a command that must exit 0 with complete output.
     ///
     /// Private on purpose: callers get parsed values only, so raw gh output (including `auth status`) stays here.

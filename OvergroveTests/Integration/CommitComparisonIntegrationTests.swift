@@ -51,5 +51,50 @@ final class CommitComparisonIntegrationTests: XCTestCase {
             return XCTFail("no reversed list")
         }
         XCTAssertEqual(reversed.files.first { $0.path.display == "added.txt" }?.status, .deleted)
+
+        // COMMITS (#389): what the target has that the base does not, newest first; none the other way.
+        guard case .success(let between) = await loader.commits(gitRepository, from: base, to: target) else {
+            return XCTFail("no commits")
+        }
+        XCTAssertEqual(between.commits.map(\.subject), ["target", "middle"])
+        XCTAssertFalse(between.isPartial)
+        guard case .success(let none) = await loader.commits(gitRepository, from: target, to: base) else {
+            return XCTFail("no reversed commits")
+        }
+        XCTAssertEqual(none.commits, [])
+    }
+
+    /// More commits than `RepositoryService.commitRangeLimit` are cut and marked partial.
+    func testCommitsBetweenAreCapped() async throws {
+        let repository = try await GitTestRepository.make()
+        defer { repository.remove() }
+        try repository.write("a.txt", "0\n")
+        try await repository.git(["add", "-A"])
+        try await repository.git(["commit", "-q", "-m", "base"])
+        let baseOutput = try await repository.git(["rev-parse", "HEAD"])
+        let base = try XCTUnwrap(
+            ObjectID(String(decoding: baseOutput.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+        )
+        // `commit-tree` chains empty commits quickly without touching the worktree.
+        var head = base
+        for index in 0...RepositoryService.commitRangeLimit {
+            let output = try await repository.git([
+                "commit-tree", "-p", head.hex, "-m", "c\(index)", "\(head.hex)^{tree}",
+            ])
+            head = try XCTUnwrap(
+                ObjectID(String(decoding: output.stdout, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines))
+            )
+        }
+        let gitRepository = Repository(
+            rootURL: repository.root, commonGitDirectoryURL: repository.root.appendingPathComponent(".git"),
+            isBare: false)
+        let client = GitClient(environment: repository.environment)
+        let service = RepositoryService(client: client)
+        guard case .success(let page) = await service.commitsBetween(gitRepository, base: base, target: head) else {
+            return XCTFail("no commits")
+        }
+        XCTAssertEqual(page.commits.count, RepositoryService.commitRangeLimit)
+        XCTAssertTrue(page.isPartial)
+        XCTAssertEqual(page.commits.first?.oid, head, "newest first")
     }
 }

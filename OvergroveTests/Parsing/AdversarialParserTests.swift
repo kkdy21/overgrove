@@ -342,8 +342,8 @@ final class AdversarialParserTests: XCTestCase {
                 try NumstatParser.parseCommitFiles(data(":100644 100644 \(value) \(oid) M\u{0}p\u{0}1\t0\tp\u{0}")),
                 value
             )
-            assertFails(
-                "RefParser", try RefParser.parse(data("refs/heads/x\u{0}\(value)\u{0}\u{0}\u{0} \u{0}\u{0}\u{0}\n")))
+            let refRecord = "refs/heads/x\u{0}\(value)\u{0}\u{0}\u{0} \u{0}\u{0}\u{0}\u{0}\u{0}\n"
+            assertFails("RefParser", try RefParser.parse(data(refRecord)))
         }
     }
 
@@ -373,7 +373,7 @@ final class AdversarialParserTests: XCTestCase {
         // Five extra NULs keep the token count a multiple of the five stash fields.
         assertFails(
             "StashParser", try StashParser.parse(data(stash("On main: a\u{0}b\u{0}c\u{0}d\u{0}e\u{0}f") + stash("x"))))
-        let ref = "refs/heads/a\u{0}b\u{0}\(oid)\u{0}\u{0}\u{0} \u{0}1\u{0}\u{0}\n"
+        let ref = "refs/heads/a\u{0}b\u{0}\(oid)\u{0}\u{0}\u{0} \u{0}1\u{0}\u{0}\u{0}\u{0}\n"
         assertFails("RefParser", try RefParser.parse(data(ref)), "a NUL in a ref name adds a field")
     }
 
