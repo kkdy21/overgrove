@@ -4,8 +4,8 @@ import XCTest
 @testable import Overgrove
 
 /// SEC-T14-14: Quick Look (#399) is offered on macOS 15 and later only, and previews a regular working tree file
-/// inside its worktree, up to `QuickLook.maximumSize`: not a link (even one inside), a FIFO, a folder, a path with
-/// `..`, or a file outside.
+/// inside its worktree, up to `QuickLook.maximumSize`: not a link (even one inside), a hard link, a FIFO, a folder, a
+/// path with `..` or through a folder leading outside, a file outside, or web content.
 @MainActor
 final class QuickLookTests: XCTestCase {
     private var root: URL!
@@ -45,13 +45,32 @@ final class QuickLookTests: XCTestCase {
         XCTAssertEqual(QuickLook.target(GitPath("out"), in: root), .failure(.notAFile))
 
         XCTAssertEqual(mkfifo(root.appendingPathComponent("pipe").path, 0o600), 0)
-        XCTAssertEqual(QuickLook.target(GitPath("pipe"), in: root), .failure(.outsideRepository), "FIFOs never pass")
+        XCTAssertEqual(QuickLook.target(GitPath("pipe"), in: root), .failure(.notAFile), "FIFOs never pass")
         try FileManager.default.createDirectory(
             at: root.appendingPathComponent("dir"), withIntermediateDirectories: true)
-        XCTAssertEqual(QuickLook.target(GitPath("dir"), in: root), .failure(.outsideRepository))
+        XCTAssertEqual(QuickLook.target(GitPath("dir"), in: root), .failure(.notAFile))
         XCTAssertEqual(
             QuickLook.target(GitPath("../\(outside.lastPathComponent)"), in: root), .failure(.outsideRepository))
-        XCTAssertEqual(QuickLook.target(GitPath("missing.md"), in: root), .failure(.outsideRepository))
+        XCTAssertEqual(QuickLook.target(GitPath("missing.md"), in: root), .failure(.missing), "a deleted file row")
+
+        // A folder on the way that leads outside.
+        let outsideDir = root.deletingLastPathComponent().appendingPathComponent("outdir-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: outsideDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outsideDir) }
+        try Data("z\n".utf8).write(to: outsideDir.appendingPathComponent("f.md"))
+        try FileManager.default.createSymbolicLink(
+            at: root.appendingPathComponent("linkdir"), withDestinationURL: outsideDir)
+        XCTAssertEqual(QuickLook.target(GitPath("linkdir/f.md"), in: root), .failure(.outsideRepository))
+
+        // A hard link to a file elsewhere.
+        try FileManager.default.linkItem(at: outside, to: root.appendingPathComponent("hard.md"))
+        XCTAssertEqual(QuickLook.target(GitPath("hard.md"), in: root), .failure(.notAFile))
+
+        // Web content may load remote resources in its preview.
+        for name in ["page.html", "pic.SVG", "site.webloc"] {
+            try Data("<x/>\n".utf8).write(to: root.appendingPathComponent(name))
+            XCTAssertEqual(QuickLook.target(GitPath(name), in: root), .failure(.webContent), name)
+        }
 
         let big = root.appendingPathComponent("big.bin")
         FileManager.default.createFile(atPath: big.path, contents: nil)
