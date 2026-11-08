@@ -2,15 +2,14 @@ import Foundation
 
 /// A Gitea instance URL as `gt auth status` reports it, validated (ADR-0026 §2): `https://HOST[:PORT][/BASE]`.
 ///
-/// HOST is a lowercase ASCII DNS name (labels of 1–63 letters, digits, or `-`, not starting or ending with `-`, at
-/// least two labels, at most 253 bytes, not all-numeric). PORT is 1–65535 without a leading zero. BASE is 0–5 path
+/// HOST is a `RemoteHost` (ADR-0025 §2) and must already be lowercase as printed. PORT is 1–65535 without a leading zero. BASE is 0–5 path
 /// components (`GiteaRepository.isValidComponent`). No user info, query, fragment, or trailing `/`: gt prints the URL
 /// in this normalized form (lowercase host, no trailing `/`, gt 1.1.0 measured), and `url` is passed to `--host`
 /// exactly as gt printed it, never rebuilt from a remote.
 struct GiteaInstance: Sendable, Hashable, CustomStringConvertible {
     /// The URL exactly as gt printed it.
     let url: String
-    let host: String
+    let host: RemoteHost
     let port: Int?
     let basePath: [String]
 
@@ -27,7 +26,9 @@ struct GiteaInstance: Sendable, Hashable, CustomStringConvertible {
             return nil
         }
         let hostAndPort = authority.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        guard (1...2).contains(hostAndPort.count), Self.isValidHost(hostAndPort[0]) else { return nil }
+        // The shared host rule (#117); gt prints the host lowercase, and anything else is refused, not normalized.
+        guard (1...2).contains(hostAndPort.count), let host = RemoteHost(hostAndPort[0]), host.name == hostAndPort[0]
+        else { return nil }
         var port: Int?
         if hostAndPort.count == 2 {
             let digits = hostAndPort[1]
@@ -37,30 +38,12 @@ struct GiteaInstance: Sendable, Hashable, CustomStringConvertible {
             port = value
         }
         self.url = text
-        self.host = hostAndPort[0]
+        self.host = host
         self.port = port
         self.basePath = base
     }
 
     var description: String { url }
-
-    static func isValidHost(_ host: String) -> Bool {
-        // STAND-IN(#117): ADR-0025's host rule, written here until #117's shared remote parsing lands.
-        guard (1...253).contains(host.utf8.count) else { return false }
-        let labels = host.split(separator: ".", omittingEmptySubsequences: false)
-        // All-numeric labels are a dotted-decimal address, not a name.
-        guard labels.count >= 2, !labels.allSatisfy({ $0.utf8.allSatisfy { (0x30...0x39).contains($0) } }) else {
-            return false
-        }
-        return labels.allSatisfy { label in
-            let bytes = label.utf8
-            return (1...63).contains(bytes.count) && bytes.first != UInt8(ascii: "-")
-                && bytes.last != UInt8(ascii: "-")
-                && bytes.allSatisfy {
-                    (0x61...0x7A).contains($0) || (0x30...0x39).contains($0) || $0 == UInt8(ascii: "-")
-                }
-        }
-    }
 }
 
 /// A validated Gitea repository for `gt issue list --host INSTANCE --repo OWNER/NAME` (ADR-0026 §2,

@@ -41,12 +41,17 @@ struct RemoteHost: Sendable, Hashable, CustomStringConvertible {
 struct HostedRemoteURL: Sendable, Equatable {
     let host: RemoteHost
     let pathSegments: [String]
+    /// The `https://` form (which has no port); `false` for the two ssh forms. A provider whose instance URL can carry a
+    /// port compares it only for https remotes (ADR-0026 §2).
+    let isHTTPS: Bool
 
     init?(_ url: String) {
         let bytes = Array(url.utf8)
         let authority: ArraySlice<UInt8>
         let path: ArraySlice<UInt8>
+        var isHTTPS = false
         if let rest = Self.dropPrefix("https://", bytes) {
+            isHTTPS = true
             guard let slash = rest.firstIndex(of: UInt8(ascii: "/")) else { return nil }
             authority = rest[..<slash]
             path = rest[(slash + 1)...]
@@ -72,6 +77,7 @@ struct HostedRemoteURL: Sendable, Equatable {
         let segments = pathBytes.split(separator: UInt8(ascii: "/"), omittingEmptySubsequences: false)
         guard !segments.isEmpty, segments.allSatisfy({ !$0.isEmpty }) else { return nil }
         self.host = host
+        self.isHTTPS = isHTTPS
         pathSegments = segments.map { String(decoding: $0, as: UTF8.self) }
     }
 
