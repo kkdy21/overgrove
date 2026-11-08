@@ -32,7 +32,11 @@ final class GHCommandTests: XCTestCase {
     func testArgumentSnapshot() {
         XCTAssertEqual(GHCommand.version.arguments, ["--version"])
         XCTAssertEqual(
-            GHCommand.authStatus.arguments, ["auth", "status", "--hostname", "github.com", "--json", "hosts"])
+            GHCommand.authStatus.arguments, ["auth", "status", "--json", "hosts"])
+        // ADR-0025 §3: another host is chosen by `--repo HOST/OWNER/NAME` only.
+        let ghe = GitHubRepository(owner: "team", name: "app", host: RemoteHost("ghe.example")!)!
+        XCTAssertEqual(GHCommand.issueList(repo: ghe).arguments[2...3], ["--repo", "ghe.example/team/app"])
+        XCTAssertEqual(GHCommand.prList(repo: ghe).arguments[2...3], ["--repo", "ghe.example/team/app"])
         XCTAssertEqual(
             GHCommand.issueList(repo: repository).arguments,
             [

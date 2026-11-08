@@ -4,7 +4,8 @@ import Foundation
 ///
 /// A public repository accepts pull requests from any fork, with any head branch name, so a branch name alone never
 /// links a PR. A local branch gets a PR only when all of these match:
-/// - the PR's head owner and repository name equal the `OWNER/NAME` of the branch's upstream remote's github.com URL,
+/// - the PR's head owner and repository name equal the `OWNER/NAME` of the branch's upstream remote's GitHub URL on the
+///   list's host,
 ///   ASCII case-insensitively (GitHub ignores case; a remote URL keeps what the user typed);
 /// - the PR's head branch equals the branch's upstream ref on that remote (`refs/heads/<name>`), byte for byte.
 ///
@@ -23,8 +24,8 @@ struct PullRequestLinkIndex: Equatable {
 
     /// - Parameters:
     ///   - branches: Local and remote-tracking branches; only local ones with an upstream are linked.
-    ///   - remotes: The verified listing's remote names and their github.com repositories (`GitHubRemote`); a remote
-    ///     on another host is absent.
+    ///   - remotes: The verified listing's remote names and their GitHub repositories (`GitHubRemote`), all on the
+    ///     pull requests' host; a remote on an untrusted host is absent.
     init(pullRequests: [PullRequest], branches: [Branch], remotes: [String: GitHubRepository]) {
         guard !pullRequests.isEmpty, !remotes.isEmpty else {
             self = .empty

@@ -78,6 +78,24 @@ final class PullRequestModelsTests: XCTestCase {
         XCTAssertNil(PullRequestCardModel(pullRequest(), repository: nil).browserURL)
     }
 
+    /// SEC-T9-09 (PR display): on another host, only that host's page for this repository and number opens.
+    func testSECT9_09_OtherHostPullRequestPage() throws {
+        let ghe = try XCTUnwrap(
+            GitHubRepository(owner: "team", name: "app", host: XCTUnwrap(RemoteHost("ghe.example"))))
+        XCTAssertNotNil(
+            PullRequestCardModel(pullRequest(url: "https://ghe.example/team/app/pull/5"), repository: ghe).browserURL)
+        for url in [
+            "https://github.com/team/app/pull/5", "https://GHE.example/team/app/pull/5",
+            "http://ghe.example/team/app/pull/5",
+            "https://other.example/team/app/pull/5", "https://ghe.example:444/team/app/pull/5",
+        ] {
+            XCTAssertNil(PullRequestCardModel(pullRequest(url: url), repository: ghe).browserURL, url)
+        }
+        XCTAssertNil(
+            PullRequestCardModel(pullRequest(url: "https://ghe.example/team/app/pull/5"), repository: repository)
+                .browserURL)
+    }
+
     func testBadgeContextLooksUpLocalBranches() {
         let links = PullRequestLinkIndex(
             pullRequests: [PullRequestLinksTests.pullRequest(5)], branches: [PullRequestLinksTests.branch("feat/42")],

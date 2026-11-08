@@ -71,12 +71,12 @@ struct PullRequestCardModel: Equatable {
         urlText = PathValidator.displayable(pullRequest.url.absoluteString)
     }
 
-    /// gh's URL, only when it is exactly `https://github.com/<OWNER>/<NAME>/pull/<number>` for the repository the
-    /// list was read from (OWNER and NAME compared ASCII case-insensitively) and this PR's number. Stricter than the
-    /// issue rule, which accepts any github.com `OWNER/NAME` (ADR-0023 §3).
+    /// gh's URL, only when it is exactly `https://<HOST>/<OWNER>/<NAME>/pull/<number>` for the repository the list
+    /// was read from (HOST its lowercase host; OWNER and NAME compared ASCII case-insensitively) and this PR's number.
+    /// Stricter than the issue rule, which accepts any `OWNER/NAME` on the host (ADR-0023 §3, ADR-0025 §5).
     static func browserURL(for pullRequest: PullRequest, in repository: GitHubRepository) -> URL? {
         guard let parts = URLComponents(url: pullRequest.url, resolvingAgainstBaseURL: false), parts.scheme == "https",
-            parts.host == GHCommand.host, parts.user == nil, parts.password == nil, parts.port == nil,
+            parts.host == repository.host.name, parts.user == nil, parts.password == nil, parts.port == nil,
             parts.query == nil, parts.fragment == nil
         else { return nil }
         let path = parts.percentEncodedPath.split(separator: "/", omittingEmptySubsequences: false)

@@ -21,7 +21,7 @@ extension AppState {
     /// What `#n` badges need (#82): the fetched numbers are links, the rest grey.
     var issueBadgeContext: IssueBadgeContext {
         IssueBadgeContext(
-            known: issuePanel.knownNumbers, repository: issuePanel.repository?.slug, titles: issuePanel.titles,
+            known: issuePanel.knownNumbers, repository: issuePanel.repository?.ownerAndName, titles: issuePanel.titles,
             select: { [weak self] in self?.selectIssue($0) })
     }
 
@@ -73,7 +73,7 @@ extension AppState {
         let repository = issuePanel.repository
         return IssueDetailModel(
             issue, repository: repository, links: issueLinks.links(number),
-            commits: linkedCommits(number, repository: repository?.slug))
+            commits: linkedCommits(number, repository: repository?.ownerAndName))
     }
 
     /// Selecting an issue shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
@@ -94,7 +94,8 @@ extension AppState {
 
     // MARK: GitHub CLI state (#83)
 
-    /// Reads gh's login state for the status bar. Git features never wait for it (ADR-0004 §4).
+    /// Reads gh's login state for the status bar, and the hosts gh is logged in to. Git features never wait for it
+    /// (ADR-0004 §4).
     func checkGitHub() {
         ghCheckTask?.cancel()
         ghCheckGeneration += 1
@@ -102,11 +103,29 @@ extension AppState {
         let checker = ghChecker
         isCheckingGitHub = true
         ghCheckTask = Task { [weak self] in
-            let status = await checker.authStatus()
+            let report = await checker.authReport()
             guard let self, generation == self.ghCheckGeneration, !Task.isCancelled else { return }
-            self.ghStatus = status
+            self.ghStatus = report?.status
             self.isCheckingGitHub = false
+            // A failed check keeps what was trusted.
+            if let report { self.trustGitHubHosts(report.hosts) }
         }
+    }
+
+    /// gh's login list changed what is trusted (ADR-0025 §1): the verified remotes pick the GitHub repository again,
+    /// and a different one loads. gh's state was just read, so this does not check it again.
+    func trustGitHubHosts(_ hosts: Set<RemoteHost>) {
+        let trusted = TrustedHosts(publicHost: GitHubRepository.publicHost, loggedIn: hosts)
+        guard trusted != trustedGitHubHosts else { return }
+        trustedGitHubHosts = trusted
+        guard let source = verifiedGitHubSource, source.repository == repository?.repository else { return }
+        let remotes = source.remotes.map { (name: $0.name, url: $0.url) }
+        pullRequestStore.update(
+            branches: source.branches, remotes: GitHubRemote.repositories(remotes: remotes, trusting: trusted))
+        let github = GitHubRemote.repository(remotes: remotes, trusting: trusted)
+        guard github != issuePanel.repository else { return }
+        issuePanel.show(github)
+        pullRequestStore.load(github)
     }
 
     /// The ISSUES section's Check Again: gh's state and the issues again. Without a GitHub remote, the repository
