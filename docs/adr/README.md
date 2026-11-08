@@ -33,3 +33,4 @@
 | [0017](0017-design-token-generation.md) | 디자인 토큰은 Swift 스크립트로 Asset Catalog와 Swift 상수를 생성해 커밋 | Accepted |
 | [0018](0018-launch-snapshot-disk-cache.md) | 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 | Accepted |
 | [0019](0019-user-chosen-git-executable.md) | 사용자가 고른 git 실행 파일을 믿는 조건 (경로·소유자·권한·버전 규칙, fail closed) | Accepted |
+| [0021](0021-read-only-scope-after-v0-1.md) | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
