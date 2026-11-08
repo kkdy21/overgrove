@@ -290,7 +290,7 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 ### 5.1 GLCommand와 GTCommand (다른 제공자 CLI)
 
-v0.2.0, [ADR-0026](../adr/0026-gitlab-and-gitea-issue-providers.md). GitLab은 `glab`(#154), Gitea는 `gt`(#449)다. 아직 구현하지 않았다. 타입은 `Overgrove/Forges/`에 둔다. 공통 규칙은 §5와 같다.
+v0.2.0, [ADR-0026](../adr/0026-gitlab-and-gitea-issue-providers.md). GitLab은 `glab`(#154), Gitea는 `gt`(#449)다. 타입은 `Overgrove/Forges/`에 둔다. gt의 명령 타입·실행 하드닝·버전 확인·파서는 `GTCommand`·`GTClient`·`GTAuthParser`·`GTIssueParser`로 구현했다(#449). gt는 첫 실행에 파일을 만들지 않아(1.1.0 확인) 설정 파일 확인은 두지 않는다. 원격에서 인스턴스를 판별해 이슈 패널에 잇는 부분은 #117의 공통 판별을 쓴다. 공통 규칙은 §5와 같다.
 
 - 실행 파일 경로는 `/opt/homebrew/bin/<cli>`, `/usr/local/bin/<cli>`뿐이다.
 - 작업 디렉터리는 중립 디렉터리이고, 실행 제한은 §2.5의 gh 값이다.
