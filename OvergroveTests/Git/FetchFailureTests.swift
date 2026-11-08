@@ -43,7 +43,7 @@ final class FetchFailureTests: XCTestCase {
             inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: sshCommand?.path,
             fetchableRemotes: ["origin"])
         do {
-            _ = try await GitClient(environment: local.environment).fetch(
+            _ = try await GitClient(environment: local.environment.fetchingLocalRemotesForTesting).fetch(
                 .fetch(remote: origin), in: repository, safety: safety)
         } catch let error as GitError {
             // The local repository's own configuration is clean: no findings.

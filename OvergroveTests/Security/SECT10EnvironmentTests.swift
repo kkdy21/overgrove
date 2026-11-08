@@ -80,7 +80,9 @@ final class SECT10EnvironmentTests: XCTestCase {
 
     func testSECT10_01_HostileParentEnvironmentThroughGitClient() async throws {
         let trace = executables.directory.appendingPathComponent("trace.log")
-        let client = GitClient(environment: target.environment, parentEnvironment: try hostileParent(traceFile: trace))
+        let client = GitClient(
+            environment: target.environment.fetchingLocalRemotesForTesting,
+            parentEnvironment: try hostileParent(traceFile: trace))
 
         // The target repository is queried, not the one GIT_DIR / GIT_WORK_TREE point at.
         let status = try await client.run(.status, in: target.root, safety: inspected)
