@@ -31,6 +31,8 @@ final class AppState {
     let ghChecker: any GHAuthChecking
     /// The sidebar's ISSUES and S-06 (#81). gh problems stay inside it (ADR-0004 §4).
     let issuePanel: IssuePanelState
+    /// Pull request status for worktree and branch rows and S-05 (ADR-0023, #115).
+    let pullRequestStore: PullRequestStore
     /// The setup assistant (S-07, #85): git and GitHub CLI checks, first run and Help › Setup Assistant….
     let setup: SetupAssistantState
     /// App preferences shared by every window (S-08, #86).
@@ -214,6 +216,7 @@ final class AppState {
     ///   - diffLoader: Loads a picked file's patch for S-10.
     ///   - stashLoader: Reads a stash's files and patches for S-04.
     ///   - issueLoader: Reads the open issues through gh for S-06.
+    ///   - pullRequestLoader: Reads the pull requests through gh for PR status (#115).
     ///   - comparisonLoader: Compares a worktree with its base branch for S-11.
     ///   - graphLoader: Reads commit graph pages for the center panel (#68).
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
@@ -233,6 +236,7 @@ final class AppState {
         diffLoader: any DiffLoading = LiveDiffLoader.live,
         stashLoader: any StashLoading = LiveStashLoader.live,
         issueLoader: any IssueLoading = LiveIssueLoader.live,
+        pullRequestLoader: any PullRequestLoading = LivePullRequestLoader.live,
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
         lineCountLoader: (any LineCountLoading)? = nil,
         submoduleLoader: (any SubmoduleLoading)? = nil,
@@ -266,6 +270,7 @@ final class AppState {
         self.diffLoader = diffLoader
         self.stashLoader = stashLoader
         issuePanel = IssuePanelState(loader: issueLoader)
+        pullRequestStore = PullRequestStore(loader: pullRequestLoader)
         let appSettings = settings ?? AppSettings()
         self.settings = appSettings
         // Use Default for a refused Settings choice (ADR-0019 §4): forget it, then rediscover on next use.
@@ -339,6 +344,7 @@ final class AppState {
         authorFilter = .all
         sidebarFilter = ""
         issuePanel.clear()
+        pullRequestStore.clear()
         graph.clear()
         commitDetail.clear()
         history.reset()

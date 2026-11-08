@@ -30,3 +30,44 @@ struct Issue: Sendable, Hashable, Identifiable {
 
     var id: Int { number }
 }
+
+/// A pull request from `gh pr list --json` (parsing-spec.md §10.3, ADR-0023). Text fields are raw: escape them before
+/// showing them.
+struct PullRequest: Sendable, Hashable, Identifiable {
+    enum State: Sendable, Hashable {
+        case open
+        case closed
+        case merged
+        /// A value this version does not know.
+        case unknown
+    }
+
+    enum ReviewDecision: Sendable, Hashable {
+        case approved
+        case changesRequested
+        case reviewRequired
+        /// No decision (gh prints an empty string), or a value this version does not know.
+        case none
+    }
+
+    /// Where the PR's commits come from. Anyone can open a PR from a fork with any branch name, so a PR is tied to a
+    /// branch only when all three match that branch's upstream (ADR-0023 §4).
+    struct Head: Sendable, Hashable {
+        let owner: String
+        let name: String
+        let branch: String
+    }
+
+    let number: Int
+    let title: String
+    let state: State
+    let isDraft: Bool
+    /// `nil` when gh gives no head repository or owner (a deleted fork): the PR is listed but linked to nothing.
+    let head: Head?
+    let baseRefName: String
+    let reviewDecision: ReviewDecision
+    let updatedAt: Date?
+    let url: URL
+
+    var id: Int { number }
+}

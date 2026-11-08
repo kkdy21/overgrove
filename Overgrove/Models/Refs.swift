@@ -19,6 +19,12 @@ struct Branch: Sendable, Hashable, Identifiable {
     let committerDate: Date?
     /// Target of a symbolic ref such as `refs/remotes/origin/HEAD`.
     let symbolicTarget: String?
+    /// The upstream's remote and its ref on that remote, from `branch.<name>.remote` and `branch.<name>.merge`
+    /// (`%(upstream:remotename)`, `%(upstream:remoteref)`): `my/fork` and `refs/heads/feature`. A remote name may
+    /// contain `/`, so these are never split out of `upstream` (ADR-0023 §4). `.` is the local repository. `nil`
+    /// without an upstream or when the value is not valid UTF-8.
+    var upstreamRemote: String? = nil
+    var upstreamRemoteRef: String? = nil
 
     var id: String { fullName }
 

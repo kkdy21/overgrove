@@ -185,6 +185,7 @@ struct WorktreeRowView: View {
     let isListFocused: Bool
 
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.pullRequestBadges) private var pullRequests
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.sm) {
@@ -197,6 +198,8 @@ struct WorktreeRowView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: Tokens.Spacing.xs)
+                    // Lowest priority (§4.3, 7): leftmost, the first to give way.
+                    if let pullRequest { PullRequestPill(badge: pullRequest) }
                     if let number = row.issueNumber { IssueNumberBadge(number: number) }
                     // Highest priority at the trailing edge; the leading (lowest) badges give way first.
                     ForEach(Array(row.badges.reversed().enumerated()), id: \.offset) { _, badge in
@@ -228,10 +231,12 @@ struct WorktreeRowView: View {
         .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
         .help(row.help)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(row.accessibilityLabel)
+        .accessibilityLabel(row.accessibilityLabel + (pullRequest.map { ", " + $0.accessibilityText } ?? ""))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .issueBadgeAction(row.issueNumber)
     }
+
+    private var pullRequest: PullRequestBadge? { pullRequests.badge(forBranch: row.branchRef) }
 
     @ViewBuilder
     private var secondLine: some View {
