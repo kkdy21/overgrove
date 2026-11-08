@@ -294,7 +294,7 @@ HOST는 소문자로 바꾼 ASCII DNS 이름이다. 라벨 1–63자의 영숫�
 
 ### 5.1 GLCommand와 GTCommand (다른 제공자 CLI)
 
-v0.2.0, [ADR-0026](../adr/0026-gitlab-and-gitea-issue-providers.md). GitLab은 `glab`(#154), Gitea는 `gt`(#449)다. 아직 구현하지 않았다. 타입은 `Overgrove/Forges/`에 둔다. 공통 규칙은 §5와 같다.
+v0.2.0, [ADR-0026](../adr/0026-gitlab-and-gitea-issue-providers.md). GitLab은 `glab`(#154), Gitea는 `gt`(#449)다. 타입은 `Overgrove/Forges/`에 둔다. glab의 명령 타입·실행 하드닝·설정 파일 확인·버전 확인·파서는 `GLCommand`·`GLClient`·`GLAuthParser`·`GLIssueParser`로 구현했다(#154). 원격에서 호스트를 판별하는 부분은 #117의 공통 판별(`HostedRemoteURL`, `RemoteHost`)을 쓴다. 이슈 패널은 GitHub 저장소가 없을 때만 `GitLabRemote.candidates`(`upstream` 먼저, 그다음 설정 순서, 호스트마다 하나, 최대 3개 호스트)를 한 호스트씩 `glab auth status`로 묻고, 처음 로그인된 호스트의 프로젝트를 읽는다. gh 로그인 목록을 읽는 중이면 그것이 끝난 뒤에 묻고, gh가 로그인한 호스트는 후보에서 뺀다(gh 우선. 두 CLI가 같은 호스트에 로그인돼 있으면 gh 저장소를 쓴다). 같은 후보는 ⌘R, Check Again, 다른 저장소 전에는 다시 묻지 않는다(자동 새로고침은 glab을 실행하지 않는다). gt는 #449에서 구현한다. 공통 규칙은 §5와 같다.
 
 - 실행 파일 경로는 `/opt/homebrew/bin/<cli>`, `/usr/local/bin/<cli>`뿐이다.
 - 작업 디렉터리는 중립 디렉터리이고, 실행 제한은 §2.5의 gh 값이다.
@@ -304,7 +304,7 @@ v0.2.0, [ADR-0026](../adr/0026-gitlab-and-gitea-issue-providers.md). GitLab은 `
 - 다른 명령보다 먼저 `version`의 첫 줄을 확인한다(glab `glab X.Y.Z (…)` 1.128.0 이상, gt `gt version X.Y.Z (…)` 1.1.0 이상). 맞지 않으면 설치되지 않은 것으로 본다. `gt`는 Graphite CLI와 이름이 겹칠 수 있다.
 - stderr는 화면·로그에 쓰지 않는다. 종료 코드와 분류만 쓴다(`CredentialMasker`가 GitLab·Gitea 토큰을 다 가리지 못한다, ADR-0026 §4).
 
-환경 변수는 `HOME`, `USER`, `TMPDIR`만 부모에서 넘기고, 나머지는 아래 고정값이다. `GITLAB_TOKEN`, `GITLAB_ACCESS_TOKEN`, `OAUTH_TOKEN`, `GITLAB_HOST`·`GITLAB_URI`·`GL_HOST`, `GITLAB_REPO`, `GLAB_CONFIG_DIR`, `GLAB_CA_CERT`, `GLAB_SKIP_TLS_VERIFY`, `GLAB_CLIENT_*`, `GLAB_PROXY`, `GITEA_TOKEN`, `GITEA_CLI_HOST`, `GITEA_INSTANCE_*`, `GITEA_CLI_CONFIG_DIR`, `GITEA_CLI_DATA_DIR`, `GITEA_CLI_REPO`, `GLAB_DEBUG`, `GLAB_DEBUG_HTTP`(요청 헤더를 출력할 수 있다), `GODEBUG`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `GIT_*`, `BROWSER`, `EDITOR`, `XDG_CONFIG_HOME`, 프록시 변수는 넘기지 않는다.
+환경 변수는 `HOME`, `USER`, `TMPDIR`만 부모에서 넘기고, 나머지는 아래 고정값이다(glab의 `HOME`은 설정 파일을 확인한 그 폴더로 둔다, #154). `GITLAB_TOKEN`, `GITLAB_ACCESS_TOKEN`, `OAUTH_TOKEN`, `GITLAB_HOST`·`GITLAB_URI`·`GL_HOST`, `GITLAB_REPO`, `GLAB_CONFIG_DIR`, `GLAB_CA_CERT`, `GLAB_SKIP_TLS_VERIFY`, `GLAB_CLIENT_*`, `GLAB_PROXY`, `GITEA_TOKEN`, `GITEA_CLI_HOST`, `GITEA_INSTANCE_*`, `GITEA_CLI_CONFIG_DIR`, `GITEA_CLI_DATA_DIR`, `GITEA_CLI_REPO`, `GLAB_DEBUG`, `GLAB_DEBUG_HTTP`(요청 헤더를 출력할 수 있다), `GODEBUG`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `GIT_*`, `BROWSER`, `EDITOR`, `XDG_CONFIG_HOME`, 프록시 변수는 넘기지 않는다.
 
 ```
 glab: PATH(§2.4와 같음), LC_ALL=C, GIT_TERMINAL_PROMPT=0, NO_COLOR=1,

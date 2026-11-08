@@ -22,19 +22,21 @@ extension AppState {
     var issueListModel: IssueListModel {
         IssueListModel(
             content: issuePanel.content, isLoading: issuePanel.isLoading, links: issueLinks,
-            account: issuePanel.repository.flatMap { ghAccounts[$0.host] })
+            // Only a GitHub repository is read as a gh account; GitLab issues come from glab.
+            account: issuePanel.repository?.gitHubRepository.flatMap { ghAccounts[$0.host] })
     }
 
     /// The account gh uses for the open repository's GitHub host, else github.com's (ADR-0025 §4). Either way the
     /// host is named, so another host's account is never shown as if it read this repository.
     var ghAccount: GHAccount? {
-        issuePanel.repository.flatMap { ghAccounts[$0.host] } ?? ghAccounts[GitHubRepository.publicHost]
+        issuePanel.repository?.gitHubRepository.flatMap { ghAccounts[$0.host] }
+            ?? ghAccounts[GitHubRepository.publicHost]
     }
 
     /// What `#n` badges need (#82): the fetched numbers are links, the rest grey.
     var issueBadgeContext: IssueBadgeContext {
         IssueBadgeContext(
-            known: issuePanel.knownNumbers, repository: issuePanel.repository?.ownerAndName, titles: issuePanel.titles,
+            known: issuePanel.knownNumbers, repository: issuePanel.repository?.referencePath, titles: issuePanel.titles,
             select: { [weak self] in self?.selectIssue($0) })
     }
 
@@ -85,8 +87,8 @@ extension AppState {
         else { return nil }
         let repository = issuePanel.repository
         return IssueDetailModel(
-            issue, repository: repository, links: issueLinks.links(number),
-            commits: linkedCommits(number, repository: repository?.ownerAndName))
+            issue, source: repository, links: issueLinks.links(number),
+            commits: linkedCommits(number, repository: repository?.referencePath))
     }
 
     /// Selecting an issue shows it in the detail panel; the focused worktree stays (information-architecture.md §2.2).
@@ -124,7 +126,19 @@ extension AppState {
             // A failed check keeps the trusted hosts but shows no account it can no longer vouch for.
             self.ghAccounts = report?.accounts ?? [:]
             if let report { self.trustGitHubHosts(report.hosts) }
+            self.askGitLabAfterGitHub()
         }
+    }
+
+    /// The gh check that a load waited for finished (or failed): without a GitHub repository, glab is asked now,
+    /// about the verified remotes only.
+    private func askGitLabAfterGitHub() {
+        guard isWaitingForGitHubBeforeGitLab else { return }
+        isWaitingForGitHubBeforeGitLab = false
+        guard issuePanel.repository?.gitHubRepository == nil, let source = verifiedGitHubSource,
+            source.repository == repository?.repository
+        else { return }
+        showOtherIssueSource(remotes: source.remotes.map { (name: $0.name, url: $0.url) })
     }
 
     /// gh's login list changed what is trusted (ADR-0025 §1): the verified remotes pick the GitHub repository again,
@@ -142,10 +156,59 @@ extension AppState {
             listing.remotes = source.remotes
             branchListModel = Self.branchModel(listing, trusting: trusted)
         }
-        let github = GitHubRemote.repository(remotes: remotes, trusting: trusted)
-        guard github != issuePanel.repository else { return }
-        issuePanel.show(github)
+        guard let github = GitHubRemote.repository(remotes: remotes, trusting: trusted) else {
+            pullRequestStore.load(nil)
+            // A GitLab project already shown stays; otherwise the other providers are asked again with the new list.
+            if case .gitlab = issuePanel.repository { return }
+            showOtherIssueSource(remotes: remotes)
+            return
+        }
+        guard .github(github) != issuePanel.repository else { return }
+        gitlabCheckTask?.cancel()
+        gitlabCheckGeneration += 1
+        gitlabQuestion = nil
+        issuePanel.show(.github(github))
         pullRequestStore.load(github)
+    }
+
+    /// No GitHub repository among the verified remotes (ADR-0026 §2): the first GitLab project whose host glab
+    /// reports logged in, asked about one host at a time (at most `GitLabRemote.maximumHosts`). Without one, a remote
+    /// on a host no CLI is logged in to gets the "Not logged in to HOST" notice and its login commands (§7); nothing is
+    /// read from that host. The same projects are not asked about again until ⌘R, Check Again, or another repository
+    /// (`gitlabQuestion`), so auto refresh with the same remotes does not run glab. gh goes first: a host gh is
+    /// logged in to is never a glab candidate, so when both CLIs are logged in to a host, gh's repository is used.
+    func showOtherIssueSource(remotes: [(name: String, url: String)]) {
+        let candidates = GitLabRemote.candidates(remotes: remotes, excluding: trustedGitHubHosts)
+        let untrusted = GitLabRemote.untrustedHost(remotes: remotes, excluding: trustedGitHubHosts)
+        // Asked already (or being asked) about the same projects: keep that answer.
+        if !candidates.isEmpty, candidates == gitlabQuestion { return }
+        gitlabCheckTask?.cancel()
+        gitlabCheckGeneration += 1
+        gitlabQuestion = candidates.isEmpty ? nil : candidates
+        guard !candidates.isEmpty else {
+            if let untrusted { issuePanel.showNotLoggedIn(to: untrusted) } else { issuePanel.show(nil) }
+            return
+        }
+        let generation = gitlabCheckGeneration
+        let checker = gitlabChecker
+        gitlabCheckTask = Task { [weak self] in
+            var found: GitLabProject?
+            for project in candidates {
+                guard !Task.isCancelled else { return }
+                if await checker.isLoggedIn(project.host) {
+                    found = project
+                    break
+                }
+            }
+            guard let self, generation == self.gitlabCheckGeneration, !Task.isCancelled else { return }
+            if let found {
+                self.issuePanel.show(.gitlab(found))
+            } else if let untrusted {
+                self.issuePanel.showNotLoggedIn(to: untrusted)
+            } else {
+                self.issuePanel.show(nil)
+            }
+        }
     }
 
     /// The ISSUES section's Check Again: gh's state and the issues again. Without a GitHub remote, the repository
@@ -155,7 +218,7 @@ extension AppState {
         guard repository != nil, !issuePanel.isLoading, !isCheckingGitHub else { return }
         if issuePanel.retry() {
             checkGitHub()
-            pullRequestStore.load(issuePanel.repository)
+            pullRequestStore.load(issuePanel.repository?.gitHubRepository)
         } else {
             reload()
         }
