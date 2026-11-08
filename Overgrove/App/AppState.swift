@@ -15,6 +15,8 @@ final class AppState {
     let registrar: RepositoryRegistrar
     let loader: any RepositoryLoading
     let lineCountLoader: (any LineCountLoading)?
+    /// S-02's Submodules section for the selected worktree (#108).
+    let submodules: SubmodulePanel
     let inspector: any WorktreeInspecting
     /// The last session's sidebar per repository (ADR-0018, #109); `nil` turns launch snapshots off (tests, previews).
     let launchSnapshots: LaunchSnapshotStore?
@@ -208,6 +210,7 @@ final class AppState {
     ///   - graphLoader: Reads commit graph pages for the center panel (#68).
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
+    ///   - submoduleLoader: Inspects the selected worktree's submodules for S-02 (#108). Defaults to `loader` when it can.
     ///   - historyLoader: Reads a file's history for S-09.
     ///   - fetcher: Fetches the open repository's remotes. Defaults to `loader` when it can; without one, Fetch is off.
     ///   - fetchRecords: The last fetch of each repository (`UserDefaults`).
@@ -224,6 +227,7 @@ final class AppState {
         issueLoader: any IssueLoading = LiveIssueLoader.live,
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
         lineCountLoader: (any LineCountLoading)? = nil,
+        submoduleLoader: (any SubmoduleLoading)? = nil,
         graphLoader: any GraphLoading = LiveGraphLoader.live,
         commitLoader: any CommitLoading = LiveCommitLoader.live,
         historyLoader: any FileHistoryLoading = LiveFileHistoryLoader.live,
@@ -264,6 +268,7 @@ final class AppState {
             })
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
+        submodules = SubmodulePanel(loader: submoduleLoader ?? (loader as? any SubmoduleLoading))
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
         // The registry's untrusted flag, read when each fetch starts (#107).
         fetch.isUntrusted = { [registry] repository in registry.repository(withID: repository.id)?.isUntrusted ?? false
@@ -290,6 +295,7 @@ final class AppState {
 
     func clearRepositoryData() {
         autoRefresh.update(nil)
+        submodules.clear()
         loadTask?.cancel()
         loadTask = nil
         runningTrigger = nil

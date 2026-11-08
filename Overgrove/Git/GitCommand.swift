@@ -47,6 +47,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case comparePatch(base: FullRefName, path: GitPath, originalPath: GitPath? = nil, includeWorkingTree: Bool)
     /// Commits on HEAD that `base` does not have (`<base>..HEAD`), newest first.
     case commitsAhead(base: FullRefName, limit: Int)
+    /// Submodule paths from the worktree's `.gitmodules` (S-02, #108). `--file` reads only that file, `--no-includes`
+    /// keeps `include.path` there from pulling in another file, and nothing runs. The caller checks first that
+    /// `.gitmodules` is a regular file inside the worktree, not a symbolic link git would follow.
+    case submodulePaths
 
     enum Location: Sendable, Equatable {
         /// An app-owned temporary directory outside any repository.
@@ -74,6 +78,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         switch self {
         case .version:
             return ["version"]
+        case .submodulePaths:
+            return [
+                "config", "--file", ".gitmodules", "--no-includes", "-z", "--get-regexp", "^submodule\\..*\\.path$",
+            ]
         case .probeGitDirectory:
             return [
                 "rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir", "--is-bare-repository",
@@ -194,7 +202,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .version: .neutral
         case .probeGitDirectory, .probeRepository: .registeredPath
         case .status, .worktreeDiff, .worktreeNumstat, .untrackedPreview, .fileHistory, .compareFiles, .comparePatch,
-            .commitsAhead:
+            .commitsAhead, .submodulePaths:
             .worktree
         default: .repository
         }
@@ -203,6 +211,8 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// `git diff --no-index` exits 1 when the files differ, which is the normal case for a preview.
     var acceptedExitCodes: Set<Int32> {
         if case .untrackedPreview = self { return [0, 1] }
+        // `config --get-regexp` exits 1 when nothing matches (no submodule listed).
+        if case .submodulePaths = self { return [0, 1] }
         return [0]
     }
 

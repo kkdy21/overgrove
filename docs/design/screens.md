@@ -257,7 +257,8 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 파일 행 | 변경 종류 배지(M/A/D/R/C/T/U/?, 상태 색으로 채운 16pt 사각형 + `on-status.*` 글자) + 경로 + `+n −m`(0인 쪽은 숨김). 경로는 디렉터리를 `text.tertiary`, 파일 이름을 `text.primary` Medium으로 쓴다. 길면 디렉터리 앞부분을 `…/`로 줄인다 |
 | rename | `{Old.swift → New.swift}` (공통 디렉터리는 앞에 한 번) |
 | 한 파일이 staged와 unstaged에 모두 있음 (`MM`) | 두 그룹에 각각 한 번씩 나타난다 |
-| 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 펼치지 않는다 (later) |
+| 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 파일 목록에서 펼치지 않는다 |
+| Submodules 카드 (#108) | 그룹 카드 아래. 선택한 워크트리의 서브모듈마다 한 줄: 경로(`font.mono`, 이스케이프), `.gitmodules`에 없으면 `not in .gitmodules`, 오른쪽에 상태(`clean` / `n changed · n untracked` / `not checked out` / `not inspected` / `failed`). `not inspected`는 이유를 툴팁으로 보인다(경로가 워크트리 밖·심볼릭 링크, `.git`이 저장소의 `modules/` 밖, 서브모듈 자체 설정이 조회를 막음). 읽는 동안 `Checking submodules…`. 32개까지만 검사하고 나머지는 `n more not inspected`. `.gitmodules`가 일반 파일이 아니면 읽지 않고 알린다. 서브모듈이 없으면 카드를 숨긴다. 행을 눌러도 아무 일도 없다 |
 | 비교 카드 (하단 고정) | `Changes vs [기준 ⌃]`, `n commits ahead · n behind · n files`, `+n −m`, 기준 커밋, `Compare with Base…`(`⌘⇧B`, S-11). 위 목록만 스크롤된다 (#166) |
 
 **데이터.** `WorkingState`, `FileChange`. staged numstat은 `diff --cached --numstat`, unstaged는 `diff --numstat`에서 온다 ([git-command-catalog.md](../architecture/git-command-catalog.md)).

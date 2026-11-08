@@ -124,7 +124,8 @@ struct MainWindowView: View {
             } detail: {
                 DetailPanel(
                     focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
-                    wipModel: state.wipDetailModel, worktreeModel: state.worktreeDetailModel,
+                    wipModel: state.wipDetailModel, submoduleSection: state.submoduleSection,
+                    worktreeModel: state.worktreeDetailModel,
                     selectedFile: state.selectedFile, onSelectFile: state.selectFile,
                     showsWorktreeSegment: state.selection.flatMap {
                         switch $0 {
