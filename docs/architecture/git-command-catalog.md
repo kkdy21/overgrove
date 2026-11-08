@@ -255,6 +255,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `version` | `["--version"]` | 첫 줄 `gh version X.Y.Z (...)` | 온보딩 표시 |
 | `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
 | `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
+| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 최근 머지·닫힌 PR(updatedAt 최신 200개). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
 
 실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
 
@@ -311,6 +312,6 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 다음은 1차 범위에서 **어떤 형태로도 실행하지 않는다**. 코드 리뷰와 `security-reviewer` 에이전트가 이 목록을 기준으로 검사한다.
 
-`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr *`, `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`.
+`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr list` 밖의 모든 `gh pr`(ADR-0023), `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`.
 
 `config`는 `--list --show-scope -z --includes` 조합만 허용한다.

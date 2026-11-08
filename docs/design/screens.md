@@ -442,6 +442,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 느린 status 카드 | 마지막 status가 1초를 넘으면 정보 카드 아래에 `🐢 Status 5.2 s`와 이유를 보여 준다. 설정 보고가 깨끗하면 복사용 `git status`와 "신뢰하는 저장소에서만"을 붙이고, 발견 항목이 있으면 명령을 제시하지 않는다(#200). 앱은 실행하지 않는다(#168) |
 | Base | 기준 브랜치(기본은 기본 브랜치)와 그 대비 요약. S-02와 같은 **하단 고정 비교 카드**로 보여 준다. `Compare with Base…`는 S-11을 연다 (#158, #166) |
 | Copy Report | SECURITY 머리 오른쪽의 `doc.on.doc` 버튼. 보안 상태를 텍스트로 복사한다. 키 이름과 판정만 담고 값, 경로, 원격 URL, 브랜치 이름, 오류 문구는 넣지 않는다(#110, [security-review.md T11](security-review.md#t11-자격-증명-노출), SEC-T11-06). `Untrusted: yes/no`와 `Remotes on this Mac: n`(개수만)도 넣는다(#107) |
+| Pull request (v0.2.0, ADR-0023) | 이 워크트리 브랜치에 이어진 PR이 있으면 정보 카드 아래에 카드 하나: 상태(`Open`, `Draft`, `Merged`, `Closed`), `#123` + 제목, 리뷰 결정(`Approved`, `Changes requested`, `Review required`, 없으면 생략), 기준 브랜치. `Open in Browser`(정확한 PR URL일 때만)·`Copy URL`. 머지된 PR은 사실만 보이고 정리 안내나 명령은 넣지 않는다(ADR-0021). gh가 없거나 로그아웃이면 카드를 숨긴다(#265) |
 | 신뢰하지 않음 (#107) | SECURITY 카드의 `Treat as untrusted` 토글. 켜면 이 Mac의 원격(로컬 경로·`file://`)을 fetch하지 않고, Open in Terminal은 항상 확인 후에 연다. 신뢰함이면서 이 Mac에 원격이 있으면 원격 이름(마스킹·이스케이프, 경로·URL 없음)과 함께 "Remotes on this Mac" 경고를 보여 준다. 켜져 있으면 "Untrusted" 상태 줄을 보여 준다. 저장소 단위이고 등록 정보에 저장한다(ADR-0009 후속 작업) |
 | SECURITY | 위협 모델 대응이 이 저장소에 적용되었는지 보여 준다. 항상 켜져 있는 항목(hooks, fsmonitor, ext diff, 마스킹)은 `✓`로 표시한다. `RepoConfigInspector`가 무력화한 저장소 설정이 있으면 `⚠` + 개수, 펼치면 키 이름 목록을 보여 준다(값은 보여 주지 않는다). 항목 정의는 [security-review.md](security-review.md)와 ADR-0009를 따른다 |
 

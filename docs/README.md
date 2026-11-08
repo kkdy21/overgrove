@@ -154,6 +154,7 @@ OvergroveTests/
 | 0020 | git 호환성 매트릭스를 CI에서 돌리는 방법 | Accepted |
 | 0021 | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
 | 0022 | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
+| 0023 | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |
 
 ### 2.6 테스트 ID
 
