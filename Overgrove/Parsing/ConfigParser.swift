@@ -60,6 +60,17 @@ enum ConfigParser {
         }
     }
 
+    /// Hook names (`hook.<name>.*`, #354) that can be safely spliced into `-c hook.<name>.enabled=false`: no `=`
+    /// (git splits `-c` at the first one), no control characters, nothing decoded lossily, at most 256 bytes. Dots are
+    /// fine: git takes the subsection between the first and the last dot. Any other name stops queries (fail closed).
+    static func isNeutralizableHookName(_ name: String) -> Bool {
+        guard (1...256).contains(name.utf8.count) else { return false }
+        return name.unicodeScalars.allSatisfy { scalar in
+            scalar.value >= 0x20 && scalar.value != 0x7F && scalar != "=" && scalar != "\u{FFFD}"
+                && !(0x80...0x9F).contains(scalar.value)
+        }
+    }
+
     private static func entry(_ token: Data.SubSequence, scope: ConfigEntry.Scope, offset: Int) throws -> ConfigEntry {
         let keyBytes: Data.SubSequence
         let value: String?

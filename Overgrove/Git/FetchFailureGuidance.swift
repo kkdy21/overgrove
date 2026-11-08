@@ -95,9 +95,15 @@ struct FetchFailureGuidance: Sendable, Equatable {
     ///   - endpoint: Where the remote points, from `Endpoint(remoteURL:)`, to name the host in texts and commands.
     ///   - report: The repository's configuration report. Any finding means Terminal git would run settings that
     ///     Overgrove turned off, so no git command is offered.
-    init?(error: GitError, remote: RemoteName, endpoint: Endpoint? = nil, report: RepoSecurityReport) {
+    ///   - hookExecutables: Executable files in the repository's hooks directory (`hookExecutables(in:)`), which
+    ///     Terminal git would run too. Any of them also withholds the command (#354, as the slow status hint, #168).
+    init?(
+        error: GitError, remote: RemoteName, endpoint: Endpoint? = nil, report: RepoSecurityReport,
+        hookExecutables: [String]
+    ) {
         guard error != .cancelled else { return nil }
-        let terminal = Terminal(remote: remote.value, isRepositoryClean: report.findings.isEmpty)
+        let terminal = Terminal(
+            remote: remote.value, isRepositoryClean: report.findings.isEmpty && hookExecutables.isEmpty)
         let content = Self.content(for: error, terminal: terminal, endpoint: endpoint)
         self.init(
             remote: remote,
@@ -146,8 +152,8 @@ struct FetchFailureGuidance: Sendable, Equatable {
         /// A sentence that sends the user to Terminal for `purpose`, with the matching warning.
         func advice(_ purpose: String) -> String {
             guard isRepositoryClean else {
-                return "This repository has settings that Overgrove turned off for safety (see its security report). "
-                    + "Terminal git would apply them, so review them before you run git in this repository."
+                return "This repository has settings or hooks that Overgrove turned off for safety (see its security "
+                    + "report). Terminal git would apply them, so review them before you run git in this repository."
             }
             return "Run \"\(fetch)\" in Terminal \(purpose). Terminal git also runs the repository's own hooks and "
                 + "settings, which Overgrove turns off, so do this only for a repository you trust."
