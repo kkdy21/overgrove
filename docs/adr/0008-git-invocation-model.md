@@ -90,4 +90,4 @@
 - [ ] ProcessRunner(#41 ✓), GitEnvironment(#42 ✓), GitCommand·GitClient(#43) 구현
 - [ ] 인자 배열 스냅샷 테스트 SEC-T9-xx, SEC-T10-xx
 - [x] git 실행 파일: `xcode-select -p`(설치 대화상자를 띄우지 않음)로 활성 개발자 디렉터리를 얻고 `<dir>/usr/bin/git`을 한 번 확정해 직접 실행한다. `/usr/bin/git` shim의 호출당 약 8ms와, 개발 도구가 없을 때 뜨는 설치 대화상자를 피한다(`GitEnvironment.discover`, #42)
-- [ ] v0.2.0: 사용자 지정 git 경로 설정
+- [x] v0.2.0: 사용자 지정 git 경로 설정 (#106, [ADR-0019](0019-user-chosen-git-executable.md))

@@ -111,7 +111,7 @@ final class SECT12PromptTests: XCTestCase {
             let guidance = try XCTUnwrap(
                 FetchFailureGuidance(
                     error: error, remote: RemoteName("origin")!,
-                    report: RepoSecurityReport(findings: [], blockingReason: nil)))
+                    report: RepoSecurityReport(findings: [], blockingReason: nil), hookExecutables: []))
             XCTAssertEqual(guidance.reason, .credentialsRejected, url)
         }
     }

@@ -21,7 +21,7 @@ final class TestGitOverrideTests: XCTestCase {
     }
 
     func testWithoutAnOverrideTheAppDiscoveryIsUsed() async throws {
-        XCTAssertNil(try TestGit.developerDirectory(environment: [:], scratch: executables.directory))
+        XCTAssertNil(try TestGit.executable(environment: [:]))
 
         let tested = try await GitEnvironment.discoverForTesting(processEnvironment: [:])
         let app = try await GitEnvironment.discover()
@@ -32,17 +32,15 @@ final class TestGitOverrideTests: XCTestCase {
     func testTheOverrideGitIsTheOneThatRuns() async throws {
         let git = try fakeGit(versionLine: "git version 2.36.6")
         let tested = try await GitEnvironment.discoverForTesting(
-            processEnvironment: [TestGit.overrideVariable: git.path], scratch: executables.directory)
+            processEnvironment: [TestGit.overrideVariable: git.path])
         XCTAssertEqual(tested.version, GitVersion(major: 2, minor: 36, patch: 6))
-        XCTAssertTrue(tested.executable.path.hasSuffix("/usr/bin/git"))
-        XCTAssertEqual(tested.executable.resolvingSymlinksInPath().path, git.resolvingSymlinksInPath().path)
+        XCTAssertEqual(tested.executable.path, git.path, "the override runs directly, with no linked directory")
     }
 
     func testAMatchingExpectedVersionPasses() async throws {
         let git = try fakeGit(versionLine: "git version 2.54.0 (Apple Git-157)")
         let tested = try await GitEnvironment.discoverForTesting(
-            processEnvironment: [TestGit.overrideVariable: git.path, TestGit.expectedVersionVariable: "2.54.0"],
-            scratch: executables.directory)
+            processEnvironment: [TestGit.overrideVariable: git.path, TestGit.expectedVersionVariable: "2.54.0"])
         XCTAssertEqual(tested.version, GitVersion(major: 2, minor: 54, patch: 0))
     }
 
@@ -50,8 +48,7 @@ final class TestGitOverrideTests: XCTestCase {
         let git = try fakeGit(versionLine: "git version 2.54.0")
         do {
             _ = try await GitEnvironment.discoverForTesting(
-                processEnvironment: [TestGit.overrideVariable: git.path, TestGit.expectedVersionVariable: "2.36.6"],
-                scratch: executables.directory)
+                processEnvironment: [TestGit.overrideVariable: git.path, TestGit.expectedVersionVariable: "2.36.6"])
             XCTFail("expected a version mismatch")
         } catch let error as TestGit.Failure {
             XCTAssertEqual(error, .versionMismatch(expected: "2.36.6", found: "2.54.0"))
@@ -63,7 +60,7 @@ final class TestGitOverrideTests: XCTestCase {
     func testAnExpectedVersionIsCheckedWithoutAnOverrideToo() async throws {
         do {
             _ = try await GitEnvironment.discoverForTesting(
-                processEnvironment: [TestGit.expectedVersionVariable: "2.0.0"], scratch: executables.directory)
+                processEnvironment: [TestGit.expectedVersionVariable: "2.0.0"])
             XCTFail("expected a version mismatch")
         } catch let error as TestGit.Failure {
             guard case .versionMismatch(expected: "2.0.0", _) = error else { return XCTFail("got \(error)") }
@@ -72,8 +69,8 @@ final class TestGitOverrideTests: XCTestCase {
 
     func testARelativeOverrideIsRejected() {
         XCTAssertThrowsError(
-            try TestGit.developerDirectory(
-                environment: [TestGit.overrideVariable: "bin/git"], scratch: executables.directory)
+            try TestGit.executable(
+                environment: [TestGit.overrideVariable: "bin/git"])
         ) { error in
             XCTAssertEqual(error as? TestGit.Failure, .notAbsolute("bin/git"))
         }
@@ -82,8 +79,8 @@ final class TestGitOverrideTests: XCTestCase {
     func testAMissingOverrideIsRejected() {
         let missing = executables.directory.appendingPathComponent("no-such-git").path
         XCTAssertThrowsError(
-            try TestGit.developerDirectory(
-                environment: [TestGit.overrideVariable: missing], scratch: executables.directory)
+            try TestGit.executable(
+                environment: [TestGit.overrideVariable: missing])
         ) { error in
             XCTAssertEqual(error as? TestGit.Failure, .notExecutable(missing))
         }

@@ -79,6 +79,8 @@ jobs:
           done
           echo "ok  JSON"
           scripts/github/board-sync-rules.test.sh
+          # #301: guard-bash blocks and allows what it should (per-segment push checks, every other rule).
+          .claude/hooks/guard-bash.test.sh
 
       - name: Fixture repository smoke test
         run: |

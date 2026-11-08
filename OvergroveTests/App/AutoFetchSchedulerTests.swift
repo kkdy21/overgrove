@@ -142,7 +142,7 @@ final class AutoFetchSchedulerTests: XCTestCase {
         let stderr = MaskedText(masking: "fatal: unable to access")
         let failure = FetchFailureGuidance(
             error: .networkUnavailable(detail: stderr), remote: RemoteName("origin")!,
-            report: RepoSecurityReport(findings: [], blockingReason: nil))!
+            report: RepoSecurityReport(findings: [], blockingReason: nil), hookExecutables: [])!
         fetcher.release(0, with: .finished(failures: [failure]))
         await fetch.task?.value
         XCTAssertEqual(fetch.status, .failed(lastFetched: nil), "the result stays in the status bar")

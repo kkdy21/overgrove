@@ -19,6 +19,9 @@ struct Canary: Sendable, Hashable {
         [Canary(id: "T1-fsmonitor", threat: "T1", mechanism: "core.fsmonitor")]
         + hookNames.map { Canary(id: "T2-hook-\($0)", threat: "T2", mechanism: "core.hooksPath → \($0) hook") }
         + [
+            Canary(id: "T2-config-hook", threat: "T2", mechanism: "hook.<name>.command on every hook event (git 2.54+)")
+        ]
+        + [
             Canary(id: "T3-textconv", threat: "T3", mechanism: "diff.<driver>.textconv via attributes"),
             Canary(id: "T3-external-diff", threat: "T3", mechanism: "diff.external (from include.path)"),
             Canary(id: "T4-filter-clean", threat: "T4", mechanism: "filter.<driver>.clean via attributes"),
