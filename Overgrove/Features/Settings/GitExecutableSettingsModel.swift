@@ -11,9 +11,9 @@ struct GitExecutableReport: Equatable, Sendable {
     /// Shown only; never required (ADR-0019 §2).
     let isAppleSigned: Bool
 
-    /// Below `lazyFetchControlVersion`, partial clones cannot be fetched (#317). Backported releases compare lower
-    /// too, which errs on the safe side.
-    var canFetchPartialClones: Bool { version >= GitEnvironment.lazyFetchControlVersion }
+    /// Below `lazyFetchControlVersion`, partial clones and remotes on this Mac are not fetched (#317, #361,
+    /// `OlderGitNote`). Backported releases compare lower too, which errs on the safe side.
+    var hasOlderGitLimits: Bool { OlderGitNote.applies(to: version) }
 }
 
 enum GitExecutableState: Equatable, Sendable {

@@ -76,7 +76,7 @@ final class GitExecutableSettingsModelTests: XCTestCase {
         guard case .ready(let report) = model.state else { return XCTFail("got \(model.state)") }
         XCTAssertEqual(report.entered, "/opt/homebrew/bin/git")
         XCTAssertFalse(report.isAppleSigned)
-        XCTAssertFalse(report.canFetchPartialClones, "2.40.0 is below lazyFetchControlVersion")
+        XCTAssertTrue(report.hasOlderGitLimits, "2.40.0 is below lazyFetchControlVersion")
         XCTAssertNil(model.choiceError)
     }
 
@@ -154,7 +154,16 @@ final class GitExecutableSettingsModelTests: XCTestCase {
             entered: nil, resolvedPath: "/g", version: GitVersion(major: 2, minor: 45, patch: 0), isAppleSigned: false)
         let at = GitExecutableReport(
             entered: nil, resolvedPath: "/g", version: GitEnvironment.lazyFetchControlVersion, isAppleSigned: false)
-        XCTAssertFalse(below.canFetchPartialClones)
-        XCTAssertTrue(at.canFetchPartialClones)
+        XCTAssertTrue(below.hasOlderGitLimits)
+        XCTAssertFalse(at.hasOlderGitLimits)
+    }
+
+    /// #383: the older-git note names both limits and the version that lifts them.
+    func testOlderGitNoteNamesBothLimits() {
+        XCTAssertTrue(OlderGitNote.applies(to: GitVersion(major: 2, minor: 45, patch: 0)))
+        XCTAssertFalse(OlderGitNote.applies(to: GitEnvironment.lazyFetchControlVersion))
+        XCTAssertTrue(OlderGitNote.text.contains("partial clones"))
+        XCTAssertTrue(OlderGitNote.text.contains("remotes on this Mac"))
+        XCTAssertTrue(OlderGitNote.text.contains("\(GitEnvironment.lazyFetchControlVersion)"))
     }
 }
