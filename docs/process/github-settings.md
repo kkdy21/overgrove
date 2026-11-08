@@ -38,7 +38,7 @@
 | PR 필수 | 켬. 필수 승인 0명(1인 메인테이너, ADR-0012) |
 | 리뷰 스레드 전부 해결 | 켬 |
 | 허용 머지 방식 | squash |
-| 필수 상태 검사 | `gitleaks`, `pr-policy`, `build-test` (strict: 최신 main 기준) |
+| 필수 상태 검사 | `gitleaks`, `pr-policy`, `build-test`. strict(최신 main 기준)는 끔(2026-11-08, PR이 몰려 머지가 한 줄로 밀리는 문제). 합친 뒤의 의미 충돌은 main의 `ci`가 잡는다. 릴리스 직전에는 다시 켠다 |
 | 우회 권한(bypass) | 없음 |
 
 ### 보안
