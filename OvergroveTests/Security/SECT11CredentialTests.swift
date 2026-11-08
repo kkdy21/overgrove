@@ -116,8 +116,8 @@ final class SECT11CredentialTests: XCTestCase {
     }
 
     /// SEC-T11-12: characters that render as nothing but are not control or format characters (variation selectors,
-    /// CGJ, Khmer inherent vowels, Hangul fillers, unassigned default-ignorables) are dropped too, so a token they split does not look whole on screen while the
-    /// pattern misses it.
+    /// CGJ, Khmer inherent vowels, Hangul fillers, unassigned default-ignorables) are dropped too, so a token they split
+    /// does not look whole on screen while the pattern misses it.
     func testSECT11_12_InvisibleNonFormatSplitsStayMasked() {
         let token = "ghp_" + String(repeating: "E", count: 24)
         for separator in [
@@ -129,8 +129,8 @@ final class SECT11CredentialTests: XCTestCase {
         }
     }
 
-    /// SEC-T11-12: Korean file names (NFC and the decomposed form macOS uses) reach the error detail unchanged. A Hangul
-    /// filler is default-ignorable and drawn as nothing, so it is dropped like the other invisible characters.
+    /// SEC-T11-12: Korean file names (NFC and the decomposed form macOS uses) reach the error detail unchanged. A
+    /// Hangul filler is default-ignorable and drawn as nothing, so it is dropped like the other invisible characters.
     func testSECT11_12_KoreanFileNamesAreKept() {
         let composed = "보고서.txt"
         let decomposed = composed.decomposedStringWithCanonicalMapping
