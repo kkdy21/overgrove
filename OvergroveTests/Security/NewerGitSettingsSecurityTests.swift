@@ -74,6 +74,11 @@ final class NewerGitSettingsSecurityTests: XCTestCase {
     /// `extensions.refStorage` with a location (git 2.54) makes fetch write refs and reflogs outside the repository.
     /// The app reports it and does not fetch; older git refuses such a repository by itself.
     func testSECT13_06_RefStorageOutsideTheRepositoryIsNotFetched() async throws {
+        // Older git either does not know a location here or ignores the whole git directory; the classification is
+        // covered by unit tests (`RepoConfigInspectorTests`).
+        try XCTSkipIf(
+            repository.environment.version < GitVersion(major: 2, minor: 54, patch: 0),
+            "a ref store location needs git 2.54+ (found \(repository.environment.version))")
         let upstream = try await GitTestRepository.make()
         defer { upstream.remove() }
         try await upstream.git(["commit", "-q", "--allow-empty", "-m", "upstream"])
@@ -85,29 +90,19 @@ final class NewerGitSettingsSecurityTests: XCTestCase {
             (FileManager.default.enumerator(atPath: outside.path)?.allObjects as? [String]) ?? []
         }
 
-        if repository.environment.version >= GitVersion(major: 2, minor: 54, patch: 0) {
-            try await plainGit(["fetch", "origin"])
-            XCTAssertFalse(outsideFiles().isEmpty, "control: plain git writes refs outside the repository")
-            try FileManager.default.removeItem(at: outside)
-        }
+        try await plainGit(["fetch", "origin"])
+        XCTAssertFalse(outsideFiles().isEmpty, "control: plain git writes refs outside the repository")
+        try FileManager.default.removeItem(at: outside)
 
-        // git that does not know the extension ignores the whole git directory: the listing then has no repository
-        // settings at all, and every command in the repository fails by itself.
-        let inspection = await inspect()
-        let seen = inspection?.report.findings.contains { $0.entry.key == "extensions.refstorage" } ?? false
-        if repository.environment.version >= GitVersion(major: 2, minor: 54, patch: 0) {
-            XCTAssertTrue(seen, "git that writes there lists the setting")
-        }
-        if seen { XCTAssertNotNil(inspection?.fetchBlockingReason) }
-        if let safety = inspection?.safetyContext {
-            do {
-                _ = try await client.fetch(.fetch(remote: RemoteName("origin")!), in: target, safety: safety)
-                XCTFail("the app's fetch must not succeed")
-            } catch let error as GitError {
-                if seen {
-                    guard case .configInspectionFailed = error else { return XCTFail("got \(error)") }
-                }
-            }
+        let inspection = try XCTUnwrap(await inspect())
+        XCTAssertTrue(inspection.report.findings.contains { $0.entry.key == "extensions.refstorage" })
+        XCTAssertNotNil(inspection.fetchBlockingReason)
+        let safety = try XCTUnwrap(inspection.safetyContext, "queries go on")
+        do {
+            _ = try await client.fetch(.fetch(remote: RemoteName("origin")!), in: target, safety: safety)
+            XCTFail("the app must not fetch")
+        } catch let error as GitError {
+            guard case .configInspectionFailed = error else { return XCTFail("got \(error)") }
         }
         XCTAssertEqual(outsideFiles(), [], "nothing is written outside the repository")
     }
@@ -133,6 +128,14 @@ final class NewerGitSettingsSecurityTests: XCTestCase {
             let before = server.requestCount
             try await plainGit(["-c", "credential.helper=", "fetch", "origin"])
             XCTAssertGreaterThan(server.requestCount, before, "\(url) control: plain git uses the URL")
+            // The pinned argument alone stops git 2.37+ before it connects (older git ignores it).
+            if repository.environment.version >= GitVersion(major: 2, minor: 37, patch: 0) {
+                let pinned = server.requestCount
+                try await plainGit([
+                    "-c", "credential.helper=", "-c", "transfer.credentialsInUrl=die", "fetch", "origin",
+                ])
+                XCTAssertEqual(server.requestCount, pinned, "\(url): transfer.credentialsInUrl=die refuses the URL")
+            }
 
             let inspected = await inspect()
             let inspection = try XCTUnwrap(inspected)

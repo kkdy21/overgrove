@@ -195,11 +195,12 @@ actor GitClient {
         if let reason = safety.fetchBlockingReason {
             throw GitError.configInspectionFailed(reason: reason)
         }
-        // Only a remote the inspection found in a built-in transport form (#350, T5). A remote it did not list (no
-        // `remote.<n>.url`, or past `RepoConfigInspector.maximumRemotes`) is refused too.
+        // A remote with a password in a URL (#356); git 2.37+ would also refuse it with transfer.credentialsInUrl.
         if case .fetch(let remote) = command, safety.remotesWithPassword.contains(remote.value) {
             throw GitError.configInspectionFailed(reason: Self.passwordInURLReason)
         }
+        // Only a remote the inspection found in a built-in transport form (#350, T5). A remote it did not list (no
+        // `remote.<n>.url`, or past `RepoConfigInspector.maximumRemotes`) is refused too.
         guard case .fetch(let remote) = command, safety.fetchableRemotes.contains(remote.value) else {
             throw GitError.configInspectionFailed(reason: TransportName.nonBuiltInRemoteReason)
         }

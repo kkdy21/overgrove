@@ -230,7 +230,8 @@ enum RepoConfigInspector {
         }
         let builtInRemotes = builtInRemoteNames(
             listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
-        let withPassword = remotesWithPassword(listing, among: listedRemotes.map(\.name.value))
+        let withPassword = remotesWithPassword(
+            listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
         let remotes = listedRemotes.map {
             RepoConfigInspection.Remote(
                 name: $0.name, url: $0.url, displayURL: CredentialMasker.mask($0.url),
@@ -448,8 +449,9 @@ extension RepoConfigInspector {
     /// The remotes among `candidates` with a password in a URL, as written or after any matching
     /// `url.<base>.insteadOf` rewrite, in any scope (#356). git 2.37+ refuses such a URL itself with
     /// `transfer.credentialsInUrl=die` (fetch pins it); this covers older git. Only `<scheme>://` URLs carry
-    /// credentials. Bounded like `builtInRemoteNames`; a value it cannot check (too long, lossy) is left to that check,
-    /// which refuses it.
+    /// credentials. Bounded like `builtInRemoteNames`: the same candidates (the first `maximumCheckedRemotes`; later
+    /// remotes are not fetchable anyway), URLs per remote, rewrites, and value lengths. A value it cannot check (too
+    /// long, lossy) is left to that check, which refuses it.
     static func remotesWithPassword(_ listing: ConfigParser.Listing, among candidates: [String]) -> Set<String> {
         let checked = Set(candidates)
         var rewrites: [(base: [UInt8], prefix: [UInt8])] = []
@@ -484,12 +486,19 @@ extension RepoConfigInspector {
 
     /// `<scheme>://<user>:<password>@…`: a `:` in the userinfo, which ends at the last `@` before the path.
     static func hasPassword(_ url: [UInt8]) -> Bool {
-        let separator: [UInt8] = Array("://".utf8)
-        guard let start = (0...max(0, url.count - separator.count)).first(where: { url[$0...].starts(with: separator) })
-        else { return false }
-        let authority = url[(start + separator.count)...].prefix { $0 != 0x2F }
-        guard let at = authority.lastIndex(of: 0x40) else { return false }
-        return authority[..<at].contains(0x3A)
+        var index = 0
+        while index + 2 < url.count, !(url[index] == 0x3A && url[index + 1] == 0x2F && url[index + 2] == 0x2F) {
+            index += 1
+        }
+        guard index + 2 < url.count else { return false }
+        var colon = false
+        var colonBeforeAt = false
+        for byte in url[(index + 3)...] {
+            if byte == 0x2F { break }
+            if byte == 0x3A { colon = true }
+            if byte == 0x40 { colonBeforeAt = colonBeforeAt || colon }
+        }
+        return colonBeforeAt
     }
 
     /// git's `starts_with` on bytes.
