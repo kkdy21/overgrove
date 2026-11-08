@@ -15,7 +15,8 @@ final class RemoteHostTests: XCTestCase {
         XCTAssertNotNil(RemoteHost(longest))
         for raw in [
             "", "localhost", "example.", ".example", "a..example", "-a.example", "a-.example",
-            String(repeating: "a", count: 64) + ".example", longest + "a", "127.0.0.1", "10.0.0.256", "[::1]",
+            String(repeating: "a", count: 64) + ".example", longest + "a", "127.0.0.1", "10.0.0.256", "1.2.3.0x4",
+            "0x7f000001.0x1", "example.1a", "a.0x", "[::1]",
             "::1", "user@ghe.example", "ghe.example:443", "ghe.example/x", "ghe.example?x", "ghe_x.example",
             "gh\u{0435}.example", "ghe.example\u{0}", "ghe.example\n", " ghe.example", "ghe.\u{202E}example",
         ] {

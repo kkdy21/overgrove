@@ -129,4 +129,35 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(issues.requests, ["team/app"])
         XCTAssertTrue(state.trustedGitHubHosts.contains(RemoteHost("ghe.example")!))
     }
+
+    /// SEC-T9-08: a host that drops out of gh's login list at the next check is no longer read.
+    func testSECT9_08_AHostThatLogsOutIsDropped() async {
+        let issues = StubIssueLoader([.issues([issue])])
+        let pullRequests = StubPullRequestLoader([.unavailable])
+        let checker = QueuedGHAuthReporter([report(["ghe.example"]), report(["github.com"])])
+        let state = await loadedState(
+            remotes: ["git@ghe.example:team/app.git"], issues: issues, pullRequests: pullRequests, checker: checker)
+        XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
+        state.checkIssuesAgain()
+        await state.ghCheckTask?.value
+        await state.issuePanel.task?.value
+        XCTAssertEqual(state.issueListModel.notice?.text, "No GitHub remote")
+        XCTAssertNil(state.pullRequestStore.repository)
+    }
+
+    /// SEC-T9-08: a login list that arrives after another repository opened never picks from the old remotes.
+    func testSECT9_08_ALateLoginListIgnoresTheOldRepository() async throws {
+        let issues = StubIssueLoader([.issues([issue])])
+        let checker = QueuedGHAuthReporter([nil])
+        let state = await loadedState(remotes: ["https://ghe.example/team/app"], issues: issues, checker: checker)
+        let other = URL(fileURLWithPath: "/tmp/dev/other", isDirectory: true)
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: other, commonGitDirectoryURL: other.appendingPathComponent(".git"), isBare: false),
+                owner: nil))
+        state.trustGitHubHosts([try XCTUnwrap(RemoteHost("ghe.example"))])
+        await state.issuePanel.task?.value
+        XCTAssertEqual(issues.requests, [])
+    }
 }

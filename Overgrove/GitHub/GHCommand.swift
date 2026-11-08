@@ -30,12 +30,12 @@ enum GHCommand: Sendable, Hashable {
             ["auth", "status", "--json", "hosts"]
         case .issueList(let repo):
             [
-                "issue", "list", "--repo", repo.slug, "--state", "open", "--limit", "200", "--json",
+                "issue", "list", "--repo", repo.repoArgument, "--state", "open", "--limit", "200", "--json",
                 Self.issueFields,
             ]
         case .prList(let repo):
             [
-                "pr", "list", "--repo", repo.slug, "--state", "all", "--limit", "200", "--json",
+                "pr", "list", "--repo", repo.repoArgument, "--state", "all", "--limit", "200", "--json",
                 Self.pullRequestFields,
             ]
         }
@@ -64,7 +64,11 @@ struct GitHubRepository: Sendable, Hashable, CustomStringConvertible {
         self.name = name
     }
 
-    /// `OWNER/NAME` on github.com, `HOST/OWNER/NAME` elsewhere: the `--repo` value and what the app shows.
+    /// `HOST/OWNER/NAME`, github.com included: the `--repo` value. The host is always named so gh never chooses it
+    /// (ADR-0025 §3).
+    var repoArgument: String { "\(host.name)/\(owner)/\(name)" }
+
+    /// `OWNER/NAME` on github.com, `HOST/OWNER/NAME` elsewhere: what the app shows.
     var slug: String { host == Self.publicHost ? "\(owner)/\(name)" : "\(host.name)/\(owner)/\(name)" }
 
     /// `OWNER/NAME` on any host: how commit messages refer to the repository (`owner/name#12`).

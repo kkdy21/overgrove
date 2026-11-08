@@ -40,7 +40,7 @@ final class GHCommandTests: XCTestCase {
         XCTAssertEqual(
             GHCommand.issueList(repo: repository).arguments,
             [
-                "issue", "list", "--repo", "kkdy21/overgrove", "--state", "open", "--limit", "200", "--json",
+                "issue", "list", "--repo", "github.com/kkdy21/overgrove", "--state", "open", "--limit", "200", "--json",
                 "number,title,state,labels,assignees,updatedAt,url",
             ]
         )
@@ -48,7 +48,7 @@ final class GHCommandTests: XCTestCase {
         XCTAssertEqual(
             GHCommand.prList(repo: repository).arguments,
             [
-                "pr", "list", "--repo", "kkdy21/overgrove", "--state", "all", "--limit", "200", "--json",
+                "pr", "list", "--repo", "github.com/kkdy21/overgrove", "--state", "all", "--limit", "200", "--json",
                 "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,"
                     + "baseRefName,reviewDecision,mergedAt,updatedAt,url",
             ]
@@ -74,7 +74,7 @@ final class GHCommandTests: XCTestCase {
         for command in [GHCommand.issueList(repo: repository), .prList(repo: repository)] {
             let arguments = command.arguments
             let index = try? XCTUnwrap(arguments.firstIndex(of: "--repo"))
-            XCTAssertEqual(index.map { arguments[$0 + 1] }, "kkdy21/overgrove", "\(command)")
+            XCTAssertEqual(index.map { arguments[$0 + 1] }, "github.com/kkdy21/overgrove", "\(command)")
         }
     }
 
@@ -82,7 +82,7 @@ final class GHCommandTests: XCTestCase {
         for (owner, name) in [
             ("kkdy21", "overgrove"), ("a", "b"), ("Org-Name", "repo.name_with-dash"),
             (String(repeating: "a", count: 39), String(repeating: "b", count: 100)), ("x", ".github"),
-            // Allowed by the NAME rule; harmless because the `--repo` value starts with the owner, never `-`.
+            // Allowed by the NAME rule; harmless because the `--repo` value starts with the host, never `-`.
             ("owner", "--json"),
         ] {
             XCTAssertNotNil(GitHubRepository(owner: owner, name: name), "\(owner)/\(name)")

@@ -2,7 +2,8 @@
 /// later GitLab and Gitea read the same remote forms and trust hosts the same way.
 ///
 /// Only a lowercase ASCII DNS name: labels of 1–63 letters, digits, or `-` (not first or last), 253 bytes at most, at
-/// least two labels, and a last label that is not all digits (so no IPv4 literal; `:` and `[` already rule out IPv6).
+/// least two labels, and a last label that does not start with a digit (so no IPv4 literal in decimal, octal, or hex
+/// form such as `1.2.3.0x4`; `:` and `[` already rule out IPv6).
 /// User information, ports, paths, and queries are never part of it.
 struct RemoteHost: Sendable, Hashable, CustomStringConvertible {
     /// The lowercased name.
@@ -14,7 +15,7 @@ struct RemoteHost: Sendable, Hashable, CustomStringConvertible {
         guard (1...253).contains(bytes.count) else { return nil }
         let labels = bytes.split(separator: UInt8(ascii: "."), omittingEmptySubsequences: false)
         guard labels.count >= 2, labels.allSatisfy(Self.isLabel),
-            let last = labels.last, !last.allSatisfy({ (0x30...0x39).contains($0) })
+            let last = labels.last, let first = last.first, !(0x30...0x39).contains(first)
         else { return nil }
         name = String(decoding: bytes, as: UTF8.self)
     }

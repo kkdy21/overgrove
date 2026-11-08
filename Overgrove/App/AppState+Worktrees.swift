@@ -171,7 +171,8 @@ extension AppState {
         if case .worktreeInfo = selection { inspectSelectedWorktree() }
         // Only this load's inspected remotes pick the repository gh is asked about, never a cached paint (even after
         // a failed refresh; security review of #81).
-        // gh's login state is read alongside, for the status bar (#83); a repository without a GitHub remote runs no gh.
+        // gh's login state is read alongside, for the status bar (#83). Without a remote in a GitHub form, no gh runs;
+        // a remote on a host not trusted yet reads only gh's login list (ADR-0025 §1).
         // Pull requests load at the same times as the issues (ADR-0023 §6).
         if isVerified {
             let github = listing.githubRepository(trusting: trustedGitHubHosts)

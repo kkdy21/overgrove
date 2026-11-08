@@ -1,6 +1,7 @@
 import Foundation
 
-/// GitHub pages on the repository's host for Open on GitHub (#398, interaction.md §5, ADR-0025 §5). Built only from a validated `GitHubRepository`, a
+/// GitHub pages on the repository's host for Open on GitHub (#398, interaction.md §5,
+/// ADR-0025 §5). Built only from a validated `GitHubRepository`, a
 /// full object ID, a validated ref, and a representable path; each path component is percent-encoded on its own and
 /// the URL is assembled with `URLComponents`, so repository text can never change the scheme, the host, or add a
 /// query. The result still goes through `RowActions.browserTarget` (https only) before it opens.
