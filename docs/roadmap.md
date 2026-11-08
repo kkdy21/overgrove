@@ -323,9 +323,9 @@ Epic 없이 독립 이슈로 둔다.
 | V2-04 (#109) | perf: persist cache across launches | feature · git-core · p2 | M | — |
 | V2-05 (#110) | feat(security): export masked security report | feature · security, ui · p2 | M | — |
 | V2-06 (#153) | decision: pass shell proxy environment variables to git? (결정 완료: 넘기지 않음, [ADR-0022](adr/0022-no-shell-proxy-env-vars.md)) | decision · security · p2 | S | — |
-| V2-07 (#155) | decision: scope of write operations after v0.1 | decision · git-core · p1 | S | — |
+| V2-07 (#155) | decision: scope of write operations after v0.1 (결정 완료, [ADR-0021](adr/0021-read-only-scope-after-v0-1.md)) | decision · git-core · p1 | S | — |
 
-V2-07(#155)은 "조회 전용 유지"로 결정했다(2026-11-06). ADR을 쓴 뒤 닫는다.
+V2-07(#155)은 "조회 전용 유지, 원격 쓰기는 `git fetch`만"으로 결정했다(2026-11-06, [ADR-0021](adr/0021-read-only-scope-after-v0-1.md)). §10의 쓰기 기능(#111–#114, #156)은 `later`에 그대로 두고, 착수하려면 새 ADR과 보안 설계가 먼저 필요하다.
 
 ## 10. later — 백로그
 
