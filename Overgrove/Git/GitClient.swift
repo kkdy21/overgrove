@@ -226,9 +226,17 @@ actor GitClient {
             acceptedExitCodes: [0],
             trustedSSHCommand: safety.trustedSSHCommand,
             allowsTransport: true,
-            allowsLocalTransport: !safety.blocksLocalTransport,
+            allowsLocalTransport: !safety.blocksLocalTransport && Self.allowsLocalTransport(environment.version),
             stderrObserver: progress.map(Self.progressObserver)
         )
+    }
+
+    /// Whether this git may fetch a local path or `file://` remote (#361). Fetching one runs git in the other
+    /// repository with that repository's own settings, which the app's arguments do not reach; before
+    /// `lazyFetchControlVersion` that other side is not safe, so `file` leaves the transport list and git refuses the
+    /// remote before anything runs.
+    static func allowsLocalTransport(_ version: GitVersion) -> Bool {
+        version >= GitEnvironment.lazyFetchControlVersion
     }
 
     static let passwordInURLReason =

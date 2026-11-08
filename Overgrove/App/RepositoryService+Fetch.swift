@@ -76,8 +76,12 @@ extension RepositoryService {
             } catch {
                 if Self.isCancellation(error) { return .cancelled }
                 let gitError = (error as? GitError) ?? .launchFailed(errno: -1)
-                if untrusted, case .transportNotAllowed("file", _) = gitError {
-                    failures.append(Self.untrustedLocalRemote(remote, inspection.report))
+                if case .transportNotAllowed("file", _) = gitError {
+                    // Untrusted (#107), or a git too old to fetch local remotes safely (#361).
+                    failures.append(
+                        untrusted
+                            ? Self.untrustedLocalRemote(remote, inspection.report)
+                            : Self.localRemoteNeedsNewerGit(remote, inspection.report))
                 } else if let guidance = Self.guidance(gitError, remote, inspection.report, hooks: hooks()) {
                     failures.append(guidance)
                 }
@@ -99,6 +103,18 @@ extension RepositoryService {
         "This repository is marked untrusted, so Overgrove does not fetch remotes on this Mac (local paths and "
         + "file:// URLs): fetching runs git in the other repository with its own settings. Mark the repository "
         + "trusted to fetch them."
+
+    /// Overgrove's own text: this git cannot fetch a remote on this Mac safely (#361). No command is offered.
+    static let olderGitLocalReason =
+        "This git version cannot fetch remotes on this Mac (local paths and file:// URLs) safely. Overgrove needs git "
+        + "\(GitEnvironment.lazyFetchControlVersion) or later to fetch them."
+
+    private static func localRemoteNeedsNewerGit(
+        _ remote: RepoConfigInspection.Remote, _ report: RepoSecurityReport
+    ) -> FetchFailureGuidance {
+        guidance(.configInspectionFailed(reason: olderGitLocalReason), remote, report, hooks: [])
+            ?? FetchFailureGuidance(configurationError: .configInspectionFailed(reason: olderGitLocalReason))
+    }
 
     private static func untrustedLocalRemote(
         _ remote: RepoConfigInspection.Remote, _ report: RepoSecurityReport
