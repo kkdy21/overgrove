@@ -11,7 +11,8 @@ private let allReadOnlyCommands: [ReadOnlyGitCommand] = [
     .aheadBehind(local: FullRefName("refs/heads/feat/12-x")!, upstream: FullRefName("refs/remotes/origin/feat/12-x")!),
     .stashList, .stashFiles(oid), .stashPatch(oid, path: GitPath("--output=x"), fromUntracked: false),
     .stashPatch(oid, path: GitPath("new.txt"), fromUntracked: true), .graphPage(skip: 500, limit: 500),
-    .commitMeta(oid), .commitFiles(oid, firstParent: nil), .commitFiles(oid, firstParent: parent),
+    .graphStream(limit: 500), .commitMeta(oid), .commitFiles(oid, firstParent: nil),
+    .commitFiles(oid, firstParent: parent),
     .commitPatch(oid, parent: parent, path: GitPath("-x")), .worktreeDiff(path: GitPath("a b.txt"), staged: true),
     .worktreeDiff(path: GitPath(":(exclude)x"), staged: false), .worktreeNumstat(staged: true),
     .worktreeNumstat(staged: false),
@@ -95,6 +96,11 @@ final class GitCommandTests: XCTestCase {
                 "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z",
                 ReadOnlyGitCommand.logFormat,
                 "--skip=500", "-n", "500",
+            ],
+            [
+                "log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z",
+                ReadOnlyGitCommand.logFormat,
+                "-n", "500",
             ],
             [
                 "log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B",
@@ -236,6 +242,17 @@ final class GitCommandTests: XCTestCase {
         XCTAssertEqual(
             try ReadOnlyGitCommand.graphPage(skip: -5, limit: 0).subcommandArguments().suffix(3),
             ["--skip=0", "-n", "1"])
+    }
+
+    /// Review of #346: the streamed graph walks the same refs in the same order as `--skip` pages, so stream pages and
+    /// `--skip` fallback pages agree (#308's ref scope included).
+    func testGraphStreamIsGraphPageWithoutSkip() throws {
+        for limit in [1, 500, 100_000] {
+            let page = try ReadOnlyGitCommand.graphPage(skip: 0, limit: limit).subcommandArguments()
+            XCTAssertEqual(
+                try ReadOnlyGitCommand.graphStream(limit: limit).subcommandArguments(),
+                page.filter { $0 != "--skip=0" })
+        }
     }
 }
 
@@ -466,5 +483,31 @@ final class FetchBlockingTests: XCTestCase {
         } catch let error as GitError {
             XCTAssertEqual(error, .configInspectionFailed(reason: "local CA"))
         }
+    }
+
+    /// Security review of #254 (T15): a stream runs in its own slot, so with every query slot free a long stream never
+    /// holds back a query, even when the query pool has a single slot.
+    func testAStreamDoesNotHoldAQuerySlot() async throws {
+        let executables = try TestExecutables()
+        defer { executables.remove() }
+        let go = executables.directory.appendingPathComponent("go-\(UUID().uuidString)")
+        let git = try executables.streamingGit(go: go)
+        let client = GitClient(
+            environment: GitEnvironment(executable: git, version: GitVersion(major: 2, minor: 50, patch: 1)),
+            maximumConcurrency: 1)
+        let safety = RepoSafetyContext(inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
+        let received = Flag()
+        let directory = executables.directory
+        let stream = Task {
+            try await client.stream(.graphStream(limit: 10), in: directory, safety: safety) { _ in received.set() }
+        }
+        let started = await eventually(timeout: .seconds(5)) { received.isSet }
+        XCTAssertTrue(started, "the stream is running")
+
+        let version = try await client.run(.version, in: nil, safety: .preInspection)
+        XCTAssertEqual(String(decoding: version.stdout, as: UTF8.self), "git version 2.50.1\n", "the query ran")
+
+        FileManager.default.createFile(atPath: go.path, contents: nil)
+        _ = try await stream.value
     }
 }

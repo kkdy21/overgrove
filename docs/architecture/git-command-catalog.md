@@ -121,6 +121,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | 기본 (조회) | 15초 | 10MB | 64KB |
 | fetch | 120초 | 1MB | 256KB (진행 메시지 포함) |
 | gh | 15초 | 5MB | 64KB |
+| 그래프 스트림 (`graphStream`, #254) | 120초 | 64MB (전달한 바이트 합계, 모으지 않음) | 64KB |
 
 상한을 넘으면 읽기를 멈추고 프로세스를 종료한 뒤 `truncated=true`로 결과를 돌려준다. 파서는 잘린 마지막 레코드를 버리고 경고를 낸다 ([parsing-spec.md §1](parsing-spec.md)).
 
@@ -142,6 +143,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `stashFiles(oid:)` | `["stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>"]` | 저장소 경로. `stash show`는 작업 트리가 필요하므로 bare 저장소에서는 검증된 링크 워크트리에서 실행한다(#222) | `NumstatParser` → `StashDetail` | T3, T9 |
 | `stashPatch(oid:path:originalPath:fromUntracked:)` | 추적 파일: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>^1", "<oid>", "--", "<path>"]`<br>untracked 출신: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<oid>^3", "--", "<path>"]`<br>rename이면 끝이 `"--", "<이전 경로>", "<새 경로>"`(아래 rename 규칙) | 저장소 경로 | 원문 패치 → S-10. `git stash show`는 경로 지정을 받지 않는다(#148 리뷰에서 확인) | T3, T9 |
 | `graphPage(skip:limit:)` | `["log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "--skip=<n>", "-n", "<limit>"]` | 저장소 경로 | `LogParser` → `[CommitNode]`(co-author 포함, #160) → GraphEngine. ref 범위는 브랜치·원격 추적 ref·태그와 모든 워크트리의 HEAD뿐이다(`--exclude=refs/* --all`은 HEAD만 더함). notes·`refs/prefetch`·`refs/original`·stash는 따라가지 않으며, 이 범위가 페이지 캐시 키 `GraphRefSet`과 같다(#308) | T7 |
+| `graphStream(limit:)` | `graphPage`와 같은 인자에서 `--skip`만 뺀다: `["log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z", <같은 포맷>, "-n", "<limit, 1–100000>"]`. ref 범위·포맷은 `graphPage`와 한 헬퍼(`graphRevisionArguments`)에서 만든다. 그래서 스트림 페이지와 `--skip` 대체 페이지가 같은 커밋을 같은 순서로 낸다(#346 리뷰) | 저장소 경로 | `GitClient.stream`으로 실행한다. stdout을 모으지 않고 받는 대로 `GraphStreamParser`가 레코드 단위로 파싱한다(`[CommitNode]` → GraphEngine). commit-graph 파일이 없는 저장소에서만 쓴다. `--date-order`가 페이지마다 전체를 다시 정렬하는 비용을 한 번으로 줄인다(#254, ADR-0010 결정 3). 상한은 §2.5의 그래프 스트림 행이다. 일찍 멈추면 그 뒤 페이지는 `graphPage`로 읽는다 | T7, T15 |
 | `commitMeta(oid:)` | `["log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B", "--end-of-options", "<oid>"]` | 저장소 경로 | `LogParser` → `CommitDetail` | T7, T9 |
 | `commitFiles(oid:)` | 루트·일반 커밋: `["diff-tree", "-r", "-z", "--raw", "--numstat", "-M", "--no-ext-diff", "--no-textconv", "--no-commit-id", "--root", "--end-of-options", "<oid>"]`<br>병합 커밋: `[..., "--end-of-options", "<first parent oid>", "<oid>"]` | 저장소 경로 | `NumstatParser`(raw+numstat) → `CommitDetail.files` | T3, T9 |
 | `commitPatch(oid:parent:path:originalPath:)` | `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<parent oid 또는 생략>", "<oid>", "--", "<path>"]`<br>rename이면 끝이 `"--", "<이전 경로>", "<새 경로>"`(아래 rename 규칙) | 저장소 경로 | 원문 패치 → S-10 | T3, T9 |

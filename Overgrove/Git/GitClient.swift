@@ -165,6 +165,39 @@ actor GitClient {
         )
     }
 
+    /// Runs a read-only command and hands its stdout to `onStdout` as it arrives, in order, instead of collecting it
+    /// (the streamed graph, #254). Same inspection rule, safety arguments, query slot, and error mapping as `run`; the
+    /// returned output has empty `stdout`, and `isTruncated` when `limits.stdoutLimit` stopped the stream. Streams use
+    /// their own single slot, not a query slot, so a long stream never holds back other queries.
+    ///
+    /// `onStdout` runs on the process's private queue: it must return quickly and must not await.
+    func stream(
+        _ command: ReadOnlyGitCommand, in directory: URL?, safety: RepoSafetyContext,
+        limits: ProcessLimits = .stream, onStdout: @escaping @Sendable (Data) -> Void
+    ) async throws -> GitOutput {
+        if command.requiresInspection && !safety.isInspected {
+            throw GitError.configInspectionFailed(reason: "repository configuration has not been inspected")
+        }
+        let workingDirectory = command.location == .neutral ? neutralDirectory : directory
+        guard let workingDirectory else { throw GitError.invalidArgument(reason: "missing working directory") }
+        let arguments = environment.arguments(
+            for: try command.subcommandArguments(),
+            neutralization: safety.neutralization
+        )
+        try await acquire(.stream)
+        defer { release(.stream) }
+        return try await execute(
+            arguments: arguments,
+            in: workingDirectory,
+            location: command.location,
+            limits: limits,
+            acceptedExitCodes: command.acceptedExitCodes,
+            trustedSSHCommand: safety.trustedSSHCommand,
+            allowsTransport: false,
+            stdoutObserver: onStdout
+        )
+    }
+
     /// Runs `git fetch` for one remote with the fetch-only authentication arguments (git-command-catalog.md §2.3, §4).
     ///
     /// Fetches of the same repository (`Repository.id`, shared by its worktrees) run one at a time, in request
@@ -273,7 +306,8 @@ actor GitClient {
         trustedSSHCommand: String?,
         allowsTransport: Bool,
         allowsLocalTransport: Bool = true,
-        stderrObserver: (@Sendable (Data) -> Void)? = nil
+        stderrObserver: (@Sendable (Data) -> Void)? = nil,
+        stdoutObserver: (@Sendable (Data) -> Void)? = nil
     ) async throws -> GitOutput {
         let request = ProcessRequest(
             executable: environment.executable,
@@ -286,7 +320,7 @@ actor GitClient {
         )
         let result: ProcessResult
         do {
-            result = try await runner.run(request, stderrObserver: stderrObserver)
+            result = try await runner.run(request, stderrObserver: stderrObserver, stdoutObserver: stdoutObserver)
         } catch ProcessRunnerError.executableNotFound(let path) {
             throw GitError.executableNotFound(path: path)
         } catch ProcessRunnerError.spawnFailed(let code) {
@@ -331,6 +365,10 @@ actor GitClient {
         case query
         case fetch
         case repository(String)
+        /// The streamed graph (#254): one at a time for the whole app, apart from the query slots. A stream may run
+        /// for up to its 120 s timeout; on the query pool a few of them could hold every slot and stall status,
+        /// diffs, and ⌘R (security review of #254, T15).
+        case stream
     }
 
     private struct Slots {
@@ -342,7 +380,7 @@ actor GitClient {
         switch pool {
         case .query: maximumConcurrency
         case .fetch: maximumFetchConcurrency
-        case .repository: 1
+        case .repository, .stream: 1
         }
     }
 
