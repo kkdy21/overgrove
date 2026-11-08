@@ -9,6 +9,13 @@ struct OvergroveApp: App {
     private let registry = RepositoryRegistry()
     private let settings = AppSettings()
 
+    init() {
+        // Interrupted writes and snapshots of repositories not opened for a week (ADR-0018 §3, #109).
+        if let store = LaunchSnapshotStore.live {
+            Task.detached(priority: .utility) { store.removeLeftovers() }
+        }
+    }
+
     var body: some Scene {
         WindowGroup("Overgrove") {
             MainWindowScene(layoutStore: layoutStore, registry: registry, settings: settings)
@@ -29,7 +36,7 @@ struct OvergroveApp: App {
                 settings: settings, registry: registry,
                 actions: RepositoryListActions(
                     registry: registry, registrar: .live, fetchRecords: FetchRecordStore(),
-                    loader: LiveRepositoryLoader.live))
+                    loader: LiveRepositoryLoader.live, launchSnapshots: LaunchSnapshotStore.live))
         }
     }
 }
@@ -39,7 +46,10 @@ struct MainWindowScene: View {
     @State private var state: AppState
 
     init(layoutStore: PanelLayoutStore, registry: RepositoryRegistry, settings: AppSettings) {
-        _state = State(initialValue: AppState(layoutStore: layoutStore, registry: registry, settings: settings))
+        _state = State(
+            initialValue: AppState(
+                layoutStore: layoutStore, registry: registry, settings: settings,
+                launchSnapshots: LaunchSnapshotStore.live))
     }
 
     var body: some View {

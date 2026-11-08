@@ -174,7 +174,7 @@ stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575ab
 | `%(trailers:…)` | `Co-authored-by` 트레일러 값. 키는 대소문자를 가리지 않고, 여러 줄로 접힌 값은 `unfold`로 한 줄이 된다. 값 사이는 U+001F(`␟`), 없으면 빈 필드. 본문 중간의 `Co-authored-by:` 줄은 트레일러가 아니다. 표시용이라 손실 디코딩하고 빈 값은 버린다 → `CommitNode.coAuthors`. AI 배지는 `AIAgentRule`(알려진 에이전트 이메일·GitHub bot 접미사, 설정으로 확장)로 판정한다. 저장소 로컬 `trailer.<key>.cmd`/`.command`는 pretty 형식에서 실행되지 않는다 (E39, SEC-T4-06). 표시 범위 한계: 로컬 `trailer.<x>.key=Co-authored-by`(git은 키를 접두사로 맞춤), `trailer.separators`, `core.commentChar`/`commentString`으로 어떤 줄이 co-author인지 바뀔 수 있다. 값 안의 U+001F는 co-author를 하나 더 만든다. 모두 표시에만 영향을 주고 아무것도 실행되지 않는다. 화면은 값의 제어·bidi 문자를 제목·이름과 같은 방식으로 처리한다 |
 
 - `--graph`는 쓰지 않는다. 레인은 GraphEngine이 `%P`로 계산한다 (ADR-0010).
-- `--exclude=refs/stash --all`로 stash 커밋을 뺀다 (확인).
+- ref 범위는 `--branches --remotes --tags --exclude=refs/* --all`이다. 브랜치·원격 추적 ref·태그와 모든 워크트리의 HEAD만 따라간다(`--all`은 `refs/*`를 빼면 HEAD만 더한다). stash, notes, `refs/prefetch`(`git maintenance`), `refs/original`(filter-branch), `refs/pull` 같은 다른 이름공간의 커밋은 그래프에 나오지 않는다 (#308, git 2.54로 확인).
 - 서명 관련 포맷(`%G?`, `%GS`, `%GK`, `%GF`, `%GP`, `%GT`)은 금지한다. 쓰면 `gpg.program`이 실행된다 (T7, 확인).
 
 ### 5.3 파일 이력 — 5.1의 형식 + `--numstat` (+ `--follow`)
@@ -296,6 +296,9 @@ raw 레코드가 모두 나온 뒤 numstat 레코드가 나온다 (확인).
 - 기준 브랜치 비교(`compareFiles`, #157)의 `git diff --merge-base -z --raw --numstat -M --no-abbrev`도 같은 형식이라 `parseCommitFiles`를 그대로 쓴다.
   - `git diff --raw`는 객체 이름을 7자로 줄여 쓴다. 파서는 40·64자만 받으므로 명령에 `--no-abbrev`가 꼭 있어야 한다 (확인).
   - 작업 트리를 포함하면 작업 트리 쪽 객체 이름이 0으로 채워진다(`0000…`, 수정·추가 파일). 객체 이름은 형식만 검사하고 모델에 담지 않으므로 그대로 받는다 (Apple Git 2.50.1 확인).
+  - **작업 트리 쪽 레코드는 numstat 없이 나올 수 있다(#305, PAR-NUMSTAT-07).** 앱은 index를 쓰지 않는다(`diff.autoRefreshIndex=false`). 그래서 내용은 같고 mtime만 바뀐 파일이 index보다 오래되었으면(racily clean이 아니면) git이 해시하지 않고 raw에 넣는다(작업 트리 쪽 `0000…`, `M`). 그다음 diff 단계에서 바뀐 것이 없다고 보고 numstat은 내지 않는다(Apple Git 2.50.1 확인).
+    - 파서는 numstat과 짝이 맞지 않는 raw 레코드 가운데 **목적지 객체 이름이 0인 것만** 건너뛰고 결과에서 뺀다. 내용이 바뀌지 않았으므로 변경이 아니다.
+    - 커밋의 레코드(`diff-tree`, 객체 이름이 실제 값)는 지금처럼 numstat이 꼭 있어야 하고, 어긋나면 `parseFailed`다.
 
 ### 8.2 stash 파일 — `stash show --include-untracked --numstat -z`
 
@@ -321,6 +324,7 @@ numstat 레코드만 나온다. 형식은 §8.2와 같다(`status`는 `nil`). `p
 | PAR-NUMSTAT-04 | raw + numstat 합치기, 상태 문자 |
 | PAR-NUMSTAT-05 | stash untracked 부분 |
 | PAR-NUMSTAT-06 | 워크트리 줄 수: 충돌 경로 제외, 그 밖의 중복 거부, 잘림 |
+| PAR-NUMSTAT-07 | 작업 트리 쪽(목적지 `0000…`) raw 레코드는 numstat 없이 나오면 버림. 커밋 레코드는 여전히 짝 필수 (#305) |
 
 ---
 

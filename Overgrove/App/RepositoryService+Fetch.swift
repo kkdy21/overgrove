@@ -39,10 +39,20 @@ extension RepositoryService {
         // Stopped during the inspection: not a failure to report (security review of #77).
         if Task.isCancelled { return .cancelled }
 
+        // Hooks Terminal git would run: read once, and only when a failure needs guidance (#354).
+        var hookExecutables: [String]?
+        func hooks() -> [String] {
+            if let hookExecutables { return hookExecutables }
+            let found = LiveWorktreeInspector.hookExecutables(in: repository.commonGitDirectoryURL)
+            hookExecutables = found
+            return found
+        }
+
         guard let safety = inspection.safetyContext else {
             let blocked = GitError.configInspectionFailed(reason: inspection.report.blockingReason ?? "")
             return .finished(
-                failures: remotes.compactMap { Self.guidance(blocked, $0, inspection.report) }, remoteLimit: limit)
+                failures: remotes.compactMap { Self.guidance(blocked, $0, inspection.report, hooks: hooks()) },
+                remoteLimit: limit)
         }
         var failures: [FetchFailureGuidance] = []
         for remote in remotes {
@@ -52,18 +62,20 @@ extension RepositoryService {
             } catch {
                 if Self.isCancellation(error) { return .cancelled }
                 let gitError = (error as? GitError) ?? .launchFailed(errno: -1)
-                if let guidance = Self.guidance(gitError, remote, inspection.report) { failures.append(guidance) }
+                if let guidance = Self.guidance(gitError, remote, inspection.report, hooks: hooks()) {
+                    failures.append(guidance)
+                }
             }
         }
         return .finished(failures: failures, remoteLimit: limit)
     }
 
     private static func guidance(
-        _ error: GitError, _ remote: RepoConfigInspection.Remote, _ report: RepoSecurityReport
+        _ error: GitError, _ remote: RepoConfigInspection.Remote, _ report: RepoSecurityReport, hooks: [String]
     ) -> FetchFailureGuidance? {
         FetchFailureGuidance(
             error: error, remote: remote.name, endpoint: FetchFailureGuidance.Endpoint(remoteURL: remote.url),
-            report: report)
+            report: report, hookExecutables: hooks)
     }
 
     private static func isCancellation(_ error: Error) -> Bool {

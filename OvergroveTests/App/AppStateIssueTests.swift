@@ -296,6 +296,19 @@ final class AppStateIssueTests: XCTestCase {
         XCTAssertEqual(state.issueListModel.rows.map(\.id), [12])
     }
 
+    /// #311: when the next load has no list (logged out, failed), a selected issue falls back to the worktree.
+    func testSelectionFallsBackWhenTheListBecomesUnavailable() async {
+        for next in [IssueLoadResult.notLoggedIn, .failed("HTTP 500"), .notInstalled] {
+            let state = await loadedState(StubIssueLoader([.issues([first]), next]))
+            state.selectIssue(12)
+            XCTAssertEqual(state.selection, .issue(12))
+            state.reload()
+            await state.loadTask?.value
+            await state.issuePanel.task?.value
+            XCTAssertEqual(state.selection, state.focusedWorktreePath.map(MainSelection.wip), "\(next)")
+        }
+    }
+
     func testOpeningAnotherRepositoryClearsTheIssues() async {
         let state = await loadedState(StubIssueLoader([.issues([first])]))
         state.selectIssue(12)

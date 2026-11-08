@@ -244,4 +244,61 @@ final class AppStateNavigationTests: XCTestCase {
         XCTAssertEqual(row.tip, SampleGraphLoader.oid("1"))
         XCTAssertEqual(row.upstreamName, "origin/feat/42")
     }
+
+    // MARK: #311 state leftovers
+
+    /// ⎋ on the Worktree segment (S-05) returns to Changes (interaction.md §3.1 ③).
+    func testEscapeLeavesTheWorktreeSegment() async throws {
+        let state = try await loadedState()
+        let path = try XCTUnwrap(state.focusedWorktreePath)
+        state.showWorktreeDetail()
+        XCTAssertEqual(state.selection, .worktreeInfo(path))
+        state.escape()
+        XCTAssertEqual(state.selection, .wip(path))
+    }
+
+    /// ⌘J (and the toolbar HEAD chip) closes an open file history so the graph shows the HEAD it selected.
+    func testJumpToHeadClosesTheFileHistory() async throws {
+        let state = try await loadedState()
+        state.showHistory(of: GitPath("README.md"))
+        XCTAssertTrue(state.history.isOpen)
+        state.jumpToHead()
+        XCTAssertFalse(state.history.isOpen)
+        XCTAssertEqual(state.selection, .commit(HeadFirstGraphLoader.head))
+    }
+
+    /// An S-09 entry the graph has not loaded leaves no earlier graph row highlighted.
+    func testHistoryEntryOutsideTheGraphClearsTheGraphSelection() async throws {
+        let state = try await loadedState()
+        state.selectCommit(SampleGraphLoader.oid("4"))
+        XCTAssertEqual(state.graph.selected, SampleGraphLoader.oid("4"))
+        let unloaded = CommitNode(
+            oid: ObjectID(String(repeating: "e", count: 40))!, parents: [], authorName: "a", authorEmail: "a@x",
+            authorDate: Date(timeIntervalSince1970: 0), subject: "old")
+        state.selectHistoryEntry(FileHistoryEntry(commit: unloaded, path: GitPath("README.md")))
+        XCTAssertNil(state.graph.selected)
+        XCTAssertEqual(state.selection, .commit(unloaded.oid))
+    }
+
+    /// A comparison whose worktree is removed (in Terminal) closes with it.
+    func testComparisonClosesWhenItsWorktreeIsRemoved() async throws {
+        let compared = GitPath("/tmp/dev/api-wt/42-rate-limit")
+        let without = WorktreeListing(
+            entries: WorktreeListing.mockup.entries.filter { $0.worktree.path != compared }, isPartial: false)
+        let repositoryLoader = SequenceRepositoryLoader([.mockup, without])
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: repositoryLoader, comparisonLoader: StubComparisonLoader(), graphLoader: HeadFirstGraphLoader(),
+            commitLoader: StubCommitLoader())
+        state.open(RepositoryContext(repository: repository, owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        state.selectWorktree(compared)
+        state.showComparison(of: compared)
+        XCTAssertEqual(state.comparison?.worktree, compared)
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertNil(state.comparison)
+        XCTAssertNotEqual(state.focusedWorktreePath, compared)
+    }
 }

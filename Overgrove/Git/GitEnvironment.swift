@@ -16,6 +16,13 @@ struct GitEnvironment: Sendable, Equatable {
         "-c", "core.askPass=",
         "-c", "protocol.ext.allow=never",
         "-c", "protocol.fd.allow=never",
+        // Related repository settings are neutralized (#350, T5).
+        "-c", "alias.remote-https=",
+        "-c", "alias.remote-ssh=",
+        "-c", "alias.remote-git=",
+        "-c", "alias.remote-file=",
+        "-c", "alias.remote-http=",
+        "-c", "help.autocorrect=0",
         "-c", "core.alternateRefsCommand=",
         "-c", "log.showSignature=false",
         "-c", "gc.auto=0",
@@ -30,7 +37,15 @@ struct GitEnvironment: Sendable, Equatable {
         // separators included, and some encodings (JOHAB, CP1361) turn message text into NUL bytes that shift fields
         // (#205). Pinning the output to UTF-8 overrides both.
         "-c", "i18n.logOutputEncoding=UTF-8",
+        // A repository's log.follow=true makes `git log -- <one path>` follow renames, so S-09's "Follow renames" off
+        // still followed (#310). `fileHistory` passes `--follow` itself when it wants it; an option beats the config.
+        "-c", "log.follow=false",
     ]
+
+    /// The neutralizing arguments of #350: one per allowed transport, and one more. Part of `commonArguments`; a test
+    /// keeps the two in step.
+    static let remoteHelperArguments: [String] =
+        allowedProtocols.split(separator: ":").flatMap { ["-c", "alias.remote-\($0)="] } + ["-c", "help.autocorrect=0"]
 
     /// Fixed search path for the child; the user's shell PATH is never used (SEC-T10-02).
     static let path = "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin:/usr/local/bin"
@@ -46,8 +61,11 @@ struct GitEnvironment: Sendable, Equatable {
     /// The common `protocol.ext.allow=never` and `protocol.fd.allow=never` arguments stay as defense in depth.
     static let allowedProtocols = "https:ssh:git:file:http"
 
-    /// The first git that honors `GIT_NO_LAZY_FETCH` (#212). Older git cannot turn off lazy fetching during fetch.
-    static let lazyFetchControlVersion = GitVersion(major: 2, minor: 44, patch: 0)
+    /// The first git on the newest line whose `GIT_NO_LAZY_FETCH` also stops a lazy fetch during fetch (#212, #317).
+    /// That came with the May 2024 security releases: 2.45.1, and 2.44.1 with backports to 2.39.4, 2.40.2, 2.41.1,
+    /// 2.42.2, and 2.43.4. 2.44.0 predates the variable, and 2.45.0 has it only for other lazy fetches. Comparing
+    /// versions refuses the older fixed releases too, which errs on the safe side.
+    static let lazyFetchControlVersion = GitVersion(major: 2, minor: 45, patch: 1)
 
     /// Parent variables that are passed through unchanged. Everything else is dropped (T10).
     static let passthroughVariables = ["HOME", "USER", "LOGNAME", "TMPDIR", "SSH_AUTH_SOCK"]
@@ -83,7 +101,8 @@ struct GitEnvironment: Sendable, Equatable {
             "SSH_ASKPASS": "",
             "GIT_PROXY_COMMAND": "",
             "GIT_ALLOW_PROTOCOL": allowsTransport ? allowedProtocols : "",
-            // Second layer (git 2.44+, ignored before): no lazy fetch from a promisor remote, for any command (#212).
+            // Second layer: no lazy fetch from a promisor remote, for any command (#212). Older git ignores it, and
+            // before the May 2024 security releases it does not cover every path (#317, lazyFetchControlVersion).
             "GIT_NO_LAZY_FETCH": "1",
             "GIT_SSH_COMMAND": trustedSSHCommand ?? defaultSSHCommand,
             "PATH": path,
@@ -125,8 +144,64 @@ struct GitEnvironment: Sendable, Equatable {
             directory = await activeDeveloperDirectory(runner: runner, environment: environment)
         }
         guard let directory else { throw GitError.executableNotFound(path: "/usr/bin/git") }
-        let executable = directory.appendingPathComponent("usr/bin/git")
+        return try await probe(
+            executable: directory.appendingPathComponent("usr/bin/git"), runner: runner,
+            parentEnvironment: parentEnvironment)
+    }
 
+    /// The git to use: the one chosen in Settings when it passes ADR-0019's rules, else the default (#106).
+    ///
+    /// A chosen git is checked on every call. If it fails any rule or its `git version` check, this throws
+    /// `chosenExecutableRejected` with the reason and never falls back to the default git (fail closed). The
+    /// `/usr/bin/git` shim means the default.
+    ///
+    /// - Parameter protectedDirectories: Called only for a chosen git, so the default git reads no repository file
+    ///   (`GitExecutablePolicy.protectedDirectories(for:)` of the registered repositories).
+    static func resolve(
+        chosenPath: String?,
+        protectedDirectories: @Sendable () -> [URL],
+        runner: ProcessRunner = ProcessRunner(),
+        parentEnvironment: [String: String] = ProcessInfo.processInfo.environment,
+        developerDirectory: (() async -> URL?)? = nil
+    ) async throws -> GitEnvironment {
+        guard let chosenPath, !chosenPath.isEmpty, !GitExecutablePolicy.isShim(chosenPath) else {
+            return try await discover(
+                runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
+        }
+        let shown = PathValidator.displayable(chosenPath)
+        let resolved: URL
+        do {
+            switch try GitExecutablePolicy.check(path: chosenPath, protectedDirectories: protectedDirectories()) {
+            case .useDefault:
+                return try await discover(
+                    runner: runner, parentEnvironment: parentEnvironment, developerDirectory: developerDirectory)
+            case .chosen(_, let real):
+                resolved = real
+            }
+        } catch let rejection as GitExecutablePolicy.Rejection {
+            throw GitError.chosenExecutableRejected(path: shown, reason: rejection.message)
+        }
+        do {
+            // The real file that passed the rules, so a link swapped afterwards does not change what runs.
+            return try await probe(executable: resolved, runner: runner, parentEnvironment: parentEnvironment)
+        } catch GitError.cancelled {
+            throw GitError.cancelled
+        } catch let error as GitError {
+            // Too old, not git, or failing to run: the same refusal, so Use Default is offered (ADR-0019 §4).
+            throw GitError.chosenExecutableRejected(path: shown, reason: error.message)
+        }
+    }
+
+    /// Runs `git version` on `executable` with the query environment and checks the minimum version (ADR-0008 §3).
+    ///
+    /// Only the version check: callers decide which executable may be probed. The default comes from `discover`; a
+    /// git chosen in Settings must pass ADR-0019's path, ownership, and permission rules first (#106).
+    static func probe(
+        executable: URL,
+        runner: ProcessRunner = ProcessRunner(),
+        parentEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) async throws -> GitEnvironment {
+        let environment = environment(parent: parentEnvironment, allowsTransport: false)
         let result: ProcessResult
         do {
             result = try await runner.run(

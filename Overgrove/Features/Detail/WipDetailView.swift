@@ -139,7 +139,9 @@ struct WipDetailView: View {
 
     private func select(_ row: WipFileRow) {
         guard row.isSelectable else { return }
-        onSelect(FileSelection(worktree: model.worktreePath, group: row.group, path: row.path))
+        onSelect(
+            FileSelection(
+                worktree: model.worktreePath, group: row.group, path: row.path, originalPath: row.originalPath))
     }
 
     /// `↑`/`↓` through every selectable file, across groups, in display order.

@@ -24,7 +24,7 @@
 - [ ] fetch 뒤 ahead/behind가 정확하고 마지막 fetch 시각이 표시된다 (QA-SY-01, INT-04, INT-12).
 - [ ] 커밋 그래프, 작성자, 날짜, WIP 행이 나온다 (QA-GR-01–03).
 - [ ] gh 로그인 상태에 따라 이슈 패널이 동작하거나 안내를 보여준다 (QA-IS-01–03).
-- [ ] §6.1 위협 항목별 보안 테스트(SEC-T1–T18)가 모두 통과한다. 건너뛴 SEC 테스트가 0개다.
+- [ ] §6.1 위협 항목별 보안 테스트(SEC-T1–T19)가 모두 통과한다. 건너뛴 SEC 테스트가 0개다.
 - [ ] 자격 증명과 원격 URL의 민감한 부분이 화면과 로그에서 마스킹된다 (QA-SEC-05, QA-SEC-06).
 - [ ] 파서 단위 테스트와 임시 저장소 통합 테스트가 CI(`build-test`)에서 통과한다.
 - [ ] README만 보고 소스에서 빌드하고 실행할 수 있다 (§4).
@@ -61,6 +61,7 @@
 - [ ] `SECURITY.md`의 지원 버전 표에 `0.1.x`가 있고, 비공개 제보 링크가 동작한다.
 - [ ] Private vulnerability reporting, secret scanning, push protection, Dependabot alerts가 켜져 있다 ([github-settings.md](../process/github-settings.md)).
 - [ ] 워크플로우의 모든 `uses:`가 40자리 SHA로 고정되어 있다 (SEC-T17-02).
+- [ ] 호환성 매트릭스의 테스트용 git tarball이 버전·SHA-256으로 고정되어 있고 빌드 전에 검증된다 (SEC-T17-04, ADR-0020).
 - [ ] 열린 Dependabot·CodeQL·secret scanning 알림이 0개다.
 - [ ] README의 보안 주의 사항이 현재 동작과 일치한다 (신뢰할 수 없는 저장소를 열 때의 보호 범위와 한계).
 - [ ] [security-review.md](../design/security-review.md) §5.2 Phase 종료 점검을 다시 확인했다.

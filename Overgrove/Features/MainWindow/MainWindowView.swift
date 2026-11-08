@@ -147,6 +147,7 @@ struct MainWindowView: View {
                 isAddingRepository: state.isAddingRepository,
                 repositoryActions: repositoryActions,
                 focusedWorktree: state.snapshot?.focusedWorktree,
+                focusedLaneIndex: state.worktreeListModel?.rows.first(where: \.isFocused)?.laneIndex,
                 isSidebarCollapsed: state.panelLayout.isSidebarCollapsed,
                 toggleSidebar: toggleSidebar,
                 refresh: refreshAction,

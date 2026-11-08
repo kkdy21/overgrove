@@ -238,7 +238,9 @@ enum Tokens {
 
     /// Corner radii in points.
     enum Radius {
-        /// Panels and cards.
+        /// Cards and the selected worktree row (art-direction.md §6, §9).
+        static let card: CGFloat = 8
+        /// Panels and popovers.
         static let lg: CGFloat = 10
         /// Buttons, text fields (matches system controls)
         static let md: CGFloat = 6
@@ -358,9 +360,12 @@ enum Tokens {
 
     /// Numeric `semantic.color.graph.*` tokens (opacities of lane colors).
     enum Graph {
+        static let focusChipBorderOpacity = 0.45
+        static let focusChipFillOpacity = 0.14
         static let refConnectorOpacity = 0.55
         static let refPillBorderOpacity = 0.75
         static let refPillLocalFillOpacity = 0.2
         static let selectionOpacity = 0.16
+        static let worktreeSelectionBorderOpacity = 0.55
     }
 }

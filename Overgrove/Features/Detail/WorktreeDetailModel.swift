@@ -22,12 +22,16 @@ struct WorktreeDetailModel: Equatable {
     let security: WorktreeSecurityModel?
     /// Why there is no security section, when there is none and none is coming.
     let securityUnavailable: String?
+    /// `Copy Report` (#110): what the SECURITY section's text is built from, when the button is pressed
+    /// (`SecurityReport`). `nil` without a SECURITY section.
+    let securityReport: SecurityReport.Source?
     /// Its last status was slow: why, and the command that refreshes the index (copy only, #168).
     let slowStatus: SlowStatusHint?
 
     init(
         entry: WorktreeListing.Entry, inspection: WorktreeInspection?, fetchStatus: FetchStatus, now: Date,
-        home: String = NSHomeDirectory(), showsFullRemoteURLs: Bool = false
+        home: String = NSHomeDirectory(), showsFullRemoteURLs: Bool = false,
+        appVersion: String? = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
     ) {
         let worktree = entry.worktree
         let state: WorkingState? = if case .loaded(let state) = entry.state { state } else { nil }
@@ -89,6 +93,12 @@ struct WorktreeDetailModel: Equatable {
             security = nil
             securityUnavailable =
                 "Overgrove does not query this worktree entry, so its configuration is not inspected."
+        }
+        if security != nil, let inspection {
+            securityReport = SecurityReport.Source(
+                inspection: inspection, isMainWorktree: worktree.isMain, appVersion: appVersion, home: home)
+        } else {
+            securityReport = nil
         }
     }
 
@@ -170,6 +180,9 @@ struct WorktreeSecurityModel: Equatable {
         let details: [String]
         /// What the user can do, shown under the details (security-review.md T11: remove credentials from URLs).
         var advice: String?
+        /// The same details for the copied report (#110): key names with URL and path subsections replaced, remote
+        /// names without their URLs, plain hook names (`SecurityReport`).
+        var reportDetails: [String] = []
         var id: String { title }
     }
 
@@ -178,6 +191,8 @@ struct WorktreeSecurityModel: Equatable {
         let key: String
         let handling: String
         let threat: String?
+        /// The key for the copied report (`SecurityReport.keyName`).
+        var reportKey = ""
         var id: String { key + handling }
     }
 
@@ -220,16 +235,23 @@ struct WorktreeSecurityModel: Equatable {
         limitNote = omitted.isEmpty ? nil : "This configuration is very large: " + omitted.joined(separator: "; ") + "."
 
         var used = Set<RepoSecurityReport.Finding>()
-        /// Key names of the findings `match` selects (never values), each once; they no longer count as "other".
-        func keys(_ match: (ConfigEntry) -> Bool) -> [String] {
+        /// Key names of the findings `match` selects (never values), each once, as shown and as copied; they no longer
+        /// count as "other".
+        func keys(_ match: (ConfigEntry) -> Bool) -> (shown: [String], report: [String]) {
             let matched = findings.filter { match($0.entry) }
             used.formUnion(matched)
             var seen = Set<String>()
-            return matched.map { PathValidator.displayable(Self.keyName($0.entry)) }.filter { seen.insert($0).inserted }
+            var seenInReport = Set<String>()
+            return (
+                matched.map { PathValidator.displayable(Self.keyName($0.entry)) }.filter { seen.insert($0).inserted },
+                matched.map { SecurityReport.keyName($0.entry) }.filter { seenInReport.insert($0).inserted }
+            )
         }
         /// ✕ when `unknown`, ✓ when nothing was found, ⚠ (overridden) otherwise.
-        func row(_ title: String, unknown: Bool, details: [String]) -> Row {
-            Row(title: title, mark: unknown ? .unknown : (details.isEmpty ? .applied : .neutralized), details: details)
+        func row(_ title: String, unknown: Bool, details: (shown: [String], report: [String])) -> Row {
+            Row(
+                title: title, mark: unknown ? .unknown : (details.shown.isEmpty ? .applied : .neutralized),
+                details: details.shown, reportDetails: details.report)
         }
 
         // The ✓ conditions read the arguments that really run (§6), so a regression in them shows as ✕ here too.
@@ -240,14 +262,18 @@ struct WorktreeSecurityModel: Equatable {
             result.diffArguments.contains("--no-ext-diff") && result.diffArguments.contains("--no-textconv")
         let notInspected = inspection == nil || blocked != nil
 
-        let hookKeys = keys { $0.section == "core" && $0.variable == "hookspath" }
+        // `core.hooksPath` and config-defined hooks (`hook.<name>.*`, git 2.54+, #354).
+        let hookKeys = keys { ($0.section == "core" && $0.variable == "hookspath") || $0.section == "hook" }
         let fsmonitorKeys = keys { $0.section == "core" && $0.variable == "fsmonitor" }
         let diffKeys = keys { Self.isDiffDriver($0) }
         let filterKeys = keys { $0.section == "filter" }
         var rows = [
             row(
-                "Hooks disabled", unknown: notInspected || !hooksGuarded,
-                details: hookKeys + result.hookExecutables),
+                "Hooks disabled", unknown: notInspected || !hooksGuarded || !Self.configHooksNeutralized(inspection),
+                details: (
+                    hookKeys.shown + result.hookExecutables,
+                    hookKeys.report + SecurityReport.hookLines(result.hookExecutables)
+                )),
             row("fsmonitor disabled", unknown: notInspected || !fsmonitorGuarded, details: fsmonitorKeys),
             row("External diff and textconv disabled", unknown: !diffGuarded, details: diffKeys),
             row(
@@ -268,7 +294,10 @@ struct WorktreeSecurityModel: Equatable {
                 {
                     var masked = row(
                         "Remote URL credentials masked", unknown: false,
-                        details: Self.remotesWithCredentials(inspection, full: showsFullRemoteURLs))
+                        details: (
+                            Self.remotesWithCredentials(inspection, full: showsFullRemoteURLs),
+                            SecurityReport.remotesWithCredentials(inspection)
+                        ))
                     if !masked.details.isEmpty {
                         masked.advice = "Remove the credentials from the URL and let a credential helper store them."
                     }
@@ -280,15 +309,26 @@ struct WorktreeSecurityModel: Equatable {
         others = findings.filter { !used.contains($0) }.map {
             OtherFinding(
                 key: PathValidator.displayable(Self.keyName($0.entry)), handling: Self.handlingText($0.handling),
-                threat: $0.threat)
+                threat: $0.threat, reportKey: SecurityReport.keyName($0.entry))
+        }
+    }
+
+    /// Every config-defined hook the repository names has its `hook.<name>.enabled=false` among the arguments that
+    /// run, compared as bytes (#354), so a regression in the neutralization shows as ✕.
+    static func configHooksNeutralized(_ inspection: RepoConfigInspection?) -> Bool {
+        guard let inspection, !inspection.hasUnneutralizedHooks else { return inspection == nil }
+        let arguments = Set(inspection.neutralization.map { Array($0.utf8) })
+        return inspection.report.findings.allSatisfy { finding in
+            guard finding.entry.section == "hook", let name = finding.entry.subsection else { return true }
+            return arguments.contains(Array("hook.\(name).enabled=false".utf8))
         }
     }
 
     /// `filter.lfs.process`, `remote.origin.uploadpack`: the key as git names it, with its scope. A subsection can be
-    /// a URL (`credential.https://user:token@host.helper`, `http.<url>.sslVerify`), so the key is credential-masked.
+    /// a URL, with or without a scheme (`credential.https://user:token@host.helper`, `url.user:token@host:repo.insteadof`,
+    /// `http.<url>.sslVerify`), so the key is credential-masked (#244).
     static func keyName(_ entry: ConfigEntry) -> String {
-        let key = CredentialMasker.mask(
-            [entry.section, entry.subsection, entry.variable].compactMap { $0 }.joined(separator: "."))
+        let key = CredentialMasker.maskConfigKey(entry.key)
         return entry.scope == .worktree ? "\(key) (worktree)" : key
     }
 
