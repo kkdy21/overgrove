@@ -158,6 +158,12 @@ struct GraphPanel: View {
     /// Column widths and visibility (#255).
     var columns: GraphColumnLayout = .default
     var onCommitColumns: (GraphColumnLayout) -> Void = { _ in }
+    /// Stashes in the graph (#384): drawn only when `showsStashes`.
+    var stashes: [Stash] = []
+    var selectedStash: ObjectID?
+    var onSelectStash: (ObjectID) -> Void = { _ in }
+    var showsStashes = true
+    var onSetShowsStashes: ((Bool) -> Void)?
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -168,10 +174,14 @@ struct GraphPanel: View {
 
     /// S-11 covers the graph while a comparison is open (#158).
     var comparison: ComparisonCenterView?
+    /// S-12 covers the graph while two commits are compared (#388).
+    var commitComparison: CommitComparisonCenterView?
 
     var body: some View {
         if let comparison {
             comparison
+        } else if let commitComparison {
+            commitComparison
         } else if let diff {
             DiffViewerView(
                 title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph,
@@ -197,7 +207,9 @@ struct GraphPanel: View {
                 Spacer(minLength: Tokens.Spacing.sm)
             }
             if graphStore?.status == .loaded {
-                GraphColumnMenu(columns: columns, onChange: onCommitColumns)
+                GraphColumnMenu(
+                    columns: columns, onChange: onCommitColumns, showsStashes: showsStashes,
+                    onSetShowsStashes: onSetShowsStashes)
             }
         } content: {
             switch graphStore?.status {
@@ -207,7 +219,8 @@ struct GraphPanel: View {
                         store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits,
                         onSelectWip: onSelectWip, onOpen: onOpen, search: search, onFindNext: onFindNext,
                         onFindPrevious: onFindPrevious, authorMatches: authorMatches, columns: columns,
-                        onCommitColumns: onCommitColumns)
+                        onCommitColumns: onCommitColumns, stashes: showsStashes ? stashes : [],
+                        selectedStash: selectedStash, onSelectStash: onSelectStash)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -228,6 +241,8 @@ struct DetailPanel: View {
     let focusedWorktree: FocusedWorktree?
     var worktreeStatus: WorktreeListStatus = .idle
     var wipModel: WipDetailModel?
+    /// S-02's Submodules card (#108).
+    var submoduleSection: SubmoduleSectionModel?
     var worktreeModel: WorktreeDetailModel?
     var selectedFile: FileSelection?
     var onSelectFile: (FileSelection) -> Void = { _ in }
@@ -252,6 +267,8 @@ struct DetailPanel: View {
     var onShowWorktree: () -> Void = {}
     /// S-11's lists while a comparison is open (#158).
     var comparisonList: ComparisonListView?
+    /// S-12's commits and files (#388).
+    var commitComparisonList: CommitComparisonListView?
     /// S-05's `Compare with Base…` (#158); `nil` disables it.
     var onCompare: (() -> Void)?
     /// S-05 "Treat as untrusted" (#107).
@@ -279,6 +296,8 @@ struct DetailPanel: View {
         } content: {
             if let comparisonList {
                 comparisonList
+            } else if let commitComparisonList {
+                commitComparisonList
             } else if let commitModel {
                 CommitDetailView(
                     model: commitModel, laneIndex: commitLane, selectedFile: selectedCommitFile,
@@ -293,7 +312,8 @@ struct DetailPanel: View {
             } else if let worktreeModel {
                 WorktreeDetailView(model: worktreeModel, onCompare: onCompare, onSetUntrusted: onSetUntrusted)
             } else if let wipModel {
-                WipDetailView(model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile)
+                WipDetailView(
+                    model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile, submodules: submoduleSection)
             } else if worktreeStatus.isAwaitingLoad {
                 ProgressView().controlSize(.small)
             } else {

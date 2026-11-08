@@ -101,6 +101,8 @@ enum RepoConfigInspector {
         var seenTLS = Set<[UInt8]>()
         var resetProxies: [ConfigEntry] = []
         var seenProxies = Set<[UInt8]>()
+        var resetProxyAuth: [ConfigEntry] = []
+        var seenProxyAuth = Set<[UInt8]>()
         var resetCookies: [String] = []
         var seenCookies = Set<[UInt8]>()
         var hasUntrustedHelper = false
@@ -121,7 +123,7 @@ enum RepoConfigInspector {
             // U+FFFD, so the override would name a different key than the one git reads (#355 review).
             let isOverridden =
                 ["http", "credential", "filter"].contains(entry.section)
-                || (entry.section == "remote" && entry.variable == "proxy")
+                || (entry.section == "remote" && (entry.variable == "proxy" || entry.variable == "proxyauthmethod"))
             if isOverridden, let subsection = entry.subsection {
                 if subsection.contains("=") {
                     blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
@@ -167,6 +169,17 @@ enum RepoConfigInspector {
             // Under its own key: a URL-specific value wins over the generic `-c http.cookieFile=` fetch pins (#355).
             case ("http", "cookiefile"), ("http", "savecookies"):
                 if seenCookies.insert(Array(entry.key.utf8)).inserted { resetCookies.append(entry.key) }
+            // How fetch authenticates to the user's proxy (#367): `basic` would send the proxy password in the clear,
+            // and a password-protected certificate makes git ask the trusted helper. Reset under each key, like proxies.
+            case ("http", "proxyauthmethod"), ("remote", "proxyauthmethod"), ("http", "proxysslcertpasswordprotected"),
+                ("http", "sslcertpasswordprotected"):
+                if seenProxyAuth.insert(Array(entry.key.utf8)).inserted { resetProxyAuth.append(entry) }
+            // Kerberos ticket forwarding (#367): fetch pins `http.delegation=none`; a URL-specific key wins over it, so
+            // the repository's own are reset under the same key, as for cookies. (Not measured: no Kerberos setup.)
+            case ("http", "delegation"):
+                if entry.subsection != nil, seenCookies.insert(Array(entry.key.utf8)).inserted {
+                    resetCookies.append(entry.key)
+                }
             case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"),
                 ("http", "proxysslcainfo"), ("http", "proxysslcert"), ("http", "proxysslkey"):
                 fetchBlockingReason = "This repository sets its own TLS certificate files; fetching is disabled."
@@ -190,7 +203,8 @@ enum RepoConfigInspector {
                 "This repository defines \(neutralizedDrivers.count) filter drivers, more than Overgrove can "
                 + "neutralize (\(maximumNeutralizedDrivers))."
         }
-        if restoreTLS.count + resetProxies.count + resetCookies.count + credentialSwitches.count > maximumFetchOverrides
+        if restoreTLS.count + resetProxies.count + resetCookies.count + resetProxyAuth.count + credentialSwitches.count
+            > maximumFetchOverrides
         {
             fetchBlockingReason =
                 "This repository sets TLS or proxy options for too many URLs to override; fetching is disabled."
@@ -221,24 +235,46 @@ enum RepoConfigInspector {
         // A repository-local proxy could receive credentials released by a trusted helper (review of #150, #355).
         // Each one is overridden with what the trusted scopes give for the same URL (`TrustedProxies`), so a company
         // proxy keeps working; without one, an empty value (no proxy). One pass each over the listing.
-        if !resetProxies.isEmpty {
-            let trusted = TrustedProxies(listing.entries)
+        if !resetProxies.isEmpty || !resetProxyAuth.isEmpty {
             var remoteURLs: [[UInt8]: String] = [:]
             for entry in listing.entries where entry.section == "remote" && entry.variable == "url" {
                 // git fetches from a remote's first URL.
                 guard let name = entry.subsection, let url = entry.value else { continue }
                 if remoteURLs[Array(name.utf8)] == nil { remoteURLs[Array(name.utf8)] = url }
             }
+            func remoteURL(_ entry: ConfigEntry) -> String? {
+                entry.section == "remote" ? entry.subsection.flatMap { remoteURLs[Array($0.utf8)] } : nil
+            }
+            let trusted = TrustedProxies(listing.entries)
             for entry in resetProxies {
-                let remoteURL =
-                    entry.section == "remote" ? entry.subsection.flatMap { remoteURLs[Array($0.utf8)] } : nil
-                fetchAuthentication += ["-c", "\(entry.key)=\(trusted.value(replacing: entry, remoteURL: remoteURL))"]
+                fetchAuthentication += [
+                    "-c", "\(entry.key)=\(trusted.value(replacing: entry, remoteURL: remoteURL(entry)))",
+                ]
+            }
+            // The user's own choice for the same key or URL, else git's default (#367). `anyauth` is written out:
+            // an empty method makes git warn on every fetch.
+            let defaults = [
+                "proxyauthmethod": "anyauth", "proxysslcertpasswordprotected": "false",
+                "sslcertpasswordprotected": "false",
+            ]
+            var trustedByVariable: [String: TrustedProxies] = [:]
+            for entry in resetProxyAuth {
+                let variable = entry.variable
+                let isBoolean = variable.hasSuffix("passwordprotected")
+                let lookup =
+                    trustedByVariable[variable]
+                    ?? TrustedProxies(listing.entries, variable: variable, implicitValue: isBoolean ? "true" : "")
+                trustedByVariable[variable] = lookup
+                let value = lookup.value(
+                    replacing: entry, remoteURL: remoteURL(entry), fallback: defaults[variable] ?? "")
+                fetchAuthentication += ["-c", "\(entry.key)=\(value)"]
             }
         }
-        // Off, not a trusted value: a repository's cookie file is never read or written (`FetchCommand` also pins the
-        // generic keys; a user's own URL-specific keys stay).
+        // Off, not a trusted value: a repository's cookie file is never read or written, and no Kerberos ticket is
+        // forwarded (`FetchCommand` also pins the generic keys; a user's own URL-specific keys stay).
         for key in resetCookies {
-            fetchAuthentication += ["-c", key.hasSuffix(".savecookies") ? "\(key)=false" : "\(key)="]
+            let value = key.hasSuffix(".savecookies") ? "false" : key.hasSuffix(".delegation") ? "none" : ""
+            fetchAuthentication += ["-c", "\(key)=\(value)"]
         }
 
         let trustedSSHCommand =
@@ -341,7 +377,7 @@ enum RepoConfigInspector {
         case "remote":
             if variable == "uploadpack" { return ("T5", .neutralized) }
             // Wins over http.proxy for this remote; reset for fetch like it (#355).
-            if variable == "proxy" { return ("T11", .neutralized) }
+            if variable == "proxy" || variable == "proxyauthmethod" { return ("T11", .neutralized) }
             // Settings that would widen what fetch writes; the pinned fetch arguments override them (#209).
             if variable == "fetch", let remote = entry.subsection, writesOutsideRemoteNamespace(value, remote: remote) {
                 return ("T13", .neutralized)
@@ -356,7 +392,12 @@ enum RepoConfigInspector {
             if variable == "url", TransportName.remoteHelper(forURL: value) != nil { return ("T5", .reported) }
             return nil
         case "http":
-            if ["sslverify", "proxy", "cookiefile", "savecookies"].contains(variable) { return ("T11", .neutralized) }
+            if [
+                "sslverify", "proxy", "cookiefile", "savecookies", "proxyauthmethod", "proxysslcertpasswordprotected",
+                "sslcertpasswordprotected", "delegation",
+            ].contains(variable) {
+                return ("T11", .neutralized)
+            }
             if ["sslcainfo", "sslcapath", "sslcert", "sslkey"].contains(variable) { return ("T11", .warned) }
             // The same policy for the proxy's TLS files and for pinning a host to an address (git 2.37+) (#356).
             if ["proxysslcainfo", "proxysslcert", "proxysslkey", "curloptresolve"].contains(variable) {
@@ -370,6 +411,9 @@ enum RepoConfigInspector {
         case "extensions" where variable == "partialclone":
             return ("T5", .neutralized)
         case "fetch" where variable == "prunetags" || variable == "bundleuri":
+            return ("T13", .neutralized)
+        // Clone only today (#195); fetch turns it off anyway.
+        case "transfer" where variable == "bundleuri":
             return ("T13", .neutralized)
         case "gpg" where variable == "program":
             return ("T7", .reported)

@@ -26,6 +26,10 @@ struct GraphView: View {
     var columns: GraphColumnLayout = .default
     /// A finished column change: saved per repository.
     var onCommitColumns: (GraphColumnLayout) -> Void = { _ in }
+    /// Stashes drawn above their base commits (#384); empty when `Show Stashes` is off.
+    var stashes: [Stash] = []
+    var selectedStash: ObjectID?
+    var onSelectStash: (ObjectID) -> Void = { _ in }
 
     @FocusState private var hasFocus: Bool
     @Environment(\.rowMenu) private var rowMenu
@@ -77,8 +81,17 @@ struct GraphView: View {
                             .contextMenu { wipMenu }
                             .opacity(isDimming ? Tokens.Opacity.disabled : 1)
                         }
+                        // Hidden while searching or filtering by author: the dimmed graph shows matches only.
+                        let stashRows =
+                            isDimming
+                            ? [:] : GraphStashPlacement.byBaseRow(stashes, index: { store.index(of: $0) })
                         ForEach(store.rows.indices, id: \.self) { index in
-                            row(index)
+                            if let above = stashRows[index] {
+                                ForEach(Array(above.enumerated()), id: \.element.oid) { position, stash in
+                                    stashRow(stash, baseIndex: index, hasStashAbove: position > 0)
+                                }
+                            }
+                            row(index, hasStashAbove: stashRows[index] != nil)
                                 .onAppear { store.rowAppeared(index) }
                         }
                         if store.isLoadingMore {
@@ -203,21 +216,35 @@ struct GraphView: View {
         return .handled
     }
 
-    private func row(_ index: Int) -> some View {
+    private func wipLine(at index: Int) -> GraphWipLine {
+        guard store.wip != nil, let head = headIndex else { return .none }
+        return index < head ? .through(store.rows[head].column) : (index == head ? .ends : .none)
+    }
+
+    /// A stash above the commit at `baseIndex` (#384): the lanes between that commit and the one above pass through.
+    private func stashRow(_ stash: Stash, baseIndex: Int, hasStashAbove: Bool) -> some View {
+        let base = store.rows[baseIndex]
+        let wipColumn: Int? = wipLine(at: baseIndex) == .none ? nil : headIndex.map { store.rows[$0].column }
+        return GraphStashRowView(
+            stash: stash, column: base.column, colorIndex: base.colorIndex, through: base.incoming,
+            wipColumn: wipColumn, hasStashAbove: hasStashAbove, isSelected: stash.oid == selectedStash,
+            graphWidth: graphWidth, now: now, columns: shownColumns, laneOffset: laneScroll.offset
+        ) {
+            onSelectStash(stash.oid)
+        }
+    }
+
+    private func row(_ index: Int, hasStashAbove: Bool = false) -> some View {
         let commit = store.commits[index]
         let graphRow = store.rows[index]
         let outgoing = index + 1 < store.rows.count ? store.rows[index + 1].incoming : store.pendingSegments
-        let wipLine: GraphWipLine =
-            if store.wip != nil, let head = headIndex {
-                index < head ? .through(store.rows[head].column) : (index == head ? .ends : .none)
-            } else {
-                .none
-            }
+        let wipLine = wipLine(at: index)
         return GraphCommitRowView(
             commit: commit, row: graphRow, outgoing: outgoing, pills: store.pills[commit.oid] ?? [],
             isHead: commit.oid == store.head, isSelected: commit.oid == store.selected,
             isHighlighted: highlighted.contains(commit.oid), wipLine: wipLine, graphWidth: graphWidth, now: now,
-            isListFocused: hasFocus, columns: shownColumns, laneOffset: laneScroll.offset
+            isListFocused: hasFocus, columns: shownColumns, laneOffset: laneScroll.offset,
+            hasStashAbove: hasStashAbove
         ) {
             if let onSelectCommit { onSelectCommit(commit.oid) } else { store.select(commit.oid) }
         }
@@ -277,6 +304,7 @@ struct GraphCommitRowView: View {
     var isListFocused = true
     var columns: GraphColumnLayout = .default
     var laneOffset: CGFloat = 0
+    var hasStashAbove = false
     let onSelect: () -> Void
 
     @Environment(\.issueBadges) private var issues
@@ -302,7 +330,7 @@ struct GraphCommitRowView: View {
             GraphLaneCell(
                 row: row, outgoing: outgoing, isMerge: commit.isMerge, isHead: isHead, hasRefs: !pills.isEmpty,
                 initials: text.initials, avatarIndex: text.avatarIndex, wipLine: wipLine, width: graphWidth,
-                offset: laneOffset)
+                offset: laneOffset, hasStashAbove: hasStashAbove)
             HStack(spacing: Tokens.Spacing.xs) {
                 Text(text.subject).font(zoom.typography.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
                 ForEach(linkedIssues, id: \.self) { IssueNumberBadge(number: $0) }
@@ -513,6 +541,9 @@ struct CommitRowMenu: View {
 
     var body: some View {
         Button("Show Changes", action: onShowChanges)
+        // S-12 (#388): against the commit the detail panel shows.
+        Button("Compare with Selected Commit") { actions.compareCommit(commit.oid) }
+            .disabled(!actions.canCompareCommit(commit.oid))
         Divider()
         Button("Copy SHA") { actions.copy(commit.oid.hex) }
         Button("Copy Short SHA") { actions.copy(commit.oid.short) }

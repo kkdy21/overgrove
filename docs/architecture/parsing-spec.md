@@ -550,6 +550,27 @@ Resolving deltas: 100% (102/102), completed with 102 local objects.⏎
 | PAR-PATCH-05 | `\ No newline at end of file` 양쪽, CRLF, 비UTF-8 내용, 매우 긴 줄 |
 | PAR-PATCH-06 | 잘림: 줄 중간, hunk 헤더 중간, hunk 본문 중간. 빈 출력 |
 
+### 11.6 SubmoduleListParser — `config --file .gitmodules --no-includes -z --get-regexp ^submodule\..*\.path$` (#108)
+
+**형식.** 항목마다 `key␊value␀`. 키는 `submodule.<이름>.path`이고 이름에 `.`·`/`가 들어갈 수 있다. 값이 없는 불리언 키는 `key␀`이다. 일치하는 항목이 없으면 출력이 비고 종료 코드가 1이다 (확인).
+
+```
+submodule.libs/a.path␊libs/a␀submodule.v1.2.path␊vendor/b␀
+```
+
+- 값은 저장소가 쓴 그대로의 경로다. 절대 경로, `..`, `-`로 시작하는 이름, LF, UTF-8이 아닌 바이트가 올 수 있다. 파서는 걸러내지 않고 `GitPath`로 넘기며, 호출하는 쪽이 `PathValidator.submoduleFolder`로 검증한다.
+- 같은 경로는 처음 나온 것 하나만 남긴다. 값이 없거나 빈 항목은 경로가 없으므로 건너뛴다.
+- 키가 `submodule.`로 시작하고 `.path`로 끝나지 않으면 실패한다. 잘리지 않은 출력은 `␀`로 끝나야 하고, 잘리면 마지막 레코드를 버린다.
+- 서로 다른 경로를 `limit`개(`RepositoryService.maximumListedSubmodules`, 128)까지만 만들고, 넘으면 멈추고 부분 결과로 표시한다(T15).
+
+| 테스트 | 사례 |
+|---|---|
+| PAR-SUBMOD-01 | 순서 보존, `.`·`/`가 든 이름 |
+| PAR-SUBMOD-02 | 빈 출력, 같은 경로 중복 |
+| PAR-SUBMOD-03 | 신뢰하지 않는 값(`../`, 절대 경로, LF, UTF-8 아님)을 그대로 보존 |
+| PAR-SUBMOD-04 | 값 없는 불리언, 빈 값 |
+| PAR-SUBMOD-05 | 잘린 출력, NUL 없는 끝, 다른 키 거부, `limit` 초과는 부분 결과(중복은 세지 않음) |
+
 ## 12. 경계 사례 요약
 
 | 경계 사례 | 처리 | 테스트 |

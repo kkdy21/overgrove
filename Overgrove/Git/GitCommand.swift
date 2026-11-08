@@ -47,6 +47,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     case comparePatch(base: FullRefName, path: GitPath, originalPath: GitPath? = nil, includeWorkingTree: Bool)
     /// Commits on HEAD that `base` does not have (`<base>..HEAD`), newest first.
     case commitsAhead(base: FullRefName, limit: Int)
+    /// Submodule paths from the worktree's `.gitmodules` (S-02, #108). `--file` reads only that file, `--no-includes`
+    /// keeps `include.path` there from pulling in another file, and nothing runs. The caller checks first that
+    /// `.gitmodules` is a regular file inside the worktree, not a symbolic link git would follow.
+    case submodulePaths
 
     enum Location: Sendable, Equatable {
         /// An app-owned temporary directory outside any repository.
@@ -74,6 +78,10 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         switch self {
         case .version:
             return ["version"]
+        case .submodulePaths:
+            return [
+                "config", "--file", ".gitmodules", "--no-includes", "-z", "--get-regexp", "^submodule\\..*\\.path$",
+            ]
         case .probeGitDirectory:
             return [
                 "rev-parse", "--path-format=absolute", "--git-common-dir", "--absolute-git-dir", "--is-bare-repository",
@@ -194,7 +202,7 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
         case .version: .neutral
         case .probeGitDirectory, .probeRepository: .registeredPath
         case .status, .worktreeDiff, .worktreeNumstat, .untrackedPreview, .fileHistory, .compareFiles, .comparePatch,
-            .commitsAhead:
+            .commitsAhead, .submodulePaths:
             .worktree
         default: .repository
         }
@@ -203,6 +211,8 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
     /// `git diff --no-index` exits 1 when the files differ, which is the normal case for a preview.
     var acceptedExitCodes: Set<Int32> {
         if case .untrackedPreview = self { return [0, 1] }
+        // `config --get-regexp` exits 1 when nothing matches (no submodule listed).
+        if case .submodulePaths = self { return [0, 1] }
         return [0]
     }
 
@@ -273,10 +283,16 @@ enum FetchCommand: Sendable, Hashable {
                 // A bundle URI makes fetch download from another location and write refs/bundles/* (git 2.40+, #99);
                 // older git ignores the key (security review of #210).
                 "-c", "fetch.bundleURI=",
+                // A repository-local transfer.bundleURI asks the server for bundle URIs. git uses it only for clone
+                // (measured on 2.40.4 to 2.54.0, #195); turned off in case a later git fetch reads it.
+                "-c", "transfer.bundleURI=false",
                 // A cookie file is read into every request, and with saveCookies written back: any path the user can
                 // write. Fetch never needs one. URL-specific keys win over these, so the inspector also resets the
                 // repository's own (#355).
                 "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
+                // Kerberos ticket forwarding (`always` could hand a ticket to a host the repository named). Fetch never
+                // needs it; the inspector resets the repository's URL-specific keys (#367).
+                "-c", "http.delegation=none",
                 // git's fixes for credential leaks through crafted URLs, which a repository could turn off; URL-specific
                 // keys are forced on by the inspector. Older git ignores the keys (#356).
                 "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",

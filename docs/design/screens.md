@@ -209,7 +209,9 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | git 없음 또는 2.36 미만 | S-07의 git 단계로 안내 |
 | 커밋이 없는 저장소 | 그래프 빈 상태: `No commits yet`. WIP 행은 정상 표시 |
 
-**v0.1 제외.** Pull/Push 버튼, 그래프에서 드래그 앤 드롭, 그래프의 stash 노드, 탭으로 여러 저장소 보기.
+**v0.1 제외.** Pull/Push 버튼, 그래프에서 드래그 앤 드롭, 그래프의 stash 노드(v0.2.0 #384에서 들어옴), 탭으로 여러 저장소 보기.
+
+**그래프의 stash 행 (#384).** 기준 커밋 바로 위에 `stash@{n}` 알약(`tray` 심볼, 레인 색 테두리), 기준 커밋 레인 색의 속 빈 사각 노드와 점선, 메시지(`text.secondary`), Date·SHA를 둔다. Author는 비운다. 같은 기준 커밋의 stash는 `stash@{0}`부터 위에서 쌓는다. 누르면 S-04, 선택하면 커밋 행과 같은 레인 색 강조. 검색·작성자 필터 중에는 숨기고, 그래프 `⋯` 메뉴의 `Show Stashes`(기본 켬)로 끈다. 키보드 `↑`/`↓`는 커밋 행만 오간다.
 
 ---
 
@@ -257,7 +259,8 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 파일 행 | 변경 종류 배지(M/A/D/R/C/T/U/?, 상태 색으로 채운 16pt 사각형 + `on-status.*` 글자) + 경로 + `+n −m`(0인 쪽은 숨김). 경로는 디렉터리를 `text.tertiary`, 파일 이름을 `text.primary` Medium으로 쓴다. 길면 디렉터리 앞부분을 `…/`로 줄인다 |
 | rename | `{Old.swift → New.swift}` (공통 디렉터리는 앞에 한 번) |
 | 한 파일이 staged와 unstaged에 모두 있음 (`MM`) | 두 그룹에 각각 한 번씩 나타난다 |
-| 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 펼치지 않는다 (later) |
+| 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 파일 목록에서 펼치지 않는다 |
+| Submodules 카드 (#108) | 그룹 카드 아래. 선택한 워크트리의 서브모듈마다 한 줄: 경로(`font.mono`, 이스케이프), `.gitmodules`에 없으면 `not in .gitmodules`, 오른쪽에 상태(`clean` / `n changed · n untracked` / `not checked out` / `not inspected` / `failed`). `not inspected`는 이유를 툴팁으로 보인다(경로가 워크트리 밖·심볼릭 링크, `.git`이 저장소의 `modules/` 밖, 서브모듈 자체 설정이 조회를 막음). 읽는 동안 `Checking submodules…`. 32개까지만 검사하고 나머지는 `n more not inspected`. `.gitmodules`가 일반 파일이 아니면 읽지 않고 알린다. 서브모듈이 없으면 카드를 숨긴다. 행을 눌러도 아무 일도 없다 |
 | 비교 카드 (하단 고정) | `Changes vs [기준 ⌃]`, `n commits ahead · n behind · n files`, `+n −m`, 기준 커밋, `Compare with Base…`(`⌘⇧B`, S-11). 위 목록만 스크롤된다 (#166) |
 
 **데이터.** `WorkingState`, `FileChange`. staged numstat은 `diff --cached --numstat`, unstaged는 `diff --numstat`에서 온다 ([git-command-catalog.md](../architecture/git-command-catalog.md)).
@@ -830,5 +833,7 @@ S-09, S-11처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 
 | 실패 | S-03 파일 목록의 오류 표시와 같다(마스킹한 오류 문구) |
 
 **선택과 이력.** S-12를 여는 동안 주 선택(기준 커밋)은 그대로다. 사이드바 항목이나 그래프 행을 고르면 S-12를 닫고 그 항목을 고른다. S-12 열기·닫기와 파일 선택은 선택 이력(`⌘[` / `⌘]`, [interaction.md §1.4](interaction.md#14-선택-이력))에 기록하지 않는다.
+
+**구현 메모 (#388).** `AppState+CommitComparison`, `CommitComparisonModel`, `CommitComparisonCenterView`·`CommitComparisonListView`. 파일 목록은 `RepositoryService.compareCommits`(`commitFiles`에 기준을 부모 자리로)이고 캐시하지 않는다. 패치 머리의 출처는 `3c5d6f1 → a91f3c2 · M`. 고충실도 목업은 그리지 않았고, 렌더 테스트(`CommitComparisonRenderTests`) 스크린샷으로 확인했다.
 
 **제외 (later).** 기준과 대상 사이의 커밋 목록(`commitsAhead`가 지금 브랜치 ref만 받아 OID 변형이 필요하다), 사이드바 태그·브랜치에서 바로 비교, `⌘`-클릭으로 두 번째 커밋 고르기, 키보드 단축키, merge base 기준 비교(`A...B`).

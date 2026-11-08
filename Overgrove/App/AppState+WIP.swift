@@ -27,6 +27,7 @@ extension AppState {
     /// - Parameter refresh: Ask even when the status reads the same: after a load, the service knows whether it
     ///   re-queried that status (and runs no git if not). The current counts stay shown until the answer.
     func requestLineCounts(refresh: Bool = false) {
+        requestSubmodules(refresh: refresh)
         guard let lineCountLoader, let repository, let entry = selectedWipEntry, case .loaded(let state) = entry.state
         else { return }
         let path = entry.worktree.path
