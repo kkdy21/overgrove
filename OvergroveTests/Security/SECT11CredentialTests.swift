@@ -127,6 +127,16 @@ final class SECT11CredentialTests: XCTestCase {
         }
     }
 
+    /// SEC-T11-12: only invisible marks are dropped. Korean file names (NFC and the decomposed form macOS uses) and a
+    /// Hangul filler, which takes up space, reach the error detail unchanged.
+    func testSECT11_12_VisibleTextIsKept() {
+        let composed = "보고서.txt"
+        let decomposed = composed.decomposedStringWithCanonicalMapping
+        let filler = "a\u{3164}.txt"
+        let shown = MaskedText(masking: "error: \(composed) \(decomposed) \(filler)\n").text
+        XCTAssertEqual(shown, "error: \(composed) \(decomposed) \(filler)\n")
+    }
+
     /// SEC-T11-12: a split token that straddles the length limit is masked before the limit cuts it.
     func testSECT11_12_SplitTokenAtTheLengthLimitIsMaskedBeforeTheCut() {
         let token = "ghp_" + String(repeating: "F", count: 24)

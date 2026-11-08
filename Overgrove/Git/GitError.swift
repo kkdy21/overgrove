@@ -55,9 +55,7 @@ struct MaskedText: Sendable, Hashable {
             case "\t":
                 printable.append(scalar)
             default:
-                // Also characters that render as nothing but are not `Cf` (variation selectors, CGJ, Khmer inherent
-                // vowels): left in, they would make a split token look whole on screen (#375 review).
-                if !CharacterSet.controlCharacters.contains(scalar), !scalar.properties.isDefaultIgnorableCodePoint {
+                if !CharacterSet.controlCharacters.contains(scalar), !Self.isInvisibleMark(scalar) {
                     printable.append(scalar)
                 }
             }
@@ -74,6 +72,13 @@ struct MaskedText: Sendable, Hashable {
         var limited = String.UnicodeScalarView()
         limited.append(contentsOf: shown.prefix(Self.maximumLength))
         text = String(limited)
+    }
+
+    /// A mark that renders as nothing but is not `Cf` (variation selectors, CGJ, Khmer inherent vowels). Left in, it
+    /// would make a token it splits look whole on screen (#375 review). Only nonspacing marks: Hangul fillers are also
+    /// default-ignorable but take up space, so they stay visible.
+    private static func isInvisibleMark(_ scalar: Unicode.Scalar) -> Bool {
+        scalar.properties.isDefaultIgnorableCodePoint && scalar.properties.generalCategory == .nonspacingMark
     }
 
     /// Only spaces and tabs, or git's `remote:` sideband prefix with nothing after it.
