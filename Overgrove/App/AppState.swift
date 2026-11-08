@@ -48,6 +48,8 @@ final class AppState {
     let graph: GraphStore
     /// S-03 for the selected commit and the patch of a file picked in it (#69).
     let commitDetail: CommitDetailStore
+    /// S-12's file list and patches (#388); the same loader S-03 uses.
+    let commitLoader: any CommitLoading
     /// S-09 (#70): the open file history, which covers the graph until closed.
     let history: FileHistoryStore
     /// S-11 (#158): the open comparison, `nil` when the center shows the graph or a WIP diff.
@@ -58,6 +60,12 @@ final class AppState {
     var comparisonGeneration = 0
     /// The base the user picked per worktree, for the session (screens.md S-11: remembered per worktree).
     var comparisonBases: [GitPath: FullRefName] = [:]
+    /// S-12 (#388): the open comparison of two commits, `nil` when the center shows something else.
+    var commitComparison: CommitComparisonSession?
+    /// Its file list and patch in flight; tests await them.
+    var commitComparisonTask: Task<Void, Never>?
+    var commitComparisonPatchTask: Task<Void, Never>?
+    var commitComparisonGeneration = 0
 
     var repository: RepositoryContext?
     /// The toolbar chip and status bar fields, derived from the worktree list and the focused worktree.
@@ -244,6 +252,7 @@ final class AppState {
         self.ghChecker = ghChecker
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
+        self.commitLoader = commitLoader
         self.history = FileHistoryStore(loader: historyLoader)
         self.layoutStore = layoutStore
         self.registry = registry

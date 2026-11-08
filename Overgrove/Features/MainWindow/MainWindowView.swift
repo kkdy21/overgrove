@@ -120,7 +120,8 @@ struct MainWindowView: View {
                     diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile,
                     onShowDiffHistory: state.shownFileHistoryTarget == nil ? nil : { state.showHistoryOfShownFile() },
-                    history: historyCenter, comparison: comparisonCenter)
+                    history: historyCenter, comparison: comparisonCenter,
+                    commitComparison: commitComparisonCenter)
             } detail: {
                 DetailPanel(
                     focusedWorktree: state.snapshot?.focusedWorktree, worktreeStatus: state.worktreeList,
@@ -141,7 +142,7 @@ struct MainWindowView: View {
                     onSelectStashFile: state.selectStashFile, issueModel: state.issueDetailModel,
                     onSelectLinkedWorktree: state.selectWorktree, onSelectLinkedCommit: state.selectLinkedCommit,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
-                    comparisonList: comparisonList,
+                    comparisonList: comparisonList, commitComparisonList: commitComparisonList,
                     onCompare: state.canCompare() ? { state.showComparison() } : nil,
                     onSetUntrusted: { state.setRepositoryUntrusted($0) })
             }
@@ -257,6 +258,21 @@ struct MainWindowView: View {
         return ComparisonListView(
             title: state.snapshot?.focusedWorktree?.title ?? "", session: session, model: model,
             onSelect: state.selectComparisonFile, onShowAll: state.showAllComparisonFiles)
+    }
+
+    // MARK: Compare two commits (#388)
+
+    private var commitComparisonCenter: CommitComparisonCenterView? {
+        guard let session = state.commitComparison, let model = state.commitComparisonModel else { return nil }
+        return CommitComparisonCenterView(
+            session: session, model: model, onBack: state.closeCommitComparison, onSwap: state.swapCommitComparison)
+    }
+
+    private var commitComparisonList: CommitComparisonListView? {
+        guard let session = state.commitComparison, let model = state.commitComparisonModel else { return nil }
+        return CommitComparisonListView(
+            session: session, model: model, onSelectFile: state.selectCommitComparisonFile,
+            onShowAll: state.showAllCommitComparisonFiles, onShowCommit: state.showCommitFromComparison)
     }
 
     private func toggleSidebar() {

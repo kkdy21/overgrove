@@ -163,7 +163,7 @@ struct CommitDetailModel: Equatable {
         return line[..<colon].allSatisfy { $0.isLetter || $0.isNumber || $0 == "-" }
     }
 
-    private static func fileRow(_ stat: FileStat) -> FileRow {
+    static func fileRow(_ stat: FileStat) -> FileRow {
         let change = FileChange(path: stat.path, originalPath: stat.originalPath, status: stat.status ?? .modified)
         let (directory, fileName) = WipDetailModel.displayParts(change)
         let parts = [

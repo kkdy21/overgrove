@@ -23,12 +23,15 @@ extension AppState {
         guard let path = path ?? focusedWorktreePath, canCompare(path) else { return }
         if focusedWorktreePath != path { selectWorktree(path) }
         selectedFile = nil
+        // S-11 and S-12 are never open together (screens.md S-12).
+        closeCommitComparison()
         comparison = ComparisonSession(worktree: path, base: comparisonBases[path])
         runComparison()
     }
 
-    /// Back to the graph (`‹ Graph`, `⎋`).
+    /// Back to the graph (`‹ Graph`, `⎋`). Choosing anything else closes it too, and S-12 with it (#388).
     func closeComparison() {
+        closeCommitComparison()
         comparisonTask?.cancel()
         comparisonPatchTask?.cancel()
         comparisonTask = nil

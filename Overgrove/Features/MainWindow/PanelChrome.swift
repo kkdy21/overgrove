@@ -168,10 +168,14 @@ struct GraphPanel: View {
 
     /// S-11 covers the graph while a comparison is open (#158).
     var comparison: ComparisonCenterView?
+    /// S-12 covers the graph while two commits are compared (#388).
+    var commitComparison: CommitComparisonCenterView?
 
     var body: some View {
         if let comparison {
             comparison
+        } else if let commitComparison {
+            commitComparison
         } else if let diff {
             DiffViewerView(
                 title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph,
@@ -252,6 +256,8 @@ struct DetailPanel: View {
     var onShowWorktree: () -> Void = {}
     /// S-11's lists while a comparison is open (#158).
     var comparisonList: ComparisonListView?
+    /// S-12's commits and files (#388).
+    var commitComparisonList: CommitComparisonListView?
     /// S-05's `Compare with Base…` (#158); `nil` disables it.
     var onCompare: (() -> Void)?
     /// S-05 "Treat as untrusted" (#107).
@@ -279,6 +285,8 @@ struct DetailPanel: View {
         } content: {
             if let comparisonList {
                 comparisonList
+            } else if let commitComparisonList {
+                commitComparisonList
             } else if let commitModel {
                 CommitDetailView(
                     model: commitModel, laneIndex: commitLane, selectedFile: selectedCommitFile,
