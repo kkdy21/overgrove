@@ -37,4 +37,5 @@
 | [0021](0021-read-only-scope-after-v0-1.md) | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
 | [0022](0022-no-shell-proxy-env-vars.md) | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
 | [0023](0023-pull-request-status-from-gh-pr-list.md) | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |
+| [0024](0024-keep-gh-delegation-over-github-app.md) | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰을 앱이 직접 다루지 않음) | Accepted |
 | [0025](0025-github-hosts-and-accounts.md) | GitHub 호스트는 gh에 로그인된 것만 신뢰, 계정은 앱이 바꾸지 않음 (ADR-0004 §8 대체) | Accepted |

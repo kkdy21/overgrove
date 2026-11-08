@@ -13,6 +13,8 @@ struct SubmoduleStatus: Sendable, Equatable, Identifiable {
         case changed(files: Int, untracked: Int, isPartial: Bool)
         /// The folder has no checkout (`git submodule update` was not run).
         case notCheckedOut
+        /// Its `.git` file names a git directory that does not exist: a broken checkout (#430). Nothing runs there.
+        case gitDirectoryMissing
         /// Nothing ran inside; why.
         case notInspected(Reason)
         case failed(GitError)

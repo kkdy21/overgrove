@@ -66,14 +66,31 @@ extension AppState {
         let loader = commitLoader
         let target = repository.repository
         commitComparisonTask = Task { [weak self] in
-            let result = await loader.files(target, from: session.base, to: session.target)
-            guard let self, generation == self.commitComparisonGeneration, !Task.isCancelled else { return }
-            switch result {
-            case .success(let files): self.commitComparison?.files = .loaded(files)
-            // A cancelled read is not a failure to show (as in `CommitDetailStore`).
-            case .failure(.cancelled): break
-            case .failure(let error): self.commitComparison?.files = .failed(error.message)
-            }
+            // The file list and the commits between (#389) run together; each shows when it is ready.
+            async let commits = loader.commits(target, from: session.base, to: session.target)
+            let files = await loader.files(target, from: session.base, to: session.target)
+            self?.finishCommitComparisonFiles(files, generation: generation)
+            let range = await commits
+            self?.finishCommitComparisonCommits(range, generation: generation)
+        }
+    }
+
+    private func finishCommitComparisonFiles(_ result: Result<NumstatParser.Files, GitError>, generation: Int) {
+        guard generation == commitComparisonGeneration, !Task.isCancelled else { return }
+        switch result {
+        case .success(let files): commitComparison?.files = .loaded(files)
+        // A cancelled read is not a failure to show (as in `CommitDetailStore`).
+        case .failure(.cancelled): break
+        case .failure(let error): commitComparison?.files = .failed(error.message)
+        }
+    }
+
+    private func finishCommitComparisonCommits(_ result: Result<LogParser.GraphPage, GitError>, generation: Int) {
+        guard generation == commitComparisonGeneration, !Task.isCancelled else { return }
+        switch result {
+        case .success(let page): commitComparison?.commits = .loaded(page)
+        case .failure(.cancelled): break
+        case .failure(let error): commitComparison?.commits = .failed(error.message)
         }
     }
 

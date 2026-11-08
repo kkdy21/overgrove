@@ -38,7 +38,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | QA | [qa/checklist.md](qa/checklist.md) | 수동 점검 체크리스트 (QA-xx) |
 | QA | [qa/release-checklist.md](qa/release-checklist.md) | 릴리스 직전 점검 |
 | QA | [qa/bug-triage.md](qa/bug-triage.md) | 버그 분류 기준, 심각도 |
-| QA | [qa/reports/](qa/reports/) | 실행 보고 ([보안 테스트 통과 보고](qa/reports/2026-11-08-security-test-pass.md) #97, [성능 예산 검증 보고](qa/reports/2026-11-08-performance-budget.md) #98, [git 호환성 매트릭스 보고](qa/reports/2026-11-08-git-compatibility.md) #99, [v0.2 bug bash 보고](qa/reports/2026-11-08-v0-2-bug-bash.md) #409) |
+| QA | [qa/reports/](qa/reports/) | 실행 보고 ([보안 테스트 통과 보고](qa/reports/2026-11-08-security-test-pass.md) #97, [성능 예산 검증 보고](qa/reports/2026-11-08-performance-budget.md) #98, [git 호환성 매트릭스 보고](qa/reports/2026-11-08-git-compatibility.md) #99, [v0.2 bug bash 보고](qa/reports/2026-11-08-v0-2-bug-bash.md) #409, [fetch 경로 점검 보고](qa/reports/2026-11-08-fetch-path-audit.md) #353) |
 | 프로세스 | [process/development-workflow.md](process/development-workflow.md) | Discussion → Issue → Branch → PR → Merge 전체 흐름 |
 | 프로세스 | [process/issues.md](process/issues.md) | 이슈 규칙, 라벨, 트리아지, Epic |
 | 프로세스 | [process/pull-requests.md](process/pull-requests.md) | PR 규칙, 리뷰와 코멘트 규약, 머지 정책 |
@@ -155,6 +155,7 @@ OvergroveTests/
 | 0021 | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
 | 0022 | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
 | 0023 | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |
+| 0024 | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰 직접 사용 안 함) | Accepted |
 | 0025 | GitHub 호스트는 gh에 로그인된 것만 신뢰, 계정은 앱이 바꾸지 않음 (ADR-0004 §8 대체) | Accepted |
 
 ### 2.6 테스트 ID

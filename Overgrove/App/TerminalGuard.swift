@@ -44,9 +44,23 @@ struct TerminalConfirmation: Identifiable, Equatable {
     let id = UUID()
     let folder: URL
     let reasons: [String]
+    /// The app the folder opens in (#124): a terminal, or an editor, which runs workspace settings and tasks too.
+    var role: ExternalAppRole = .terminal
+    var bundleIdentifier = ExternalApps.defaultTerminal
+    var appName = "Terminal"
+
+    var title: String { "Open in \(appName)?" }
 
     var message: String {
-        "Shell prompt tools, and git commands you type, use this repository’s own settings in this folder, which "
-            + "can run commands:\n\n" + reasons.joined(separator: "\n")
+        let lead =
+            switch role {
+            case .terminal:
+                "Shell prompt tools, and git commands you type, use this repository’s own settings in this folder, "
+                    + "which can run commands:"
+            case .editor:
+                "Editors and their extensions can run this repository’s own settings and tasks in this folder, and "
+                    + "git commands they run use its settings, which can run commands:"
+            }
+        return lead + "\n\n" + reasons.joined(separator: "\n")
     }
 }
