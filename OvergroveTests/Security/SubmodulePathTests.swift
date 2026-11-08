@@ -79,8 +79,24 @@ final class SubmodulePathTests: XCTestCase {
         XCTAssertEqual(gitDirectory(of: "libs/a"), .outside, "modules itself")
         try writeGitFile("../../.git", in: "libs/a")
         XCTAssertEqual(gitDirectory(of: "libs/a"), .outside, "the superproject's own git directory")
+        // The target exists, so this checks dot-segment resolution, not a missing directory (#430).
+        try FileManager.default.createDirectory(
+            at: worktree.appendingPathComponent("outside", isDirectory: true), withIntermediateDirectories: true)
         try writeGitFile("../../.git/modules/../../outside", in: "libs/a")
         XCTAssertEqual(gitDirectory(of: "libs/a"), .outside, "dot segments resolved")
+    }
+
+    /// #430: a `.git` file whose git directory does not exist (an interrupted `submodule update`, a partial copy) is
+    /// a broken checkout, not another repository. Nothing runs there either way. A malformed `.git` file stays
+    /// `.outside`.
+    func testMissingGitDirectoryIsNotOutside() throws {
+        try writeGitFile("../../.git/modules/libs/gone", in: "libs/a")
+        XCTAssertEqual(gitDirectory(of: "libs/a"), .gitDirectoryMissing)
+        try writeGitFile(root.appendingPathComponent("nowhere/x.git").path, in: "libs/a")
+        XCTAssertEqual(gitDirectory(of: "libs/a"), .gitDirectoryMissing, "missing wherever it points")
+        try "not a gitdir line\n".write(
+            to: worktree.appendingPathComponent("libs/a/.git"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(gitDirectory(of: "libs/a"), .outside, "malformed")
     }
 
     func testGitEntryKinds() throws {

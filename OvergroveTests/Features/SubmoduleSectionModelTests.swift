@@ -30,6 +30,10 @@ final class SubmoduleSectionModelTests: XCTestCase {
         XCTAssertEqual(row(.changed(files: 3, untracked: 0, isPartial: true)).badge, "3+ changed")
         XCTAssertEqual(row(.changed(files: 0, untracked: 1, isPartial: false)).tone, .changed)
         XCTAssertEqual(row(.notCheckedOut).badge, "not checked out")
+        let broken = row(.gitDirectoryMissing)
+        XCTAssertEqual(broken.badge, "git directory missing")
+        XCTAssertEqual(broken.tone, .quiet)
+        XCTAssertFalse(broken.help?.contains("outside") == true, "#430: not worded as another repository")
         let blocked = row(.notInspected(.blocked(reason: "filter driver name is not allowed")))
         XCTAssertEqual(blocked.badge, "not inspected")
         XCTAssertEqual(blocked.tone, .attention)
@@ -60,6 +64,25 @@ private final class ScriptedSubmoduleLoader: SubmoduleLoading, @unchecked Sendab
     ) async throws(RepositoryLoadError) -> SubmoduleListing? {
         lock.withLock { calls += 1 }
         return answer
+    }
+}
+
+/// Answers in order (the last repeats), and counts requests.
+private final class SwitchingSubmoduleLoader: SubmoduleLoading, @unchecked Sendable {
+    private let lock = NSLock()
+    private var answers: [SubmoduleListing?]
+    private var calls = 0
+    var callCount: Int { lock.withLock { calls } }
+
+    init(answers: [SubmoduleListing?]) { self.answers = answers }
+
+    func submodules(
+        _ repository: Repository, worktree: GitPath
+    ) async throws(RepositoryLoadError) -> SubmoduleListing? {
+        lock.withLock {
+            calls += 1
+            return answers.count > 1 ? answers.removeFirst() : answers[0]
+        }
     }
 }
 
@@ -122,6 +145,25 @@ final class SubmodulePanelTests: XCTestCase {
             guard ContinuousClock.now < deadline else { return XCTFail("condition not met", file: file, line: line) }
             await Task.yield()
         }
+    }
+
+    /// #431: a first read that comes back with nothing (the service no longer has that status) ends as failed, not
+    /// "Checking…" forever. A later `nil` keeps the answer already shown.
+    func testFirstReadWithoutAnswerEndsFailed() async {
+        let state = WorktreeListing.state(branch: "main")
+        let empty = SubmodulePanel(loader: ScriptedSubmoduleLoader(answer: nil), sleep: { _ in })
+        empty.request(repository, path: path, state: state)
+        await waitUntil { empty.result(for: path, state) == .failed }
+
+        let shown = SubmoduleListing(submodules: [], omitted: 2, isGitmodulesRefused: false)
+        let loader = SwitchingSubmoduleLoader(answers: [shown, nil])
+        let panel = SubmodulePanel(loader: loader, sleep: { _ in })
+        panel.request(repository, path: path, state: state)
+        await waitUntil { panel.result(for: path, state) == .loaded(shown) }
+        panel.request(repository, path: path, state: state, refresh: true)
+        await waitUntil { loader.callCount == 2 }
+        try? await Task.sleep(for: .milliseconds(50))
+        XCTAssertEqual(panel.result(for: path, state), .loaded(shown), "a later nil keeps what is shown")
     }
 
     func testRequestsOncePerStatus() async {

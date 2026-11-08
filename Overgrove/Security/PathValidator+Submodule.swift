@@ -46,11 +46,13 @@ extension PathValidator {
     /// The git directory a checked-out submodule uses, if it belongs to this repository: with a `.git` file, under
     /// `<common>/modules/` or `<worktree git directory>/modules/` (where `git submodule` puts them, for the main and
     /// for a linked worktree); with a `.git` directory, that directory inside the submodule folder. `nil` when the
-    /// submodule has no `.git` (not checked out). `.outside` for anything else, such as a `.git` file naming another
-    /// repository on disk.
+    /// submodule has no `.git` (not checked out). `.gitDirectoryMissing` when a well-formed `.git` file names a git
+    /// directory that does not exist (an interrupted `git submodule update`, a partial copy, #430). `.outside` for
+    /// anything else, such as a `.git` file naming another repository on disk. Only `.inside` lets anything run.
     enum SubmoduleGitDirectory: Equatable {
         case inside(URL)
         case notCheckedOut
+        case gitDirectoryMissing
         case outside
     }
 
@@ -62,7 +64,13 @@ extension PathValidator {
         guard lstat(entry.path, &info) == 0 else { return .notCheckedOut }
         let type = info.st_mode & S_IFMT
         guard type == S_IFDIR || type == S_IFREG else { return .outside }  // a symbolic link, FIFO, …
-        guard let gitDirectory = gitDirectory(of: folder) else { return .outside }
+        guard let gitDirectory = gitDirectory(of: folder) else {
+            if type == S_IFREG, let target = gitFileTarget(of: folder) {
+                var targetInfo = stat()
+                if lstat(target.path, &targetInfo) != 0, errno == ENOENT { return .gitDirectoryMissing }
+            }
+            return .outside
+        }
         if type == S_IFDIR {
             guard case .inside = containment(of: gitDirectory, in: folder) else { return .outside }
             return .inside(gitDirectory)
