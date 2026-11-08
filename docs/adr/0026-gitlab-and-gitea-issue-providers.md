@@ -20,7 +20,7 @@
   - tea는 archived 상태이고, gt 1.0(2026-11-02)이 공식 후속이다. Gitea 28 이상만 지원하고 tea 설정은 읽지 않는다.
   - `gt auth status --json <필드>`는 로컬 자격 증명만 보고 네트워크를 쓰지 않는다(`--verify`를 줄 때만 서버에 묻는다). 필드는 `active, credential_available, credential_store, error, expires_at, git_credential_helper, host, method, scopes, user, verified`다. `--json`이면 종료 코드는 항상 0이다.
   - `gt issue list`는 `--json number,title,state,labels,assignees,updated_at,url`, `--state open|closed|all`, `--limit 1..1000`, `--kind issues`(기본값), `-R/--repo`, `--host URL`, `--no-input`을 받는다.
-  - 계정이 없는 인스턴스에는 요청하지 않고 종료 코드 4로 끝난다(실측). 로그인 없이는 이슈 JSON을 채집할 수 없어서, `labels`·`assignees`의 모양은 #449에서 소스로 확인한다.
+  - 계정이 없는 인스턴스에는 요청하지 않고 종료 코드 4로 끝난다(실측). 로그인 없이는 이슈 JSON을 채집할 수 없어서 모양은 v1.1.0 소스(`internal/services/issues.go`, `metadata.go`)로 확인했다. `number`는 정수, `title`·`state`·`url`·`updated_at`은 문자열, `labels`는 `{id, name, color, description, exclusive, is_archived}` 객체 배열, `assignees`는 로그인 문자열 배열이다. #449에서 실제 출력으로 다시 확인한다.
   - `--repo`가 없으면 git 원격·`git config gt.repository`에서 저장소를 찾는다. 첫 실행에 파일을 만들지 않았다(실측).
   - 환경 변수: `GITEA_TOKEN`, `GITEA_CLI_HOST`·`GITEA_INSTANCE_URL`, `GITEA_INSTANCE_INSECURE`, `GITEA_CLI_CONFIG_DIR`·`DATA_DIR`, `GITEA_CLI_REPO`, `GITEA_CLI_NO_UPDATE_NOTIFIER`, `GITEA_CLI_NO_EXTENSIONS` 등(gt-environment(1)).
 - **Forgejo**: JSON 출력이 안정적인 공식 CLI가 없다(fj·fgj·forj는 서로 다른 커뮤니티 도구다). gt가 Forgejo에서 동작하는지도 확인되지 않았다.
@@ -104,5 +104,5 @@ ADR-0004의 1차 결정(gh 위임, 토큰 비취급, 중립 작업 디렉터리,
 ## 후속 작업
 
 - [ ] glab 제공자: `GLCommand`, 버전 확인, 파서, 호스트 신뢰, 설정 파일 확인, 패널 연결, SEC 테스트(인자 스냅샷, 환경 allowlist와 텔레메트리·업데이트 확인 끔, 위험 변수 음성 시드: 토큰·`GLAB_DEBUG`·`GLAB_DEBUG_HTTP`·`GODEBUG`·`SSL_CERT_FILE`·`SSL_CERT_DIR`·`GIT_*`, 토큰 옵션 없음, 적대적 JSON과 경로, 로그인 안 된 호스트·이름이 같은 다른 실행 파일에는 이슈 목록 실행 0, 실행 전후 임시 HOME의 파일 트리 비교) (#154, #117 이후)
-- [ ] gt 제공자: `GTCommand`, 버전 확인(Graphite `gt`와 구별), 파서(소스로 `labels`·`assignees` 모양 확인), 인스턴스 URL·base path 신뢰, 확장 끔, 같은 SEC 테스트(`GITEA_INSTANCE_INSECURE` 등 음성 시드 포함) (#449)
+- [ ] gt 제공자: `GTCommand`, 버전 확인(Graphite `gt`와 구별), 파서(`labels` 객체·`assignees` 문자열, 실제 출력으로 재확인), 인스턴스 URL·base path 신뢰, 확장 끔, 같은 SEC 테스트(`GITEA_INSTANCE_INSECURE` 등 음성 시드 포함) (#449)
 - [x] 카탈로그 §5.1·§7, security-review.md(§1.2, T10, T11, T13, T16, §3.2), 소스 구조(`Overgrove/Forges/`), ADR 목록 (#448, 이 PR)
