@@ -4,13 +4,32 @@ import Foundation
 /// views. Repository strings are escaped; configuration values are never shown (only key names); URLs are masked.
 struct WorktreeDetailModel: Equatable {
     struct InfoRow: Equatable, Identifiable {
-        let label: String
+        /// Which fact the row shows; the view picks the HEAD font and the Path copy button by this, never by the
+        /// (localized) label.
+        enum Kind: String, Equatable {
+            case path, head, branch, upstream, state, lock, lastFetch
+
+            var label: String {
+                switch self {
+                case .path: String(localized: "Path", comment: "S-05 info row")
+                case .head: "HEAD"
+                case .branch: String(localized: "Branch", comment: "S-05 info row")
+                case .upstream: String(localized: "Upstream", comment: "S-05 info row")
+                case .state: String(localized: "State", comment: "S-05 info row")
+                case .lock: String(localized: "Lock", comment: "S-05 info row")
+                case .lastFetch: String(localized: "Last fetch", comment: "S-05 info row")
+                }
+            }
+        }
+
+        let kind: Kind
         let value: String
         /// The value is a warning (`status.prunable` colour): missing folder, symbolic link, gone upstream, locked.
         var isWarning = false
         /// Missing worktrees show their last known values dimmed.
         var isDimmed = false
-        var id: String { label }
+        var label: String { kind.label }
+        var id: Kind { kind }
     }
 
     let title: String
@@ -47,34 +66,47 @@ struct WorktreeDetailModel: Equatable {
         var rows: [InfoRow] = []
         let path = PathValidator.displayable(Self.abbreviated(full, home: home))
         if missing {
-            rows.append(InfoRow(label: "Path", value: "\(path) — Directory missing", isWarning: true))
+            rows.append(
+                InfoRow(kind: .path, value: "\(path) — " + String(localized: "Directory missing"), isWarning: true))
         } else if let real = inspection?.realPath {
             rows.append(
                 InfoRow(
-                    label: "Path",
-                    value: "\(path) — Symlink to \(PathValidator.displayable(Self.abbreviated(real, home: home)))",
+                    kind: .path,
+                    value: "\(path) — "
+                        + String(
+                            localized: "Symlink to \(PathValidator.displayable(Self.abbreviated(real, home: home)))"),
                     isWarning: true))
         } else {
-            rows.append(InfoRow(label: "Path", value: path))
+            rows.append(InfoRow(kind: .path, value: path))
         }
-        rows.append(InfoRow(label: "HEAD", value: (state?.headCommit ?? worktree.head)?.short ?? "No commits yet"))
         rows.append(
-            InfoRow(label: "Branch", value: worktree.branchShortName.map(PathValidator.displayable) ?? "detached"))
+            InfoRow(
+                kind: .head, value: (state?.headCommit ?? worktree.head)?.short ?? String(localized: "No commits yet")))
+        rows.append(
+            InfoRow(
+                kind: .branch,
+                value: worktree.branchShortName.map(PathValidator.displayable)
+                    ?? String(localized: "detached", comment: "S-05 branch")))
         rows.append(Self.upstreamRow(state?.upstream))
-        rows.append(InfoRow(label: "State", value: state.map(Self.stateSummary) ?? Self.unknownState(entry.state)))
+        rows.append(InfoRow(kind: .state, value: state.map(Self.stateSummary) ?? Self.unknownState(entry.state)))
         if case .locked(let reason) = worktree.lock {
             rows.append(
                 InfoRow(
-                    label: "Lock", value: reason.map { "Locked: \(PathValidator.displayable($0))" } ?? "Locked",
+                    kind: .lock,
+                    value: reason.map { String(localized: "Locked: \(PathValidator.displayable($0))") }
+                        ?? String(localized: "Locked"),
                     isWarning: true))
         } else {
-            rows.append(InfoRow(label: "Lock", value: "Not locked"))
+            rows.append(InfoRow(kind: .lock, value: String(localized: "Not locked")))
         }
-        rows.append(InfoRow(label: "Last fetch", value: Self.lastFetch(fetchStatus, now: now) + " (repository)"))
+        rows.append(
+            InfoRow(
+                kind: .lastFetch, value: Self.lastFetch(fetchStatus, now: now) + " " + String(localized: "(repository)")
+            ))
         info =
             missing
             ? rows.map {
-                InfoRow(label: $0.label, value: $0.value, isWarning: $0.isWarning, isDimmed: $0.label != "Path")
+                InfoRow(kind: $0.kind, value: $0.value, isWarning: $0.isWarning, isDimmed: $0.kind != .path)
             } : rows
 
         slowStatus = entry.slowStatusHint(hookExecutables: inspection?.hookExecutables)
@@ -86,17 +118,19 @@ struct WorktreeDetailModel: Equatable {
             securityUnavailable = nil
         case .missing:
             security = nil
-            securityUnavailable = "The worktree folder is missing, so its configuration cannot be inspected."
+            securityUnavailable = String(
+                localized: "The worktree folder is missing, so its configuration cannot be inspected.")
         case .failed(let error):
             // A failed probe also lands here, so the folder is not known to belong to this repository.
             security = nil
             securityUnavailable =
-                "Status could not be read, so the configuration is not inspected. "
+                String(localized: "Status could not be read, so the configuration is not inspected.") + " "
                 + PathValidator.displayable(error.message)
         case .notQueried:
             security = nil
             securityUnavailable =
-                "Overgrove does not query this worktree entry, so its configuration is not inspected."
+                String(
+                    localized: "Overgrove does not query this worktree entry, so its configuration is not inspected.")
         }
         if security != nil, let inspection {
             securityReport = SecurityReport.Source(
@@ -119,13 +153,15 @@ struct WorktreeDetailModel: Equatable {
     private static func upstreamRow(_ upstream: UpstreamStatus?) -> InfoRow {
         switch upstream {
         case .some(.tracking(let name, let ahead, let behind)):
-            InfoRow(label: "Upstream", value: "\(PathValidator.displayable(name))  ↑\(ahead) ↓\(behind)")
+            InfoRow(kind: .upstream, value: "\(PathValidator.displayable(name))  ↑\(ahead) ↓\(behind)")
         case .some(.gone(let name)):
-            InfoRow(label: "Upstream", value: "\(PathValidator.displayable(name)) (gone)", isWarning: true)
+            InfoRow(
+                kind: .upstream, value: "\(PathValidator.displayable(name)) " + String(localized: "(gone)"),
+                isWarning: true)
         case .some(.none):
-            InfoRow(label: "Upstream", value: "No upstream")
+            InfoRow(kind: .upstream, value: String(localized: "No upstream"))
         case nil:
-            InfoRow(label: "Upstream", value: "Unknown")
+            InfoRow(kind: .upstream, value: String(localized: "Unknown"))
         }
     }
 
@@ -133,29 +169,34 @@ struct WorktreeDetailModel: Equatable {
     static func stateSummary(_ state: WorkingState) -> String {
         let changed = Set((state.staged + state.unstaged).map(\.path)).count
         let conflicts = state.conflicted.count
-        return
-            "\(changed) changed · \(state.untracked.count) untracked · \(conflicts) \(conflicts == 1 ? "conflict" : "conflicts")"
+        return String(localized: "\(changed) changed") + " · " + String(localized: "\(state.untracked.count) untracked")
+            + " · "
+            + (conflicts == 1
+                ? String(localized: "\(conflicts) conflict") : String(localized: "\(conflicts) conflicts"))
     }
 
     private static func unknownState(_ state: WorktreeListing.State) -> String {
         switch state {
-        case .missing: "Directory missing"
-        case .failed: "Status unavailable"
-        case .notQueried(.inspectionBlocked): "Blocked for safety"
-        default: "Not queried"
+        case .missing: String(localized: "Directory missing")
+        case .failed: String(localized: "Status unavailable")
+        case .notQueried(.inspectionBlocked): String(localized: "Blocked for safety")
+        default: String(localized: "Not queried")
         }
     }
 
     private static func lastFetch(_ status: FetchStatus, now: Date) -> String {
         switch status {
-        case .never: "Never fetched"
+        case .never: String(localized: "Never fetched")
         case .idle(let last): StatusBarItem.relative(last, now: now)
-        case .estimated(let last): StatusBarItem.relative(last, now: now) + " (estimated)"
-        case .cancelled(let last): last.map { StatusBarItem.relative($0, now: now) } ?? "Never fetched"
+        case .estimated(let last): StatusBarItem.relative(last, now: now) + " " + String(localized: "(estimated)")
+        case .cancelled(let last):
+            last.map { StatusBarItem.relative($0, now: now) } ?? String(localized: "Never fetched")
         case .fetching(_, _, let last):
-            last.map { StatusBarItem.relative($0, now: now) + ", fetching now" } ?? "Fetching now"
+            last.map { StatusBarItem.relative($0, now: now) + ", " + String(localized: "fetching now") }
+                ?? String(localized: "Fetching now")
         case .failed(let last):
-            last.map { StatusBarItem.relative($0, now: now) + ", last attempt failed" } ?? "Last attempt failed"
+            last.map { StatusBarItem.relative($0, now: now) + ", " + String(localized: "last attempt failed") }
+                ?? String(localized: "Last attempt failed")
         }
     }
 
@@ -189,6 +230,23 @@ struct WorktreeSecurityModel: Equatable {
         /// names without their URLs, plain hook names (`SecurityReport`).
         var reportDetails: [String] = []
         var id: String { title }
+        /// `title` stays English: the copied report uses it (#110, Copy Report is not localized). The screen shows this.
+        var displayTitle: String { WorktreeSecurityModel.localizedTitle(title) }
+    }
+
+    /// The protection row titles on screen (#454). Explicit cases, so the compiler extracts each key.
+    static func localizedTitle(_ title: String) -> String {
+        switch title {
+        case "Hooks disabled": String(localized: "Hooks disabled")
+        case "fsmonitor disabled": String(localized: "fsmonitor disabled")
+        case "External diff and textconv disabled": String(localized: "External diff and textconv disabled")
+        case "Filters neutralized": String(localized: "Filters neutralized")
+        case "Transport commands neutralized": String(localized: "Transport commands neutralized")
+        case "Repository credential helpers ignored": String(localized: "Repository credential helpers ignored")
+        case "TLS verification kept on": String(localized: "TLS verification kept on")
+        case "Remote URL credentials masked": String(localized: "Remote URL credentials masked")
+        default: title
+        }
     }
 
     /// A finding none of the rows covers, by key, with what Overgrove does about it.
@@ -227,8 +285,11 @@ struct WorktreeSecurityModel: Equatable {
 
     /// Remote names listed in the warning; the rest are counted.
     static let maximumListedRemotes = 5
-    static let untrustedText =
-        "Untrusted: Overgrove does not fetch remotes on this Mac, and Open in Terminal asks before opening."
+    static var untrustedText: String {
+        String(
+            localized:
+                "Untrusted: Overgrove does not fetch remotes on this Mac, and Open in Terminal asks before opening.")
+    }
 
     /// - Parameters:
     ///   - showsFullRemoteURLs: Settings › Show full remote URLs (#86); host and path otherwise.
@@ -242,11 +303,12 @@ struct WorktreeSecurityModel: Equatable {
         if !isUntrusted, !local.isEmpty {
             var names = local.prefix(Self.maximumListedRemotes).joined(separator: ", ")
             if local.count > Self.maximumListedRemotes {
-                names += " and \(local.count - Self.maximumListedRemotes) more"
+                names += " " + String(localized: "and \(local.count - Self.maximumListedRemotes) more")
             }
-            localRemoteWarning =
-                "Fetching \(names) runs git in another repository on this Mac, with that repository’s own settings, "
-                + "which Overgrove does not check. Mark this repository untrusted to stop fetching remotes on this Mac."
+            localRemoteWarning = String(
+                localized:
+                    "Fetching \(names) runs git in another repository on this Mac, with that repository’s own settings, which Overgrove does not check. Mark this repository untrusted to stop fetching remotes on this Mac."
+            )
         } else {
             localRemoteWarning = nil
         }
@@ -335,7 +397,8 @@ struct WorktreeSecurityModel: Equatable {
                             SecurityReport.remotesWithCredentials(inspection)
                         ))
                     if !masked.details.isEmpty {
-                        masked.advice = "Remove the credentials from the URL and let a credential helper store them."
+                        masked.advice = String(
+                            localized: "Remove the credentials from the URL and let a credential helper store them.")
                     }
                     return masked
                 }(),

@@ -261,12 +261,32 @@
         }
       }
     },
+    "%lld conflict" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "충돌 %lld개"
+          }
+        }
+      }
+    },
     "%lld conflicted" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld개 충돌"
+          }
+        }
+      }
+    },
+    "%lld conflicts" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "충돌 %lld개"
           }
         }
       }
@@ -347,6 +367,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld포인트"
+          }
+        }
+      }
+    },
+    "%lld repository settings overridden" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 설정 %lld개 덮어씀"
           }
         }
       }
@@ -457,12 +487,42 @@
         }
       }
     },
+    "(estimated)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(추정)"
+          }
+        }
+      }
+    },
     "(from message)" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "(메시지에서)"
+          }
+        }
+      }
+    },
+    "(gone)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(사라짐)"
+          }
+        }
+      }
+    },
+    "(repository)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(저장소)"
           }
         }
       }
@@ -1120,6 +1180,16 @@
         }
       }
     },
+    "Compare with Base…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기준과 비교…"
+          }
+        }
+      }
+    },
     "Compare with Selected Commit" : {
       "localizations" : {
         "ko" : {
@@ -1156,6 +1226,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@와(과) 비교 중…"
+          }
+        }
+      }
+    },
+    "Configuration not read" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정을 읽지 못함"
           }
         }
       }
@@ -1271,6 +1351,16 @@
         }
       }
     },
+    "Copy Report: key names and results only, without values, paths, or remote URLs" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보고서 복사: 값·경로·원격 URL 없이 키 이름과 결과만"
+          }
+        }
+      }
+    },
     "Copy SHA" : {
       "localizations" : {
         "ko" : {
@@ -1327,6 +1417,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "경로 복사"
+          }
+        }
+      }
+    },
+    "Copy security report" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안 보고서 복사"
           }
         }
       }
@@ -1422,6 +1522,26 @@
         }
       }
     },
+    "Directory missing" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "디렉터리 없음"
+          }
+        }
+      }
+    },
+    "Do not fetch remotes on this Mac, and ask before Open in Terminal (#107)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 원격을 페치하지 않고, 터미널에서 열기 전에 확인합니다 (#107)."
+          }
+        }
+      }
+    },
     "Do not fetch remotes on this Mac, and ask before Open in Terminal." : {
       "localizations" : {
         "ko" : {
@@ -1478,6 +1598,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "간격"
+          }
+        }
+      }
+    },
+    "External diff and textconv disabled" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "외부 diff와 textconv 꺼짐"
           }
         }
       }
@@ -1562,6 +1692,16 @@
         }
       }
     },
+    "Fetch disabled" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치 꺼짐"
+          }
+        }
+      }
+    },
     "Fetch failed" : {
       "localizations" : {
         "ko" : {
@@ -1578,6 +1718,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "페치 완료"
+          }
+        }
+      }
+    },
+    "Fetching %@ runs git in another repository on this Mac, with that repository’s own settings, which Overgrove does not check. Mark this repository untrusted to stop fetching remotes on this Mac." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@을(를) 페치하면 이 Mac의 다른 저장소에서 그 저장소의 자체 설정으로 git이 실행되며, Overgrove는 그 설정을 검사하지 않습니다. 이 Mac의 원격 페치를 멈추려면 이 저장소를 신뢰하지 않음으로 표시하세요."
+          }
+        }
+      }
+    },
+    "Fetching now" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지금 페치 중"
           }
         }
       }
@@ -1638,6 +1798,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "사이드바 필터"
+          }
+        }
+      }
+    },
+    "Filters neutralized" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "필터 무력화"
           }
         }
       }
@@ -1873,6 +2043,16 @@
         }
       }
     },
+    "Hide keys" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키 숨기기"
+          }
+        }
+      }
+    },
     "History" : {
       "comment" : "Back button to file history",
       "localizations" : {
@@ -1914,6 +2094,16 @@
         }
       }
     },
+    "Hooks disabled" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "훅 꺼짐"
+          }
+        }
+      }
+    },
     "Include the file's history under earlier names (git log --follow)" : {
       "localizations" : {
         "ko" : {
@@ -1940,6 +2130,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "포함"
+          }
+        }
+      }
+    },
+    "Inspected %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검사: %@"
+          }
+        }
+      }
+    },
+    "Inspecting configuration…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 검사 중…"
           }
         }
       }
@@ -2045,6 +2255,26 @@
         }
       }
     },
+    "Last attempt failed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마지막 시도 실패"
+          }
+        }
+      }
+    },
+    "Last fetch" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마지막 페치"
+          }
+        }
+      }
+    },
     "Lightweight tag %@" : {
       "localizations" : {
         "ko" : {
@@ -2091,6 +2321,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "워크트리 불러오는 중…"
+          }
+        }
+      }
+    },
+    "Lock" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "잠금"
           }
         }
       }
@@ -2166,6 +2406,16 @@
         }
       }
     },
+    "Never fetched" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치한 적 없음"
+          }
+        }
+      }
+    },
     "Next match" : {
       "localizations" : {
         "ko" : {
@@ -2192,6 +2442,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@와(과) 비교해 변경이 없습니다"
+          }
+        }
+      }
+    },
+    "No commits yet" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 커밋 없음"
           }
         }
       }
@@ -2356,12 +2616,32 @@
         }
       }
     },
+    "Not locked" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "잠기지 않음"
+          }
+        }
+      }
+    },
     "Not part of this repository" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "이 저장소의 항목이 아님"
+          }
+        }
+      }
+    },
+    "Not queried" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "조회하지 않음"
           }
         }
       }
@@ -2496,6 +2776,16 @@
         }
       }
     },
+    "Other repository settings" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기타 저장소 설정"
+          }
+        }
+      }
+    },
     "Overgrove" : {
       "localizations" : {
         "ko" : {
@@ -2526,6 +2816,16 @@
         }
       }
     },
+    "Overgrove does not query this worktree entry, so its configuration is not inspected." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove가 이 워크트리 항목을 조회하지 않으므로 설정을 검사하지 않습니다."
+          }
+        }
+      }
+    },
     "Overgrove stopped querying this worktree for safety. %@" : {
       "localizations" : {
         "ko" : {
@@ -2552,6 +2852,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "부모"
+          }
+        }
+      }
+    },
+    "Path" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "경로"
           }
         }
       }
@@ -2612,6 +2922,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "정리 대상: %@"
+          }
+        }
+      }
+    },
+    "Queries stopped" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "조회 중단"
           }
         }
       }
@@ -2678,12 +2998,32 @@
         }
       }
     },
+    "Remote URL credentials masked" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 URL 자격 증명 가림"
+          }
+        }
+      }
+    },
     "Remote URLs" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "원격 URL"
+          }
+        }
+      }
+    },
+    "Remotes on this Mac" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac의 원격"
           }
         }
       }
@@ -2704,6 +3044,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove에서 제거합니다. 폴더는 건드리지 않습니다."
+          }
+        }
+      }
+    },
+    "Remove the credentials from the URL and let a credential helper store them." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL에서 자격 증명을 빼고 자격 증명 도우미가 보관하게 하세요."
           }
         }
       }
@@ -2744,6 +3094,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "도움말 › 설정 도우미에서 언제든 다시 열 수 있습니다."
+          }
+        }
+      }
+    },
+    "Report shortened" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보고서 줄임"
           }
         }
       }
@@ -2814,6 +3174,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "저장소를 찾을 수 없음"
+          }
+        }
+      }
+    },
+    "Repository credential helpers ignored" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 자격 증명 도우미 무시"
           }
         }
       }
@@ -2920,12 +3290,32 @@
         }
       }
     },
+    "Security" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보안"
+          }
+        }
+      }
+    },
     "See every worktree of a repository at a glance." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "저장소의 모든 워크트리를 한눈에 봅니다."
+          }
+        }
+      }
+    },
+    "See what this worktree changed compared with its base branch (⌘⇧B)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 워크트리가 기준 브랜치와 비교해 무엇을 바꿨는지 봅니다 (⌘⇧B)"
           }
         }
       }
@@ -3080,6 +3470,16 @@
         }
       }
     },
+    "Show keys" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "키 보기"
+          }
+        }
+      }
+    },
     "Showing first %@ files · %@ more" : {
       "localizations" : {
         "ko" : {
@@ -3181,6 +3581,26 @@
         }
       }
     },
+    "State" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상태"
+          }
+        }
+      }
+    },
+    "Status could not be read, so the configuration is not inspected." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상태를 읽지 못해 설정을 검사하지 않습니다."
+          }
+        }
+      }
+    },
     "Status unavailable" : {
       "localizations" : {
         "ko" : {
@@ -3261,6 +3681,16 @@
         }
       }
     },
+    "Symlink to %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "심볼릭 링크: %@"
+          }
+        }
+      }
+    },
     "TAGS" : {
       "comment" : "Sidebar section",
       "localizations" : {
@@ -3278,6 +3708,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "대상"
+          }
+        }
+      }
+    },
+    "TLS verification kept on" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "TLS 검증 유지"
           }
         }
       }
@@ -3422,6 +3862,16 @@
         }
       }
     },
+    "The worktree folder is missing, so its configuration cannot be inspected." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 폴더가 없어 설정을 검사할 수 없습니다."
+          }
+        }
+      }
+    },
     "The worktree list could not be read, so this comparison may be out of date." : {
       "localizations" : {
         "ko" : {
@@ -3532,6 +3982,16 @@
         }
       }
     },
+    "Threat %@ in docs/design/security-review.md" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "docs/design/security-review.md의 위협 %@"
+          }
+        }
+      }
+    },
     "Too large to show in full" : {
       "localizations" : {
         "ko" : {
@@ -3548,6 +4008,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "추적: %@"
+          }
+        }
+      }
+    },
+    "Transport commands neutralized" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전송 명령 무력화"
+          }
+        }
+      }
+    },
+    "Treat as untrusted" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "신뢰하지 않음으로 취급"
           }
         }
       }
@@ -3592,6 +4072,16 @@
         }
       }
     },
+    "Unknown" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "알 수 없음"
+          }
+        }
+      }
+    },
     "Unstaged" : {
       "comment" : "File group",
       "localizations" : {
@@ -3624,6 +4114,16 @@
         }
       }
     },
+    "Untrusted: Overgrove does not fetch remotes on this Mac, and Open in Terminal asks before opening." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "신뢰하지 않음: Overgrove는 이 Mac의 원격을 페치하지 않고, 터미널에서 열기 전에 확인합니다."
+          }
+        }
+      }
+    },
     "Update the Xcode Command Line Tools, then check again." : {
       "localizations" : {
         "ko" : {
@@ -3640,6 +4140,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "갱신 중…"
+          }
+        }
+      }
+    },
+    "Upstream" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "업스트림"
           }
         }
       }
@@ -3671,6 +4181,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기본값 사용"
+          }
+        }
+      }
+    },
+    "Values are never shown. Each setting is overridden where git would use it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "값은 보여 주지 않습니다. 각 설정은 git이 쓰는 곳에서 덮어씁니다."
           }
         }
       }
@@ -3722,6 +4242,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "작업 트리 깨끗함"
+          }
+        }
+      }
+    },
+    "Worktree" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리"
           }
         }
       }
@@ -3802,6 +4332,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "작업 트리에서도 변경됨"
+          }
+        }
+      }
+    },
+    "and %lld more" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "외 %lld개"
+          }
+        }
+      }
+    },
+    "applied" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "적용됨"
           }
         }
       }
@@ -3966,6 +4516,16 @@
         }
       }
     },
+    "could not be confirmed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인하지 못함"
+          }
+        }
+      }
+    },
     "default" : {
       "comment" : "VoiceOver: the default branch",
       "localizations" : {
@@ -4003,6 +4563,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "우리가 삭제"
+          }
+        }
+      }
+    },
+    "detached" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "분리됨"
           }
         }
       }
@@ -4047,6 +4617,16 @@
         }
       }
     },
+    "fetching now" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지금 페치 중"
+          }
+        }
+      }
+    },
     "focused" : {
       "localizations" : {
         "ko" : {
@@ -4063,6 +4643,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "추적 안 된 파일에서"
+          }
+        }
+      }
+    },
+    "fsmonitor disabled" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "fsmonitor 꺼짐"
           }
         }
       }
@@ -4208,12 +4798,32 @@
         }
       }
     },
+    "last attempt failed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마지막 시도 실패"
+          }
+        }
+      }
+    },
     "linked to the selected issue" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "선택한 이슈와 연결됨"
+          }
+        }
+      }
+    },
+    "local and worktree scopes" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "local·worktree 범위"
           }
         }
       }

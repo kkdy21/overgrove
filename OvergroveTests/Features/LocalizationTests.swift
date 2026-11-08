@@ -27,6 +27,8 @@ final class LocalizationTests: XCTestCase {
         "RepositorySwitcher", "FetchFailureDetailsView", "MainToolbar", "ExternalAppsSettingsView", "GraphView",
         // #454: the Terminal confirmation and repository registration messages
         "TerminalGuard", "AppState+Registration", "RepositoryRegistrar",
+        // #454: S-05 (the Copy Report text stays English: SecurityReportTests)
+        "WorktreeDetailModel", "WorktreeDetailView",
     ]
     /// Files with translated strings among others: only these keys are checked.
     private static let translatedKeysIn = [
@@ -93,6 +95,16 @@ final class LocalizationTests: XCTestCase {
             }
         }
         XCTAssertGreaterThan(checked, 250)
+    }
+
+    /// Copy Report (#110) is never localized (docs/glossary.md, #454): the report builder extracts no keys, so the
+    /// copied text is English in every language. Its rows keep English titles; the screen shows `displayTitle`.
+    func testCopyReportStaysEnglish() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        for file in objects.map({ $0.appendingPathComponent("SecurityReport.stringsdata") })
+        where FileManager.default.fileExists(atPath: file.path) {
+            XCTAssertEqual(try Self.extractedKeys(file), [], "SecurityReport.swift must not localize")
+        }
     }
 
     /// The Korean table is in the app bundle and translates; the tests themselves run in English.
