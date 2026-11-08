@@ -194,9 +194,12 @@ struct GraphColumnHeader: View {
     var onStep: (GraphColumnLayout.Column, CGFloat) -> Void = { _, _ in }
     var onScrollLanes: (CGFloat) -> Void = { _ in }
 
+    /// Column widths are stored at 100 % and drawn at the graph zoom (#121).
+    @Environment(\.graphZoom) private var zoom
+
     var body: some View {
         HStack(spacing: 0) {
-            title("Refs").frame(width: columns.width(of: .refs), alignment: .leading)
+            title("Refs").frame(width: columns.width(of: .refs) * zoom.scale, alignment: .leading)
                 .overlay(alignment: .trailing) { divider(.refs, widensRight: true).offset(x: Self.handleWidth / 2) }
             title("Graph").frame(width: graphWidth, alignment: .leading)
                 .frame(maxHeight: .infinity)
@@ -208,7 +211,7 @@ struct GraphColumnHeader: View {
                 .overlay(alignment: .trailing) { separator.offset(x: 0.5) }
             title("Message").frame(maxWidth: .infinity, alignment: .leading)
             ForEach(columns.trailingColumns, id: \.self) { column in
-                title(column.title).frame(width: columns.width(of: column), alignment: .leading)
+                title(column.title).frame(width: columns.width(of: column) * zoom.scale, alignment: .leading)
                     .overlay(alignment: .leading) {
                         divider(column, widensRight: false).offset(x: -Self.handleWidth / 2)
                     }
@@ -229,7 +232,7 @@ struct GraphColumnHeader: View {
         GraphColumnDivider(
             column: column, width: columns.width(of: column), limitState: columns.limitState(of: column),
             widensRight: widensRight,
-            onDrag: { onResize(column, widensRight ? $0 : -$0) }, onDragEnded: onResizeEnded,
+            onDrag: { onResize(column, (widensRight ? $0 : -$0) / zoom.scale) }, onDragEnded: onResizeEnded,
             onFit: { onFit(column) }, onStep: { onStep(column, $0) })
     }
 
@@ -324,10 +327,10 @@ struct GraphLaneScroll: Equatable {
         self.contentWidth = contentWidth
     }
 
-    init(offset: CGFloat, lanes: Int) {
+    init(offset: CGFloat, lanes: Int, geometry: GraphGeometry = .standard) {
         self.init(
-            offset: GraphGeometry.clampOffset(offset, lanes: lanes), maxOffset: GraphGeometry.maxOffset(lanes: lanes),
-            contentWidth: GraphGeometry.contentWidth(lanes: lanes))
+            offset: geometry.clampOffset(offset, lanes: lanes), maxOffset: geometry.maxOffset(lanes: lanes),
+            contentWidth: geometry.contentWidth(lanes: lanes))
     }
 }
 
@@ -339,6 +342,7 @@ private struct GraphLaneScroller: View {
     let onScroll: (CGFloat) -> Void
 
     @State private var dragStart: CGFloat?
+    @Environment(\.graphZoom) private var zoom
 
     private var track: CGFloat { max(width - Tokens.Spacing.sm * 2, 1) }
     private var thumb: CGFloat { max(track * width / max(scroll.contentWidth, 1), 16) }
@@ -369,8 +373,8 @@ private struct GraphLaneScroller: View {
         .accessibilityValue("Scrolled \(Int(scroll.offset.rounded())) of \(Int(scroll.maxOffset.rounded())) points")
         .accessibilityAdjustableAction { direction in
             switch direction {
-            case .increment: onScroll(scroll.offset + GraphGeometry.lane)
-            case .decrement: onScroll(scroll.offset - GraphGeometry.lane)
+            case .increment: onScroll(scroll.offset + zoom.geometry.lane)
+            case .decrement: onScroll(scroll.offset - zoom.geometry.lane)
             @unknown default: break
             }
         }
@@ -382,6 +386,8 @@ private struct GraphLaneScroller: View {
 /// area; vertical ones pass through untouched. It takes no mouse events itself (`hitTest` returns nil).
 struct GraphLaneScrollMonitor: NSViewRepresentable {
     var isEnabled: Bool
+    /// One lane in points: a line of a line-based wheel (the graph zoom's lane width, #121).
+    var lane: CGFloat = GraphGeometry.standard.lane
     /// Points to move the lanes by; positive scrolls toward later lanes.
     let onScroll: (CGFloat) -> Void
 
@@ -391,6 +397,7 @@ struct GraphLaneScrollMonitor: NSViewRepresentable {
 
     func updateNSView(_ view: MonitorView, context: Context) {
         view.isEnabled = isEnabled
+        view.lane = lane
         view.onScroll = onScroll
     }
 
@@ -400,6 +407,7 @@ struct GraphLaneScrollMonitor: NSViewRepresentable {
 
     final class MonitorView: NSView {
         var isEnabled = false
+        var lane = GraphGeometry.standard.lane
         var onScroll: (CGFloat) -> Void = { _ in }
         private var monitor: Any?
 
@@ -430,7 +438,7 @@ struct GraphLaneScrollMonitor: NSViewRepresentable {
             let horizontal = event.scrollingDeltaX
             guard horizontal != 0, abs(horizontal) > abs(event.scrollingDeltaY) else { return false }
             // Line-based wheels report lines; a line is one lane.
-            let scale = event.hasPreciseScrollingDeltas ? 1 : GraphGeometry.lane
+            let scale = event.hasPreciseScrollingDeltas ? 1 : lane
             onScroll(-horizontal * scale)
             return true
         }

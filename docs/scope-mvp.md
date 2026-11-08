@@ -72,7 +72,7 @@
 - Pull, 스테이징 토글, 인터랙티브 리베이스, stash apply/pop/drop
 - PR 상태 표시, 이슈 생성·수정, GitHub Enterprise, GitHub App, 여러 계정 전환
 - UI 한국어 현지화
-- 그래프 확대(`⌘+`/`⌘−`), 그래프 stash 노드, 두 커밋 비교, 단어 단위 diff, 공백 표시
+- 그래프 stash 노드(#384), 그래프 확대(`⌘+`/`⌘−`, v0.2.0 #121에서 들어옴), 두 커밋 비교, 단어 단위 diff, 공백 표시
 - 태그 섹션, Quick Look, 선택 이력 뒤로/앞으로, 사용자 지정 터미널·에디터, Open on GitHub
 - 워크트리 정리(#156), GitLab·Forgejo/Gitea 이슈 패널(#154)
 
@@ -84,7 +84,7 @@
 
 | 제약 | 내용 | 해소 시점 |
 |---|---|---|
-| 그래프 행 높이 고정 | 그래프 행 높이는 24px(`size.row-graph`)로 고정한다. 가상화를 위해서다. 글자 크기 확대에 대응하지 않는다 | later (확대 기능) |
+| 그래프 행 높이 고정 | 그래프 행 높이는 30px(`size.row-graph`)로 고정한다. 가상화를 위해서다. 글자 크기 확대에 대응하지 않는다 | v0.2.0(#121): 단계별 고정 행 높이로 확대 ([interaction.md §6.3](design/interaction.md)) |
 | 자동 새로고침은 창이 보일 때만 | FSEvents로 검증된 워크트리와 공통 git 디렉터리를 감시하고 바뀐 워크트리만 다시 조회한다(#119, #163 결정 B). 창이 가려지거나 최소화되면 감시를 멈추고, 다시 보이면 한 번 새로고침한다. 그동안의 변경은 그때 반영된다. 화면에 보이지 않는 창은 갱신하지 않는다 | 의도된 동작 |
 | UI 언어 | 영어만 | later (현지화) |
 | untracked 표시 상한 | 5,000개(확정, #91). 넘으면 `UNTRACKED (5,000+)`로 표시한다. `--untracked-files=all` 유지. 근거는 [performance-budget.md PB-5](performance/performance-budget.md) | 2026-11-08 확정 |

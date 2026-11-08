@@ -29,6 +29,8 @@ struct OvergroveApp: App {
             NavigationCommands()
             // Edit › Find ⌘F, Find Next ⌘G, Find Previous ⌘⇧G, Filter Sidebar ⌥⌘F (#74).
             SearchCommands()
+            // View › Zoom In ⌘+, Zoom Out ⌘−, Actual Size ⌘0 for the graph (#121).
+            GraphZoomCommands(settings: settings)
         }
         // S-08 (⌘,), #86.
         Settings {
