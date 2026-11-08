@@ -17,6 +17,10 @@ final class CommitComparisonRenderTests: XCTestCase {
                     CommitDetailModelTests.stat("internal/http/middleware.go", .modified, 38, 4),
                     CommitDetailModelTests.stat("internal/ratelimit/limiter.go", .added, 112, 0),
                 ], isPartial: false))
+        // COMMITS (#389): the three commits from 4 (exclusive) to 1.
+        session.commits = .loaded(
+            LogParser.GraphPage(
+                commits: ["1", "2", "3"].compactMap { commits[SampleGraphLoader.oid($0)] }, isPartial: false))
         session.selectedFile = GitPath("internal/http/middleware.go")
         session.patch = .loaded(
             DiffDocument(
@@ -38,9 +42,9 @@ final class CommitComparisonRenderTests: XCTestCase {
         }
         for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let host = NSHostingView(
-                rootView: view.frame(width: 981, height: 360).background(Tokens.Color.surfacePanel))
+                rootView: view.frame(width: 981, height: 480).background(Tokens.Color.surfacePanel))
             host.appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
-            host.frame = NSRect(x: 0, y: 0, width: 981, height: 360)
+            host.frame = NSRect(x: 0, y: 0, width: 981, height: 480)
             let deadline = Date().addingTimeInterval(2)
             var bitmap: NSBitmapImageRep
             repeat {

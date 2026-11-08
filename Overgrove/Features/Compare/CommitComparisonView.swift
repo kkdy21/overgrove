@@ -79,7 +79,7 @@ struct CommitComparisonCenterView: View {
     }
 }
 
-/// S-12's detail panel: BASE, TARGET, and FILES CHANGED (screens.md S-12).
+/// S-12's detail panel: BASE, TARGET, COMMITS (#389), and FILES CHANGED (screens.md S-12).
 struct CommitComparisonListView: View {
     let session: CommitComparisonSession
     let model: CommitComparisonModel
@@ -96,6 +96,8 @@ struct CommitComparisonListView: View {
                     sectionTitle("TARGET")
                     commitRow(model.target)
                 }
+                // Even two commits with the same tree can have commits between them.
+                commits
                 if case .loaded = model.state { files }
                 if case .noChanges(let text) = model.state {
                     Text(text).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
@@ -127,6 +129,28 @@ struct CommitComparisonListView: View {
         .accessibilityLabel(row.accessibilityLabel)
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { onShowCommit(row.oid) }
+    }
+
+    /// What the target has that the base does not, newest first; a row opens that commit's S-03 like BASE/TARGET.
+    private var commits: some View {
+        DetailCard {
+            sectionTitle(
+                "COMMITS"
+                    + (model.commitsNotice == nil
+                        ? " (\(WipDetailModel.formatted(model.commits.count))\(model.hasMoreCommits ? "+" : ""))" : ""))
+            if let notice = model.commitsNotice {
+                Text(notice).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            LazyVStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
+                ForEach(model.commits, id: \.oid) { row in commitRow(row) }
+            }
+            if model.hasMoreCommits {
+                Text("Showing the newest \(WipDetailModel.formatted(model.commits.count)) commits")
+                    .font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
+            }
+        }
+        .help("Commits in \(model.target.shortSHA) that \(model.base.shortSHA) does not have")
     }
 
     private var files: some View {

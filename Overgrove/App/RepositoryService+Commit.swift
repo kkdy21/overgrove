@@ -43,6 +43,26 @@ extension RepositoryService {
         }
     }
 
+    /// Commits `target` has that `base` does not, newest first, at most `commitRangeLimit` (S-12, #389).
+    /// `isPartial` when there are more (or the output was cut). Not cached, like the file list.
+    func commitsBetween(_ repository: Repository, base: ObjectID, target: ObjectID) async
+        -> Result<LogParser.GraphPage, GitError>
+    {
+        await Self.run(repository, makeContext(repository)) { client, directory, safety in
+            // One more than shown tells whether the list goes on.
+            let output = try await client.run(
+                .commitsBetween(base: base, target: target, limit: Self.commitRangeLimit + 1), in: directory,
+                safety: safety)
+            let page = try LogParser.parseGraph(output.stdout, truncated: output.isTruncated)
+            return LogParser.GraphPage(
+                commits: Array(page.commits.prefix(Self.commitRangeLimit)),
+                isPartial: page.isPartial || page.commits.count > Self.commitRangeLimit)
+        }
+    }
+
+    /// S-12's COMMITS list shows at most this many (as S-11's `WorktreeComparison.commitLimit`).
+    static let commitRangeLimit = 500
+
     private static func readCommit(
         _ repository: Repository, _ commit: ObjectID, _ context: Context
     ) async -> Result<CommitDetail, GitError> {
