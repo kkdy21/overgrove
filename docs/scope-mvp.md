@@ -44,7 +44,7 @@
 | 워크트리 제거·prune 같은 앱 안의 로컬 쓰기 작업 | #155 결정: 조회 전용 유지. 쓰기는 터미널과 AI 에이전트가 맡는다 | `later` (#156) |
 | 자체 Git 엔진 | N5 | 계획 없음 |
 | 이슈 생성·수정, PR 상태 표시 | N6, ADR-0004 | `later` |
-| 토큰 입력·저장, OAuth, GitHub App | N7 | `later` (GitHub App 검토) |
+| 토큰 입력·저장, OAuth, GitHub App | N7 | 하지 않음. 검토 결과 gh 위임 유지 ([ADR-0024](adr/0024-keep-gh-delegation-over-github-app.md), #118) |
 | GitHub Enterprise, 여러 GitHub 계정 전환 | ADR-0004 | `later` |
 | 서명 검증 표시 (`%G?`) | T7 | 계획 없음 |
 | 서브모듈 내부 변경 표시 | ADR-0009 (`--ignore-submodules=dirty`) | v0.2.0 (#108: S-02 Submodules 카드) |
