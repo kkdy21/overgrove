@@ -94,7 +94,8 @@ final class NewerGitSettingsSecurityTests: XCTestCase {
         XCTAssertFalse(outsideFiles().isEmpty, "control: plain git writes refs outside the repository")
         try FileManager.default.removeItem(at: outside)
 
-        let inspection = try XCTUnwrap(await inspect())
+        let inspected = await inspect()
+        let inspection = try XCTUnwrap(inspected)
         XCTAssertTrue(inspection.report.findings.contains { $0.entry.key == "extensions.refstorage" })
         XCTAssertNotNil(inspection.fetchBlockingReason)
         let safety = try XCTUnwrap(inspection.safetyContext, "queries go on")
