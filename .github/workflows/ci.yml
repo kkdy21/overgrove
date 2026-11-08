@@ -74,6 +74,9 @@ jobs:
           # #312: no try! in tests, so a failing fixture fails one test instead of crashing the test host.
           scripts/lint/check-test-crashes.sh
           scripts/lint/check-test-crashes.test.sh
+          # #461: bootstrap against stand-in tools: build mode changes nothing and needs no gitleaks; contributor mode
+          # announces the hook install first; git is checked through xcrun.
+          scripts/bootstrap.test.sh
           for f in .github/labels.json .claude/settings.json .swift-format design/tokens/tokens.json; do
             jq empty "$f"
           done
