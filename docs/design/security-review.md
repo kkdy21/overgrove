@@ -300,7 +300,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
     | 대상 | 상한 | 넘으면 |
     |---|---|---|
     | filter 드라이버 | 256 | 조회 중단(fail closed). 드라이버마다 모든 git 명령에 인자 8개가 붙고, 모두 무력화하지 못하면 실행하지 않는다 |
-    | fetch 전용 덮어쓰기(`http.<url>.sslVerify`·`.proxy`·`.cookieFile`·`.saveCookies`·`.proxyAuthMethod`·`.proxySSLCertPasswordProtected`·`.sslCertPasswordProtected`·`.delegation`, `remote.<name>.proxy`·`.proxyAuthMethod`) | 256 | fetch만 막는다. 조회는 계속한다 |
+    | fetch 전용 덮어쓰기(`http.<url>.sslVerify`·`.proxy`·`.cookieFile`·`.saveCookies`·`.proxyAuthMethod`·`.proxySSLCertPasswordProtected`·`.sslCertPasswordProtected`·`.delegation`, `remote.<name>.proxy`·`.proxyAuthMethod`, `credential.<url>.protectProtocol`·`.sanitizePrompt`) | 256 | fetch만 막는다. 조회는 계속한다 |
     | 원격 목록 | 1,000 (설정 순서) | 나머지는 개수만 센다(`omittedRemotes`). fetch는 더 적게 쓴다(#259). 무력화와 무관하므로 fail closed가 아니다 |
     | 보고서 항목 | 1,000 | 나머지는 개수만 센다(`omittedFindings`). 무력화는 모든 항목에 그대로 적용한다 |
 
