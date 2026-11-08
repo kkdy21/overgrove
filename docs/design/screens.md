@@ -125,7 +125,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 - 행 높이는 `size.row-sidebar`(28). 심볼과 글자 색은 REMOTE 브랜치 행과 같다(`text.secondary` 심볼, `text.primary` 이름, `text.tertiary` 시각).
 - 태그 행을 고르면 그래프가 그 커밋으로 스크롤해 선택하고 상세 패널에 S-03이 열린다.
-- 고충실도 목업은 구현 이슈에서 그린다(`design/mockups/generator`).
+- 고충실도 목업: [mockups.md](mockups.md)의 "S-01 사이드바 TAGS" (#377).
 
 ### 중앙: 커밋 그래프
 

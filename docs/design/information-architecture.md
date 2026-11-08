@@ -218,12 +218,14 @@ flowchart LR
 
 ### 4.5 TAGS 섹션 (#123, v0.2.0)
 
+구현: #377 (`TagListModel`, `TagListSection`).
+
 v0.1은 태그를 그래프의 ref 알약으로만 보였다. 릴리스 태그로 "그 버전의 커밋"을 찾으려면 그래프를 스크롤해야 했다. TAGS 섹션은 태그 목록에서 바로 그 커밋으로 간다. 조회 전용이고 태그를 만들거나 지우거나 옮기는 동작은 없다(ADR-0011).
 
 | 항목 | 규칙 |
 |---|---|
 | 위치 | REMOTE와 STASHES 사이(§4.1). 처음에는 접힘 |
-| 데이터 | 이미 하는 refs 조회(`for-each-ref refs/tags`, [parsing-spec.md §6](../architecture/parsing-spec.md))를 쓴다. 새 git 명령이 없다. 다만 지금 형식의 `%(committerdate)`는 주석 태그(태그 객체)에서 비어 있으므로, 날짜 정렬을 하려면 구현 이슈에서 `%(creatordate:unix)`로 바꾸거나 더한다(git-command-catalog·파서·PAR 테스트를 함께 고침) |
+| 데이터 | 이미 하는 refs 조회(`for-each-ref refs/tags`, [parsing-spec.md §6](../architecture/parsing-spec.md))를 쓴다. 새 git 명령이 없다. 날짜 필드는 `%(creatordate:unix)`다. `%(committerdate)`는 주석 태그에서 비어 있어 #377에서 바꿨다(커밋에서는 두 값이 같다) |
 | 행 | `tag` 심볼 + 짧은 이름(`refs/tags/` 제외). 오른쪽 끝에 만든 날짜의 상대 시각(`3d`, REMOTE 행과 같은 모양). 그 커밋에 detached HEAD로 서 있는 워크트리가 있으면 `tree` 심볼(§4.3). 주석 태그와 가벼운 태그는 모양을 나누지 않고 툴팁과 VoiceOver에만 적는다(`Annotated tag v1.4.0, 3 days ago` / `Lightweight tag v1.4.0`) |
 | 정렬 | §4.2 |
 | 표시 상한 | 처음 200개(정렬 순서)만 행으로 그린다. 나머지는 마지막에 `N more tags — filter to find one` 안내 행 하나로 줄인다. 사이드바 필터(`⌥⌘F`)는 상한과 관계없이 전체 태그 이름에서 찾는다. 섹션 머리의 수는 전체 개수다 |
