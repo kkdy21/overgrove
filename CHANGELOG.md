@@ -41,6 +41,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
+  finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
+  each problem comes with the command that fixes it.
 - Process: the project board follows issues, pull requests, and claims automatically (`board-sync`, ADR-0016), and
   running several maintainer sessions in parallel has explicit rules (separate worktrees, assign before starting).
 

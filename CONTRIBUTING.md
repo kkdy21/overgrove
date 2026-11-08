@@ -145,6 +145,7 @@ for the local secret-scan hooks. `gh` is optional (only needed for the GitHub is
 gh repo fork kkdy21/overgrove --clone --remote   # origin = your fork, upstream = kkdy21/overgrove
 cd overgrove
 ./scripts/bootstrap.sh                           # installs Git hooks (core.hooksPath=.githooks) and checks your toolchain
+                                                 # (only building? ./scripts/bootstrap.sh --build checks and changes nothing)
 ```
 
 ### Quick start with Claude Code
