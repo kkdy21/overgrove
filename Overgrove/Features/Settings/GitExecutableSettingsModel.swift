@@ -135,7 +135,7 @@ final class GitExecutableSettingsModel {
         } catch let error as GitError {
             return .failed(error.message)
         } catch {
-            return .failed("Overgrove could not run git.")
+            return .failed(String(localized: "Overgrove could not run git."))
         }
     }
 }

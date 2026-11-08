@@ -185,7 +185,10 @@ struct GraphPanel: View {
         } else if let diff {
             DiffViewerView(
                 title: diff.title, sourceLabel: diff.source, state: diff.state, onBack: onShowGraph,
-                backTitle: history == nil ? "Graph" : "History", onShowHistory: onShowDiffHistory)
+                backTitle: history == nil
+                    ? String(localized: "Graph", comment: "Back button to the graph")
+                    : String(localized: "History", comment: "Back button to file history"),
+                onShowHistory: onShowDiffHistory)
         } else if let history {
             history
         } else {

@@ -244,9 +244,10 @@ struct LiveRepositoryLoader: RepositoryLoading, LineCountLoading {
 }
 
 extension LiveRepositoryLoader: RepositoryFetching {
-    func fetch(_ repository: Repository, untrusted: Bool, onStart: @escaping @Sendable ([String]) -> Void) async
-        -> FetchRun
-    {
+    func fetch(
+        _ repository: Repository, untrusted: @escaping @Sendable () async -> Bool,
+        onStart: @escaping @Sendable ([String]) -> Void
+    ) async -> FetchRun {
         guard let (_, service) = try? await services() else {
             // No usable git executable: nothing can be fetched or even inspected.
             return .finished(failures: [FetchFailureGuidance(configurationError: .launchFailed(errno: -1))])
