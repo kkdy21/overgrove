@@ -1,6 +1,6 @@
 # ADR-0025: GitHub 호스트는 gh에 로그인된 것만 신뢰하고, 계정은 앱이 바꾸지 않는다
 
-> 상태: Accepted · 날짜: 2026-11-08 · 관련: #446, #117, ADR-0004, ADR-0021, ADR-0023, T9, T11, T16, [git-command-catalog.md §5](../architecture/git-command-catalog.md#5-ghcommand-gh-allowlist)
+> 상태: Accepted · 날짜: 2026-11-08 · 개정: 2026-11-08 #117 구현 중 --repo에 항상 호스트를 넣도록 정정(§3) · 관련: #446, #117, ADR-0004, ADR-0021, ADR-0023, T9, T11, T16, [git-command-catalog.md §5](../architecture/git-command-catalog.md#5-ghcommand-gh-allowlist)
 
 ## 맥락
 
