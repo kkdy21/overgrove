@@ -83,6 +83,29 @@ final class AppStateGitHubLinkTests: XCTestCase {
         XCTAssertNotNil(state.rowMenuActions.gitHubCommitURL(oid))
     }
 
+    /// SEC-T14-470-1: a failed load drops the remotes the repository was last inspected with.
+    func testSECT14_470_1_AFailedLoadDropsTheVerifiedRemotes() async throws {
+        let mock = WorktreeListing.entry(
+            "/tmp/dev/api", branch: "main", isMain: true, state: .loaded(WorktreeListing.state(branch: "main")))
+        var listing = WorktreeListing(entries: [mock], isPartial: false)
+        listing.remotes = [WorktreeListing.Remote(name: "origin", url: "https://github.com/acme/api.git")]
+        let loader = FailingRepositoryLoader([listing, nil], failures: [.blocked(reason: "test")])
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: loader, graphLoader: SampleGraphLoader(), commitLoader: StubCommitLoader())
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: URL(fileURLWithPath: "/tmp/dev/api"),
+                    commonGitDirectoryURL: URL(fileURLWithPath: "/tmp/dev/api/.git"), isBare: false), owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertNotNil(state.verifiedGitHubSource)
+        state.reload()
+        await state.loadTask?.value
+        XCTAssertNil(state.verifiedGitHubSource)
+    }
+
     private func rows(_ nodes: [BranchNode]) -> [BranchRow] {
         nodes.flatMap { node -> [BranchRow] in
             switch node {
