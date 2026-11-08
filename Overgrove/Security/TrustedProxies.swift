@@ -22,10 +22,11 @@ struct TrustedProxies {
     private var patterns: [(url: ProxyURL, value: String)] = []
 
     /// Trusted values of `variable` (lowercase, as `ConfigParser` gives it), for `http.<variable>`,
-    /// `http.<url>.<variable>`, and `remote.<name>.<variable>`.
-    init(_ entries: [ConfigEntry], variable: String = "proxy") {
+    /// `http.<url>.<variable>`, and `remote.<name>.<variable>`. `implicitValue` is what a key written without `=`
+    /// means: `true` for a boolean (git reads `[http] sslCertPasswordProtected` as true, but `-c key=` as false).
+    init(_ entries: [ConfigEntry], variable: String = "proxy", implicitValue: String = "") {
         for entry in entries where !entry.scope.isRepositoryControlled && entry.variable == variable {
-            let value = entry.value ?? ""
+            let value = entry.value ?? implicitValue
             switch (entry.section, entry.subsection) {
             case ("remote", _):
                 byKey[Array(entry.key.utf8)] = value

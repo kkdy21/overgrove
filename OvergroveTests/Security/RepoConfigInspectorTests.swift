@@ -244,6 +244,13 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertEqual(
             inspect([entry(.local, "http.sslcertpasswordprotected", "true")]).fetchAuthentication,
             ["-c", "http.sslcertpasswordprotected=false"])
+        // A trusted key written without `=` is true for git; the override must not turn it into `-c key=` (false).
+        XCTAssertEqual(
+            inspect([
+                entry(.global, "http.proxysslcertpasswordprotected", nil),
+                entry(.local, "http.proxysslcertpasswordprotected", "false"),
+            ]).fetchAuthentication,
+            ["-c", "http.proxysslcertpasswordprotected=true"])
     }
 
     /// #367: Kerberos ticket forwarding is pinned off for fetch (`FetchCommand`), and a repository's URL-specific

@@ -453,8 +453,8 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^http\.(.+\.)?proxy$` | 전송 보안 | **무력화**: 같은 키에 그 URL에 대한 신뢰 실효 프록시(가장 구체적인 신뢰 `http.<url>.proxy` → 신뢰 `http.proxy`), 없으면 빈 값 (fetch). 로컬 프록시가 신뢰 helper가 내준 자격 증명을 받을 수 있다 (#150 리뷰 실측, #355) | T11 |
 | `^remote\..+\.proxy$` | 전송 보안 | **무력화**: 같은 키에 신뢰 값, 없으면 원격 URL에 대한 신뢰 실효 프록시, 없으면 빈 값 (fetch, 그 원격에서 `http.proxy`보다 우선). subsection에 `=`가 있거나 UTF-8이 아니면 덮어쓸 수 없어 조회를 막는다 (#355) | T11 |
 | `^http\.(.+\.)?proxyauthmethod$`, `^remote\..+\.proxyauthmethod$` | 전송 보안 | **무력화**: 같은 키에 신뢰 값(`proxy`와 같은 찾기: 같은 키 → 가장 구체적인 신뢰 `http.<url>.proxyAuthMethod` → 신뢰 `http.proxyAuthMethod`), 없으면 `anyauth` (fetch). `basic`이면 프록시 비밀번호가 평문으로 간다. 원격 키의 subsection에 `=`가 있거나 UTF-8이 아니면 조회를 막는다 (#367 실측) | T11 |
-| `^http\.(.+\.)?(proxysslcertpasswordprotected\|sslcertpasswordprotected)$` | 전송 보안 | **무력화**: 같은 키에 신뢰 값, 없으면 `false` (fetch). 켜면 git이 신뢰 helper에 인증서 비밀번호를 묻는다 (프록시 키 #367 실측, 원격 키는 같은 동작) | T11 |
-| `^http\.(.+\.)?delegation$` | 전송 보안 | **무력화**: fetch overrides가 `http.delegation=none`, 저장소의 URL별 키는 같은 키에 `none` (fetch). `always`면 Kerberos 티켓을 저장소가 고른 원격 호스트에 위임할 수 있다. 측정 안 함(Kerberos 환경 없음), 인자 수준 확인 (#367) | T11 |
+| `^http\.(.+\.)?(proxysslcertpasswordprotected\|sslcertpasswordprotected)$` | 전송 보안 | **무력화**: 같은 키에 신뢰 값(값 없이 쓴 신뢰 키는 `true`), 없으면 `false` (fetch). 켜면 git이 신뢰 helper에 인증서 비밀번호를 묻는다 (프록시 키는 #367 실측, 원격 키는 소스 기준·미측정) | T11 |
+| `^http\.(.+\.)?delegation$` | 전송 보안 | **무력화**: fetch overrides가 `http.delegation=none`, 저장소의 URL별 키는 같은 키에 `none` (fetch). 고정값은 사용자의 generic 값도 끈다. 저장소가 사용자 키보다 구체적인 URL 키를 두면 그 원격에서는 사용자의 URL별 위임도 꺼진다(쿠키와 같은 구조, 안전한 쪽). `always`면 Kerberos 티켓을 저장소가 고른 원격 호스트에 위임할 수 있다. 측정 안 함(Kerberos 환경 없음), 인자 수준 확인 (#367) | T11 |
 | `^http\.(.+\.)?cookiefile$`, `^http\.(.+\.)?savecookies$` | 전송 보안 | **무력화**: 같은 키에 빈 값·`false` (fetch). generic 키는 fetch overrides도 끈다. 저장소가 고른 파일을 쿠키 저장소로 읽고 쓰지 않게 한다 (#355) | T11 |
 | `^core\.fsmonitor$` | 실행 | 보고 (공통 인자로 차단) | T1 |
 | `^core\.hookspath$` | 실행 | 보고 (공통 인자로 차단) | T2 |

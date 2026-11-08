@@ -240,7 +240,10 @@ enum RepoConfigInspector {
             var trustedByVariable: [String: TrustedProxies] = [:]
             for entry in resetProxyAuth {
                 let variable = entry.variable
-                let lookup = trustedByVariable[variable] ?? TrustedProxies(listing.entries, variable: variable)
+                let isBoolean = variable.hasSuffix("passwordprotected")
+                let lookup =
+                    trustedByVariable[variable]
+                    ?? TrustedProxies(listing.entries, variable: variable, implicitValue: isBoolean ? "true" : "")
                 trustedByVariable[variable] = lookup
                 let value = lookup.value(
                     replacing: entry, remoteURL: remoteURL(entry), fallback: defaults[variable] ?? "")
