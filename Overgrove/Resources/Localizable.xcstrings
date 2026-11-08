@@ -1,6 +1,26 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "#%lld" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#%lld"
+          }
+        }
+      }
+    },
+    "#%lld is not in the open issue list" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#%lld은(는) 열린 이슈 목록에 없습니다"
+          }
+        }
+      }
+    },
     "%@ (%@)" : {
       "localizations" : {
         "ko" : {
@@ -898,6 +918,16 @@
         }
       }
     },
+    "Cancel" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "취소"
+          }
+        }
+      }
+    },
     "Cannot be used: %@ Queries are stopped until you choose another git or use the default." : {
       "localizations" : {
         "ko" : {
@@ -1561,6 +1591,16 @@
         }
       }
     },
+    "Couldn't check GitHub CLI" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI를 확인하지 못했습니다"
+          }
+        }
+      }
+    },
     "Couldn’t Add Repository" : {
       "localizations" : {
         "ko" : {
@@ -1698,6 +1738,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "초안"
+          }
+        }
+      }
+    },
+    "Drag the gutter, double-click to reset, ⌃⌘S / ⌥⌘0 to collapse." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "경계선을 끌어 크기를 바꾸고, 두 번 클릭하면 되돌립니다. ⌃⌘S / ⌥⌘0으로 접습니다."
           }
         }
       }
@@ -2112,6 +2162,16 @@
         }
       }
     },
+    "GitHub CLI is not installed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI가 설치되어 있지 않습니다"
+          }
+        }
+      }
+    },
     "Graph" : {
       "comment" : "Graph column",
       "localizations" : {
@@ -2169,6 +2229,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "직접 운영하는 Git 서버 도움말"
+          }
+        }
+      }
+    },
+    "Hide Detail" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상세 숨기기"
           }
         }
       }
@@ -2304,6 +2374,16 @@
         }
       }
     },
+    "Install GitHub CLI to see issues, then check again:" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈를 보려면 GitHub CLI를 설치한 뒤 다시 확인하세요:"
+          }
+        }
+      }
+    },
     "Install the Xcode Command Line Tools, then check again:" : {
       "localizations" : {
         "ko" : {
@@ -2320,6 +2400,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이슈"
+          }
+        }
+      }
+    },
+    "Issue %lld" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈 %lld"
+          }
+        }
+      }
+    },
+    "Issue %lld, not in the open issue list" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈 %lld, 열린 이슈 목록에 없음"
           }
         }
       }
@@ -2501,6 +2601,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "잠김: %@"
+          }
+        }
+      }
+    },
+    "Logged in as @%@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "@%@(으)로 로그인됨"
           }
         }
       }
@@ -2796,6 +2906,16 @@
         }
       }
     },
+    "Not logged in" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 안 됨"
+          }
+        }
+      }
+    },
     "Not part of this repository" : {
       "localizations" : {
         "ko" : {
@@ -2892,6 +3012,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "열림"
+          }
+        }
+      }
+    },
+    "Open Anyway" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그래도 열기"
           }
         }
       }
@@ -3122,6 +3252,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove는 호스트 키를 스스로 받아들이지 않습니다. 서버의 지문을 Git 호스트가 공개한 지문과 비교한 뒤 Overgrove 밖에서 키를 받아들이세요."
+          }
+        }
+      }
+    },
+    "Overgrove never asks for or stores tokens." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove는 토큰을 묻거나 저장하지 않습니다."
           }
         }
       }
@@ -3588,6 +3728,16 @@
         }
       }
     },
+    "Run this in Terminal, then check again:" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널에서 이 명령을 실행한 뒤 다시 확인하세요:"
+          }
+        }
+      }
+    },
     "Runs %@" : {
       "localizations" : {
         "ko" : {
@@ -3636,6 +3786,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%2$lld포인트 중 %1$lld포인트 스크롤함"
+          }
+        }
+      }
+    },
+    "Search commits, authors, refs, #issues" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋, 작성자, ref, #이슈 검색"
           }
         }
       }
@@ -3706,6 +3866,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "변경 사항 보기"
+          }
+        }
+      }
+    },
+    "Show Detail" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상세 보기"
           }
         }
       }
@@ -3820,6 +3990,16 @@
         }
       }
     },
+    "Show issue #%lld" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈 #%lld 보기"
+          }
+        }
+      }
+    },
     "Show keys" : {
       "localizations" : {
         "ko" : {
@@ -3856,6 +4036,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove가 이 저장소를 갱신하는 동안 지난 세션의 내용을 보여 줍니다."
+          }
+        }
+      }
+    },
+    "Shows the stash's changes" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스태시의 변경 내용을 보여 줍니다"
           }
         }
       }

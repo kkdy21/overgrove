@@ -10,43 +10,13 @@ final class LocalizationTests: XCTestCase {
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     private static let catalog = repo.appendingPathComponent("Overgrove/Resources/Localizable.xcstrings")
 
-    /// Translated screens: every string the compiler extracts from these files must have Korean. Stage 1 (#120) and
-    /// the screens of #454 so far; the status bar's gh field and the issue panel come later.
-    private static let translatedSources = [
-        // #120
-        "SettingsView", "GitExecutableSettingsView", "GitExecutableSettingsModel", "SetupAssistantView",
-        "GraphHeaderViews", "GraphColumnLayout", "GraphAuthorFilter", "DiffViewerView", "NavigationCommands",
-        "SearchCommands", "GraphZoomCommands", "OvergroveApp",
-        // #454: S-03, S-04, S-09, S-11, S-12, the sidebar's worktree, branch, tag, and stash sections, row menus
-        "CommitDetailView", "CommitDetailModel", "StashViews", "StashModels", "FileHistoryView", "FileHistoryModel",
-        "CommitComparisonView", "CommitComparisonModel", "ComparisonView", "ComparisonModel", "BranchListModel",
-        "BranchListSection", "TagListModel", "TagListSection", "WorktreeListModel", "WorktreeListSection", "RowMenu",
-        "GraphRowModel", "AppState+Comparison",
-        // #454: S-02, submodules, search, the toolbar, the repository switcher, fetch details, Settings › Apps
-        "WipDetailModel", "WipDetailView", "SubmoduleSectionModel", "SubmoduleSectionView", "GraphSearch",
-        "RepositorySwitcher", "FetchFailureDetailsView", "MainToolbar", "ExternalAppsSettingsView", "GraphView",
-        // #454: the Terminal confirmation and repository registration messages
-        "TerminalGuard", "AppState+Registration", "RepositoryRegistrar",
-        // #454: S-05 (the Copy Report text stays English: SecurityReportTests)
-        "WorktreeDetailModel", "WorktreeDetailView",
-        // #454: summaries and guidance the app writes; git's and gh's own output and copyable commands stay as they are
-        "GitError", "FetchFailureGuidance",
-        // #454: the PR pill and the S-05 Pull request card (#115)
-        "PullRequestModels", "PullRequestViews",
-    ]
-    /// Files with translated strings among others: only these keys are checked.
-    private static let translatedKeysIn = [
-        "PanelChrome": Set([
-            "Graph", "History", "No repository open", "Add a repository to see its worktrees.", "History unavailable",
-            "Commit graph", "The history of every worktree appears here.", "Open a repository to see its history.",
-            "Commit %@", "No selection", "Details",
-            "Changes in the focused worktree or the selected commit appear here.",
-            "Commits", "Loading history…",
-        ]),
-        "StatusBar": Set(["just now", "%lld min ago", "%lld h ago", "%lld d ago"]),
-        "ExternalApps": Set(["Terminal", "Editor"]),
-        "GHStatusGuidanceView": Set(["Copy", "Copy command %@"]),
-    ]
+    /// A key with no letters once its placeholders are removed (`%@ (%@)`, `#%lld`, spacing) needs no Korean: it reads
+    /// the same in every language.
+    private static func needsTranslation(_ key: String) -> Bool {
+        let bare = key.replacingOccurrences(
+            of: "%(?:[0-9]+\\$)?(?:@|lld|ld|d)", with: "", options: .regularExpression)
+        return bare.rangeOfCharacter(from: .letters) != nil
+    }
 
     private func catalogStrings() throws -> [String: [String: Any]] {
         let data = try Data(contentsOf: Self.catalog)
@@ -82,23 +52,28 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    /// The strings the compiler extracted from the translated sources (the build's `.stringsdata`) all have Korean.
-    func testTranslatedSourcesHaveKorean() throws {
+    /// Every string the compiler extracts anywhere in the app (the build's `.stringsdata`) has Korean (#454: the whole
+    /// app, not a list of screens). Text that must stay English (Copy Report, git's and gh's own output, copyable
+    /// commands) is never extracted in the first place.
+    func testEveryExtractedStringHasKorean() throws {
         let strings = try catalogStrings()
         let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
         var checked = 0
-        for name in Self.translatedSources + Array(Self.translatedKeysIn.keys) {
-            let files = objects.map { $0.appendingPathComponent("\(name).stringsdata") }
-                .filter { FileManager.default.fileExists(atPath: $0.path) }
-            XCTAssertFalse(files.isEmpty, "no strings extracted from \(name).swift")
+        var missing: [String] = []
+        for directory in objects {
+            let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                .filter { $0.pathExtension == "stringsdata" }
             for file in files {
-                for key in try Self.extractedKeys(file) where Self.translatedKeysIn[name]?.contains(key) ?? true {
+                for key in try Self.extractedKeys(file) where Self.needsTranslation(key) {
                     checked += 1
-                    XCTAssertNotNil(strings[key].flatMap(korean), "\(name).swift: no Korean for “\(key)”")
+                    if strings[key].flatMap(korean) == nil {
+                        missing.append("\(file.deletingPathExtension().lastPathComponent).swift: “\(key)”")
+                    }
                 }
             }
         }
-        XCTAssertGreaterThan(checked, 250)
+        XCTAssertEqual(missing.sorted(), [], "strings without Korean")
+        XCTAssertGreaterThan(checked, 600)
     }
 
     /// Copy Report (#110) is never localized (docs/glossary.md, #454): the report builder extracts no keys, so the
