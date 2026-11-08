@@ -16,6 +16,8 @@ struct SettingsView: View {
                 .tabItem { Label("General", systemImage: "gearshape") }
             RepositoriesSettingsView(registry: registry, actions: actions)
                 .tabItem { Label("Repositories", systemImage: "folder") }
+            AdvancedSettingsView(model: GitExecutableSettingsModel(settings: settings, registry: registry))
+                .tabItem { Label("Advanced", systemImage: "gearshape.2") }
         }
         .frame(width: Self.width)
     }
@@ -73,6 +75,14 @@ private struct RepositoriesSettingsView: View {
                             Text(entry.displayRootPath).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
+                        // #107: the same flag as S-05's "Treat as untrusted".
+                        Toggle(
+                            "Untrusted",
+                            isOn: Binding(
+                                get: { entry.isUntrusted }, set: { registry.setUntrusted($0, for: entry.id) })
+                        )
+                        .toggleStyle(.checkbox)
+                        .help("Do not fetch remotes on this Mac, and ask before Open in Terminal.")
                         Button("Remove") { actions.remove(entry.id) }
                             .help("Remove from Overgrove. The folder is not touched.")
                     }

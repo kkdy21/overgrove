@@ -7,6 +7,8 @@ enum GitSetupStatus: Equatable, Sendable {
     /// No developer tools: `xcode-select -p` found nothing, or the git there is missing.
     case missing
     case unsupported(found: GitVersion)
+    /// The git chosen in Settings fails ADR-0019's rules (#106); both strings are escaped. Offer Use Default.
+    case chosenRejected(path: String, reason: String)
     /// Any other failure, as a one-line escaped message.
     case failed(String)
 
@@ -44,6 +46,7 @@ struct LiveGitSetupChecker: GitSetupChecking {
         switch error {
         case .executableNotFound: .missing
         case .unsupportedVersion(let found): .unsupported(found: found)
+        case .chosenExecutableRejected(let path, let reason): .chosenRejected(path: path, reason: reason)
         default: .failed(PathValidator.displayable(error.message))
         }
     }
