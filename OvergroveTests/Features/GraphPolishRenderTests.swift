@@ -94,9 +94,10 @@ final class GraphPolishRenderTests: XCTestCase {
         let store = try await loadedStore(WideGraphLoader())
         XCTAssertGreaterThan(store.laneCount, Tokens.Size.graphMaxLanesVisible)
         XCTAssertEqual(
-            GraphGeometry.width(lanes: store.laneCount), GraphGeometry.width(lanes: Tokens.Size.graphMaxLanesVisible),
+            GraphGeometry.standard.width(lanes: store.laneCount),
+            GraphGeometry.standard.width(lanes: Tokens.Size.graphMaxLanesVisible),
             "the column stops growing at twelve lanes")
-        XCTAssertGreaterThan(GraphGeometry.maxOffset(lanes: store.laneCount), 0)
+        XCTAssertGreaterThan(GraphGeometry.standard.maxOffset(lanes: store.laneCount), 0)
         // Picking the last branch's tip scrolls its lane into view (GraphView's `onChange` of the selection).
         store.select(WideGraphLoader.oid(WideGraphLoader.branchCount - 1))
         try render(

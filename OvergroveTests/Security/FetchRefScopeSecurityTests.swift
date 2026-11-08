@@ -67,7 +67,7 @@ final class FetchRefScopeSecurityTests: XCTestCase {
 
     func testSECT13_04_RepositoryConfigCannotWidenWhatFetchWrites() async throws {
         let before = try await localRefs()
-        let client = GitClient(environment: local.environment)
+        let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting)
 
         // The real flow: inspect, then fetch with the resulting context.
         let listing = try await client.run(.configList, in: local.root, safety: .preInspection)

@@ -7,6 +7,9 @@ import Foundation
 /// an empty value instead would break a user behind a company proxy: the override is more specific than their
 /// `http.proxy`. So the override carries the value git would have used without the repository's setting.
 ///
+/// The same lookup serves the other proxy settings a repository must not choose (#367): `proxyAuthMethod` and
+/// `proxySSLCertPasswordProtected` are read per variable, with a default for when no trusted value exists.
+///
 /// The URL matching follows git's `http.<url>.*` rules (scheme, host with `*` labels, port, path prefix, user;
 /// precedence host, then path, then user; the last of equals wins) without git's percent-decoding. Whatever it
 /// picks is a trusted value or nothing, never the repository's, so a mismatch can only cost a working proxy.
@@ -18,9 +21,12 @@ struct TrustedProxies {
     /// Trusted `http.<url>.proxy` entries in configuration order.
     private var patterns: [(url: ProxyURL, value: String)] = []
 
-    init(_ entries: [ConfigEntry]) {
-        for entry in entries where !entry.scope.isRepositoryControlled && entry.variable == "proxy" {
-            let value = entry.value ?? ""
+    /// Trusted values of `variable` (lowercase, as `ConfigParser` gives it), for `http.<variable>`,
+    /// `http.<url>.<variable>`, and `remote.<name>.<variable>`. `implicitValue` is what a key written without `=`
+    /// means: `true` for a boolean (git reads `[http] sslCertPasswordProtected` as true, but `-c key=` as false).
+    init(_ entries: [ConfigEntry], variable: String = "proxy", implicitValue: String = "") {
+        for entry in entries where !entry.scope.isRepositoryControlled && entry.variable == variable {
+            let value = entry.value ?? implicitValue
             switch (entry.section, entry.subsection) {
             case ("remote", _):
                 byKey[Array(entry.key.utf8)] = value
@@ -46,17 +52,18 @@ struct TrustedProxies {
         return best?.value ?? generic
     }
 
-    /// The value to override a repository's proxy key with. `remoteURL` is the remote's URL for `remote.<name>.proxy`.
-    func value(replacing entry: ConfigEntry, remoteURL: String?) -> String {
+    /// The value to override a repository's key with, or `fallback` when the trusted scopes give none. `remoteURL` is
+    /// the remote's URL for `remote.<name>.<variable>`.
+    func value(replacing entry: ConfigEntry, remoteURL: String?, fallback: String = "") -> String {
         switch (entry.section, entry.subsection) {
         case ("remote", _):
-            return byKey[Array(entry.key.utf8)] ?? proxy(for: remoteURL) ?? ""
+            return byKey[Array(entry.key.utf8)] ?? proxy(for: remoteURL) ?? fallback
         case ("http", nil):
-            return generic ?? ""
+            return generic ?? fallback
         case ("http", let pattern?):
-            return proxy(for: pattern) ?? ""
+            return proxy(for: pattern) ?? fallback
         default:
-            return ""
+            return fallback
         }
     }
 }

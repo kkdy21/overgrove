@@ -38,7 +38,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | QA | [qa/checklist.md](qa/checklist.md) | 수동 점검 체크리스트 (QA-xx) |
 | QA | [qa/release-checklist.md](qa/release-checklist.md) | 릴리스 직전 점검 |
 | QA | [qa/bug-triage.md](qa/bug-triage.md) | 버그 분류 기준, 심각도 |
-| QA | [qa/reports/](qa/reports/) | 실행 보고 ([보안 테스트 통과 보고](qa/reports/2026-11-08-security-test-pass.md) #97, [성능 예산 검증 보고](qa/reports/2026-11-08-performance-budget.md) #98, [git 호환성 매트릭스 보고](qa/reports/2026-11-08-git-compatibility.md) #99, [fetch 경로 점검 보고](qa/reports/2026-11-08-fetch-path-audit.md) #353) |
+| QA | [qa/reports/](qa/reports/) | 실행 보고 ([보안 테스트 통과 보고](qa/reports/2026-11-08-security-test-pass.md) #97, [성능 예산 검증 보고](qa/reports/2026-11-08-performance-budget.md) #98, [git 호환성 매트릭스 보고](qa/reports/2026-11-08-git-compatibility.md) #99, [v0.2 bug bash 보고](qa/reports/2026-11-08-v0-2-bug-bash.md) #409, [fetch 경로 점검 보고](qa/reports/2026-11-08-fetch-path-audit.md) #353) |
 | 프로세스 | [process/development-workflow.md](process/development-workflow.md) | Discussion → Issue → Branch → PR → Merge 전체 흐름 |
 | 프로세스 | [process/issues.md](process/issues.md) | 이슈 규칙, 라벨, 트리아지, Epic |
 | 프로세스 | [process/pull-requests.md](process/pull-requests.md) | PR 규칙, 리뷰와 코멘트 규약, 머지 정책 |
@@ -99,7 +99,7 @@ OvergroveTests/
 
 ### 2.3 모델 이름
 
-`Repository`, `Worktree`, `WorkingState`, `FileChange`, `UpstreamStatus`, `Stash`, `StashDetail`, `CommitNode`, `CommitDetail`, `FileHistoryEntry`, `Branch`, `Issue`, `GHAuthStatus`, `FetchRecord`, `GitPath`(raw 바이트 + 표시 문자열), `ConfigEntry`, `RepoSecurityReport`
+`Repository`, `Worktree`, `WorkingState`, `FileChange`, `UpstreamStatus`, `Stash`, `StashDetail`, `CommitNode`, `CommitDetail`, `FileHistoryEntry`, `Branch`, `Issue`, `GHAuthStatus`, `FetchRecord`, `GitPath`(raw 바이트 + 표시 문자열), `ConfigEntry`, `RepoSecurityReport`, `SubmoduleStatus`·`SubmoduleListing`(#108)
 
 보조 타입: `ObjectID`(SHA-1·SHA-256 검증), `ConflictKind`(unmerged XY 7종), `FileStat`(커밋·stash 파일 통계), `WorkingLineCounts`(WIP 상세의 staged·unstaged 파일별 줄 수, #230), `Tag`, `GitVersion`(최소 2.36 판정), `GitHubRepository`(`--repo`용 검증된 `OWNER/NAME`, `Overgrove/GitHub/`), `FetchProgress`(fetch 진행 단계와 숫자), `AIAgentRule`(co-author 트레일러로 AI 작성 커밋 판정, #160). 정의는 `Overgrove/Models/`에 있다. 파서 실패는 `Overgrove/Parsing/ParseError`로 내고, `GitError`가 `parseFailed`로 감싼다.
 
@@ -135,7 +135,7 @@ OvergroveTests/
 | 0001 | 제품명 Overgrove | Accepted |
 | 0002 | 라이선스 MIT | Accepted |
 | 0003 | 최소 macOS 14 | Accepted |
-| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted |
+| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted (§2는 0023으로 대체) |
 | 0005 | 문서 언어 (내부 한국어, 외부 접점 영어) | Accepted |
 | 0006 | 외부 의존성 0개 | Accepted |
 | 0007 | 포맷·린트는 툴체인 내장 swift-format | Accepted |
@@ -151,6 +151,10 @@ OvergroveTests/
 | 0017 | 디자인 토큰은 Swift 스크립트로 Asset Catalog와 Swift 상수를 생성해 커밋 | Accepted |
 | 0018 | 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 | Accepted |
 | 0019 | 사용자가 고른 git 실행 파일을 믿는 조건 | Accepted |
+| 0020 | git 호환성 매트릭스를 CI에서 돌리는 방법 | Accepted |
+| 0021 | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
+| 0022 | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
+| 0023 | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |
 
 ### 2.6 테스트 ID
 
@@ -182,6 +186,7 @@ ID 원본 위치: SEC → [design/security-review.md](design/security-review.md)
 | S-09 | 파일 이력 |
 | S-10 | Diff 뷰어 |
 | S-11 | 기준 브랜치 대비 변경 (PR식 비교, #157·#158) |
+| S-12 | 두 커밋 비교 (v0.2.0, #122) |
 
 ### 2.7.1 단축키
 

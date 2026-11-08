@@ -26,9 +26,14 @@ struct GraphView: View {
     var columns: GraphColumnLayout = .default
     /// A finished column change: saved per repository.
     var onCommitColumns: (GraphColumnLayout) -> Void = { _ in }
+    /// Stashes drawn above their base commits (#384); empty when `Show Stashes` is off.
+    var stashes: [Stash] = []
+    var selectedStash: ObjectID?
+    var onSelectStash: (ObjectID) -> Void = { _ in }
 
     @FocusState private var hasFocus: Bool
     @Environment(\.rowMenu) private var rowMenu
+    @Environment(\.graphZoom) private var zoom
     /// The layout while a column divider is dragged; committed on release.
     @State private var dragColumns: GraphColumnLayout?
     @State private var dragBase: GraphColumnLayout?
@@ -36,10 +41,13 @@ struct GraphView: View {
     /// How far the lanes are scrolled sideways (more than `size.graph-max-lanes-visible` lanes).
     @State private var laneOffset: CGFloat = 0
 
-    private var graphWidth: CGFloat { GraphGeometry.width(lanes: store.laneCount) }
+    private var geometry: GraphGeometry { zoom.geometry }
+    private var graphWidth: CGFloat { geometry.width(lanes: store.laneCount) }
     private var headIndex: Int? { store.head.flatMap(store.index(of:)) }
     private var shownColumns: GraphColumnLayout { dragColumns ?? columns }
-    private var laneScroll: GraphLaneScroll { GraphLaneScroll(offset: laneOffset, lanes: store.laneCount) }
+    private var laneScroll: GraphLaneScroll {
+        GraphLaneScroll(offset: laneOffset, lanes: store.laneCount, geometry: geometry)
+    }
     private var isDimming: Bool { search != nil || authorMatches != nil }
 
     private func isBright(_ oid: ObjectID) -> Bool {
@@ -62,7 +70,7 @@ struct GraphView: View {
                             GraphWipRowView(
                                 wip: wip, column: headIndex.map { store.rows[$0].column } ?? 0,
                                 hasLine: headIndex != nil, graphWidth: graphWidth,
-                                refsWidth: shownColumns.width(of: .refs), laneOffset: laneScroll.offset
+                                refsWidth: shownColumns.width(of: .refs) * zoom.scale, laneOffset: laneScroll.offset
                             )
                             .id(Self.wipRowID)
                             // interaction.md §2: clicking the WIP row selects the worktree's changes (#311).
@@ -73,12 +81,21 @@ struct GraphView: View {
                             .contextMenu { wipMenu }
                             .opacity(isDimming ? Tokens.Opacity.disabled : 1)
                         }
+                        // Hidden while searching or filtering by author: the dimmed graph shows matches only.
+                        let stashRows =
+                            isDimming
+                            ? [:] : GraphStashPlacement.byBaseRow(stashes, index: { store.index(of: $0) })
                         ForEach(store.rows.indices, id: \.self) { index in
-                            row(index)
+                            if let above = stashRows[index] {
+                                ForEach(Array(above.enumerated()), id: \.element.oid) { position, stash in
+                                    stashRow(stash, baseIndex: index, hasStashAbove: position > 0)
+                                }
+                            }
+                            row(index, hasStashAbove: stashRows[index] != nil)
                                 .onAppear { store.rowAppeared(index) }
                         }
                         if store.isLoadingMore {
-                            ProgressView().controlSize(.small).frame(height: GraphGeometry.rowHeight)
+                            ProgressView().controlSize(.small).frame(height: geometry.rowHeight)
                         }
                     }
                 }
@@ -86,14 +103,23 @@ struct GraphView: View {
                     guard let target, let index = store.index(of: target.oid) else { return }
                     proxy.scrollTo(index, anchor: .center)
                 }
+                // Zooming keeps the selected commit in view (#121): every row changes height.
+                .onChange(of: zoom) {
+                    laneOffset = geometry.clampOffset(laneOffset, lanes: store.laneCount)
+                    reveal(store.selected)
+                    guard let selected = store.selected, let index = store.index(of: selected) else { return }
+                    proxy.scrollTo(index, anchor: .center)
+                }
                 .overlay(alignment: .topLeading) {
                     // Sideways swipes over the Graph column move the lanes (#255); the rest scroll the rows.
-                    GraphLaneScrollMonitor(isEnabled: laneScroll.maxOffset > 0) { scrollLanes(laneScroll.offset + $0) }
-                        .frame(width: graphWidth)
-                        .frame(maxHeight: .infinity)
-                        .padding(.leading, shownColumns.width(of: .refs))
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
+                    GraphLaneScrollMonitor(isEnabled: laneScroll.maxOffset > 0, lane: geometry.lane) {
+                        scrollLanes(laneScroll.offset + $0)
+                    }
+                    .frame(width: graphWidth)
+                    .frame(maxHeight: .infinity)
+                    .padding(.leading, shownColumns.width(of: .refs) * zoom.scale)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 }
             }
         }
@@ -128,7 +154,9 @@ struct GraphView: View {
     private func resize(_ column: GraphColumnLayout.Column, by delta: CGFloat) {
         let base = dragBase ?? columns
         dragBase = base
-        dragColumns = base.resizing(column, by: delta, panelWidth: panelWidth, graphWidth: graphWidth)
+        // Widths are stored at 100 %; the panel and the graph column are measured at the zoom (#121).
+        dragColumns = base.resizing(
+            column, by: delta, panelWidth: panelWidth / zoom.scale, graphWidth: graphWidth / zoom.scale)
     }
 
     private func endResize() {
@@ -145,11 +173,11 @@ struct GraphView: View {
 
     private func reveal(_ oid: ObjectID?) {
         guard laneScroll.maxOffset > 0, let oid, let index = store.index(of: oid) else { return }
-        laneOffset = GraphGeometry.revealing(store.rows[index].column, offset: laneOffset, lanes: store.laneCount)
+        laneOffset = geometry.revealing(store.rows[index].column, offset: laneOffset, lanes: store.laneCount)
     }
 
     private func scrollLanes(_ offset: CGFloat) {
-        laneOffset = GraphGeometry.clampOffset(offset, lanes: store.laneCount)
+        laneOffset = geometry.clampOffset(offset, lanes: store.laneCount)
     }
 
     @ViewBuilder
@@ -188,21 +216,35 @@ struct GraphView: View {
         return .handled
     }
 
-    private func row(_ index: Int) -> some View {
+    private func wipLine(at index: Int) -> GraphWipLine {
+        guard store.wip != nil, let head = headIndex else { return .none }
+        return index < head ? .through(store.rows[head].column) : (index == head ? .ends : .none)
+    }
+
+    /// A stash above the commit at `baseIndex` (#384): the lanes between that commit and the one above pass through.
+    private func stashRow(_ stash: Stash, baseIndex: Int, hasStashAbove: Bool) -> some View {
+        let base = store.rows[baseIndex]
+        let wipColumn: Int? = wipLine(at: baseIndex) == .none ? nil : headIndex.map { store.rows[$0].column }
+        return GraphStashRowView(
+            stash: stash, column: base.column, colorIndex: base.colorIndex, through: base.incoming,
+            wipColumn: wipColumn, hasStashAbove: hasStashAbove, isSelected: stash.oid == selectedStash,
+            graphWidth: graphWidth, now: now, columns: shownColumns, laneOffset: laneScroll.offset
+        ) {
+            onSelectStash(stash.oid)
+        }
+    }
+
+    private func row(_ index: Int, hasStashAbove: Bool = false) -> some View {
         let commit = store.commits[index]
         let graphRow = store.rows[index]
         let outgoing = index + 1 < store.rows.count ? store.rows[index + 1].incoming : store.pendingSegments
-        let wipLine: GraphWipLine =
-            if store.wip != nil, let head = headIndex {
-                index < head ? .through(store.rows[head].column) : (index == head ? .ends : .none)
-            } else {
-                .none
-            }
+        let wipLine = wipLine(at: index)
         return GraphCommitRowView(
             commit: commit, row: graphRow, outgoing: outgoing, pills: store.pills[commit.oid] ?? [],
             isHead: commit.oid == store.head, isSelected: commit.oid == store.selected,
             isHighlighted: highlighted.contains(commit.oid), wipLine: wipLine, graphWidth: graphWidth, now: now,
-            isListFocused: hasFocus, columns: shownColumns, laneOffset: laneScroll.offset
+            isListFocused: hasFocus, columns: shownColumns, laneOffset: laneScroll.offset,
+            hasStashAbove: hasStashAbove
         ) {
             if let onSelectCommit { onSelectCommit(commit.oid) } else { store.select(commit.oid) }
         }
@@ -262,9 +304,11 @@ struct GraphCommitRowView: View {
     var isListFocused = true
     var columns: GraphColumnLayout = .default
     var laneOffset: CGFloat = 0
+    var hasStashAbove = false
     let onSelect: () -> Void
 
     @Environment(\.issueBadges) private var issues
+    @Environment(\.graphZoom) private var zoom
 
     /// Issue pills after the subject: only numbers in the fetched list (#82). Unknown `#n` stay plain subject text;
     /// most of them are pull request numbers from squash merges (`(#251)`), not issues.
@@ -281,30 +325,32 @@ struct GraphCommitRowView: View {
         let linkedIssues = linkedIssues()
         HStack(spacing: 0) {
             GraphRefsCell(pills: pills, laneColor: lane, laneIndex: row.colorIndex)
-                .frame(width: columns.width(of: .refs), alignment: .trailing)
+                .frame(width: columns.width(of: .refs) * zoom.scale, alignment: .trailing)
                 .clipped()
             GraphLaneCell(
                 row: row, outgoing: outgoing, isMerge: commit.isMerge, isHead: isHead, hasRefs: !pills.isEmpty,
                 initials: text.initials, avatarIndex: text.avatarIndex, wipLine: wipLine, width: graphWidth,
-                offset: laneOffset)
+                offset: laneOffset, hasStashAbove: hasStashAbove)
             HStack(spacing: Tokens.Spacing.xs) {
-                Text(text.subject).font(Tokens.Font.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
+                Text(text.subject).font(zoom.typography.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
                 ForEach(linkedIssues, id: \.self) { IssueNumberBadge(number: $0) }
                 if text.isAIAssisted { AIBadge() }
             }
             .padding(.horizontal, Tokens.Spacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
             if columns.isVisible(.author) {
-                cell(text.author, width: columns.width(of: .author), color: Tokens.Color.textSecondary)
+                cell(text.author, width: columns.width(of: .author) * zoom.scale, color: Tokens.Color.textSecondary)
             }
             if columns.isVisible(.date) {
-                cell(text.date, width: columns.width(of: .date), color: tertiary).help(text.absoluteDate)
+                cell(text.date, width: columns.width(of: .date) * zoom.scale, color: tertiary).help(text.absoluteDate)
             }
             if columns.isVisible(.sha) {
-                cell(text.shortSHA, width: columns.width(of: .sha), color: tertiary, font: Tokens.Font.monoSmall)
+                cell(
+                    text.shortSHA, width: columns.width(of: .sha) * zoom.scale, color: tertiary,
+                    font: zoom.typography.monoSmall)
             }
         }
-        .frame(height: GraphGeometry.rowHeight)
+        .frame(height: zoom.geometry.rowHeight)
         .background(
             isSelected ? lane.opacity(isListFocused ? 0.16 : 0.10) : (isHighlighted ? lane.opacity(0.06) : Color.clear)
         )
@@ -334,8 +380,8 @@ struct GraphCommitRowView: View {
     /// Tertiary text turns secondary on a selected row (screens.md S-01).
     private var tertiary: Color { isSelected ? Tokens.Color.textSecondary : Tokens.Color.textTertiary }
 
-    private func cell(_ value: String, width: CGFloat, color: Color, font: Font = Tokens.Font.callout) -> some View {
-        Text(value).font(font).foregroundStyle(color).lineLimit(1)
+    private func cell(_ value: String, width: CGFloat, color: Color, font: Font? = nil) -> some View {
+        Text(value).font(font ?? zoom.typography.callout).foregroundStyle(color).lineLimit(1)
             .padding(.horizontal, Tokens.Spacing.sm)
             .frame(width: width, alignment: .leading)
     }
@@ -347,13 +393,15 @@ struct GraphRefsCell: View {
     let laneColor: Color
     let laneIndex: Int
 
+    @Environment(\.graphZoom) private var zoom
+
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {
             if let first = pills.first {
                 GraphRefPillView(pill: first, laneColor: laneColor, laneIndex: laneIndex)
             }
             if pills.count > 1 {
-                Text("+\(pills.count - 1)").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
+                Text("+\(pills.count - 1)").font(zoom.typography.caption).foregroundStyle(Tokens.Color.textSecondary)
                     .help(pills.dropFirst().map(\.tooltip).joined(separator: "\n"))
             }
         }
@@ -368,6 +416,7 @@ struct GraphRefPillView: View {
     let laneIndex: Int
 
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.graphZoom) private var zoom
 
     private var symbol: String? {
         switch pill.kind {
@@ -406,14 +455,16 @@ struct GraphRefPillView: View {
 
     var body: some View {
         HStack(spacing: 3) {
-            if let symbol { Image(systemName: symbol).font(.system(size: 9, weight: .semibold)) }
+            if let symbol { Image(systemName: symbol).font(zoom.typography.points(9, weight: .semibold)) }
             Text(pill.title).lineLimit(1).truncationMode(.middle)
-            if pill.hasMatchingRemote { Image(systemName: "network").font(.system(size: 9, weight: .semibold)) }
+            if pill.hasMatchingRemote {
+                Image(systemName: "network").font(zoom.typography.points(9, weight: .semibold))
+            }
         }
-        .font(.system(size: 11, weight: .medium))
+        .font(zoom.typography.points(11, weight: .medium))
         .foregroundStyle(foreground)
         .padding(.horizontal, 6)
-        .frame(height: Tokens.Size.refPillHeight)
+        .frame(height: Tokens.Size.refPillHeight * zoom.scale)
         .background(RoundedRectangle(cornerRadius: 5).fill(fill))
         .overlay {
             if let border { RoundedRectangle(cornerRadius: 5).strokeBorder(border, lineWidth: 1) }
@@ -424,14 +475,16 @@ struct GraphRefPillView: View {
 
 /// `sparkles` + `AI` in a tertiary outline (screens.md S-01): no color, the word carries the meaning.
 struct AIBadge: View {
+    @Environment(\.graphZoom) private var zoom
+
     var body: some View {
         HStack(spacing: 2) {
-            Image(systemName: "sparkles").font(.system(size: 9, weight: .semibold))
-            Text("AI").font(.system(size: 10, weight: .semibold))
+            Image(systemName: "sparkles").font(zoom.typography.points(9, weight: .semibold))
+            Text("AI").font(zoom.typography.points(10, weight: .semibold))
         }
         .foregroundStyle(Tokens.Color.textTertiary)
         .padding(.horizontal, 4)
-        .frame(height: 15)
+        .frame(height: 15 * zoom.scale)
         .controlOutline(
             RoundedRectangle(cornerRadius: 4), normal: Tokens.Color.textTertiary, increased: Tokens.Color.textTertiary
         )
@@ -448,16 +501,18 @@ struct GraphWipRowView: View {
     var refsWidth = Tokens.Size.columnRefsIdeal
     var laneOffset: CGFloat = 0
 
+    @Environment(\.graphZoom) private var zoom
+
     var body: some View {
         HStack(spacing: 0) {
             HStack(spacing: 3) {
-                Image(systemName: "tree").font(.system(size: 9, weight: .semibold))
+                Image(systemName: "tree").font(zoom.typography.points(9, weight: .semibold))
                 Text(wip.folderName).lineLimit(1).truncationMode(.middle)
             }
-            .font(.system(size: 11, weight: .medium))
+            .font(zoom.typography.points(11, weight: .medium))
             .foregroundStyle(Tokens.Color.textSecondary)
             .padding(.horizontal, 6)
-            .frame(height: Tokens.Size.refPillHeight)
+            .frame(height: Tokens.Size.refPillHeight * zoom.scale)
             .overlay {
                 RoundedRectangle(cornerRadius: 5)
                     .strokeBorder(Tokens.Color.graphWipNode, style: StrokeStyle(lineWidth: 1, dash: [3, 2]))
@@ -466,11 +521,11 @@ struct GraphWipRowView: View {
             .frame(width: refsWidth, alignment: .trailing)
             .clipped()
             GraphWipCell(column: column, hasLine: hasLine, width: graphWidth, offset: laneOffset)
-            Text(wip.summary).font(Tokens.Font.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
+            Text(wip.summary).font(zoom.typography.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
                 .padding(.horizontal, Tokens.Spacing.sm)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(height: GraphGeometry.rowHeight)
+        .frame(height: zoom.geometry.rowHeight)
         .background(Tokens.Color.surfaceWipRow)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(wip.accessibilityLabel)
@@ -486,6 +541,9 @@ struct CommitRowMenu: View {
 
     var body: some View {
         Button("Show Changes", action: onShowChanges)
+        // S-12 (#388): against the commit the detail panel shows.
+        Button("Compare with Selected Commit") { actions.compareCommit(commit.oid) }
+            .disabled(!actions.canCompareCommit(commit.oid))
         Divider()
         Button("Copy SHA") { actions.copy(commit.oid.hex) }
         Button("Copy Short SHA") { actions.copy(commit.oid.short) }

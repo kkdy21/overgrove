@@ -96,6 +96,51 @@ final class DiffViewerRenderTests: XCTestCase {
         }
     }
 
+    /// Word highlights and `Show Whitespace` (#387): TABs, trailing spaces, and a CR drawn as marks.
+    func testWordHighlightsAndWhitespaceRender() throws {
+        let patch =
+            "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,3 +1,3 @@\n"
+            + " func limit() {\n-\treturn rate.New(10, time.Second)  \r\n+\treturn rate.New(25, time.Minute)\n }\n"
+        let document = DiffDocument(
+            listing: TestFixtures.patch(patch), path: GitPath("a.go"),
+            source: DiffDocument.Source(label: "Unstaged", kindLetter: "M"))
+        let key = "diffShowsWhitespace"
+        let previous = UserDefaults.standard.object(forKey: key)
+        UserDefaults.standard.set(true, forKey: key)
+        defer { UserDefaults.standard.set(previous, forKey: key) }
+        for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
+            let view = DiffViewerView(
+                title: document.title, sourceLabel: "Unstaged · M", state: .loaded(document), onBack: {})
+            func matches(_ pixel: NSColor?, _ expected: NSColor) -> Bool {
+                guard let pixel = pixel?.usingColorSpace(.sRGB) else { return false }
+                return abs(pixel.redComponent - expected.redComponent) < 0.03
+                    && abs(pixel.greenComponent - expected.greenComponent) < 0.03
+                    && abs(pixel.blueComponent - expected.blueComponent) < 0.03
+            }
+            // Ready once the rows are drawn (the removed row's background reaches the right edge).
+            let removed = try color("Tokens/diffRemovedBg", in: appearance)
+            let bitmap = try render(view, appearance: appearance) { bitmap in
+                let column = Int((Self.size.width - 20) * CGFloat(bitmap.pixelsWide) / Self.size.width)
+                return (0..<bitmap.pixelsHigh).contains { matches(bitmap.colorAt(x: column, y: $0), removed) }
+            }
+            let word = try color("Tokens/diffRemovedWordBg", in: appearance)
+            func hasWordMark(_ bitmap: NSBitmapImageRep) -> Bool {
+                stride(from: 0, to: bitmap.pixelsHigh, by: 2).contains { y in
+                    stride(from: 0, to: bitmap.pixelsWide / 2, by: 2).contains { x in
+                        matches(bitmap.colorAt(x: x, y: y), word)
+                    }
+                }
+            }
+            XCTAssertTrue(hasWordMark(bitmap), "\(name): a changed word is highlighted")
+            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+                let png = bitmap.representation(using: .png, properties: [:])
+            {
+                try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("diff-words-\(name).png"))
+            }
+        }
+    }
+
     func testStatesRender() throws {
         let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
         let large = (1...(DiffDocument.largeLineThreshold + 1)).map { "+\($0)" }.joined(separator: "\n")

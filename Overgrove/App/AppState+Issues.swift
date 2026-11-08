@@ -8,7 +8,8 @@ extension AppState {
         guard let refs = listing.refs else { return nil }
         return BranchListModel(
             refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
-            remoteNames: listing.remoteNames)
+            remoteNames: listing.remoteNames,
+            detachedHeads: Set(listing.entries.filter(\.worktree.isDetached).compactMap(\.worktree.head)))
     }
 
     // MARK: Issues (#81)
@@ -86,6 +87,8 @@ extension AppState {
     /// An issue that is no longer open falls back to the focused worktree.
     func issuesDidLoad(_ issues: [Issue]) {
         guard let number = selectedIssueNumber, !issues.contains(where: { $0.number == number }) else { return }
+        isSelectingAutomatically = true
+        defer { isSelectingAutomatically = false }
         selection = focusedWorktreePath.map(MainSelection.wip)
     }
 

@@ -56,14 +56,25 @@ struct FetchFailureGuidance: Sendable, Equatable {
     }
 
     /// The last few non-empty lines of `detail`, for the "other" Details view (interaction.md §4.2).
+    ///
+    /// `MaskedText` has already kept only the last state of each rewritten progress line. Each line here is cut to
+    /// `maximumDetailLineScalars` Unicode scalars, not `Character`s, which a run of combining marks can make any length:
+    /// the server writes this text, so it does not decide how much the Details view lays out (#362).
     var detailTail: String? {
         guard let detail else { return nil }
-        let lines = detail.text.split(separator: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        let lines = detail.text.unicodeScalars.split(separator: "\n").map(String.UnicodeScalarView.init).filter {
+            !String($0).trimmingCharacters(in: .whitespaces).isEmpty
+        }
         guard !lines.isEmpty else { return nil }
-        return lines.suffix(Self.detailTailLines).joined(separator: "\n")
+        return lines.suffix(Self.detailTailLines).map { line in
+            line.count > Self.maximumDetailLineScalars
+                ? String(line.prefix(Self.maximumDetailLineScalars)) + "…" : String(line)
+        }.joined(separator: "\n")
     }
 
     static let detailTailLines = 5
+    /// Longest line in `detailTail`, in Unicode scalars (#362).
+    static let maximumDetailLineScalars = 300
 
     /// Shown when a repository has no remote to fetch.
     static let noRemotes = FetchFailureGuidance(
@@ -86,6 +97,19 @@ struct FetchFailureGuidance: Sendable, Equatable {
                 + "to try again.",
             commands: [],
             detail: error.detail
+        )
+    }
+
+    /// The git in use is too old to fetch `remote` (a remote on this Mac before `lazyFetchControlVersion`, #361). The
+    /// summary names the git, not the repository, as the cause (#383). No command is offered.
+    init(gitVersionLimitFor remote: RemoteName, reason: String) {
+        self.init(
+            remote: remote,
+            reason: .blockedByConfiguration,
+            summary: "Overgrove does not fetch \(remote.value) with this git",
+            guidance: reason,
+            commands: [],
+            detail: nil
         )
     }
 

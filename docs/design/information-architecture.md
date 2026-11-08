@@ -1,6 +1,6 @@
 # 정보 구조 (Information Architecture)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [screens.md](screens.md), [interaction.md](interaction.md), [../architecture/overview.md](../architecture/overview.md), ADR-0010, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), 태그 섹션·선택 이력 설계 추가 (#123, v0.2.0), S-12 두 커밋 비교 추가 (#122, v0.2.0) · 관련: [screens.md](screens.md), [interaction.md](interaction.md), [../architecture/overview.md](../architecture/overview.md), ADR-0010, ADR-0011
 
 이 문서는 Overgrove가 보여 주는 **객체**, 객체 사이의 **관계**, 사용자가 객체 사이를 **이동하는 길**을 정한다. 화면별 배치는 [screens.md](screens.md), 조작 방식은 [interaction.md](interaction.md)에 있다.
 
@@ -68,6 +68,7 @@ erDiagram
   - 그래프에서 HEAD 링을 어느 커밋에 그리는가
   - 상태바와 툴바의 "Branch:" 표시
 - 포커스 워크트리를 바꾸는 방법은 사이드바에서 워크트리 행을 고르는 것 **하나뿐**이다. 브랜치나 커밋을 골라도 포커스는 바뀌지 않는다. 사용자가 "지금 어느 워크트리를 보고 있는지" 잃지 않게 하기 위해서다.
+  - 예외 하나: 선택 이력(`⌘[` / `⌘]`, [interaction.md §1.4](interaction.md#14-선택-이력))으로 돌아가면 그 항목을 골랐을 때의 포커스도 함께 돌아간다. 이력 이동은 "그때의 선택을 다시 고르는 것"이므로, 워크트리 행을 다시 고른 것과 같게 본다 (#123).
 
 ---
 
@@ -78,7 +79,7 @@ erDiagram
 | 영역 | 역할 | 바뀌는 계기 |
 |---|---|---|
 | 툴바 | 저장소 전환, 포커스 워크트리 칩, Fetch·Refresh·Compare·Terminal·Finder, 검색 | 저장소 전환, 포커스 변경 |
-| 사이드바 | 저장소 안의 탐색 목록: WORKTREES, LOCAL, REMOTE, STASHES, ISSUES | 새로고침 |
+| 사이드바 | 저장소 안의 탐색 목록: WORKTREES, LOCAL, REMOTE, TAGS, STASHES, ISSUES | 새로고침 |
 | 중앙 영역 | 기본은 커밋 그래프. 필요할 때 Diff 뷰어(S-10)나 파일 이력(S-09)으로 바뀐다 | 선택, `⎋`로 복귀 |
 | 상세 패널 | 선택한 항목 하나의 상세 (S-02 ~ S-06) | 선택 |
 | 상태바 | 저장소 단위 요약: 읽기 전용 표시, 마지막 fetch, ahead/behind, 워크트리 수, 경고, gh 상태 | 새로고침, fetch |
@@ -91,6 +92,7 @@ flowchart LR
         WT[워크트리 행]
         LB[로컬 브랜치]
         RB[원격 브랜치]
+        TG[태그]
         ST[Stash]
         IS[이슈]
     end
@@ -100,6 +102,7 @@ flowchart LR
         CM[커밋 행]
         DV[S-10 Diff 뷰어]
         FH[S-09 파일 이력]
+        CC[S-12 두 커밋 비교]
     end
     subgraph Detail[상세 패널]
         S02[S-02 WIP 상세]
@@ -114,6 +117,7 @@ flowchart LR
     WT -- "그래프를 HEAD로 스크롤" --> G
     LB -- "팁 커밋 선택" --> CM
     RB -- "팁 커밋 선택" --> CM
+    TG -- "가리키는 커밋 선택" --> CM
     CM --> S03
     WIP --> S02
     ST --> S04
@@ -124,6 +128,8 @@ flowchart LR
     S03 -- "파일: Show History" --> FH
     S02 -- "파일: Show History" --> FH
     FH -- "커밋 선택" --> S03
+    CM -. "메뉴: Compare with Selected Commit" .-> CC
+    CC -- "파일 선택" --> DV
 ```
 
 | 사용자가 고른 것 | 포커스 워크트리 | 중앙 영역 | 상세 패널 |
@@ -132,16 +138,19 @@ flowchart LR
 | 그래프의 WIP 행 | 유지 | 그래프 | S-02 |
 | 그래프의 커밋 행 | 유지 | 그래프 | S-03 |
 | 사이드바 로컬·원격 브랜치 | 유지 | 그래프. 팁 커밋으로 스크롤하고 선택 | S-03 (팁 커밋) |
+| 사이드바 태그 | 유지 | 그래프. 태그가 가리키는 커밋(주석 태그는 벗긴 커밋)으로 스크롤하고 선택 | S-03 (그 커밋) |
 | 사이드바 stash | 유지 | 그래프 (변화 없음) | S-04 |
 | 사이드바 이슈 | 유지 | 그래프. 연결된 브랜치가 있으면 그 팁을 강조만 하고 선택은 하지 않음 | S-06 |
 | 상세 패널의 파일 | 유지 | **S-10 Diff 뷰어로 전환** | 그대로 (파일 목록 유지, ↑↓로 다음 파일) |
 | 파일 컨텍스트 메뉴 "Show History" | 유지 | **S-09 파일 이력으로 전환** | 이력에서 고른 커밋의 S-03 |
-| `⎋` (S-09, S-10에서) | 유지 | 그래프로 복귀, 이전 선택 복원 | 이전 상세 |
+| 그래프 커밋 행 메뉴 "Compare with Selected Commit" (v0.2.0, #122) | 유지 | **S-12 두 커밋 비교로 전환**(주 선택 커밋이 기준, 메뉴를 연 행이 대상) | 두 커밋과 파일 목록. 파일을 고르면 중앙에 패치 |
+| `⎋` (S-09, S-10, S-11, S-12에서) | 유지 | 그래프로 복귀, 이전 선택 복원 | 이전 상세 |
+| `⌘[` / `⌘]` (선택 이력) | **그 항목을 골랐을 때의 포커스로 복원** | S-09·S-10이 덮여 있으면 그래프로 복귀. 그 항목이 그래프에 있으면 스크롤하고 선택 | 그 항목의 상세 |
 
 ### 3.2 stash와 그래프
 
-- v0.1의 그래프는 stash를 노드로 그리지 않는다. stash 커밋은 index 커밋과 untracked 커밋을 부모로 가져서 그래프를 어지럽히기 때문이다. stash는 사이드바와 S-04에서만 다룬다.
-- 그래프에 stash 위치를 표시하는 기능은 `later`로 둔다.
+- v0.1의 그래프는 stash를 노드로 그리지 않았다. stash 커밋은 index 커밋과 untracked 커밋을 부모로 가져서 그래프를 어지럽히기 때문이다.
+- v0.2.0(#384)부터 stash는 기준 커밋(첫 부모) 바로 위의 가상 행으로 보인다. index·untracked 부모는 그리지 않아 그래프 모양이 바뀌지 않는다. 기준 커밋이 그래프에 없으면 사이드바에만 있다. 그래프 `⋯` 메뉴의 `Show Stashes`로 끌 수 있다. 규칙은 [ADR-0010 §5](../adr/0010-commit-graph-layout-in-app.md).
 
 ### 3.3 이슈 연결
 
@@ -164,8 +173,9 @@ flowchart LR
 1. **WORKTREES** — 항상 펼쳐서 시작
 2. **LOCAL** — 로컬 브랜치
 3. **REMOTE** — 원격 브랜치 (원격 이름별 하위 그룹)
-4. **STASHES**
-5. **ISSUES** — `gh` 연동. 미로그인이면 안내 행
+4. **TAGS** — 태그 (#123, v0.2.0). ref 섹션끼리 모으려고 REMOTE 바로 아래에 둔다. 태그가 수백 개인 저장소가 흔하므로 **처음에는 접힌 채로 시작**하고, 그 뒤로는 다른 섹션처럼 저장소별 접힘 상태를 따른다
+5. **STASHES**
+6. **ISSUES** — `gh` 연동. 미로그인이면 안내 행
 
 섹션 헤더에는 항목 수를 붙인다. 예: `WORKTREES (3)`.
 
@@ -176,6 +186,7 @@ flowchart LR
 | WORKTREES | main 워크트리를 맨 위에 둔다. 나머지는 브랜치 이름 오름차순이고, detached는 경로 이름으로 정렬한다. prunable은 맨 아래 | 위치가 활동량에 따라 움직이면 기억으로 찾을 수 없다. 정렬을 안정적으로 유지한다 |
 | LOCAL | `/` 앞부분으로 폴더를 묶는다(`feat/`, `fix/`). 폴더와 이름은 각각 오름차순. 기본 브랜치(`main`, `master`, 또는 `origin/HEAD`가 가리키는 것)는 맨 위에 고정 | 워크트리 운영자는 브랜치가 많다 |
 | REMOTE | 원격 이름(`origin` 먼저, 나머지는 오름차순) → `/` 폴더 → 이름. `origin/HEAD` 심볼릭 ref는 숨긴다 | |
+| TAGS | 만든 날짜 내림차순(최신 먼저). 주석 태그는 tagger 날짜, 가벼운 태그는 커밋의 committer 날짜. 날짜가 같거나 없으면 이름 오름차순. 폴더로 묶지 않는다 | 사용자가 찾는 태그는 대개 최근 릴리스다. 이름 정렬은 `v1.10`이 `v1.9` 앞에 와서 버전 순서와 어긋나고, 버전 비교 규칙은 저장소마다 달라 추측하지 않는다 |
 | STASHES | `stash@{0}`(최신)부터 | git과 같은 순서 |
 | ISSUES | 열린 이슈만 기본 표시. 로컬 브랜치나 워크트리와 연결된 이슈를 먼저, 그다음 `updatedAt` 내림차순 | "지금 손대고 있는 이슈"가 위로 온다 |
 
@@ -191,7 +202,8 @@ flowchart LR
 | 4 | ahead / behind | `↑n` `↓n` | `status.ahead` / `status.behind` | 워크트리, 로컬 브랜치 |
 | 5 | locked | `lock.fill` | `status.locked` | 워크트리 |
 | 6 | 이슈 번호 | `#12` 알약 | `text.secondary` 테두리 | 워크트리, 로컬 브랜치 |
-| — | 워크트리 체크아웃 표시 | `tree` 심볼 | `text.secondary` | 로컬 브랜치 (그 브랜치를 체크아웃한 워크트리가 있을 때) |
+| 7 | PR 상태 (v0.2.0, ADR-0023) | 상태 심볼 + `#123` 알약. 열림 `arrow.triangle.pull`, 초안은 같은 심볼에 점선 테두리, 머지됨 `checkmark.circle`, 닫힘 `xmark.circle` | `text.secondary` 테두리(상태 색을 쓰지 않음) | 워크트리, 로컬 브랜치 (upstream이 있고 head 저장소까지 맞는 PR이 있을 때) |
+| — | 워크트리 체크아웃 표시 | `tree` 심볼 | `text.secondary` | 로컬 브랜치 (그 브랜치를 체크아웃한 워크트리가 있을 때), 태그 (그 커밋에 detached HEAD로 서 있는 워크트리가 있을 때, #123) |
 | — | 포커스 표시 | 워크트리 타일 오른쪽 위의 점 (#166) | `accent` | 워크트리 (포커스 워크트리만) |
 
 변경 파일 수는 경고가 아니라 정보이므로 색을 쓰지 않는다. 세부 구분(staged, unstaged, untracked)은 S-02와 툴팁에서 본다. 상태 색과 심볼의 전체 규칙은 [iconography.md §5](iconography.md#5-상태-심볼-매핑)와 [design-tokens.md](design-tokens.md)를 따른다.
@@ -207,6 +219,26 @@ flowchart LR
 | bare 저장소 항목 | 목록에서 숨긴다. bare 저장소 자체는 상태바에 `bare` 표시 | — |
 
 전체 경로는 툴팁, S-05, 컨텍스트 메뉴 "Copy Path"에서만 보여 준다. 홈 디렉터리는 `~`로 줄인다.
+
+
+### 4.5 TAGS 섹션 (#123, v0.2.0)
+
+구현: #377 (`TagListModel`, `TagListSection`).
+
+v0.1은 태그를 그래프의 ref 알약으로만 보였다. 릴리스 태그로 "그 버전의 커밋"을 찾으려면 그래프를 스크롤해야 했다. TAGS 섹션은 태그 목록에서 바로 그 커밋으로 간다. 조회 전용이고 태그를 만들거나 지우거나 옮기는 동작은 없다(ADR-0011).
+
+| 항목 | 규칙 |
+|---|---|
+| 위치 | REMOTE와 STASHES 사이(§4.1). 처음에는 접힘 |
+| 데이터 | 이미 하는 refs 조회(`for-each-ref refs/tags`, [parsing-spec.md §6](../architecture/parsing-spec.md))를 쓴다. 새 git 명령이 없다. 날짜 필드는 `%(creatordate:unix)`다. `%(committerdate)`는 주석 태그에서 비어 있어 #377에서 바꿨다(커밋에서는 두 값이 같다) |
+| 행 | `tag` 심볼 + 짧은 이름(`refs/tags/` 제외). 오른쪽 끝에 만든 날짜의 상대 시각(`3d`, REMOTE 행과 같은 모양). 그 커밋에 detached HEAD로 서 있는 워크트리가 있으면 `tree` 심볼(§4.3). 주석 태그와 가벼운 태그는 모양을 나누지 않고 툴팁과 VoiceOver에만 적는다(`Annotated tag v1.4.0, 3 days ago` / `Lightweight tag v1.4.0`) |
+| 정렬 | §4.2 |
+| 표시 상한 | 처음 200개(정렬 순서)만 행으로 그린다. 나머지는 마지막에 `N more tags — filter to find one` 안내 행 하나로 줄인다. 사이드바 필터(`⌥⌘F`)는 상한과 관계없이 전체 태그 이름에서 찾는다. 섹션 머리의 수는 전체 개수다 |
+| 고르기 | 태그가 가리키는 커밋(주석 태그는 `%(*objectname)`으로 벗긴 커밋)을 주 선택으로 한다. 사이드바 브랜치를 고를 때와 같다: 그래프를 그 커밋으로 스크롤해 선택하고 S-03을 연다. 포커스 워크트리는 바뀌지 않는다. 그 커밋이 아직 불러온 그래프 페이지에 없으면 브랜치 선택과 같은 경로로 찾는다. 그래프에서 다른 커밋을 고르면 태그 행 강조가 사라진다 |
+| 같은 커밋의 여러 태그 | 행은 태그마다 따로 둔다. 어느 행을 골라도 같은 커밋이 선택되고, 고른 행만 강조한다 |
+| 비었을 때 | `No tags` 한 줄(섹션은 유지). STASHES와 같다 |
+| 컨텍스트 메뉴 | `Show in Graph`, `Copy Tag Name`, `Copy SHA`(벗긴 커밋). 쓰기 동작은 비활성 항목으로도 넣지 않는다 ([interaction.md §5](interaction.md#5-컨텍스트-메뉴)) |
+| 보안 | 태그 이름은 저장소가 정하는 문자열이다. 브랜치 이름처럼 표시 전에 제어·bidi 문자를 이스케이프한다(`PathValidator.displayable`). 행 수는 위 상한으로 묶이고, 필터 대상은 refs 조회 결과(출력 상한 안)뿐이다 |
 
 ---
 
@@ -232,6 +264,7 @@ flowchart LR
 - 그래프에 stash 노드 표시
 - 파일 시스템 감시(FSEvents) 기반 자동 새로고침. v0.1은 창 활성화, `⌘R`, fetch 후에 새로고침한다 ([interaction.md §4](interaction.md#4-새로고침과-fetch))
 - 사이드바 섹션 순서 바꾸기, 사용자 정의 그룹
-- 태그 섹션. v0.1은 태그를 그래프의 ref 알약으로만 보여 준다
+- (v0.2.0으로 설계 완료, #123) 태그 섹션은 §4.5, 선택 이력은 [interaction.md §1.4](interaction.md#14-선택-이력)
+- 주석 태그의 메시지 표시(S-03에 태그 카드), 태그별 컨텍스트 메뉴의 `Show on GitHub`
 - 여러 저장소를 한 창에서 동시에 보는 화면
 - UI 한국어 현지화

@@ -213,10 +213,11 @@ stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575ab
 | PAR-LOG-10 | 파일 이력(§5.3): numstat, rename(이전·새 경로), 바이너리, 커밋마다의 경로 |
 | PAR-LOG-11 | 파일 이력의 잘린 출력과 잘못된 numstat |
 | PAR-LOG-12 | 파일 이력에서 제목 안의 여분 NUL → 실패(재동기화하지 않음) |
+| PAR-LOG-13 | 스트리밍 그래프(`GraphStreamParser`, #254): 어떤 크기로 잘라 넣어도 전체 출력의 `parseGraph`와 같음, 레코드의 마지막 NUL이 오는 즉시 그 커밋을 냄, 레코드 안에서 끝나면 잘림이 아닐 때 실패, 잘못된 레코드는 전체 스트림 기준 오프셋으로 실패 |
 
 ---
 
-## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)`
+## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)`
 
 **형식.** 레코드는 LF로 끝나고, 필드 8개는 NUL로 나눈다. refname에는 제어 문자가 들어갈 수 없으므로(`check-ref-format` 규칙) LF 구분이 안전하다. 예시는 Apple Git 2.54.0, `LC_ALL=C` 출력이다.
 
@@ -234,7 +235,7 @@ refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀
 | `%(*objectname)` | 주석 태그가 가리키는 커밋 OID. 경량 태그·브랜치는 빈 값 (확인) |
 | `%(upstream)` | 전체 ref 이름 또는 빈 값 |
 | `%(HEAD)` | `*`(메인 워크트리가 체크아웃한 브랜치) 또는 공백 |
-| `%(committerdate:unix)` | epoch 초. 태그는 비어 있을 수 있음 |
+| `%(creatordate:unix)` | epoch 초. 커밋(브랜치, 가벼운 태그)은 committer 날짜, 주석 태그는 tagger 날짜다. `committerdate`는 주석 태그에서 비어 있어 TAGS 정렬에 쓸 수 없었다(#377). 그래도 비어 있을 수 있다(tagger 없는 태그 객체) |
 | `%(symref)` | `refs/remotes/origin/HEAD` 같은 심볼릭 ref의 대상 |
 | `%(upstream:track,nobracket)` | 빈 값, `ahead N`, `behind M`, `ahead N, behind M`, `gone` 다섯 가지(#54, Apple Git 2.54.0 확인). 빈 값은 `%(upstream)`이 있으면 "같음", 없으면 "upstream 없음"이다. upstream 없이 값이 있으면 형식 위반이다 |
 
@@ -518,6 +519,27 @@ Resolving deltas: 100% (102/102), completed with 102 local objects.⏎
 | PAR-PATCH-04 | 모드만 변경, 타입 변경(블록 2개), 바이너리, 서브모듈, 심볼릭 링크, 결합 diff |
 | PAR-PATCH-05 | `\ No newline at end of file` 양쪽, CRLF, 비UTF-8 내용, 매우 긴 줄 |
 | PAR-PATCH-06 | 잘림: 줄 중간, hunk 헤더 중간, hunk 본문 중간. 빈 출력 |
+
+### 11.6 SubmoduleListParser — `config --file .gitmodules --no-includes -z --get-regexp ^submodule\..*\.path$` (#108)
+
+**형식.** 항목마다 `key␊value␀`. 키는 `submodule.<이름>.path`이고 이름에 `.`·`/`가 들어갈 수 있다. 값이 없는 불리언 키는 `key␀`이다. 일치하는 항목이 없으면 출력이 비고 종료 코드가 1이다 (확인).
+
+```
+submodule.libs/a.path␊libs/a␀submodule.v1.2.path␊vendor/b␀
+```
+
+- 값은 저장소가 쓴 그대로의 경로다. 절대 경로, `..`, `-`로 시작하는 이름, LF, UTF-8이 아닌 바이트가 올 수 있다. 파서는 걸러내지 않고 `GitPath`로 넘기며, 호출하는 쪽이 `PathValidator.submoduleFolder`로 검증한다.
+- 같은 경로는 처음 나온 것 하나만 남긴다. 값이 없거나 빈 항목은 경로가 없으므로 건너뛴다.
+- 키가 `submodule.`로 시작하고 `.path`로 끝나지 않으면 실패한다. 잘리지 않은 출력은 `␀`로 끝나야 하고, 잘리면 마지막 레코드를 버린다.
+- 서로 다른 경로를 `limit`개(`RepositoryService.maximumListedSubmodules`, 128)까지만 만들고, 넘으면 멈추고 부분 결과로 표시한다(T15).
+
+| 테스트 | 사례 |
+|---|---|
+| PAR-SUBMOD-01 | 순서 보존, `.`·`/`가 든 이름 |
+| PAR-SUBMOD-02 | 빈 출력, 같은 경로 중복 |
+| PAR-SUBMOD-03 | 신뢰하지 않는 값(`../`, 절대 경로, LF, UTF-8 아님)을 그대로 보존 |
+| PAR-SUBMOD-04 | 값 없는 불리언, 빈 값 |
+| PAR-SUBMOD-05 | 잘린 출력, NUL 없는 끝, 다른 키 거부, `limit` 초과는 부분 결과(중복은 세지 않음) |
 
 ## 12. 경계 사례 요약
 

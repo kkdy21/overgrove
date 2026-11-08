@@ -38,7 +38,7 @@
 | `--no-optional-locks` | 조회 중 `index.lock`을 잡지 않음, index 갱신 쓰기 방지. `git diff`의 자동 refresh는 막지 못한다(`diff.autoRefreshIndex` 행 참고) | T13 |
 | `--literal-pathspecs` | `:(exclude)`, glob 등 pathspec 매직을 끔 | T9 |
 | `-c core.fsmonitor=false` | fsmonitor 훅 실행 방지. 서브프로세스(서브모듈)에도 전파됨 (확인) | T1 |
-| `-c core.hooksPath=/dev/null` | 모든 훅 실행 방지 (fetch의 `reference-transaction` 포함, 확인) | T2 |
+| `-c core.hooksPath=/dev/null` | hooks 디렉터리의 훅 실행 방지 (fetch의 `reference-transaction` 포함, 확인). 설정형 hook(`hook.<이름>.*`, git 2.54+)은 이 인자로 막히지 않으므로 이름별 `-c hook.<이름>.enabled=false`로 끈다(§2.2, #354) | T2 |
 | `-c core.askPass=` | 로컬 `core.askPass` 실행 방지 (확인) | T12 |
 | `-c protocol.ext.allow=never` | `ext::` 원격과 `insteadOf`로 바꿔치기한 `ext::` 차단 (확인). `GIT_ALLOW_PROTOCOL`(§2.4)과 겹치는 심층 방어 | T5 |
 | `-c protocol.fd.allow=never` | `fd::` 원격 차단. 기본값에서는 허용되고 정지를 일으킴 (확인) | T5, T15 |
@@ -52,6 +52,7 @@
 | `-c diff.suppressBlankEmpty=false` | 저장소 로컬 `diff.suppressBlankEmpty`가 patch의 빈 문맥 줄 앞 공백을 지우지 못하게 함. 이 설정은 명령줄 옵션이 없다 (확인, #239) | T3, 파싱 무결성 |
 | `-c i18n.logOutputEncoding=UTF-8` | 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`이 포맷된 출력 전체(`-z` 구분자 포함)를 다시 인코딩하지 못하게 함. JOHAB·CP1361은 메시지의 전각 문자를 NUL로 바꿔 필드를 밀고 가짜 레코드를 만든다 (확인, E41, #205) | T15, 파싱 무결성 |
 | `-c log.follow=false` | 저장소 로컬 `log.follow=true`가 경로 하나짜리 `git log`를 rename 추적으로 바꾸지 못하게 함. `fileHistory(follow: false)`가 `--follow`만 빼던 탓에 S-09의 "Follow renames"를 꺼도 rename 이전 커밋이 나왔다. 추적이 필요하면 `fileHistory`가 `--follow`를 직접 넘기고, 옵션이 설정보다 우선한다. `log.follow`는 git 2.6부터 있어 최소 지원 버전(2.36)에서 동작한다 (확인, #310) | 표시 정확성 |
+| `-c log.mailmap=false -c mailmap.file= -c mailmap.blob=` | 저장소 로컬 mailmap 설정이 저장소 밖 파일을 읽게 하지 못함. FIFO면 `git log`가 시간 제한까지 멈춘다(2.36.6·2.54.0 확인). 앱은 커밋에 기록된 이름을 그대로 보여 준다(`%an`, #356) | T15 |
 
 diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)에는 서브커맨드 인자로 `--no-ext-diff --no-textconv`를 반드시 붙인다 (T3). `git diff`는 기본으로 외부 diff 드라이버를 실행한다 (확인).
 
@@ -84,6 +85,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 [신뢰하지 않는 scope에서 false로 설정된 http.sslVerify, http.<url>.sslVerify 키마다: -c <같은 키>=true]
 [신뢰하지 않는 scope의 http.proxy, http.<url>.proxy, remote.<name>.proxy 키마다: -c <같은 키>=<신뢰 scope의 같은 키 값, 없으면 빈 값>]
 [신뢰하지 않는 scope의 http.cookieFile, http.<url>.cookieFile 키마다: -c <같은 키>=, http.saveCookies, http.<url>.saveCookies 키마다: -c <같은 키>=false]
+[신뢰하지 않는 scope의 credential[.<url>].protectProtocol, credential[.<url>].sanitizePrompt 키마다: -c <같은 키>=true]
 ```
 
 - 재삽입 예: Apple Git 내장 설정(`unknown` scope)의 `credential.helper=osxkeychain`, `gh auth setup-git`이 global에 쓴 `credential.https://github.com.helper=`(빈 값)와 `credential.https://github.com.helper=!/opt/homebrew/bin/gh auth git-credential`.
@@ -104,7 +106,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `GIT_PAGER`, `PAGER` | `cat` | 모든 git |
 | `GIT_ASKPASS`, `SSH_ASKPASS` | 빈 문자열 | 모든 git (빈 `GIT_ASKPASS`는 `core.askPass`보다 우선해 실행을 막음, 확인) |
 | `GIT_PROXY_COMMAND` | 빈 문자열 | 모든 git (로컬 `core.gitProxy` 무력화, 확인) |
-| `GIT_ALLOW_PROTOCOL` | fetch: `https:ssh:git:file:http`. 조회·기본값: 빈 값 | 조회(`GitClient.run`)는 전송을 쓰지 않는다. partial clone에서 누락 객체가 필요한 조회가 promisor 원격으로 lazy fetch하며 저장소의 uploadpack·credential helper를 실행하는 것을 막는다(#212). fetch는 (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
+| `GIT_ALLOW_PROTOCOL` | fetch: `https:ssh:git:file:http`. 신뢰하지 않음 저장소의 fetch(#107)와 `lazyFetchControlVersion`(2.45.1) 미만 git의 fetch(#361): `file`을 뺀 `https:ssh:git:http`. 조회·기본값: 빈 값 | 조회(`GitClient.run`)는 전송을 쓰지 않는다. partial clone에서 누락 객체가 필요한 조회가 promisor 원격으로 lazy fetch하며 저장소의 uploadpack·credential helper를 실행하는 것을 막는다(#212). fetch는 (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
 | `GIT_NO_LAZY_FETCH` | `1` | 모든 git (promisor lazy fetch 금지, #212). 모든 경로를 막는 것은 2024년 5월 보안 릴리스(2.45.1, 2.44.1, 2.39.4·2.40.2·2.41.1·2.42.2·2.43.4 백포트)부터다. 백포트가 없는 2.44.0 이하는 무시하고, 2.45.0은 fetch 중의 lazy fetch를 막지 못한다(#317). 조회는 빈 `GIT_ALLOW_PROTOCOL`이 막고, fetch는 전송이 필요하므로 `lazyFetchControlVersion`(2.45.1) 미만에서 partial clone(promisor 설정 또는 `.promisor` pack, security-review.md T5)이면 `GitClient.fetch`가 실행을 거부한다(fetch 중 lazy fetch가 로컬 uploadpack을 실행하기 때문, #213 보안 검토) |
 | `GIT_SSH_COMMAND` | 신뢰 scope의 `core.sshCommand` 값, 없으면 `ssh -o BatchMode=yes` | 모든 git (환경 변수가 로컬 설정보다 우선, 확인) |
 | `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK` | 부모 값 그대로 | 모든 git |
@@ -119,6 +121,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | 기본 (조회) | 15초 | 10MB | 64KB |
 | fetch | 120초 | 1MB | 256KB (진행 메시지 포함) |
 | gh | 15초 | 5MB | 64KB |
+| 그래프 스트림 (`graphStream`, #254) | 120초 | 64MB (전달한 바이트 합계, 모으지 않음) | 64KB |
 
 상한을 넘으면 읽기를 멈추고 프로세스를 종료한 뒤 `truncated=true`로 결과를 돌려준다. 파서는 잘린 마지막 레코드를 버리고 경고를 낸다 ([parsing-spec.md §1](parsing-spec.md)).
 
@@ -134,12 +137,13 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `configList` | `["config", "--list", "--show-scope", "-z", "--includes"]` | 저장소 경로 | `ConfigParser` → 보안 보고서, 원격 목록 | T4–T8 |
 | `worktreeList` | `["worktree", "list", "--porcelain", "-z"]` | 저장소 경로 | `WorktreeParser` → `[Worktree]` | — |
 | `status` | `["status", "--porcelain=v2", "-z", "--branch", "--show-stash", "--untracked-files=all", "--ignore-submodules=dirty"]` | 워크트리 경로 | `StatusParser` → `WorkingState`, `UpstreamStatus` | T1, T4 |
-| `refs` | `["for-each-ref", "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(committerdate:unix)%00%(symref)%00%(upstream:track,nobracket)", "refs/heads", "refs/remotes", "refs/tags"]` | 저장소 경로 | `RefParser` → `[Branch]`, `[Tag]` (로컬 브랜치의 ahead/behind 포함) | — |
+| `refs` | `["for-each-ref", "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)", "refs/heads", "refs/remotes", "refs/tags"]` | 저장소 경로 | `RefParser` → `[Branch]`, `[Tag]` (로컬 브랜치의 ahead/behind 포함) | — |
 | `aheadBehind(local:upstream:)` | `["rev-list", "--left-right", "--count", "--end-of-options", "<upstream full ref>...<local full ref>"]` | 저장소 경로 | `RevListParser` → (behind, ahead) | T9 |
 | `stashList` | `["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct%x00%P", "refs/stash", "--"]` | 저장소 경로 | `StashParser` → `[Stash]`. `%P`는 기준 커밋(첫 부모)과 index·untracked 커밋 유무(S-04, #71). `git stash list`가 내부에서 실행하는 reflog 조회와 같은 바이트를 내지만(Apple Git 2.50.1, git 2.54.0에서 비교), `stash list`와 달리 작업 트리가 필요 없어 bare 저장소에서도 동작한다(#222). `refs/stash`가 없으면 빈 출력이다 | T7 (공통 `-c log.showSignature=false`) |
 | `stashFiles(oid:)` | `["stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>"]` | 저장소 경로. `stash show`는 작업 트리가 필요하므로 bare 저장소에서는 검증된 링크 워크트리에서 실행한다(#222) | `NumstatParser` → `StashDetail` | T3, T9 |
 | `stashPatch(oid:path:originalPath:fromUntracked:)` | 추적 파일: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--end-of-options", "<oid>^1", "<oid>", "--", "<path>"]`<br>untracked 출신: `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<oid>^3", "--", "<path>"]`<br>rename이면 끝이 `"--", "<이전 경로>", "<새 경로>"`(아래 rename 규칙) | 저장소 경로 | 원문 패치 → S-10. `git stash show`는 경로 지정을 받지 않는다(#148 리뷰에서 확인) | T3, T9 |
-| `graphPage(skip:limit:)` | `["log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "--skip=<n>", "-n", "<limit>"]` | 저장소 경로 | `LogParser` → `[CommitNode]`(co-author 포함, #160) → GraphEngine. ref 범위는 브랜치·원격 추적 ref·태그와 모든 워크트리의 HEAD뿐이다(`--exclude=refs/* --all`은 HEAD만 더함). notes·`refs/prefetch`·`refs/original`·stash는 따라가지 않으며, 이 범위가 페이지 캐시 키 `GraphRefSet`과 같다(#308) | T7 |
+| `graphPage(skip:limit:)` | `["log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)", "--skip=<n>", "-n", "<limit>"]` | 저장소 경로 | `LogParser` → `[CommitNode]`(co-author 포함, #160) → GraphEngine. ref 범위는 브랜치·원격 추적 ref·태그와 모든 워크트리의 HEAD뿐이다(`--exclude=refs/* --all`은 HEAD만 더함). notes·`refs/prefetch`·`refs/original`·stash는 따라가지 않으며, 이 범위가 페이지 캐시 키 `GraphRefSet`과 같다(#308). 새로 읽은 페이지는 읽은 뒤 `refs`·`worktreeList`를 다시 읽어 그 ref 집합에서 나왔는지 확인한다. 다르면 이어 붙이지 않는다(#373, ADR-0010 결정 3) | T7 |
+| `graphStream(limit:)` | `graphPage`와 같은 인자에서 `--skip`만 뺀다: `["log", "--branches", "--remotes", "--tags", "--exclude=refs/*", "--all", "--date-order", "-z", <같은 포맷>, "-n", "<limit, 1–100000>"]`. ref 범위·포맷은 `graphPage`와 한 헬퍼(`graphRevisionArguments`)에서 만든다. 그래서 스트림 페이지와 `--skip` 대체 페이지가 같은 커밋을 같은 순서로 낸다(#346 리뷰) | 저장소 경로 | `GitClient.stream`으로 실행한다. stdout을 모으지 않고 받는 대로 `GraphStreamParser`가 레코드 단위로 파싱한다(`[CommitNode]` → GraphEngine). commit-graph 파일이 없는 저장소에서만 쓴다. `--date-order`가 페이지마다 전체를 다시 정렬하는 비용을 한 번으로 줄인다(#254, ADR-0010 결정 3). 상한은 §2.5의 그래프 스트림 행이다. 일찍 멈추면 그 뒤 페이지는 `graphPage`로 읽는다 | T7, T15 |
 | `commitMeta(oid:)` | `["log", "-1", "-z", "--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B", "--end-of-options", "<oid>"]` | 저장소 경로 | `LogParser` → `CommitDetail` | T7, T9 |
 | `commitFiles(oid:)` | 루트·일반 커밋: `["diff-tree", "-r", "-z", "--raw", "--numstat", "-M", "--no-ext-diff", "--no-textconv", "--no-commit-id", "--root", "--end-of-options", "<oid>"]`<br>병합 커밋: `[..., "--end-of-options", "<first parent oid>", "<oid>"]` | 저장소 경로 | `NumstatParser`(raw+numstat) → `CommitDetail.files` | T3, T9 |
 | `commitPatch(oid:parent:path:originalPath:)` | `["diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--root", "--end-of-options", "<parent oid 또는 생략>", "<oid>", "--", "<path>"]`<br>rename이면 끝이 `"--", "<이전 경로>", "<새 경로>"`(아래 rename 규칙) | 저장소 경로 | 원문 패치 → S-10 | T3, T9 |
@@ -150,13 +154,23 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `compareFiles(base:includeWorkingTree:)` | `["diff", "-z", "--raw", "--numstat", "-M", "--no-abbrev", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--merge-base", "--end-of-options", "<base full ref>", ("HEAD" 또는 작업 트리 포함이면 생략), "--"]` | 워크트리 경로 | `NumstatParser.parseCommitFiles` → `WorktreeComparison.files` | T3, T4, T9, T13 |
 | `comparePatch(base:path:originalPath:includeWorkingTree:)` | `["diff", "-p", "-M", "--no-ext-diff", "--no-textconv", "--ignore-submodules=dirty", "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--submodule=short", "--merge-base", "--end-of-options", "<base full ref>", ("HEAD" 또는 생략), "--", "<path>"]`<br>rename이면 끝이 `"--", "<이전 경로>", "<새 경로>"`(아래 rename 규칙) | 워크트리 경로 | 원문 패치 → S-11 | T3, T4, T9, T13 |
 | `commitsAhead(base:limit:)` | `["log", "-z", "--format=<graphPage와 같은 형식>", "-n", "<limit>", "--end-of-options", "<base full ref>..HEAD", "--"]` | 워크트리 경로 | `LogParser` → `WorktreeComparison.commits` | T7, T9 |
+| `submodulePaths` | `["config", "--file", ".gitmodules", "--no-includes", "-z", "--get-regexp", "^submodule\\..*\\.path$"]` | 워크트리 경로(검사 후). 실행 전에 `.gitmodules`가 워크트리 안의 일반 파일이고 심볼릭 링크가 아님을 확인한다(git은 링크를 따라가 다른 파일을 읽는다). `--file`은 그 파일만 읽고 아무것도 실행하지 않는다. `--file`일 때 include는 기본으로 꺼져 있지만 `--no-includes`로 고정한다(확인). 일치하는 항목이 없으면 종료 코드 1 | `SubmoduleListParser` → 서브모듈 경로(신뢰하지 않음, `PathValidator.submoduleFolder`로 검증) → `SubmoduleListing` (S-02, #108) | T1, T4, T14, T15 |
 
 보충 규칙:
+
+- **서브모듈 상태(#108)**: 서브모듈은 각자 신뢰할 수 없는 저장소다. 상위 `status`가 바뀌었다고 보고한 서브모듈 항목을 먼저, 그다음 `submodulePaths`의 경로를 합친 뒤(같은 경로는 한 번, 최대 `RepositoryService.maximumInspectedSubmodules`개. `.gitmodules`에 가짜 항목을 앞에 많이 두어도 실제로 바뀐 서브모듈이 상한 밖으로 밀리지 않는다), 서브모듈마다 다음을 통과해야 그 안에서 명령을 실행한다.
+  1. 경로가 워크트리 안의 상대 경로이고(`.`·`..`·빈 구성 요소 없음), 구성 요소가 심볼릭 링크가 아니다.
+  2. 서브모듈의 `.git`이 파일이면 그 git 디렉터리가 상위 저장소의 `<공통>/modules/` 또는 워크트리 git 디렉터리의 `modules/` 아래에 있다. `.git`이 폴더면 서브모듈 폴더 안에 있다.
+  3. `probeRepository`(검사 전 허용)의 최상위 폴더가 서브모듈 폴더와 같고, `--git-common-dir`이 2단계의 git 디렉터리와 같다. git 디렉터리의 `core.worktree`나 `commondir`이 다른 곳을 가리키면 여기서 거부한다(SEC-T14-11).
+  4. `configList`를 서브모듈 폴더에서 실행해 `RepoConfigInspector`로 검사하고, 그 서브모듈 자신의 `RepoSafetyContext`로만 `status`를 실행한다. 차단되면 아무것도 실행하지 않는다. `status`는 `--ignore-submodules=dirty`를 그대로 가지므로 중첩 서브모듈로 재귀하지 않는다.
+
+  다시 읽기는 `SubmodulePanel`이 조절한다. 같은 status에서는 진행 중인 읽기를 취소하지 않고, 그동안 온 새로고침은 끝난 뒤 한 번으로 합친다. 다음 읽기는 직전 읽기가 끝나고 `max(2초, 소요 × 10)`이 지난 뒤에 시작한다(SEC-T15-20).
 
 - **원격 이름과 URL**은 `configList` 결과의 `remote.<name>.url`에서 얻는다. 별도 명령을 쓰지 않는다. URL은 표시 전에 `CredentialMasker`를 거친다.
 - **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 사이드바 LOCAL의 로컬 브랜치는 `refs`의 `%(upstream:track,nobracket)`에서 한 번에 얻고, 브랜치마다 `rev-list`를 실행하지 않는다(#54, 2026-11-06 측정 S5). `aheadBehind`는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에만 쓴다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).
 - **그래프 페이지**는 `--skip`과 `-n`으로 나눈다. 같은 ref 집합이면 순서가 결정적이라 GraphEngine이 열린 레인 상태를 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다. 10만 커밋에서 뒤쪽 페이지의 `--skip` 비용이 PB-4를 넘으면, 스트리밍 읽기 모드(한 프로세스의 출력을 페이지 단위로 소비)로 바꾼다. 이 결정은 Phase 3 성능 측정 뒤에 ADR-0010을 갱신해 남긴다.
 - **untrackedPreview**는 `PathValidator.worktreeFile`이 만든 `WorktreeFile`만 받는다(상대 경로, `..` 없음, 실제 위치가 워크트리 안, 일반 파일 또는 심볼릭 링크 — FIFO는 git을 멈추게 하므로 거부). 심볼릭 링크는 내용 대신 링크 대상 문자열만 보여 준다 (T14).
+- **두 커밋 비교(S-12, #122)는 새 명령 없이 `commitFiles`·`commitPatch`를 쓴다.** 부모 자리(`firstParent`, `parent`)에 기준 커밋을 넘기면 `diff-tree`가 기준→대상 두 트리를 비교한다. 두 OID 모두 그래프가 불러온 커밋이고 `ObjectID`로 검증되어 `--end-of-options` 뒤에 온다. `diff-tree`는 plumbing이라 저장소의 diff 설정을 읽지 않는다. 기준과 대상 사이의 커밋 목록은 `commitsAhead`가 브랜치 ref만 받아 1차에서 뺐다(later).
 - **rename 패치는 두 경로를 다 넘긴다(#309)**. 패치 case(`stashPatch`·`commitPatch`·`worktreeDiff`·`comparePatch`)는 `originalPath`(이전 이름)를 받는다. 값이 있고 새 경로와 다르면 경로 지정이 `["--", "<이전 경로>", "<새 경로>"]`가 된다. 새 경로만 넘기면 `-M`이 짝을 찾지 못해 rename을 통째로 추가된 파일로 보여 줬다(확인). 두 경로 모두 `--` 뒤에 두고 `--literal-pathspecs`가 적용되므로 인자 규칙은 같다. 두 번째 경로도 파일 목록(status·numstat·raw 출력)에서 온 값이고 UTF-8로 표현되지 않으면 `unrepresentable`로 거부한다.
 - **작업 트리를 보는 diff는 `--ignore-submodules=dirty`를 붙인다(#239)**. 경로가 서브모듈이면 git은 서브모듈이 더러운지 보려고 서브모듈 안에서 `status`를 실행한다. 그때 서브모듈 자체의 `.git/modules/<sub>/config`에 있는 filter가 실행되는데, 설정 검사는 상위 저장소 설정만 읽는다(확인, SEC-T4-05). `status`, `worktreeDiff`, 기준 브랜치 비교(`compareFiles`·`comparePatch`, #157)가 이 인자를 쓴다. `--cached`는 서브모듈 안을 보지 않지만 같은 인자를 붙인다. 서브모듈 커밋이 바뀐 것은 그대로 보인다. 다른 diff 계열(`stashFiles`·`stashPatch`·`commitFiles`·`commitPatch`·`fileHistory`)은 트리끼리 비교하므로 서브모듈 작업 트리를 보지 않고, `untrackedPreview`는 일반 파일·심볼릭 링크만 받는다.
 - **porcelain diff 출력 고정(#239)**: `git diff`(porcelain)는 저장소 로컬 diff 설정을 읽어 출력 모양을 바꾼다. plumbing인 `diff-tree`는 읽지 않는다 (Apple Git 2.50.1 확인). 그래서 porcelain diff case(`worktreeDiff`, `worktreeNumstat`, `untrackedPreview`, `comparePatch`, `compareFiles`)에 `ReadOnlyGitCommand.porcelainDiffOptions`를 붙인다. numstat·raw 출력은 아래 설정에 영향받지 않았지만(확인), 규칙을 하나로 두려고 같은 인자를 붙인다.
@@ -198,7 +212,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 | case | 서브커맨드 인자 배열 | 작업 디렉터리 | 비고 | 위협 |
 |---|---|---|---|---|
-| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
+| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false -c http.delegation=none -c credential.protectProtocol=true -c credential.sanitizePrompt=true -c transfer.credentialsInUrl=die -c promisor.acceptFromServer=none`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
 
 - 원격마다 따로 실행한다 (`--all`을 쓰지 않음). 원격별로 인증 실패를 구분해 보여 주려는 것이다. 참고로 `--all`도 `--upload-pack`을 원격별 하위 fetch에 전달하는 것은 확인했다.
 - `--upload-pack=git-upload-pack`은 로컬 `remote.<n>.uploadpack`을 무력화한다. `-c remote.<n>.uploadpack=`로는 무력화되지 않는다 (확인).
@@ -211,8 +225,13 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
     - `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false`: 이중 방어.
     - `-c fetch.writeCommitGraph=false`: fetch 뒤 commit-graph 파일 쓰기를 끈다.
     - `-c fetch.bundleURI=`: 로컬 `fetch.bundleURI`(git 2.40+, #99 호환성 매트릭스에서 2.39.5·2.40.4로 확인)가 있으면 fetch가 그 URI(원격이 아닌 임의 위치)에서 bundle을 받아 `refs/bundles/*`를 쓴다. bundle list가 `creationToken`을 쓰면 `.git/config`에 `fetch.bundleCreationToken`까지 기록한다(#210 보안 검토, 확인). 빈 값이면 꺼진다. 2.40 미만 git은 이 키를 무시한다.
+    - `-c transfer.bundleURI=false`: 로컬 `transfer.bundleURI`는 서버가 광고한 bundle URI를 따르게 하는데, git은 clone에만 쓴다(security-review.md E47, #195). 나중 git이 fetch에서도 읽을 때를 대비해 끈다. 2.40.x는 위의 빈 `fetch.bundleURI`에 경고 두 줄(`failed to download bundle from URI ''`, `failed to fetch bundles from ''`)을 남기지만 fetch는 성공한다. 2.41.0부터는 빈 값을 건너뛴다.
     - `-c http.cookieFile= -c http.saveCookies=false`: generic 키의 쿠키 파일 읽기와 저장을 끈다(저장소 값과 사용자 값 모두). 저장소의 URL별 키는 §2.3이 같은 키로 끈다. 사용자(신뢰 scope)의 URL별 키는 그대로 둔다(#355).
-  - `RepoConfigInspector`는 로컬 `remote.<n>.fetch`(대상이 `refs/remotes/<n>/` 밖), `fetch.pruneTags`, `remote.<n>.pruneTags`, `remote.<n>.tagOpt`, `fetch.bundleURI`, `remote.<n>.mirror`를 보고한다(SEC-T13-04).
+    - `-c http.delegation=none`: Kerberos 티켓 위임을 끈다(저장소 값과 사용자 generic 값 모두. `always`면 저장소가 고른 원격 호스트에 티켓이 갈 수 있다). fetch에는 필요 없다. 저장소의 URL별 키는 inspector가 같은 키로 끈다. 사용자의 URL별 키는 그대로 둔다(#367).
+    - `-c credential.protectProtocol=true -c credential.sanitizePrompt=true`: git의 자격 증명 CVE 수정(CVE-2024-52006, CVE-2024-50349)을 저장소가 끄지 못하게 한다. URL별 키는 §2.3이 같은 키로 켠다(#356).
+    - `-c transfer.credentialsInUrl=die`: URL에 비밀번호가 있으면 접속 전에 실패한다(2.37+). 그 미만 git은 키를 무시하므로 `RepoConfigInspector.remotesWithPassword`가 그 원격을 미리 거부한다(#356).
+    - `-c promisor.acceptFromServer=none`: 서버가 광고하는 promisor 원격을 받지 않는다(2.49+, #356).
+  - `RepoConfigInspector`는 로컬 `remote.<n>.fetch`(대상이 `refs/remotes/<n>/` 밖), `fetch.pruneTags`, `remote.<n>.pruneTags`, `remote.<n>.tagOpt`, `fetch.bundleURI`, `transfer.bundleURI`, `remote.<n>.mirror`를 보고한다(SEC-T13-04, `transfer.bundleURI`는 SEC-T13-07).
   - 남는 한계: 설정 파일을 직접 고치면 원격 `a`와 `a/b`를 함께 둘 수 있다. 이때 `a`를 fetch하면 `--prune`이 `refs/remotes/a/b/*`를 지운다. 고정 전에도 같았고 피해는 `refs/remotes` 안으로 한정되며 다시 fetch하면 복구된다(#210 보안 검토).
 - `--progress`의 stderr 진행 메시지(`Receiving objects:  45% (...)`)는 `LC_ALL=C`에서 영어로 고정된다. git이 실행되는 동안 `FetchProgressParser`가 읽어 진행률로 쓰고, 파싱에 실패하면 무시한다([parsing-spec.md §11.4](parsing-spec.md)). `remote:` 줄은 서버가 쓰므로 단계와 숫자만 꺼내고 문자열은 넘기지 않는다.
 - 실행 방식(`GitClient.fetch`, #76): 저장소당 하나씩(`Repository.id` 기준) 요청 순서대로, 앱 전체에서 동시에 최대 2개. 조회 슬롯(4개)과 따로 센다. Task를 취소하면 프로세스 그룹을 종료하고(SIGTERM → 2초 → SIGKILL) `GitError.cancelled`, 120초가 지나면 `GitError.timeout`을 던진다.
@@ -247,6 +266,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `version` | `["--version"]` | 첫 줄 `gh version X.Y.Z (...)` | 온보딩 표시 |
 | `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
 | `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
+| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 머지·닫힌 PR 중 최근에 만든 200개(gh 기본 정렬, gh 2.95.0 확인). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
 
 실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
 
@@ -303,6 +323,6 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 다음은 1차 범위에서 **어떤 형태로도 실행하지 않는다**. 코드 리뷰와 `security-reviewer` 에이전트가 이 목록을 기준으로 검사한다.
 
-`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr *`, `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`.
+`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr list` 밖의 모든 `gh pr`(ADR-0023), `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`.
 
 `config`는 `--list --show-scope -z --includes` 조합만 허용한다.

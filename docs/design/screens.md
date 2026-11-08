@@ -1,8 +1,8 @@
 # 화면 명세 (Screens)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159), 패널 테마 레이아웃으로 개정 (#166) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
+> 상태: Accepted (Phase 2 게이트, 2026-11-05), S-11·작성자 표현 추가 (#158, #159), 패널 테마 레이아웃으로 개정 (#166), 사이드바 TAGS·선택 이력 설계 (#123, v0.2.0), 두 커밋 비교(S-12)·단어 단위 강조·공백 표시 설계 (#122, v0.2.0) · 관련: [art-direction.md](art-direction.md), [information-architecture.md](information-architecture.md), [interaction.md](interaction.md), [design-tokens.md](design-tokens.md), [iconography.md](iconography.md), [security-review.md](security-review.md), [mockups.md](mockups.md), [references.md](references.md), ADR-0004, ADR-0011
 
-HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. S-11(기준 브랜치 대비 변경)은 #158에서 추가했다. 고충실도 목업은 [mockups.md](mockups.md)에 모았고, 각 절에도 링크를 둔다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다. 패널, 그래프, 알약을 그리는 규칙(수치)은 [art-direction.md](art-direction.md)에 있다.
+HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화면을 확정한다. S-11(기준 브랜치 대비 변경)은 #158에서, S-12(두 커밋 비교)는 #122에서 추가했다. 고충실도 목업은 [mockups.md](mockups.md)에 모았고, 각 절에도 링크를 둔다. 와이어프레임의 문자열은 실제 UI 문구(영어)다. 색, 간격, 크기는 [design-tokens.md](design-tokens.md)의 토큰 이름으로 적는다. 패널, 그래프, 알약을 그리는 규칙(수치)은 [art-direction.md](art-direction.md)에 있다.
 
 **HANDOFF 대비 바뀐 점**
 
@@ -111,6 +111,22 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 워크트리 행 왼쪽의 타일은 그 브랜치의 레인 색이라 그래프의 같은 줄과 색으로 이어진다. 세부 모양은 [art-direction.md §6](art-direction.md#6-사이드바)에 있다.
 
+**TAGS 섹션 (v0.2.0, #123).** REMOTE 아래, STASHES 위다. 처음에는 접혀 있다. 규칙은 [information-architecture.md §4.5](information-architecture.md#45-tags-섹션-123-v020)에 있다. 펼친 모습(와이어프레임, 위 S-01 와이어프레임의 사이드바 열과 같은 폭):
+
+```
+│˅ TAGS            38  │
+│  ⌂ v1.4.0        3d  │   ⌂ = `tag` 심볼, 오른쪽은 만든 날짜의 상대 시각
+│  ⌂ v1.4.0-rc.2  12d  │
+│  ⌂ v1.3.2  🌲   1mo  │   🌲 = 이 커밋에 detached HEAD로 선 워크트리가 있음(`tree` 심볼)
+│  ⌂ v1.3.1       2mo  │
+│  …                   │
+│  38 more tags — filter to find one │   200개를 넘을 때만
+```
+
+- 행 높이는 `size.row-sidebar`(28). 심볼과 글자 색은 REMOTE 브랜치 행과 같다(`text.secondary` 심볼, `text.primary` 이름, `text.tertiary` 시각).
+- 태그 행을 고르면 그래프가 그 커밋으로 스크롤해 선택하고 상세 패널에 S-03이 열린다.
+- 고충실도 목업: [mockups.md](mockups.md)의 "S-01 사이드바 TAGS" (#377).
+
 ### 중앙: 커밋 그래프
 
 패널 머리(40)에는 작성자 필터 칩 줄을, 그 아래(28)에는 열 머리를 둔다. 열 머리의 구분선을 끌어 열 폭을 바꾸고, 패널 머리 오른쪽 `⋯` 메뉴에서 Author, Date, SHA 열을 숨기거나 보인다.
@@ -193,7 +209,9 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | git 없음 또는 2.36 미만 | S-07의 git 단계로 안내 |
 | 커밋이 없는 저장소 | 그래프 빈 상태: `No commits yet`. WIP 행은 정상 표시 |
 
-**v0.1 제외.** Pull/Push 버튼, 그래프에서 드래그 앤 드롭, 그래프의 stash 노드, 탭으로 여러 저장소 보기.
+**v0.1 제외.** Pull/Push 버튼, 그래프에서 드래그 앤 드롭, 그래프의 stash 노드(v0.2.0 #384에서 들어옴), 탭으로 여러 저장소 보기.
+
+**그래프의 stash 행 (#384).** 기준 커밋 바로 위에 `stash@{n}` 알약(`tray` 심볼, 레인 색 테두리), 기준 커밋 레인 색의 속 빈 사각 노드와 점선, 메시지(`text.secondary`), Date·SHA를 둔다. Author는 비운다. 같은 기준 커밋의 stash는 `stash@{0}`부터 위에서 쌓는다. 누르면 S-04, 선택하면 커밋 행과 같은 레인 색 강조. 검색·작성자 필터 중에는 숨기고, 그래프 `⋯` 메뉴의 `Show Stashes`(기본 켬)로 끈다. 키보드 `↑`/`↓`는 커밋 행만 오간다.
 
 ---
 
@@ -241,7 +259,8 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 파일 행 | 변경 종류 배지(M/A/D/R/C/T/U/?, 상태 색으로 채운 16pt 사각형 + `on-status.*` 글자) + 경로 + `+n −m`(0인 쪽은 숨김). 경로는 디렉터리를 `text.tertiary`, 파일 이름을 `text.primary` Medium으로 쓴다. 길면 디렉터리 앞부분을 `…/`로 줄인다 |
 | rename | `{Old.swift → New.swift}` (공통 디렉터리는 앞에 한 번) |
 | 한 파일이 staged와 unstaged에 모두 있음 (`MM`) | 두 그룹에 각각 한 번씩 나타난다 |
-| 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 펼치지 않는다 (later) |
+| 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 파일 목록에서 펼치지 않는다 |
+| Submodules 카드 (#108) | 그룹 카드 아래. 선택한 워크트리의 서브모듈마다 한 줄: 경로(`font.mono`, 이스케이프), `.gitmodules`에 없으면 `not in .gitmodules`, 오른쪽에 상태(`clean` / `n changed · n untracked` / `not checked out` / `not inspected` / `failed`). `not inspected`는 이유를 툴팁으로 보인다(경로가 워크트리 밖·심볼릭 링크, `.git`이 저장소의 `modules/` 밖, 서브모듈 자체 설정이 조회를 막음). 읽는 동안 `Checking submodules…`. 32개까지만 검사하고 나머지는 `n more not inspected`. `.gitmodules`가 일반 파일이 아니면 읽지 않고 알린다. 서브모듈이 없으면 카드를 숨긴다. 행을 눌러도 아무 일도 없다 |
 | 비교 카드 (하단 고정) | `Changes vs [기준 ⌃]`, `n commits ahead · n behind · n files`, `+n −m`, 기준 커밋, `Compare with Base…`(`⌘⇧B`, S-11). 위 목록만 스크롤된다 (#166) |
 
 **데이터.** `WorkingState`, `FileChange`. staged numstat은 `diff --cached --numstat`, unstaged는 `diff --numstat`에서 온다 ([git-command-catalog.md](../architecture/git-command-catalog.md)).
@@ -268,7 +287,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 **목적.** 커밋 하나의 메타데이터, 메시지, 변경 파일을 보여 준다.
 
-**진입.** 그래프의 커밋 행, 사이드바 브랜치(팁 커밋), S-09에서 커밋 선택.
+**진입.** 그래프의 커밋 행, 사이드바 브랜치(팁 커밋), 사이드바 태그(가리키는 커밋, v0.2.0 #123), S-09에서 커밋 선택, 선택 이력 이동(`⌘[` / `⌘]`, v0.2.0 #123).
 
 ```
 ┌──────────────────────────────────────┐
@@ -425,7 +444,9 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | Last fetch | 저장소 단위임을 `(repository)`로 밝힌다. **이 화면에 Fetch 버튼을 두지 않는다.** fetch는 저장소 단위이므로 툴바 하나로 통일한다 |
 | 느린 status 카드 | 마지막 status가 1초를 넘으면 정보 카드 아래에 `🐢 Status 5.2 s`와 이유를 보여 준다. 설정 보고가 깨끗하면 복사용 `git status`와 "신뢰하는 저장소에서만"을 붙이고, 발견 항목이 있으면 명령을 제시하지 않는다(#200). 앱은 실행하지 않는다(#168) |
 | Base | 기준 브랜치(기본은 기본 브랜치)와 그 대비 요약. S-02와 같은 **하단 고정 비교 카드**로 보여 준다. `Compare with Base…`는 S-11을 연다 (#158, #166) |
-| Copy Report | SECURITY 머리 오른쪽의 `doc.on.doc` 버튼. 보안 상태를 텍스트로 복사한다. 키 이름과 판정만 담고 값, 경로, 원격 URL, 브랜치 이름, 오류 문구는 넣지 않는다(#110, [security-review.md T11](security-review.md#t11-자격-증명-노출), SEC-T11-06) |
+| Copy Report | SECURITY 머리 오른쪽의 `doc.on.doc` 버튼. 보안 상태를 텍스트로 복사한다. 키 이름과 판정만 담고 값, 경로, 원격 URL, 브랜치 이름, 오류 문구는 넣지 않는다(#110, [security-review.md T11](security-review.md#t11-자격-증명-노출), SEC-T11-06). `Untrusted: yes/no`와 `Remotes on this Mac: n`(개수만)도 넣는다(#107) |
+| Pull request (v0.2.0, ADR-0023) | 이 워크트리 브랜치에 이어진 PR이 있으면 정보 카드 아래에 카드 하나: 상태(`Open`, `Draft`, `Merged`, `Closed`), `#123` + 제목, 리뷰 결정(`Approved`, `Changes requested`, `Review required`, 없으면 생략), 기준 브랜치. `Open in Browser`(정확한 PR URL일 때만)·`Copy URL`. 머지된 PR은 사실만 보이고 정리 안내나 명령은 넣지 않는다(ADR-0021). gh가 없거나 로그아웃이면 카드를 숨긴다(#265) |
+| 신뢰하지 않음 (#107) | SECURITY 카드의 `Treat as untrusted` 토글. 켜면 이 Mac의 원격(로컬 경로·`file://`)을 fetch하지 않고, Open in Terminal은 항상 확인 후에 연다. 신뢰함이면서 이 Mac에 원격이 있으면 원격 이름(마스킹·이스케이프, 경로·URL 없음)과 함께 "Remotes on this Mac" 경고를 보여 준다. 켜져 있으면 "Untrusted" 상태 줄을 보여 준다. 저장소 단위이고 등록 정보에 저장한다(ADR-0009 후속 작업) |
 | SECURITY | 위협 모델 대응이 이 저장소에 적용되었는지 보여 준다. 항상 켜져 있는 항목(hooks, fsmonitor, ext diff, 마스킹)은 `✓`로 표시한다. `RepoConfigInspector`가 무력화한 저장소 설정이 있으면 `⚠` + 개수, 펼치면 키 이름 목록을 보여 준다(값은 보여 주지 않는다). 항목 정의는 [security-review.md](security-review.md)와 ADR-0009를 따른다 |
 
 **데이터.** `Worktree`, `UpstreamStatus`, `WorkingState`, `FetchRecord`, `RepoConfigInspector` 결과.
@@ -578,10 +599,12 @@ Advanced
 | 자동 fetch | 끔, 간격 10분 | `UserDefaults` | 켜면 백그라운드 fetch. 창이 비활성일 때는 건너뛴다 |
 | 원격 URL 전체 표시 | 끔 | `UserDefaults` | 끄면 호스트와 경로만(`github.com/acme/api`), 켜면 마스킹한 전체 URL. 둘 다 마스킹한 URL에서 만들므로 자격 증명이 나오지 않는다 (T11). S-05의 원격 목록과 사이드바 REMOTE 그룹 툴팁에 적용한다 (#86) |
 | untracked 표시 | 켬 | `UserDefaults` | 끄면 `--untracked-files=no` |
-| git 실행 파일 | 기본 git(`xcode-select`의 git) | `UserDefaults` (`settings.gitExecutablePath`) | 절대 경로만 허용한다. 경로·소유자·권한·버전 규칙을 고를 때와 git을 찾을 때마다 검사하고, 실제 경로·버전·Apple 서명 여부·partial clone fetch 가능 여부를 보여 준다. 실패하면 조회를 멈추고 `Use Default`를 보여 준다 ([ADR-0019](../adr/0019-user-chosen-git-executable.md)) |
+| git 실행 파일 | 기본 git(`xcode-select`의 git) | `UserDefaults` (`settings.gitExecutablePath`) | 절대 경로만 허용한다. 경로·소유자·권한·버전 규칙을 고를 때와 git을 찾을 때마다 검사하고, 실제 경로·버전·Apple 서명 여부를 보여 주고, `lazyFetchControlVersion`(2.45.1) 미만이면 partial clone과 이 Mac의 원격(로컬 경로·`file://`)은 fetch하지 않는다고 안내한다(`OlderGitNote`, #383). S-07의 git 단계도 같은 안내를 붙인다. 실패하면 조회를 멈추고 `Use Default`를 보여 준다 ([ADR-0019](../adr/0019-user-chosen-git-executable.md)) |
 | 상세 로그 | 끔 | `UserDefaults` | 로그에도 마스킹을 적용한다 (T16) |
 
 토큰이나 비밀 값을 입력받는 필드는 **없다.**
+
+**신뢰하지 않음 (#107).** Repositories 탭의 각 행에 `Untrusted` 체크박스가 있다. S-05의 `Treat as untrusted`와 같은 값이다.
 
 **v0.1 구현 범위 (#86).** General(자동 fetch, 원격 URL)과 Repositories(목록, Remove, Add…) 탭을 만든다. 자동 fetch 설정은 저장하지만, 스케줄러(#79)가 들어올 때까지 화면에서 숨긴다(`AppSettings.isAutoFetchAvailable`). untracked 표시와 상세 로그는 뒤로 미룬다. Advanced 탭과 git 실행 파일 행은 v0.2.0(#106)에서 들어왔다. 실제 경로, 버전, Apple 서명 여부, partial clone fetch 안내, `Choose…`, `Use Default`를 보여 준다([ADR-0019](../adr/0019-user-chosen-git-executable.md)). Settings에서 저장소를 지우면 그 저장소를 보던 창도 닫고, 등록·fetch 기록·결과 캐시를 함께 지운다(창의 Remove와 같다).
 
@@ -640,7 +663,7 @@ Advanced
 
 **목적.** 파일 하나의 diff를 읽기 전용으로 보여 준다.
 
-**진입.** S-02, S-03, S-04, S-09에서 파일 선택. 중앙 영역이 바뀌고, 상세 패널의 파일 목록은 그대로 남아 `↑`/`↓`로 다음 파일로 넘어간다. `⎋`로 그래프에 돌아간다.
+**진입.** S-02, S-03, S-04, S-09, S-11, S-12에서 파일 선택. 중앙 영역이 바뀌고, 상세 패널의 파일 목록은 그대로 남아 `↑`/`↓`로 다음 파일로 넘어간다. `⎋`로 그래프에 돌아간다.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -660,9 +683,9 @@ Advanced
 | 머리 | 경로, 출처(Staged / Unstaged / 커밋 SHA / stash), 변경 종류 |
 | 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다 |
 | 줄 | 이전·이후 줄 번호, `+`/`−` 기호(색만으로 구분하지 않음), 본문은 `typography.mono` |
-| 배경 | `color.diff.added-bg`, `removed-bg`, 단어 단위 강조는 `added-word-bg` / `removed-word-bg` (v0.1은 줄 단위만, 단어 단위는 later) |
+| 배경 | `color.diff.added-bg`, `removed-bg`. 단어 단위 강조는 `added-word-bg` / `removed-word-bg` (v0.2.0, #122. 아래 "단어 단위 강조") |
 | hunk 헤더 | `color.diff.hunk-header-bg` |
-| 공백 문자 | 줄 끝 공백과 탭은 보이게 하지 않는다 (later 옵션) |
+| 공백 문자 | 기본은 보이지 않는다. 머리 `⋯` 메뉴의 `Show Whitespace`(v0.2.0, #122)를 켜면 보인다. 아래 "공백 표시" |
 
 diff 명령은 항상 `--no-ext-diff --no-textconv`로 실행한다 (T3). 텍스트 변환이 필요한 파일(예: 이미지, 바이너리)은 내용을 보여 주지 않는다.
 
@@ -680,6 +703,22 @@ diff 명령은 항상 `--no-ext-diff --no-textconv`로 실행한다 (T3). 텍스
 | Light | Dark |
 |---|---|
 | ![S-10 Diff 뷰어 (light)](../../design/mockups/s10-diff-viewer-light.png) | ![S-10 Diff 뷰어 (dark)](../../design/mockups/s10-diff-viewer-dark.png) |
+
+**단어 단위 강조 (v0.2.0, #122).** 줄 단위 배경 위에 바뀐 단어만 진하게 칠한다. git의 `--word-diff`는 쓰지 않는다(출력 형식이 달라 파서가 하나 더 필요하다). 앱이 받은 패치에서 계산한다.
+
+- **짝짓기**: hunk 안에서 연속된 `−` 줄 묶음과 바로 뒤의 `+` 줄 묶음을 순서대로 한 줄씩 짝짓는다. 짝이 없는 줄(한쪽이 더 많은 경우)은 줄 단위 배경만 둔다. Split 보기에서는 같은 짝이 좌우에 나란히 온다.
+- **단위**: 줄을 토큰으로 나눈다. 글자·숫자·`_`의 연속, 공백의 연속, 그 밖의 문자 하나가 각각 토큰이다. 두 줄의 토큰을 LCS로 맞추고, 맞지 않은 토큰을 `removed-word-bg` / `added-word-bg`로 칠한다.
+- **안 칠하는 경우**: 공통 토큰이 하나도 없으면(줄 전체가 바뀜) 칠하지 않는다. 줄 단위 배경으로 충분하고 전체를 진하게 칠하면 읽기 어렵다.
+- **상한 (T15)**: 저장소가 정하는 내용이라 계산량을 묶는다. 줄 하나가 1,000 유니코드 스칼라를 넘거나, 한 묶음이 200줄을 넘으면 그 줄·묶음은 줄 단위로 둔다. 파일 하나에서 짝지은 줄이 2,000을 넘으면 그 뒤는 줄 단위로 둔다(설계 때 5,000이었으나 PB-9를 지키려고 낮췄다, [PERF-09 측정](../performance/results/2026-11-08-perf09-word-diff.md)). 두 줄이 공유하는 앞뒤 토큰은 표 없이 건너뛰고, LCS 표는 줄 짝마다 250,000칸, 파일마다 5,000,000칸까지만 만든다. 계산은 화면에 그릴 때가 아니라 패치를 읽을 때 한 번 하고, 큰 diff 규칙(1만 줄 확인)과 같이 쓴다. 구현: `WordDiff`, `DiffDocument.unifiedRows(marked:)` (#387).
+- **접근성**: 색에만 의존하지 않도록 VoiceOver 줄 라벨에 `changed: <바뀐 단어>`를 덧붙인다(최대 5개, 나머지는 개수).
+
+**공백 표시 (v0.2.0, #122).** 머리 `⋯` 메뉴의 `Show Whitespace` 토글(기본 끔, 선택을 기억한다). 표시만 바뀌고 git 명령은 같다.
+
+- 탭은 그 자리에 `→`(`text.quaternary`)를 그리고 폭은 그대로 둔다.
+- `+`/`−` 줄 끝의 공백과 탭은 `·`·`→`로 그린다. 문맥 줄은 줄 끝 공백을 그리지 않는다(바뀐 곳만 보이게).
+- 줄 끝의 CR(CRLF 파일)은 `␍`로 그린다.
+- 기호는 이스케이프한 본문의 공백 자리에 그린다. 본문을 선택해 복사하면 그려진 기호도 함께 복사된다(탭은 원래부터 공백으로 펼쳐 보인다).
+- "공백 차이 무시"(`-w`, `--ignore-space-change`)는 모든 패치 명령의 인자를 바꾸므로 `later`다.
 
 **v0.1 제외.** 줄 단위 스테이징, 문법 강조, 이미지 diff, 편집.
 
@@ -750,4 +789,51 @@ S-09, S-10처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 
 - 패치 머리의 출처는 `Committed` / `Committed + uncommitted` / `Untracked`로 보인다. 파일별 커밋 수는 #157 결과에 없다.
 - 사이드바 배지(선택, 기본 꺼짐)는 넣지 않았다.
 
-**v0.1 제외.** 병합 가능 여부·충돌 예측, PR 생성, 두 임의 커밋 비교, 리뷰 코멘트.
+**v0.1 제외.** 병합 가능 여부·충돌 예측, PR 생성, 리뷰 코멘트. 두 임의 커밋 비교는 S-12(v0.2.0, #122)로 따로 둔다.
+
+---
+
+## S-12 두 커밋 비교 (v0.2.0, #122)
+
+**목적.** 그래프의 두 커밋 사이에 무엇이 바뀌었는지 본다. 예: 릴리스 태그 두 개, 에이전트가 만든 커밋 묶음의 처음과 끝. S-11은 워크트리, merge base, 미커밋 토글에 묶여 있어서 따로 둔다.
+
+**진입.** 그래프의 커밋 행 컨텍스트 메뉴 `Compare with Selected Commit`. 다른 커밋이 주 선택일 때만 켜진다(선택한 커밋 자기 자신, WIP 행, 선택이 커밋이 아닐 때는 꺼진다). 주 선택이 **기준(base)**, 메뉴를 연 행이 **대상(target)**이다. 다중 선택은 두지 않는다(주 선택은 하나다, [interaction.md §1.1](interaction.md#11-세-가지-상태)).
+
+S-09, S-11처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 그래프에 돌아간다. S-11과 S-12는 같이 열리지 않는다(하나를 열면 다른 하나가 닫힌다). 상세 패널에는 두 커밋과 파일 목록이 오고, 파일을 고르면 중앙에 그 파일의 패치(S-10과 같은 뷰어)가 나온다.
+
+```
+중앙 영역                                                         상세 패널
+┌──────────────────────────────────────────────────────────┐ ┌──────────────────────────────────────┐
+│ ‹ Graph  Compare  3c5d6f1 → a91f3c2   [⇄]                │ │ BASE                                  │
+│ 8 files · +272 −85                                        │ │  JL 3c5d6f1 Merge pull request #51 …  │
+├──────────────────────────────────────────────────────────┤ │ TARGET                                │
+│ internal/http/middleware.go  Modified                     │ │  AK a91f3c2 feat(ratelimit): …  [AI]  │
+├──────────────────────────────────────────────────────────┤ │ FILES CHANGED (8)           +272 −85  │
+│ @@ -8,11 +8,24 @@ import (                                │ │  M internal/http/middleware.go        │
+│   8   8      "net/http"                                   │ │  A internal/ratelimit/limiter.go      │
+│      11 +    "github.com/acme/api/internal/ratelimit"     │ │  R internal/http/{noop.go → pass…}    │
+└──────────────────────────────────────────────────────────┘ └──────────────────────────────────────┘
+```
+
+| 요소 | 내용 |
+|---|---|
+| 머리 | `Compare` + 기준 짧은 SHA `→` 대상 짧은 SHA. `⇄` 버튼은 기준과 대상을 바꾼다(파일 목록과 패치를 다시 읽음) |
+| 요약 줄 | 파일 수, `+n −m` |
+| BASE / TARGET | 각 커밋 한 행: 아바타 + 짧은 SHA + 제목 + AI 배지. 행을 누르면 S-12를 닫고 그 커밋의 S-03을 연다 |
+| FILES CHANGED | S-11과 같다: 종류 글자(M/A/D/R/C/T) + 경로 + `+n −m`, rename은 `{old → new}`, 경로 오름차순 |
+| 패치 머리 | 경로, 변경 종류, 그 파일의 `+n −m` |
+
+**데이터.** 새 git 명령은 없다. 커밋 상세의 `commitFiles`와 `commitPatch`(`diff-tree`, plumbing이라 저장소 diff 설정의 영향을 받지 않는다)에 부모 자리로 기준 커밋을 넘긴다: 기준→대상 두 트리의 차이다. 두 커밋은 그래프가 불러온 커밋이고 `ObjectID`로 검증되며 `--end-of-options` 뒤에 온다. 모든 diff는 `--no-ext-diff --no-textconv` (T3). [git-command-catalog.md](../architecture/git-command-catalog.md)의 두 행에 이 쓰임을 적었다.
+
+| 상태 | 표현 |
+|---|---|
+| 로딩 | 요약 줄 자리에 작은 스피너 + `Comparing 3c5d6f1 with a91f3c2…`. 150ms 규칙은 공통과 같다 |
+| 차이 없음 | `checkmark.circle` + `No changes between 3c5d6f1 and a91f3c2` (트리가 같은 두 커밋) |
+| 큰 비교 | S-11과 같다: 파일 1,000개 초과 시 처음 1,000개 + `Show all 4,213 files`. 패치는 S-10의 큰 diff 규칙 |
+| 실패 | S-03 파일 목록의 오류 표시와 같다(마스킹한 오류 문구) |
+
+**선택과 이력.** S-12를 여는 동안 주 선택(기준 커밋)은 그대로다. 사이드바 항목이나 그래프 행을 고르면 S-12를 닫고 그 항목을 고른다. S-12 열기·닫기와 파일 선택은 선택 이력(`⌘[` / `⌘]`, [interaction.md §1.4](interaction.md#14-선택-이력))에 기록하지 않는다.
+
+**구현 메모 (#388).** `AppState+CommitComparison`, `CommitComparisonModel`, `CommitComparisonCenterView`·`CommitComparisonListView`. 파일 목록은 `RepositoryService.compareCommits`(`commitFiles`에 기준을 부모 자리로)이고 캐시하지 않는다. 패치 머리의 출처는 `3c5d6f1 → a91f3c2 · M`. 고충실도 목업은 그리지 않았고, 렌더 테스트(`CommitComparisonRenderTests`) 스크린샷으로 확인했다.
+
+**제외 (later).** 기준과 대상 사이의 커밋 목록(`commitsAhead`가 지금 브랜치 ref만 받아 OID 변형이 필요하다), 사이드바 태그·브랜치에서 바로 비교, `⌘`-클릭으로 두 번째 커밋 고르기, 키보드 단축키, merge base 기준 비교(`A...B`).

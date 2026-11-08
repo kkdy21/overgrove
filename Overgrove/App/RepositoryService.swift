@@ -84,6 +84,10 @@ actor RepositoryService {
     var commitDetails = BoundedCache<CommitKey, CommitDetail>(capacity: RepositoryService.cachedCommitDetails)
     /// Graph pages (#68), keyed by the ref set they were read with (`RepositoryService+Graph.swift`).
     var graphPages = BoundedCache<GraphPageKey, LogParser.GraphPage>(capacity: RepositoryService.cachedGraphPages)
+    /// Streamed histories for repositories without a commit-graph file (#254), newest last; one per repository.
+    var graphStreams: [(repositoryID: String, refSet: GraphRefSet, stream: GraphStream)] = []
+    /// Refs newer than the cached overview's, seen by the graph's check (#373), by repository.
+    var graphLiveRefs: [String: GraphLiveRefs] = [:]
 
     /// - Parameters:
     ///   - sleep: Waits out the debounce; tests pass a gate instead of real time.
@@ -122,6 +126,7 @@ actor RepositoryService {
         comparisons.removeAll { $0.repositoryID == id }
         commitDetails.removeAll { $0.repositoryID == id }
         graphPages.removeAll { $0.repositoryID == id }
+        dropGraphStream(of: id)
         await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
     }
 
@@ -164,6 +169,7 @@ actor RepositoryService {
             await inspections.invalidate(keysWithPrefix: Self.inspectionPrefix(repository))
             // ⌘R also re-reads the graph: refs outside the listed namespaces (notes, pull refs) can move unseen.
             graphPages.removeAll { $0.repositoryID == id }
+            dropGraphStream(of: id)
         }
         // A newer request arrived while this one waited.
         guard latestGeneration[id] == generation, !Task.isCancelled else { return nil }
@@ -512,7 +518,7 @@ actor RepositoryService {
     }
 
     /// The list without repeated paths: forged records can repeat one, and a path is the entry's identity (#226).
-    private static func uniquePaths(_ worktrees: [Worktree]) -> [Worktree] {
+    static func uniquePaths(_ worktrees: [Worktree]) -> [Worktree] {
         var seen: Set<GitPath> = []
         return worktrees.filter { seen.insert($0.path).inserted }
     }

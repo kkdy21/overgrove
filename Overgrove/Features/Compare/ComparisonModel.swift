@@ -24,6 +24,8 @@ struct ComparisonSession: Equatable {
     var patch: DiffLoadState?
     /// "Show all n files" was pressed (screens.md S-11, large comparison).
     var showsAllFiles = false
+    /// The worktree's status when the result arrived, shown while the list cannot be read (#374).
+    var workingState: WorkingState?
 }
 
 /// S-11 rows and texts (screens.md S-11). Pure, so it is unit tested without views; repository strings are escaped.
@@ -81,8 +83,15 @@ struct ComparisonModel: Equatable {
     let showAllTitle: String?
     let isFileListPartial: Bool
     let untracked: [FileRow]
+    /// Set when the worktree list failed to load after this comparison ran (#374, interaction.md §4.1): the last
+    /// result stays, dimmed, under this notice, and nothing in it can be changed until a load succeeds.
+    let staleNotice: String?
 
-    init(session: ComparisonSession, workingState: WorkingState?) {
+    static let listFailedNotice = "The worktree list could not be read, so this comparison may be out of date."
+
+    /// - Parameter isListStale: The worktree list failed to load after the comparison ran.
+    init(session: ComparisonSession, workingState: WorkingState?, isListStale: Bool = false) {
+        staleNotice = isListStale ? Self.listFailedNotice : nil
         let baseName = session.base.map(Self.shortName) ?? "base branch"
         self.baseName = baseName
         let uncommitted = Set(((workingState?.staged ?? []) + (workingState?.unstaged ?? [])).map(\.path))

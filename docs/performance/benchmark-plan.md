@@ -61,7 +61,7 @@ scripts/make-bench-repo.sh --commits 3000 --files 500 --worktrees 4 <dir>  # 스
 | PERF-06 | status 새로고침 (파일 1만 개) | PB-5 | signpost `refresh-status` | Phase 3 |
 | PERF-07 | 10만 커밋 적재 시 최대 메모리 | PB-6 | `XCTMemoryMetric` | Phase 3 |
 | PERF-08 | git 계층 기준선 (B01–B18) | 전체 하한 | `measure-git-baseline.sh` | 지금, git 버전 변경 시 |
-| PERF-09 | Diff 뷰어 파싱·행·첫 프레임 (500줄, 1만 줄, 약 10MB) | PB-9 | XCTest, 합성 patch | Phase 3 |
+| PERF-09 | Diff 뷰어 파싱·행(단어 강조·공백 표시 포함, #387)·첫 프레임 (500줄, 1만 줄, 1만 줄 단어 다름, 약 10MB) | PB-9 | XCTest, 합성 patch | Phase 3 |
 | PERF-10 | 자동 새로고침 중 파일 쓰기 폭주 (파일 6,000개를 8초 동안, #119) | PB-10 | XCTest, 실제 FSEvents + 표준 픽스처, git 호출 기록 | Phase 3 |
 | PERF-11 | 파일 이력(S-09) 첫 100개 (`--follow`) | PB-7 | XCTest, bench 저장소 (#98) | Phase 4 |
 | PERF-12 | 커밋·stash 상세(S-03, S-04) 파일 목록 | PB-8 | XCTest, bench 저장소 (#98) | Phase 4 |
@@ -75,7 +75,7 @@ UI 계층(첫 프레임, hitch)은 아직 재지 않는다. 아래 테스트는 
 |---|---|---|---|
 | PERF-01 | `RepositoryOverviewBenchmarkTests.test_PERF_01_tenWorktreeOverview` | bench 저장소, 조회 한도 1·4·기본·10 | 기본 한도 p95 < 1.0초 (PB-1, 렌더링 제외) |
 | PERF-02 | `RepositoryOverviewBenchmarkTests.test_PERF_02_cachedWorktreeSwitch` | bench 저장소, 캐시 읽기 1,000회 | 캐시 읽기 p95 < 100ms (PB-2, 뷰 제외). 선택 새로고침은 status 35ms와 참고 비교 |
-| PERF-03 | `GraphBenchmarkTests.test_PERF_03_graphFirstPageAndPaging` | bench 저장소 | 첫 페이지 p95 < 500ms (PB-3). commit-graph가 없으면 < 1.0초 (PB-3b). 페이지별 레이아웃 최대 < 16.7ms |
+| PERF-03 | `GraphBenchmarkTests.test_PERF_03_graphFirstPageAndPaging` | bench 저장소 | 첫 페이지 p95 < 500ms (PB-3). commit-graph가 없으면 < 1.0초 (PB-3b). 페이지별 레이아웃 최대 < 16.7ms. "app path" 행은 `RepositoryService.graphPage`(commit-graph가 없으면 스트림, #254)의 첫 페이지와 스크롤 중 페이지 비용 |
 | PERF-04 | `GraphEnginePerformanceTests.test_GRA_09_*` | 합성 이력 10만 | `XCTClockMetric`, `XCTMemoryMetric` 기준값(`.xcbaseline`). 항상 실행 |
 | PERF-05 | `GraphBenchmarkTests.test_PERF_05_pageLayoutFitsAFrame` | 합성 이력 10만 | 스크롤 중 메인 액터가 하는 페이지 레이아웃 최대 < 16.7ms (PB-4 대리 측정). hitch ratio는 XCUITest 이후 |
 | PERF-11 | `DetailBenchmarkTests.test_PERF_11_fileHistoryFirstPage` | bench 저장소, 파일 하나의 `--follow` 이력 | 첫 페이지(100) p95 < 1.0초 (PB-7, 렌더링 제외) |

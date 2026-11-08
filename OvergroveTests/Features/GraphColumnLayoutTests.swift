@@ -103,28 +103,28 @@ final class GraphColumnLayoutTests: XCTestCase {
     // MARK: Wide lanes
 
     func testUpToTwelveLanesNothingScrolls() {
-        XCTAssertEqual(GraphGeometry.width(lanes: 12), 12 * 20 + 14)
-        XCTAssertEqual(GraphGeometry.maxOffset(lanes: 12), 0)
-        XCTAssertEqual(GraphGeometry.clampOffset(30, lanes: 5), 0)
+        XCTAssertEqual(GraphGeometry.standard.width(lanes: 12), 12 * 20 + 14)
+        XCTAssertEqual(GraphGeometry.standard.maxOffset(lanes: 12), 0)
+        XCTAssertEqual(GraphGeometry.standard.clampOffset(30, lanes: 5), 0)
     }
 
     func testMoreThanTwelveLanesScrollInsideTheColumn() {
-        XCTAssertEqual(GraphGeometry.width(lanes: 20), 12 * 20 + 14, "the column stays at 12 lanes")
-        XCTAssertEqual(GraphGeometry.contentWidth(lanes: 20), 20 * 20 + 14)
-        XCTAssertEqual(GraphGeometry.maxOffset(lanes: 20), 160)
-        XCTAssertEqual(GraphGeometry.clampOffset(-4, lanes: 20), 0)
-        XCTAssertEqual(GraphGeometry.clampOffset(500, lanes: 20), 160)
-        XCTAssertEqual(GraphGeometry.clampOffset(.nan, lanes: 20), 0)
+        XCTAssertEqual(GraphGeometry.standard.width(lanes: 20), 12 * 20 + 14, "the column stays at 12 lanes")
+        XCTAssertEqual(GraphGeometry.standard.contentWidth(lanes: 20), 20 * 20 + 14)
+        XCTAssertEqual(GraphGeometry.standard.maxOffset(lanes: 20), 160)
+        XCTAssertEqual(GraphGeometry.standard.clampOffset(-4, lanes: 20), 0)
+        XCTAssertEqual(GraphGeometry.standard.clampOffset(500, lanes: 20), 160)
+        XCTAssertEqual(GraphGeometry.standard.clampOffset(.nan, lanes: 20), 0)
     }
 
     func testRevealingAColumnMovesAsLittleAsPossible() {
         // Visible lanes 0–11 at offset 0.
-        XCTAssertEqual(GraphGeometry.revealing(3, offset: 0, lanes: 20), 0, "already visible")
+        XCTAssertEqual(GraphGeometry.standard.revealing(3, offset: 0, lanes: 20), 0, "already visible")
         // Lane 15's right edge (7 + 16 × 20 + 7 = 334) against a 254pt column.
-        XCTAssertEqual(GraphGeometry.revealing(15, offset: 0, lanes: 20), 80)
+        XCTAssertEqual(GraphGeometry.standard.revealing(15, offset: 0, lanes: 20), 80)
         // Back to lane 1 from the far right: its left edge (7 + 20 − 7 = 20).
-        XCTAssertEqual(GraphGeometry.revealing(1, offset: 160, lanes: 20), 20)
-        XCTAssertEqual(GraphGeometry.revealing(0, offset: 160, lanes: 20), 0)
-        XCTAssertEqual(GraphGeometry.revealing(19, offset: 0, lanes: 20), 160)
+        XCTAssertEqual(GraphGeometry.standard.revealing(1, offset: 160, lanes: 20), 20)
+        XCTAssertEqual(GraphGeometry.standard.revealing(0, offset: 160, lanes: 20), 0)
+        XCTAssertEqual(GraphGeometry.standard.revealing(19, offset: 0, lanes: 20), 160)
     }
 }

@@ -8,6 +8,8 @@ extension AppState {
             copy: { [weak self] in self?.copy($0) },
             copyMessage: { [weak self] in self?.rowActions.copy(RowActions.clipboardText($0, keepsLineBreaks: true)) },
             showCommit: { [weak self] in self?.showInGraph($0) },
+            canCompareCommit: { [weak self] in self?.canCompareCommit(with: $0) ?? false },
+            compareCommit: { [weak self] in self?.showCommitComparison(with: $0) },
             commitMessage: { [weak self] in self?.message(of: $0) ?? $0.subject },
             fullPath: { [weak self] in self?.fullPath(of: $1, in: $0) },
             revealFile: { [weak self] in self?.revealFile($1, in: $0) },
@@ -68,7 +70,8 @@ extension AppState {
         guard !worktreeList.isSnapshot, let folder = existingFolder(path, action: "Open in Terminal") else { return }
         let hooks =
             repository.map { LiveWorktreeInspector.hookExecutables(in: $0.repository.commonGitDirectoryURL) } ?? []
-        let reasons = TerminalGuard.reasons(inspection: entry(at: path)?.inspection, hooks: hooks)
+        let reasons = TerminalGuard.reasons(
+            inspection: entry(at: path)?.inspection, hooks: hooks, isUntrusted: isRepositoryUntrusted)
         if reasons.isEmpty {
             rowActions.openTerminal(at: folder)
         } else {
