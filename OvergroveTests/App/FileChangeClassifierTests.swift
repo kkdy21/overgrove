@@ -36,9 +36,11 @@ final class FileChangeClassifierTests: XCTestCase {
     }
 
     func testGitDirectory() {
-        XCTAssertEqual(classify("/dev/api/.git/HEAD"), FileChangeSet(worktrees: [main]))
+        // A HEAD change (a switch, a detached commit) also changes the worktree list record: branch, head (#416).
+        XCTAssertEqual(classify("/dev/api/.git/HEAD"), FileChangeSet(worktrees: [main], worktreeList: true))
         XCTAssertEqual(classify("/dev/api/.git/index"), FileChangeSet(worktrees: [main]))
-        XCTAssertEqual(classify("/dev/api/.git/worktrees/lane/HEAD"), FileChangeSet(worktrees: [lane]))
+        XCTAssertEqual(
+            classify("/dev/api/.git/worktrees/lane/HEAD"), FileChangeSet(worktrees: [lane], worktreeList: true))
         XCTAssertEqual(classify("/dev/api/.git/worktrees/lane/index"), FileChangeSet(worktrees: [lane]))
         XCTAssertEqual(classify("/dev/api/.git/refs/heads/main"), FileChangeSet(refs: true))
         XCTAssertEqual(classify("/dev/api/.git/packed-refs"), FileChangeSet(refs: true))
