@@ -20,7 +20,6 @@ final class LocalizationTests: XCTestCase {
     /// Files with stage 1 strings among others: only these keys are checked.
     private static let stageOneKeysIn = ["PanelChrome": Set(["Graph", "History"])]
 
-
     private func catalogStrings() throws -> [String: [String: Any]] {
         let data = try Data(contentsOf: Self.catalog)
         let root = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
