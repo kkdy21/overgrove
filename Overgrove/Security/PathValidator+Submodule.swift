@@ -64,23 +64,33 @@ extension PathValidator {
         guard lstat(entry.path, &info) == 0 else { return .notCheckedOut }
         let type = info.st_mode & S_IFMT
         guard type == S_IFDIR || type == S_IFREG else { return .outside }  // a symbolic link, FIFO, …
+        let moduleRoots = [commonDirectory, worktreeGitDirectory].compactMap {
+            canonical($0.appendingPathComponent("modules", isDirectory: true))
+        }
         guard let gitDirectory = gitDirectory(of: folder) else {
-            if type == S_IFREG, let target = gitFileTarget(of: folder) {
-                var targetInfo = stat()
-                if lstat(target.path, &targetInfo) != 0, errno == ENOENT { return .gitDirectoryMissing }
-            }
-            return .outside
+            return type == S_IFREG && isMissingModuleDirectory(of: folder, in: moduleRoots)
+                ? .gitDirectoryMissing : .outside
         }
         if type == S_IFDIR {
             guard case .inside = containment(of: gitDirectory, in: folder) else { return .outside }
             return .inside(gitDirectory)
         }
-        for root in [commonDirectory, worktreeGitDirectory] {
-            guard let modules = canonical(root.appendingPathComponent("modules", isDirectory: true)) else { continue }
+        for modules in moduleRoots {
             if case .inside(let resolved) = containment(of: gitDirectory, in: modules), resolved.path != modules.path {
                 return .inside(resolved)
             }
         }
         return .outside
+    }
+
+    /// A well-formed `.git` file whose target does not exist (`ENOENT`) and, read lexically (`..` folded, no links
+    /// followed), lies under one of `moduleRoots`: where `git submodule` would have put it, so a broken checkout
+    /// (#430). A missing target anywhere else stays `.outside`, so a hostile `.git` never reads as merely broken.
+    private static func isMissingModuleDirectory(of folder: URL, in moduleRoots: [URL]) -> Bool {
+        guard let target = gitFileTarget(of: folder) else { return false }
+        var info = stat()
+        guard lstat(target.path, &info) != 0, errno == ENOENT else { return false }
+        let lexical = target.standardizedFileURL.path
+        return moduleRoots.contains { lexical.hasPrefix($0.path + "/") }
     }
 }
