@@ -117,6 +117,9 @@ final class GraphStore {
         }
         task?.cancel()
         generation += 1
+        // The next page being read is cancelled with it; ask for it again once the check keeps the rows (#410). The
+        // rows at the end are already on screen and will not ask again.
+        if isLoadingMore { wantsMoreAfterCheck = true }
         isLoadingMore = false
         isChecking = true
         fetch(skip: 0)
