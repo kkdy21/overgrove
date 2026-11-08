@@ -135,7 +135,7 @@ OvergroveTests/
 | 0001 | 제품명 Overgrove | Accepted |
 | 0002 | 라이선스 MIT | Accepted |
 | 0003 | 최소 macOS 14 | Accepted |
-| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted (§2는 0023으로 대체) |
+| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted (§2는 0023으로 대체, GitHub 밖 제공자는 0026으로 확장) |
 | 0005 | 문서 언어 (내부 한국어, 외부 접점 영어) | Accepted |
 | 0006 | 외부 의존성 0개 | Accepted |
 | 0007 | 포맷·린트는 툴체인 내장 swift-format | Accepted |
@@ -155,6 +155,7 @@ OvergroveTests/
 | 0021 | v0.1 이후에도 조회 전용, 원격 쓰기는 `git fetch`만 | Accepted |
 | 0022 | 셸 프록시 환경 변수는 넘기지 않고 전역 `http.proxy`를 안내 | Accepted |
 | 0023 | PR 상태는 `gh pr list` 하나로, head 저장소까지 맞을 때만 브랜치에 잇기 (ADR-0004 §2 대체) | Accepted |
+| 0026 | GitLab·Gitea 이슈는 glab·gt에 위임, 그 CLI에 로그인된 호스트만 신뢰 (ADR-0004를 GitHub 밖 제공자로 확장) | Accepted |
 
 ### 2.6 테스트 ID
 

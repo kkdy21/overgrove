@@ -287,6 +287,39 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 여러 원격이 맞으면 gh와 같은 순서로 고른다: `upstream`, `github`, `origin`, 그다음 설정 순서. fork에서는 이슈가 `upstream`에 있기 때문이다. 판별은 검증된 목록(`RepoConfigInspector` 검사를 거친 조회)의 원격으로만 하고, 캐시에서 먼저 그린 목록으로는 gh를 실행하지 않는다 (`GitHubRemote`, #81).
 
+### 5.1 GLCommand와 GTCommand (다른 제공자 CLI)
+
+v0.2.0, [ADR-0026](../adr/0026-gitlab-and-gitea-issue-providers.md). GitLab은 `glab`(#154), Gitea는 `gt`(#449)다. 아직 구현하지 않았다. 공통 규칙은 §5와 같다.
+
+- 실행 파일 경로는 `/opt/homebrew/bin/<cli>`, `/usr/local/bin/<cli>`뿐이다.
+- 작업 디렉터리는 중립 디렉터리이고, 실행 제한은 §2.5의 gh 값이다.
+- 원본 출력은 클라이언트 밖으로 나가지 않는다.
+- 저장소는 인자로 항상 명시한다.
+- 해당 CLI가 그 호스트에 로그인됐다고 보고하기 전에는 이슈 목록을 실행하지 않는다(ADR-0026 §2).
+
+환경 변수는 `HOME`, `USER`, `TMPDIR`만 부모에서 넘기고, 나머지는 아래 고정값이다. `GITLAB_TOKEN`, `GITLAB_ACCESS_TOKEN`, `OAUTH_TOKEN`, `GITLAB_HOST`·`GITLAB_URI`·`GL_HOST`, `GITLAB_REPO`, `GLAB_CONFIG_DIR`, `GLAB_CA_CERT`, `GLAB_SKIP_TLS_VERIFY`, `GLAB_CLIENT_*`, `GLAB_PROXY`, `GITEA_TOKEN`, `GITEA_CLI_HOST`, `GITEA_INSTANCE_*`, `GITEA_CLI_CONFIG_DIR`, `GITEA_CLI_DATA_DIR`, `GITEA_CLI_REPO`, `BROWSER`, `EDITOR`, `XDG_CONFIG_HOME`, 프록시 변수는 넘기지 않는다.
+
+```
+glab: PATH(§2.4와 같음), LC_ALL=C, GIT_TERMINAL_PROMPT=0, NO_COLOR=1,
+      GLAB_SEND_TELEMETRY=false, GLAB_CHECK_UPDATE=false, GLAB_NO_PROMPT=true, GLAB_PAGER=cat,
+      GLAB_DISPLAY_HYPERLINKS=false, GLAB_SHOW_WHATS_NEW=false, GLAB_NOTIFY_SKILL_UPDATES=false,
+      GLAB_DUO_CLI_AUTO_DOWNLOAD=false, GLAB_DUO_CLI_AUTO_RUN=false,
+      GLAB_ORBIT_CLI_AUTO_DOWNLOAD=false, GLAB_ORBIT_CLI_AUTO_RUN=false
+gt:   PATH(§2.4와 같음), LC_ALL=C, GIT_TERMINAL_PROMPT=0, NO_COLOR=1, TERM=dumb,
+      GITEA_CLI_NO_UPDATE_NOTIFIER=1, GITEA_CLI_NO_EXTENSIONS=1, GITEA_CLI_COLOR=never, GITEA_CLI_PAGER=cat
+```
+
+| case | 인자 배열 | 파서 → 모델 | 비고 |
+|---|---|---|---|
+| `GLCommand.version` | `["--version"]` | 첫 줄 `glab X.Y.Z (...)` | 온보딩 표시 |
+| `GLCommand.authStatus(host:)` | `["auth", "status", "--hostname", "<HOST>", "--output", "json"]` | host·user·state만 | 설정에 없는 호스트는 glab이 네트워크 없이 거절한다(1.128.0 확인). `--all`과 `-t/--show-token`은 쓰지 않는다. 실패한 호스트가 있으면 0이 아닌 코드로 끝나므로 판단은 JSON으로 한다 |
+| `GLCommand.issueList(host:path:)` | `["issue", "list", "--repo", "https://<HOST>/<NAMESPACE>/<NAME>", "--output", "json", "--per-page", "100"]` | iid, title, state, labels, assignees.username, updated_at, web_url만 | 열린 이슈(기본값). 필드 선택이 없어 본문까지 오지만 읽지 않는다. glab은 텔레메트리(`POST /api/v4/usage_data/track_event`)와 업데이트 확인을 기본으로 하고, 위 고정값이 둘 다 끈다(1.128.0 확인) |
+| `GTCommand.version` | `["--version"]` | 첫 줄 `gt version X.Y.Z (...)` | 온보딩 표시 |
+| `GTCommand.authStatus` | `["auth", "status", "--json", "host,user,active,credential_available"]` | host·user·credential_available | 로컬 자격 증명만 본다(네트워크 없음, `--verify`는 쓰지 않음). `--json`이면 종료 코드는 0이다(gt 1.1.0 도움말) |
+| `GTCommand.issueList(instance:repo:)` | `["issue", "list", "--host", "<INSTANCE URL>", "--repo", "<OWNER/NAME>", "--state", "open", "--kind", "issues", "--limit", "200", "--no-input", "--json", "number,title,state,labels,assignees,updated_at,url"]` | 필드 그대로 | `--repo`를 주어 git 원격 탐색을 막는다. 계정이 없는 인스턴스는 gt가 종료 코드 4로 거절한다 |
+
+`glab`은 사용자 설정 파일(`config.yml`)이 없으면 첫 실행에 만든다. 그래서 설정 파일이 없으면 실행하지 않고 "GitLab CLI not set up"으로 본다(ADR-0026 §6).
+
 ---
 
 ## 6. stderr 분류 패턴
@@ -323,6 +356,6 @@ GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 
 
 다음은 1차 범위에서 **어떤 형태로도 실행하지 않는다**. 코드 리뷰와 `security-reviewer` 에이전트가 이 목록을 기준으로 검사한다.
 
-`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr list` 밖의 모든 `gh pr`(ADR-0023), `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`.
+`push`, `pull`, `merge`, `rebase`, `reset`, `restore`, `checkout`, `switch`, `clean`, `commit`, `cherry-pick`, `revert`, `am`, `apply`, `stash push/save/apply/pop/drop/clear/branch`, `branch -d/-D/-m`, `tag -d`, `worktree add/remove/move/prune/lock/unlock/repair`, `gc`, `maintenance`, `prune`, `update-ref`, `update-index`, `config --add/--unset/--replace-all/(쓰기 형태)`, `remote add/remove/set-url`, `submodule *`, `lfs *`, `gh issue create/edit/close`, `gh pr list` 밖의 모든 `gh pr`(ADR-0023), `gh auth login/logout/refresh/setup-git`, `gh api`, `gh repo *`, `glab`·`gt`의 이슈 목록·로그인 상태·버전 밖의 모든 명령(쓰기, `api`, 확장, `auth login/logout`, `--show-token`, `--web`, ADR-0026).
 
 `config`는 `--list --show-scope -z --includes` 조합만 허용한다.
