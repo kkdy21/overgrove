@@ -109,13 +109,14 @@ struct LiveWorktreeInspector: WorktreeInspecting {
     static func hookExecutables(in commonDirectory: URL) -> [String] {
         let hooks = commonDirectory.appendingPathComponent("hooks", isDirectory: true)
         var info = stat()
-        guard lstat(hooks.path, &info) == 0 else { return [] }
+        // Only a missing folder means no hooks; one that cannot be read may still hold hooks git can run.
+        guard lstat(hooks.path, &info) == 0 else { return errno == ENOENT ? [] : ["hooks (unreadable)"] }
         switch info.st_mode & S_IFMT {
         case S_IFDIR: break
         case S_IFLNK: return ["hooks (a link, not followed)"]
         default: return []
         }
-        guard let directory = opendir(hooks.path) else { return [] }
+        guard let directory = opendir(hooks.path) else { return ["hooks (unreadable)"] }
         defer { closedir(directory) }
         var names: [String] = []
         var scanned = 0
@@ -127,7 +128,11 @@ struct LiveWorktreeInspector: WorktreeInspecting {
             guard name != ".", name != "..", !name.hasSuffix(".sample") else { continue }
             var file = stat()
             // lstat: a link is reported as itself, not followed.
-            guard lstat(hooks.appendingPathComponent(name).path, &file) == 0 else { continue }
+            guard lstat(hooks.appendingPathComponent(name).path, &file) == 0 else {
+                // Gone since the listing: nothing to run. Unreadable: it may still run, so report it.
+                if errno != ENOENT { names.append("hooks/" + name) }
+                continue
+            }
             let type = file.st_mode & S_IFMT
             if (type == S_IFREG || type == S_IFLNK) && file.st_mode & 0o111 != 0 { names.append("hooks/" + name) }
         }

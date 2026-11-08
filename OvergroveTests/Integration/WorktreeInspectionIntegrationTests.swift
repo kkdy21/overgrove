@@ -108,6 +108,25 @@ final class WorktreeInspectionIntegrationTests: XCTestCase {
         XCTAssertEqual(LiveWorktreeInspector.hookExecutables(in: linked), ["hooks (a link, not followed)"])
     }
 
+    /// #354: a hooks folder that cannot be listed (search permission only) may still hold hooks git can run, so it is
+    /// reported, not taken as empty. The same for a parent that cannot be searched.
+    func testUnreadableHooksFolderIsReported() throws {
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "overgrove-hooks-\(UUID().uuidString)", isDirectory: true)
+        let hooks = base.appendingPathComponent("hooks", isDirectory: true)
+        try FileManager.default.createDirectory(at: hooks, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: base.path)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hooks.path)
+            try? FileManager.default.removeItem(at: base)
+        }
+        try FileManager.default.setAttributes([.posixPermissions: 0o311], ofItemAtPath: hooks.path)
+        XCTAssertEqual(LiveWorktreeInspector.hookExecutables(in: base), ["hooks (unreadable)"])
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hooks.path)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: base.path)
+        XCTAssertEqual(LiveWorktreeInspector.hookExecutables(in: base), ["hooks (unreadable)"])
+    }
+
     func testHookListIsCapped() throws {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent(
             "overgrove-hooks-\(UUID().uuidString)", isDirectory: true)

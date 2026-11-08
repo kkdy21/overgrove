@@ -67,17 +67,32 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 - `required=true`인 상태에서 clean만 비우면 `fatal: clean filter failed`가 난다. 그래서 `required=false`도 함께 넣는다 (확인).
 - `<d>` 드라이버 이름은 `[A-Za-z0-9._-]{1,64}`만 허용한다. 이 형식에 맞지 않는 이름이 있으면 무력화 인자를 만들 수 없다. 이때는 `configInspectionFailed`로 조회를 막는다 (fail closed).
 
+같은 scope에서 설정형 hook(`hook.<이름>.*`, git 2.54+)을 찾으면 이름마다 다음 인자를 모든 호출에 붙인다(#354).
+
+```
+-c hook.<이름>.enabled=false
+```
+
+- 이름은 바이트로 구분한다. 2.54 미만 git은 이 키를 무시한다.
+- 이름에 `=`(git이 `-c`를 첫 `=`에서 자른다), 제어 문자, 손실 디코딩이 있거나 256바이트를 넘으면, 또는 이름이 256개를 넘으면 무력화 인자를 만들 수 없다. 이때는 `configInspectionFailed`로 조회를 막는다(fail closed).
+
 ### 2.3 fetch 전용 인증 인자
 
 ```
 -c credential.helper=
   [신뢰 scope의 credential.*helper 항목을 원래 순서와 키 그대로 재삽입]
 [신뢰하지 않는 scope에서 false로 설정된 http.sslVerify, http.<url>.sslVerify 키마다: -c <같은 키>=true]
+[신뢰하지 않는 scope의 http.proxy, http.<url>.proxy, remote.<name>.proxy 키마다: -c <같은 키>=<신뢰 scope의 같은 키 값, 없으면 빈 값>]
+[신뢰하지 않는 scope의 http.cookieFile, http.<url>.cookieFile 키마다: -c <같은 키>=, http.saveCookies, http.<url>.saveCookies 키마다: -c <같은 키>=false]
 ```
 
 - 재삽입 예: Apple Git 내장 설정(`unknown` scope)의 `credential.helper=osxkeychain`, `gh auth setup-git`이 global에 쓴 `credential.https://github.com.helper=`(빈 값)와 `credential.https://github.com.helper=!/opt/homebrew/bin/gh auth git-credential`.
 - generic 키 초기화(`credential.helper=`)는 그 이전에 읽힌 URL별 helper까지 비운다 (확인). 그래서 신뢰 항목은 반드시 초기화 **뒤에** 다시 넣는다.
 - `http.<url>.sslVerify`는 URL별 키가 generic 키보다 우선한다. 그래서 같은 URL 키로 덮어써야 한다 (확인: `config --get-urlmatch`).
+- 프록시: `remote.<name>.proxy`는 그 원격에서 `http.proxy`보다 우선한다. 저장소가 고른 프록시는 신뢰 helper가 내준 자격 증명이 담긴 요청을 볼 수 있으므로(#150, #355) 세 형태 모두 같은 키로 덮는다. 덮는 값은 그 URL에 대해 신뢰 scope가 주는 실효 프록시다(`remote.<name>.proxy`는 같은 키의 신뢰 값 → 원격 URL에 맞는 가장 구체적인 신뢰 `http.<url>.proxy` → 신뢰 `http.proxy`, `http.<url>.proxy`는 그 URL에 맞는 신뢰 값 → 신뢰 `http.proxy`). 없으면 빈 값(프록시 없음)이다. 빈 값을 넣으면 사용자의 `http.proxy`보다 구체적이어서 회사 프록시 환경에서 fetch가 실패하기 때문이다. URL 대조는 git의 urlmatch 규칙(scheme, `*` 라벨이 있는 host, port, path 접두사, user. 우선순위는 host → path → user, 같으면 나중 값)을 따르되 percent 디코딩은 하지 않는다. 무엇을 고르든 신뢰 값이거나 빈 값이므로 대조가 어긋나도 보안 문제는 아니다 (`TrustedProxies`).
+- 덮어쓰는 키의 subsection에 `=`가 있거나 UTF-8이 아니면(디코딩에서 U+FFFD) 같은 키로 덮을 수 없으므로 조회를 막는다(#355 리뷰).
+- 쿠키: 저장소가 고른 파일을 쿠키 저장소로 읽고 쓰지 않게 한다. generic 키는 fetch overrides가 끄고(`-c http.cookieFile= -c http.saveCookies=false`, 아래 §3, 사용자 값 포함), 저장소의 URL별 키는 generic 덮어쓰기를 이기므로 같은 키로 끈다 (확인, 2.36.6·2.54.0, #355). 사용자의 URL별 키는 그대로 둔다.
+- 키 중복은 바이트로 비교한다. git은 정준 동치(NFC/NFD)인 subsection을 별개 키로 보므로, 문자열 동치로 합치면 하나가 덮어쓰기에서 빠진다(#355).
 
 ### 2.4 환경 변수 (allowlist, 부모 환경 미상속)
 
@@ -183,7 +198,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 | case | 서브커맨드 인자 배열 | 작업 디렉터리 | 비고 | 위협 |
 |---|---|---|---|---|
-| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI=`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
+| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
 
 - 원격마다 따로 실행한다 (`--all`을 쓰지 않음). 원격별로 인증 실패를 구분해 보여 주려는 것이다. 참고로 `--all`도 `--upload-pack`을 원격별 하위 fetch에 전달하는 것은 확인했다.
 - `--upload-pack=git-upload-pack`은 로컬 `remote.<n>.uploadpack`을 무력화한다. `-c remote.<n>.uploadpack=`로는 무력화되지 않는다 (확인).
@@ -196,6 +211,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
     - `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false`: 이중 방어.
     - `-c fetch.writeCommitGraph=false`: fetch 뒤 commit-graph 파일 쓰기를 끈다.
     - `-c fetch.bundleURI=`: 로컬 `fetch.bundleURI`(git 2.40+, #99 호환성 매트릭스에서 2.39.5·2.40.4로 확인)가 있으면 fetch가 그 URI(원격이 아닌 임의 위치)에서 bundle을 받아 `refs/bundles/*`를 쓴다. bundle list가 `creationToken`을 쓰면 `.git/config`에 `fetch.bundleCreationToken`까지 기록한다(#210 보안 검토, 확인). 빈 값이면 꺼진다. 2.40 미만 git은 이 키를 무시한다.
+    - `-c http.cookieFile= -c http.saveCookies=false`: generic 키의 쿠키 파일 읽기와 저장을 끈다(저장소 값과 사용자 값 모두). 저장소의 URL별 키는 §2.3이 같은 키로 끈다. 사용자(신뢰 scope)의 URL별 키는 그대로 둔다(#355).
   - `RepoConfigInspector`는 로컬 `remote.<n>.fetch`(대상이 `refs/remotes/<n>/` 밖), `fetch.pruneTags`, `remote.<n>.pruneTags`, `remote.<n>.tagOpt`, `fetch.bundleURI`, `remote.<n>.mirror`를 보고한다(SEC-T13-04).
   - 남는 한계: 설정 파일을 직접 고치면 원격 `a`와 `a/b`를 함께 둘 수 있다. 이때 `a`를 fetch하면 `--prune`이 `refs/remotes/a/b/*`를 지운다. 고정 전에도 같았고 피해는 `refs/remotes` 안으로 한정되며 다시 fetch하면 복구된다(#210 보안 검토).
 - `--progress`의 stderr 진행 메시지(`Receiving objects:  45% (...)`)는 `LC_ALL=C`에서 영어로 고정된다. git이 실행되는 동안 `FetchProgressParser`가 읽어 진행률로 쓰고, 파싱에 실패하면 무시한다([parsing-spec.md §11.4](parsing-spec.md)). `remote:` 줄은 서버가 쓰므로 단계와 숫자만 꺼내고 문자열은 넘기지 않는다.

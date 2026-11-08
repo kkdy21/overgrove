@@ -57,9 +57,12 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 
 - **설명**: `.git/hooks/*` 또는 `core.hooksPath`가 가리키는 훅이 실행된다. 조회 명령은 대부분 훅을 실행하지 않지만, **fetch는 ref를 갱신할 때 `reference-transaction` 훅을 실행한다** (확인).
 - **시나리오**: 악성 저장소에 `.git/hooks/reference-transaction` 실행 파일이 있다. 사용자가 Fetch 버튼을 누르면 실행된다.
-- **대응**: 공통 인자 `-c core.hooksPath=/dev/null`. 훅 디렉터리가 존재하지 않는 경로가 되어 실행되지 않는다 (확인). 로컬 `core.hooksPath`보다 명령줄이 우선한다.
-- **잔여 위험**: 없음 (확인된 범위).
-- **검증**: SEC-T2-01 (훅이 든 픽스처 fetch → canary 없음), SEC-T2-02 (인자 스냅샷)
+- **대응**:
+  - 공통 인자 `-c core.hooksPath=/dev/null`. 훅 디렉터리가 존재하지 않는 경로가 되어 실행되지 않는다 (확인). 로컬 `core.hooksPath`보다 명령줄이 우선한다.
+  - **설정형 hook(#354)**: git 2.54부터 설정(`hook.<이름>.command`, `.event`)으로도 hook을 정의할 수 있다(릴리스 노트). `RepoConfigInspector`가 신뢰하지 않는 scope(`local`, `worktree`)의 `hook.<이름>.*` 키를 찾으면 이름마다 `-c hook.<이름>.enabled=false`를 모든 명령에 붙인다(T2 `neutralized`). 이름은 git처럼 바이트로 구분한다(정준 동치인 이름도 서로 다른 hook이다). 저장소가 신뢰 scope에 정의된 hook 이름에 이벤트만 더해도 그 이름 전체를 끈다. 이름에 `=`·제어 문자·손실 디코딩이 있거나 256바이트를 넘거나, 이름이 `maximumNeutralizedHooks`(256)개를 넘으면 무력화 인자를 만들 수 없으므로 조회와 fetch를 모두 막는다(fail closed, filter 드라이버와 같다). 2.54 미만 git은 이 키들을 무시한다.
+  - 사용자 전역(`global`, `system`) hook은 신뢰 범위라 건드리지 않는다.
+- **잔여 위험**: 없음 (확인된 범위). 새 git 버전이 다른 형태의 hook 설정을 더하면 검사기가 모를 수 있다.
+- **검증**: SEC-T2-01 (훅이 든 픽스처 fetch → canary 없음), SEC-T2-02 (인자 스냅샷), SEC-T2-03 (설정형 hook: 악성 픽스처의 모든 이벤트에 건 hook이 앱 fetch에서 실행되지 않음, 대조군 포함, #354), SEC-T2-04 (실측: 앱의 모든 조회는 설정형 hook을 일으키지 않음, #354), SEC-T2-05 (무력화할 수 없는 hook 이름·상한 초과는 조회와 fetch를 막음, #354), SEC-T2-06 (여러 이름 형태 — 문장부호, 앞뒤 공백, 비ASCII, 정준 동치 쌍, 저장소의 `enabled = true` — 모두 앱 fetch에서 실행되지 않음, #354). git 2.36.6, Apple Git 2.54.0, Homebrew 2.54.0에서 확인
 - **상태**: 설계 완료
 
 ### T3. 외부 diff, textconv 실행
@@ -136,11 +139,11 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 내장 전송만 허용하는 데 따른 사용 제약(`ftp://`·`ftps://`, 커스텀 원격 helper는 fetch 불가, 허용하더라도 앱 설정으로만)은 사용자 안내 [guides/self-hosted-git.md §Limits](../guides/self-hosted-git.md#limits)로 옮겼다(#161, #152).
   - 사용자가 global에 정의한 `core.gitProxy`는 v0.1에서 무시된다 (빈 `GIT_PROXY_COMMAND`). `git://` 프로토콜은 드물어서 감수한다.
   - **터미널로 보내는 안내.** fetch 실패 안내(`FetchFailureGuidance`, #78)가 사용자를 터미널로 보내면, 터미널의 git은 이 문서의 대응을 하나도 적용받지 않는다. 악성 저장소가 일부러 fetch를 실패시켜(예: 처음 보는 호스트로 `hostKeyNotTrusted`) 사용자가 페이로드를 직접 실행하게 만들 수 있다(#200 보안 검토).
-    - 그래서 `git` 명령은 `RepoSecurityReport`에 항목이 없을 때만 복사용으로 제시하고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다.
+    - 그래서 `git` 명령은 `RepoSecurityReport`에 항목이 없고 hooks 디렉터리에 실행 파일도 없을 때만 복사용으로 제시하고, 그때도 "신뢰하는 저장소에서만"이라고 쓴다. hooks 디렉터리 검사는 #354에서 더했다(느린 status 안내와 같은 기준). 설정형 hook은 finding이라 앞 조건에 포함된다.
     - 항목이 있으면 저장소를 읽지 않는 명령(`ssh-add -l`, `ssh-keyscan … | ssh-keygen -lf -`, `ssh-keygen -F`)만 제시한다.
     - 남는 위험: `.git/hooks`는 설정 보고에 나오지 않으므로, 보고가 깨끗해도 터미널 git이 hook을 실행할 수 있다. 안내 문구가 이를 경고한다.
     - 두 번째 경로는 느린 status 안내(`SlowStatusHint`, #168)다. 저장소가 status를 일부러 느리게 만들어 안내를 띄울 수 있고, 권하는 `git status`는 index를 다시 써서 `post-index-change` hook을 실행할 수 있다. 그래서 설정 보고에 항목이 없고 **S-05의 hook 검사(`hookExecutables`)가 비어 있을 때만** 복사용 명령을 제시한다. 검사 결과가 없으면(상태바) 명령을 제시하지 않는다. 문구는 FetchFailureGuidance처럼 hook과 설정을 경고한다(SEC-T5-17). pager·editor·`!` alias는 #278부터 보고에 나온다.
-- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-17 (느린 status 안내는 설정 보고에 항목이 없고 hook 실행 파일이 없을 때만 `git status`를 제시하고, 항목·hook이 있거나 검사 결과가 없으면 명령이 없음, #168), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행), SEC-T5-20 (내장 전송 형태가 아닌 원격: `<이름>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기를 앱 fetch가 git 실행 전에 거부하고 canary 없음, 대조군은 실행. `RepositoryService`는 원격별 실패로 보고, #350), SEC-T5-21 (원격 형태 검사를 우회해도 공통 인자만으로 canary 없음, 저장소가 켤 수 있는 두 가지 대체 경로 모두, 대조군은 실행, #350. 두 테스트 모두 git 2.36.6·Apple Git·Homebrew git에서 확인), SEC-T5-18 (partial clone fetch: `lazyFetchControlVersion` 경계 2.45.0 거부·2.45.1 허용, 두 가지 pack 처리 경로와 promisor 설정 두 종류에서 앱 fetch 뒤 canary 없음, 대조군은 실행하되 저장소는 그대로. 설정이 없어도 `.promisor` pack이 있으면 거부, 판단할 수 없는 pack 폴더는 fail closed. `OVERGROVE_TEST_GIT`로 git 2.36·2.44.0·2.45.0을 주면 거부 경로를 실제 git으로 확인한다)
+- **검증**: SEC-T5-01 (sshCommand), SEC-T5-02 (uploadpack, 로컬 원격), SEC-T5-03 (`ext::`), SEC-T5-04 (`insteadOf` → `ext::`), SEC-T5-05 (gitProxy), SEC-T5-06 (`fd::` 차단, 정지 없음), SEC-T5-07 (alternates 저장소 fetch에서 `alternateRefsCommand` canary 미생성), SEC-T5-08 (`<helper>::` URL), SEC-T5-09 (로컬 `protocol.<helper>.allow=always`), SEC-T5-10 (`insteadOf` → `<helper>::`), SEC-T5-11 (`remote.<n>.vcs`), SEC-T5-12 (명령줄 `-c protocol.allow=never`로는 부족함), SEC-T5-13 (로컬 경로 원격은 계속 허용), SEC-T5-14 (https는 전송 정책으로 거부되지 않음), SEC-T5-15 (git이 직접 처리하지 않는 `<scheme>://` URL), SEC-T5-17 (느린 status 안내는 설정 보고에 항목이 없고 hook 실행 파일이 없을 때만 `git status`를 제시하고, 항목·hook이 있거나 검사 결과가 없으면 명령이 없음, #168), SEC-T5-16 (이미 partial인 저장소 + 로컬 uploadpack canary: 앱 조회(`commitPatch`, `commitFiles`, `fileHistory`) 뒤 canary 없음, 대조군(#212 이전 환경)은 실행), SEC-T5-20 (내장 전송 형태가 아닌 원격: `<이름>::` URL, `remote.<n>.vcs`, `insteadOf` 바꿔치기를 앱 fetch가 git 실행 전에 거부하고 canary 없음, 대조군은 실행. `RepositoryService`는 원격별 실패로 보고, #350), SEC-T5-21 (원격 형태 검사를 우회해도 공통 인자만으로 canary 없음, 저장소가 켤 수 있는 두 가지 대체 경로 모두, 대조군은 실행, #350. 두 테스트 모두 git 2.36.6·Apple Git·Homebrew git에서 확인), SEC-T5-22 (fetch 실패 안내는 hooks 디렉터리에 실행 파일이 있으면 git 명령을 제시하지 않음, #354), SEC-T5-18 (partial clone fetch: `lazyFetchControlVersion` 경계 2.45.0 거부·2.45.1 허용, 두 가지 pack 처리 경로와 promisor 설정 두 종류에서 앱 fetch 뒤 canary 없음, 대조군은 실행하되 저장소는 그대로. 설정이 없어도 `.promisor` pack이 있으면 거부, 판단할 수 없는 pack 폴더는 fail closed. `OVERGROVE_TEST_GIT`로 git 2.36·2.44.0·2.45.0을 주면 거부 경로를 실제 git으로 확인한다)
 - **상태**: 설계 완료
 
 ### T6. 저장소 로컬 `credential.helper` 실행
@@ -214,11 +217,11 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
     - GitHub 토큰 접두사 `ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`
     - `Authorization:` 헤더 줄
   - **원격 URL 표시**: 기본은 마스킹이다. 설정의 "원격 URL 표시"를 켜도 자격 증명 부분은 계속 마스킹한다. 원격 URL에 자격 증명이 들어 있으면 S-05에 경고하고, credential helper 사용을 권장한다.
-  - **TLS 설정**: `local`·`worktree` scope에서 `false`로 설정된 `http.sslVerify`·`http.<url>.sslVerify`를 fetch에서 같은 키의 `true`로 덮는다 (확인: `config --get-urlmatch`). 로컬 `http.*proxy`는 신뢰 scope 값(없으면 빈 값)으로 덮고, 로컬 `http.*sslCAInfo`·`sslCAPath`·`sslCert`·`sslKey`가 있으면 fetch를 막는다(§3.3, #150).
+  - **TLS 설정**: `local`·`worktree` scope에서 `false`로 설정된 `http.sslVerify`·`http.<url>.sslVerify`를 fetch에서 같은 키의 `true`로 덮는다 (확인: `config --get-urlmatch`). 로컬 `http.*proxy`와 `remote.<name>.proxy`는 그 URL에 대해 신뢰 scope가 주는 실효 프록시 값(없으면 빈 값)으로 덮고, 로컬 `http.*sslCAInfo`·`sslCAPath`·`sslCert`·`sslKey`가 있으면 fetch를 막는다(§3.3, #150, #355). 저장소의 쿠키 파일 설정은 fetch에서 끈다(generic 키는 fetch overrides, 저장소의 URL별 키는 같은 키로 끔. 사용자의 URL별 키는 그대로, #355). 키 중복은 바이트로 비교하고, 덮어쓰는 키의 subsection이 UTF-8이 아니면 조회를 막는다(#355).
   - 앱은 토큰을 받거나 저장하지 않는다. `gh auth status`는 `--show-token` 없이 호출한다.
   - **보안 보고서 복사(S-05 `Copy Report`, #110)**: 이슈나 대화에 붙여 넣는 글이므로 키 이름과 각 항목의 판정만 담는다. 그 밖에는 고정된 사실(main/linked 워크트리, 검사 시각, git·앱 버전)만 쓴다. config 값, 원격 URL과 호스트, 파일 경로, 브랜치 이름, 오류 문구(경로나 stderr를 인용할 수 있음)는 넣지 않는다. URL이나 경로가 될 수 있는 subsection은 마스킹하지 않고 자리표시로 바꾼다(`credential.<url>.helper`, `http.<url>.sslverify`, `includeif.<condition>.path`). 그 밖의 subsection도 글자로 시작하고 글자·숫자·`_`·`-`만 쓴 이름이 아니면 `<name>`이 된다. `.`이 든 이름은 호스트나 IP일 수 있어서 바꾼다. 자격 증명이 든 원격은 이름만 적는다(`origin (credentials in URL)`, 이름이 평범하지 않으면 `<remote>`). 목록은 행마다 50개까지 적는다. 마지막으로 줄마다 `CredentialMasker`, 홈 → `~`, 제어·bidi 문자 이스케이프를 거친다.
 - **잔여 위험**: 새로운 토큰 형식은 마스킹 패턴에 없을 수 있다. URL userinfo는 형식과 관계없이 전부 마스킹하므로 위험이 줄어든다. scheme 없이 `:`도 없는 `token@host`가 config 키가 아닌 텍스트(stderr 등)에 나오면 가리지 않는다. scheme 없는 비밀번호에 `/`가 있으면(`u:pa/ss@h`) `/`가 구간을 끊어 일부가 보인다. git은 이것을 호스트 `u`의 경로로 읽으므로 자격 증명으로 쓰이지 않고, 주요 토큰 형식에는 `/`가 없다(#244).
-- **검증**: SEC-T11-01 (`CredentialMasker` 단위 테스트), SEC-T11-02 (fetch 실패 stderr가 마스킹된 뒤에만 UI 모델과 로그에 들어감), SEC-T11-03 (로컬 `sslVerify=false` → 최종 인자로 `true` 복원), SEC-T11-04 (S-05, 상태바의 원격 표시가 마스킹됨), SEC-T11-05 (`GHCommand`의 어떤 인자에도 token이 없고, gh stderr는 마스킹된 뒤에만 `GHError`에 들어감), SEC-T11-06 (S-05 보안 보고서 복사: 적대적 설정에서도 config 값·원격 URL·호스트·경로·홈·토큰·브랜치 이름이 없고 키 이름과 판정만 남음, #110)
+- **검증**: SEC-T11-01 (`CredentialMasker` 단위 테스트), SEC-T11-02 (fetch 실패 stderr가 마스킹된 뒤에만 UI 모델과 로그에 들어감), SEC-T11-03 (로컬 `sslVerify=false` → 최종 인자로 `true` 복원), SEC-T11-04 (S-05, 상태바의 원격 표시가 마스킹됨), SEC-T11-05 (`GHCommand`의 어떤 인자에도 token이 없고, gh stderr는 마스킹된 뒤에만 `GHError`에 들어감), SEC-T11-06 (S-05 보안 보고서 복사: 적대적 설정에서도 config 값·원격 URL·호스트·경로·홈·토큰·브랜치 이름이 없고 키 이름과 판정만 남음, #110), SEC-T11-07 (실제 git: 저장소의 `remote.<name>.proxy`·`http.<url>.proxy`·`http.proxy`가 있어도 앱의 fetch는 프록시를 거치지 않음. 대조군인 평범한 git은 신뢰 helper의 비밀번호를 프록시로 보냄. 사용자 global `http.proxy`가 있으면 저장소 프록시 대신 그 프록시를 거침, #355), SEC-T11-08 (실제 git: 저장소의 `http.cookieFile`·`http.<url>.cookieFile` 쿠키가 앱의 fetch 요청에 실리지 않고, `saveCookies`가 있어도 그 파일에 쓰지 않음. 대조군은 쿠키를 보내고 서버가 보낸 쿠키로 파일을 덮어씀, #355)
 - **상태**: 설계 완료
 
 ### T12. 자격 증명 프롬프트 대기
@@ -281,7 +284,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - `TerminalGuard`는 위협·처리 방식과 관계없이 **모든 finding**을 확인 사유로 본다. 앱이 자기 명령에서 덮어쓰거나 무시하는 설정도 셸의 git은 그대로 따르기 때문이다.
 
   남는 위험: 검사기가 모르는 실행 경로(예: 새 git 버전의 새 키)는 확인 사유가 되지 않는다.
-- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226), SEC-T14-06 (Diff 뷰어가 untracked FIFO와 워크트리 밖 폴더를 가리키는 심볼릭 링크 아래 파일을 미리보기하지 않음, #232), SEC-T14-07 (행 메뉴: 밖을 가리키는 링크·링크 폴더·`..`·없는 파일은 Reveal in Finder 거부, `https` 외 URL은 열지 않음, 클립보드 값의 제어·bidi 문자 이스케이프, #73), SEC-T14-08 (Open in Terminal: 깨끗한 검사는 바로 열고, 실행 finding·차단·hook·검사 없음은 확인 후에만 열며, 나열하는 키는 마스킹·이스케이프·상한 적용, #73), SEC-T14-09 (FSEvents 이벤트 경로는 신뢰하지 않는 문자열이다. 검증된 워크트리 폴더(`realpath`)와 공통 git 디렉터리에 컴포넌트 단위로만 비교하고 디스크를 읽지 않는다. 접두사 속임(`/dev/api-other`), 상대 경로, `.`·`..`, 연결 워크트리의 `.git` 파일, 감시 밖 경로는 아무것도 바꾸지 않음, #119), SEC-T14-10 (pager·editor·`!` alias는 T14 `reported`로 보고하고 앱의 인자는 바꾸지 않음. 불리언 `pager.<cmd>`와 신뢰 scope는 보고하지 않음. Open in Terminal은 위협·처리와 관계없이 모든 finding을 확인 사유로 씀, #278)
+- **검증**: SEC-T14-01 (심볼릭 링크 등록 경로 경고), SEC-T14-02 (저장소 밖을 가리키는 untracked 심볼릭 링크는 링크 문자열만 미리보기하고 대상 내용은 보이지 않음, 상위 디렉터리가 밖으로 나가는 경로는 거부), SEC-T14-03 (로컬 `core.worktree` 보고), SEC-T14-04 (등록 probe 교차 확인: 고른 폴더가 probe의 워크트리 안에 있고, 그 워크트리의 `.git`이 공통 디렉터리로 이어지거나 back-pointer가 맞는 연결 워크트리여야 한다. `core.worktree`나 위조한 `commondir`로 다른 곳을 가리키면 등록 거부, #84. bare 저장소(#222): 고른 폴더가 공통 git 디렉터리 자체이거나, 공통 디렉터리를 바로 아래에 두고 `.git`이 디스크에서 그곳으로 이어지는 폴더여야 하고, 이 위치의 git 디렉터리도 공통 디렉터리여야 한다. bare 안의 하위 폴더, `worktrees/<id>`, 다른 저장소를 `commondir`로 가리키는 폴더, 다른 워크트리의 `.git` 파일을 복사한 폴더, 다른 곳의 bare 저장소를 가리키는 `.git` 파일만 둔 폴더는 거부), SEC-T14-05 (나열된 워크트리 검증: 메인 워크트리 하위 폴더 항목, 연결 워크트리 항목을 빌린 폴더, `config.worktree`의 `core.worktree`는 조회하지 않음. 각 대조군은 #221의 공통 디렉터리 검사를 통과함을 보인다, #226), SEC-T14-06 (Diff 뷰어가 untracked FIFO와 워크트리 밖 폴더를 가리키는 심볼릭 링크 아래 파일을 미리보기하지 않음, #232), SEC-T14-07 (행 메뉴: 밖을 가리키는 링크·링크 폴더·`..`·없는 파일은 Reveal in Finder 거부, `https` 외 URL은 열지 않음, 클립보드 값의 제어·bidi 문자 이스케이프, #73), SEC-T14-08 (Open in Terminal: 깨끗한 검사는 바로 열고, 실행 finding·차단·hook·검사 없음은 확인 후에만 열며, 나열하는 키는 마스킹·이스케이프·상한 적용, #73), SEC-T14-09 (FSEvents 이벤트 경로는 신뢰하지 않는 문자열이다. 검증된 워크트리 폴더(`realpath`)와 공통 git 디렉터리에 컴포넌트 단위로만 비교하고 디스크를 읽지 않는다. 접두사 속임(`/dev/api-other`), 상대 경로, `.`·`..`, 연결 워크트리의 `.git` 파일, 감시 밖 경로는 아무것도 바꾸지 않음, #119), SEC-T14-10 (pager·editor·`!` alias는 T14 `reported`로 보고하고 앱의 인자는 바꾸지 않음. 불리언 `pager.<cmd>`와 신뢰 scope는 보고하지 않음. Open in Terminal은 위협·처리와 관계없이 모든 finding을 확인 사유로 씀, #278. 설정형 hook 키도 사유가 됨, #354)
 - **상태**: 설계 완료
 
 ### T15. 자원 고갈
@@ -296,7 +299,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
     | 대상 | 상한 | 넘으면 |
     |---|---|---|
     | filter 드라이버 | 256 | 조회 중단(fail closed). 드라이버마다 모든 git 명령에 인자 8개가 붙고, 모두 무력화하지 못하면 실행하지 않는다 |
-    | fetch 전용 덮어쓰기(`http.<url>.sslVerify`·`.proxy`) | 256 | fetch만 막는다. 조회는 계속한다 |
+    | fetch 전용 덮어쓰기(`http.<url>.sslVerify`·`.proxy`·`.cookieFile`·`.saveCookies`, `remote.<name>.proxy`) | 256 | fetch만 막는다. 조회는 계속한다 |
     | 원격 목록 | 1,000 (설정 순서) | 나머지는 개수만 센다(`omittedRemotes`). fetch는 더 적게 쓴다(#259). 무력화와 무관하므로 fail closed가 아니다 |
     | 보고서 항목 | 1,000 | 나머지는 개수만 센다(`omittedFindings`). 무력화는 모든 항목에 그대로 적용한다 |
 
@@ -441,12 +444,15 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | 정규식 | 범주 | 처리 | 위협 |
 |---|---|---|---|
 | `^filter\.(.+)\.(clean\|smudge\|process\|required)$` | 실행 | **무력화**: 드라이버별 `-c` 4종 (모든 명령) | T4 |
+| `^hook\.(.+)\..+$` (설정형 hook, git 2.54+) | 실행 | **무력화**: 이름별 `-c hook.<이름>.enabled=false` (모든 명령). 이름을 쓸 수 없거나 256개를 넘으면 **조회 차단**. 이름 없는 `hook.<키>`는 보고만 (#354) | T2 |
 | `^credential\.helper$`, `^credential\..+\.helper$` | 실행 | **무력화**: 초기화 + 신뢰 항목 재삽입 (fetch) | T6 |
 | `^core\.sshcommand$` | 실행 | **무력화**: `GIT_SSH_COMMAND` (항상) | T5 |
 | `^core\.gitproxy$` | 실행 | **무력화**: 빈 `GIT_PROXY_COMMAND` (항상) | T5 |
 | `^remote\..+\.uploadpack$` | 실행 | **무력화**: `--upload-pack` (fetch, 항상) | T5 |
 | `^http\.(.+\.)?sslverify$` | 전송 보안 | **무력화**: 값과 관계없이 같은 키 `=true` (fetch). git은 `0k`, `0x0`, `-0` 등도 false로 읽으므로 추측하지 않는다 (#150 리뷰) | T11 |
-| `^http\.(.+\.)?proxy$` | 전송 보안 | **무력화**: 같은 키에 신뢰 scope 값, 없으면 빈 값 (fetch). 로컬 프록시가 신뢰 helper가 내준 자격 증명을 받을 수 있다 (#150 리뷰 실측) | T11 |
+| `^http\.(.+\.)?proxy$` | 전송 보안 | **무력화**: 같은 키에 그 URL에 대한 신뢰 실효 프록시(가장 구체적인 신뢰 `http.<url>.proxy` → 신뢰 `http.proxy`), 없으면 빈 값 (fetch). 로컬 프록시가 신뢰 helper가 내준 자격 증명을 받을 수 있다 (#150 리뷰 실측, #355) | T11 |
+| `^remote\..+\.proxy$` | 전송 보안 | **무력화**: 같은 키에 신뢰 값, 없으면 원격 URL에 대한 신뢰 실효 프록시, 없으면 빈 값 (fetch, 그 원격에서 `http.proxy`보다 우선). subsection에 `=`가 있거나 UTF-8이 아니면 덮어쓸 수 없어 조회를 막는다 (#355) | T11 |
+| `^http\.(.+\.)?cookiefile$`, `^http\.(.+\.)?savecookies$` | 전송 보안 | **무력화**: 같은 키에 빈 값·`false` (fetch). generic 키는 fetch overrides도 끈다. 저장소가 고른 파일을 쿠키 저장소로 읽고 쓰지 않게 한다 (#355) | T11 |
 | `^core\.fsmonitor$` | 실행 | 보고 (공통 인자로 차단) | T1 |
 | `^core\.hookspath$` | 실행 | 보고 (공통 인자로 차단) | T2 |
 | `^core\.askpass$` | 실행 | 보고 (공통 인자와 환경으로 차단) | T12 |
