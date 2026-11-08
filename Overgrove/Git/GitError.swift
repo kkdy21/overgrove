@@ -55,13 +55,18 @@ struct MaskedText: Sendable, Hashable {
             case "\t":
                 printable.append(scalar)
             default:
-                if !CharacterSet.controlCharacters.contains(scalar) { printable.append(scalar) }
+                // Also characters that render as nothing but are not `Cf` (variation selectors, CGJ, Khmer inherent
+                // vowels): left in, they would make a split token look whole on screen (#375 review).
+                if !CharacterSet.controlCharacters.contains(scalar), !scalar.properties.isDefaultIgnorableCodePoint {
+                    printable.append(scalar)
+                }
             }
         }
         endLine()
-        // Masked again on what is shown: dropping control and format characters (ESC, DEL, zero-width, bidi) can join
-        // the pieces of a token they split, and the first pass saw them apart (#375). Masking twice changes nothing
-        // already masked. The limit comes last, so it never cuts a token the second pass would have caught.
+        // Masked again on what is shown: dropping control, format, and invisible characters (ESC, DEL, VT, zero-width,
+        // bidi, variation selectors) can join the pieces of a token they split, and the first pass saw them apart
+        // (#375). Masking again never reveals what the first pass hid. The limit comes last, so it never cuts a token
+        // the second pass would have caught.
         var view = String.UnicodeScalarView()
         view.append(contentsOf: printable)
         let shown = CredentialMasker.mask(String(view)).unicodeScalars
