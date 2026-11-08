@@ -73,7 +73,7 @@
 - PR 상태 표시, 이슈 생성·수정, GitHub Enterprise, GitHub App, 여러 계정 전환
 - UI 한국어 현지화
 - 그래프 stash 노드(#384), 그래프 확대(`⌘+`/`⌘−`, v0.2.0 #121에서 들어옴), 두 커밋 비교, 단어 단위 diff, 공백 표시
-- 태그 섹션, Quick Look, 선택 이력 뒤로/앞으로, 사용자 지정 터미널·에디터, Open on GitHub
+- 태그 섹션, Quick Look, 선택 이력 뒤로/앞으로, 사용자 지정 터미널·에디터(v0.2.0 #124에서 들어옴), Open on GitHub
 - 워크트리 정리(#156), GitLab·Forgejo/Gitea 이슈 패널(#154)
 
 ---
