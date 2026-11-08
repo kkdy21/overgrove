@@ -87,7 +87,7 @@ git config --global http.https://git.example.com/.proxy http://proxy.example.com
 
 SSH 원격은 `~/.ssh/config`의 `ProxyCommand`나 `ProxyJump`를 쓴다. global `core.gitProxy`(`git://` 원격용)는 쓰이지 않는다.
 
-셸 프록시 변수를 전달할지는 아직 결정 중이다([#153](https://github.com/kkdy21/overgrove/issues/153)).
+셸 프록시 변수는 전달하지 않는다. Finder에서 실행한 앱에는 셸 변수가 닿지 않아 실행 방식마다 동작이 달라지기 때문이다([ADR-0022](../adr/0022-no-shell-proxy-env-vars.md)). 셸에서 `HTTPS_PROXY`를 쓰고 있다면 같은 값을 위의 `git config --global http.proxy`로 옮긴다. 프록시 URL에 비밀번호는 넣지 않는다. `~/.gitconfig`에 평문으로 남는다. `http://user@proxy.example.com:8080`처럼 사용자 이름만 두면 git이 credential helper에서 비밀번호를 받는다.
 
 ## 원격 URL 예시
 

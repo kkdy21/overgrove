@@ -444,6 +444,8 @@ fetch에는 `--no-recurse-submodules --upload-pack=git-upload-pack`을 붙인다
 
 gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalog.md)에 있다.
 
+셸 프록시 변수(`HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY`, `NO_PROXY`와 소문자 변형)는 넘기지 않는다([ADR-0022](../adr/0022-no-shell-proxy-env-vars.md)). Finder에서 실행한 앱에는 어차피 닿지 않아 실행 방식마다 동작이 달라지고, 부모 환경을 신뢰하게 되기 때문이다. 프록시는 전역 `http.proxy`로 둔다([가이드](../guides/self-hosted-git.ko.md#프록시)).
+
 ### 3.3 RepoConfigInspector 탐지 키
 
 키는 `section.subsection.variable` 형식이다. section과 variable은 소문자로 정규화된 상태에서 비교하고, subsection은 `.`이 들어갈 수 있다. 대상 scope는 `local`과 `worktree`다.
