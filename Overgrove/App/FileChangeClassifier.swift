@@ -6,7 +6,8 @@ struct FileChangeSet: Equatable, Sendable {
     var worktrees: Set<GitPath> = []
     /// `refs/` or `packed-refs` changed: branches, tags, or remote-tracking refs moved.
     var refs = false
-    /// `worktrees/<id>` appeared, disappeared, or changed its lock or location: the worktree list changed.
+    /// `worktrees/<id>` appeared, disappeared, or changed its lock or location, or a `HEAD` moved: the worktree list
+    /// changed (#416).
     var worktreeList = false
 
     var isEmpty: Bool { worktrees.isEmpty && !refs && !worktreeList }
@@ -111,13 +112,16 @@ struct FileChangeClassifier: Equatable, Sendable {
         return FileChangeSet(worktrees: [worktree.path])
     }
 
+    /// `HEAD` also re-reads the worktree list: a switch or a commit on a detached HEAD changes only `HEAD` (and the
+    /// index), and the list record (branch, head, detached) is what the sidebar title and the graph's ref set use
+    /// (#416). `worktree list` is cheap.
     private func classifyGitDirectory(_ relative: [Substring]) -> FileChangeSet {
         guard let first = relative.first else { return FileChangeSet() }
         switch first {
         case "HEAD", "index":
             guard relative.count == 1, let main = worktrees.first(where: { $0.gitDirectory == commonDirectory })
             else { return FileChangeSet() }
-            return FileChangeSet(worktrees: [main.path])
+            return FileChangeSet(worktrees: [main.path], worktreeList: first == "HEAD")
         case "refs", "packed-refs":
             return FileChangeSet(refs: true)
         case "config":
@@ -132,7 +136,7 @@ struct FileChangeClassifier: Equatable, Sendable {
                 guard let linked = worktrees.first(where: { $0.gitDirectory == gitDirectory }) else {
                     return FileChangeSet()
                 }
-                return FileChangeSet(worktrees: [linked.path])
+                return FileChangeSet(worktrees: [linked.path], worktreeList: relative[2] == "HEAD")
             case "gitdir", "locked":
                 return FileChangeSet(worktreeList: true)
             default:

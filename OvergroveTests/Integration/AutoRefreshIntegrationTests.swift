@@ -114,6 +114,68 @@ final class AutoRefreshIntegrationTests: XCTestCase {
             "only the user load queried: the file-change refresh started no git status")
     }
 
+    /// #416: a change only to a worktree's HEAD (a switch in a linked worktree, then a commit on a detached HEAD)
+    /// re-reads the worktree list, so the sidebar record (branch, head, detached) follows. Real git, real FSEvents.
+    func testHeadOnlyChangesReloadTheWorktreeList() async throws {
+        let repository = try await GitTestRepository.make()
+        defer { repository.remove() }
+        try repository.write("f.txt", "1\n")
+        try await repository.git(["add", "f.txt"])
+        try await repository.git(["commit", "-q", "-m", "first"])
+        try await repository.git(["branch", "other"])
+        let linked = repository.root.deletingLastPathComponent()
+            .appendingPathComponent("head-416-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: linked) }
+        try await repository.git(["worktree", "add", "-q", "-b", "lane", "--", linked.path])
+        let model = Repository(
+            rootURL: repository.root, commonGitDirectoryURL: repository.root.appendingPathComponent(".git"),
+            isBare: false)
+        let service = RepositoryService(client: GitClient(environment: repository.environment), sleep: { _ in })
+        let loaded = try overview(await service.refresh(model, trigger: .user))
+        let classifier = try XCTUnwrap(
+            FileChangeClassifier(listing: WorktreeListing(overview: loaded), repository: model))
+        let lanePath = try XCTUnwrap(loaded.entries.first { $0.worktree.branch == "refs/heads/lane" }).worktree.path
+
+        let log = EventLog()
+        let stream = LiveFileEventWatcher.live.watch(classifier.watchedPaths, latency: 0.2) { log.append($0) }
+        defer { stream.stop() }
+        try await Task.sleep(for: .seconds(1))  // let the stream settle
+
+        /// Runs `change` in the linked worktree, waits for its events, and refreshes with what they classify as.
+        func lane(after change: [String]) async throws -> Worktree {
+            log.clear()
+            _ = try await ProcessRunner().run(
+                ProcessRequest(
+                    executable: repository.environment.executable, arguments: ["-C", linked.path] + change,
+                    environment: GitEnvironment.environment(parent: ProcessInfo.processInfo.environment),
+                    currentDirectory: linked, limits: .query))
+            let deadline = ContinuousClock.now + .seconds(10)
+            while !classifier.classify(log.all).worktreeList, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            let change = classifier.classify(log.all)
+            XCTAssertTrue(change.worktreeList, "\(change) from \(log.all.prefix(6).map(\.path))")
+            let refreshed = try overview(
+                await service.refresh(
+                    model,
+                    trigger: .filesChanged(
+                        worktrees: change.worktrees, refs: change.refs, worktreeList: change.worktreeList)))
+            return try XCTUnwrap(refreshed.entries.first { $0.worktree.path == lanePath }).worktree
+        }
+
+        let switched = try await lane(after: ["switch", "-q", "other"])
+        XCTAssertEqual(switched.branch, "refs/heads/other", "the sidebar shows the new branch")
+
+        let detached = try await lane(after: ["switch", "-q", "--detach"])
+        XCTAssertTrue(detached.isDetached)
+        let committed = try await lane(after: [
+            "-c", "user.name=T", "-c", "user.email=t@example.invalid", "commit", "-q", "--allow-empty", "-m",
+            "detached",
+        ])
+        XCTAssertTrue(committed.isDetached)
+        XCTAssertNotEqual(committed.head, detached.head, "the new detached commit is the head the graph keys on")
+    }
+
     /// No feedback loop: a full load and a `.filesChanged` refresh of every worktree write nothing the watcher acts
     /// on (#211: queries never write the index). Control: a real edit is seen.
     func testOwnQueriesProduceNoRelevantEvents() async throws {
