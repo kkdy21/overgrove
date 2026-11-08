@@ -25,7 +25,7 @@ extension LiveRepositoryLoader: SubmoduleLoading {
 /// so its file stays small (#253).
 ///
 /// Reading submodules can start up to `1 + 3 × RepositoryService.maximumInspectedSubmodules` git processes, and every
-/// load (auto-refresh included) asks again. So for the same status (SEC-T15-18):
+/// load (auto-refresh included) asks again. So for the same status (SEC-T15-20):
 /// - a running read is never cancelled for a refresh; refreshes that arrive meanwhile become one read after it;
 /// - a new read starts no sooner than `max(minimumInterval, last read's duration × 10)` after the last one ended,
 ///   the same pacing as the FSEvents auto-refresh (#119), so submodule reads take at most a tenth of the time.

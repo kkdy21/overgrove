@@ -17,7 +17,7 @@ import Foundation
 /// Only the selected worktree's submodules are read, on demand, and at most `maximumInspectedSubmodules` of them
 /// (T15). The submodules' configurations are not cached here; `SubmodulePanel` paces how often they are read again.
 extension RepositoryService {
-    /// Submodules inspected per request; the rest are counted (`SubmoduleListing.omitted`, SEC-T15-18).
+    /// Submodules inspected per request; the rest are counted (`SubmoduleListing.omitted`, SEC-T15-20).
     static let maximumInspectedSubmodules = 32
     /// Submodules inspected at the same time (each runs up to three git processes).
     static let concurrentSubmoduleInspections = 4

@@ -38,7 +38,7 @@
 | `--no-optional-locks` | 조회 중 `index.lock`을 잡지 않음, index 갱신 쓰기 방지. `git diff`의 자동 refresh는 막지 못한다(`diff.autoRefreshIndex` 행 참고) | T13 |
 | `--literal-pathspecs` | `:(exclude)`, glob 등 pathspec 매직을 끔 | T9 |
 | `-c core.fsmonitor=false` | fsmonitor 훅 실행 방지. 서브프로세스(서브모듈)에도 전파됨 (확인) | T1 |
-| `-c core.hooksPath=/dev/null` | 모든 훅 실행 방지 (fetch의 `reference-transaction` 포함, 확인) | T2 |
+| `-c core.hooksPath=/dev/null` | hooks 디렉터리의 훅 실행 방지 (fetch의 `reference-transaction` 포함, 확인). 설정형 hook(`hook.<이름>.*`, git 2.54+)은 이 인자로 막히지 않으므로 이름별 `-c hook.<이름>.enabled=false`로 끈다(§2.2, #354) | T2 |
 | `-c core.askPass=` | 로컬 `core.askPass` 실행 방지 (확인) | T12 |
 | `-c protocol.ext.allow=never` | `ext::` 원격과 `insteadOf`로 바꿔치기한 `ext::` 차단 (확인). `GIT_ALLOW_PROTOCOL`(§2.4)과 겹치는 심층 방어 | T5 |
 | `-c protocol.fd.allow=never` | `fd::` 원격 차단. 기본값에서는 허용되고 정지를 일으킴 (확인) | T5, T15 |
@@ -52,6 +52,7 @@
 | `-c diff.suppressBlankEmpty=false` | 저장소 로컬 `diff.suppressBlankEmpty`가 patch의 빈 문맥 줄 앞 공백을 지우지 못하게 함. 이 설정은 명령줄 옵션이 없다 (확인, #239) | T3, 파싱 무결성 |
 | `-c i18n.logOutputEncoding=UTF-8` | 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`이 포맷된 출력 전체(`-z` 구분자 포함)를 다시 인코딩하지 못하게 함. JOHAB·CP1361은 메시지의 전각 문자를 NUL로 바꿔 필드를 밀고 가짜 레코드를 만든다 (확인, E41, #205) | T15, 파싱 무결성 |
 | `-c log.follow=false` | 저장소 로컬 `log.follow=true`가 경로 하나짜리 `git log`를 rename 추적으로 바꾸지 못하게 함. `fileHistory(follow: false)`가 `--follow`만 빼던 탓에 S-09의 "Follow renames"를 꺼도 rename 이전 커밋이 나왔다. 추적이 필요하면 `fileHistory`가 `--follow`를 직접 넘기고, 옵션이 설정보다 우선한다. `log.follow`는 git 2.6부터 있어 최소 지원 버전(2.36)에서 동작한다 (확인, #310) | 표시 정확성 |
+| `-c log.mailmap=false -c mailmap.file= -c mailmap.blob=` | 저장소 로컬 mailmap 설정이 저장소 밖 파일을 읽게 하지 못함. FIFO면 `git log`가 시간 제한까지 멈춘다(2.36.6·2.54.0 확인). 앱은 커밋에 기록된 이름을 그대로 보여 준다(`%an`, #356) | T15 |
 
 diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)에는 서브커맨드 인자로 `--no-ext-diff --no-textconv`를 반드시 붙인다 (T3). `git diff`는 기본으로 외부 diff 드라이버를 실행한다 (확인).
 
@@ -84,6 +85,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 [신뢰하지 않는 scope에서 false로 설정된 http.sslVerify, http.<url>.sslVerify 키마다: -c <같은 키>=true]
 [신뢰하지 않는 scope의 http.proxy, http.<url>.proxy, remote.<name>.proxy 키마다: -c <같은 키>=<신뢰 scope의 같은 키 값, 없으면 빈 값>]
 [신뢰하지 않는 scope의 http.cookieFile, http.<url>.cookieFile 키마다: -c <같은 키>=, http.saveCookies, http.<url>.saveCookies 키마다: -c <같은 키>=false]
+[신뢰하지 않는 scope의 credential[.<url>].protectProtocol, credential[.<url>].sanitizePrompt 키마다: -c <같은 키>=true]
 ```
 
 - 재삽입 예: Apple Git 내장 설정(`unknown` scope)의 `credential.helper=osxkeychain`, `gh auth setup-git`이 global에 쓴 `credential.https://github.com.helper=`(빈 값)와 `credential.https://github.com.helper=!/opt/homebrew/bin/gh auth git-credential`.
@@ -160,7 +162,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
   3. `probeRepository`(검사 전 허용)의 최상위 폴더가 서브모듈 폴더와 같고, `--git-common-dir`이 2단계의 git 디렉터리와 같다. git 디렉터리의 `core.worktree`나 `commondir`이 다른 곳을 가리키면 여기서 거부한다(SEC-T14-11).
   4. `configList`를 서브모듈 폴더에서 실행해 `RepoConfigInspector`로 검사하고, 그 서브모듈 자신의 `RepoSafetyContext`로만 `status`를 실행한다. 차단되면 아무것도 실행하지 않는다. `status`는 `--ignore-submodules=dirty`를 그대로 가지므로 중첩 서브모듈로 재귀하지 않는다.
 
-  다시 읽기는 `SubmodulePanel`이 조절한다. 같은 status에서는 진행 중인 읽기를 취소하지 않고, 그동안 온 새로고침은 끝난 뒤 한 번으로 합친다. 다음 읽기는 직전 읽기가 끝나고 `max(2초, 소요 × 10)`이 지난 뒤에 시작한다(SEC-T15-18).
+  다시 읽기는 `SubmodulePanel`이 조절한다. 같은 status에서는 진행 중인 읽기를 취소하지 않고, 그동안 온 새로고침은 끝난 뒤 한 번으로 합친다. 다음 읽기는 직전 읽기가 끝나고 `max(2초, 소요 × 10)`이 지난 뒤에 시작한다(SEC-T15-20).
 
 - **원격 이름과 URL**은 `configList` 결과의 `remote.<name>.url`에서 얻는다. 별도 명령을 쓰지 않는다. URL은 표시 전에 `CredentialMasker`를 거친다.
 - **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 사이드바 LOCAL의 로컬 브랜치는 `refs`의 `%(upstream:track,nobracket)`에서 한 번에 얻고, 브랜치마다 `rev-list`를 실행하지 않는다(#54, 2026-11-06 측정 S5). `aheadBehind`는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에만 쓴다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).
@@ -207,7 +209,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 | case | 서브커맨드 인자 배열 | 작업 디렉터리 | 비고 | 위협 |
 |---|---|---|---|---|
-| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
+| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false -c credential.protectProtocol=true -c credential.sanitizePrompt=true -c transfer.credentialsInUrl=die -c promisor.acceptFromServer=none`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
 
 - 원격마다 따로 실행한다 (`--all`을 쓰지 않음). 원격별로 인증 실패를 구분해 보여 주려는 것이다. 참고로 `--all`도 `--upload-pack`을 원격별 하위 fetch에 전달하는 것은 확인했다.
 - `--upload-pack=git-upload-pack`은 로컬 `remote.<n>.uploadpack`을 무력화한다. `-c remote.<n>.uploadpack=`로는 무력화되지 않는다 (확인).
@@ -221,6 +223,9 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
     - `-c fetch.writeCommitGraph=false`: fetch 뒤 commit-graph 파일 쓰기를 끈다.
     - `-c fetch.bundleURI=`: 로컬 `fetch.bundleURI`(git 2.40+, #99 호환성 매트릭스에서 2.39.5·2.40.4로 확인)가 있으면 fetch가 그 URI(원격이 아닌 임의 위치)에서 bundle을 받아 `refs/bundles/*`를 쓴다. bundle list가 `creationToken`을 쓰면 `.git/config`에 `fetch.bundleCreationToken`까지 기록한다(#210 보안 검토, 확인). 빈 값이면 꺼진다. 2.40 미만 git은 이 키를 무시한다.
     - `-c http.cookieFile= -c http.saveCookies=false`: generic 키의 쿠키 파일 읽기와 저장을 끈다(저장소 값과 사용자 값 모두). 저장소의 URL별 키는 §2.3이 같은 키로 끈다. 사용자(신뢰 scope)의 URL별 키는 그대로 둔다(#355).
+    - `-c credential.protectProtocol=true -c credential.sanitizePrompt=true`: git의 자격 증명 CVE 수정(CVE-2024-52006, CVE-2024-50349)을 저장소가 끄지 못하게 한다. URL별 키는 §2.3이 같은 키로 켠다(#356).
+    - `-c transfer.credentialsInUrl=die`: URL에 비밀번호가 있으면 접속 전에 실패한다(2.37+). 그 미만 git은 키를 무시하므로 `RepoConfigInspector.remotesWithPassword`가 그 원격을 미리 거부한다(#356).
+    - `-c promisor.acceptFromServer=none`: 서버가 광고하는 promisor 원격을 받지 않는다(2.49+, #356).
   - `RepoConfigInspector`는 로컬 `remote.<n>.fetch`(대상이 `refs/remotes/<n>/` 밖), `fetch.pruneTags`, `remote.<n>.pruneTags`, `remote.<n>.tagOpt`, `fetch.bundleURI`, `remote.<n>.mirror`를 보고한다(SEC-T13-04).
   - 남는 한계: 설정 파일을 직접 고치면 원격 `a`와 `a/b`를 함께 둘 수 있다. 이때 `a`를 fetch하면 `--prune`이 `refs/remotes/a/b/*`를 지운다. 고정 전에도 같았고 피해는 `refs/remotes` 안으로 한정되며 다시 fetch하면 복구된다(#210 보안 검토).
 - `--progress`의 stderr 진행 메시지(`Receiving objects:  45% (...)`)는 `LC_ALL=C`에서 영어로 고정된다. git이 실행되는 동안 `FetchProgressParser`가 읽어 진행률로 쓰고, 파싱에 실패하면 무시한다([parsing-spec.md §11.4](parsing-spec.md)). `remote:` 줄은 서버가 쓰므로 단계와 숫자만 꺼내고 문자열은 넘기지 않는다.

@@ -157,7 +157,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   2. 그 뒤에 신뢰 scope의 `credential.*helper` 항목을 **원래 순서와 키 그대로** 다시 넣는다. Apple 내장 `osxkeychain`과 `gh auth setup-git` 형식의 URL별 항목이 이렇게 복원된다 (확인).
   3. 순서가 중요하다. URL별 빈 값을 신뢰 helper보다 뒤에 넣으면 신뢰 helper까지 지워진다 (확인). 그래서 항상 "초기화 → 재삽입" 순서를 지킨다.
 - **잔여 위험**: 신뢰 scope의 helper 자체가 위험하면 막지 못한다 (위협 모델 밖).
-- **검증**: SEC-T6-01 (로컬 generic helper → canary 없음), SEC-T6-02 (로컬 URL별·와일드카드 helper → canary 없음), SEC-T6-03 (신뢰 global helper와 URL별 helper가 순서대로 실행됨), SEC-T6-04 (https promisor 원격의 lazy fetch: 앱 조회는 로컬 helper를 실행하지 않고 서버에 요청도 보내지 않음, 대조군은 401 뒤 helper 실행, #212)
+- **검증**: SEC-T6-01 (로컬 generic helper → canary 없음), SEC-T6-02 (로컬 URL별·와일드카드 helper → canary 없음), SEC-T6-03 (신뢰 global helper와 URL별 helper가 순서대로 실행됨), SEC-T6-04 (https promisor 원격의 lazy fetch: 앱 조회는 로컬 helper를 실행하지 않고 서버에 요청도 보내지 않음, 대조군은 401 뒤 helper 실행, #212), SEC-T6-05 (실제 git: URL에 비밀번호가 든 원격(직접, 또는 `insteadOf` 바꿔치기로)은 앱 fetch가 git 실행 전에 거부하고 서버에 요청이 없음. 대조군은 그 URL로 접속. git 2.37+는 `-c transfer.credentialsInUrl=die`, 그 미만은 검사가 막음, #356), SEC-T6-06 (git의 자격 증명 CVE 수정을 끄는 `credential[.<url>].protectProtocol`·`sanitizePrompt`는 fetch에서 `true`로 강제됨, #356)
 - **상태**: 설계 완료
 
 ### T7. 서명 검증 프로그램 실행
@@ -251,7 +251,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - **fetch 범위 고정(#209)**: 저장소 설정이 이 범위를 넓히지 못하게 fetch 인자에 고정한다. refspec `+refs/heads/*:refs/remotes/<원격>/*`와 `--refmap=`, `--no-tags`, `-c fetch.pruneTags=false -c remote.<원격>.pruneTags=false -c fetch.bundleURI=`를 쓴다([카탈로그 §4](../architecture/git-command-catalog.md)). 고정하기 전에는 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`(detached HEAD)가 로컬 브랜치를 지우고 `main`을 되돌렸다. 로컬 `fetch.pruneTags`는 로컬 태그를 지웠다(#206 보안 검토, E40).
 - **잔여 위험**: 낮음. #94의 테스트와 리뷰에서 찾은 두 결함, `git diff`의 index 쓰기(#208)와 저장소 설정에 의한 fetch 범위 확대(#209)는 고쳤다.
   - `--no-tags` 때문에 원격에만 있는 새 태그는 v0.1에서 가져오지 않는다(의도된 동작, #209).
-- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. stat만 바뀐 파일의 worktree diff와 기준 브랜치 비교(`git diff --merge-base`, 작업 트리 포함, #157)도 불변이고, `diff.autoRefreshIndex=false`를 빼면 다시 쓰는 대조군 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인), SEC-T13-04 (로컬 `remote.<n>.fetch`·`fetch.pruneTags`·`remote.<n>.pruneTags`·`tagOpt`·`fetch.bundleURI`를 심은 저장소에서 앱 fetch 뒤 `refs/remotes/` 밖의 모든 ref와 HEAD 불변, 대조군(고정 전 인자)에서는 브랜치·태그 삭제, `main` 이동, `refs/bundles/*` 생성), SEC-T13-05 (이슈의 `Open in Browser`는 정확히 `https://github.com/OWNER/NAME/issues/<번호>`일 때만 `NSWorkspace`에 넘김. 다른 번호·`pull`·경로 추가·쿼리·조각·사용자 정보·포트 거부, #81)
+- **검증**: SEC-T13-01 (모든 case의 서브커맨드가 허용 집합 안에 있음), SEC-T13-02 (status 조회 전후 `.git/index` 내용·mtime 불변, 연결 워크트리 포함. stat만 바뀐 파일의 worktree diff와 기준 브랜치 비교(`git diff --merge-base`, 작업 트리 포함, #157)도 불변이고, `diff.autoRefreshIndex=false`를 빼면 다시 쓰는 대조군 포함. 다른 조회는 `.git` 전체 불변까지 확인), SEC-T13-03 (금지 API 정적 검사. 저장소 전체 통과와 함께, 심은 위반을 실제로 거부하는지 테스트로 확인), SEC-T13-04 (로컬 `remote.<n>.fetch`·`fetch.pruneTags`·`remote.<n>.pruneTags`·`tagOpt`·`fetch.bundleURI`를 심은 저장소에서 앱 fetch 뒤 `refs/remotes/` 밖의 모든 ref와 HEAD 불변, 대조군(고정 전 인자)에서는 브랜치·태그 삭제, `main` 이동, `refs/bundles/*` 생성), SEC-T13-05 (이슈의 `Open in Browser`는 정확히 `https://github.com/OWNER/NAME/issues/<번호>`일 때만 `NSWorkspace`에 넘김. 다른 번호·`pull`·경로 추가·쿼리·조각·사용자 정보·포트 거부, #81), SEC-T13-06 (실제 git: 저장소 밖 위치를 가리키는 `extensions.refStorage`는 보고되고 앱이 fetch하지 않으며 밖에 아무것도 쓰지 않음. 대조군인 평범한 git 2.54는 밖에 ref와 reflog를 씀. 이 확장을 모르는 git은 git 디렉터리를 무시해 저장소 명령이 스스로 실패함, #356)
 - **상태**: 설계 완료 (정적 검사 스크립트는 저장소 셋업에서 적용)
 
 ### T14. 파일 시스템 범위 이탈, 심볼릭 링크 탈출
@@ -316,7 +316,7 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - `fd::`는 `protocol.fd.allow=never`로 차단한다.
   - 출력 인코딩을 공통 인자 `-c i18n.logOutputEncoding=UTF-8`로 고정한다. 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`(include 경유 포함)은 포맷된 출력 전체를 `-z` 구분자까지 다시 인코딩한다. JOHAB·CP1361은 메시지의 전각 문자(U+FF01…)를 NUL로 바꿔 필드를 밀고, 모든 검사를 통과하는 가짜 커밋 레코드를 만들 수 있다. UTF-16·UCS-4 등은 파싱을 실패시켜 그래프를 못 쓰게 만든다 (확인, E41, #205).
 - **잔여 위험**: 상한 안에서도 느린 저장소는 있다. 성능 예산 문제로 다룬다. 커밋 객체의 `encoding` 헤더가 UCS-2·CP037·TCVN이면 git이 그 커밋의 모든 필드를 빈 값으로 출력해 그래프 페이지 전체가 파싱 실패한다(출력 인코딩 고정과 무관, #203 보안 검토). 필드가 밀리지는 않으므로 위조는 아니고, 가용성 문제로 남긴다.
-- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259), SEC-T15-11 (원격이 `feat/1-*` ref를 대량으로 밀어 넣어도 이슈 하나의 LINKED 항목은 종류별 상한까지만 만들고 나머지는 개수로만 셈. 커밋 제목은 앞부분만 훑고, LINKED 커밋 검색은 캐시해 페이지가 늘 때 새 페이지만 이어서 훑음, #82), SEC-T15-12 (원격 10만 개 + 반복 10만 개 + URL별 TLS·프록시 키 20만 개의 설정 목록을 선형 시간에 검사하고(로컬 Debug 약 1.5초, 기준 20초 — 이전 이차 시간 코드는 몇 분, #279) 상한대로 줄임. 원격 형태 검사(#350)는 모든 URL에 맞는 바꾸기 규칙 256개와 1KB 값으로 채운 약 10MB 목록에서도 기준 안에 끝남. 드라이버 257개는 조회 중단, fetch 덮어쓰기 257개는 fetch만 막음, #262), SEC-T15-13 (ISSUES의 `Check Again`을 gh가 도는 동안 여러 번 눌러도 gh를 더 띄우지 않음, #83), SEC-T15-14 (자동 fetch는 창이 key일 때만, 진행 중인 fetch 위에 겹치지 않고, 활성화 때의 따라잡기는 간격당 한 번. 실패해도 창을 바꿀 때마다 다시 시도하지 않음, #79), SEC-T15-15 (출력 상한에 잘린 파일 이력은 `Beginning of history`가 아니라 잘렸다고 표시하고, 더 요청하지 않음. 추가 페이지 실패는 Retry를 누를 때까지 다시 실행하지 않음, #70), SEC-T15-16 (그래프 검색과 사이드바 필터는 필드마다 앞부분만 훑고(제목 1,024자, 이름·ref 256자, 커밋당 co-author·ref 32개), 새 페이지가 오면 그 페이지만 이어서 훑음. ref가 바뀌면 다시 훑음, #74), SEC-T15-17 (FSEvents 자동 새로고침: 분류는 스트림 큐에서 하고 메인 액터로는 묶은 변경만 넘기며, 한 묶음이 `FileChangeClassifier.maximumEventsPerBatch`(10,000)를 넘으면 경로를 보지 않고 rescan으로 친다. 요청은 한 번에 하나, 재실행 간격 `max(2초, 소요 × 10)`, 실패한 요청은 다시 보내지 않고, 다시 보일 때도 같은 간격을 거친다. PERF-10에서 6,000개 파일 폭주 동안 status 3회, #119), SEC-T15-18 (서브모듈 상태는 선택한 워크트리만 `RepositoryService.maximumInspectedSubmodules`(32)개까지 검사하고 나머지는 개수로만 알림. 바뀐 gitlink를 먼저 검사함. 동시 검사 4개(sliding window), `.gitmodules` 경로는 128개까지만 만듦. 반복되는 load는 진행 중인 읽기를 취소하지 않고 새로고침을 한 번으로 합치며, 다음 읽기는 `max(2초, 소요 × 10)` 뒤, #108), SEC-T15-19 (서버가 정하는 fetch stderr를 상한(256 KiB)까지 짧은 줄·`\r` 다시 쓰기·sideband 접두어로 채워도 `MaskedText`는 선형으로 끝나고 결과는 스칼라 64K개 이하. 화면의 상세 줄은 다시 쓴 줄의 마지막 상태만, 줄마다 300 스칼라까지, #362)
+- **검증**: SEC-T15-01 (20MB를 출력하는 테스트 실행 파일 → 상한에서 잘리고 메모리 증가가 상한 근처), SEC-T15-02 (잠자는 테스트 실행 파일 → 타임아웃 후 종료, 좀비 없음), SEC-T15-03 (잘린 입력 파서 처리), SEC-T15-06 (모든 명령이 출력 인코딩을 고정하고, JOHAB 설정 저장소에서 그래프·커밋 상세·stash 목록·기준 브랜치 비교의 커밋 목록 필드가 밀리지 않음. 대조군은 밀림), SEC-T15-07 (조회 상한을 넘는 워크트리는 `.notQueried(.limit)`이고 status가 실행되지 않음. 반복된 경로는 한 번만 나열하고, 심볼릭 링크 별칭은 한 번만 조회, #226), SEC-T15-08 (`PatchParser`가 hunk 헤더의 개수가 아니라 남은 입력만큼만 메모리를 잡음 — `+1,999999999` 헤더와 잘린 본문, #232), SEC-T15-09 (`refs/stash`에 손으로 쓴 stash가 아닌 항목(루트 커밋)이 있어도 stash 목록과 저장소 개요가 뜸. 그 항목만 기준·Includes를 모름, #71), SEC-T15-10 (원격이 많은 저장소에서 Fetch 한 번은 설정 순서로 앞의 `RepositoryService.defaultMaximumFetchedRemotes`(16)개만 fetch하고, 건너뛴 수를 상태바·Details에 알림. fetch 프로세스 수로 확인, #259), SEC-T15-11 (원격이 `feat/1-*` ref를 대량으로 밀어 넣어도 이슈 하나의 LINKED 항목은 종류별 상한까지만 만들고 나머지는 개수로만 셈. 커밋 제목은 앞부분만 훑고, LINKED 커밋 검색은 캐시해 페이지가 늘 때 새 페이지만 이어서 훑음, #82), SEC-T15-12 (원격 10만 개 + 반복 10만 개 + URL별 TLS·프록시 키 20만 개의 설정 목록을 선형 시간에 검사하고(로컬 Debug 약 1.5초, 기준 20초 — 이전 이차 시간 코드는 몇 분, #279) 상한대로 줄임. 원격 형태 검사(#350)는 모든 URL에 맞는 바꾸기 규칙 256개와 1KB 값으로 채운 약 10MB 목록에서도 기준 안에 끝남. 드라이버 257개는 조회 중단, fetch 덮어쓰기 257개는 fetch만 막음, #262), SEC-T15-13 (ISSUES의 `Check Again`을 gh가 도는 동안 여러 번 눌러도 gh를 더 띄우지 않음, #83), SEC-T15-14 (자동 fetch는 창이 key일 때만, 진행 중인 fetch 위에 겹치지 않고, 활성화 때의 따라잡기는 간격당 한 번. 실패해도 창을 바꿀 때마다 다시 시도하지 않음, #79), SEC-T15-15 (출력 상한에 잘린 파일 이력은 `Beginning of history`가 아니라 잘렸다고 표시하고, 더 요청하지 않음. 추가 페이지 실패는 Retry를 누를 때까지 다시 실행하지 않음, #70), SEC-T15-16 (그래프 검색과 사이드바 필터는 필드마다 앞부분만 훑고(제목 1,024자, 이름·ref 256자, 커밋당 co-author·ref 32개), 새 페이지가 오면 그 페이지만 이어서 훑음. ref가 바뀌면 다시 훑음, #74), SEC-T15-17 (FSEvents 자동 새로고침: 분류는 스트림 큐에서 하고 메인 액터로는 묶은 변경만 넘기며, 한 묶음이 `FileChangeClassifier.maximumEventsPerBatch`(10,000)를 넘으면 경로를 보지 않고 rescan으로 친다. 요청은 한 번에 하나, 재실행 간격 `max(2초, 소요 × 10)`, 실패한 요청은 다시 보내지 않고, 다시 보일 때도 같은 간격을 거친다. PERF-10에서 6,000개 파일 폭주 동안 status 3회, #119), SEC-T15-18 (실제 git: 저장소의 `mailmap.file`이 FIFO여도 앱의 log 조회는 바로 끝남. 대조군인 평범한 `git log`는 시간 제한까지 멈춤. 모든 명령이 mailmap을 끔, #356), SEC-T15-19 (서버가 정하는 fetch stderr를 상한(256 KiB)까지 짧은 줄·`\r` 다시 쓰기·sideband 접두어로 채워도 `MaskedText`는 선형으로 끝나고 결과는 스칼라 64K개 이하. 화면의 상세 줄은 다시 쓴 줄의 마지막 상태만, 줄마다 300 스칼라까지, #362), SEC-T15-20 (서브모듈 상태는 선택한 워크트리만 `RepositoryService.maximumInspectedSubmodules`(32)개까지 검사하고 나머지는 개수로만 알림. 바뀐 gitlink를 먼저 검사함. 동시 검사 4개(sliding window), `.gitmodules` 경로는 128개까지만 만듦. 반복되는 load는 진행 중인 읽기를 취소하지 않고 새로고침을 한 번으로 합치며, 다음 읽기는 `max(2초, 소요 × 10)` 뒤, #108)
 - **상태**: 설계 완료
 
 ### T16. 로그를 통한 정보 유출
@@ -418,6 +418,9 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
 -c diff.suppressBlankEmpty=false
 -c i18n.logOutputEncoding=UTF-8
 -c log.follow=false
+-c log.mailmap=false
+-c mailmap.file=
+-c mailmap.blob=
 ```
 
 diff 계열 서브커맨드에는 `--no-ext-diff --no-textconv`를 붙인다.
@@ -489,8 +492,30 @@ gh 전용 추가 변수는 [카탈로그 §5](../architecture/git-command-catalo
 | `^core\.pager$`, `^pager\..+` (값이 git 불리언이 아님) | 실행 | 보고. 앱은 `--no-pager`·`GIT_PAGER=cat`으로 쓰지 않는다. Open in Terminal 확인 사유다(#278). `pager.<cmd>=false`/`true`는 명령이 아니라 보고하지 않는다 | T14 |
 | `^core\.editor$`, `^sequence\.editor$` | 실행 | 보고. 앱은 편집기를 띄우는 명령이 없다. Open in Terminal 확인 사유다(#278) | T14 |
 | `^alias\..+` (값이 `!`로 시작) | 실행 | 보고. 앱은 alias를 쓰지 않는다. Open in Terminal 확인 사유다(#278) | T14 |
+| `^credential\.(.+\.)?(protectprotocol\|sanitizeprompt)$` | 자격 증명 | **무력화**: fetch overrides가 generic 키를 `true`로 고정하고, URL별 키는 같은 키로 `true` (fetch, #356) | T6 |
+| `^promisor\..+` | 전송 | **무력화**: `-c promisor.acceptFromServer=none` (fetch). 보고 (#356) | T5 |
+| `^mailmap\.(file\|blob)$`, `^log\.mailmap$` | 파일 | **무력화**: 공통 인자 `-c log.mailmap=false -c mailmap.file= -c mailmap.blob=` (모든 명령). 보고 (#356) | T15 |
+| `^extensions\.refstorage$` (값이 `files`·`reftable`이 아님) | 쓰기 | 경고 + **fetch 차단**. 조회는 계속한다 (#356) | T13 |
+| `^http\.(.+\.)?(proxysslcainfo\|proxysslcert\|proxysslkey)$` | 전송 보안 | 경고 + **fetch 차단** (`sslCAInfo` 계열과 같다, #356) | T11 |
+| `^http\.(.+\.)?curloptresolve$` | 전송 보안 | 경고 + **fetch 차단** (호스트 이름을 저장소가 고른 주소로 고정, git 2.37+, #356) | T11 |
+| `^gc\.recentobjectshook$` | 실행 | 보고. 앱은 gc를 실행하지 않는다. Open in Terminal 확인 사유다 (git 2.42+, #356) | T14 |
 
 필터 드라이버 이름이 `^[A-Za-z0-9._-]{1,64}$`를 벗어나면 무력화 인자를 안전하게 만들 수 없다. 이때는 조회를 막는다 (fail closed).
+
+#### 최신 git이 읽는 설정 (#356)
+
+#353의 git 2.40–2.54 릴리스 노트 점검에서 나온 후보와 그 뒤 리뷰에서 더한 항목이다. 비용이 작은 방어는 실측 결과와 관계없이 적용했다. 고정 인자는 그 키를 모르는 git에서 무시된다(git 2.36.6에서 log·fetch 결과가 같음을 확인). 실측은 git 2.36.6과 Apple Git 2.54.0으로 했다.
+
+| 설정 | 도입 | 실측 | 조치 |
+|---|---|---|---|
+| `extensions.refStorage`의 위치 지정(`files://<경로>` 등) | 2.54 (`refStorage` 자체는 2.45) | 2.54: 조회가 그 위치의 ref를 읽고, fetch가 그 위치에 ref와 reflog를 씀(저장소 밖 쓰기). 2.36: 확장을 몰라 git 디렉터리를 무시하므로 저장소 명령이 스스로 실패함 | 값이 `files`·`reftable`이 아니면 경고 + fetch 차단. 조회는 계속한다(밖의 ref를 읽어 표시가 틀릴 수 있을 뿐 쓰지 않음). 값 없는 `reftable`은 정상 저장소 형식이라 보고하지 않는다 |
+| `credential.protectProtocol`, `credential.sanitizePrompt` | 2.48.1, 2.40.4 등 보안 릴리스(CVE-2024-52006, CVE-2024-50349) | 2.36에서 키 무시 확인. 끈 상태의 동작은 실측 안 함 | fetch overrides에 `true` 고정. URL별 키는 같은 키로 `true` |
+| `transfer.credentialsInUrl` (URL의 비밀번호) | 2.37 | 2.54: `die`면 접속 전에 실패. 2.36: 키를 무시하고 URL의 비밀번호로 접속 | fetch overrides에 `die` 고정. 원격 URL(바꿔치기 포함)에 비밀번호가 있으면 검사가 그 원격의 fetch를 git 실행 전에 거부(모든 버전) |
+| `promisor.acceptFromServer`, `promisor.storeFields` | 2.49, 2.52 | 실측 안 함(서버가 promisor를 광고해야 함). 2.36에서 키 무시 확인 | fetch overrides에 `none` 고정. 보고 |
+| `mailmap.file`, `mailmap.blob`, `log.mailmap` | 오래된 키 | 두 버전 모두 `mailmap.file`이 FIFO면 앱의 기존 인자로도 `git log`가 시간 제한까지 멈춤. 고정 인자로 바로 끝남. 앱 표시(`%an`)는 그대로 | 공통 인자로 끔. 보고 |
+| `http.curloptResolve` | 2.37 | 실측 안 함 | 경고 + fetch 차단 |
+| `http.proxySSLCAInfo`·`proxySSLCert`·`proxySSLKey` | 2.29 무렵 (문서 근거) | 실측 안 함 | 경고 + fetch 차단(`sslCAInfo` 계열과 같다) |
+| `gc.recentObjectsHook` | 2.42 | 앱은 gc를 실행하지 않음 | 보고(Open in Terminal 확인 사유) |
 
 ---
 

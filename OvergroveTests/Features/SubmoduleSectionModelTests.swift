@@ -145,7 +145,7 @@ final class SubmodulePanelTests: XCTestCase {
         XCTAssertNil(panel.result(for: path, state))
     }
 
-    /// SEC-T15-18: repeated loads do not restart a running read or stack reads: refreshes during a read become one
+    /// SEC-T15-20: repeated loads do not restart a running read or stack reads: refreshes during a read become one
     /// read after it, no sooner than `max(2 s, duration × 10)` after the last one ended.
     func testRefreshesArePacedAndNeverCancelARunningRead() async {
         let answer = SubmoduleListing(submodules: [], omitted: 1, isGitmodulesRefused: false)

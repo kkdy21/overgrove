@@ -286,9 +286,9 @@ final class SubmoduleSecurityTests: XCTestCase {
 
     // MARK: T15
 
-    /// SEC-T15-18: at most `maximumInspectedSubmodules` are inspected; the rest are counted. Changed gitlinks go
+    /// SEC-T15-20: at most `maximumInspectedSubmodules` are inspected; the rest are counted. Changed gitlinks go
     /// first, so cheap made-up entries ahead of them in `.gitmodules` cannot push a real change past the cap.
-    func testSECT15_18_SubmodulesAreCapped() async throws {
+    func testSECT15_20_SubmodulesAreCapped() async throws {
         let (root, submodule, _) = try await superproject()
         try await scenario.plain(
             ["config", "--file", ".gitmodules", "--remove-section", "submodule.libs/sub"], in: root,
