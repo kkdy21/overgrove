@@ -70,6 +70,8 @@ extension AppState {
             guard let self, generation == self.commitComparisonGeneration, !Task.isCancelled else { return }
             switch result {
             case .success(let files): self.commitComparison?.files = .loaded(files)
+            // A cancelled read is not a failure to show (as in `CommitDetailStore`).
+            case .failure(.cancelled): break
             case .failure(let error): self.commitComparison?.files = .failed(error.message)
             }
         }
@@ -99,6 +101,8 @@ extension AppState {
             switch result {
             case .success(let patch):
                 self.commitComparison?.patch = .loaded(DiffDocument(listing: patch, path: row.path, source: source))
+            case .failure(.cancelled):
+                break
             case .failure(let error):
                 self.commitComparison?.patch = .unavailable(PathValidator.displayable(error.message))
             }
