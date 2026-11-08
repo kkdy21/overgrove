@@ -121,11 +121,14 @@ private struct SettingsMessage: Identifiable {
         switch outcome {
         case .added(let notice):
             guard let notice else { return nil }
-            (title, text) = ("Repository Added", notice)
+            (title, text) = (String(localized: "Repository Added"), notice)
         case .alreadyRegistered(let name, let path):
-            (title, text) = ("Repository Already Added", "“\(name)” is already in Overgrove, at \(path).")
+            (title, text) = (
+                String(localized: "Repository Already Added"),
+                String(localized: "“\(name)” is already in Overgrove, at \(path).")
+            )
         case .failed(let reason):
-            (title, text) = ("Couldn’t Add Repository", reason)
+            (title, text) = (String(localized: "Couldn’t Add Repository"), reason)
         case .cancelled:
             return nil
         }

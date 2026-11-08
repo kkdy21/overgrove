@@ -19,7 +19,7 @@ struct DiffViewerView: View {
     /// S-11 shows the patch under its own header, which already has `‹ Graph`.
     var showsBackButton = true
     /// The back button's label: `Graph`, or `History` when the diff was opened from S-09.
-    var backTitle = "Graph"
+    var backTitle = String(localized: "Graph", comment: "Back button to the graph")
     /// `Show History` of the shown file (S-09, #70), in the title's menu.
     var onShowHistory: (() -> Void)?
 
@@ -51,7 +51,7 @@ struct DiffViewerView: View {
                 }
                 .buttonStyle(.borderless)
                 .keyboardShortcut(.cancelAction)
-                .help("Back to the \(backTitle.lowercased()) (⎋)")
+                .help(String(localized: "Back to the \(backTitle.lowercased()) (⎋)"))
             }
             Text(title)
                 .font(Tokens.Font.headline)
@@ -92,7 +92,7 @@ struct DiffViewerView: View {
         case .loading:
             ProgressView().controlSize(.small)
         case .unavailable(let message):
-            PanelEmptyState(symbol: "doc.text", title: "Diff not shown", message: message)
+            PanelEmptyState(symbol: "doc.text", title: String(localized: "Diff not shown"), message: message)
         case .loaded(let document):
             if document.isLarge && !showsLargeDiff {
                 VStack(spacing: Tokens.Spacing.sm) {
@@ -125,7 +125,7 @@ private struct DiffBody: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if document.isTruncated {
-                SidebarNotice(symbol: "exclamationmark.triangle", text: "Diff truncated at 10 MB.")
+                SidebarNotice(symbol: "exclamationmark.triangle", text: String(localized: "Diff truncated at 10 MB."))
             }
             ForEach(document.facts, id: \.self) { fact in
                 Text(fact)

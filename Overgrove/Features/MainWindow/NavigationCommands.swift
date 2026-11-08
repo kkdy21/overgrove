@@ -46,10 +46,10 @@ struct NavigationCommands: Commands {
                 .disabled(actions?.fullPath == nil)
         }
         CommandMenu("Navigate") {
-            Button("Back") { move(actions?.goBack, nothing: "Nothing to go back to") }
+            Button("Back") { move(actions?.goBack, nothing: String(localized: "Nothing to go back to")) }
                 .keyboardShortcut("[", modifiers: .command)
                 .disabled(actions?.canGoBack != true)
-            Button("Forward") { move(actions?.goForward, nothing: "Nothing to go forward to") }
+            Button("Forward") { move(actions?.goForward, nothing: String(localized: "Nothing to go forward to")) }
                 .keyboardShortcut("]", modifiers: .command)
                 .disabled(actions?.canGoForward != true)
             Divider()

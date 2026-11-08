@@ -31,6 +31,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Pull request status (ADR-0023): worktree and local branch rows show the linked PR's state and number, and the
   worktree detail shows a Pull request card. A PR is linked only when its head owner, repository, and branch match the
   branch's upstream, so a same-named branch from a fork never attaches.
+- Korean localization, first part: Settings, the setup assistant, the graph header and columns, the diff viewer, and
+  the menu commands follow the system language through a String Catalog. Git names, commands, and copied values stay
+  as they are.
 
 ### Changed
 

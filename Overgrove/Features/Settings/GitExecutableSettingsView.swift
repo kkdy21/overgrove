@@ -40,9 +40,9 @@ struct AdvancedSettingsView: View {
 
     private var chosenText: String {
         switch model.state {
-        case .ready(let report): report.entered.map(PathValidator.displayable) ?? "Default (Xcode developer tools)"
+        case .ready(let report): report.entered.map(PathValidator.displayable) ?? Self.defaultText
         case .rejected(let path, _): path
-        case .checking, .failed: model.isDefault ? "Default (Xcode developer tools)" : "Chosen git"
+        case .checking, .failed: model.isDefault ? Self.defaultText : String(localized: "Chosen git")
         }
     }
 
@@ -80,9 +80,12 @@ struct AdvancedSettingsView: View {
         }
     }
 
-    /// `git 2.54.0 · Apple-signed` (a plain String, so the version is not localized).
+    static var defaultText: String { String(localized: "Default (Xcode developer tools)") }
+
+    /// `git 2.54.0 · Apple-signed`. Only the signing note is localized; the version stays as git prints it.
     static func summary(_ report: GitExecutableReport) -> String {
-        "git \(report.version) · " + (report.isAppleSigned ? "Apple-signed" : "Not signed by Apple")
+        "git \(report.version) · "
+            + (report.isAppleSigned ? String(localized: "Apple-signed") : String(localized: "Not signed by Apple"))
     }
 
     private func choose() {
@@ -106,8 +109,8 @@ enum GitExecutablePicker {
         panel.showsHiddenFiles = true
         // A Finder alias is returned as itself; the rules resolve links and show the real path.
         panel.resolvesAliases = false
-        panel.prompt = "Use"
-        panel.message = "Choose a git executable, for example /opt/homebrew/bin/git."
+        panel.prompt = String(localized: "Use", comment: "The open panel's button that picks a git executable")
+        panel.message = String(localized: "Choose a git executable, for example /opt/homebrew/bin/git.")
         return panel
     }
 
