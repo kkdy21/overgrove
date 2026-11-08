@@ -14,11 +14,20 @@ private let issuesJSON = """
     "url":"https://github.com/kkdy21/overgrove/issues/12"}]
     """
 
+private let pullRequestsJSON = """
+    [{"baseRefName":"main","headRefName":"feat/1-x","headRepository":{"id":"R_1","name":"overgrove"},\
+    "headRepositoryOwner":{"id":"U_1","login":"kkdy21"},"isCrossRepository":false,"isDraft":false,"mergedAt":null,\
+    "number":1,"reviewDecision":"","state":"OPEN","title":"feat: x","updatedAt":"2026-11-08T03:14:08Z",\
+    "url":"https://github.com/kkdy21/overgrove/pull/1"}]
+    """
+
 private let repository = GitHubRepository(owner: "kkdy21", name: "overgrove")!
 
 /// gh allowlist arguments and repository validation (git-command-catalog.md §5, ADR-0004).
 final class GHCommandTests: XCTestCase {
-    private let allCommands: [GHCommand] = [.version, .authStatus, .issueList(repo: repository)]
+    private let allCommands: [GHCommand] = [
+        .version, .authStatus, .issueList(repo: repository), .prList(repo: repository),
+    ]
 
     func testArgumentSnapshot() {
         XCTAssertEqual(GHCommand.version.arguments, ["--version"])
@@ -31,11 +40,22 @@ final class GHCommandTests: XCTestCase {
                 "number,title,state,labels,assignees,updatedAt,url",
             ]
         )
+        // ADR-0023 §1: these thirteen fields only; no body, comments, files, reviews, or CI status.
+        XCTAssertEqual(
+            GHCommand.prList(repo: repository).arguments,
+            [
+                "pr", "list", "--repo", "kkdy21/overgrove", "--state", "all", "--limit", "200", "--json",
+                "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,"
+                    + "baseRefName,reviewDecision,mergedAt,updatedAt,url",
+            ]
+        )
     }
 
     /// SEC-T11-05: no command can ask gh for a token, and only allowlisted subcommands exist (T13).
     func testSECT11_05_NoCommandRequestsATokenOrWrites() {
-        let allowedSubcommands: Set<[String]> = [["--version"], ["auth", "status"], ["issue", "list"]]
+        let allowedSubcommands: Set<[String]> = [
+            ["--version"], ["auth", "status"], ["issue", "list"], ["pr", "list"],
+        ]
         for command in allCommands {
             let arguments = command.arguments
             let head = arguments.first == "--version" ? ["--version"] : Array(arguments.prefix(2))
@@ -47,9 +67,11 @@ final class GHCommandTests: XCTestCase {
     }
 
     func testRepositoryScopedCommandsAlwaysNameTheRepository() {
-        let arguments = GHCommand.issueList(repo: repository).arguments
-        let index = try? XCTUnwrap(arguments.firstIndex(of: "--repo"))
-        XCTAssertEqual(index.map { arguments[$0 + 1] }, "kkdy21/overgrove")
+        for command in [GHCommand.issueList(repo: repository), .prList(repo: repository)] {
+            let arguments = command.arguments
+            let index = try? XCTUnwrap(arguments.firstIndex(of: "--repo"))
+            XCTAssertEqual(index.map { arguments[$0 + 1] }, "kkdy21/overgrove", "\(command)")
+        }
     }
 
     func testValidRepositories() {
@@ -340,6 +362,40 @@ final class GHClientTests: XCTestCase {
         } catch let error as GHError {
             guard case .nonZeroExit(1, _) = error else { return XCTFail("\(error)") }
             XCTAssertTrue(error.isRetryable)
+        }
+    }
+
+    // MARK: pr list (ADR-0023)
+
+    func testPullRequests() async throws {
+        let fake = try executables.fakeGH(stdout: pullRequestsJSON)
+        let pullRequests = try await client(fake).pullRequests(in: repository)
+        XCTAssertEqual(pullRequests.map(\.number), [1])
+        XCTAssertEqual(pullRequests.first?.head?.branch, "feat/1-x")
+        XCTAssertEqual(fake.recordedArguments, GHCommand.prList(repo: repository).arguments)
+        XCTAssertEqual(fake.recordedEnvironment, GHClient.environment(parent: hostileParent))
+        assertRanInNeutralDirectory(fake)
+    }
+
+    func testPullRequestsTruncatedOutputIsNotParsed() async throws {
+        let fake = try executables.fakeGH(stdout: pullRequestsJSON)
+        var limits = ProcessLimits.gh
+        limits.stdoutLimit = 64
+        do {
+            _ = try await client(fake, limits: limits).pullRequests(in: repository)
+            XCTFail("expected outputTruncated")
+        } catch let error as GHError {
+            XCTAssertEqual(error, .outputTruncated)
+        }
+    }
+
+    func testPullRequestsUnexpectedOutputIsParseFailed() async throws {
+        let fake = try executables.fakeGH(stdout: #"{"message":"not a list"}"#)
+        do {
+            _ = try await client(fake).pullRequests(in: repository)
+            XCTFail("expected parseFailed")
+        } catch let error as GHError {
+            guard case .parseFailed = error else { return XCTFail("\(error)") }
         }
     }
 

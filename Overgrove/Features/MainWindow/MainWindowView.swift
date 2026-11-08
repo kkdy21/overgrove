@@ -151,6 +151,8 @@ struct MainWindowView: View {
         .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
         // `#n` badges on worktree, branch, and graph rows (#82).
         .environment(\.issueBadges, state.issueBadgeContext)
+        // PR pills on worktree and local branch rows (ADR-0023, #115).
+        .environment(\.pullRequestBadges, PullRequestBadgeContext(links: state.pullRequestStore.links))
         .environment(\.rowMenu, state.rowMenuActions)
         .environment(\.panelFocusRequest, state.panelFocusRequest)
         .toolbar {

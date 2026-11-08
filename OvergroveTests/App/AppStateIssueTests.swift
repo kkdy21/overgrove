@@ -88,7 +88,8 @@ final class AppStateIssueTests: XCTestCase {
         listing.githubRepository = repository
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: StubRepositoryLoader(result: .success(listing)), issueLoader: loader, ghChecker: ghChecker)
+            loader: StubRepositoryLoader(result: .success(listing)), issueLoader: loader,
+            pullRequestLoader: StubPullRequestLoader([.unavailable]), ghChecker: ghChecker)
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(
@@ -172,7 +173,8 @@ final class AppStateIssueTests: XCTestCase {
         let repositoryLoader = CachedFailingLoader(first: verified, cached: cached)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: repositoryLoader, issueLoader: loader, ghChecker: QueuedGHAuthChecker([nil]))
+            loader: repositoryLoader, issueLoader: loader, pullRequestLoader: StubPullRequestLoader([.unavailable]),
+            ghChecker: QueuedGHAuthChecker([nil]))
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(
@@ -277,7 +279,8 @@ final class AppStateIssueTests: XCTestCase {
         let issues = StubIssueLoader([.issues([first])])
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: repositoryLoader, issueLoader: issues, ghChecker: QueuedGHAuthChecker([.loggedIn(login: "o")]))
+            loader: repositoryLoader, issueLoader: issues, pullRequestLoader: StubPullRequestLoader([.unavailable]),
+            ghChecker: QueuedGHAuthChecker([.loggedIn(login: "o")]))
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(

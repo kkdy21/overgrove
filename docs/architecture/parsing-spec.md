@@ -390,6 +390,32 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | PAR-GH-03 | 이슈 목록 (라벨, 담당자, 선택 필드 누락) |
 | PAR-GH-04 | 예상 밖 JSON → 실패 |
 
+### 10.3 PullRequestParser — `gh pr list --json number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url`
+
+ADR-0023 §3. 공개 저장소에는 누구나 PR을 열 수 있으므로 항목 하나가 이상해도 나머지를 숨기지 않는다. 목록 전체가 실패하는 것은 최상위가 JSON 배열이 아닐 때뿐이다.
+
+```json
+[{"baseRefName":"main","headRefName":"feat/42-x","headRepository":{"id":"R_…","name":"app","nameWithOwner":"team/app"},"headRepositoryOwner":{"id":"U_…","login":"team","name":"…"},"isCrossRepository":false,"isDraft":false,"mergedAt":null,"number":57,"reviewDecision":"","state":"OPEN","title":"…","updatedAt":"2026-11-08T03:14:08Z","url":"https://github.com/team/app/pull/57"}]
+```
+
+| 필드 | 규칙 |
+|---|---|
+| `number` | 양의 Int. 없거나 형식이 다르면 그 항목만 버린다 |
+| `state` | `OPEN`, `CLOSED`, `MERGED`. 모르는 값은 `unknown`. 없으면 그 항목만 버린다 |
+| `url` | `https://github.com/`로 시작해야 한다. 아니면 그 항목만 버린다. 여는 것은 조회한 저장소의 `/pull/<그 번호>`일 때뿐이다(표시 규칙) |
+| `headRepositoryOwner.login`, `headRepository.name`, `headRefName` | 셋 중 하나라도 없거나 null·빈 값이면 `head == nil`. 항목은 남고 어떤 브랜치에도 잇지 않는다(fork를 지운 PR) |
+| `reviewDecision` | `APPROVED`, `CHANGES_REQUESTED`, `REVIEW_REQUIRED`. 빈 문자열(gh 2.95.0의 "결정 없음")과 모르는 값은 없음 |
+| `title`, `baseRefName`, `isDraft`, `updatedAt` | 없거나 형식이 다르면 빈 값, `false`, `nil` |
+| `isCrossRepository`, `mergedAt` | 읽지 않는다(잇기는 head 저장소로 판단) |
+
+- 제목·브랜치 이름은 원문 그대로 두고 표시할 때 이스케이프한다.
+- gh 2.95.0의 기본 정렬은 만든 시각 내림차순이다(확인).
+
+| 테스트 | 사례 |
+|---|---|
+| PAR-GH-05 | PR 목록(상태 셋, 리뷰 결정 셋, 소수 초, 초안), 모르는 값은 `unknown`·없음 |
+| PAR-GH-06 | 배열 아닌 출력·깨진 JSON·잘린 배열 → 실패 |
+
 ---
 
 ## 11. 기타 파서
