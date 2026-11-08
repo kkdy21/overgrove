@@ -18,7 +18,8 @@ actor GLClient {
     /// The version these rules were checked against (ADR-0026, measured 2026-11-08).
     static let minimumVersion = GitVersion(major: 1, minor: 128, patch: 0)
 
-    static let passthroughVariables = ["HOME", "USER", "TMPDIR"]
+    /// Taken from the parent. `HOME` is not: glab gets the folder whose configuration `isSetUp()` checked.
+    static let passthroughVariables = ["USER", "TMPDIR"]
 
     /// Fixed variables for every glab process (git-command-catalog.md §5.1). glab sends usage data and checks for
     /// updates by default (`POST /api/v4/usage_data/track_event`, a releases request); both are turned off here.
@@ -69,12 +70,14 @@ actor GLClient {
         self.home = home
     }
 
-    /// The complete child environment: the allowlist, nothing else from `parent`.
-    static func environment(parent: [String: String]) -> [String: String] {
+    /// The complete child environment: the allowlist, nothing else from `parent`, and `HOME` set to `home`, the folder
+    /// whose glab configuration was checked, so glab reads exactly that configuration.
+    static func environment(parent: [String: String], home: URL) -> [String: String] {
         var environment = fixedEnvironment
         for key in passthroughVariables {
             if let value = parent[key] { environment[key] = value }
         }
+        environment["HOME"] = home.path
         return environment
     }
 
@@ -173,7 +176,7 @@ actor GLClient {
         let request = ProcessRequest(
             executable: executable,
             arguments: command.arguments,
-            environment: Self.environment(parent: parentEnvironment),
+            environment: Self.environment(parent: parentEnvironment, home: home),
             currentDirectory: neutralDirectory,
             limits: limits
         )

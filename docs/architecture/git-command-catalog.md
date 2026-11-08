@@ -304,7 +304,7 @@ v0.2.0, [ADR-0026](../adr/0026-gitlab-and-gitea-issue-providers.md). GitLab은 `
 - 다른 명령보다 먼저 `version`의 첫 줄을 확인한다(glab `glab X.Y.Z (…)` 1.128.0 이상, gt `gt version X.Y.Z (…)` 1.1.0 이상). 맞지 않으면 설치되지 않은 것으로 본다. `gt`는 Graphite CLI와 이름이 겹칠 수 있다.
 - stderr는 화면·로그에 쓰지 않는다. 종료 코드와 분류만 쓴다(`CredentialMasker`가 GitLab·Gitea 토큰을 다 가리지 못한다, ADR-0026 §4).
 
-환경 변수는 `HOME`, `USER`, `TMPDIR`만 부모에서 넘기고, 나머지는 아래 고정값이다. `GITLAB_TOKEN`, `GITLAB_ACCESS_TOKEN`, `OAUTH_TOKEN`, `GITLAB_HOST`·`GITLAB_URI`·`GL_HOST`, `GITLAB_REPO`, `GLAB_CONFIG_DIR`, `GLAB_CA_CERT`, `GLAB_SKIP_TLS_VERIFY`, `GLAB_CLIENT_*`, `GLAB_PROXY`, `GITEA_TOKEN`, `GITEA_CLI_HOST`, `GITEA_INSTANCE_*`, `GITEA_CLI_CONFIG_DIR`, `GITEA_CLI_DATA_DIR`, `GITEA_CLI_REPO`, `GLAB_DEBUG`, `GLAB_DEBUG_HTTP`(요청 헤더를 출력할 수 있다), `GODEBUG`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `GIT_*`, `BROWSER`, `EDITOR`, `XDG_CONFIG_HOME`, 프록시 변수는 넘기지 않는다.
+환경 변수는 `HOME`, `USER`, `TMPDIR`만 부모에서 넘기고, 나머지는 아래 고정값이다(glab의 `HOME`은 설정 파일을 확인한 그 폴더로 둔다, #154). `GITLAB_TOKEN`, `GITLAB_ACCESS_TOKEN`, `OAUTH_TOKEN`, `GITLAB_HOST`·`GITLAB_URI`·`GL_HOST`, `GITLAB_REPO`, `GLAB_CONFIG_DIR`, `GLAB_CA_CERT`, `GLAB_SKIP_TLS_VERIFY`, `GLAB_CLIENT_*`, `GLAB_PROXY`, `GITEA_TOKEN`, `GITEA_CLI_HOST`, `GITEA_INSTANCE_*`, `GITEA_CLI_CONFIG_DIR`, `GITEA_CLI_DATA_DIR`, `GITEA_CLI_REPO`, `GLAB_DEBUG`, `GLAB_DEBUG_HTTP`(요청 헤더를 출력할 수 있다), `GODEBUG`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `GIT_*`, `BROWSER`, `EDITOR`, `XDG_CONFIG_HOME`, 프록시 변수는 넘기지 않는다.
 
 ```
 glab: PATH(§2.4와 같음), LC_ALL=C, GIT_TERMINAL_PROMPT=0, NO_COLOR=1,

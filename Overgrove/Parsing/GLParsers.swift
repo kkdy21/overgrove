@@ -42,12 +42,13 @@ enum GLAuthParser {
 ///
 /// Anyone who can open an issue writes part of this output, so one odd entry drops only itself: only output that is not
 /// a JSON array fails. An entry without a usable `iid`, `title`, `state`, or https `web_url` is dropped. The body
-/// (`description`) is never read. At most `maximumIssues` entries are kept; titles, labels, and label names are cut.
+/// (`description`) is never read. At most `maximumIssues` entries are kept; titles, labels, label names, and assignees are cut.
 enum GLIssueParser {
     static let maximumIssues = 200
     static let maximumTitle = 1_000
     static let maximumLabels = 50
     static let maximumLabelName = 100
+    static let maximumAssignees = 50
 
     private struct Entry: Decodable {
         let value: Issue?
@@ -90,7 +91,8 @@ enum GLIssueParser {
                 labels: labels.prefix(GLIssueParser.maximumLabels).map {
                     Issue.Label(name: String($0.prefix(GLIssueParser.maximumLabelName)), color: nil)
                 },
-                assignees: assignees.compactMap(\.username).filter { !$0.isEmpty },
+                assignees: Array(
+                    assignees.lazy.compactMap(\.username).filter { !$0.isEmpty }.prefix(GLIssueParser.maximumAssignees)),
                 updatedAt: updatedAt,
                 url: url
             )

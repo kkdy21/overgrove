@@ -26,6 +26,7 @@ final class GLCommandTests: XCTestCase {
     func testSECT9_154_2_HostileHostsAndPathsAreRefused() {
         for name in [
             "", "localhost", "-gitlab.example.com", "gitlab-.example.com", "gitlab.example.com:22", "1.2.3.0x4",
+            "0x7f000001.0x1", "10.0.0.1a",
             "user@gitlab.example.com", "10.0.0.1", "gitlab.example.com/x", "gitlab..example.com", "gitlab.example.com.",
             "gitlab.exämple.com", String(repeating: "a", count: 64) + ".com", "gitlab.example.com\n",
         ] {
@@ -117,8 +118,9 @@ final class GLParserTests: XCTestCase {
     func testSECT15_154_1_IssueOutputIsCapped() throws {
         let longTitle = String(repeating: "t", count: 5_000)
         let labels = (0..<80).map { "\"\(String(repeating: "l", count: 300))\($0)\"" }.joined(separator: ",")
+        let assignees = (0..<80).map { #"{"username":"u\#($0)"}"# }.joined(separator: ",")
         let entry = { (n: Int) in
-            #"{"iid":\#(n),"title":"\#(longTitle)","state":"opened","labels":[\#(labels)],"description":"x","web_url":"https://g.example/a/b/-/issues/\#(n)","updated_at":"2026-11-08T03:14:08Z"}"#
+            #"{"iid":\#(n),"title":"\#(longTitle)","state":"opened","labels":[\#(labels)],"assignees":[\#(assignees)],"description":"x","web_url":"https://g.example/a/b/-/issues/\#(n)","updated_at":"2026-11-08T03:14:08Z"}"#
         }
         let json = "[" + (1...250).map(entry).joined(separator: ",") + "]"
         let issues = try GLIssueParser.parse(data(json))
@@ -126,6 +128,7 @@ final class GLParserTests: XCTestCase {
         XCTAssertEqual(issues[0].title.count, GLIssueParser.maximumTitle)
         XCTAssertEqual(issues[0].labels.count, GLIssueParser.maximumLabels)
         XCTAssertEqual(issues[0].labels[0].name.count, GLIssueParser.maximumLabelName)
+        XCTAssertEqual(issues[0].assignees.count, GLIssueParser.maximumAssignees)
     }
 
     func testPARGL04_VersionLine() {
@@ -151,7 +154,7 @@ final class GLClientTests: XCTestCase {
         "GLAB_SEND_TELEMETRY": "true", "GLAB_CHECK_UPDATE": "true", "GLAB_DEBUG": "true", "GLAB_DEBUG_HTTP": "true",
         "GODEBUG": "x509ignoreCN=0", "SSL_CERT_FILE": "/evil.pem", "SSL_CERT_DIR": "/evil", "GIT_DIR": "/evil/.git",
         "HTTPS_PROXY": "http://evil.example", "BROWSER": "/evil", "EDITOR": "/evil", "XDG_CONFIG_HOME": "/evil",
-        "PATH": "/evil/bin:/usr/bin", "HOME": "/Users/example", "USER": "example", "TMPDIR": "/tmp/example/",
+        "PATH": "/evil/bin:/usr/bin", "HOME": "/tmp/overgrove-home", "USER": "example", "TMPDIR": "/tmp/example/",
     ]
 
     override func setUpWithError() throws {
@@ -181,8 +184,10 @@ final class GLClientTests: XCTestCase {
     /// SEC-T10-154-1: the child environment is exactly the allowlist; telemetry and update checks are off, and no
     /// token, host, config, TLS, proxy, debug, or browser variable from the parent reaches glab.
     func testSECT10_154_1_EnvironmentIsExactlyTheAllowlist() async throws {
-        let expected = GLClient.environment(parent: hostileParent)
+        let expected = GLClient.environment(parent: hostileParent, home: home)
         XCTAssertEqual(Set(expected.keys), Set(GLClient.fixedEnvironment.keys).union(["HOME", "USER", "TMPDIR"]))
+        // glab reads the configuration that was checked, not the parent's HOME.
+        XCTAssertEqual(expected["HOME"], home.path)
         XCTAssertEqual(expected["GLAB_SEND_TELEMETRY"], "false")
         XCTAssertEqual(expected["GLAB_CHECK_UPDATE"], "false")
         XCTAssertEqual(expected["PATH"], GitEnvironment.path)
@@ -280,6 +285,26 @@ final class GLClientTests: XCTestCase {
             XCTAssertFalse(error.message.contains(token))
             XCTAssertFalse(String(describing: error).contains(token))
         }
+    }
+
+    /// SEC-T13-154-3: with glab's configuration in place, a whole load (version, auth status, issue list) leaves the
+    /// HOME folder exactly as it was: the app writes nothing there.
+    func testSECT13_154_3_ALoadLeavesHomeUnchanged() async throws {
+        try setUpGlabConfig()
+        func tree() throws -> [String: Data] {
+            var files: [String: Data] = [:]
+            let enumerator = FileManager.default.enumerator(at: home, includingPropertiesForKeys: nil)
+            while let url = enumerator?.nextObject() as? URL {
+                let relative = String(url.path.dropFirst(home.path.count))
+                files[relative] = (try? Data(contentsOf: url)) ?? Data()
+            }
+            return files
+        }
+        let before = try tree()
+        let fake = try executables.fakeGlab(authJSON: GLFixtures.authLoggedIn, issuesJSON: GLFixtures.issues)
+        _ = try await client(fake).issues(in: project)
+        XCTAssertEqual(fake.calls.count, 3)
+        XCTAssertEqual(try tree(), before)
     }
 
     func testTruncatedIssueOutputIsNotParsed() async throws {

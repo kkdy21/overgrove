@@ -39,4 +39,10 @@ struct GitLabProject: Sendable, Hashable, CustomStringConvertible {
                 || $0 == UInt8(ascii: "_") || $0 == UInt8(ascii: ".") || $0 == UInt8(ascii: "-")
         }
     }
+
+    /// The issue page Open in Browser may open: glab's `web_url` only when it is exactly this project's
+    /// `/-/issues/<iid>` or `/-/work_items/<iid>` page on its host (ADR-0026 §5, `GitLabRemote.issueURL`).
+    func browserURL(for issue: Issue) -> URL? {
+        GitLabRemote.issueURL(for: issue, in: self)
+    }
 }

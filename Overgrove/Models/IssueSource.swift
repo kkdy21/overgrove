@@ -41,7 +41,7 @@ enum IssueSource: Sendable, Hashable {
     func browserURL(for issue: Issue) -> URL? {
         switch self {
         case .github(let repository): IssueDetailModel.browserURL(for: issue, host: repository.host)
-        case .gitlab(let project): GitLabRemote.issueURL(for: issue, in: project)
+        case .gitlab(let project): project.browserURL(for: issue)
         }
     }
 }
