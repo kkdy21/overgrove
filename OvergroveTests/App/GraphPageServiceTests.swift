@@ -139,9 +139,15 @@ final class GraphPageServiceTests: XCTestCase {
                 "commit-tree", "-p", "HEAD", "-m", message, try await output(["rev-parse", "HEAD^{tree}"]),
             ])
         }
+        // `main` as the only packed ref: the appended line must not depend on another ref steering git's lookup (#372).
+        try await repository.git(["branch", "-D", "side"])
         try await repository.git(["pack-refs", "--all"])
         let packed = repository.root.appendingPathComponent(".git/packed-refs")
-        let original = try Data(contentsOf: packed)
+        // The header promises `sorted`, so git binary-searches the file. The ref below is appended out of order, so the
+        // promise is dropped and git reads the file line by line (#372).
+        let header = try String(contentsOf: packed, encoding: .utf8)
+        XCTAssertTrue(header.hasPrefix("# pack-refs with:"), header)
+        let original = Data(header.replacingOccurrences(of: " sorted", with: "").utf8)
         // APFS names must be UTF-8, so the ref lives only in packed-refs.
         func pointSkippedRef(at oid: String) throws {
             try (original + Data("\(oid) refs/heads/bad-".utf8) + Data([0xFF]) + Data("\n".utf8)).write(to: packed)
