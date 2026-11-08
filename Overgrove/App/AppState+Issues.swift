@@ -116,6 +116,7 @@ extension AppState {
         guard repository != nil, !issuePanel.isLoading, !isCheckingGitHub else { return }
         if issuePanel.retry() {
             checkGitHub()
+            pullRequestStore.load(issuePanel.repository)
         } else {
             reload()
         }

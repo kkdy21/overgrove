@@ -57,6 +57,8 @@ struct WorktreeRow: Identifiable, Equatable {
     let accessibilityLabel: String
     /// The checked-out branch's short name, escaped, for Copy Branch Name (#73); `nil` when detached or unborn.
     var branchName: String?
+    /// The checked-out branch's full ref name, to find its pull request (ADR-0023); `nil` when detached or unborn.
+    var branchRef: String?
     /// The lane colour of the branch tip in the graph (`color.graph.lane.<n>`, #255): the tile is tinted with it.
     /// `nil` while the tip is not in a loaded page, and for neutral tiles.
     var laneIndex: Int?
@@ -181,7 +183,8 @@ struct WorktreeListModel: Equatable {
             accessibilityLabel: accessibilityLabel(
                 title: title, worktree: worktree, isFocused: isFocused, missing: missing, note: note, state: state)
                 + (issueNumber.map { ", issue \($0)" } ?? ""),
-            branchName: worktree.branchShortName.map(PathValidator.displayable))
+            branchName: worktree.branchShortName.map(PathValidator.displayable),
+            branchRef: worktree.branch)
     }
 
     /// §4.4. Detached comes from `worktree list` (no `branch` attribute), not from the status header.

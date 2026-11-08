@@ -117,6 +117,9 @@ struct MainWindowView: View {
                     authorSummary: state.graphAuthorSummary, authorFilter: state.authorFilter,
                     authorMatches: state.graphAuthorFilter?.matchSet, onSelectAuthor: state.selectAuthorFilter,
                     columns: state.graphColumns, onCommitColumns: state.commitGraphColumns,
+                    stashes: state.stashes, selectedStash: state.selectedStashOID, onSelectStash: state.selectStash,
+                    showsStashes: state.settings.showsGraphStashes,
+                    onSetShowsStashes: { state.settings.showsGraphStashes = $0 },
                     diff: state.diffViewer,
                     onShowGraph: state.clearSelectedFile,
                     onShowDiffHistory: state.shownFileHistoryTarget == nil ? nil : { state.showHistoryOfShownFile() },
@@ -153,6 +156,8 @@ struct MainWindowView: View {
         .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
         // `#n` badges on worktree, branch, and graph rows (#82).
         .environment(\.issueBadges, state.issueBadgeContext)
+        // PR pills on worktree and local branch rows (ADR-0023, #115).
+        .environment(\.pullRequestBadges, PullRequestBadgeContext(links: state.pullRequestStore.links))
         .environment(\.rowMenu, state.rowMenuActions)
         .environment(\.panelFocusRequest, state.panelFocusRequest)
         .toolbar {

@@ -142,6 +142,9 @@ struct GraphCommitText: Sendable, Equatable {
         shortSHA = commit.oid.short
     }
 
+    /// The Date tooltip's text (stash rows too, #384).
+    static func absolute(_ date: Date) -> String { iso.string(from: date) }
+
     nonisolated(unsafe) private static let iso: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = .current

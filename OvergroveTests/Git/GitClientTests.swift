@@ -73,7 +73,7 @@ final class GitCommandTests: XCTestCase {
             ],
             [
                 "for-each-ref",
-                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)",
+                "--format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)%00%(upstream:remotename)%00%(upstream:remoteref)",
                 "refs/heads", "refs/remotes", "refs/tags",
             ],
             [
@@ -219,7 +219,7 @@ final class GitCommandTests: XCTestCase {
             fetch.configurationOverrides(),
             [
                 "-c", "fetch.pruneTags=false", "-c", "remote.team/fork.v2.pruneTags=false",
-                "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=",
+                "-c", "fetch.writeCommitGraph=false", "-c", "fetch.bundleURI=", "-c", "transfer.bundleURI=false",
                 "-c", "http.cookieFile=", "-c", "http.saveCookies=false",
                 "-c", "http.delegation=none",
                 "-c", "credential.protectProtocol=true", "-c", "credential.sanitizePrompt=true",
