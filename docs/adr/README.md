@@ -17,7 +17,7 @@
 | [0001](0001-product-name-overgrove.md) | 제품명 Overgrove | Accepted |
 | [0002](0002-license-mit.md) | 라이선스 MIT | Accepted |
 | [0003](0003-minimum-macos-14.md) | 최소 macOS 14 | Accepted |
-| [0004](0004-github-integration-gh-issues-only.md) | GitHub 연동은 gh CLI 위임, 이슈 조회만 | Accepted |
+| [0004](0004-github-integration-gh-issues-only.md) | GitHub 연동은 gh CLI 위임, 이슈 조회만 | Accepted (§2는 [0023](0023-pull-request-status-from-gh-pr-list.md)으로 대체) |
 | [0005](0005-documentation-language.md) | 문서 언어 (내부 한국어, 외부 접점 영어) | Accepted |
 | [0006](0006-zero-external-dependencies.md) | 외부 의존성 0개 | Accepted |
 | [0007](0007-swift-format-toolchain.md) | 포맷·린트는 툴체인 내장 swift-format | Accepted |

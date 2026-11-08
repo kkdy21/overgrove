@@ -135,7 +135,7 @@ OvergroveTests/
 | 0001 | 제품명 Overgrove | Accepted |
 | 0002 | 라이선스 MIT | Accepted |
 | 0003 | 최소 macOS 14 | Accepted |
-| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted |
+| 0004 | GitHub 연동은 `gh` CLI 위임, 이슈 조회만 | Accepted (§2는 0023으로 대체) |
 | 0005 | 문서 언어 (내부 한국어, 외부 접점 영어) | Accepted |
 | 0006 | 외부 의존성 0개 | Accepted |
 | 0007 | 포맷·린트는 툴체인 내장 swift-format | Accepted |
