@@ -13,10 +13,12 @@ final class GatedFetcher: RepositoryFetching, @unchecked Sendable {
     /// The `untrusted` argument of each fetch, in order (#107).
     var untrusted: [Bool] { lock.withLock { untrustedFlags } }
 
-    func fetch(_ repository: Repository, untrusted: Bool, onStart: @escaping @Sendable ([String]) -> Void) async
-        -> FetchRun
-    {
-        await withCheckedContinuation { continuation in
+    func fetch(
+        _ repository: Repository, untrusted readUntrusted: @escaping @Sendable () async -> Bool,
+        onStart: @escaping @Sendable ([String]) -> Void
+    ) async -> FetchRun {
+        let untrusted = await readUntrusted()
+        return await withCheckedContinuation { continuation in
             lock.withLock {
                 untrustedFlags.append(untrusted)
                 waiting.append((repository, onStart, continuation))
@@ -126,6 +128,21 @@ final class FetchControllerTests: XCTestCase {
         await fetcher.waitForFetches(2)
         XCTAssertEqual(fetcher.untrusted, [false, true])
         fetcher.release(1, with: .finished(failures: []))
+    }
+
+    /// SEC-T5-24 (#423): a fetch that started untrusted stays untrusted when the flag later reads false, e.g. the
+    /// repository was removed from Settings while the configuration was being inspected.
+    func testSECT5_24_AFetchThatStartedUntrustedStaysUntrusted() async {
+        let fetcher = GatedFetcher()
+        let (controller, _) = controller(fetcher)
+        var untrusted = true
+        controller.isUntrusted = { _ in untrusted }
+
+        controller.fetch()
+        untrusted = false  // removed before the fetch first reads the flag
+        await fetcher.waitForFetches(1)
+        XCTAssertEqual(fetcher.untrusted, [true])
+        fetcher.release(0, with: .finished(failures: []))
     }
 
     func testFailedFetchKeepsTheLastSuccessAndShowsDetails() async {

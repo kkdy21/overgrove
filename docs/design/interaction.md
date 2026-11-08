@@ -168,7 +168,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | 창이 다시 보임 (가려짐·최소화 뒤) | 창 활성화와 같음 | 한 번 |
 
 **자동 새로고침 (#119, #163 결정 B).** 창이 화면에 보이는 동안(`NSWindow.occlusionState`)만 FSEvents로 감시한다.
-- **감시 범위**: #226으로 검증된 워크트리 폴더들과 공통 git 디렉터리. 공통 디렉터리 안에서는 `HEAD`·`index`(메인 워크트리), `refs/`·`packed-refs`(refs), `worktrees/<id>/HEAD|index`(그 연결 워크트리), `worktrees/<id>` 자체와 `gitdir`·`locked`(워크트리 목록), `config`(전부)만 반영한다. `objects/`, `logs/`, `FETCH_HEAD`, `ORIG_HEAD`, hooks 등은 무시한다. 그래서 fetch나 gc가 모든 status를 다시 돌리지 않는다. 시스템이 세부를 잃었다고 알리면(rescan) 전부 다시 조회한다.
+- **감시 범위**: #226으로 검증된 워크트리 폴더들과 공통 git 디렉터리. 공통 디렉터리 안에서는 `HEAD`·`index`(메인 워크트리), `refs/`·`packed-refs`(refs), `worktrees/<id>/HEAD|index`(그 연결 워크트리. `HEAD`는 워크트리 목록도: switch나 detached commit은 `HEAD`만 바꾸고, 목록의 브랜치·head가 사이드바와 그래프의 기준이다, #416), `worktrees/<id>` 자체와 `gitdir`·`locked`(워크트리 목록), `config`(전부)만 반영한다. `objects/`, `logs/`, `FETCH_HEAD`, `ORIG_HEAD`, hooks 등은 무시한다. 그래서 fetch나 gc가 모든 status를 다시 돌리지 않는다. 시스템이 세부를 잃었다고 알리면(rescan) 전부 다시 조회한다.
 - **경로**: 이벤트 경로는 신뢰하지 않는 문자열이다. 검증된 폴더와 경로 구성 요소로만 비교하고, 디스크에서 읽지 않는다. 폴더 밖의 경로는 버린다. 워크트리가 다른 워크트리 안에 있으면 가장 깊은 폴더에 속한다.
 - **묶음과 상한**:
   - 이벤트 지연 1초. 마지막 이벤트 후 1초 디바운스한다. 이벤트가 계속 오더라도 첫 변경 후 최대 5초 안에는 요청한다(쉬지 않고 쓰는 에이전트를 지켜볼 때도 화면이 따라온다).
@@ -176,7 +176,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
   - 재실행 간격은 max(2초, 마지막 소요 시간 × 10)이다. 5초짜리 status도 50초에 한 번, 한 코어의 약 10%로 묶인다.
   - 요청은 `.filesChanged` 트리거 하나로, 바뀐 워크트리들의 status만 다시 조회한다(필요하면 refs·목록도).
   - 분류는 스트림 큐에서 하고 메인 액터로는 묶은 변경만 넘긴다. 한 묶음이 10,000개를 넘으면 경로를 보지 않고 rescan으로 친다(SEC-T15-17).
-- **되먹임 없음**: 앱의 git 조회는 index를 쓰지 않으므로(#211) 자기 이벤트로 다시 새로고침하지 않는다. 실제 FSEvents로 검증한다.
+- **되먹임 없음**: 앱의 git 조회는 index도 `HEAD`도 쓰지 않으므로(#211) 자기 이벤트로 다시 새로고침하지 않는다. 실제 FSEvents로 검증한다.
 - 가려지거나 최소화되면 스트림을 멈춘다(비용 0). 다시 보이면 모든 워크트리·refs·목록을 한 번 대기열에 넣는다. 같은 디바운스와 재실행 간격을 거치므로, Spaces를 오가며 여러 번 보였다 가려져도 요청은 하나다.
 - 다른 로드(⌘R, 선택, 다른 창의 로드)가 도는 동안에는 보내지 않고, 끝나면 보낸다. 대체된 요청은 다시 보내고, 실패한 요청은 버린다(오류는 화면에 남고, 다음 변경이나 ⌘R이 다시 시도한다).
 - 측정: PERF-10(파일 6,000개를 8초 동안 쓰는 동안 새로고침 3회, status 3회, git CPU 약 0.7%, [결과](../performance/results/2026-11-07-perf10-auto-refresh-storm.md)).
@@ -185,6 +185,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 - 실패하면 이전 데이터를 `opacity.stale`로 흐리게 두고, 상태바에 `Refresh failed — Details`를 띄운다.
   - 워크트리 목록 읽기가 실패했을 때 S-11 비교가 열려 있으면 닫지 않는다. 마지막 결과를 `opacity.stale`로 흐리게 두고, 머리글 아래에 `The worktree list could not be read, so this comparison may be out of date.`를 띄운다. 실패한 뒤의 재시도가 도는 동안에도 같다. 목록 읽기가 다시 성공할 때까지 기준 브랜치 선택, `Include uncommitted`, 파일 선택은 막고 git을 다시 실행하지 않는다. 실패 전에 시작된 비교·patch는 버린다. `‹ Graph`와 `⎋`로는 닫을 수 있다(#374).
   - 실패 원인이 설정 검사의 차단(`.blocked`)이면 예외로 S-11을 닫고 진행 중인 비교·patch를 취소한다. 보안 중단은 "읽지 못함"이 아니므로, 사용자는 흐린 비교 대신 보안 상태를 본다(#401).
+  - S-12(두 커밋 비교)도 차단(`.blocked`)이면 S-11이 열려 있든 아니든 닫고, 진행 중인 파일 목록·커밋 목록·patch를 취소한다(#405). 그 밖의 목록 실패에서는 그대로 둔다(흐리게 하지 않음). S-12는 두 커밋의 내용이라 워크트리 목록을 못 읽어도 낡지 않고, 그 git 호출은 매번 설정 검사를 다시 거친다.
   - 목록은 읽었지만 비교 대상 워크트리만 읽지 못한 경우도 같은 규칙을 따른다(#413). 폴더가 사라졌거나(`prunable`), 경로가 이제 다른 항목의 폴더로 이어지거나(`duplicate`), 그 워크트리 설정이 차단 대상이거나, 다른 저장소의 것이면 S-11을 닫는다. 조회 상한 밖이거나 status가 실패한 것처럼 읽지만 못한 경우에는 흐리게 두고 `This worktree's status could not be read, so this comparison may be out of date.`를 띄운다.
 
 ### 4.2 fetch (원격)
@@ -253,11 +254,11 @@ stateDiagram-v2
 
 | 대상 | v0.1 포함 | later |
 |---|---|---|
-| 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03). 그래프 행에는 v0.2.0부터 `Compare with Selected Commit`(S-12, #122. 다른 커밋이 주 선택일 때만 켜짐) | Open on GitHub, Copy Permalink |
+| 커밋 행 (그래프, S-09) | Copy SHA, Copy Short SHA, Copy Message, Show Changes (S-03). 그래프 행에는 v0.2.0부터 `Compare with Selected Commit`(S-12, #122. 다른 커밋이 주 선택일 때만 켜짐). 그래프 행에는 v0.2.0부터 `Open on GitHub`(#398) | Copy Permalink |
 | WIP 행 | Show Changes (S-02), Show Worktree Info (S-05) | — |
-| 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder | Quick Look, Open With… |
-| 워크트리 행 | Show Changes, Show Info, Copy Path, Copy Branch Name, Reveal in Finder, Open in Terminal | Open in 사용자 지정 터미널·에디터 |
-| 브랜치 행 | Show in Graph, Copy Name, Copy Upstream Name | — |
+| 파일 행 (S-02~S-04) | Show Diff, Show History (S-09), Copy Path, Copy Full Path, Reveal in Finder. 작업 트리 파일 행(S-02)에는 에디터를 고르면 `Open in Editor`(#124). S-03의 파일 행에는 v0.2.0부터 `Open on GitHub`(그 커밋의 파일, #398). 작업 트리·stash 파일은 GitHub에 없으므로 두지 않는다 | Quick Look, Open With… |
+| 워크트리 행 | Show Changes, Show Info, Copy Path, Copy Branch Name, Reveal in Finder, Open in Terminal. v0.2.0부터 Open in Terminal은 Settings에서 고른 터미널로 열고, 에디터를 고르면 `Open in Editor`(#124) | — |
+| 브랜치 행 | Show in Graph, Copy Name, Copy Upstream Name. v0.2.0부터 `Open on GitHub`(#398): GitHub 원격의 원격 추적 브랜치와, upstream이 그 원격에 있는 로컬 브랜치 | — |
 | 태그 행 (v0.2.0, #123) | Show in Graph, Copy Tag Name, Copy SHA (가리키는 커밋) | Show on GitHub |
 | 원격 그룹 행 | Copy Remote URL (자격 증명 제거), Fetch This Remote → v0.1 제외 | Fetch This Remote |
 | Stash 행 | Show Changes, Copy Ref, Copy SHA | — |
@@ -268,7 +269,10 @@ stateDiagram-v2
 **보안 조건** ([security-review.md](security-review.md)):
 
 - **Reveal in Finder** — 경로를 `PathValidator`로 확인한다. 실제 경로가 저장소(또는 워크트리) 밖이면 열지 않고 `This path points outside the repository`를 보여 준다 (T14). `NSWorkspace.activateFileViewerSelecting`을 쓰고 파일을 실행하지 않는다.
-- **Open in Terminal** — `NSWorkspace`로 Terminal.app에 폴더 URL을 넘긴다. 셸 문자열을 만들지 않으므로 `Overgrove/Execution/` 규칙과 충돌하지 않는다. 그 워크트리의 설정을 검사하지 못했거나, 검사 결과에 항목이 하나라도 있거나(사용자가 칠 git의 pager·editor·`!` alias 포함, #278), 실행 가능한 hook이 있으면 먼저 `Open in Terminal?` 확인을 받는다. 버튼은 `Open Anyway`와 `Cancel`(기본)이다(security-review.md T14, #73). 사용자 지정 터미널(iTerm, Ghostty 등)은 `later`.
+- **Open on GitHub** (#398) — 이슈 패널이 쓰는 github.com 원격(`GitHubRemote`, 검증된 OWNER/NAME)이 있을 때만 켜진다. 주소는 `https://github.com/OWNER/NAME/commit/<40자 OID>`, `/tree/<브랜치>`, `/blob/<OID>/<경로>`이고 `GitHubLinks`가 `URLComponents`로 만든다. 브랜치는 `FullRefName` 검증 뒤 그 원격의 `refs/remotes/<원격>/` 아래만, 경로는 git이 손실 없이 이름 붙일 수 있는 것만 쓴다. 경로 구성요소마다 따로 퍼센트 인코딩하고 빈 구성요소·`.`·`..`은 거부하므로 저장소의 문자열이 스킴·호스트·쿼리를 바꾸거나 저장소 밖 페이지로 가지 못한다. 연 뒤에는 `RowActions.browserTarget`(https만)을 다시 거친다. GHE와 다른 호스트는 범위 밖이다.
+- **외부 앱을 여는 원칙 (#124).** Terminal, 사용자 지정 터미널·에디터, 브라우저, Finder 같은 외부 앱은 모두 `NSWorkspace`로만 연다(`open(_:withApplicationAt:configuration:)`, `open(URL)`, `activateFileViewerSelecting`). 넘기는 것은 검사한 폴더·파일 URL 하나 또는 https 페이지 하나뿐이다. 셸 문자열, `Process`, AppSettings에 저장한 명령줄, AppleScript, `$PATH` 같은 인자 템플릿은 쓰지 않는다. Quick Look(#399)과 Open on GitHub(#398)도 이 원칙을 따른다.
+- **사용자 지정 터미널·에디터 (#124).** Settings › Advanced › Apps에서 `.app`을 고른다(`NSOpenPanel`, 응용 프로그램만). 고를 때 번들인지, 유효한 bundle identifier(영숫자·`.`·`-`)와 실행 파일이 있는지만 확인하고 Apple 서명 여부는 보여 주기만 한다. 저장하는 것은 bundle identifier 하나이고, 열 때마다 `urlForApplication(withBundleIdentifier:)`로 찾는다. 경로는 저장하지 않는다. 앱별 명령줄 인자는 지원하지 않는다. 앱이 없으면 열지 않고 알린다. 에디터로 워크트리 폴더를 열 때도 Open in Terminal과 같은 확인(`TerminalGuard`)을 거친다. 에디터와 그 확장은 작업 공간의 설정·작업(tasks)을 실행할 수 있고, 에디터가 실행하는 git은 저장소 설정을 따르기 때문이다. 작업 트리 파일 하나를 열 때는 묻지 않고, 실제 위치가 워크트리 안인지만 확인한다(T14).
+- **Open in Terminal** — `NSWorkspace`로 Terminal.app에 폴더 URL을 넘긴다. 셸 문자열을 만들지 않으므로 `Overgrove/Execution/` 규칙과 충돌하지 않는다. 그 워크트리의 설정을 검사하지 못했거나, 검사 결과에 항목이 하나라도 있거나(사용자가 칠 git의 pager·editor·`!` alias 포함, #278), 실행 가능한 hook이 있으면 먼저 `Open in Terminal?` 확인을 받는다. 버튼은 `Open Anyway`와 `Cancel`(기본)이다(security-review.md T14, #73). v0.2.0부터 Settings에서 고른 터미널로 연다(#124).
 - **Open With… / 기본 앱으로 열기는 넣지 않는다.** 저장소 안의 `.command`, `.app`, 스크립트를 실행할 수 있기 때문이다.
 - **Copy Remote URL** — 항상 자격 증명을 제거한 URL을 복사한다. "Show full remote URLs" 설정을 켜도 마찬가지다 (T11).
 - **Open in Browser** — `https://` URL만 연다.

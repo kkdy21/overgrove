@@ -237,6 +237,37 @@ struct TestExecutables {
         return try script("gated-git-\(UUID().uuidString)", body)
     }
 
+    /// A git stand-in for the graph's ref check (#411): logs every subcommand to `invocations.log` like `gatedGit`.
+    /// While `<markers>/armed` exists, `for-each-ref` either fails at once (`failing`) or touches `<markers>/refs-held`
+    /// and waits for `<markers>/release`, so a test can catch the check in flight.
+    func gitWithArmedRefCheck(forwardingTo git: URL, markers: URL, failing: Bool) throws -> URL {
+        try FileManager.default.createDirectory(at: markers, withIntermediateDirectories: true)
+        let action =
+            failing
+            ? "exit 1"
+            : """
+            : > '\(markers.path)/refs-held'
+              i=0
+              while [ ! -e '\(markers.path)/release' ] && [ $i -lt 500 ]; do sleep 0.02; i=$((i+1)); done
+            """
+        let body = """
+            for arg in "$@"; do
+              case "$arg" in
+                -c|--no-pager|--no-optional-locks|--literal-pathspecs) ;;
+                *=*) ;;
+                -*) ;;
+                *) subcommand="$arg"; break ;;
+              esac
+            done
+            echo "${subcommand:-}" >> '\(markers.path)/invocations.log'
+            if [ "${subcommand:-}" = "for-each-ref" ] && [ -e '\(markers.path)/armed' ]; then
+              \(action)
+            fi
+            exec '\(git.path)' "$@"
+            """
+        return try script("armed-git-\(UUID().uuidString)", body)
+    }
+
     private func script(_ name: String, _ body: String, in folder: URL? = nil) throws -> URL {
         let url = (folder ?? directory).appendingPathComponent(name)
         try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)

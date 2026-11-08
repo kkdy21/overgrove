@@ -14,9 +14,18 @@ enum GitHubRemote {
     static func repository(
         remotes: [(name: String, url: String)], trusting hosts: TrustedHosts = publicOnly
     ) -> GitHubRepository? {
+        match(remotes: remotes, trusting: hosts)?.repository
+    }
+
+    /// The same remote, with its name (Open on GitHub for its remote-tracking branches, #398).
+    static func match(
+        remotes: [(name: String, url: String)], trusting hosts: TrustedHosts = publicOnly
+    ) -> (name: String, repository: GitHubRepository)? {
         let preferred = preferredNames.compactMap { name in remotes.first { $0.name == name } }
         let rest = remotes.filter { !preferredNames.contains($0.name) }
-        return (preferred + rest).lazy.compactMap { repository(fromURL: $0.url, trusting: hosts) }.first
+        return (preferred + rest).lazy.compactMap { remote in
+            repository(fromURL: remote.url, trusting: hosts).map { (remote.name, $0) }
+        }.first
     }
 
     /// Every remote whose URL is a GitHub repository on a trusted host, by name. A name listed twice keeps its first

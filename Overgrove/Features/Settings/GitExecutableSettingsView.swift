@@ -7,6 +7,8 @@ import SwiftUI
 /// fetch partial clones. Choose… saves a git only after it passes the rules; Use Default forgets the choice.
 struct AdvancedSettingsView: View {
     @State var model: GitExecutableSettingsModel
+    /// The Apps section (#124); hidden without settings (previews of the git row alone).
+    var settings: AppSettings?
 
     var body: some View {
         Form {
@@ -33,6 +35,7 @@ struct AdvancedSettingsView: View {
                         .multilineTextAlignment(.trailing)
                 }
             }
+            if let settings { ExternalAppsSection(settings: settings) }
         }
         .formStyle(.grouped)
         .task { await model.refresh() }

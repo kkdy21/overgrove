@@ -82,7 +82,12 @@ struct WorktreeListing: Sendable, Equatable {
     /// The GitHub repository whose issues and pull requests the app shows (#81), from the inspected remotes on
     /// `hosts`; `nil` without one.
     func githubRepository(trusting hosts: TrustedHosts) -> GitHubRepository? {
-        GitHubRemote.repository(remotes: remotes.map { ($0.name, $0.url) }, trusting: hosts)
+        githubMatch(trusting: hosts)?.repository
+    }
+
+    /// The same repository with the remote it came from (Open on GitHub for its branches, #398).
+    func githubMatch(trusting hosts: TrustedHosts) -> (name: String, repository: GitHubRepository)? {
+        GitHubRemote.match(remotes: remotes.map { ($0.name, $0.url) }, trusting: hosts)
     }
 
     /// Each inspected remote whose URL is a GitHub repository on `hosts`, by remote name: the head repositories a
@@ -254,9 +259,10 @@ struct LiveRepositoryLoader: RepositoryLoading, LineCountLoading {
 }
 
 extension LiveRepositoryLoader: RepositoryFetching {
-    func fetch(_ repository: Repository, untrusted: Bool, onStart: @escaping @Sendable ([String]) -> Void) async
-        -> FetchRun
-    {
+    func fetch(
+        _ repository: Repository, untrusted: @escaping @Sendable () async -> Bool,
+        onStart: @escaping @Sendable ([String]) -> Void
+    ) async -> FetchRun {
         guard let (_, service) = try? await services() else {
             // No usable git executable: nothing can be fetched or even inspected.
             return .finished(failures: [FetchFailureGuidance(configurationError: .launchFailed(errno: -1))])

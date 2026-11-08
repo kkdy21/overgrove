@@ -14,7 +14,8 @@ import Foundation
 enum CredentialMasker {
     static let placeholder = "***"
 
-    /// Returns `text` with credentials replaced by `***`. Applying it twice gives the same result.
+    /// Returns `text` with credentials replaced by `***`. Applying it again never reveals anything; on crafted input
+    /// it can hide a little more, when a replaced separator lets another pattern match (#375 review).
     static func mask(_ text: String) -> String {
         var result = maskSchemelessUserinfo(maskURLUserinfo(text))
         for rule in rules {

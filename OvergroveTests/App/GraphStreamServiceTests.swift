@@ -122,6 +122,63 @@ final class GraphStreamServiceTests: XCTestCase {
         XCTAssertEqual(next.refSet, page.refSet, "later pages continue under the new ref set")
     }
 
+    /// A service whose git holds or fails `for-each-ref` while `markers/armed` exists (`gitWithArmedRefCheck`).
+    private func makeArmedService(failing: Bool) throws -> RepositoryService {
+        let git = try executables.gitWithArmedRefCheck(
+            forwardingTo: repository.environment.executable, markers: markers, failing: failing)
+        return RepositoryService(
+            client: GitClient(environment: GitEnvironment(executable: git, version: repository.environment.version)))
+    }
+
+    private func arm() {
+        FileManager.default.createFile(atPath: markers.appendingPathComponent("armed").path, contents: nil)
+    }
+
+    private func disarm() throws {
+        try FileManager.default.removeItem(at: markers.appendingPathComponent("armed"))
+    }
+
+    /// #411: a page request cancelled while its #373 ref check runs ends as cancelled. The stream, already read, stays:
+    /// the next request is served from it without starting another `log`.
+    func testACancelledRefCheckKeepsTheStream() async throws {
+        let service = try makeArmedService(failing: false)
+        try await loadOverviewThenResetCalls(service)
+        arm()
+        let repository = model
+        let request = Task { await service.graphPage(repository, skip: 0, limit: 10) }
+        let isHeld = await eventually(timeout: .seconds(10)) {
+            FileManager.default.fileExists(atPath: self.markers.appendingPathComponent("refs-held").path)
+        }
+        XCTAssertTrue(isHeld, "the ref check is running")
+        request.cancel()
+        FileManager.default.createFile(atPath: markers.appendingPathComponent("release").path, contents: nil)
+        let cancelled = await request.value
+        XCTAssertEqual(cancelled, .failure(.cancelled))
+        try disarm()
+
+        let page = try await service.graphPage(model, skip: 0, limit: 10).get()
+        XCTAssertEqual(page.commits.count, 10)
+        XCTAssertEqual(logCalls(), 1, "the stream was kept, not read again")
+    }
+
+    /// #411: when the refs cannot be read after a page, the page comes back marked unchecked (`isRefSetComplete` false)
+    /// instead of being retried, and the stream stays for the next page, which checks again.
+    func testAnUncheckablePageIsMarkedAndTheStreamStays() async throws {
+        let service = try makeArmedService(failing: true)
+        try await loadOverviewThenResetCalls(service)
+        arm()
+
+        let unchecked = try await service.graphPage(model, skip: 0, limit: 10).get()
+        XCTAssertFalse(unchecked.isRefSetComplete, "not checked: GraphStore must not join it")
+        XCTAssertEqual(unchecked.commits.count, 10)
+        try disarm()
+
+        let checked = try await service.graphPage(model, skip: 10, limit: 10).get()
+        XCTAssertTrue(checked.isRefSetComplete, "the next page checks again")
+        XCTAssertEqual(checked.refSet, unchecked.refSet)
+        XCTAssertEqual(logCalls(), 1, "one stream for both pages")
+    }
+
     func testRefreshStartsANewStream() async throws {
         let service = try makeService()
         try await loadOverviewThenResetCalls(service)

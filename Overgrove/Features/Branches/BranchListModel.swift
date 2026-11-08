@@ -26,6 +26,11 @@ struct BranchRow: Identifiable, Equatable {
     var tip: ObjectID?
     /// The configured upstream's short name (`origin/main`), escaped, for Copy Upstream Name (#73).
     var upstreamName: String?
+    /// The configured upstream's full ref name as git gave it (`refs/remotes/origin/main`), for Open on GitHub (#398).
+    var upstreamRef: String?
+
+    /// The remote-tracking ref Open on GitHub names: the row itself for a remote row, the upstream for a local one.
+    var remoteRef: String? { id.hasPrefix("refs/remotes/") ? id : upstreamRef }
 }
 
 /// A row or a folder of rows (`feat/`, a remote) in the sidebar tree.
@@ -193,7 +198,8 @@ struct BranchListModel: Equatable {
             ahead: upstream.ahead, behind: upstream.behind, isUpstreamGone: isGone, date: branch.committerDate,
             issueNumber: issueNumber, help: help.joined(separator: "\n"),
             accessibilityLabel: label.joined(separator: ", "), tip: branch.target,
-            upstreamName: branch.upstream.map { PathValidator.displayable(Self.short($0)) })
+            upstreamName: branch.upstream.map { PathValidator.displayable(Self.short($0)) },
+            upstreamRef: branch.upstream)
     }
 
     /// `refs/remotes/origin/main` → `origin/main`.
@@ -213,6 +219,6 @@ extension BranchRow {
             id: id, name: name, fullDisplayName: fullDisplayName, isCheckedOut: isCheckedOut, isDefault: isDefault,
             ahead: ahead, behind: behind, isUpstreamGone: isUpstreamGone, date: date, issueNumber: issueNumber,
             help: help,
-            accessibilityLabel: accessibilityLabel, tip: tip, upstreamName: upstreamName)
+            accessibilityLabel: accessibilityLabel, tip: tip, upstreamName: upstreamName, upstreamRef: upstreamRef)
     }
 }
