@@ -97,6 +97,12 @@ final class PullRequestParserTests: XCTestCase {
         XCTAssertNil(list.last?.updatedAt)
     }
 
+    /// No more entries than `GHCommand.prList` asks for are kept, whatever gh prints.
+    func testAtMostTheRequestedNumberOfEntries() throws {
+        let json = "[" + (1...205).map { Self.entry($0) }.joined(separator: ",") + "]"
+        XCTAssertEqual(try PullRequestParser.parse(data(json)).count, PullRequestParser.limit)
+    }
+
     /// Titles and names are kept raw here (escaped when shown); control and bidi characters do not break parsing.
     func testHostileTextIsKeptRawForEscapingLater() throws {
         let title = #"evil‮txt.exe\u0007\n"#

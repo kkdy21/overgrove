@@ -31,7 +31,7 @@ struct PullRequestLinkIndex: Equatable {
             return
         }
         // Keys are bytes: Swift `String` equality and hashing ignore Unicode normalization.
-        var candidates: [[UInt8]: PullRequest] = [:]
+        var candidates: [Key: PullRequest] = [:]
         for pullRequest in pullRequests {
             guard let head = pullRequest.head else { continue }
             let key = Self.key(owner: head.owner, name: head.name, branch: Array(head.branch.utf8))
@@ -66,10 +66,16 @@ struct PullRequestLinkIndex: Equatable {
         return lhs.number > rhs.number
     }
 
-    /// `owner` and `name` with ASCII letters lowercased, then the branch bytes unchanged. NUL cannot appear in a
-    /// GitHub owner or repository name, so the separators keep the parts apart.
-    private static func key(owner: String, name: String, branch: [UInt8]) -> [UInt8] {
-        asciiLowercased(owner) + [0] + asciiLowercased(name) + [0] + branch
+    /// `owner` and `name` with ASCII letters lowercased, and the branch bytes unchanged. Separate fields, so no
+    /// byte in one part can stand in for a boundary between parts.
+    private struct Key: Hashable {
+        let owner: [UInt8]
+        let name: [UInt8]
+        let branch: [UInt8]
+    }
+
+    private static func key(owner: String, name: String, branch: [UInt8]) -> Key {
+        Key(owner: asciiLowercased(owner), name: asciiLowercased(name), branch: branch)
     }
 
     private static func asciiLowercased(_ text: String) -> [UInt8] {

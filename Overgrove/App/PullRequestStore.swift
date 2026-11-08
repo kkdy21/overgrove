@@ -21,10 +21,11 @@ struct LivePullRequestLoader: PullRequestLoading {
             return .pullRequests(try await client.pullRequests(in: repository))
         } catch GHError.cancelled {
             return .cancelled
-        } catch is GHError {
-            return .unavailable
-        } catch {
+        } catch is CancellationError {
             return .cancelled
+        } catch {
+            // Any other failure hides PR status (ADR-0023 §6).
+            return .unavailable
         }
     }
 }

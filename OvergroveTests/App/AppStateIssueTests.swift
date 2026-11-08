@@ -163,9 +163,10 @@ final class AppStateIssueTests: XCTestCase {
     }
 
     /// A cached paint never decides the repository gh is asked about, even after a verified listing failed to
-    /// refresh (security review of #81).
+    /// refresh (security review of #81). The same holds for pull requests (security review of #115).
     func testACachedPaintDoesNotRunGh() async {
         let loader = StubIssueLoader([.issues([first])])
+        let pullRequests = StubPullRequestLoader([.unavailable])
         var verified = WorktreeListing.mockup
         verified.githubRepository = IssueModelsTests.repository
         var cached = WorktreeListing.mockup
@@ -173,7 +174,7 @@ final class AppStateIssueTests: XCTestCase {
         let repositoryLoader = CachedFailingLoader(first: verified, cached: cached)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: repositoryLoader, issueLoader: loader, pullRequestLoader: StubPullRequestLoader([.unavailable]),
+            loader: repositoryLoader, issueLoader: loader, pullRequestLoader: pullRequests,
             ghChecker: QueuedGHAuthChecker([nil]))
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
@@ -186,12 +187,16 @@ final class AppStateIssueTests: XCTestCase {
             state.reload()
             await state.loadTask?.value
             await state.issuePanel.task?.value
+            await state.pullRequestStore.task?.value
         }
         XCTAssertEqual(loader.requests, ["team/app"], "the cached paint's remote is never asked about")
+        XCTAssertEqual(pullRequests.requests, ["team/app"])
         // Check Again after the failed refresh asks about the last verified repository only.
         state.checkIssuesAgain()
         await state.issuePanel.task?.value
+        await state.pullRequestStore.task?.value
         XCTAssertEqual(loader.requests, ["team/app", "team/app"])
+        XCTAssertEqual(pullRequests.requests, ["team/app", "team/app"])
     }
 
     /// #82: the mockup's `feat/42-rate-limit` worktree links issue 42; badges know the fetched numbers.

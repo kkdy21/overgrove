@@ -169,9 +169,12 @@ enum PullRequestParser {
         }
     }
 
+    /// The most `GHCommand.prList` asks for; anything past it is ignored.
+    static let limit = 200
+
     static func parse(_ data: Data) throws -> [PullRequest] {
         do {
-            return try JSONDecoder().decode([Entry].self, from: data).compactMap(\.value)
+            return try JSONDecoder().decode([Entry].self, from: data).prefix(limit).compactMap(\.value)
         } catch {
             throw ParseError(parser: "PullRequestParser", offset: 0, reason: "unexpected JSON")
         }
