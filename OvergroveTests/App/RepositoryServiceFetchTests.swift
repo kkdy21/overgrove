@@ -56,7 +56,7 @@ final class RepositoryServiceFetchTests: XCTestCase {
         XCTAssertNil(FetchRecordStore.estimatedLastFetch(commonDirectory: model.commonGitDirectoryURL))
 
         let remotes = Remotes()
-        let run = await service().fetch(model) { remotes.set($0) }
+        let run = await service().fetch(model, untrusted: false) { remotes.set($0) }
 
         XCTAssertEqual(remotes.value, ["origin", "broken"])
         guard case .finished(let failures, _) = run else { return XCTFail("\(run)") }
@@ -66,6 +66,27 @@ final class RepositoryServiceFetchTests: XCTestCase {
         XCTAssertNotNil(
             FetchRecordStore.estimatedLastFetch(commonDirectory: model.commonGitDirectoryURL),
             "git wrote FETCH_HEAD, which later stands in for the time when there is no record")
+    }
+
+    /// SEC-T5-22 (#354): a failed fetch offers a git command for Terminal only when the repository has neither
+    /// configuration findings nor executables in its hooks directory; a hostile repository could fail the fetch on
+    /// purpose to get its hook run by a pasted command.
+    func testSECT5_22_FetchGuidanceWithholdsTheCommandWhenHooksExist() async throws {
+        let missing = origin.deletingLastPathComponent().appendingPathComponent("missing-\(UUID().uuidString).git")
+        try await repository.git(["remote", "add", "broken", missing.path])
+        guard case .finished(let clean, _) = await service().fetch(model, untrusted: false) else {
+            return XCTFail("not finished")
+        }
+        XCTAssertTrue(clean.first?.commands.contains { $0.hasPrefix("git ") } ?? false, "\(clean.map(\.commands))")
+
+        let hook = repository.root.appendingPathComponent(".git/hooks/post-checkout")
+        try Data("not a program\n".utf8).write(to: hook)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: hook.path)
+        guard case .finished(let hooked, _) = await service().fetch(model, untrusted: false) else {
+            return XCTFail("not finished")
+        }
+        XCTAssertEqual(hooked.count, 1)
+        XCTAssertFalse(hooked.first?.commands.contains { $0.hasPrefix("git ") } ?? true, "\(hooked.map(\.commands))")
     }
 
     /// SEC-T15-10 (#259): a repository listing more remotes than one Fetch takes fetches only the first
@@ -86,7 +107,7 @@ final class RepositoryServiceFetchTests: XCTestCase {
             maximumFetchedRemotes: 2)
 
         let remotes = Remotes()
-        let run = await service.fetch(model) { remotes.set($0) }
+        let run = await service.fetch(model, untrusted: false) { remotes.set($0) }
 
         XCTAssertEqual(run, .finished(failures: [], remoteLimit: FetchRemoteLimit(fetched: 2, total: 5)))
         XCTAssertEqual(remotes.value, ["r0", "r1"], "the first remotes, in configuration order")
@@ -100,12 +121,39 @@ final class RepositoryServiceFetchTests: XCTestCase {
     func testUnderTheLimitReportsNoLimit() async throws {
         try await repository.git(["push", "-q", origin.path, "main"])
         try await repository.git(["remote", "add", "origin", origin.path])
-        let run = await service().fetch(model)
+        let run = await service().fetch(model, untrusted: false)
         XCTAssertEqual(run, .finished(failures: []))
     }
 
+    /// #107: an untrusted repository does not run git for a local remote at all; it is reported as turned off, with
+    /// no command to copy. Remotes that are not local still fetch. A remote that only becomes local through
+    /// configuration (`insteadOf`) is refused by the transport list and reported the same way.
+    func testUntrustedRepositorySkipsLocalRemotes() async throws {
+        try await repository.git(["remote", "add", "origin", origin.path])
+        try await repository.git(["push", "-q", "origin", "main"])
+        try await repository.git(["update-ref", "-d", "refs/remotes/origin/main"])
+        try await repository.git(["remote", "add", "mirror", "https://example.invalid/acme/api.git"])
+        try await repository.git(["config", "url.\(origin.path).insteadOf", "https://example.invalid/acme/api.git"])
+
+        let run = await service().fetch(model, untrusted: true)
+        guard case .finished(let failures, _) = run else { return XCTFail("got \(run)") }
+        XCTAssertEqual(failures.map(\.remote?.value), ["origin", "mirror"])
+        for failure in failures {
+            XCTAssertEqual(failure.reason, .blockedByConfiguration, "\(failure)")
+            XCTAssertTrue(failure.guidance.contains("untrusted"), failure.guidance)
+            XCTAssertEqual(failure.commands, [], "no command is offered for an untrusted repository")
+        }
+        let fetched = try await hasRef("refs/remotes/origin/main")
+        XCTAssertFalse(fetched)
+
+        // Trusted (the default): the same remote fetches.
+        _ = await service().fetch(model, untrusted: false)
+        let fetchedNow = try await hasRef("refs/remotes/origin/main")
+        XCTAssertTrue(fetchedNow)
+    }
+
     func testNoRemotes() async {
-        let run = await service().fetch(model)
+        let run = await service().fetch(model, untrusted: false)
         XCTAssertEqual(run, .finished(failures: [.noRemotes]))
     }
 
@@ -116,7 +164,7 @@ final class RepositoryServiceFetchTests: XCTestCase {
         try await repository.git(["update-ref", "-d", "refs/remotes/origin/main"])
         try await repository.git(["config", "filter.bad name.clean", "cat"])
 
-        let run = await service().fetch(model)
+        let run = await service().fetch(model, untrusted: false)
         guard case .finished(let failures, _) = run else { return XCTFail("\(run)") }
         XCTAssertEqual(failures.map(\.reason), [.blockedByConfiguration])
         XCTAssertEqual(failures.first?.commands, [], "no git command for a repository with findings (#200)")
@@ -132,7 +180,7 @@ final class RepositoryServiceFetchTests: XCTestCase {
         try await repository.git(["update-ref", "-d", "refs/remotes/origin/main"])
         try await repository.git(["config", "http.sslCAInfo", "/tmp/overgrove-not-a-real-ca.pem"])
 
-        let run = await service().fetch(model)
+        let run = await service().fetch(model, untrusted: false)
         guard case .finished(let failures, _) = run else { return XCTFail("\(run)") }
         XCTAssertEqual(failures.map(\.reason), [.blockedByConfiguration])
         XCTAssertEqual(failures.first?.commands, [])
@@ -144,7 +192,7 @@ final class RepositoryServiceFetchTests: XCTestCase {
         try await repository.git(["remote", "add", "origin", origin.path])
         let service = service()
         let model = model
-        let task = Task { await service.fetch(model) }
+        let task = Task { await service.fetch(model, untrusted: false) }
         task.cancel()
         let run = await task.value
         // Cancelled during inspection or before the first remote; either way nothing is reported as a failure.

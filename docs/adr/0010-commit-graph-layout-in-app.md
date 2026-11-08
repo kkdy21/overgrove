@@ -27,6 +27,7 @@ HANDOFF §9는 그래프에 `log --all --graph --date-order -z`를 적었다. `-
      - `graphStream`(`--skip` 없는 같은 명령, `-n 100000`) 하나를 ref 집합마다 띄운다. ref 범위와 포맷은 `graphPage`와 한 헬퍼(`ReadOnlyGitCommand.graphRevisionArguments`)에서 만든다. 그래서 스트림 페이지와 `--skip` 대체 페이지가 같은 커밋을 같은 순서로 낸다(#308 범위 포함). stdout을 받는 대로 레코드 단위로 파싱하고(`GraphStreamParser`, 7개 NUL = 1 레코드), 페이지는 그 결과에서 내준다. 정렬은 한 번만 한다.
      - 상한은 stdout 64MB·타임아웃 120초·취소다(`ProcessLimits.stream`). 스트림이 커밋 상한(10만)·출력 상한·타임아웃·실패로 일찍 멈추면, 그 뒤 페이지는 `--skip`으로 읽는다.
      - commit-graph 유무는 공통 git 디렉터리의 `objects/info/commit-graph` 또는 `commit-graphs/commit-graph-chain` 파일로 판정한다. 파일이 있으면 지금처럼 `--skip` 페이지(약 50ms)를 쓴다.
+     - ref 집합이 걸러진 ref나 잘린 목록 때문에 완전하지 않으면(`GraphRefSet.isComplete`가 false, #333) 스트림을 쓰지 않고 모든 페이지를 `--skip`으로 읽는다. 스트림은 ref 집합마다 하나를 두므로 캐시와 같고, 그 ref 집합으로는 걸러진 ref가 움직인 것을 알 수 없기 때문이다.
      - 화면(`GraphStore`)과 `GraphLoading` 인터페이스는 그대로다. ⌘R과 저장소 정리는 스트림을 멈추고 버린다.
      - 스트림은 앱 전체에서 한 번에 하나만 돈다(조회 슬롯과 따로, `GitClient`의 stream 슬롯). 그래서 오래 걸리는 스트림이 status·diff 조회를 막지 않는다. 다른 저장소의 스트림을 시작할 때는 아직 끝나지 않은 스트림을 멈춘다. 그 스트림의 대기 중인 페이지는 `--skip`으로 읽고, 그 저장소를 다시 열면 스트림을 새로 시작한다. 그래서 새 저장소의 첫 페이지가 다른 저장소의 스트림 뒤에서(최대 120초) 기다리지 않는다. 끝난 스트림의 커밋은 저장소 2개까지만 들고 있는다(PB-6).
 4. 레인 색은 **레인이 처음 생길 때의 열 인덱스 mod 8**로 정하고, 그 레인이 끝날 때까지 바꾸지 않는다. 색은 디자인 토큰 `graph.lane.0`~`graph.lane.7`이다 ([design/design-tokens.md](../design/design-tokens.md)). 페이지를 이어 읽어도 기존 레인의 색은 유지된다.

@@ -42,6 +42,7 @@
 | `-c core.askPass=` | 로컬 `core.askPass` 실행 방지 (확인) | T12 |
 | `-c protocol.ext.allow=never` | `ext::` 원격과 `insteadOf`로 바꿔치기한 `ext::` 차단 (확인). `GIT_ALLOW_PROTOCOL`(§2.4)과 겹치는 심층 방어 | T5 |
 | `-c protocol.fd.allow=never` | `fd::` 원격 차단. 기본값에서는 허용되고 정지를 일으킴 (확인) | T5, T15 |
+| `-c alias.remote-https= -c alias.remote-ssh= -c alias.remote-git= -c alias.remote-file= -c alias.remote-http= -c help.autocorrect=0` | 관련 저장소 설정 무력화. fetch 전 원격 형태 검사(§4)와 겹치는 심층 방어 (#350, git 2.36.6·Apple Git 2.54.0·Homebrew 2.54.0 확인) | T5 |
 | `-c core.alternateRefsCommand=` | `objects/info/alternates`가 있는 저장소를 fetch할 때 로컬 `core.alternateRefsCommand`가 실행되는 것을 막음. 빈 값으로 덮어도 fetch는 성공 (확인: [fixtures.md §8](../testing/fixtures.md)) | T5 |
 | `-c log.showSignature=false` | 로컬 `log.showSignature=true`로 인한 `gpg.program` 실행 방지 (확인) | T7 |
 | `-c gc.auto=0` | 자동 gc 방지 | T8 |
@@ -50,6 +51,7 @@
 | `-c color.ui=never` | 출력에 ANSI 코드가 섞이지 않게 함. 저장소 로컬 `color.diff=always`는 이 값을 이기므로 porcelain diff에는 `--no-color`를 따로 붙인다(§3, #239) | 파싱 안정성 |
 | `-c diff.suppressBlankEmpty=false` | 저장소 로컬 `diff.suppressBlankEmpty`가 patch의 빈 문맥 줄 앞 공백을 지우지 못하게 함. 이 설정은 명령줄 옵션이 없다 (확인, #239) | T3, 파싱 무결성 |
 | `-c i18n.logOutputEncoding=UTF-8` | 저장소 로컬 `i18n.logOutputEncoding`·`i18n.commitEncoding`이 포맷된 출력 전체(`-z` 구분자 포함)를 다시 인코딩하지 못하게 함. JOHAB·CP1361은 메시지의 전각 문자를 NUL로 바꿔 필드를 밀고 가짜 레코드를 만든다 (확인, E41, #205) | T15, 파싱 무결성 |
+| `-c log.follow=false` | 저장소 로컬 `log.follow=true`가 경로 하나짜리 `git log`를 rename 추적으로 바꾸지 못하게 함. `fileHistory(follow: false)`가 `--follow`만 빼던 탓에 S-09의 "Follow renames"를 꺼도 rename 이전 커밋이 나왔다. 추적이 필요하면 `fileHistory`가 `--follow`를 직접 넘기고, 옵션이 설정보다 우선한다. `log.follow`는 git 2.6부터 있어 최소 지원 버전(2.36)에서 동작한다 (확인, #310) | 표시 정확성 |
 
 diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)에는 서브커맨드 인자로 `--no-ext-diff --no-textconv`를 반드시 붙인다 (T3). `git diff`는 기본으로 외부 diff 드라이버를 실행한다 (확인).
 
@@ -65,17 +67,32 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 - `required=true`인 상태에서 clean만 비우면 `fatal: clean filter failed`가 난다. 그래서 `required=false`도 함께 넣는다 (확인).
 - `<d>` 드라이버 이름은 `[A-Za-z0-9._-]{1,64}`만 허용한다. 이 형식에 맞지 않는 이름이 있으면 무력화 인자를 만들 수 없다. 이때는 `configInspectionFailed`로 조회를 막는다 (fail closed).
 
+같은 scope에서 설정형 hook(`hook.<이름>.*`, git 2.54+)을 찾으면 이름마다 다음 인자를 모든 호출에 붙인다(#354).
+
+```
+-c hook.<이름>.enabled=false
+```
+
+- 이름은 바이트로 구분한다. 2.54 미만 git은 이 키를 무시한다.
+- 이름에 `=`(git이 `-c`를 첫 `=`에서 자른다), 제어 문자, 손실 디코딩이 있거나 256바이트를 넘으면, 또는 이름이 256개를 넘으면 무력화 인자를 만들 수 없다. 이때는 `configInspectionFailed`로 조회를 막는다(fail closed).
+
 ### 2.3 fetch 전용 인증 인자
 
 ```
 -c credential.helper=
   [신뢰 scope의 credential.*helper 항목을 원래 순서와 키 그대로 재삽입]
 [신뢰하지 않는 scope에서 false로 설정된 http.sslVerify, http.<url>.sslVerify 키마다: -c <같은 키>=true]
+[신뢰하지 않는 scope의 http.proxy, http.<url>.proxy, remote.<name>.proxy 키마다: -c <같은 키>=<신뢰 scope의 같은 키 값, 없으면 빈 값>]
+[신뢰하지 않는 scope의 http.cookieFile, http.<url>.cookieFile 키마다: -c <같은 키>=, http.saveCookies, http.<url>.saveCookies 키마다: -c <같은 키>=false]
 ```
 
 - 재삽입 예: Apple Git 내장 설정(`unknown` scope)의 `credential.helper=osxkeychain`, `gh auth setup-git`이 global에 쓴 `credential.https://github.com.helper=`(빈 값)와 `credential.https://github.com.helper=!/opt/homebrew/bin/gh auth git-credential`.
 - generic 키 초기화(`credential.helper=`)는 그 이전에 읽힌 URL별 helper까지 비운다 (확인). 그래서 신뢰 항목은 반드시 초기화 **뒤에** 다시 넣는다.
 - `http.<url>.sslVerify`는 URL별 키가 generic 키보다 우선한다. 그래서 같은 URL 키로 덮어써야 한다 (확인: `config --get-urlmatch`).
+- 프록시: `remote.<name>.proxy`는 그 원격에서 `http.proxy`보다 우선한다. 저장소가 고른 프록시는 신뢰 helper가 내준 자격 증명이 담긴 요청을 볼 수 있으므로(#150, #355) 세 형태 모두 같은 키로 덮는다. 덮는 값은 그 URL에 대해 신뢰 scope가 주는 실효 프록시다(`remote.<name>.proxy`는 같은 키의 신뢰 값 → 원격 URL에 맞는 가장 구체적인 신뢰 `http.<url>.proxy` → 신뢰 `http.proxy`, `http.<url>.proxy`는 그 URL에 맞는 신뢰 값 → 신뢰 `http.proxy`). 없으면 빈 값(프록시 없음)이다. 빈 값을 넣으면 사용자의 `http.proxy`보다 구체적이어서 회사 프록시 환경에서 fetch가 실패하기 때문이다. URL 대조는 git의 urlmatch 규칙(scheme, `*` 라벨이 있는 host, port, path 접두사, user. 우선순위는 host → path → user, 같으면 나중 값)을 따르되 percent 디코딩은 하지 않는다. 무엇을 고르든 신뢰 값이거나 빈 값이므로 대조가 어긋나도 보안 문제는 아니다 (`TrustedProxies`).
+- 덮어쓰는 키의 subsection에 `=`가 있거나 UTF-8이 아니면(디코딩에서 U+FFFD) 같은 키로 덮을 수 없으므로 조회를 막는다(#355 리뷰).
+- 쿠키: 저장소가 고른 파일을 쿠키 저장소로 읽고 쓰지 않게 한다. generic 키는 fetch overrides가 끄고(`-c http.cookieFile= -c http.saveCookies=false`, 아래 §3, 사용자 값 포함), 저장소의 URL별 키는 generic 덮어쓰기를 이기므로 같은 키로 끈다 (확인, 2.36.6·2.54.0, #355). 사용자의 URL별 키는 그대로 둔다.
+- 키 중복은 바이트로 비교한다. git은 정준 동치(NFC/NFD)인 subsection을 별개 키로 보므로, 문자열 동치로 합치면 하나가 덮어쓰기에서 빠진다(#355).
 
 ### 2.4 환경 변수 (allowlist, 부모 환경 미상속)
 
@@ -87,7 +104,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `GIT_PAGER`, `PAGER` | `cat` | 모든 git |
 | `GIT_ASKPASS`, `SSH_ASKPASS` | 빈 문자열 | 모든 git (빈 `GIT_ASKPASS`는 `core.askPass`보다 우선해 실행을 막음, 확인) |
 | `GIT_PROXY_COMMAND` | 빈 문자열 | 모든 git (로컬 `core.gitProxy` 무력화, 확인) |
-| `GIT_ALLOW_PROTOCOL` | fetch: `https:ssh:git:file:http`. 조회·기본값: 빈 값 | 조회(`GitClient.run`)는 전송을 쓰지 않는다. partial clone에서 누락 객체가 필요한 조회가 promisor 원격으로 lazy fetch하며 저장소의 uploadpack·credential helper를 실행하는 것을 막는다(#212). fetch는 (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
+| `GIT_ALLOW_PROTOCOL` | fetch: `https:ssh:git:file:http`. 신뢰하지 않음 저장소의 fetch(#107): `file`을 뺀 `https:ssh:git:http`. 조회·기본값: 빈 값 | 조회(`GitClient.run`)는 전송을 쓰지 않는다. partial clone에서 누락 객체가 필요한 조회가 promisor 원격으로 lazy fetch하며 저장소의 uploadpack·credential helper를 실행하는 것을 막는다(#212). fetch는 (내장 전송만 허용. 저장소의 `protocol.<이름>.allow`를 포함한 모든 설정보다 우선해, 저장소가 고른 `git-remote-<helper>`를 막음, 확인, #161) |
 | `GIT_NO_LAZY_FETCH` | `1` | 모든 git (promisor lazy fetch 금지, #212). 모든 경로를 막는 것은 2024년 5월 보안 릴리스(2.45.1, 2.44.1, 2.39.4·2.40.2·2.41.1·2.42.2·2.43.4 백포트)부터다. 백포트가 없는 2.44.0 이하는 무시하고, 2.45.0은 fetch 중의 lazy fetch를 막지 못한다(#317). 조회는 빈 `GIT_ALLOW_PROTOCOL`이 막고, fetch는 전송이 필요하므로 `lazyFetchControlVersion`(2.45.1) 미만에서 partial clone(promisor 설정 또는 `.promisor` pack, security-review.md T5)이면 `GitClient.fetch`가 실행을 거부한다(fetch 중 lazy fetch가 로컬 uploadpack을 실행하기 때문, #213 보안 검토) |
 | `GIT_SSH_COMMAND` | 신뢰 scope의 `core.sshCommand` 값, 없으면 `ssh -o BatchMode=yes` | 모든 git (환경 변수가 로컬 설정보다 우선, 확인) |
 | `HOME`, `USER`, `LOGNAME`, `TMPDIR`, `SSH_AUTH_SOCK` | 부모 값 그대로 | 모든 git |
@@ -183,7 +200,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 | case | 서브커맨드 인자 배열 | 작업 디렉터리 | 비고 | 위협 |
 |---|---|---|---|---|
-| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI=`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
+| `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
 
 - 원격마다 따로 실행한다 (`--all`을 쓰지 않음). 원격별로 인증 실패를 구분해 보여 주려는 것이다. 참고로 `--all`도 `--upload-pack`을 원격별 하위 fetch에 전달하는 것은 확인했다.
 - `--upload-pack=git-upload-pack`은 로컬 `remote.<n>.uploadpack`을 무력화한다. `-c remote.<n>.uploadpack=`로는 무력화되지 않는다 (확인).
@@ -196,11 +213,18 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
     - `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false`: 이중 방어.
     - `-c fetch.writeCommitGraph=false`: fetch 뒤 commit-graph 파일 쓰기를 끈다.
     - `-c fetch.bundleURI=`: 로컬 `fetch.bundleURI`(git 2.40+, #99 호환성 매트릭스에서 2.39.5·2.40.4로 확인)가 있으면 fetch가 그 URI(원격이 아닌 임의 위치)에서 bundle을 받아 `refs/bundles/*`를 쓴다. bundle list가 `creationToken`을 쓰면 `.git/config`에 `fetch.bundleCreationToken`까지 기록한다(#210 보안 검토, 확인). 빈 값이면 꺼진다. 2.40 미만 git은 이 키를 무시한다.
+    - `-c http.cookieFile= -c http.saveCookies=false`: generic 키의 쿠키 파일 읽기와 저장을 끈다(저장소 값과 사용자 값 모두). 저장소의 URL별 키는 §2.3이 같은 키로 끈다. 사용자(신뢰 scope)의 URL별 키는 그대로 둔다(#355).
   - `RepoConfigInspector`는 로컬 `remote.<n>.fetch`(대상이 `refs/remotes/<n>/` 밖), `fetch.pruneTags`, `remote.<n>.pruneTags`, `remote.<n>.tagOpt`, `fetch.bundleURI`, `remote.<n>.mirror`를 보고한다(SEC-T13-04).
   - 남는 한계: 설정 파일을 직접 고치면 원격 `a`와 `a/b`를 함께 둘 수 있다. 이때 `a`를 fetch하면 `--prune`이 `refs/remotes/a/b/*`를 지운다. 고정 전에도 같았고 피해는 `refs/remotes` 안으로 한정되며 다시 fetch하면 복구된다(#210 보안 검토).
 - `--progress`의 stderr 진행 메시지(`Receiving objects:  45% (...)`)는 `LC_ALL=C`에서 영어로 고정된다. git이 실행되는 동안 `FetchProgressParser`가 읽어 진행률로 쓰고, 파싱에 실패하면 무시한다([parsing-spec.md §11.4](parsing-spec.md)). `remote:` 줄은 서버가 쓰므로 단계와 숫자만 꺼내고 문자열은 넘기지 않는다.
 - 실행 방식(`GitClient.fetch`, #76): 저장소당 하나씩(`Repository.id` 기준) 요청 순서대로, 앱 전체에서 동시에 최대 2개. 조회 슬롯(4개)과 따로 센다. Task를 취소하면 프로세스 그룹을 종료하고(SIGTERM → 2초 → SIGKILL) `GitError.cancelled`, 120초가 지나면 `GitError.timeout`을 던진다.
 - 원격 이름은 `configList`에서 얻은 값만 쓴다. `[A-Za-z0-9._/-]{1,100}` 형식이고 `-`로 시작하지 않아야 한다.
+- **내장 전송 형태의 원격만 fetch한다(#350).** `RepoConfigInspector`가 원격마다 형태를 검사하고, `GitClient.fetch`는 검사를 통과한 원격(`RepoSafetyContext.fetchableRemotes`)이 아니면 git을 실행하기 전에 `configInspectionFailed`로 거부한다. 검사에서 빠진 원격(`remote.<n>.url`이 없거나 `maximumCheckedRemotes`를 넘은 것)도 거부한다.
+  - 내장 형태: `https`·`http`·`ssh`·`git`·`file`·`git+ssh`·`ssh+git`의 `<scheme>://`(git처럼 대소문자 구분), scp 형식 주소, 경로(`TransportName.isBuiltInFetchForm`, git의 transport.c와 같은 규칙으로 바이트 단위 비교).
+  - 거부: `<이름>::<주소>` 형식 전부(빈 이름 포함), 그 밖의 scheme, `ftp(s)`, 어느 scope든 `remote.<n>.vcs`(빈 값 포함), `url.<base>.insteadOf`로 바꾸면 내장 형태가 아닌 URL, 빈 URL 값(새 git에서는 URL 목록을 비우고, 그러면 git이 이 검사가 보지 않는 레거시 원격 파일을 읽는다). 원격의 URL 값은 첫 값만이 아니라 전부 검사하고, 바꾸기 규칙은 git이 고르는 가장 긴 것만이 아니라 맞는 것 전부를 검사한다(더 많이 거부할 뿐이다). 값 없는 `insteadOf` 키는 빈 접두사로 보고 모든 URL에 맞춘다.
+  - 바이트로 비교한다. 설정 목록은 잘못된 UTF-8을 대체 문자로 바꿔 읽으므로, 대체 문자가 든 URL은 거부하고 대체 문자가 든 바꾸기 규칙이 있으면 모든 원격을 거부한다.
+  - 상한(T15): 설정 순서로 처음 `maximumCheckedRemotes`(32)개 원격만 검사한다(한 번의 Fetch가 가져가는 16개보다 많다). URL이 `maximumURLsPerRemote`(4)개를 넘거나 `maximumCheckedLength`(1,024바이트)보다 긴 원격, 검사하지 않은 원격은 fetch하지 않는다. 바꾸기 규칙이 `maximumInsteadOfRewrites`(256)개를 넘거나 base·접두사가 1,024바이트보다 길면 모든 원격을 fetch하지 않는다. 조회는 계속한다.
+  - `GIT_ALLOW_PROTOCOL`(§2.4)과 공통 인자(§2.1)가 그 아래 층으로 남는다.
 
 ---
 

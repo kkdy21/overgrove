@@ -234,19 +234,41 @@ extension RepositoryRegistrar {
     })
 }
 
-/// One `GitClient` and one `RepositoryService` for the app, created on first use (`GitEnvironment.discover` runs
-/// `git version`). Sharing them keeps one process limit and one generation count per repository across windows.
+/// One `GitClient` and one `RepositoryService` for the app, created on first use. Sharing them keeps one process
+/// limit and one generation count per repository across windows.
+///
+/// The git is the one chosen in Settings when it passes ADR-0019's rules, else the default
+/// (`GitEnvironment.resolve`, which runs `git version`). A failed discovery is not kept, so the next use checks again.
+/// `reset()` drops the client after the choice changes; commands already running finish with the old git.
 actor LiveGitClient {
     static let shared = LiveGitClient()
 
     private var cached: GitClient?
     private var cachedService: RepositoryService?
+    /// Bumped by `reset()`. A discovery that started before a reset is not cached, so a git chosen earlier never
+    /// outlives the change (the actor is re-entered while `resolve` runs).
+    private var generation = 0
 
     func client() async throws -> GitClient {
         if let cached { return cached }
-        let client = GitClient(environment: try await GitEnvironment.discover())
+        let started = generation
+        // `UserDefaults` is documented as thread-safe; the stored values are untrusted and checked by `resolve`.
+        let environment = try await GitEnvironment.resolve(
+            chosenPath: UserDefaults.standard.string(forKey: AppSettings.gitExecutablePathKey),
+            protectedDirectories: {
+                GitExecutablePolicy.protectedDirectories(for: RepositoryRegistry.load(from: .standard))
+            })
+        let client = GitClient(environment: environment)
+        guard started == generation else { return try await self.client() }
         cached = client
         return client
+    }
+
+    /// Forgets the client and service, so the next use discovers git again (after the Settings choice changed).
+    func reset() {
+        generation += 1
+        cached = nil
+        cachedService = nil
     }
 
     func services() async throws -> (GitClient, RepositoryService) {

@@ -112,6 +112,50 @@ final class GraphStreamServiceTests: XCTestCase {
         XCTAssertEqual(logCalls(), 1, "a new stream after ⌘R")
     }
 
+    /// Review of #346 (#333): a ref the parser skips (a non-UTF-8 branch name) is walked by `log` but is not in
+    /// `GraphRefSet`, so a stream kept for that ref set cannot see it move. Such a ref set never uses the stream:
+    /// after an automatic refresh that moved only the skipped ref, the page shows the new commit, not the old one.
+    func testMovingOnlyASkippedRefServesNoStaleStreamPage() async throws {
+        func output(_ arguments: [String]) async throws -> String {
+            String(decoding: try await repository.git(arguments).stdout, as: UTF8.self)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        func commit(_ message: String) async throws -> String {
+            try await output([
+                "commit-tree", "-p", "HEAD", "-m", message, try await output(["rev-parse", "HEAD^{tree}"]),
+            ])
+        }
+        try repository.write("f.txt", "content\n")  // a tree object for commit-tree (the setUp commits are empty)
+        try await repository.git(["add", "f.txt"])
+        try await repository.git(["commit", "-q", "-m", "with a tree"])
+        try await repository.git(["pack-refs", "--all"])
+        let packed = repository.root.appendingPathComponent(".git/packed-refs")
+        // The appended line breaks the file's order, so drop the `sorted` trait: otherwise git's binary search can no
+        // longer find `refs/heads/main`.
+        let original = Data(
+            String(decoding: try Data(contentsOf: packed), as: UTF8.self)
+                .replacingOccurrences(of: " sorted", with: "").utf8)
+        // APFS names must be UTF-8, so the ref lives only in packed-refs.
+        func pointSkippedRef(at oid: String) throws {
+            try (original + Data("\(oid) refs/heads/bad-".utf8) + Data([0xFF]) + Data("\n".utf8)).write(to: packed)
+        }
+        try pointSkippedRef(at: try await commit("skipped one"))
+        XCTAssertFalse(RepositoryService.hasCommitGraph(model), "the stream path would apply")
+        let service = try makeService()
+        try await loadOverviewThenResetCalls(service)
+
+        let first = try await service.graphPage(model, skip: 0, limit: 10).get()
+        XCTAssertGreaterThan(first.refs.skippedRecords, 0, "the non-UTF-8 name is skipped")
+        XCTAssertTrue(first.commits.contains { $0.subject == "skipped one" }, "log still walks it")
+
+        try pointSkippedRef(at: try await commit("skipped two"))
+        _ = await service.refresh(model, trigger: .automatic)
+        let moved = try await service.graphPage(model, skip: 0, limit: 10).get()
+        XCTAssertEqual(moved.refSet, first.refSet, "the key cannot see the skipped ref")
+        XCTAssertTrue(moved.commits.contains { $0.subject == "skipped two" }, "read again, not from the old stream")
+        XCTAssertFalse(moved.commits.contains { $0.subject == "skipped one" })
+    }
+
     /// Review of #254: streams share one slot, so a stream for another repository stops this one's unfinished stream
     /// instead of waiting behind it (up to its 120 s timeout). Its waiting page falls back to `--skip`.
     func testAnotherRepositorysStreamDoesNotWaitBehindAnUnfinishedOne() async throws {

@@ -236,17 +236,28 @@ final class AppState {
         self.diffLoader = diffLoader
         self.stashLoader = stashLoader
         issuePanel = IssuePanelState(loader: issueLoader)
-        setup = SetupAssistantState(gitChecker: gitChecker, ghChecker: ghChecker)
-        self.settings = settings ?? AppSettings()
+        let appSettings = settings ?? AppSettings()
+        self.settings = appSettings
+        // Use Default for a refused Settings choice (ADR-0019 §4): forget it, then rediscover on next use.
+        setup = SetupAssistantState(
+            gitChecker: gitChecker, ghChecker: ghChecker,
+            useDefaultGit: {
+                appSettings.gitExecutablePath = nil
+                await LiveGitClient.shared.reset()
+            })
         self.comparisonLoader = comparisonLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
+        // The registry's untrusted flag, read when each fetch starts (#107).
+        fetch.isUntrusted = { [registry] repository in registry.repository(withID: repository.id)?.isUntrusted ?? false
+        }
         // After a fetch, re-query the worktree list, every status (ahead/behind), and the refs (overview.md §5).
         autoRefresh = AutoRefreshController(watcher: fileWatcher)
         autoFetch = AutoFetchScheduler(settings: self.settings, fetch: fetch)
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
         autoRefresh.request = { [weak self] change in self?.requestAutoRefresh(change) ?? false }
+        observeUntrustedFlag()
     }
 
     /// The registered repositories, in the order they were added.

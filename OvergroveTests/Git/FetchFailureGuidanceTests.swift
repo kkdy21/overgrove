@@ -28,7 +28,8 @@ final class FetchFailureGuidanceTests: XCTestCase {
     ) throws -> FetchFailureGuidance {
         let endpoint = url.flatMap { FetchFailureGuidance.Endpoint(remoteURL: $0) }
         return try XCTUnwrap(
-            FetchFailureGuidance(error: error, remote: origin, endpoint: endpoint, report: report ?? clean))
+            FetchFailureGuidance(
+                error: error, remote: origin, endpoint: endpoint, report: report ?? clean, hookExecutables: []))
     }
 
     private var everyError: [GitError] {
@@ -66,7 +67,7 @@ final class FetchFailureGuidanceTests: XCTestCase {
 
     func testCancellationIsNotAFailure() {
         // interaction.md: Stop returns to Idle with "Fetch cancelled", not to the Failed state.
-        XCTAssertNil(FetchFailureGuidance(error: .cancelled, remote: origin, report: clean))
+        XCTAssertNil(FetchFailureGuidance(error: .cancelled, remote: origin, report: clean, hookExecutables: []))
     }
 
     // MARK: - Terminal git (security review of #200)
@@ -84,6 +85,32 @@ final class FetchFailureGuidanceTests: XCTestCase {
         }
         let hostile = try guidance(.authenticationFailed(detail: detail()), report: risky)
         XCTAssertTrue(hostile.guidance.contains("security report"), hostile.guidance)
+    }
+
+    /// #354: an executable in the hooks directory, or a config-defined hook, withholds the git command too: Terminal
+    /// git would run either (as the slow status hint, #168).
+    func testHooksWithholdTheGitCommand() throws {
+        let configHook = RepoSecurityReport(
+            findings: [
+                RepoSecurityReport.Finding(
+                    entry: ConfigEntry(
+                        scope: .local, section: "hook", subsection: "x", variable: "command", value: "y"),
+                    threat: "T2", handling: .neutralized)
+            ], blockingReason: nil)
+        for error in everyError {
+            let hooked = try XCTUnwrap(
+                FetchFailureGuidance(error: error, remote: origin, report: clean, hookExecutables: ["hooks/pre-commit"])
+            )
+            XCTAssertFalse(hooked.commands.contains { $0.hasPrefix("git ") }, "\(error): \(hooked.commands)")
+            XCTAssertFalse(hooked.guidance.contains("Run \"git"), hooked.guidance)
+            let configured = try guidance(error, report: configHook)
+            XCTAssertFalse(configured.commands.contains { $0.hasPrefix("git ") }, "\(error): \(configured.commands)")
+        }
+        let hooked = try XCTUnwrap(
+            FetchFailureGuidance(
+                error: .authenticationFailed(detail: detail()), remote: origin, report: clean,
+                hookExecutables: ["hooks/pre-commit"]))
+        XCTAssertTrue(hooked.guidance.contains("settings or hooks"), hooked.guidance)
     }
 
     func testOnlyReadOnlyCommandsAreOffered() throws {
@@ -162,7 +189,8 @@ final class FetchFailureGuidanceTests: XCTestCase {
     func testCommandsUseOnlyTheValidatedRemoteName() throws {
         // RemoteName allows only [A-Za-z0-9._/-], so the copied command needs no shell quoting.
         let remote = try XCTUnwrap(RemoteName("team/fork.v2"))
-        let result = try XCTUnwrap(FetchFailureGuidance(error: .timeout(seconds: 120), remote: remote, report: clean))
+        let result = try XCTUnwrap(
+            FetchFailureGuidance(error: .timeout(seconds: 120), remote: remote, report: clean, hookExecutables: []))
         XCTAssertEqual(result.commands, ["git fetch team/fork.v2"])
     }
 
@@ -173,6 +201,38 @@ final class FetchFailureGuidanceTests: XCTestCase {
         let result = try guidance(.nonZeroExit(code: 1, detail: detail(stderr)))
         XCTAssertEqual(result.detailTail, (8...12).map { "line \($0)" }.joined(separator: "\n"))
         XCTAssertNil(try guidance(.timeout(seconds: 120)).detailTail)
+    }
+
+    /// #362: `--progress` rewrites a line with `\r`. Only the last state of each line is kept, as a terminal shows it,
+    /// so a server cannot turn one progress line into a long run of escaped segments.
+    func testDetailTailKeepsOnlyTheLastStateOfARewrittenLine() throws {
+        let stderr =
+            "Receiving objects:   1% (1/100)\rReceiving objects:  50% (50/100)\rReceiving objects: 100% (100/100)\r\n"
+            + "Resolving deltas: 0%\rResolving deltas: 100%\r\n"
+            + "fatal: early EOF\r\n" + "trailing\r"
+        let result = try guidance(.nonZeroExit(code: 1, detail: detail(stderr)))
+        XCTAssertEqual(
+            result.detailTail,
+            ["Receiving objects: 100% (100/100)", "Resolving deltas: 100%", "fatal: early EOF", "trailing"]
+                .joined(separator: "\n"))
+    }
+
+    /// #362: every line is capped, counted in Unicode scalars (a grapheme cluster can be any length).
+    func testDetailTailCapsEachLine() throws {
+        let cap = FetchFailureGuidance.maximumDetailLineScalars
+        let long = String(repeating: "x", count: cap * 4)
+        let combining = "a" + String(repeating: "\u{301}", count: cap * 4)
+        let result = try guidance(.nonZeroExit(code: 1, detail: detail(long + "\n" + combining + "\nshort")))
+        let lines = try XCTUnwrap(result.detailTail).components(separatedBy: "\n")
+        XCTAssertEqual(lines.count, 3)
+        for line in lines.prefix(2) {
+            XCTAssertEqual(line.unicodeScalars.count, cap + 1, "capped, with an ellipsis")
+            XCTAssertTrue(line.hasSuffix("…"))
+        }
+        XCTAssertEqual(lines.last, "short")
+
+        let rewritten = String(repeating: "\(long)\r", count: 50) + "done"
+        XCTAssertEqual(try guidance(.nonZeroExit(code: 1, detail: detail(rewritten))).detailTail, "done")
     }
 
     // MARK: - Security (T11, T16)

@@ -25,6 +25,12 @@ struct RepoSafetyContext: Sendable, Equatable {
     /// The repository is a partial clone (a promisor remote). Fetch must not run on git that cannot turn off lazy
     /// fetching (#212).
     let isPartialClone: Bool
+    /// Remotes whose URLs and settings are all in a built-in transport form (`TransportName.isBuiltInFetchForm`).
+    /// Fetch refuses any other remote before git starts (#350, T5). Empty by default (fail closed).
+    let fetchableRemotes: Set<String>
+    /// The user marked the repository untrusted (#107): fetch allows no `file` transport. Set by the caller from the
+    /// registry, not from the repository's configuration.
+    var blocksLocalTransport = false
 
     static let preInspection = RepoSafetyContext(
         neutralization: [],
@@ -32,7 +38,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         trustedSSHCommand: nil,
         isInspected: false,
         fetchBlockingReason: nil,
-        isPartialClone: false
+        isPartialClone: false,
+        fetchableRemotes: []
     )
 
     init(
@@ -40,7 +47,8 @@ struct RepoSafetyContext: Sendable, Equatable {
         fetchAuthentication: [String],
         trustedSSHCommand: String?,
         fetchBlockingReason: String? = nil,
-        isPartialClone: Bool = false
+        isPartialClone: Bool = false,
+        fetchableRemotes: Set<String> = []
     ) {
         self.init(
             neutralization: inspectedNeutralization,
@@ -48,7 +56,8 @@ struct RepoSafetyContext: Sendable, Equatable {
             trustedSSHCommand: trustedSSHCommand,
             isInspected: true,
             fetchBlockingReason: fetchBlockingReason,
-            isPartialClone: isPartialClone
+            isPartialClone: isPartialClone,
+            fetchableRemotes: fetchableRemotes
         )
     }
 
@@ -58,8 +67,10 @@ struct RepoSafetyContext: Sendable, Equatable {
         trustedSSHCommand: String?,
         isInspected: Bool,
         fetchBlockingReason: String?,
-        isPartialClone: Bool
+        isPartialClone: Bool,
+        fetchableRemotes: Set<String>
     ) {
+        self.fetchableRemotes = fetchableRemotes
         self.neutralization = neutralization
         self.fetchAuthentication = fetchAuthentication
         self.trustedSSHCommand = trustedSSHCommand
@@ -213,6 +224,11 @@ actor GitClient {
         if let reason = safety.fetchBlockingReason {
             throw GitError.configInspectionFailed(reason: reason)
         }
+        // Only a remote the inspection found in a built-in transport form (#350, T5). A remote it did not list (no
+        // `remote.<n>.url`, or past `RepoConfigInspector.maximumRemotes`) is refused too.
+        guard case .fetch(let remote) = command, safety.fetchableRemotes.contains(remote.value) else {
+            throw GitError.configInspectionFailed(reason: TransportName.nonBuiltInRemoteReason)
+        }
         let arguments = environment.arguments(
             for: command.subcommandArguments(),
             neutralization: safety.neutralization,
@@ -232,6 +248,7 @@ actor GitClient {
             acceptedExitCodes: [0],
             trustedSSHCommand: safety.trustedSSHCommand,
             allowsTransport: true,
+            allowsLocalTransport: !safety.blocksLocalTransport,
             stderrObserver: progress.map(Self.progressObserver)
         )
     }
@@ -265,6 +282,7 @@ actor GitClient {
         acceptedExitCodes: Set<Int32>,
         trustedSSHCommand: String?,
         allowsTransport: Bool,
+        allowsLocalTransport: Bool = true,
         stderrObserver: (@Sendable (Data) -> Void)? = nil,
         stdoutObserver: (@Sendable (Data) -> Void)? = nil
     ) async throws -> GitOutput {
@@ -272,7 +290,8 @@ actor GitClient {
             executable: environment.executable,
             arguments: arguments,
             environment: GitEnvironment.environment(
-                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport),
+                parent: parentEnvironment, trustedSSHCommand: trustedSSHCommand, allowsTransport: allowsTransport,
+                allowsLocalTransport: allowsLocalTransport),
             currentDirectory: directory,
             limits: limits
         )
