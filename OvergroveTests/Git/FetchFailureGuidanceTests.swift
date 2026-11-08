@@ -203,6 +203,38 @@ final class FetchFailureGuidanceTests: XCTestCase {
         XCTAssertNil(try guidance(.timeout(seconds: 120)).detailTail)
     }
 
+    /// #362: `--progress` rewrites a line with `\r`. Only the last state of each line is kept, as a terminal shows it,
+    /// so a server cannot turn one progress line into a long run of escaped segments.
+    func testDetailTailKeepsOnlyTheLastStateOfARewrittenLine() throws {
+        let stderr =
+            "Receiving objects:   1% (1/100)\rReceiving objects:  50% (50/100)\rReceiving objects: 100% (100/100)\r\n"
+            + "Resolving deltas: 0%\rResolving deltas: 100%\r\n"
+            + "fatal: early EOF\r\n" + "trailing\r"
+        let result = try guidance(.nonZeroExit(code: 1, detail: detail(stderr)))
+        XCTAssertEqual(
+            result.detailTail,
+            ["Receiving objects: 100% (100/100)", "Resolving deltas: 100%", "fatal: early EOF", "trailing"]
+                .joined(separator: "\n"))
+    }
+
+    /// #362: every line is capped, counted in Unicode scalars (a grapheme cluster can be any length).
+    func testDetailTailCapsEachLine() throws {
+        let cap = FetchFailureGuidance.maximumDetailLineScalars
+        let long = String(repeating: "x", count: cap * 4)
+        let combining = "a" + String(repeating: "\u{301}", count: cap * 4)
+        let result = try guidance(.nonZeroExit(code: 1, detail: detail(long + "\n" + combining + "\nshort")))
+        let lines = try XCTUnwrap(result.detailTail).components(separatedBy: "\n")
+        XCTAssertEqual(lines.count, 3)
+        for line in lines.prefix(2) {
+            XCTAssertEqual(line.unicodeScalars.count, cap + 1, "capped, with an ellipsis")
+            XCTAssertTrue(line.hasSuffix("…"))
+        }
+        XCTAssertEqual(lines.last, "short")
+
+        let rewritten = String(repeating: "\(long)\r", count: 50) + "done"
+        XCTAssertEqual(try guidance(.nonZeroExit(code: 1, detail: detail(rewritten))).detailTail, "done")
+    }
+
     // MARK: - Security (T11, T16)
 
     func testSECT11_02_NoCredentialReachesTheGuidance() throws {

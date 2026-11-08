@@ -253,6 +253,8 @@ struct DetailPanel: View {
     var comparisonList: ComparisonListView?
     /// S-05's `Compare with Base…` (#158); `nil` disables it.
     var onCompare: (() -> Void)?
+    /// S-05 "Treat as untrusted" (#107).
+    var onSetUntrusted: ((Bool) -> Void)?
 
     private var title: String {
         if let commitModel { return "Commit \(commitModel.shortSHA)" }
@@ -288,7 +290,7 @@ struct DetailPanel: View {
             } else if let stashModel {
                 StashDetailView(model: stashModel, selectedFile: selectedStashFile, onSelectFile: onSelectStashFile)
             } else if let worktreeModel {
-                WorktreeDetailView(model: worktreeModel, onCompare: onCompare)
+                WorktreeDetailView(model: worktreeModel, onCompare: onCompare, onSetUntrusted: onSetUntrusted)
             } else if let wipModel {
                 WipDetailView(
                     model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile, submodules: submoduleSection)

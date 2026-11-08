@@ -7,6 +7,8 @@ import Foundation
 /// editor, and `!` aliases. A worktree whose settings were checked and hold no finding at all opens directly; anything
 /// else (not checked, blocked, any finding whatever its threat or handling, or a hook) is confirmed (#278).
 enum TerminalGuard {
+    static let untrustedReason = "This repository is marked untrusted."
+
     /// Key names listed in the confirmation at most; the rest are counted.
     static let maximumListedKeys = 8
 
@@ -15,11 +17,13 @@ enum TerminalGuard {
     ///   - inspection: The worktree's configuration inspection from the load; `nil` when it was not inspected,
     ///     blocked before inspection, foreign, or failed.
     ///   - hooks: Executable hook files (`LiveWorktreeInspector.hookExecutables`).
-    static func reasons(inspection: RepoConfigInspection?, hooks: [String]) -> [String] {
+    ///   - isUntrusted: The repository is marked untrusted (#107): it always asks, first reason.
+    static func reasons(inspection: RepoConfigInspection?, hooks: [String], isUntrusted: Bool = false) -> [String] {
+        let untrusted = isUntrusted ? [untrustedReason] : []
         guard let report = inspection?.report else {
-            return ["The repository’s settings could not be checked."] + hooks
+            return untrusted + ["The repository’s settings could not be checked."] + hooks
         }
-        var reasons: [String] = []
+        var reasons = untrusted
         if let blocked = report.blockingReason {
             reasons.append(PathValidator.displayable(CredentialMasker.mask(blocked)))
         }

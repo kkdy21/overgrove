@@ -25,6 +25,50 @@ final class GitErrorTests: XCTestCase {
 
     private let secret = "s3" + "cr3t"
 
+    /// #362: lines read as a terminal shows them. `\r\n` ends a line; a lone `\r` starts it over; a trailing one leaves
+    /// it; other control characters are removed as before.
+    func testMaskedTextKeepsTheLastStateOfRewrittenLines() {
+        XCTAssertEqual(MaskedText(masking: "a\r\nb").text, "a\nb")
+        XCTAssertEqual(MaskedText(masking: "1%\r50%\r100%\nnext").text, "100%\nnext")
+        XCTAssertEqual(MaskedText(masking: "done\r").text, "done")
+        XCTAssertEqual(MaskedText(masking: "a\u{7}b\u{1B}[0mc\td").text, "ab[0mc\td")
+        XCTAssertEqual(MaskedText(masking: "\rstart").text, "start")
+        XCTAssertEqual(MaskedText(masking: "abc\r\r\nnext").text, "abc\nnext", "a line left blank keeps its text")
+        XCTAssertEqual(MaskedText(masking: "abc\r\u{7}\n").text, "abc\n")
+        // git's sideband CRLF from a server: `remote: <message>` padded, then `\r` and a bare prefix.
+        XCTAssertEqual(
+            MaskedText(masking: "remote: Counting objects: 3, done.        \rremote: \nfatal: x").text,
+            "remote: Counting objects: 3, done.        \nfatal: x")
+    }
+
+    /// Masking runs on the raw text first: a token in the part of a rewritten line that stays is still masked.
+    func testMaskedTextMasksBeforeRewritingLines() {
+        let token = "ghp_" + String(repeating: "a", count: 36)
+        let text = MaskedText(masking: "progress\rtoken=\(token)\n").text
+        XCTAssertFalse(text.contains(token), text)
+        XCTAssertTrue(text.contains("***"), text)
+        XCTAssertFalse(text.contains("progress"), text)
+    }
+
+    /// #362 review: the line handling is linear, so a server repeating short lines or rewrites cannot hold the CPU.
+    func testSECT15_19_MaskedTextStaysLinearOnHostileStderr() {
+        let size = ProcessLimits.fetch.stderrLimit
+        for unit in ["\u{E9}\n", "x\r", "remote: m \rremote: \n", "\r"] {
+            let input = String(repeating: unit, count: size / unit.utf8.count)
+            let started = ContinuousClock.now
+            let text = MaskedText(masking: input).text
+            XCTAssertLessThan(ContinuousClock.now - started, .seconds(2), unit.debugDescription)
+            XCTAssertLessThanOrEqual(text.unicodeScalars.count, MaskedText.maximumLength)
+        }
+    }
+
+    /// #362: the length cap counts Unicode scalars, so a run of combining marks (one `Character`) is cut too.
+    func testMaskedTextCapsScalarsNotCharacters() {
+        let flood = "a" + String(repeating: "\u{301}", count: MaskedText.maximumLength * 2)
+        let text = MaskedText(masking: flood).text
+        XCTAssertEqual(text.unicodeScalars.count, MaskedText.maximumLength)
+    }
+
     func testSuccessIsNil() {
         XCTAssertNil(classify(exit: 0))
     }

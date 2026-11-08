@@ -253,12 +253,16 @@ final class AppState {
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         submodules = SubmodulePanel(loader: submoduleLoader ?? (loader as? any SubmoduleLoading))
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
+        // The registry's untrusted flag, read when each fetch starts (#107).
+        fetch.isUntrusted = { [registry] repository in registry.repository(withID: repository.id)?.isUntrusted ?? false
+        }
         // After a fetch, re-query the worktree list, every status (ahead/behind), and the refs (overview.md §5).
         autoRefresh = AutoRefreshController(watcher: fileWatcher)
         autoFetch = AutoFetchScheduler(settings: self.settings, fetch: fetch)
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
         autoRefresh.request = { [weak self] change in self?.requestAutoRefresh(change) ?? false }
+        observeUntrustedFlag()
     }
 
     /// The registered repositories, in the order they were added.

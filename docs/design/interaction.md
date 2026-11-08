@@ -196,7 +196,7 @@ stateDiagram-v2
 | 네트워크 | `Could not reach github.com` | 원격 호스트 이름(자격 증명 제거) |
 | 시간 초과 | `Fetch timed out after 120 s` | 원격 이름 |
 | 원격 없음 | `No remotes configured` | — |
-| 기타 | `Fetch failed` | 마스킹한 stderr 마지막 몇 줄 |
+| 기타 | `Fetch failed` | 마스킹한 stderr 마지막 몇 줄. 진행률처럼 `\r`로 다시 쓴 줄은 마지막 상태만, 줄마다 300 유니코드 스칼라까지(#362) |
 
 - 저장소 하나에 fetch는 동시에 하나만 돈다. 자동 fetch가 도는 중에 사용자가 Fetch를 누르면 새로 시작하지 않고 진행 중인 작업을 보여 준다.
 - 자동 fetch(S-08, 기본 끔)는 창이 비활성일 때 건너뛰고, 실패해도 알림을 띄우지 않는다. 상태바에만 남긴다.
