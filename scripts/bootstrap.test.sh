@@ -92,7 +92,8 @@ expect() { # expect <case> <exit code> [text the output must contain]…
 # --- Build mode: read-only, only what building needs is required ---------------------------------------------------
 
 run build-ready -- --build
-expect "build: a supported machine is ready without gitleaks or gh" 0 "Ready to build" "gitleaks"
+expect "build: a supported machine is ready without gitleaks or gh" 0 "Ready to build" "gitleaks" \
+  "without --build"
 if [[ -n "$(hooks_path)" ]]; then failed "build: core.hooksPath left unset"; else pass "build: core.hooksPath left unset"; fi
 if [[ "$out" == *"core.hooksPath"* ]]; then
   failed "build: does not mention changing core.hooksPath"

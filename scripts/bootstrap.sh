@@ -162,7 +162,8 @@ if [[ "$mode" == contributor ]]; then
     echo "  This sets core.hooksPath=.githooks in this clone's .git/config, for every worktree of it."
     echo "  The hooks scan commits for secrets and check commit messages. Undo with: git config --unset core.hooksPath"
     if [[ $assume_yes -eq 0 && -t 0 && -t 1 ]]; then
-      read -r -p "  Install the hooks now? [Y/n] " answer
+      # End of input (Ctrl-D) counts as no, so the refusal below explains what happened.
+      read -r -p "  Install the hooks now? [Y/n] " answer || answer=n
       if [[ "$answer" =~ ^[Nn] ]]; then
         bad "hooks not installed. Run this again to install them, or use --build to only check the build"
         echo
@@ -184,6 +185,7 @@ fi
 if [[ "$mode" == build ]]; then
   echo "Ready to build. Open Overgrove.xcodeproj in Xcode (⌘R runs the app, ⌘U runs the tests), or run:"
   echo "  xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'"
+  echo "To contribute, run ./scripts/bootstrap.sh without --build: it installs the secret-scanning Git hooks."
 else
   echo "Ready to contribute. Next: read CONTRIBUTING.md and pick an issue."
 fi
