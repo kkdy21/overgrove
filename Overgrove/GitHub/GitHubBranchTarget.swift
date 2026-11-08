@@ -32,7 +32,7 @@ struct GitHubBranchTarget: Equatable, Sendable {
     /// elsewhere, `refs/remotes/my/fork/x` is `my/fork`'s, never `my`'s `fork/x`), an unknown remote, or
     /// `<remote>/HEAD`.
     static func forRemoteRef(
-        _ ref: String, remotes: [String: GitHubRepository], configuredRemotes: [String] = []
+        _ ref: String, remotes: [String: GitHubRepository], configuredRemotes: [String]
     ) -> GitHubBranchTarget? {
         guard FullRefName(ref) != nil else { return nil }
         let match = Set(configuredRemotes).union(remotes.keys)
