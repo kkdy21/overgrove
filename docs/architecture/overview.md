@@ -332,7 +332,7 @@ gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다:
   - 원격 URL 표시 여부(기본: 마스킹)
   - 마지막 fetch 시각(`FetchRecord`)
 - 토큰, 비밀번호, 원격 URL 원문 등 비밀 값은 저장하지 않는다. Keychain도 쓰지 않는다.
-- `UserDefaults` 밖에는 실행 간 워크트리 요약 스냅샷만 `~/Library/Caches`에 둔다. 저장하는 필드와 무효화는 [ADR-0018](../adr/0018-launch-snapshot-disk-cache.md)과 [security-review.md T19](../design/security-review.md#t19-디스크에-남는-저장소-데이터)를 따른다(#109).
+- `UserDefaults` 밖에는 실행 간 워크트리 요약 스냅샷만 `~/Library/Caches`에 둔다. 저장하는 필드와 무효화는 [ADR-0018](../adr/0018-launch-snapshot-disk-cache.md)과 [security-review.md T19](../design/threats/T19.md)를 따른다(#109).
 - 마지막 fetch 시각은 앱이 실행한 fetch의 완료 시각을 기록한다. 기록이 없으면 `<common-dir>/FETCH_HEAD`의 수정 시각을 대신 보여 주고, 화면에 "추정"으로 표시한다.
   - 구현(#77): `FetchRecordStore`가 저장소 ID마다 마지막 시도(`FetchRecord`: 완료 시각, 성공 여부, 앱이 쓴 요약)와 마지막 성공 시각을 JSON 하나로 저장한다. 요약은 `FetchFailureGuidance`의 문구라 검증된 원격 이름과 호스트 이름이 들어갈 수 있다. 원격 URL 원문, 자격 증명, stderr는 저장하지 않는다. 저장소를 제거하면 그 기록도 지운다. 사용자가 멈춘 fetch는 기록하지 않는다.
   - `FETCH_HEAD`는 심볼릭 링크를 따라가지 않고(`attributesOfItem`은 링크 자체를 본다) 일반 파일일 때만 쓴다. 시각은 저장소가 정할 수 있는 값이므로 "추정"으로만 보여 준다.

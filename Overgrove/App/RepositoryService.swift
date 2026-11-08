@@ -37,6 +37,16 @@ actor RepositoryService {
             case .user, .worktreeSelected, .filesChanged: false
             }
         }
+
+        /// Whether a load for this trigger may read the refs or the worktree list again, and so show the graph's
+        /// history moved (#434). Only a file event that touched neither cannot: a selected worktree's status may
+        /// still re-read refs (`tipsMatch`).
+        var mayMoveGraphRefs: Bool {
+            switch self {
+            case .user, .automatic, .fetchCompleted, .worktreeSelected: true
+            case .filesChanged(_, let refs, let worktreeList): refs || worktreeList
+            }
+        }
     }
 
     struct Refresh: Sendable, Equatable {

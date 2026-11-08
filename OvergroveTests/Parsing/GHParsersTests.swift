@@ -41,8 +41,8 @@ final class GHParsersTests: XCTestCase {
         XCTAssertEqual(gheOnly.hosts.map(\.name), ["ghe.example"])
     }
 
-    /// SEC-T9-09 (parse): issue and PR URLs must be https on the repository's own host.
-    func testSECT9_09_URLsMustBeOnTheRepositorysHost() throws {
+    /// SEC-T9-117-02 (parse): issue and PR URLs must be https on the repository's own host.
+    func testSECT9_117_02_URLsMustBeOnTheRepositorysHost() throws {
         let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
         func issue(_ url: String) -> Data {
             data(#"[{"number":1,"title":"t","state":"OPEN","updatedAt":"2026-11-05T06:11:06Z","url":"\#(url)"}]"#)

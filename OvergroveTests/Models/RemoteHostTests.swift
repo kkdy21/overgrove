@@ -4,9 +4,9 @@ import XCTest
 
 /// Provider-independent remote host reading and trust (ADR-0025 §1–§2), shared by GitHub and later providers.
 final class RemoteHostTests: XCTestCase {
-    /// SEC-T9-08 (host): only a lowercase ASCII DNS name with two or more labels; no IP literal, userinfo, port,
+    /// SEC-T9-117-01 (host): only a lowercase ASCII DNS name with two or more labels; no IP literal, userinfo, port,
     /// path, or non-ASCII byte.
-    func testSECT9_08_HostIsADNSName() {
+    func testSECT9_117_01_HostIsADNSName() {
         XCTAssertEqual(RemoteHost("GHE.Example.COM")?.name, "ghe.example.com")
         XCTAssertEqual(RemoteHost("a-1.b2.example")?.name, "a-1.b2.example")
         XCTAssertNotNil(RemoteHost(String(repeating: "a", count: 63) + ".example"))
@@ -39,8 +39,8 @@ final class RemoteHostTests: XCTestCase {
         }
     }
 
-    /// SEC-T9-08 (URL): anything outside the three forms, or a host that is not a DNS name, is not a hosted remote.
-    func testSECT9_08_OtherURLsAreNotHostedRemotes() {
+    /// SEC-T9-117-01 (URL): anything outside the three forms, or a host that is not a DNS name, is not a hosted remote.
+    func testSECT9_117_01_OtherURLsAreNotHostedRemotes() {
         for url in [
             "", "http://ghe.example/o/r", "https://ghe.example", "https://ghe.example/", "https://ghe.example/o//r",
             "https://ghe.example/o/r/", "https://user@ghe.example/o/r", "https://u:p@ghe.example/o/r",

@@ -114,16 +114,12 @@ Refs #12
 - Keep PRs focused: one issue, one branch, one PR.
 - Parser changes must include tests, ideally against real `git` output captured into a fixture. Security-relevant
   changes must include the `area:security` label and the security checklist.
-- **New test IDs** (`SEC-Tn-xx` in the security review, `PAR-*` in the parsing spec) must not be taken already. Check
-  `main` *and* open PRs before picking the next number:
-
-  ```sh
-  gh pr list --repo kkdy21/overgrove --state open --json number --jq '.[].number' \
-    | xargs -I{} gh pr diff {} --repo kkdy21/overgrove | grep -o 'SEC-T15-[0-9]*' | sort -u
-  ```
-
-  `scripts/lint/check-sec-ids.sh` fails the build when an ID is defined twice. If `main` takes your number first,
-  renumber yours when you merge `main`.
+- **New test IDs.** A new security test ID is `SEC-T<n>-<issue>-<k>`: the threat number, your issue number, and a
+  running number (test name `testSECT<n>_<issue>_<k>_…`), defined once in the **검증** list of
+  `docs/design/threats/T<n>.md`. Issue numbers do not collide, so parallel PRs never pick the same ID. Two-digit IDs
+  from before #457 are frozen in `scripts/lint/sec-ids-legacy.txt`; `scripts/lint/check-sec-ids.sh` fails the build
+  for a new two-digit ID or an ID defined twice. `PAR-*` rows in the parsing spec must still not be taken already:
+  check `main` and open PRs before picking the next number.
 
 ### 5. Review and merge
 

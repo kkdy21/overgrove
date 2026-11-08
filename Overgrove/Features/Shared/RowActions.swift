@@ -25,12 +25,21 @@ enum RowActionRefusal: Error, Equatable {
     case outsideRepository
     case missing
     case notHTTPS
+    /// Quick Look previews regular files only, not links, FIFOs, or folders (#399).
+    case notAFile
+    case tooLarge
+    /// Web content (HTML, SVG, web locations) is not previewed: its preview may load remote resources (#399).
+    case webContent
 
     var message: String {
         switch self {
         case .outsideRepository: "This path points outside the repository."
         case .missing: "This file no longer exists."
         case .notHTTPS: "Only https links are opened."
+        case .notAFile: "Only regular files can be previewed, not links or special files."
+        case .tooLarge: "This file is too large to preview."
+        case .webContent:
+            "Web pages and SVG images from a repository are not previewed: they could load content from the internet."
         }
     }
 }

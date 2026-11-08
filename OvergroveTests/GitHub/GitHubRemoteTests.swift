@@ -31,9 +31,9 @@ final class GitHubRemoteTests: XCTestCase {
         }
     }
 
-    /// SEC-T9-08 (GitHub): a remote on another host counts only when gh is logged in to that host, and then gh is
+    /// SEC-T9-117-01 (GitHub): a remote on another host counts only when gh is logged in to that host, and then gh is
     /// asked with `--repo HOST/OWNER/NAME`.
-    func testSECT9_08_OtherHostsOnlyWhenLoggedIn() throws {
+    func testSECT9_117_01_OtherHostsOnlyWhenLoggedIn() throws {
         let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
         let trusted = TrustedHosts(publicHost: GitHubRepository.publicHost, loggedIn: [ghe])
         for url in [

@@ -33,6 +33,11 @@ While the major version is `0`, minor versions may contain breaking changes.
   branch's upstream, so a same-named branch from a fork never attaches.
 - Commit comparison (S-12): a COMMITS section lists the commits the target has that the base does not, newest first
   (up to 500), and each row opens that commit.
+- Korean localization, first part: Settings, the setup assistant, the graph header and columns, the diff viewer, and
+  the menu commands follow the system language through a String Catalog. Git names, commands, and copied values stay
+  as they are.
+- Open on GitHub for branches opens the repository of the remote each branch tracks, so in a fork flow a branch
+  tracking your fork opens the fork.
 
 ### Changed
 

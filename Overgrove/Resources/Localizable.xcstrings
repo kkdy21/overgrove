@@ -1,0 +1,1154 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ (%@)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "%@, %@ commit" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, 커밋 %2$@개"
+          }
+        }
+      }
+    },
+    "%@, %@ commits" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, 커밋 %2$@개"
+          }
+        }
+      }
+    },
+    "%lld min" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld분"
+          }
+        }
+      }
+    },
+    "%lld more authors" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작성자 %lld명 더 보기"
+          }
+        }
+      }
+    },
+    "%lld points" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld포인트"
+          }
+        }
+      }
+    },
+    "+%lld" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld"
+          }
+        }
+      }
+    },
+    "AI-assisted" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI 지원"
+          }
+        }
+      }
+    },
+    "Actual Size" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실제 크기"
+          }
+        }
+      }
+    },
+    "Add a repository" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 추가"
+          }
+        }
+      }
+    },
+    "Add…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "추가…"
+          }
+        }
+      }
+    },
+    "Advanced" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "고급"
+          }
+        }
+      }
+    },
+    "All" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체"
+          }
+        }
+      }
+    },
+    "All authors" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모든 작성자"
+          }
+        }
+      }
+    },
+    "Apple-signed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 서명"
+          }
+        }
+      }
+    },
+    "Author" : {
+      "comment" : "Graph column",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작성자"
+          }
+        }
+      }
+    },
+    "Back" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "뒤로"
+          }
+        }
+      }
+    },
+    "Back to the %@ (⎋)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@(으)로 돌아가기 (⎋)"
+          }
+        }
+      }
+    },
+    "Cannot be used: %@ Queries are stopped until you choose another git or use the default." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용할 수 없습니다: %@ 다른 git을 고르거나 기본값을 쓸 때까지 조회를 멈춥니다."
+          }
+        }
+      }
+    },
+    "Check Again" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 확인"
+          }
+        }
+      }
+    },
+    "Choose Folder…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "폴더 선택…"
+          }
+        }
+      }
+    },
+    "Choose a git executable, for example /opt/homebrew/bin/git." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git 실행 파일을 고르세요. 예: /opt/homebrew/bin/git"
+          }
+        }
+      }
+    },
+    "Choose…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택…"
+          }
+        }
+      }
+    },
+    "Chosen git" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택한 git"
+          }
+        }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫기"
+          }
+        }
+      }
+    },
+    "Columns" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "열"
+          }
+        }
+      }
+    },
+    "Copy Full Path" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 경로 복사"
+          }
+        }
+      }
+    },
+    "Couldn’t Add Repository" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소를 추가하지 못했습니다"
+          }
+        }
+      }
+    },
+    "Credentials in URLs are always masked. When off, only the host and path are shown." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL에 든 자격 증명은 항상 가립니다. 끄면 호스트와 경로만 보입니다."
+          }
+        }
+      }
+    },
+    "Date" : {
+      "comment" : "Graph column",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "날짜"
+          }
+        }
+      }
+    },
+    "Default (Xcode developer tools)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본값 (Xcode 개발자 도구)"
+          }
+        }
+      }
+    },
+    "Diff not shown" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 내용을 표시하지 않음"
+          }
+        }
+      }
+    },
+    "Diff options" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 내용 옵션"
+          }
+        }
+      }
+    },
+    "Diff truncated at 10 MB." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 내용이 10MB에서 잘렸습니다."
+          }
+        }
+      }
+    },
+    "Do not fetch remotes on this Mac, and ask before Open in Terminal." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 Mac에서 원격을 페치하지 않고, 터미널에서 열기 전에 확인합니다."
+          }
+        }
+      }
+    },
+    "Double-click to fit the column to its contents" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이중 클릭하면 열 너비를 내용에 맞춥니다"
+          }
+        }
+      }
+    },
+    "Every" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "간격"
+          }
+        }
+      }
+    },
+    "Fetch" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "페치"
+          }
+        }
+      }
+    },
+    "Fetch automatically" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자동으로 페치"
+          }
+        }
+      }
+    },
+    "Filter Sidebar" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바 필터"
+          }
+        }
+      }
+    },
+    "Filter commits by author" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작성자로 커밋 거르기"
+          }
+        }
+      }
+    },
+    "Find Next" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다음 찾기"
+          }
+        }
+      }
+    },
+    "Find Previous" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전 찾기"
+          }
+        }
+      }
+    },
+    "Find…" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "찾기…"
+          }
+        }
+      }
+    },
+    "Focus Detail" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상세 패널로 이동"
+          }
+        }
+      }
+    },
+    "Focus Graph" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그래프로 이동"
+          }
+        }
+      }
+    },
+    "Focus Issues" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이슈로 이동"
+          }
+        }
+      }
+    },
+    "Focus Sidebar" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바로 이동"
+          }
+        }
+      }
+    },
+    "Forward" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앞으로"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일반"
+          }
+        }
+      }
+    },
+    "GitHub" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub"
+          }
+        }
+      }
+    },
+    "Graph" : {
+      "comment" : "Graph column",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그래프"
+          }
+        }
+      }
+    },
+    "Graph columns" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그래프 열"
+          }
+        }
+      }
+    },
+    "Graph lanes" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그래프 레인"
+          }
+        }
+      }
+    },
+    "History" : {
+      "comment" : "Back button to file history",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이력"
+          }
+        }
+      }
+    },
+    "Install the Xcode Command Line Tools, then check again:" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xcode Command Line Tools를 설치한 뒤 다시 확인하세요:"
+          }
+        }
+      }
+    },
+    "Jump to HEAD" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HEAD로 이동"
+          }
+        }
+      }
+    },
+    "Large diff (%@ lines)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "큰 변경 내용 (%@줄)"
+          }
+        }
+      }
+    },
+    "Message" : {
+      "comment" : "Graph column",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "메시지"
+          }
+        }
+      }
+    },
+    "More authors" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작성자 더 보기"
+          }
+        }
+      }
+    },
+    "Must be an absolute path. Checked when chosen and every time Overgrove starts." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "절대 경로여야 합니다. 고를 때와 Overgrove를 시작할 때마다 확인합니다."
+          }
+        }
+      }
+    },
+    "Navigate" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이동"
+          }
+        }
+      }
+    },
+    "No repositories yet." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 저장소가 없습니다."
+          }
+        }
+      }
+    },
+    "Not signed by Apple" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 서명 아님"
+          }
+        }
+      }
+    },
+    "Nothing to go back to" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "뒤로 갈 곳이 없습니다"
+          }
+        }
+      }
+    },
+    "Nothing to go forward to" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앞으로 갈 곳이 없습니다"
+          }
+        }
+      }
+    },
+    "Off by default. Uses your git credentials." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본으로 꺼져 있습니다. 사용자의 git 자격 증명을 씁니다."
+          }
+        }
+      }
+    },
+    "Only folders you add here are ever read." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에 추가한 폴더만 읽습니다."
+          }
+        }
+      }
+    },
+    "Only folders you choose here are ever read." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에서 고른 폴더만 읽습니다."
+          }
+        }
+      }
+    },
+    "Open Repository" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 열기"
+          }
+        }
+      }
+    },
+    "Overgrove" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove"
+          }
+        }
+      }
+    },
+    "Overgrove could not run git." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove가 git을 실행하지 못했습니다."
+          }
+        }
+      }
+    },
+    "Read-only" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "읽기 전용"
+          }
+        }
+      }
+    },
+    "Refs" : {
+      "comment" : "Graph column",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refs"
+          }
+        }
+      }
+    },
+    "Remote URLs" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 URL"
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "제거"
+          }
+        }
+      }
+    },
+    "Remove from Overgrove. The folder is not touched." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove에서 제거합니다. 폴더는 건드리지 않습니다."
+          }
+        }
+      }
+    },
+    "Reopen anytime from Help › Setup Assistant." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "도움말 › 설정 도우미에서 언제든 다시 열 수 있습니다."
+          }
+        }
+      }
+    },
+    "Repositories" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소"
+          }
+        }
+      }
+    },
+    "Repository Added" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소를 추가했습니다"
+          }
+        }
+      }
+    },
+    "Repository Already Added" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미 추가된 저장소"
+          }
+        }
+      }
+    },
+    "Reset Column Widths" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "열 너비 초기화"
+          }
+        }
+      }
+    },
+    "Runs %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실행 파일: %@"
+          }
+        }
+      }
+    },
+    "SHA" : {
+      "comment" : "Graph column",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SHA"
+          }
+        }
+      }
+    },
+    "Scrolled %lld of %lld points" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$lld포인트 중 %1$lld포인트 스크롤함"
+          }
+        }
+      }
+    },
+    "See every worktree of a repository at a glance." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소의 모든 워크트리를 한눈에 봅니다."
+          }
+        }
+      }
+    },
+    "Show Diff" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 내용 보기"
+          }
+        }
+      }
+    },
+    "Show History" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이력 보기"
+          }
+        }
+      }
+    },
+    "Show Stashes" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스태시 보기"
+          }
+        }
+      }
+    },
+    "Show Whitespace" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "공백 문자 보기"
+          }
+        }
+      }
+    },
+    "Show Worktree Info" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 정보 보기"
+          }
+        }
+      }
+    },
+    "Show full remote URLs" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원격 URL 전체 보기"
+          }
+        }
+      }
+    },
+    "Split" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나란히"
+          }
+        }
+      }
+    },
+    "Step %lld" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld단계"
+          }
+        }
+      }
+    },
+    "Step %lld, done" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld단계, 완료"
+          }
+        }
+      }
+    },
+    "The git chosen in Settings cannot be used" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정에서 고른 git을 사용할 수 없습니다"
+          }
+        }
+      }
+    },
+    "The only network action is git fetch. Nothing in your repositories is ever changed." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "네트워크 동작은 git fetch 하나뿐입니다. 저장소의 내용은 어떤 것도 바꾸지 않습니다."
+          }
+        }
+      }
+    },
+    "Unified" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "통합"
+          }
+        }
+      }
+    },
+    "Untrusted" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "신뢰하지 않음"
+          }
+        }
+      }
+    },
+    "Update the Xcode Command Line Tools, then check again." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xcode Command Line Tools를 업데이트한 뒤 다시 확인하세요."
+          }
+        }
+      }
+    },
+    "Use" : {
+      "comment" : "The open panel's button that picks a git executable",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용"
+          }
+        }
+      }
+    },
+    "Use Default" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본값 사용"
+          }
+        }
+      }
+    },
+    "View" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "보기"
+          }
+        }
+      }
+    },
+    "Welcome to Overgrove" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overgrove에 오신 것을 환영합니다"
+          }
+        }
+      }
+    },
+    "Zoom In" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확대"
+          }
+        }
+      }
+    },
+    "Zoom Out" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "축소"
+          }
+        }
+      }
+    },
+    "git" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git"
+          }
+        }
+      }
+    },
+    "git %@ at %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git %1$@ (%2$@)"
+          }
+        }
+      }
+    },
+    "git %@ or later is required (found %@)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git %1$@ 이상이 필요합니다(찾은 버전: %2$@)"
+          }
+        }
+      }
+    },
+    "git could not be checked" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git을 확인하지 못했습니다"
+          }
+        }
+      }
+    },
+    "git executable" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git 실행 파일"
+          }
+        }
+      }
+    },
+    "git was not found" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git을 찾지 못했습니다"
+          }
+        }
+      }
+    },
+    "optional — used only to show issues" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택 사항 — 이슈를 보이는 데만 씁니다"
+          }
+        }
+      }
+    },
+    "“%@” is already in Overgrove, at %@." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%1$@”은(는) 이미 Overgrove에 있습니다(%2$@)."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

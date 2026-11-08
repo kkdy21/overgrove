@@ -102,7 +102,9 @@ struct GraphAuthorSummary: Equatable, Sendable {
 
     /// `Alex Kim, 8 commits` for VoiceOver.
     static func accessibilityLabel(name: String, count: Int) -> String {
-        "\(name), \(count.formatted()) \(count == 1 ? "commit" : "commits")"
+        let number = count.formatted()
+        return count == 1
+            ? String(localized: "\(name), \(number) commit") : String(localized: "\(name), \(number) commits")
     }
 }
 
