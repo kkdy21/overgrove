@@ -516,7 +516,7 @@ actor RepositoryService {
     }
 
     /// The list without repeated paths: forged records can repeat one, and a path is the entry's identity (#226).
-    private static func uniquePaths(_ worktrees: [Worktree]) -> [Worktree] {
+    static func uniquePaths(_ worktrees: [Worktree]) -> [Worktree] {
         var seen: Set<GitPath> = []
         return worktrees.filter { seen.insert($0.path).inserted }
     }

@@ -99,6 +99,28 @@ final class GraphPageServiceTests: XCTestCase {
         }
     }
 
+    /// #373: the ref set comes from the cached overview, but `log` reads the refs as they are now. A page read after
+    /// the refs moved, before the overview was refreshed, must not continue the pages read before it. It comes back
+    /// with the new ref set (so `GraphStore` starts over) and holds the new history's commits.
+    func testAPageReadAfterTheRefsMovedIsNotJoinedToTheOldPages() async throws {
+        try await repository.git(["commit-graph", "write", "--reachable"])
+        XCTAssertTrue(RepositoryService.hasCommitGraph(model), "the --skip path")
+        let service = try makeService()
+        let first = try await page(service, skip: 0, limit: 3)
+        XCTAssertEqual(first.commits.map(\.subject), ["c6", "c5", "c4"])
+
+        try repository.write("g.txt", "g\n")  // no refresh: the cached overview still has the old refs
+        try await repository.git(["add", "g.txt"])
+        try await repository.git(["commit", "-q", "-m", "c7"])
+        let next = try await page(service, skip: 3, limit: 3)
+
+        XCTAssertNotEqual(next.refSet, first.refSet, "not joined under the old ref set")
+        XCTAssertEqual(next.commits.map(\.subject), ["c4", "c3", "c2"], "the new history's commits 3..<6")
+        let again = try await page(service, skip: 0, limit: 3)
+        XCTAssertEqual(again.refSet, next.refSet, "the overview now has the new refs")
+        XCTAssertEqual(again.commits.map(\.subject), ["c7", "c6", "c5"])
+    }
+
     func testPagesLineUpWithOneRead() async throws {
         let service = try makeService()
         let whole = try await page(service, skip: 0, limit: 100)
