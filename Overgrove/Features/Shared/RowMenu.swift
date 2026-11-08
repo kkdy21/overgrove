@@ -24,6 +24,9 @@ struct RowMenuActions {
     var hasEditor = false
     var openEditor: @MainActor (GitPath) -> Void = { _ in }
     var openFileInEditor: @MainActor (_ worktree: GitPath?, _ path: GitPath) -> Void = { _, _ in }
+    /// Quick Look is offered (macOS 15 and later, #399).
+    var canQuickLook = false
+    var quickLook: @MainActor (_ worktree: GitPath?, _ path: GitPath) -> Void = { _, _ in }
     var showStash: @MainActor (ObjectID) -> Void = { _ in }
     var openInBrowser: @MainActor (URL) -> Void = { _ in }
     /// Open on GitHub (#398): the page of a commit, a remote-tracking ref of the GitHub remote, or a file at a commit;
@@ -79,6 +82,11 @@ struct FileRowMenu: View {
         // Working tree files only: commit and stash files are not on disk as shown (#124).
         if actions.hasEditor, worktree != nil {
             Button("Open in Editor") { actions.openFileInEditor(worktree, path) }
+                .disabled(!path.isRepresentable)
+        }
+        // Working tree files on macOS 15 and later (#399): commit and stash files are not on disk as shown.
+        if actions.canQuickLook, worktree != nil {
+            Button("Quick Look") { actions.quickLook(worktree, path) }
                 .disabled(!path.isRepresentable)
         }
     }
