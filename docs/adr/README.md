@@ -33,3 +33,4 @@
 | [0017](0017-design-token-generation.md) | 디자인 토큰은 Swift 스크립트로 Asset Catalog와 Swift 상수를 생성해 커밋 | Accepted |
 | [0018](0018-launch-snapshot-disk-cache.md) | 실행 간 디스크 캐시는 표시 전용 워크트리 요약 스냅샷만 | Accepted |
 | [0019](0019-user-chosen-git-executable.md) | 사용자가 고른 git 실행 파일을 믿는 조건 (경로·소유자·권한·버전 규칙, fail closed) | Accepted |
+| [0020](0020-git-compatibility-matrix-in-ci.md) | git 호환성 매트릭스를 CI에서 돌리는 방법 (공식 tarball SHA-256 고정 빌드, 필수 검사 아님) | Accepted |

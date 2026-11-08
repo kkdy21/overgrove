@@ -342,11 +342,13 @@ global 설정이나 사용자 홈 디렉터리를 악성 코드가 바꾸는 경
   - 보드 토큰 `PROJECT_TOKEN`은 `project` scope 하나만 가진 classic token이다. 보드 #4에만 쓰기 권한이 있는 전용 머신 계정의 토큰을 권장한다.
   - PR 제목·본문 같은 신뢰할 수 없는 값은 `env:`로만 넘긴다.
   - CI의 gitleaks는 버전과 SHA-256을 고정해 받는다.
+  - git 호환성 매트릭스(`git-compat.yml`, [ADR-0020](../adr/0020-git-compatibility-matrix-in-ci.md))는 최소 지원 버전 git을 kernel.org 공식 tarball에서 버전과 SHA-256을 고정해 받는다. 해시가 맞을 때만 러너 안에서 빌드하고, 테스트에만 쓰며, 캐시하지 않는다. 필수 검사가 아니고 `contents: read` 권한만 쓴다. Homebrew git은 러너에 있는 것만 쓰고 새로 설치하지 않는다.
 - **잔여 위험**:
   - Apple 툴체인과 GitHub 러너 이미지는 신뢰한다.
   - 보드 토큰이 새면 그 계정이 쓸 수 있는 모든 Projects 보드가 바뀔 수 있다. 메인테이너 계정 토큰이면 메인테이너가 속한 조직의 보드도 포함된다. 저장소 코드와 이슈는 영향이 없다.
   - `pull_request_target`은 첫 기여자 승인 없이 실행된다. 외부 사용자가 이벤트를 많이 만들면 토큰 계정의 API 한도를 쓸 수 있다. 공유 동시성 그룹으로 상한을 둔다.
-- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음 — `scripts/lint/check-no-dependencies.sh`와 그 테스트, CI `build-test`), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정. 같은 검사가 다음도 확인한다: 모든 워크플로우에 최상위 `permissions:`가 있고 `write-all`이 없음, `pull_request_target`은 `board-sync.yml`에만, PR·이슈 제목·본문·브랜치 이름 같은 신뢰할 수 없는 값은 `KEY: ${{ … }}` 매핑(`env:`)으로만, CI gitleaks 다운로드의 버전·SHA-256 고정 — `scripts/lint/check-workflows.sh`와 그 테스트, CI `build-test`, #95), SEC-T17-03 (Dependabot이 `/`의 `github-actions`를 갱신 — 같은 스크립트), 보드 상태 규칙은 `scripts/github/board-sync-rules.test.sh`(CI `build-test`). **수동**: `PROJECT_TOKEN`이 `project` scope 하나만 가진 토큰인지는 CI에서 볼 수 없어 메인테이너가 토큰을 바꿀 때 확인한다
+  - 호환성 매트릭스의 tarball 해시는 워크플로에 적힌 값이 신뢰의 기준이다. CI는 kernel.org 서명을 검증하지 않는다. 해시를 바꾸는 PR이 출처(`sha256sums.asc`)를 밝히고 리뷰를 거친다(ADR-0020 §4).
+- **검증**: SEC-T17-01 (SPM 의존성·`Package.resolved` 없음 — `scripts/lint/check-no-dependencies.sh`와 그 테스트, CI `build-test`), SEC-T17-02 (워크플로우의 모든 `uses:`가 40자리 SHA로 고정. 같은 검사가 다음도 확인한다: 모든 워크플로우에 최상위 `permissions:`가 있고 `write-all`이 없음, `pull_request_target`은 `board-sync.yml`에만, PR·이슈 제목·본문·브랜치 이름 같은 신뢰할 수 없는 값은 `KEY: ${{ … }}` 매핑(`env:`)으로만, CI gitleaks 다운로드의 버전·SHA-256 고정 — `scripts/lint/check-workflows.sh`와 그 테스트, CI `build-test`, #95), SEC-T17-03 (Dependabot이 `/`의 `github-actions`를 갱신 — 같은 스크립트), SEC-T17-04 (`git-compat.yml`의 테스트용 git: kernel.org tarball만, `TEST_GIT_VERSION`·`TEST_GIT_SHA256` 고정, 주석이 아닌 줄에서 `TEST_GIT_SHA256`으로 검증하고 그 검증이 압축 해제·빌드보다 앞, `actions/cache` 없음 — `scripts/lint/check-workflows.sh`와 그 테스트, ADR-0020), 보드 상태 규칙은 `scripts/github/board-sync-rules.test.sh`(CI `build-test`). **수동**: `PROJECT_TOKEN`이 `project` scope 하나만 가진 토큰인지는 CI에서 볼 수 없어 메인테이너가 토큰을 바꿀 때 확인한다
 - **상태**: 적용됨 (저장소 셋업: 워크플로우와 Dependabot, SEC-T17-01은 #33에서 CI에 추가)
 
 ### T18. 공개 저장소에 비밀 정보·개인 경로 커밋

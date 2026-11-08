@@ -128,5 +128,5 @@ XCTSkip은 방어 assertion이 모두 실행된 뒤에 던진다. assertion이 �
 
 ## 5. 후속
 
-- **#292**: CI에서 매트릭스를 돌린다. 2.36을 소스에서 빌드하는 것은 외부 의존성 문제라 ADR이 먼저 필요하다. 이 보고서의 `OVERGROVE_TEST_GIT` override와 빌드 명령을 그대로 쓸 수 있다.
+- **#292**: CI에서 매트릭스를 돌린다. 2.36을 소스에서 빌드하는 것은 외부 의존성 문제라 ADR이 먼저 필요하다. → [ADR-0020](../../adr/0020-git-compatibility-matrix-in-ci.md)과 `git-compat.yml`로 해결. 이 보고서의 `OVERGROVE_TEST_GIT` override와 빌드 명령을 그대로 쓸 수 있다.
 - **#303**: 2.36의 lazy fetch stderr를 `partialCloneObjectMissing`으로 분류한다. 채집한 stderr를 픽스처로 쓴다.
