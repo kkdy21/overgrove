@@ -111,6 +111,16 @@
         }
       }
     },
+    "%@ is owned by another user. It must belong to you or root." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 소유자가 다른 사용자입니다. 본인이나 root 소유여야 합니다."
+          }
+        }
+      }
+    },
     "%@ line added, %@ removed" : {
       "localizations" : {
         "ko" : {
@@ -607,6 +617,16 @@
         }
       }
     },
+    ", %lld ahead" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ", %lld개 앞섬"
+          }
+        }
+      }
+    },
     "1 worktree" : {
       "localizations" : {
         "ko" : {
@@ -623,6 +643,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "베어 저장소에는 작업 트리가 없습니다."
+          }
+        }
+      }
+    },
+    "A git inside a registered repository cannot be used." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "등록된 저장소 안에 있는 git은 쓸 수 없습니다."
           }
         }
       }
@@ -988,6 +1018,56 @@
         }
       }
     },
+    "Can’t Open Link" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "링크를 열 수 없음"
+          }
+        }
+      }
+    },
+    "Can’t Open in Editor" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "에디터에서 열 수 없음"
+          }
+        }
+      }
+    },
+    "Can’t Open in Terminal" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "터미널에서 열 수 없음"
+          }
+        }
+      }
+    },
+    "Can’t Preview" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "미리 볼 수 없음"
+          }
+        }
+      }
+    },
+    "Can’t Reveal in Finder" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Finder에서 보기 실패"
+          }
+        }
+      }
+    },
     "Changes" : {
       "localizations" : {
         "ko" : {
@@ -1134,6 +1214,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "git 실행 파일을 고르세요. 예: /opt/homebrew/bin/git"
+          }
+        }
+      }
+    },
+    "Choose an application (.app)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "응용 프로그램(.app)을 고르세요."
           }
         }
       }
@@ -1702,6 +1792,16 @@
         }
       }
     },
+    "Detail width" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "상세 너비"
+          }
+        }
+      }
+    },
     "Details" : {
       "localizations" : {
         "ko" : {
@@ -2222,6 +2322,16 @@
         }
       }
     },
+    "Focused worktree %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택한 워크트리 %@"
+          }
+        }
+      }
+    },
     "Follow renames" : {
       "localizations" : {
         "ko" : {
@@ -2272,12 +2382,72 @@
         }
       }
     },
+    "GitHub CLI (gh) is not installed, so the issue panel is off." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI(gh)가 설치되어 있지 않아 이슈 패널을 끕니다."
+          }
+        }
+      }
+    },
+    "GitHub CLI could not be started (error %d)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI를 시작하지 못했습니다(오류 %d)."
+          }
+        }
+      }
+    },
+    "GitHub CLI did not respond within %lld seconds and was stopped." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI가 %lld초 안에 응답하지 않아 중단했습니다."
+          }
+        }
+      }
+    },
     "GitHub CLI is not installed" : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub CLI가 설치되어 있지 않습니다"
+          }
+        }
+      }
+    },
+    "GitHub CLI is not logged in. Run `gh auth login` in Terminal." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI에 로그인되어 있지 않습니다. 터미널에서 `gh auth login`을 실행하세요."
+          }
+        }
+      }
+    },
+    "GitHub CLI reported an error." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI가 오류를 알렸습니다."
+          }
+        }
+      }
+    },
+    "GitHub CLI returned more data than Overgrove accepts." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub CLI가 Overgrove가 받는 양보다 많은 데이터를 돌려주었습니다."
           }
         }
       }
@@ -2856,6 +3026,16 @@
         }
       }
     },
+    "No base branch was found (origin/HEAD, main, or master). Choose one to compare with." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기준 브랜치(origin/HEAD, main, master)를 찾지 못했습니다. 비교할 브랜치를 고르세요."
+          }
+        }
+      }
+    },
     "No branch, worktree, or loaded commit mentions this issue." : {
       "localizations" : {
         "ko" : {
@@ -2902,6 +3082,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "파일 변경 없음"
+          }
+        }
+      }
+    },
+    "No file exists at that path." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그 경로에 파일이 없습니다."
           }
         }
       }
@@ -3166,12 +3356,32 @@
         }
       }
     },
+    "Only https links are opened." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "https 링크만 엽니다."
+          }
+        }
+      }
+    },
     "Only https, ssh, git, http, and local file remotes can be fetched." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "https, ssh, git, http, 로컬 파일 원격만 페치할 수 있습니다."
+          }
+        }
+      }
+    },
+    "Only regular files can be previewed, not links or special files." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일반 파일만 미리 볼 수 있습니다. 링크나 특수 파일은 볼 수 없습니다."
           }
         }
       }
@@ -3306,6 +3516,16 @@
         }
       }
     },
+    "Other users can change %@. Only you, root, or administrators may write to it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다른 사용자가 %@을(를) 바꿀 수 있습니다. 본인, root, 관리자만 쓸 수 있어야 합니다."
+          }
+        }
+      }
+    },
     "Overgrove" : {
       "localizations" : {
         "ko" : {
@@ -3352,6 +3572,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove가 git을 실행하지 못했습니다."
+          }
+        }
+      }
+    },
+    "Overgrove could not understand gh's output. Please report this as a bug." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gh의 출력을 해석하지 못했습니다. 버그로 알려 주세요."
           }
         }
       }
@@ -3452,6 +3682,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overgrove는 토큰을 묻거나 저장하지 않습니다."
+          }
+        }
+      }
+    },
+    "Overgrove opens regular files only: not folders, packages, executables, or files macOS runs." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일반 파일만 엽니다. 폴더, 패키지, 실행 파일, macOS가 실행하는 파일은 열지 않습니다."
+          }
+        }
+      }
+    },
+    "Overgrove stopped querying this repository for safety. %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "안전을 위해 이 저장소의 조회를 멈췄습니다. %@"
           }
         }
       }
@@ -4290,6 +4540,16 @@
         }
       }
     },
+    "Sidebar width" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사이드바 너비"
+          }
+        }
+      }
+    },
     "Some branches could not be listed because git's output was too large." : {
       "localizations" : {
         "ko" : {
@@ -4572,6 +4832,66 @@
         }
       }
     },
+    "The application has no executable." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "응용 프로그램에 실행 파일이 없습니다."
+          }
+        }
+      }
+    },
+    "The base branch %@ no longer exists." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기준 브랜치 %@이(가) 더 이상 없습니다."
+          }
+        }
+      }
+    },
+    "The editor chosen in Settings › Advanced is not installed. Choose another one there." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 › 고급에서 고른 에디터가 설치되어 있지 않습니다. 그곳에서 다른 앱을 고르세요."
+          }
+        }
+      }
+    },
+    "The editor found for the chosen app is inside a repository, so Overgrove does not open it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "고른 앱으로 찾은 에디터가 저장소 안에 있어서 열지 않습니다."
+          }
+        }
+      }
+    },
+    "The file is not executable." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실행할 수 있는 파일이 아닙니다."
+          }
+        }
+      }
+    },
+    "The file is on a network volume or one that ignores ownership." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일이 네트워크 볼륨이나 소유권을 무시하는 볼륨에 있습니다."
+          }
+        }
+      }
+    },
     "The folder could not be found." : {
       "localizations" : {
         "ko" : {
@@ -4662,12 +4982,32 @@
         }
       }
     },
+    "The path contains control characters." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "경로에 제어 문자가 있습니다."
+          }
+        }
+      }
+    },
     "The path goes through a symbolic link, so Overgrove does not follow it." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "경로가 심볼릭 링크를 거치므로 Overgrove가 따라가지 않습니다."
+          }
+        }
+      }
+    },
+    "The path is not a file." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그 경로는 파일이 아닙니다."
           }
         }
       }
@@ -4688,6 +5028,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "경로가 워크트리 밖으로 나가거나 단순한 상대 경로가 아닙니다."
+          }
+        }
+      }
+    },
+    "The path must be absolute." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "절대 경로여야 합니다."
           }
         }
       }
@@ -4812,6 +5162,26 @@
         }
       }
     },
+    "The terminal chosen in Settings › Advanced is not installed. Choose another one there." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설정 › 고급에서 고른 터미널이 설치되어 있지 않습니다. 그곳에서 다른 앱을 고르세요."
+          }
+        }
+      }
+    },
+    "The terminal found for the chosen app is inside a repository, so Overgrove does not open it." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "고른 앱으로 찾은 터미널이 저장소 안에 있어서 열지 않습니다."
+          }
+        }
+      }
+    },
     "The worktree folder is missing, so its configuration cannot be inspected." : {
       "localizations" : {
         "ko" : {
@@ -4882,6 +5252,26 @@
         }
       }
     },
+    "This file is too large to preview." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "파일이 너무 커서 미리 볼 수 없습니다."
+          }
+        }
+      }
+    },
+    "This file no longer exists." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 파일은 더 이상 없습니다."
+          }
+        }
+      }
+    },
     "This folder is a Git directory (such as .git) or a folder inside one, not a repository folder. Choose the repository or one of its worktrees; a bare repository (such as repo.git) can be chosen directly." : {
       "localizations" : {
         "ko" : {
@@ -4908,6 +5298,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이 링크는 이 저장소의 풀 리퀘스트 페이지가 아닙니다."
+          }
+        }
+      }
+    },
+    "This path points outside the repository." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 경로는 저장소 밖을 가리킵니다."
           }
         }
       }
@@ -5038,6 +5438,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "이 워크트리의 상태를 읽지 못해 이 비교는 최신이 아닐 수 있습니다."
+          }
+        }
+      }
+    },
+    "This worktree's status is not available, so it cannot be compared." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 워크트리의 status를 알 수 없어 비교할 수 없습니다."
           }
         }
       }
@@ -5302,6 +5712,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "워크트리"
+          }
+        }
+      }
+    },
+    "Web pages and SVG images from a repository are not previewed: they could load content from the internet." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소의 웹 페이지와 SVG 이미지는 인터넷에서 내용을 불러올 수 있어 미리 보지 않습니다."
           }
         }
       }
