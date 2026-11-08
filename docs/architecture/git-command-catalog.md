@@ -265,26 +265,30 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | case | 인자 배열 | 파서 → 모델 | 비고 |
 |---|---|---|---|
 | `version` | `["--version"]` | 첫 줄 `gh version X.Y.Z (...)` | 온보딩 표시 |
-| `authStatus` | `["auth", "status", "--hostname", "github.com", "--json", "hosts"]` | `GHAuthParser` → `GHAuthStatus` | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
-| `issueList(repo:)` | `["issue", "list", "--repo", "<OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
-| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 머지·닫힌 PR 중 최근에 만든 200개(gh 기본 정렬, gh 2.95.0 확인). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
+| `authStatus` | `["auth", "status", "--json", "hosts"]` | `GHAuthParser` → `GHAuthReport`(github.com의 `GHAuthStatus` + 로그인된 호스트) | `--json`이면 인증 문제가 있어도 종료 코드가 0이다 (gh 2.95 도움말). github.com 로그인 판단은 `hosts["github.com"][].state == "success"`와 `active == true`로 한다. 계정이 하나라도 있는 호스트 키 중 `RemoteHost` 규칙을 통과한 것이 신뢰 호스트다(ADR-0025 §1). gh는 로그인된 모든 호스트의 토큰을 검사하므로 그 호스트들에 접속한다(사용자가 로그인한 호스트뿐). 필드: `active, gitProtocol, host, login, scopes, state, tokenSource`. `--show-token` 금지 |
+| `issueList(repo:)` | `["issue", "list", "--repo", "<[HOST/]OWNER/NAME>", "--state", "open", "--limit", "200", "--json", "number,title,state,labels,assignees,updatedAt,url"]` | `IssueParser` → `[Issue]` | 닫힌 이슈는 v0.1.0 범위 밖 |
+| `prList(repo:)` (v0.2.0, ADR-0023) | `["pr", "list", "--repo", "<[HOST/]OWNER/NAME>", "--state", "all", "--limit", "200", "--json", "number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url"]` | PR 파서 → PR 목록 | 열린 PR과 머지·닫힌 PR 중 최근에 만든 200개(gh 기본 정렬, gh 2.95.0 확인). CI 상태(`statusCheckRollup`)는 받지 않는다. 브랜치와는 head 저장소 소유자·이름과 브랜치 이름이 모두 맞을 때만 잇는다(ADR-0023 §4). #115에서 구현 |
 
 실행과 결과 처리 (`Overgrove/GitHub/GHClient`, #80):
 
 - 실행 파일은 위 두 경로를 순서대로 보고, 실행 가능한 일반 파일(심볼릭 링크는 따라감)인 첫 경로를 쓴다. 호출할 때마다 다시 찾으므로 앱 실행 중에 gh를 설치해도 반영된다. 둘 다 없으면 `authStatus()`는 `GHAuthStatus.notInstalled`를 돌려주고, 그 밖의 명령은 `GHError.notInstalled`를 던진다.
 - 작업 디렉터리는 위의 앱 전용 중립 디렉터리다. 비어 있고 저장소가 아니다. 만들지 못하면 실행이 `launchFailed`로 실패한다.
-- 원본 출력은 `GHClient` 밖으로 나가지 않는다. 호출자는 파싱된 값(`GHAuthStatus`, `[Issue]`, 버전 첫 줄)만 받는다.
+- 원본 출력은 `GHClient` 밖으로 나가지 않는다. 호출자는 파싱된 값(`GHAuthStatus`, `GHAuthReport`, `[Issue]`, 버전 첫 줄)만 받는다.
 - 실행 제한은 §2.5의 gh 값이다. 타임아웃과 stdout 잘림은 종료 코드와 관계없이 실패(`timeout`, `outputTruncated`)로 본다. 잘린 JSON은 해석하지 않는다.
 - `authStatus`: 판단은 JSON으로만 한다. JSON이 아니면 종료 코드 4는 `GHAuthStatus.notLoggedIn`, 그 밖의 0이 아닌 코드는 `nonZeroExit`(예: `--json`을 모르는 옛 gh의 `unknown flag: --json`), 0은 `parseFailed`다.
 - 그 밖의 명령은 종료 코드 0만 성공이다. 종료 코드 4(gh의 "인증 필요")는 `GHError.notLoggedIn`, 나머지는 마스킹한 stderr를 담은 `nonZeroExit`다.
 - 에러 타입은 `GitError`와 따로 둔 `GHError`다. gh 문제는 이슈 패널만 끄기 때문이다 (ADR-0004 §4). 사용자에게는 `gh auth login`, `brew install gh`를 복사 가능한 명령으로만 보여 준다.
 - `XDG_CONFIG_HOME`도 전달하지 않는다. gh는 `~/.config/gh`의 설정을 읽는다. 셸에서만 `XDG_CONFIG_HOME`이나 `GH_CONFIG_DIR`을 바꿔 쓰는 사용자는 앱에서 로그인하지 않은 것으로 보인다 (의도된 동작, T10 잔여 위험과 같음).
 
-GitHub 원격 판별: `configList`의 원격 URL이 다음 중 하나와 맞을 때만 `OWNER/NAME`을 뽑는다. 그 밖의 호스트는 이슈 패널을 끄고 "github.com 원격 없음"을 보여 준다.
+GitHub 원격 판별([ADR-0025](../adr/0025-github-hosts-and-accounts.md)): `configList`의 원격 URL이 다음 중 하나와 맞고 HOST가 신뢰 호스트일 때만 `[HOST/]OWNER/NAME`을 뽑는다. 신뢰 호스트는 `github.com`과 `authStatus`가 보고한 로그인 호스트다. 로그인 목록을 읽기 전이나 읽지 못했을 때는 `github.com`뿐이다. 그 밖의 호스트는 이슈 패널을 끄고 "No GitHub remote"를 보여 준다.
 
-- `https://github.com/OWNER/NAME(.git)?`
-- `git@github.com:OWNER/NAME(.git)?`
-- `ssh://git@github.com/OWNER/NAME(.git)?`
+- `https://HOST/OWNER/NAME(.git)?`
+- `git@HOST:OWNER/NAME(.git)?`
+- `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받되 호스트 판단에 쓰지 않는다)
+
+HOST는 소문자로 바꾼 ASCII DNS 이름이다. 라벨 1–63자의 영숫자·`-`(앞뒤 `-` 금지), 라벨 2개 이상, 전체 253자 이하이고, 마지막 라벨이 숫자만이면(IPv4) 거부한다. userinfo·포트(https)·경로가 섞인 값도 거부한다. URL 형식과 호스트 신뢰는 제공자와 무관한 `RemoteHost`·`HostedRemoteURL`·`TrustedHosts`(`Overgrove/Models/RemoteHost.swift`)가 맡고, `GitHubRemote`는 경로가 정확히 `OWNER/NAME`인지만 본다. `--repo`는 github.com이면 `OWNER/NAME`, 그 밖이면 `HOST/OWNER/NAME`이다. `GH_HOST`·`GH_ENTERPRISE_TOKEN`·`GH_TOKEN`은 환경 allowlist에 없다.
+
+판별할 원격이 신뢰 전 호스트를 가리키고 로그인 목록을 아직 읽지 않았으면, 목록을 한 번 읽은 뒤 다시 고른다. 원격이 세 형식 중 어느 것도 아니면 gh를 실행하지 않는다.
 
 여러 원격이 맞으면 gh와 같은 순서로 고른다: `upstream`, `github`, `origin`, 그다음 설정 순서. fork에서는 이슈가 `upstream`에 있기 때문이다. 판별은 검증된 목록(`RepoConfigInspector` 검사를 거친 조회)의 원격으로만 하고, 캐시에서 먼저 그린 목록으로는 gh를 실행하지 않는다 (`GitHubRemote`, #81).
 
