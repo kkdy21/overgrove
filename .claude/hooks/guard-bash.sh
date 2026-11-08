@@ -27,36 +27,78 @@ scan=$(printf '%s' "$cmd" | sed -E -e ':a' \
   -e 's/(^|[;&|][[:space:]]*)(gh[[:space:]]+pr[[:space:]]+(create|edit)[^;&|$`]*[[:space:]])(--base[[:space:]=]+|-B[[:space:]]+)["'\'']?main["'\'']?([[:space:]]|$)/\1\2--base=PR-BASE\5/' \
   -e 'ta')
 scan_has() { printf '%s' "$scan" | grep -Eq -- "$1"; }
-# `git push`, also with global options (`-C <dir>`, `-c <key=value>`), a path to git, or inside `$(…)` or backticks.
-if scan_has 'git([[:space:]]+(-[Cc][[:space:]]+[^[:space:]]+|-[^[:space:]]+))*[[:space:]]+push'; then
-  # What may end a word: space, `)`, a backtick, `;`, `&`, `|`, `}`, or the end of the line (`main&`, `{ … main; }`).
-  end='([[:space:])`;&|}]|$)'
-  # `--force`, `-f`, and `-f` bundled with push's other flag-only short options (`-uf`, `-fu`, `-qf`) (#342).
-  scan_has "[[:space:]](--force|-[46dnquv]*f[46dnquv]*o?)$end" && block "Force push is not allowed. Use a new commit (we squash-merge anyway)."
-  # A `+` refspec forces too (`+feat/x`, `'+HEAD:x'`). `date +%s` is not a refspec: it does not start with a ref name.
-  scan_has '[[:space:]]["'\'']?[+]["'\'']?[A-Za-z0-9_@./-]' && block "Force push ('+' refspec) is not allowed. Use a new commit (we squash-merge anyway)."
-  # `--all` pushes every branch, main included; `--mirror` also force-pushes and deletes (#342).
-  scan_has "[[:space:]]--(all|mirror)([=]|$end)" && block "'git push --all' and '--mirror' include main. Push your branch by name."
+# `git push`, also with global options (`-C <dir>`, `-c <key=value>`, quoted values with spaces), a path to git, or
+# inside `$(…)` or backticks.
+q="'"
+arg="(\"[^\"]*\"|$q[^$q]*$q|[^[:space:]]+)"
+pushre="git([[:space:]]+(-[Cc][[:space:]]+$arg|-[^[:space:]]+))*[[:space:]]+push"
+if scan_has "$pushre"; then
+  # What may end a word: space, `)`, a backtick, `;`, `&`, `|`, `}`, a redirect, `#`, or the end of the line (#342).
+  end='([[:space:])`;&|}<>#]|$)'
+  # `--force`, `-f`, and `-f` bundled with other short options (`-uf`, `-fu`, `-uff`, `-foci.skip`), quoted too (#342).
+  scan_has "[[:space:]][\"']?(--force[\"']?$end|-[46dnquv]*f)" && block "Force push is not allowed. Use a new commit (we squash-merge anyway)."
+  # A `+` refspec forces too (`+feat/x`, `'+HEAD:x'`, `+$ref`). `date +%s` is not a refspec: `%` starts no ref name.
+  scan_has '[[:space:]]["'\'']?[+]["'\'']?[A-Za-z0-9_@./$-]' && block "Force push ('+' refspec) is not allowed. Use a new commit (we squash-merge anyway)."
+  # `--all` (and its alias `--branches`) pushes every branch, main included; `--mirror` also force-pushes and deletes.
+  # git accepts any unambiguous prefix of a long option (`--mirr`, `--al`), so the prefixes count too (#342).
+  scan_has "[[:space:]]--(al|all|b|br|bra|bran|branc|branch|branche|branches|m|mi|mir|mirr|mirro|mirror)([=]|$end)" &&
+    block "'git push --all', '--branches', and '--mirror' include main. Push your branch by name."
   scan_has '--force-with-lease' && scan_has "(^|[[:space:]:/+\"'])main[\"']?$end" && block "Force push to main is not allowed."
   # `main`, `+main`, `"main"`, `HEAD:main`, `refs/heads/main`, `heads/main` as a push target.
   scan_has "([[:space:]:]|(refs/)?heads/)[+]?[\"']?main[\"']?$end" && block "Direct push to main is not allowed. Push your branch and open a PR."
-  # The checkout the push runs in: every `git -C <dir>` and `cd <dir>` target in the command, or else `cwd` (#342).
-  # Relative targets resolve against `cwd`; `~` is the home folder. Several targets: each one is checked.
-  dirs=()
-  while IFS= read -r dir; do
-    dir="${dir#\"}"; dir="${dir%\"}"; dir="${dir#\'}"; dir="${dir%\'}"
-    [[ "$dir" == "~"* ]] && dir="$HOME${dir#\~}"
-    [[ "$dir" != /* && -n "$cwd" ]] && dir="$cwd/$dir"
-    dirs+=("$dir")
-  done < <(printf '%s' "$scan" | grep -oE "(git([[:space:]]+-c[[:space:]]+[^[:space:]]+)*[[:space:]]+-C|(^|[;&|({][[:space:]]*)cd)[[:space:]]+(\"[^\"]*\"|'[^']*'|[^[:space:];&|)]+)" |
-    sed -E "s/^.*(-C|cd)[[:space:]]+//")
-  [[ ${#dirs[@]} -eq 0 && -n "$cwd" ]] && dirs=("$cwd")
-  for dir in "${dirs[@]}"; do
+
+  # A push with no refspec, or with `HEAD`/`@`, pushes the branch of the checkout it runs in (#342). That checkout is
+  # `cwd`, changed by each `cd <dir>` before the push that is not inside `( … )` or `$( … )`, then by the push's own
+  # `git -C <dir>`. Relative targets resolve against the folder so far; `~` is the home folder; `cd -` is ignored.
+  resolve() {
+    local d=$1
+    d="${d#\"}"; d="${d%\"}"; d="${d#"$q"}"; d="${d%"$q"}"
+    [[ "$d" == "~"* ]] && d="$HOME${d#\~}"
+    [[ "$d" != /* ]] && d="$2/$d"
+    printf '%s' "$d"
+  }
+  cdre="(^|[;&|{][[:space:]]*)cd[[:space:]]+(--[[:space:]]+)?$arg"
+  cre="-C[[:space:]]+$arg"
+  rest=$scan
+  before=""
+  while [[ $rest =~ $pushre ]]; do
+    m=${BASH_REMATCH[0]}
+    before+=${rest%%"$m"*}
+    rest=${rest#*"$m"}
+    top=$before
+    while [[ $top =~ \([^\(\)]*\) ]]; do top=${top/"${BASH_REMATCH[0]}"/}; done
+    dir=$cwd
+    while [[ $top =~ $cdre ]]; do
+      [[ "${BASH_REMATCH[3]}" != "-" && -n "$dir" ]] && dir=$(resolve "${BASH_REMATCH[3]}" "$dir")
+      top=${top#*"${BASH_REMATCH[0]}"}
+    done
+    t=$m
+    while [[ $t =~ $cre ]]; do
+      dir=$(resolve "${BASH_REMATCH[1]}" "${dir:-/}")
+      t=${t#*"${BASH_REMATCH[0]}"}
+    done
+    before+=$m
+    [[ -n "$dir" ]] || continue
     cur=$(git -C "$dir" symbolic-ref --short -q HEAD 2>/dev/null || true)
     [[ "$cur" == "main" ]] || continue
-    # `git push`, `git push origin`: the current branch. `git push origin HEAD` or `@` names it too (#342).
-    if ! scan_has 'git[^;&|]*push[^;&|]*[[:space:]][^-[:space:]][^[:space:]]*[[:space:]]+[^-[:space:]]' ||
-      scan_has "git[^;&|]*push[^;&|]*[[:space:]][\"']?(HEAD|@)[\"']?$end"; then
+    # The push's words up to the next separator: count the remote and refspecs, skipping options, `-o <value>`, and
+    # redirects (`2>/dev/null`, `> log`).
+    read -ra words <<<"${rest%%[;&|]*}"
+    positional=()
+    skip=0
+    # `${a[@]+…}`: bash 3.2 (macOS) treats an empty array as unset under `set -u`.
+    for w in ${words[@]+"${words[@]}"}; do
+      if ((skip)); then skip=0; continue; fi
+      case "$w" in
+        -o | --push-option | --repo | --receive-pack | --exec) skip=1 ;;
+        [0-9]'>' | [0-9]'>>' | '>' | '>>' | '<' | '&>') skip=1 ;;
+        -* | [0-9]'>'* | '>'* | '<'* | '&>'*) ;;
+        *) w="${w%%[\`\)\}]*}"; w="${w#[\"\']}"; w="${w%[\"\']}"; positional+=("$w") ;;
+      esac
+    done
+    names_head=0
+    for w in ${positional[@]+"${positional[@]:1}"}; do [[ "$w" == "HEAD" || "$w" == "@" ]] && names_head=1; done
+    if ((${#positional[@]} < 2 || names_head)); then
       block "The push runs on main ($dir); it would push main. Switch to your issue branch."
     fi
   done

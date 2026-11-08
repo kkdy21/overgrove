@@ -110,7 +110,32 @@ check "git -C main checkout, bare push"     2 "$B" "git -C $M push"
 check "git -C main checkout, HEAD"          2 "$B" "git -C $M push origin HEAD"
 check "git -C quoted main checkout"         2 "$B" "git -C \"$M\" push -u"
 check "cd main checkout, bare push"         2 "$B" "cd $M && git push"
+# Security review of #342's first version: unrelated `-C`/`cd` must not hide the session's main checkout, and
+# abbreviations, variables, redirects, and quoted paths must not hide a push.
+check "-C elsewhere, then bare push on main" 2 "$M" 'git -C /tmp status; git push'
+check "cd in subshell, then bare push"      2 "$M" '(cd /tmp && ls); git push -u'
+check "cd -- main checkout, bare push"      2 "$B" "cd -- $M && git push"
+check "push --mirr"                         2 "$B" 'git push --mirr origin'
+check "push --mir=origin"                   2 "$B" 'git push --mir=origin'
+check "push --al"                           2 "$B" 'git push --al'
+check "push --branches"                     2 "$B" 'git push origin --branches'
+check "force via +\$ref"                    2 "$B" 'git push origin +$REF'
+check "force via quoted +\$ref"             2 "$B" 'git push origin "+${REF}"'
+check "push main>/dev/null"                 2 "$B" 'git push origin main>/dev/null'
+check "push HEAD:heads/main<x"              2 "$B" 'git push origin HEAD:heads/main<x'
+check "push main#comment"                   2 "$B" 'git push origin main#c'
+check "force>/dev/null"                     2 "$B" 'git push --force>/dev/null origin feat/1-x'
+check "force bundled -uff"                  2 "$B" 'git push -uff origin feat/1-x'
+check "force bundled with -o value"         2 "$B" 'git push -foci.skip origin feat/1-x'
+check "force quoted -f"                     2 "$B" 'git push "-f" origin feat/1-x'
+check "-C quoted path with space, main"     2 "$B" 'git -C "/a b" push origin main'
+check "-c quoted value with space, mirror"  2 "$B" "git -c 'user.name=a b' push --mirror"
+check "bare push on main, redirect"         2 "$M" 'git push origin 2>/dev/null'
 # Not pushes, or pushes of a branch: allowed.
+check "-C main checkout log, then push HEAD" 0 "$B" "git -C $M log -1; git push origin HEAD"
+check "cd main in subshell, push on branch" 0 "$B" "(cd $M && git status); git push -u origin HEAD"
+check "push --follow-tags"                  0 "$B" 'git push --follow-tags origin feat/1-x'
+check "push then pr create --base main (#301)" 0 "$B" 'git push -u origin HEAD && gh pr create --base main'
 check "push branch then date +%s"           0 "$B" 'git push origin feat/1-x && date +%s'
 check "date +%s alone"                      0 "$B" 'date +%s'
 check "push origin HEAD on a branch"        0 "$B" 'git push -u origin HEAD'
