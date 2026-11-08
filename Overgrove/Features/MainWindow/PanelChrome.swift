@@ -158,6 +158,12 @@ struct GraphPanel: View {
     /// Column widths and visibility (#255).
     var columns: GraphColumnLayout = .default
     var onCommitColumns: (GraphColumnLayout) -> Void = { _ in }
+    /// Stashes in the graph (#384): drawn only when `showsStashes`.
+    var stashes: [Stash] = []
+    var selectedStash: ObjectID?
+    var onSelectStash: (ObjectID) -> Void = { _ in }
+    var showsStashes = true
+    var onSetShowsStashes: ((Bool) -> Void)?
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
     var onShowGraph: () -> Void = {}
@@ -201,7 +207,9 @@ struct GraphPanel: View {
                 Spacer(minLength: Tokens.Spacing.sm)
             }
             if graphStore?.status == .loaded {
-                GraphColumnMenu(columns: columns, onChange: onCommitColumns)
+                GraphColumnMenu(
+                    columns: columns, onChange: onCommitColumns, showsStashes: showsStashes,
+                    onSetShowsStashes: onSetShowsStashes)
             }
         } content: {
             switch graphStore?.status {
@@ -211,7 +219,8 @@ struct GraphPanel: View {
                         store: graphStore, onSelectCommit: onSelectCommit, highlighted: highlightedCommits,
                         onSelectWip: onSelectWip, onOpen: onOpen, search: search, onFindNext: onFindNext,
                         onFindPrevious: onFindPrevious, authorMatches: authorMatches, columns: columns,
-                        onCommitColumns: onCommitColumns)
+                        onCommitColumns: onCommitColumns, stashes: showsStashes ? stashes : [],
+                        selectedStash: selectedStash, onSelectStash: onSelectStash)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)

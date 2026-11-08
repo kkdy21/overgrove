@@ -86,6 +86,8 @@ actor RepositoryService {
     var graphPages = BoundedCache<GraphPageKey, LogParser.GraphPage>(capacity: RepositoryService.cachedGraphPages)
     /// Streamed histories for repositories without a commit-graph file (#254), newest last; one per repository.
     var graphStreams: [(repositoryID: String, refSet: GraphRefSet, stream: GraphStream)] = []
+    /// Refs newer than the cached overview's, seen by the graph's check (#373), by repository.
+    var graphLiveRefs: [String: GraphLiveRefs] = [:]
 
     /// - Parameters:
     ///   - sleep: Waits out the debounce; tests pass a gate instead of real time.
@@ -516,7 +518,7 @@ actor RepositoryService {
     }
 
     /// The list without repeated paths: forged records can repeat one, and a path is the entry's identity (#226).
-    private static func uniquePaths(_ worktrees: [Worktree]) -> [Worktree] {
+    static func uniquePaths(_ worktrees: [Worktree]) -> [Worktree] {
         var seen: Set<GitPath> = []
         return worktrees.filter { seen.insert($0.path).inserted }
     }
