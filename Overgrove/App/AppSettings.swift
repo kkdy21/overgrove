@@ -13,6 +13,8 @@ final class AppSettings {
     /// `LiveGitClient`, which checks it on every discovery.
     nonisolated static let gitExecutablePathKey = "settings.gitExecutablePath"
     static let graphZoomStepKey = "settings.graphZoomStep"
+    static let terminalAppKey = "settings.terminalApp"
+    static let editorAppKey = "settings.editorApp"
     static let showsGraphStashesKey = "settings.showsGraphStashes"
 
     /// The auto fetch section is shown (the scheduler exists since #79).
@@ -71,6 +73,31 @@ final class AppSettings {
 
     var graphZoom: GraphZoom { GraphZoom(step: graphZoomStep) }
 
+    /// The terminal for Open in Terminal (#124): a bundle identifier, `nil` for Terminal.app.
+    var terminalApp: String? {
+        didSet { Self.store(terminalApp, forKey: Self.terminalAppKey, in: defaults) }
+    }
+
+    /// The editor for Open in Editor (#124): a bundle identifier, `nil` for none (the action is hidden).
+    var editorApp: String? {
+        didSet { Self.store(editorApp, forKey: Self.editorAppKey, in: defaults) }
+    }
+
+    /// The terminal's bundle identifier in use.
+    var terminalBundleIdentifier: String { terminalApp ?? ExternalApps.defaultTerminal }
+
+    private static func store(_ identifier: String?, forKey key: String, in defaults: UserDefaults) {
+        if let identifier, ExternalApps.isValidBundleIdentifier(identifier) {
+            defaults.set(identifier, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
+    private static func storedApp(_ key: String, in defaults: UserDefaults) -> String? {
+        defaults.string(forKey: key).flatMap { ExternalApps.isValidBundleIdentifier($0) ? $0 : nil }
+    }
+
     /// Stashes drawn in the graph above their base commits (#384); on by default, one value for every window.
     var showsGraphStashes: Bool {
         didSet { defaults.set(showsGraphStashes, forKey: Self.showsGraphStashesKey) }
@@ -92,6 +119,8 @@ final class AppSettings {
         showsGraphStashes =
             defaults.object(forKey: Self.showsGraphStashesKey) == nil
             ? true : defaults.bool(forKey: Self.showsGraphStashesKey)
+        terminalApp = Self.storedApp(Self.terminalAppKey, in: defaults)
+        editorApp = Self.storedApp(Self.editorAppKey, in: defaults)
         graphZoomStep =
             defaults.object(forKey: Self.graphZoomStepKey) == nil
             ? GraphZoom.actualSizeStep : GraphZoom(step: defaults.integer(forKey: Self.graphZoomStepKey)).step

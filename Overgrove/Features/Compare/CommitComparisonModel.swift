@@ -8,11 +8,19 @@ struct CommitComparisonSession: Equatable {
         case failed(String)
     }
 
+    enum Commits: Equatable {
+        case loading
+        case loaded(LogParser.GraphPage)
+        case failed(String)
+    }
+
     /// The main selection when S-12 opened.
     var base: ObjectID
     /// The row whose menu opened it.
     var target: ObjectID
     var files: Files = .loading
+    /// The commits between them (#389): what `target` has that `base` does not.
+    var commits: Commits = .loading
     var selectedFile: GitPath?
     var patch: DiffLoadState?
     var showsAllFiles = false
@@ -53,6 +61,12 @@ struct CommitComparisonModel: Equatable {
     let totalLineChange: String
     /// The list was cut at the output limit.
     let isPartial: Bool
+    /// COMMITS (#389): what the target has that the base does not, newest first.
+    let commits: [CommitRow]
+    /// More commits than listed (`RepositoryService.commitRangeLimit`).
+    let hasMoreCommits: Bool
+    /// Instead of the rows while they load, when they failed, or when there are none.
+    let commitsNotice: String?
 
     init(session: CommitComparisonSession, commit: (ObjectID) -> CommitNode?, rule: AIAgentRule = .builtIn) {
         func row(_ oid: ObjectID) -> CommitRow {
@@ -65,6 +79,28 @@ struct CommitComparisonModel: Equatable {
         base = row(session.base)
         target = row(session.target)
         title = "\(base.shortSHA) → \(target.shortSHA)"
+        switch session.commits {
+        case .loading:
+            commits = []
+            hasMoreCommits = false
+            commitsNotice = "Reading commits…"
+        case .failed(let message):
+            commits = []
+            hasMoreCommits = false
+            commitsNotice = PathValidator.displayable(message)
+        case .loaded(let page):
+            // Rows come from the log itself: a commit between the two may not be loaded in the graph.
+            commits = page.commits.map { node in
+                CommitRow(
+                    oid: node.oid, shortSHA: node.oid.short, subject: PathValidator.displayable(node.subject),
+                    author: PathValidator.displayable(node.authorName),
+                    isAIAssisted: node.coAuthors.contains(where: rule.isAgent))
+            }
+            hasMoreCommits = page.isPartial
+            // The target may be behind the base (picked in either order); ⇄ shows the other direction.
+            commitsNotice =
+                page.commits.isEmpty ? "\(target.shortSHA) has no commits that \(base.shortSHA) does not have" : nil
+        }
         switch session.files {
         case .loading:
             state = .loading(String(localized: "Comparing \(base.shortSHA) with \(target.shortSHA)…"))
