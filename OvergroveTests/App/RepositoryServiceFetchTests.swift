@@ -127,9 +127,10 @@ final class RepositoryServiceFetchTests: XCTestCase {
         XCTAssertEqual(run, .finished(failures: []))
     }
 
-    /// #423: the untrusted flag is read again before each remote, not only when the fetch starts. A repository marked
-    /// untrusted after the first remote has its next local remote turned off, even before the window stops the fetch.
-    func testUntrustedFlagIsReadBeforeEachRemote() async throws {
+    /// SEC-T5-24 (#423): the untrusted flag is read again before each remote, not only when the fetch starts. A
+    /// repository marked untrusted after the first remote has its next local remote turned off, even before the window
+    /// stops the fetch.
+    func testSECT5_24_UntrustedFlagIsReadBeforeEachRemote() async throws {
         try await repository.git(["remote", "add", "origin", origin.path])
         try await repository.git(["remote", "add", "second", origin.path])
         try await repository.git(["push", "-q", "origin", "main"])
@@ -145,6 +146,23 @@ final class RepositoryServiceFetchTests: XCTestCase {
         let second = try await hasRef("refs/remotes/second/main")
         XCTAssertFalse(second, "no git ran for the second remote")
         XCTAssertEqual(reads.value, 2, "read once per remote")
+    }
+
+    /// SEC-T5-24: once the flag reads true, the rest of the fetch stays untrusted even if later reads are false.
+    func testSECT5_24_UntrustedStaysForTheRestOfTheFetch() async throws {
+        for name in ["origin", "second", "third"] { try await repository.git(["remote", "add", name, origin.path]) }
+        try await repository.git(["push", "-q", "origin", "main"])
+        try await repository.git(["update-ref", "-d", "refs/remotes/origin/main"])
+        let reads = Counter()
+
+        let run = await service().fetch(model, untrusted: { reads.next() == 1 })
+        guard case .finished(let failures, _) = run else { return XCTFail("got \(run)") }
+        XCTAssertEqual(failures.map(\.remote?.value), ["origin", "second", "third"])
+        XCTAssertEqual(reads.value, 1, "not read again once untrusted")
+        for ref in ["origin", "second", "third"] {
+            let fetched = try await hasRef("refs/remotes/\(ref)/main")
+            XCTAssertFalse(fetched, ref)
+        }
     }
 
     /// #107: an untrusted repository does not run git for a local remote at all; it is reported as turned off, with

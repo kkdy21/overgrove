@@ -59,9 +59,10 @@ final class AppStateFetchTests: XCTestCase {
         await state.loadTask?.value
     }
 
-    /// #423: marking the open repository untrusted from Settings (the registry directly) stops a running fetch at
-    /// once, as S-05 does, before any other main-actor work can start the next remote.
-    func testSettingsToggleStopsARunningFetchImmediately() async throws {
+    /// SEC-T5-24 (#423): marking the open repository untrusted from Settings (the registry directly) stops a running
+    /// fetch at once, as S-05 does, before any other main-actor work can start the next remote. Two windows on the same
+    /// registry both stop.
+    func testSECT5_24_SettingsToggleStopsARunningFetchImmediately() async throws {
         let root = try XCTUnwrap(PathValidator.canonical(FileManager.default.temporaryDirectory))
             .appendingPathComponent("overgrove-untrusted-now-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -74,13 +75,23 @@ final class AppStateFetchTests: XCTestCase {
             layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: TriggerRecordingLoader(),
             fetcher: fetcher, fetchRecords: FetchRecordStore(defaults: defaults))
         state.openRegistered(entry.id)
+        let otherFetcher = GatedFetcher()
+        let other = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: TriggerRecordingLoader(),
+            fetcher: otherFetcher, fetchRecords: FetchRecordStore(defaults: defaults))
+        other.openRegistered(entry.id)
         state.fetch.fetch()
+        other.fetch.fetch()
         await fetcher.waitForFetches(1)
+        await otherFetcher.waitForFetches(1)
 
         registry.setUntrusted(true, for: entry.id)
         XCTAssertEqual(state.fetch.task?.isCancelled, true, "no yield: stopped inside the toggle")
+        XCTAssertEqual(other.fetch.task?.isCancelled, true, "the other window too")
         fetcher.release(0, with: .cancelled)
+        otherFetcher.release(0, with: .cancelled)
         await state.fetch.task?.value
+        await other.fetch.task?.value
     }
 
     /// #107: the open repository becoming untrusted stops a fetch that started while it was trusted, so no later

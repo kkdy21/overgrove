@@ -117,10 +117,13 @@ final class FetchController {
         let onStart: @Sendable ([String]) -> Void = { remotes in
             Task { @MainActor in self.started(remotes, generation: generation) }
         }
-        // Read on the main actor before each remote, so a change during the fetch applies to the next one (#423).
-        // A controller that is gone counts as untrusted (fail closed).
+        // Read on the main actor before each remote, so a change during the fetch applies to the next one (#423). The
+        // value at the start still counts: a repository removed from Settings mid-fetch reads as not untrusted, and
+        // must not turn trusted for the remotes left (review of #439). A controller that is gone counts as untrusted.
+        let startedUntrusted = isUntrusted(repository)
         let untrusted: @Sendable () async -> Bool = { [weak self] in
-            await MainActor.run { self.map { $0.isUntrusted(repository) } ?? true }
+            if startedUntrusted { return true }
+            return await MainActor.run { self.map { $0.isUntrusted(repository) } ?? true }
         }
         task = Task { [weak self] in
             let run = await fetcher.fetch(repository, untrusted: untrusted, onStart: onStart)

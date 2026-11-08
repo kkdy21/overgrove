@@ -130,6 +130,21 @@ final class FetchControllerTests: XCTestCase {
         fetcher.release(1, with: .finished(failures: []))
     }
 
+    /// SEC-T5-24 (#423): a fetch that started untrusted stays untrusted when the flag later reads false, e.g. the
+    /// repository was removed from Settings while the configuration was being inspected.
+    func testSECT5_24_AFetchThatStartedUntrustedStaysUntrusted() async {
+        let fetcher = GatedFetcher()
+        let (controller, _) = controller(fetcher)
+        var untrusted = true
+        controller.isUntrusted = { _ in untrusted }
+
+        controller.fetch()
+        untrusted = false  // removed before the fetch first reads the flag
+        await fetcher.waitForFetches(1)
+        XCTAssertEqual(fetcher.untrusted, [true])
+        fetcher.release(0, with: .finished(failures: []))
+    }
+
     func testFailedFetchKeepsTheLastSuccessAndShowsDetails() async {
         let fetcher = GatedFetcher()
         let (controller, store) = controller(fetcher)

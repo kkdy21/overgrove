@@ -123,6 +123,7 @@ final class RepositoryRegistry {
         else { return }
         repositories[index].isUntrusted = isUntrusted
         save()
+        // Handlers only stop fetches; they never call back into the registry, which this assignment would undo.
         if isUntrusted { untrustedHandlers = untrustedHandlers.filter { $0(id) } }
     }
 
