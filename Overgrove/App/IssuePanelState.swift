@@ -3,15 +3,19 @@ import Foundation
 /// What the ISSUES section has to show (screens.md S-06 states).
 enum IssueListContent: Equatable {
     case noGitHubRemote
+    /// gh's states, for a GitHub repository.
     case notInstalled
     case notLoggedIn
+    /// A remote on `host` in a hosting form, but neither gh nor glab reports a login there (ADR-0025 §1, ADR-0026 §2,
+    /// §7). Nothing is read from it.
+    case notLoggedInToHost(RemoteHost)
     /// `detail` is the escaped one-line reason.
-    case failed(repository: GitHubRepository, detail: String)
-    case loaded(repository: GitHubRepository, issues: [Issue])
+    case failed(repository: IssueSource, detail: String)
+    case loaded(repository: IssueSource, issues: [Issue])
 }
 
 /// The open repository's issues (S-06, #81), kept apart from `AppState` so gh problems stay in the issue panel
-/// (ADR-0004 §4). Loads once per github.com repository and again on ⌘R; a load that finishes after the repository
+/// (ADR-0004 §4). Loads once per issue source and again on ⌘R; a load that finishes after the repository
 /// changed is dropped.
 @MainActor
 @Observable
@@ -32,8 +36,8 @@ final class IssuePanelState {
     private(set) var knownNumbers: Set<Int> = []
     private(set) var titles: [Int: String] = [:]
     private(set) var isLoading = false
-    /// The github.com repository the issues are read from, shown on S-06 so the user sees where they come from.
-    private(set) var repository: GitHubRepository?
+    /// Where the issues are read from, shown on S-06 so the user sees where they come from.
+    private(set) var repository: IssueSource?
     /// The load in flight; tests await it.
     private(set) var task: Task<Void, Never>?
     /// Called with the issues now listed (empty when the list is unavailable), so a selection of an issue that is gone
@@ -55,7 +59,7 @@ final class IssuePanelState {
     /// The repository's remotes are known (a verified listing). Loads when the repository changed or ⌘R asked;
     /// returns whether it started a load.
     @discardableResult
-    func show(_ repository: GitHubRepository?) -> Bool {
+    func show(_ repository: IssueSource?) -> Bool {
         guard let repository else {
             cancel()
             self.repository = nil
@@ -68,6 +72,14 @@ final class IssuePanelState {
         isStale = false
         load(repository)
         return true
+    }
+
+    /// A remote names `host`, but no CLI is logged in to it: say so, read nothing (ADR-0026 §7).
+    func showNotLoggedIn(to host: RemoteHost) {
+        cancel()
+        repository = nil
+        content = .notLoggedInToHost(host)
+        onLoaded?([])
     }
 
     /// Check Again (#83): reads the same repository's issues again. `false` without one (no GitHub remote): the
@@ -100,7 +112,7 @@ final class IssuePanelState {
         isLoading = false
     }
 
-    private func load(_ repository: GitHubRepository) {
+    private func load(_ repository: IssueSource) {
         cancel()
         let generation = generation
         // A different repository's issues are not kept on screen while the new ones load.
@@ -113,7 +125,7 @@ final class IssuePanelState {
         }
     }
 
-    private func finish(_ result: IssueLoadResult, repository: GitHubRepository, generation: Int) {
+    private func finish(_ result: IssueLoadResult, repository: IssueSource, generation: Int) {
         guard generation == self.generation, !Task.isCancelled else { return }
         isLoading = false
         switch result {
