@@ -47,11 +47,9 @@ actor GLClient {
     /// Where glab keeps its configuration, relative to HOME; glab reads either (1.128.0, measured).
     static let configurationFiles = [".config/glab-cli/config.yml", "Library/Application Support/glab-cli/config.yml"]
 
-    private let runner: ProcessRunner
     private let parentEnvironment: [String: String]
-    private let neutralDirectory: URL
     private let executableCandidates: [URL]
-    private let limits: ProcessLimits
+    private let launcher: ForgeCLILauncher
     private let home: URL
 
     init(
@@ -62,11 +60,9 @@ actor GLClient {
         limits: ProcessLimits = .gh,
         home: URL = FileManager.default.homeDirectoryForCurrentUser
     ) {
-        self.runner = runner
         self.parentEnvironment = parentEnvironment
-        self.neutralDirectory = neutralDirectory
         self.executableCandidates = executableCandidates
-        self.limits = limits
+        launcher = ForgeCLILauncher(runner: runner, neutralDirectory: neutralDirectory, limits: limits)
         self.home = home
     }
 
@@ -140,10 +136,8 @@ actor GLClient {
     /// that is not logged in, so its JSON is read regardless of the exit code.
     private func run(_ command: GLCommand, executable: URL, acceptsAnyExit: Bool) async throws -> Data {
         let result = try await launch(command, executable: executable)
-        try checkLimits(result)
         guard acceptsAnyExit || result.termination == .exited(code: 0) else {
-            let code = result.termination.exitCode ?? (result.termination.signal.map { 128 + $0 } ?? -1)
-            throw GLError.failed(code: code)
+            throw GLError.failed(code: ForgeCLILauncher.failureCode(result.termination))
         }
         return result.stdout
     }
@@ -162,7 +156,6 @@ actor GLClient {
             throw GLError.notInstalled
         }
         let result = try await launch(.version, executable: executable)
-        try checkLimits(result)
         guard result.termination == .exited(code: 0), let version = Self.parseVersion(result.stdout) else {
             throw GLError.notInstalled
         }
@@ -170,32 +163,25 @@ actor GLClient {
         return executable
     }
 
-    private func launch(_ command: GLCommand, executable: URL) async throws -> ProcessResult {
-        try? FileManager.default.createDirectory(
-            at: neutralDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        let request = ProcessRequest(
-            executable: executable,
-            arguments: command.arguments,
-            environment: Self.environment(parent: parentEnvironment, home: home),
-            currentDirectory: neutralDirectory,
-            limits: limits
-        )
+    private func launch(_ command: GLCommand, executable: URL) async throws(GLError) -> ProcessResult {
         do {
-            return try await runner.run(request)
-        } catch ProcessRunnerError.executableNotFound {
-            throw GLError.notInstalled
-        } catch ProcessRunnerError.spawnFailed(let code), ProcessRunnerError.waitFailed(let code) {
-            throw GLError.launchFailed(errno: code)
-        } catch ProcessRunnerError.invalidArgument, ProcessRunnerError.invalidEnvironment {
-            // Validated types cannot carry a NUL byte; refuse rather than run something else.
-            throw GLError.launchFailed(errno: EINVAL)
-        } catch is CancellationError {
-            throw GLError.cancelled
+            return try await launcher.run(
+                executable: executable, arguments: command.arguments,
+                environment: Self.environment(parent: parentEnvironment, home: home))
+        } catch {
+            throw GLError(error)
         }
     }
+}
 
-    private func checkLimits(_ result: ProcessResult) throws {
-        if result.timedOut { throw GLError.timeout(seconds: Int(limits.timeout.components.seconds)) }
-        if result.stdoutTruncated { throw GLError.outputTruncated }
+extension GLError {
+    init(_ failure: ForgeCLILauncher.Failure) {
+        switch failure {
+        case .notInstalled: self = .notInstalled
+        case .launchFailed(let code): self = .launchFailed(errno: code)
+        case .timeout(let seconds): self = .timeout(seconds: seconds)
+        case .outputTruncated: self = .outputTruncated
+        case .cancelled: self = .cancelled
+        }
     }
 }

@@ -118,7 +118,8 @@ struct IssueListModel: Equatable {
             count = nil
             notice = Notice(
                 symbol: "person.crop.circle.badge.exclamationmark", text: "Not logged in to \(host.name)",
-                detail: "Issues appear when GitHub CLI, GitLab CLI, or Gitea CLI is logged in to this host.")
+                detail: String(
+                    localized: "Issues appear when GitHub CLI, GitLab CLI, or Gitea CLI is logged in to this host."))
             hostCommands = [
                 "gh auth login --hostname \(host.name)", "glab auth login --hostname \(host.name)",
                 "gt auth login --host https://\(host.name)",

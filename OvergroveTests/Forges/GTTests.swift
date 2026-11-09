@@ -209,13 +209,13 @@ final class GTClientTests: XCTestCase {
     private func fake(
         versionLine: String = "gt version 1.1.0 (2026-11-05)", authJSON: String = GTFixtures.authAccounts,
         issuesJSON: String = GTFixtures.issues, issueExit: Int32 = 0, stderr: String = ""
-    ) throws -> FakeGt {
-        try FakeGt(
-            in: executables, versionLine: versionLine, authJSON: authJSON, issuesJSON: issuesJSON, issueExit: issueExit,
+    ) throws -> FakeForgeCLI {
+        try executables.fakeGt(
+            versionLine: versionLine, authJSON: authJSON, issuesJSON: issuesJSON, issueExit: issueExit,
             stderr: stderr)
     }
 
-    private func client(_ fake: FakeGt?, limits: ProcessLimits = .gh) -> GTClient {
+    private func client(_ fake: FakeForgeCLI?, limits: ProcessLimits = .gh) -> GTClient {
         GTClient(
             parentEnvironment: hostileParent, neutralDirectory: neutral,
             executableCandidates: fake.map { [$0.executable] } ?? [], limits: limits)

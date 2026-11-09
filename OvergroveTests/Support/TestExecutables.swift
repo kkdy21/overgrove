@@ -143,16 +143,36 @@ struct TestExecutables {
         return fake
     }
 
-    /// A stand-in for `glab` (#154): `--version` prints `versionLine`; `auth …` prints `authJSON` and exits `authExit`;
-    /// `issue …` prints `issuesJSON` (and `stderr`) and exits `issueExit`. Every call's arguments are appended to
-    /// `calls`, one call per line with arguments separated by spaces; the last call's environment and directory are
-    /// recorded like `fakeGH`.
+    /// A stand-in for `glab` (#154): see `fakeForgeCLI`.
     func fakeGlab(
         versionLine: String = "glab 1.128.0 (519ea19f7)", authJSON: String = "", authExit: Int32 = 0,
         issuesJSON: String = "[]", issueExit: Int32 = 0, stderr: String = ""
-    ) throws -> FakeGlab {
-        let name = "fake-glab-\(UUID().uuidString)"
-        let fake = FakeGlab(root: directory.appendingPathComponent(name, isDirectory: true))
+    ) throws -> FakeForgeCLI {
+        try fakeForgeCLI(
+            "glab", versionLine: versionLine, authJSON: authJSON, authExit: authExit, issuesJSON: issuesJSON,
+            issueExit: issueExit, stderr: stderr)
+    }
+
+    /// A stand-in for `gt` (#449): see `fakeForgeCLI`.
+    func fakeGt(
+        versionLine: String = "gt version 1.1.0 (2026-11-05)", authJSON: String = "[]", authExit: Int32 = 0,
+        issuesJSON: String = "[]", issueExit: Int32 = 0, stderr: String = ""
+    ) throws -> FakeForgeCLI {
+        try fakeForgeCLI(
+            "gt", versionLine: versionLine, authJSON: authJSON, authExit: authExit, issuesJSON: issuesJSON,
+            issueExit: issueExit, stderr: stderr)
+    }
+
+    /// A forge CLI named `name` (glab, gt): `--version` prints `versionLine`; `auth …` prints `authJSON` and exits
+    /// `authExit`; `issue …` prints `issuesJSON` (and `stderr`) and exits `issueExit`. Every call's arguments are
+    /// appended to `calls`, one call per line with arguments separated by spaces; the last call's environment and
+    /// directory are recorded like `fakeGH`.
+    private func fakeForgeCLI(
+        _ name: String, versionLine: String, authJSON: String, authExit: Int32, issuesJSON: String, issueExit: Int32,
+        stderr: String
+    ) throws -> FakeForgeCLI {
+        let folder = "fake-\(name)-\(UUID().uuidString)"
+        let fake = FakeForgeCLI(root: directory.appendingPathComponent(folder, isDirectory: true), name: name)
         try FileManager.default.createDirectory(at: fake.root, withIntermediateDirectories: true)
         try Data(versionLine.utf8).write(to: fake.root.appendingPathComponent("version"))
         try Data(authJSON.utf8).write(to: fake.root.appendingPathComponent("auth"))
@@ -160,7 +180,7 @@ struct TestExecutables {
         try Data(stderr.utf8).write(to: fake.root.appendingPathComponent("stderr"))
         let root = fake.root.path
         _ = try script(
-            "\(name)/glab",
+            "\(folder)/\(name)",
             """
             echo "$*" >> '\(root)/calls'
             pwd -P > '\(root)/pwd'
@@ -384,10 +404,12 @@ struct FakeGH {
     }
 }
 
-struct FakeGlab {
+/// A fake glab or gt from `TestExecutables.fakeGlab` / `fakeGt`.
+struct FakeForgeCLI {
     let root: URL
+    let name: String
 
-    var executable: URL { root.appendingPathComponent("glab") }
+    var executable: URL { root.appendingPathComponent(name) }
 
     /// Every call, in order, as its arguments joined by spaces.
     var calls: [String] {

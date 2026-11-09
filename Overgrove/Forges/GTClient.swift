@@ -13,8 +13,6 @@ import Foundation
 /// HOME or TMPDIR), so unlike `GLClient` there is no setup check, and no check whose HOME could differ from the
 /// child's. A HOME gt has no credentials under only reads as not logged in.
 ///
-/// STAND-IN(#154): the execution and hardening code mirrors #154's `GLClient`; once that merges, the shared parts move
-/// into one helper.
 actor GTClient {
     static let defaultExecutableCandidates = [
         URL(fileURLWithPath: "/opt/homebrew/bin/gt"),
@@ -45,11 +43,9 @@ actor GTClient {
     static let defaultNeutralDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("io.github.kkdy21.overgrove.gt-neutral", isDirectory: true)
 
-    private let runner: ProcessRunner
     private let parentEnvironment: [String: String]
-    private let neutralDirectory: URL
     private let executableCandidates: [URL]
-    private let limits: ProcessLimits
+    private let launcher: ForgeCLILauncher
 
     init(
         runner: ProcessRunner = ProcessRunner(),
@@ -58,11 +54,9 @@ actor GTClient {
         executableCandidates: [URL] = GTClient.defaultExecutableCandidates,
         limits: ProcessLimits = .gh
     ) {
-        self.runner = runner
         self.parentEnvironment = parentEnvironment
-        self.neutralDirectory = neutralDirectory
         self.executableCandidates = executableCandidates
-        self.limits = limits
+        launcher = ForgeCLILauncher(runner: runner, neutralDirectory: neutralDirectory, limits: limits)
     }
 
     /// The complete child environment: the allowlist, nothing else from `parent`.
@@ -136,10 +130,8 @@ actor GTClient {
     /// Runs `command` with a verified executable and returns stdout; any exit other than 0 fails.
     private func run(_ command: GTCommand, executable: URL) async throws -> Data {
         let result = try await launch(command, executable: executable)
-        try checkLimits(result)
         guard result.termination == .exited(code: 0) else {
-            let code = result.termination.exitCode ?? (result.termination.signal.map { 128 + $0 } ?? -1)
-            throw GTError.failed(code: code)
+            throw GTError.failed(code: ForgeCLILauncher.failureCode(result.termination))
         }
         return result.stdout
     }
@@ -149,7 +141,6 @@ actor GTClient {
             throw GTError.notInstalled
         }
         let result = try await launch(.version, executable: executable)
-        try checkLimits(result)
         guard result.termination == .exited(code: 0), let version = Self.parseVersion(result.stdout) else {
             throw GTError.notInstalled
         }
@@ -157,32 +148,25 @@ actor GTClient {
         return executable
     }
 
-    private func launch(_ command: GTCommand, executable: URL) async throws -> ProcessResult {
-        try? FileManager.default.createDirectory(
-            at: neutralDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        let request = ProcessRequest(
-            executable: executable,
-            arguments: command.arguments,
-            environment: Self.environment(parent: parentEnvironment),
-            currentDirectory: neutralDirectory,
-            limits: limits
-        )
+    private func launch(_ command: GTCommand, executable: URL) async throws(GTError) -> ProcessResult {
         do {
-            return try await runner.run(request)
-        } catch ProcessRunnerError.executableNotFound {
-            throw GTError.notInstalled
-        } catch ProcessRunnerError.spawnFailed(let code), ProcessRunnerError.waitFailed(let code) {
-            throw GTError.launchFailed(errno: code)
-        } catch ProcessRunnerError.invalidArgument, ProcessRunnerError.invalidEnvironment {
-            // Validated types cannot carry a NUL byte; refuse rather than run something else.
-            throw GTError.launchFailed(errno: EINVAL)
-        } catch is CancellationError {
-            throw GTError.cancelled
+            return try await launcher.run(
+                executable: executable, arguments: command.arguments,
+                environment: Self.environment(parent: parentEnvironment))
+        } catch {
+            throw GTError(error)
         }
     }
+}
 
-    private func checkLimits(_ result: ProcessResult) throws {
-        if result.timedOut { throw GTError.timeout(seconds: Int(limits.timeout.components.seconds)) }
-        if result.stdoutTruncated { throw GTError.outputTruncated }
+extension GTError {
+    init(_ failure: ForgeCLILauncher.Failure) {
+        switch failure {
+        case .notInstalled: self = .notInstalled
+        case .launchFailed(let code): self = .launchFailed(errno: code)
+        case .timeout(let seconds): self = .timeout(seconds: seconds)
+        case .outputTruncated: self = .outputTruncated
+        case .cancelled: self = .cancelled
+        }
     }
 }

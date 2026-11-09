@@ -335,6 +335,27 @@ final class AppStateGitHubHostTests: XCTestCase {
 
     }
 
+    /// Auto refresh does not run gt again for the same remotes, whatever gt answered; ⌘R does.
+    func testGtIsAskedAgainOnlyOnCommandR() async {
+        for instances in [[], ["https://git.example.com"]] {
+            let gt = StubGiteaInstanceChecker(instances)
+            let state = await loadedState(
+                remotes: ["git@git.example.com:acme/widgets.git"], issues: StubIssueLoader([.issues([giteaIssue])]),
+                checker: QueuedGHAuthReporter([report(["github.com"]), report(["github.com"])]), gitea: gt)
+            XCTAssertEqual(gt.calls, 1)
+            state.refresh(.filesChanged(worktrees: [], refs: false, worktreeList: true))
+            await state.loadTask?.value
+            await state.ghCheckTask?.value
+            await state.gitlabCheckTask?.value
+            XCTAssertEqual(gt.calls, 1, "the same remotes: no gt (\(instances))")
+            state.reload()
+            await state.loadTask?.value
+            await state.ghCheckTask?.value
+            await state.gitlabCheckTask?.value
+            XCTAssertEqual(gt.calls, 2)
+        }
+    }
+
     /// The first CLI that confirms a login takes the host, in the order gh → glab → gt: with glab logged in, gt is not
     /// asked; a host gh is logged in to is never a gt candidate, even for a remote gh cannot read as `OWNER/NAME`.
     func testCLIsTakeAHostInTheOrderGhGlabGt() async {
