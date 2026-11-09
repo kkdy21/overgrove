@@ -12,7 +12,7 @@ struct FetchFailureDetailsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
-            Text(failures.isEmpty ? "Fetch details" : "Fetch failed").font(Tokens.Font.title)
+            Text(failures.isEmpty ? "Fetch details" : "Fetch failed" as LocalizedStringKey).font(Tokens.Font.title)
             ScrollView {
                 VStack(alignment: .leading, spacing: Tokens.Spacing.lg) {
                     if let remoteLimit {
@@ -89,9 +89,9 @@ enum FetchAnnouncement {
     static func text(from old: FetchStatus, to new: FetchStatus) -> String? {
         guard old.isFetching else { return nil }
         switch new {
-        case .idle: return "Fetch finished"
-        case .failed: return "Fetch failed"
-        case .cancelled: return "Fetch cancelled"
+        case .idle: return String(localized: "Fetch finished")
+        case .failed: return String(localized: "Fetch failed")
+        case .cancelled: return String(localized: "Fetch cancelled")
         case .never, .estimated, .fetching: return nil
         }
     }

@@ -126,11 +126,16 @@ struct GraphSearchResult: Equatable {
     /// `3 matches in 1,500 loaded commits · older commits are searched as they load` (the loaded-page notice).
     var summary: String {
         let count = matches.count
-        let found = count == 0 ? "No matches" : "\(count.formatted()) \(count == 1 ? "match" : "matches")"
+        let number = count.formatted()
+        let found =
+            count == 0
+            ? String(localized: "No matches")
+            : count == 1 ? String(localized: "\(number) match") : String(localized: "\(number) matches")
+        let searched = searchedCount.formatted()
         let scope =
             isComplete
-            ? "in all \(searchedCount.formatted()) commits"
-            : "in \(searchedCount.formatted()) loaded commits · older commits are searched as they load"
+            ? String(localized: "in all \(searched) commits")
+            : String(localized: "in \(searched) loaded commits · older commits are searched as they load")
         return "\(found) \(scope)"
     }
 

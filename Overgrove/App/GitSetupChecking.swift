@@ -38,7 +38,7 @@ struct LiveGitSetupChecker: GitSetupChecking {
         } catch let error as GitError {
             return Self.status(for: error)
         } catch {
-            return .failed("Overgrove could not run git.")
+            return .failed(String(localized: "Overgrove could not run git."))
         }
     }
 

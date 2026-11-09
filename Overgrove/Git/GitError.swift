@@ -265,56 +265,66 @@ enum GitError: Error, Sendable, Equatable {
     var message: String {
         switch self {
         case .executableNotFound:
-            "git could not be found. Install the Xcode Command Line Tools."
+            String(localized: "git could not be found. Install the Xcode Command Line Tools.")
         case .launchFailed(let code):
-            "git could not be started (error \(code))."
+            String(localized: "git could not be started (error \(code)).")
         case .unsupportedVersion(let found):
-            "Overgrove needs git \(GitVersion.minimumSupported) or later (found \(found))."
+            String(
+                localized:
+                    "Overgrove needs git \(GitVersion.minimumSupported.description) or later (found \(found.description))."
+            )
         case .chosenExecutableRejected(let path, let reason):
-            "The git chosen in Settings (\(path)) cannot be used: \(reason) Choose another or use the default."
+            String(
+                localized:
+                    "The git chosen in Settings (\(path)) cannot be used: \(reason) Choose another or use the default.")
         case .notARepository:
-            "This folder is not a Git repository."
+            String(localized: "This folder is not a Git repository.")
         case .dubiousOwnership:
-            "git refused this repository because another user owns it. Overgrove does not bypass this check."
+            String(
+                localized:
+                    "git refused this repository because another user owns it. Overgrove does not bypass this check.")
         case .worktreeMissing:
-            "The worktree folder no longer exists."
+            String(localized: "The worktree folder no longer exists.")
         case .configInspectionFailed:
-            "Overgrove could not inspect this repository's configuration, so it stopped querying it."
+            String(localized: "Overgrove could not inspect this repository's configuration, so it stopped querying it.")
         case .invalidArgument:
-            "A name looked unsafe, so the command was not run."
+            String(localized: "A name looked unsafe, so the command was not run.")
         case .blockedBySecurityPolicy:
-            "This remote uses a transport that Overgrove blocks for security."
+            String(localized: "This remote uses a transport that Overgrove blocks for security.")
         case .transportNotAllowed(let transport, _):
-            (transport.map { "Overgrove does not fetch remotes that use the '\($0)' transport." }
-                ?? "This remote uses a transport that Overgrove does not allow.")
-                + " Only https, ssh, git, http, and local file remotes can be fetched."
+            (transport.map { String(localized: "Overgrove does not fetch remotes that use the '\($0)' transport.") }
+                ?? String(localized: "This remote uses a transport that Overgrove does not allow."))
+                + " " + String(localized: "Only https, ssh, git, http, and local file remotes can be fetched.")
         case .timeout(let seconds):
-            "git did not respond within \(seconds) seconds and was stopped."
+            String(localized: "git did not respond within \(seconds) seconds and was stopped.")
         case .outputTruncated:
-            "The output was too large; only part of it is shown."
+            String(localized: "The output was too large; only part of it is shown.")
         case .authenticationFailed:
-            "Authentication with the remote failed. Check your git credentials in Terminal."
+            String(localized: "Authentication with the remote failed. Check your git credentials in Terminal.")
         case .sshAuthenticationFailed:
-            "The server rejected your SSH key. Check your SSH agent in Terminal."
+            String(localized: "The server rejected your SSH key. Check your SSH agent in Terminal.")
         case .hostKeyVerificationFailed(let changed, _):
             changed
-                ? "The server's SSH host key has changed. Verify it before trusting the new key."
-                : "The server's SSH host key is not trusted yet. Connect once in Terminal to verify it."
+                ? String(localized: "The server's SSH host key has changed. Verify it before trusting the new key.")
+                : String(
+                    localized: "The server's SSH host key is not trusted yet. Connect once in Terminal to verify it.")
         case .accessDenied:
-            "The remote denied access to this repository."
+            String(localized: "The remote denied access to this repository.")
         case .remoteNotFound:
-            "The remote repository was not found."
+            String(localized: "The remote repository was not found.")
         case .networkUnavailable:
-            "The remote could not be reached."
+            String(localized: "The remote could not be reached.")
         case .partialCloneObjectMissing:
-            "This repository is a partial clone and does not have this content locally. Overgrove does not download "
-                + "missing objects."
+            String(
+                localized:
+                    "This repository is a partial clone and does not have this content locally. Overgrove does not download missing objects."
+            )
         case .noMergeBase:
-            "This branch shares no history with the base branch, so there is nothing to compare."
+            String(localized: "This branch shares no history with the base branch, so there is nothing to compare.")
         case .nonZeroExit(_, let detail):
-            detail.summary.isEmpty ? "git reported an error." : detail.summary
+            detail.summary.isEmpty ? String(localized: "git reported an error.") : detail.summary
         case .parseFailed:
-            "Overgrove could not understand git's output. Please report this as a bug."
+            String(localized: "Overgrove could not understand git's output. Please report this as a bug.")
         case .cancelled:
             ""
         }
