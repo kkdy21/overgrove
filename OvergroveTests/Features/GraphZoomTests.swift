@@ -119,4 +119,44 @@ final class GraphZoomTests: XCTestCase {
             }
         }
     }
+
+    // MARK: ⌘= (#478)
+
+    private func key(_ characters: String, _ modifiers: NSEvent.ModifierFlags, code: UInt16 = 24) -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0, windowNumber: 0, context: nil,
+            characters: characters, charactersIgnoringModifiers: characters, isARepeat: false, keyCode: code)!
+    }
+
+    /// #478: a menu item set to `+` does not answer ⌘= on a US keyboard (measured with `NSMenu.performKeyEquivalent`),
+    /// so ⌘= alone is recognized as the same Zoom In. ⌘+ stays the menu's; other keys and modifiers are not taken.
+    func testCommandEqualsIsZoomIn() {
+        XCTAssertTrue(GraphZoomShortcut.isZoomIn(key("=", [.command])))
+        XCTAssertTrue(GraphZoomShortcut.isZoomIn(key("=", [.command, .capsLock])), "Caps Lock does not matter")
+        XCTAssertTrue(GraphZoomShortcut.isZoomIn(key("=", [.command, .numericPad], code: 81)), "keypad =")
+        for event in [
+            key("=", []), key("=", [.command, .shift]), key("=", [.command, .option]), key("=", [.command, .control]),
+            key("+", [.command, .shift]), key("+", [.command]), key("-", [.command]), key("0", [.command]),
+        ] {
+            XCTAssertFalse(
+                GraphZoomShortcut.isZoomIn(event), "\(event.charactersIgnoringModifiers ?? "") \(event.modifierFlags)")
+        }
+        let keyUp = NSEvent.keyEvent(
+            with: .keyUp, location: .zero, modifierFlags: [.command], timestamp: 0, windowNumber: 0, context: nil,
+            characters: "=", charactersIgnoringModifiers: "=", isARepeat: false, keyCode: 24)!
+        XCTAssertFalse(GraphZoomShortcut.isZoomIn(keyUp))
+    }
+
+    /// #478: ⌘= zooms in like the menu item and is consumed; at the largest step it is left alone (the disabled menu
+    /// item's beep), and any other key passes through untouched.
+    func testCommandEqualsZoomsLikeTheMenu() {
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertNil(GraphZoomShortcut.handle(key("=", [.command]), settings: settings), "consumed")
+        XCTAssertEqual(settings.graphZoomStep, GraphZoom.actualSizeStep + 1)
+        let other = key("j", [.command], code: 38)
+        XCTAssertIdentical(GraphZoomShortcut.handle(other, settings: settings), other)
+        while settings.graphZoom.canZoomIn { settings.zoomGraphIn() }
+        let atMax = key("=", [.command])
+        XCTAssertIdentical(GraphZoomShortcut.handle(atMax, settings: settings), atMax, "nothing to zoom: passed on")
+    }
 }

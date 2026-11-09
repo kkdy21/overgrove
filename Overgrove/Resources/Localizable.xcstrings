@@ -2612,6 +2612,66 @@
         }
       }
     },
+    "Gitea CLI %@ is older than Overgrove supports (%@ or later)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gitea CLI %1$@은(는) Overgrove가 지원하는 버전(%2$@ 이상)보다 오래되었습니다."
+          }
+        }
+      }
+    },
+    "Gitea CLI (gt) is not installed." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gitea CLI(gt)가 설치되어 있지 않습니다."
+          }
+        }
+      }
+    },
+    "Gitea CLI could not be started (error %d)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gitea CLI를 시작하지 못했습니다(오류 %d)."
+          }
+        }
+      }
+    },
+    "Gitea CLI did not respond within %lld seconds and was stopped." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gitea CLI가 %lld초 안에 응답하지 않아 중단했습니다."
+          }
+        }
+      }
+    },
+    "Gitea CLI is not logged in to %@." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gitea CLI가 %@에 로그인되어 있지 않습니다."
+          }
+        }
+      }
+    },
+    "Gitea CLI reported an error (exit code %d)." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gitea CLI가 오류를 알렸습니다(종료 코드 %d)."
+          }
+        }
+      }
+    },
     "Graph" : {
       "comment" : "Graph column",
       "localizations" : {
@@ -2904,12 +2964,12 @@
         }
       }
     },
-    "Issues appear when GitHub CLI or GitLab CLI is logged in to this host." : {
+    "Issues appear when GitHub CLI, GitLab CLI, or Gitea CLI is logged in to this host." : {
       "localizations" : {
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "GitHub CLI나 GitLab CLI가 이 호스트에 로그인되어 있으면 이슈가 보입니다."
+            "value" : "GitHub CLI, GitLab CLI, Gitea CLI 중 하나가 이 호스트에 로그인되어 있으면 이슈가 보입니다."
           }
         }
       }
@@ -3882,6 +3942,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitLab CLI의 출력을 해석하지 못했습니다."
+          }
+        }
+      }
+    },
+    "Overgrove could not understand Gitea CLI's output." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gitea CLI의 출력을 해석하지 못했습니다."
           }
         }
       }
