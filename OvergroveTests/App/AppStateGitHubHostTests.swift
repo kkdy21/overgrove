@@ -308,6 +308,36 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(issues.requests, [])
     }
 
+    // MARK: Switcher owner (#477)
+
+    /// #477: the repository switcher names the owner of the issue source this load picked from inspected remotes: the
+    /// GitHub or Gitea owner, or the GitLab namespace. Without a source there is no owner.
+    func testTheSwitcherNamesTheIssueSourcesOwner() async {
+        let github = await loadedState(
+            remotes: ["https://github.com/team/app"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]))
+        XCTAssertEqual(github.displayedRepository?.owner, "team")
+        XCTAssertEqual(github.displayedRepository?.repository, github.repository?.repository)
+
+        let gitlab = await loadedState(
+            remotes: ["git@gitlab.example.com:group/sub/app.git"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]),
+            gitlab: StubGitLabHostChecker(loggedIn: ["gitlab.example.com"]))
+        XCTAssertEqual(gitlab.displayedRepository?.owner, "group/sub")
+
+        let gitea = await loadedState(
+            remotes: ["git@git.example.com:acme/widgets.git"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]),
+            gitea: StubGiteaInstanceChecker(["https://git.example.com"]))
+        XCTAssertEqual(gitea.displayedRepository?.owner, "acme")
+
+        let none = await loadedState(
+            remotes: ["https://ghe.example/team/app"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]))
+        XCTAssertNil(none.displayedRepository?.owner, "no source picked: the name alone")
+        XCTAssertNotNil(none.displayedRepository)
+    }
+
     // MARK: Broken gh logins and glab (#467 with #154)
 
     /// SEC-T9-467-1 (with #154): a host gh lists only a broken login for is not gh's, so it becomes a glab candidate.

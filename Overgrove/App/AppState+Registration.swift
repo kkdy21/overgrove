@@ -59,7 +59,8 @@ extension AppState {
             }
             return
         }
-        // The owner needs GitHub remote detection, which is not built yet; the switcher shows the name alone.
+        // No owner yet: the switcher takes it from the issue source a verified load picks (`displayedRepository`,
+        // #477), never from remotes before they are inspected.
         open(RepositoryContext(repository: entry.repository, owner: nil))
         registry.lastSelected = id
         reload()

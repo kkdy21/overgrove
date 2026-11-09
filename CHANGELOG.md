@@ -56,6 +56,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Open on GitHub for commits and files uses only the remotes the current load inspected, like branch rows.
 - Auto fetch catches up a repository newly opened in a window when the window becomes active, instead of waiting out
   the previous repository's interval.
+- The repository switcher shows the remote owner next to the name: the GitHub or Gitea owner, or GitLab namespace, of
+  the repository whose issues the panel reads.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

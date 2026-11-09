@@ -166,7 +166,7 @@ struct MainWindowView: View {
         .environment(\.panelFocusRequest, state.panelFocusRequest)
         .toolbar {
             MainToolbar(
-                repository: state.repository,
+                repository: state.displayedRepository,
                 repositoryMenu: repositoryMenu,
                 isAddingRepository: state.isAddingRepository,
                 repositoryActions: repositoryActions,
