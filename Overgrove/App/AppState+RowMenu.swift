@@ -152,7 +152,7 @@ extension AppState {
         if isRepositoryUntrusted {
             terminalConfirmation = TerminalConfirmation(
                 folder: target, reasons: [TerminalGuard.untrustedReason], role: .editor, bundleIdentifier: editor,
-                appName: name)
+                appName: name, isFile: true)
         } else {
             open(target, in: editor, role: .editor)
         }

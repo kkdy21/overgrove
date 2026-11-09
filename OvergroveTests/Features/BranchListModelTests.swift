@@ -95,6 +95,26 @@ final class BranchListModelTests: XCTestCase {
         XCTAssertEqual(names(guessed.remote), ["team[a/[dev]]"])
     }
 
+    /// #466: a row grouped under `my/fork` (not on GitHub) has no Open on GitHub, even though `my` is a GitHub remote.
+    func testARowUnderANonGitHubRemoteHasNoGitHubLink() throws {
+        let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
+        let model = BranchListModel(
+            refs: refs([remote("my/fork/topic", guess: "my"), remote("my/main", guess: "my")]), checkedOut: [],
+            remoteNames: ["my", "my/fork"], githubRemotes: ["my": repository])
+        func rows(_ nodes: [BranchNode]) -> [BranchRow] {
+            nodes.flatMap { node -> [BranchRow] in
+                switch node {
+                case .branch(let row): [row]
+                case .folder(_, _, _, let children): rows(children)
+                }
+            }
+        }
+        let all = rows(model.remote)
+        XCTAssertNil(all.first { $0.name == "topic" }?.gitHubTarget)
+        XCTAssertEqual(
+            all.first { $0.name == "main" }?.gitHubTarget, GitHubBranchTarget(repository: repository, branch: "main"))
+    }
+
     /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
     /// (`origin/x`); an empty remainder shows the whole name (security review of #72).
     func testRemoteSplitIsByteExact() {
