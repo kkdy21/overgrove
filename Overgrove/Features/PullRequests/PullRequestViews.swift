@@ -61,7 +61,9 @@ struct PullRequestCard: View {
                     if let url = model.browserURL { NSWorkspace.shared.open(url) }
                 }
                 .disabled(model.browserURL == nil)
-                .help(model.browserURL == nil ? "This link is not this repository's pull request page." : model.urlText)
+                .help(
+                    model.browserURL == nil
+                        ? String(localized: "This link is not this repository's pull request page.") : model.urlText)
                 Button("Copy URL") {
                     // Copying to the clipboard is not a repository write (ADR-0011).
                     NSPasteboard.general.clearContents()

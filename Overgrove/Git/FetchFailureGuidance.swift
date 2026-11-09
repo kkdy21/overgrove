@@ -80,8 +80,9 @@ struct FetchFailureGuidance: Sendable, Equatable {
     static let noRemotes = FetchFailureGuidance(
         remote: nil,
         reason: .noRemotes,
-        summary: "No remotes configured",
-        guidance: "This repository has no remote to fetch from. Add one in Terminal with \"git remote add\".",
+        summary: String(localized: "No remotes configured"),
+        guidance: String(
+            localized: "This repository has no remote to fetch from. Add one in Terminal with \"git remote add\"."),
         commands: [],
         detail: nil
     )
@@ -92,9 +93,11 @@ struct FetchFailureGuidance: Sendable, Equatable {
         self.init(
             remote: nil,
             reason: .unknown,
-            summary: "Could not read the repository's configuration",
-            guidance: "Overgrove could not read this repository's configuration, so it did not fetch. Refresh (⌘R) "
-                + "to try again.",
+            summary: String(localized: "Could not read the repository's configuration"),
+            guidance: String(
+                localized:
+                    "Overgrove could not read this repository's configuration, so it did not fetch. Refresh (⌘R) to try again."
+            ),
             commands: [],
             detail: error.detail
         )
@@ -106,7 +109,7 @@ struct FetchFailureGuidance: Sendable, Equatable {
         self.init(
             remote: remote,
             reason: .blockedByConfiguration,
-            summary: "Overgrove does not fetch \(remote.value) with this git",
+            summary: String(localized: "Overgrove does not fetch \(remote.value) with this git"),
             guidance: reason,
             commands: [],
             detail: nil
@@ -176,11 +179,15 @@ struct FetchFailureGuidance: Sendable, Equatable {
         /// A sentence that sends the user to Terminal for `purpose`, with the matching warning.
         func advice(_ purpose: String) -> String {
             guard isRepositoryClean else {
-                return "This repository has settings or hooks that Overgrove turned off for safety (see its security "
-                    + "report). Terminal git would apply them, so review them before you run git in this repository."
+                return String(
+                    localized:
+                        "This repository has settings or hooks that Overgrove turned off for safety (see its security report). Terminal git would apply them, so review them before you run git in this repository."
+                )
             }
-            return "Run \"\(fetch)\" in Terminal \(purpose). Terminal git also runs the repository's own hooks and "
-                + "settings, which Overgrove turns off, so do this only for a repository you trust."
+            return String(
+                localized:
+                    "Run \"\(fetch)\" in Terminal \(purpose). Terminal git also runs the repository's own hooks and settings, which Overgrove turns off, so do this only for a repository you trust."
+            )
         }
     }
 
@@ -189,88 +196,107 @@ struct FetchFailureGuidance: Sendable, Equatable {
         switch error {
         case .authenticationFailed:
             return Content(
-                reason: .credentialsRejected, summary: "Authentication failed for \(remote)",
-                guidance: "Overgrove does not prompt for passwords; it uses the credentials your Git setup already "
-                    + "stores. " + terminal.advice("to check your credentials"),
+                reason: .credentialsRejected, summary: String(localized: "Authentication failed for \(remote)"),
+                guidance: String(
+                    localized:
+                        "Overgrove does not prompt for passwords; it uses the credentials your Git setup already stores."
+                )
+                    + " " + terminal.advice(String(localized: "to check your credentials")),
                 commands: terminal.fetchCommand)
         case .sshAuthenticationFailed:
             return Content(
-                reason: .sshKeyRejected, summary: "The SSH key was rejected for \(remote)",
-                guidance: "The server did not accept any of your SSH keys. Check that your key is loaded in the SSH "
-                    + "agent (\"ssh-add -l\"; add it with \"ssh-add --apple-use-keychain\"). "
-                    + terminal.advice("to try again"),
+                reason: .sshKeyRejected, summary: String(localized: "The SSH key was rejected for \(remote)"),
+                guidance: String(
+                    localized:
+                        "The server did not accept any of your SSH keys. Check that your key is loaded in the SSH agent (\"ssh-add -l\"; add it with \"ssh-add --apple-use-keychain\")."
+                ) + " " + terminal.advice(String(localized: "to try again")),
                 commands: ["ssh-add -l"] + terminal.fetchCommand)
         case .hostKeyVerificationFailed(let changed, _):
             return hostKey(changed: changed, terminal: terminal, endpoint: endpoint)
         case .accessDenied:
             return Content(
-                reason: .accessDenied, summary: "Access to \(remote) was denied",
-                guidance: "The remote accepted your credentials, but this account cannot read the repository. Check "
-                    + "that you have access, or sign in with another account. " + terminal.advice("to try again"),
+                reason: .accessDenied, summary: String(localized: "Access to \(remote) was denied"),
+                guidance: String(
+                    localized:
+                        "The remote accepted your credentials, but this account cannot read the repository. Check that you have access, or sign in with another account."
+                ) + " " + terminal.advice(String(localized: "to try again")),
                 commands: terminal.fetchCommand)
         case .networkUnavailable:
             return Content(
-                reason: .hostUnreachable, summary: "Could not reach \(endpoint?.host ?? "the remote of \(remote)")",
-                guidance: "Check your network connection, VPN, or proxy, then try again.", commands: [])
+                reason: .hostUnreachable,
+                summary: String(
+                    localized: "Could not reach \(endpoint?.host ?? String(localized: "the remote of \(remote)"))"),
+                guidance: String(localized: "Check your network connection, VPN, or proxy, then try again."),
+                commands: [])
         case .timeout(let seconds):
             return Content(
-                reason: .timedOut(seconds: seconds), summary: "Fetch timed out after \(seconds) s",
-                guidance: "The remote \(remote) did not finish in time. Try again. "
-                    + terminal.advice("once if the repository is very large"),
+                reason: .timedOut(seconds: seconds), summary: String(localized: "Fetch timed out after \(seconds) s"),
+                guidance: String(localized: "The remote \(remote) did not finish in time. Try again.") + " "
+                    + terminal.advice(String(localized: "once if the repository is very large")),
                 commands: terminal.fetchCommand)
         case .remoteNotFound:
             let list = "git --no-pager remote -v"
             let listAdvice =
                 terminal.isRepositoryClean
-                ? " To list the configured URLs, run \"\(list)\" in Terminal; do this only for a repository you trust."
+                ? " "
+                    + String(
+                        localized:
+                            "To list the configured URLs, run \"\(list)\" in Terminal; do this only for a repository you trust."
+                    )
                 : ""
             return Content(
-                reason: .remoteNotFound, summary: "The repository for \(remote) was not found",
-                guidance: "Check the remote's URL. If the repository is private, missing access can look the same."
+                reason: .remoteNotFound, summary: String(localized: "The repository for \(remote) was not found"),
+                guidance: String(
+                    localized: "Check the remote's URL. If the repository is private, missing access can look the same."
+                )
                     + listAdvice,
                 commands: terminal.isRepositoryClean ? [list] : [])
         case .transportNotAllowed:
             return Content(
-                reason: .transportNotAllowed, summary: "Overgrove does not fetch \(remote)",
-                guidance: error.message + " " + terminal.advice("to fetch it yourself"),
+                reason: .transportNotAllowed, summary: String(localized: "Overgrove does not fetch \(remote)"),
+                guidance: error.message + " " + terminal.advice(String(localized: "to fetch it yourself")),
                 commands: terminal.fetchCommand)
         case .configInspectionFailed(let reason):
             // `reason` is always Overgrove's own text (RepoConfigInspector), never git output.
             return Content(
-                reason: .blockedByConfiguration, summary: "Fetching \(remote) is turned off for this repository",
+                reason: .blockedByConfiguration,
+                summary: String(localized: "Fetching \(remote) is turned off for this repository"),
                 guidance: reason, commands: [])
         case .nonZeroExit:
             // Not `error.message`: for this case it is the first stderr line, which a server can write over ssh.
             return Content(
-                reason: .unknown, summary: "Fetch failed",
-                guidance: "git reported an error; Details show the end of its output. "
-                    + terminal.advice("to see the full error"),
+                reason: .unknown, summary: String(localized: "Fetch failed"),
+                guidance: String(localized: "git reported an error; Details show the end of its output.") + " "
+                    + terminal.advice(String(localized: "to see the full error")),
                 commands: terminal.fetchCommand)
         default:
             return Content(
-                reason: .unknown, summary: "Fetch failed",
-                guidance: error.message + " " + terminal.advice("to see the full error"),
+                reason: .unknown, summary: String(localized: "Fetch failed"),
+                guidance: error.message + " " + terminal.advice(String(localized: "to see the full error")),
                 commands: terminal.fetchCommand)
         }
     }
 
     private static func hostKey(changed: Bool, terminal: Terminal, endpoint: Endpoint?) -> Content {
-        let name = endpoint?.host ?? "the remote of \(terminal.remote)"
+        let name = endpoint?.host ?? String(localized: "the remote of \(terminal.remote)")
         // Repository-independent and read-only: prints the fingerprint the server presents now.
         let scan = endpoint.map { ["\($0.sshKeyscan) | ssh-keygen -lf -"] } ?? []
         guard changed else {
             return Content(
-                reason: .hostKeyNotTrusted, summary: "The SSH host key of \(name) is not trusted yet",
-                guidance: "Overgrove never accepts host keys on its own. Compare the server's fingerprint with the one "
-                    + "your Git host publishes, then accept the key outside Overgrove. "
-                    + terminal.advice("to connect and accept it"),
+                reason: .hostKeyNotTrusted,
+                summary: String(localized: "The SSH host key of \(name) is not trusted yet"),
+                guidance: String(
+                    localized:
+                        "Overgrove never accepts host keys on its own. Compare the server's fingerprint with the one your Git host publishes, then accept the key outside Overgrove."
+                ) + " " + terminal.advice(String(localized: "to connect and accept it")),
                 commands: scan + terminal.fetchCommand)
         }
         return Content(
-            reason: .hostKeyChanged, summary: "The SSH host key of \(name) has changed",
-            guidance: "This can mean someone is intercepting the connection. Do not remove the old key until you have "
-                + "confirmed the new fingerprint with your Git host. A host alias in your SSH config may be stored "
-                + "under its alias instead of this name.",
+            reason: .hostKeyChanged, summary: String(localized: "The SSH host key of \(name) has changed"),
+            guidance: String(
+                localized:
+                    "This can mean someone is intercepting the connection. Do not remove the old key until you have confirmed the new fingerprint with your Git host. A host alias in your SSH config may be stored under its alias instead of this name."
+            ),
             commands: (endpoint.map { ["ssh-keygen -F \($0.knownHostsName)"] } ?? []) + scan)
     }
 
