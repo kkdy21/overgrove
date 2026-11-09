@@ -67,7 +67,8 @@ final class GitHubLinksTests: XCTestCase {
         ]
         for (branch, expected) in cases {
             let remote = try XCTUnwrap(
-                GitHubBranchTarget.forRemoteRef("refs/remotes/origin/\(branch)", remotes: ["origin": repository]),
+                GitHubBranchTarget.forRemoteRef(
+                    "refs/remotes/origin/\(branch)", remotes: ["origin": repository], configuredRemotes: ["origin"]),
                 branch)
             // The local path (`branch.<n>.merge`) gives the same target (#406 security review).
             let local = Branch(
