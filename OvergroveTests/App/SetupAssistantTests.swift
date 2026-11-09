@@ -65,6 +65,40 @@ final class GHStatusGuidanceTests: XCTestCase {
         XCTAssertNil(failed.command, "no command when the state is unknown")
     }
 
+    /// #476: S-07 reads the same report as the status bar. A login only on another host counts as set up, and says
+    /// where; github.com's own login keeps the usual wording.
+    func testReportWithLoginsOnOtherHosts() throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let other = try XCTUnwrap(RemoteHost("code.example.org"))
+        let github = GHStatusGuidance(
+            report: GHAuthReport(
+                status: .loggedIn(login: "mina-dev"), hosts: [GitHubRepository.publicHost, ghe],
+                accounts: [ghe: GHAccount(host: ghe, login: "me", otherCount: 0)]))
+        XCTAssertEqual(github, GHStatusGuidance(status: .loggedIn(login: "mina-dev")))
+
+        let gheOnly = GHStatusGuidance(
+            report: GHAuthReport(
+                status: .notLoggedIn, hosts: [ghe], accounts: [ghe: GHAccount(host: ghe, login: "me", otherCount: 1)]))
+        XCTAssertTrue(gheOnly.isOK)
+        XCTAssertEqual(gheOnly.title, "Logged in to ghe.example as @me")
+        XCTAssertEqual(
+            gheOnly.message,
+            "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to.")
+        XCTAssertNil(gheOnly.command)
+
+        let two = GHStatusGuidance(report: GHAuthReport(status: .notLoggedIn, hosts: [ghe, other]))
+        XCTAssertTrue(two.isOK)
+        XCTAssertEqual(two.title, "Logged in to code.example.org and 1 more host", "sorted; no account to name")
+
+        // No working login anywhere (the report lists only working hosts, #467): the usual guidance.
+        XCTAssertEqual(
+            GHStatusGuidance(report: GHAuthReport(status: .notLoggedIn, hosts: [])),
+            GHStatusGuidance(status: .notLoggedIn))
+        XCTAssertEqual(
+            GHStatusGuidance(report: GHAuthReport(status: .notInstalled, hosts: [])),
+            GHStatusGuidance(status: .notInstalled))
+    }
+
     /// The login comes from gh's JSON; control characters are escaped before display.
     func testLoginIsEscaped() {
         let guidance = GHStatusGuidance(status: .loggedIn(login: "evil\u{202E}\n"))
@@ -166,6 +200,20 @@ final class SetupAssistantStateTests: XCTestCase {
         XCTAssertEqual(
             LiveGitSetupChecker.status(for: .chosenExecutableRejected(path: "/x/git", reason: "Not executable.")),
             .chosenRejected(path: "/x/git", reason: "Not executable."))
+    }
+
+    /// #476: the assistant asks for the whole report, so a GHE-only login is shown as set up.
+    func testTheAssistantUsesTheWholeReport() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let report = GHAuthReport(
+            status: .notLoggedIn, hosts: [ghe], accounts: [ghe: GHAccount(host: ghe, login: "me", otherCount: 0)])
+        let setup = SetupAssistantState(
+            gitChecker: StubGitSetupChecker(ready), ghChecker: QueuedGHAuthReporter([report]))
+        setup.checkGitHub()
+        await setup.gitHubTask?.value
+        XCTAssertEqual(setup.gitHub, .done(GHStatusGuidance(report: report)))
+        guard case .done(let guidance) = setup.gitHub else { return XCTFail("checked") }
+        XCTAssertTrue(guidance.isOK)
     }
 
     func testGitHubCheckFailureIsShownAsUnknown() async {
