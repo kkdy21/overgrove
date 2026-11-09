@@ -308,6 +308,37 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(issues.requests, [])
     }
 
+    // MARK: Broken gh logins and glab (#467 with #154)
+
+    /// SEC-T9-467-1 (with #154): a host gh lists only a broken login for is not gh's, so it becomes a glab candidate.
+    /// glab logged in there reads its GitLab issues; otherwise the host gets the "Not logged in" notice, and gh is
+    /// never asked about it.
+    func testSECT9_467_1_AHostWithOnlyABrokenGhLoginGoesToGlab() async throws {
+        let json =
+            #"{"hosts":{"github.com":[{"active":true,"state":"success","login":"octo"}],"code.example.com":[{"active":true,"state":"error","login":"me"}]}}"#
+        let report = try GHAuthParser.parseReport(Data(json.utf8))
+        XCTAssertFalse(report.hosts.contains(try XCTUnwrap(RemoteHost("code.example.com"))))
+        let gitlabIssue = IssueModelsTests.issue(
+            3, "Pipeline", url: "https://code.example.com/group/app/-/issues/3")
+
+        let issues = StubIssueLoader([.issues([gitlabIssue])])
+        let glab = StubGitLabHostChecker(loggedIn: ["code.example.com"])
+        let state = await loadedState(
+            remotes: ["git@code.example.com:group/app.git"], issues: issues,
+            checker: QueuedGHAuthReporter([report]), gitlab: glab)
+        XCTAssertFalse(state.trustedGitHubHosts.contains(try XCTUnwrap(RemoteHost("code.example.com"))))
+        XCTAssertEqual(glab.hosts, ["code.example.com"])
+        XCTAssertEqual(issues.requests, ["code.example.com/group/app"], "read through glab, not gh")
+
+        let none = StubGitLabHostChecker()
+        let unread = StubIssueLoader([.issues([gitlabIssue])])
+        let notLoggedIn = await loadedState(
+            remotes: ["git@code.example.com:group/app.git"], issues: unread,
+            checker: QueuedGHAuthReporter([report]), gitlab: none)
+        XCTAssertEqual(unread.requests, [])
+        XCTAssertEqual(notLoggedIn.issueListModel.notice?.text, "Not logged in to code.example.com")
+    }
+
     private let giteaIssue = IssueModelsTests.issue(
         7, "Crash", url: "https://git.example.com/acme/widgets/issues/7")
 
