@@ -50,6 +50,7 @@ While the major version is `0`, minor versions may contain breaking changes.
 - GitHub hosts are trusted only when gh has a working login there, not just any account entry.
 - The setup assistant counts a gh login on any host, as the status bar does: a login only on a GitHub Enterprise host
   shows as set up and names the host.
+- Graph Zoom In also answers ⌘= on keyboards where + needs Shift.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

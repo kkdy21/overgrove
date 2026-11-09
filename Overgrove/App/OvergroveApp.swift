@@ -10,6 +10,8 @@ struct OvergroveApp: App {
     private let settings = AppSettings()
 
     init() {
+        // ⌘= for Zoom In next to the menu's ⌘+ (#478).
+        GraphZoomShortcut.install(settings: settings)
         // Interrupted writes and snapshots of repositories not opened for a week (ADR-0018 §3, #109).
         if let store = LaunchSnapshotStore.live {
             Task.detached(priority: .utility) { store.removeLeftovers() }
