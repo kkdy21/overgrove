@@ -120,7 +120,8 @@ struct BranchListModel: Equatable {
             byRemote[remote, default: []].append(
                 Self.row(
                     branch, name: name, isCheckedOut: false, isDefault: false,
-                    gitHub: GitHubBranchTarget.forRemoteRef(branch.fullName, remotes: githubRemotes)))
+                    gitHub: GitHubBranchTarget.forRemoteRef(
+                        branch.fullName, remotes: githubRemotes, configuredRemotes: remoteNames)))
         }
         // `origin` first, then the rest by name (information-architecture.md §4.2).
         let order = byRemote.keys.sorted { lhs, rhs in
@@ -136,11 +137,15 @@ struct BranchListModel: Equatable {
 
         var notes: [String] = []
         if refs.skippedRecords > 0 {
+            let count = refs.skippedRecords
             notes.append(
-                "\(refs.skippedRecords) \(refs.skippedRecords == 1 ? "branch is" : "branches are") not shown: the name is not valid UTF-8."
-            )
+                count == 1
+                    ? String(localized: "\(count) branch is not shown: the name is not valid UTF-8.")
+                    : String(localized: "\(count) branches are not shown: the name is not valid UTF-8."))
         }
-        if refs.isPartial { notes.append("Some branches could not be listed because git's output was too large.") }
+        if refs.isPartial {
+            notes.append(String(localized: "Some branches could not be listed because git's output was too large."))
+        }
         warning = notes.isEmpty ? nil : notes.joined(separator: " ")
     }
 
@@ -189,20 +194,22 @@ struct BranchListModel: Equatable {
         var help = [full]
         switch upstream {
         case .tracking(let name, let ahead, let behind):
-            help.append("Tracks \(PathValidator.displayable(Self.short(name)))  ↑\(ahead) ↓\(behind)")
+            let upstreamName = PathValidator.displayable(Self.short(name))
+            help.append(String(localized: "Tracks \(upstreamName)") + "  ↑\(ahead) ↓\(behind)")
         case .gone(let name):
-            help.append("Upstream \(PathValidator.displayable(Self.short(name))) is gone")
+            let upstreamName = PathValidator.displayable(Self.short(name))
+            help.append(String(localized: "Upstream \(upstreamName) is gone"))
         case .none:
-            if branch.kind == .local { help.append("No upstream") }
+            if branch.kind == .local { help.append(Text.noUpstream) }
         }
-        if isCheckedOut { help.append("Checked out in a worktree") }
-        var label = [full, branch.kind == .local ? "local branch" : "remote branch"]
-        if isDefault { label.append("default") }
-        if isCheckedOut { label.append("checked out") }
-        if upstream.ahead > 0 { label.append("\(upstream.ahead) ahead") }
-        if upstream.behind > 0 { label.append("\(upstream.behind) behind") }
-        if isGone { label.append("upstream gone") }
-        if let issueNumber { label.append("issue \(issueNumber)") }
+        if isCheckedOut { help.append(Text.checkedOutInWorktree) }
+        var label = [full, branch.kind == .local ? Text.localBranch : Text.remoteBranch]
+        if isDefault { label.append(Text.defaultBranch) }
+        if isCheckedOut { label.append(Text.checkedOut) }
+        if upstream.ahead > 0 { label.append(String(localized: "\(upstream.ahead) ahead")) }
+        if upstream.behind > 0 { label.append(String(localized: "\(upstream.behind) behind")) }
+        if isGone { label.append(Text.upstreamGone) }
+        if let issueNumber { label.append(String(localized: "issue \(issueNumber)")) }
         return BranchRow(
             id: branch.fullName, name: display, fullDisplayName: full, isCheckedOut: isCheckedOut, isDefault: isDefault,
             ahead: upstream.ahead, behind: upstream.behind, isUpstreamGone: isGone, date: branch.committerDate,
@@ -231,5 +238,18 @@ extension BranchRow {
             help: help,
             accessibilityLabel: accessibilityLabel, tip: tip, upstreamName: upstreamName, upstreamRef: upstreamRef,
             gitHubTarget: gitHubTarget)
+    }
+}
+
+extension BranchListModel {
+    /// Fixed row texts, looked up once: a load can build thousands of rows (security review of #72).
+    fileprivate enum Text {
+        static let noUpstream = String(localized: "No upstream")
+        static let checkedOutInWorktree = String(localized: "Checked out in a worktree")
+        static let localBranch = String(localized: "local branch")
+        static let remoteBranch = String(localized: "remote branch")
+        static let defaultBranch = String(localized: "default", comment: "VoiceOver: the default branch")
+        static let checkedOut = String(localized: "checked out")
+        static let upstreamGone = String(localized: "upstream gone")
     }
 }

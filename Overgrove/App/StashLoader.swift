@@ -42,7 +42,7 @@ struct LiveStashLoader: StashLoading {
         -> DiffLoadResult
     {
         guard file.path.isRepresentable else {
-            return .unavailable("This path is not valid UTF-8, so Overgrove cannot show its diff.")
+            return .unavailable(String(localized: "This path is not valid UTF-8, so Overgrove cannot show its diff."))
         }
         return await run(repository, worktree: worktree, unavailable: DiffLoadResult.unavailable) {
             client, folder, safety in
@@ -61,7 +61,7 @@ struct LiveStashLoader: StashLoading {
     ) async -> Result {
         let listed = repository.rootURL ?? worktree.map { URL(fileURLWithPath: $0.path.display, isDirectory: true) }
         guard let listed, let folder = PathValidator.canonical(listed) else {
-            return unavailable("No worktree is available to read this stash.")
+            return unavailable(String(localized: "No worktree is available to read this stash."))
         }
         do {
             let client = try await self.client()
@@ -71,14 +71,14 @@ struct LiveStashLoader: StashLoading {
             else { return unavailable(LiveWorktreeInspector.noLongerMatches) }
             guard let safety = inspection.safetyContext else {
                 return unavailable(
-                    "Overgrove stopped querying this repository for safety. "
+                    String(localized: "Overgrove stopped querying this repository for safety.") + " "
                         + PathValidator.displayable(inspection.report.blockingReason ?? ""))
             }
             return try await body(client, folder, safety)
         } catch let error as GitError {
             return unavailable(PathValidator.displayable(error.message))
         } catch is ParseError {
-            return unavailable("Overgrove could not read this stash.")
+            return unavailable(String(localized: "Overgrove could not read this stash."))
         } catch {
             return unavailable(GitError.cancelled.message)
         }

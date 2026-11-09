@@ -31,11 +31,12 @@ struct IssueRow: Identifiable, Equatable {
         self.linkKind = linkKind
         let link: String? =
             switch linkKind {
-            case .worktree: "linked worktree"
-            case .branch: "linked branch"
+            case .worktree: String(localized: "linked worktree")
+            case .branch: String(localized: "linked branch")
             case nil: nil
             }
-        accessibilityLabel = (["Issue \(issue.number)", title] + [link].compactMap { $0 }).joined(separator: ", ")
+        accessibilityLabel = ([String(localized: "Issue \(issue.number)"), title] + [link].compactMap { $0 }).joined(
+            separator: ", ")
         self.browserURL = browserURL
         urlText = PathValidator.displayable(issue.url.absoluteString)
     }
@@ -69,7 +70,8 @@ struct IssueListModel: Equatable {
 
     /// The line above the commands under the notice: gh's guidance, or the host login hint.
     var setupMessage: String? {
-        guidance?.message ?? (hostCommands.isEmpty ? nil : "Run one of these in Terminal, then check again:")
+        guidance?.message
+            ?? (hostCommands.isEmpty ? nil : String(localized: "Run one of these in Terminal, then check again:"))
     }
 
     /// The commands to copy under the notice.
@@ -105,19 +107,24 @@ struct IssueListModel: Equatable {
                 }
                 .map { IssueRow($0.issue, linkKind: $0.kind, source: repository) }
             count = issues.count
-            notice = issues.isEmpty ? Notice(symbol: "checkmark.circle", text: "No open issues", detail: nil) : nil
+            notice =
+                issues.isEmpty
+                ? Notice(symbol: "checkmark.circle", text: String(localized: "No open issues"), detail: nil) : nil
         // Degraded states (#83): Git features are unaffected; only this section explains and offers Check Again.
         case .noGitHubRemote:
             rows = []
             count = nil
             notice = Notice(
-                symbol: "network.slash", text: "No GitHub remote",
-                detail: "Issues appear for repositories with a remote on github.com or a host gh is logged in to.")
+                symbol: "network.slash", text: String(localized: "No GitHub remote"),
+                detail: String(
+                    localized:
+                        "Issues appear for repositories with a remote on github.com or a host gh is logged in to."))
         case .notLoggedInToHost(let host):
             rows = []
             count = nil
             notice = Notice(
-                symbol: "person.crop.circle.badge.exclamationmark", text: "Not logged in to \(host.name)",
+                symbol: "person.crop.circle.badge.exclamationmark",
+                text: String(localized: "Not logged in to \(host.name)"),
                 detail: String(
                     localized: "Issues appear when GitHub CLI, GitLab CLI, or Gitea CLI is logged in to this host."))
             hostCommands = [
@@ -127,19 +134,22 @@ struct IssueListModel: Equatable {
         case .notInstalled:
             rows = []
             count = nil
-            notice = Notice(symbol: "exclamationmark.triangle", text: "GitHub CLI not installed", detail: nil)
+            notice = Notice(
+                symbol: "exclamationmark.triangle", text: String(localized: "GitHub CLI not installed"), detail: nil)
             guidance = GHStatusGuidance(status: .notInstalled)
         case .notLoggedIn:
             rows = []
             count = nil
             notice = Notice(
-                symbol: "person.crop.circle.badge.exclamationmark", text: "Not logged in to GitHub", detail: nil)
+                symbol: "person.crop.circle.badge.exclamationmark", text: String(localized: "Not logged in to GitHub"),
+                detail: nil)
             guidance = GHStatusGuidance(status: .notLoggedIn)
         case .failed(let repository, let detail):
             rows = []
             count = nil
             notice = Notice(
-                symbol: "exclamationmark.triangle", text: "Cannot read issues for \(repository.slug)",
+                symbol: "exclamationmark.triangle",
+                text: String(localized: "Cannot read issues for \(repository.slug)"),
                 detail: detail.isEmpty ? nil : detail)
         }
     }
@@ -147,7 +157,9 @@ struct IssueListModel: Equatable {
 
 /// S-06's detail for one issue. The body is never shown (no Markdown, no remote images); `Open in Browser` is.
 struct IssueDetailModel: Equatable {
-    static let bodyNotice = "The issue body is not shown in Overgrove. Open it in your browser to read or reply."
+    static var bodyNotice: String {
+        String(localized: "The issue body is not shown in Overgrove. Open it in your browser to read or reply.")
+    }
 
     let number: String
     /// Escaped.
@@ -189,10 +201,10 @@ struct IssueDetailModel: Equatable {
         repository = source?.slug
         switch issue.state {
         case .open:
-            stateText = "Open"
+            stateText = String(localized: "Open")
             stateSymbol = "number.circle"
         case .closed:
-            stateText = "Closed"
+            stateText = String(localized: "Closed")
             stateSymbol = "checkmark.seal"
         }
         updatedAt = issue.updatedAt

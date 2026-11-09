@@ -27,16 +27,18 @@ struct PullRequestBadge: Equatable {
             case .closed: "xmark.circle"
             case .unknown: "questionmark.circle"
             }
-        help = "Pull request #\(pullRequest.number) (\(stateText)): \(PathValidator.displayable(pullRequest.title))"
-        accessibilityText = "pull request \(pullRequest.number), \(stateText.lowercased())"
+        let title = PathValidator.displayable(pullRequest.title)
+        help = String(localized: "Pull request #\(pullRequest.number) (\(stateText)): \(title)")
+        let state = stateText.lowercased()
+        accessibilityText = String(localized: "pull request \(pullRequest.number), \(state)")
     }
 
     static func stateText(_ pullRequest: PullRequest) -> String {
         switch pullRequest.state {
-        case .open: pullRequest.isDraft ? "Draft" : "Open"
-        case .merged: "Merged"
-        case .closed: "Closed"
-        case .unknown: "Unknown state"
+        case .open: pullRequest.isDraft ? String(localized: "Draft") : String(localized: "Open")
+        case .merged: String(localized: "Merged")
+        case .closed: String(localized: "Closed")
+        case .unknown: String(localized: "Unknown state")
         }
     }
 }
@@ -61,9 +63,9 @@ struct PullRequestCardModel: Equatable {
         title = PathValidator.displayable(pullRequest.title)
         review =
             switch pullRequest.reviewDecision {
-            case .approved: "Approved"
-            case .changesRequested: "Changes requested"
-            case .reviewRequired: "Review required"
+            case .approved: String(localized: "Approved")
+            case .changesRequested: String(localized: "Changes requested")
+            case .reviewRequired: String(localized: "Review required")
             case .none: nil
             }
         base = pullRequest.baseRefName.isEmpty ? nil : PathValidator.displayable(pullRequest.baseRefName)

@@ -25,21 +25,21 @@ enum GHError: Error, Sendable, Equatable {
     var message: String {
         switch self {
         case .notInstalled:
-            "GitHub CLI (gh) is not installed, so the issue panel is off."
+            String(localized: "GitHub CLI (gh) is not installed, so the issue panel is off.")
         case .notLoggedIn:
-            "GitHub CLI is not logged in. Run `gh auth login` in Terminal."
+            String(localized: "GitHub CLI is not logged in. Run `gh auth login` in Terminal.")
         case .launchFailed(let code):
-            "GitHub CLI could not be started (error \(code))."
+            String(localized: "GitHub CLI could not be started (error \(code)).")
         case .invalidArgument:
             "A name looked unsafe, so gh was not run."
         case .timeout(let seconds):
-            "GitHub CLI did not respond within \(seconds) seconds and was stopped."
+            String(localized: "GitHub CLI did not respond within \(seconds) seconds and was stopped.")
         case .outputTruncated:
-            "GitHub CLI returned more data than Overgrove accepts."
+            String(localized: "GitHub CLI returned more data than Overgrove accepts.")
         case .nonZeroExit(_, let detail):
-            detail.summary.isEmpty ? "GitHub CLI reported an error." : detail.summary
+            detail.summary.isEmpty ? String(localized: "GitHub CLI reported an error.") : detail.summary
         case .parseFailed:
-            "Overgrove could not understand gh's output. Please report this as a bug."
+            String(localized: "Overgrove could not understand gh's output. Please report this as a bug.")
         case .cancelled:
             ""
         }
