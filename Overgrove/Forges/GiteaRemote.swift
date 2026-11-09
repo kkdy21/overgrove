@@ -39,11 +39,6 @@ enum GiteaRemote {
         guard !name.hasSuffix(".git") else { return nil }
         return GiteaRepository(instance: instance, owner: owner, name: name)
     }
-
-    /// Some remote is in a hosted form: only then is gt asked for its accounts (no remote, no gt).
-    static func mayBeGitea(_ urls: [String]) -> Bool {
-        urls.contains { HostedRemoteURL($0) != nil }
-    }
 }
 
 extension GiteaRepository {

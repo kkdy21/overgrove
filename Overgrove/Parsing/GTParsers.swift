@@ -50,13 +50,14 @@ enum GTAuthParser {
 ///
 /// Anyone who can open an issue writes part of this output, so one odd entry drops only itself: only output that is not
 /// a JSON array fails. An entry without a usable `number`, `title`, `state`, `updated_at`, or https `url` is dropped.
-/// At most `maximumIssues` entries are kept; titles, labels, and label names are cut. A label color is kept only as six
+/// At most `maximumIssues` entries are kept; titles, labels, label names, and assignees are cut. A label color is kept only as six
 /// hex digits.
 enum GTIssueParser {
     static let maximumIssues = 200
     static let maximumTitle = 1_000
     static let maximumLabels = 50
     static let maximumLabelName = 100
+    static let maximumAssignees = 50
 
     private struct Entry: Decodable {
         let value: Issue?
@@ -108,7 +109,8 @@ enum GTIssueParser {
                         name: String(name.prefix(GTIssueParser.maximumLabelName)),
                         color: label.color.flatMap(GTIssueParser.hexColor))
                 }.prefix(GTIssueParser.maximumLabels).map { $0 },
-                assignees: assignees.compactMap(\.value).filter { !$0.isEmpty },
+                assignees: Array(
+                    assignees.lazy.compactMap(\.value).filter { !$0.isEmpty }.prefix(GTIssueParser.maximumAssignees)),
                 updatedAt: updatedAt,
                 url: url
             )

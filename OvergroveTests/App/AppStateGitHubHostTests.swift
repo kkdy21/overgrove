@@ -356,6 +356,40 @@ final class AppStateGitHubHostTests: XCTestCase {
         }
     }
 
+    /// SEC-T11-449-4: a gt answer that arrives after another repository opened is dropped.
+    func testSECT11_449_4_ALateGtAnswerAfterAnotherRepositoryIsDropped() async {
+        let gt = GatedGiteaInstanceChecker(["https://git.example.com"])
+        let issues = StubIssueLoader([.issues([giteaIssue])])
+        var listing = WorktreeListing.mockup
+        listing.remotes = [WorktreeListing.Remote(name: "origin", url: "git@git.example.com:acme/widgets.git")]
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: StubRepositoryLoader(result: .success(listing)), issueLoader: issues,
+            pullRequestLoader: StubPullRequestLoader([.unavailable]),
+            ghChecker: QueuedGHAuthReporter([report(["github.com"])]), gitlabChecker: StubGitLabHostChecker(),
+            giteaChecker: gt)
+        func context(_ path: String) -> RepositoryContext {
+            let root = URL(fileURLWithPath: path, isDirectory: true)
+            return RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil)
+        }
+        state.open(context("/tmp/dev/api"))
+        state.reload()
+        await state.loadTask?.value
+        await state.ghCheckTask?.value
+        let pending = state.gitlabCheckTask
+        for _ in 0..<150 where gt.calls == 0 { try? await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertEqual(gt.calls, 1, "gt is waiting with its answer")
+        state.open(context("/tmp/dev/other"))
+        gt.release()
+        await pending?.value
+        await state.issuePanel.task?.value
+        XCTAssertNil(state.issuePanel.repository)
+        XCTAssertEqual(issues.requests, [])
+    }
+
     /// The first CLI that confirms a login takes the host, in the order gh → glab → gt: with glab logged in, gt is not
     /// asked; a host gh is logged in to is never a gt candidate, even for a remote gh cannot read as `OWNER/NAME`.
     func testCLIsTakeAHostInTheOrderGhGlabGt() async {
@@ -394,5 +428,42 @@ final class StubGiteaInstanceChecker: GiteaInstanceChecking, @unchecked Sendable
             count += 1
             return instances
         }
+    }
+}
+
+/// Holds gt's answer until `release()`, so a test can change the repository meanwhile.
+final class GatedGiteaInstanceChecker: GiteaInstanceChecking, @unchecked Sendable {
+    private let lock = NSLock()
+    private let instances: [GiteaInstance]
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var isReleased = false
+    private var count = 0
+
+    init(_ urls: [String]) {
+        instances = urls.compactMap(GiteaInstance.init)
+    }
+
+    var calls: Int { lock.withLock { count } }
+
+    func release() {
+        let continuations = lock.withLock {
+            isReleased = true
+            defer { waiting = [] }
+            return waiting
+        }
+        for continuation in continuations { continuation.resume() }
+    }
+
+    func loggedInInstances() async -> [GiteaInstance] {
+        await withCheckedContinuation { continuation in
+            let resumeNow = lock.withLock {
+                count += 1
+                if isReleased { return true }
+                waiting.append(continuation)
+                return false
+            }
+            if resumeNow { continuation.resume() }
+        }
+        return instances
     }
 }

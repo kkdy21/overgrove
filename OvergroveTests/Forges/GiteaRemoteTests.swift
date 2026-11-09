@@ -47,8 +47,6 @@ final class GiteaRemoteTests: XCTestCase {
             GiteaRemote.repository(
                 remotes: [(name: "b", url: "https://elsewhere.example/x/y"), (name: "a", url: remotes[0].url)],
                 instances: [plain])?.slug, "me/widgets")
-        XCTAssertTrue(GiteaRemote.mayBeGitea(["https://git.example.com/a/b"]))
-        XCTAssertFalse(GiteaRemote.mayBeGitea(["~/dev/a", "https://localhost/a/b"]))
     }
 
     /// SEC-T9-449-4: Open in Browser only for this repository's issue page with this number on the instance's host,

@@ -151,8 +151,9 @@ final class GTParserTests: XCTestCase {
         let longTitle = String(repeating: "t", count: 5_000)
         let labels = (0..<80).map { #"{"name":"\#(String(repeating: "l", count: 300))\#($0)","color":"ffffff"}"# }
             .joined(separator: ",")
+        let assignees = (0..<80).map { #""user\#($0)""# }.joined(separator: ",")
         let entry = { (n: Int) in
-            #"{"number":\#(n),"title":"\#(longTitle)","state":"open","labels":[\#(labels)],"body":"x","url":"https://g.example.com/a/b/issues/\#(n)","updated_at":"2026-11-08T03:14:08Z"}"#
+            #"{"number":\#(n),"title":"\#(longTitle)","state":"open","labels":[\#(labels)],"assignees":[\#(assignees)],"body":"x","url":"https://g.example.com/a/b/issues/\#(n)","updated_at":"2026-11-08T03:14:08Z"}"#
         }
         let json = "[" + (1...250).map(entry).joined(separator: ",") + "]"
         let issues = try GTIssueParser.parse(data(json))
@@ -160,6 +161,7 @@ final class GTParserTests: XCTestCase {
         XCTAssertEqual(issues[0].title.count, GTIssueParser.maximumTitle)
         XCTAssertEqual(issues[0].labels.count, GTIssueParser.maximumLabels)
         XCTAssertEqual(issues[0].labels[0].name.count, GTIssueParser.maximumLabelName)
+        XCTAssertEqual(issues[0].assignees.count, GTIssueParser.maximumAssignees)
     }
 
     /// PAR-GT-04: only gt's `gt version X.Y.Z` line is accepted (Graphite's `gt` prints a bare number).
