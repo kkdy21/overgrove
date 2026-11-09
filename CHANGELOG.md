@@ -45,6 +45,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Open on GitHub for a remote-tracking branch uses the remote its row is grouped under: a branch of a non-GitHub
+  remote whose name starts with a GitHub remote's name no longer opens the GitHub remote's page.
 - Quick Look refuses more file types whose preview renders web content or names a location, by extension and by
   file type.
 

@@ -48,6 +48,8 @@ struct TerminalConfirmation: Identifiable, Equatable {
     var role: ExternalAppRole = .terminal
     var bundleIdentifier = ExternalApps.defaultTerminal
     var appName = "Terminal"
+    /// One file opened in the editor (an untrusted repository's file row, #469), not a folder.
+    var isFile = false
 
     var title: String { "Open in \(appName)?" }
 
@@ -57,6 +59,11 @@ struct TerminalConfirmation: Identifiable, Equatable {
             case .terminal:
                 "Shell prompt tools, and git commands you type, use this repository’s own settings in this folder, "
                     + "which can run commands:"
+            case .editor where isFile:
+                String(
+                    localized:
+                        "Editors and their extensions can run this repository’s own settings and tasks when they open this file, and git commands they run use its settings, which can run commands:"
+                )
             case .editor:
                 "Editors and their extensions can run this repository’s own settings and tasks in this folder, and "
                     + "git commands they run use its settings, which can run commands:"
