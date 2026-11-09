@@ -53,6 +53,7 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Graph Zoom In also answers ⌘= on keyboards where + needs Shift.
 - Quick Look refuses more file types whose preview renders web content or names a location, by extension and by
   file type.
+- Open on GitHub for commits and files uses only the remotes the current load inspected, like branch rows.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
