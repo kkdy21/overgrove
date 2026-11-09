@@ -20,13 +20,15 @@ enum GHAuthParser {
         try status(decode(data), host: host)
     }
 
-    /// github.com's login state, plus every host gh lists an account for: the hosts whose remotes the app may hand
-    /// to gh (ADR-0025 §1). A host name that is not a `RemoteHost` is left out.
+    /// github.com's login state, plus every host gh lists a working account for (`state == "success"`, active or
+    /// not): the hosts whose remotes the app may hand to gh (ADR-0025 §1). A host whose accounts are all in another
+    /// state (an expired or revoked token, a check that failed) is not trusted (#467). A host name that is not a
+    /// `RemoteHost` is left out.
     static func parseReport(_ data: Data) throws -> GHAuthReport {
         let response = try decode(data)
         var hosts: Set<RemoteHost> = []
         var active: [RemoteHost: GHAccount] = [:]
-        for (name, accounts) in response.hosts where !accounts.isEmpty {
+        for (name, accounts) in response.hosts where accounts.contains(where: { $0.state == "success" }) {
             guard let host = RemoteHost(name) else { continue }
             hosts.insert(host)
             // Display only (ADR-0025 §4): an odd login on another host hides that account, not the report.
