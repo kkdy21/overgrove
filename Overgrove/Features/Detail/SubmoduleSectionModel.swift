@@ -65,36 +65,44 @@ struct SubmoduleSectionModel: Equatable {
             return ("clean", .quiet, nil)
         case .changed(let files, let untracked, let isPartial):
             var parts: [String] = []
-            if files > 0 { parts.append("\(files)\(isPartial ? "+" : "") changed") }
-            if untracked > 0 { parts.append("\(untracked) untracked") }
-            if parts.isEmpty { parts.append("changes (list cut)") }
+            if files > 0 { parts.append(String(localized: "\(files)\(isPartial ? "+" : "") changed")) }
+            if untracked > 0 { parts.append(String(localized: "\(untracked) untracked")) }
+            if parts.isEmpty { parts.append(String(localized: "changes (list cut)")) }
             return (parts.joined(separator: " · "), .changed, nil)
         case .notCheckedOut:
-            return ("not checked out", .quiet, "The submodule has no checkout here (git submodule update was not run).")
+            return (
+                String(localized: "not checked out"), .quiet,
+                String(localized: "The submodule has no checkout here (git submodule update was not run).")
+            )
         case .gitDirectoryMissing:
             return (
-                "git directory missing", .quiet,
-                "Its .git names a git directory that does not exist (an interrupted git submodule update or a partial "
-                    + "copy), so nothing runs there."
+                String(localized: "git directory missing"), .quiet,
+                String(
+                    localized:
+                        "Its .git names a git directory that does not exist (an interrupted git submodule update or a partial copy), so nothing runs there."
+                )
             )
         case .notInspected(let reason):
-            return ("not inspected", .attention, help(for: reason))
+            return (String(localized: "not inspected"), .attention, help(for: reason))
         case .failed(let error):
-            return ("failed", .attention, PathValidator.displayable(CredentialMasker.mask(error.message)))
+            return (
+                String(localized: "failed"), .attention, PathValidator.displayable(CredentialMasker.mask(error.message))
+            )
         }
     }
 
     private static func help(for reason: SubmoduleStatus.Reason) -> String {
         switch reason {
         case .invalidPath:
-            "The path leaves the worktree or is not a plain relative path."
+            String(localized: "The path leaves the worktree or is not a plain relative path.")
         case .symbolicLink:
-            "The path goes through a symbolic link, so Overgrove does not follow it."
+            String(localized: "The path goes through a symbolic link, so Overgrove does not follow it.")
         case .outsideRepository:
-            "Its .git leads outside this repository's modules folder, so nothing runs there."
+            String(localized: "Its .git leads outside this repository's modules folder, so nothing runs there.")
         case .blocked(let reason):
-            "Its own settings block queries: "
-                + PathValidator.displayable(CredentialMasker.mask(reason.isEmpty ? "unsafe configuration" : reason))
+            String(localized: "Its own settings block queries:") + " "
+                + PathValidator.displayable(
+                    CredentialMasker.mask(reason.isEmpty ? String(localized: "unsafe configuration") : reason))
         }
     }
 }

@@ -137,11 +137,12 @@ struct WipDetailModel: Equatable {
             content = groups.isEmpty ? .clean : .changes(groups)
             warning =
                 state.isPartial || state.skippedRecords > 0
-                ? "Some changes could not be read, so this list may be incomplete." : nil
+                ? String(localized: "Some changes could not be read, so this list may be incomplete.") : nil
             let counted = groups.filter { $0.group == .staged || $0.group == .unstaged }
             let totals = counted.compactMap(\.lineTotals)
             lineTotals = !counted.isEmpty && totals.count == counted.count ? WipLineTotals.sum(totals) : nil
-            lineCountNote = lineCounts == .failed && !counted.isEmpty ? "Line counts unavailable" : nil
+            lineCountNote =
+                lineCounts == .failed && !counted.isEmpty ? String(localized: "Line counts unavailable") : nil
         case .missing:
             changedFileCount = 0
             content = .missing
@@ -201,7 +202,9 @@ struct WipDetailModel: Equatable {
                 totalCount: changes.count,
                 countText: isOver ? "\(formatted(limit))+" : formatted(changes.count),
                 limitNote: isOver
-                    ? "Showing first \(formatted(limit)) files · \(formatted(changes.count - limit)) more" : nil,
+                    ? String(
+                        localized: "Showing first \(formatted(limit)) files · \(formatted(changes.count - limit)) more")
+                    : nil,
                 lineTotals: totals(rows, lineCounts: lineCounts, hasStats: stats != nil))
         }
     }
@@ -306,9 +309,13 @@ struct WipDetailModel: Equatable {
     static func lineCountDescription(_ lineCount: WipLineCount) -> String {
         switch lineCount {
         case .binary:
-            return "binary file"
+            return String(localized: "binary file")
         case .lines(let added, let deleted):
-            return "\(formatted(added)) \(added == 1 ? "line" : "lines") added, \(formatted(deleted)) removed"
+            let addedText = formatted(added)
+            let deletedText = formatted(deleted)
+            return added == 1
+                ? String(localized: "\(addedText) line added, \(deletedText) removed")
+                : String(localized: "\(addedText) lines added, \(deletedText) removed")
         }
     }
 
@@ -331,13 +338,13 @@ struct WipDetailModel: Equatable {
 
     static func kindName(_ status: FileChange.Status) -> String {
         switch status {
-        case .modified: "modified"
-        case .typeChanged: "type changed"
-        case .added: "added"
-        case .deleted: "deleted"
-        case .renamed: "renamed"
-        case .copied: "copied"
-        case .untracked: "untracked"
+        case .modified: String(localized: "modified", comment: "File change kind")
+        case .typeChanged: String(localized: "type changed", comment: "File change kind")
+        case .added: String(localized: "added", comment: "File change kind")
+        case .deleted: String(localized: "deleted", comment: "File change kind")
+        case .renamed: String(localized: "renamed", comment: "File change kind")
+        case .copied: String(localized: "copied", comment: "File change kind")
+        case .untracked: String(localized: "untracked", comment: "File change kind")
         case .conflicted(let kind): conflictName(kind)
         }
     }
@@ -345,31 +352,37 @@ struct WipDetailModel: Equatable {
     /// The seven unmerged states of `git status` (porcelain v2 `u` records).
     static func conflictName(_ kind: ConflictKind) -> String {
         switch kind {
-        case .bothDeleted: "both deleted"
-        case .addedByUs: "added by us"
-        case .deletedByThem: "deleted by them"
-        case .addedByThem: "added by them"
-        case .deletedByUs: "deleted by us"
-        case .bothAdded: "both added"
-        case .bothModified: "both modified"
+        case .bothDeleted: String(localized: "both deleted", comment: "File change kind")
+        case .addedByUs: String(localized: "added by us", comment: "File change kind")
+        case .deletedByThem: String(localized: "deleted by them", comment: "File change kind")
+        case .addedByThem: String(localized: "added by them", comment: "File change kind")
+        case .deletedByUs: String(localized: "deleted by us", comment: "File change kind")
+        case .bothAdded: String(localized: "both added", comment: "File change kind")
+        case .bothModified: String(localized: "both modified", comment: "File change kind")
         }
     }
 
     private static func message(for reason: WorktreeListing.NotQueriedReason) -> String {
         switch reason {
         case .bare:
-            "A bare repository has no working tree."
+            String(localized: "A bare repository has no working tree.")
         case .unrepresentablePath:
-            "This worktree's path is not valid UTF-8, so Overgrove cannot pass it to git."
+            String(localized: "This worktree's path is not valid UTF-8, so Overgrove cannot pass it to git.")
         case .foreignRepository:
-            "This worktree entry points at a folder that belongs to another repository, so Overgrove does not query it."
+            String(
+                localized:
+                    "This worktree entry points at a folder that belongs to another repository, so Overgrove does not query it."
+            )
         case .inspectionBlocked(let reason):
-            "Overgrove stopped querying this worktree for safety. \(PathValidator.displayable(reason))"
+            String(
+                localized: "Overgrove stopped querying this worktree for safety. \(PathValidator.displayable(reason))")
         case .duplicate:
-            "Another worktree entry leads to this folder; its changes are shown under that entry."
+            String(localized: "Another worktree entry leads to this folder; its changes are shown under that entry.")
         case .limit:
-            "This repository lists more than \(RepositoryService.defaultMaximumQueriedWorktrees) worktrees. Overgrove "
-                + "loads the changes of the first \(RepositoryService.defaultMaximumQueriedWorktrees)."
+            String(
+                localized:
+                    "This repository lists more than \(RepositoryService.defaultMaximumQueriedWorktrees) worktrees. Overgrove loads the changes of the first \(RepositoryService.defaultMaximumQueriedWorktrees)."
+            )
         }
     }
 
@@ -388,10 +401,10 @@ struct WipDetailModel: Equatable {
 extension WorkingChangeGroup {
     var title: String {
         switch self {
-        case .conflicted: "Conflicted"
-        case .staged: "Staged"
-        case .unstaged: "Unstaged"
-        case .untracked: "Untracked"
+        case .conflicted: String(localized: "Conflicted", comment: "File group")
+        case .staged: String(localized: "Staged", comment: "File group")
+        case .unstaged: String(localized: "Unstaged", comment: "File group")
+        case .untracked: String(localized: "Untracked", comment: "File group")
         }
     }
 

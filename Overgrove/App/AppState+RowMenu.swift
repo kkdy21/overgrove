@@ -70,7 +70,8 @@ extension AppState {
         guard available, let root = worktree ?? focusedWorktreePath else { return }
         switch QuickLook.target(path, in: URL(fileURLWithPath: root.display, isDirectory: true)) {
         case .success(let url): quickLookURL = url
-        case .failure(let refusal): alert = AppAlert(title: "Can’t Preview", message: refusal.message)
+        case .failure(let refusal):
+            alert = AppAlert(title: String(localized: "Can’t Preview"), message: refusal.message)
         }
     }
 
@@ -80,13 +81,16 @@ extension AppState {
         let rootURL = URL(fileURLWithPath: root.display, isDirectory: true)
         switch RowActions.revealTarget(rootURL.appendingPathComponent(path.display), within: rootURL) {
         case .success(let url): rowActions.reveal(url)
-        case .failure(let refusal): alert = AppAlert(title: "Can’t Reveal in Finder", message: refusal.message)
+        case .failure(let refusal):
+            alert = AppAlert(title: String(localized: "Can’t Reveal in Finder"), message: refusal.message)
         }
     }
 
     func revealWorktree(_ path: GitPath) {
         // Never from a launch snapshot's rows (ADR-0018 §5): its paths are not this load's.
-        guard !worktreeList.isSnapshot, let folder = existingFolder(path, action: "Reveal in Finder") else { return }
+        guard !worktreeList.isSnapshot,
+            let folder = existingFolder(path, alertTitle: String(localized: "Can’t Reveal in Finder"))
+        else { return }
         rowActions.reveal(folder)
     }
 
@@ -104,9 +108,10 @@ extension AppState {
     }
 
     private func openFolder(_ path: GitPath, role: ExternalAppRole, bundleIdentifier: String) {
-        let action = "Open in \(role.title)"
         // Never from a launch snapshot's rows (ADR-0018 §5): its paths are not this load's.
-        guard !worktreeList.isSnapshot, let folder = existingFolder(path, action: action) else { return }
+        guard !worktreeList.isSnapshot, let folder = existingFolder(path, alertTitle: role.cantOpenTitle) else {
+            return
+        }
         guard let name = usableApplication(bundleIdentifier, role: role) else { return }
         let hooks =
             repository.map { LiveWorktreeInspector.hookExecutables(in: $0.repository.commonGitDirectoryURL) } ?? []
@@ -132,13 +137,15 @@ extension AppState {
         switch RowActions.revealTarget(rootURL.appendingPathComponent(path.display), within: rootURL) {
         case .success(let url): target = url
         case .failure(let refusal):
-            alert = AppAlert(title: "Can’t Open in Editor", message: refusal.message)
+            alert = AppAlert(title: ExternalAppRole.editor.cantOpenTitle, message: refusal.message)
             return
         }
         guard Self.isOpenableFile(target) else {
             alert = AppAlert(
-                title: "Can’t Open in Editor",
-                message: "Overgrove opens regular files only: not folders, packages, executables, or files macOS runs.")
+                title: ExternalAppRole.editor.cantOpenTitle,
+                message: String(
+                    localized:
+                        "Overgrove opens regular files only: not folders, packages, executables, or files macOS runs."))
             return
         }
         guard let name = usableApplication(editor, role: .editor) else { return }
@@ -169,18 +176,14 @@ extension AppState {
     /// The chosen app's name when it is installed and not inside a registered repository or one of this
     /// repository's worktrees (a repository could hold an app claiming the same bundle identifier, #124).
     private func usableApplication(_ bundleIdentifier: String, role: ExternalAppRole) -> String? {
-        let action = "Open in \(role.title)"
         guard let url = rowActions.applicationURL(bundleIdentifier),
             let name = rowActions.applicationName(bundleIdentifier)
         else {
-            alert = AppAlert(title: "Can’t \(action)", message: Self.missingApp(role))
+            alert = AppAlert(title: role.cantOpenTitle, message: role.missingAppMessage)
             return nil
         }
         if isInsideRepository(url) {
-            alert = AppAlert(
-                title: "Can’t \(action)",
-                message: "The \(role.title.lowercased()) found for the chosen app is inside a repository, so Overgrove "
-                    + "does not open it.")
+            alert = AppAlert(title: role.cantOpenTitle, message: role.insideRepositoryMessage)
             return nil
         }
         return name
@@ -205,18 +208,15 @@ extension AppState {
 
     private func open(_ item: URL, in bundleIdentifier: String, role: ExternalAppRole) {
         if !rowActions.open(item, inApplication: bundleIdentifier) {
-            alert = AppAlert(title: "Can’t Open in \(role.title)", message: Self.missingApp(role))
+            alert = AppAlert(title: role.cantOpenTitle, message: role.missingAppMessage)
         }
-    }
-
-    private static func missingApp(_ role: ExternalAppRole) -> String {
-        "The \(role.title.lowercased()) chosen in Settings › Advanced is not installed. Choose another one there."
     }
 
     func openInBrowser(_ url: URL) {
         switch RowActions.browserTarget(url) {
         case .success(let checked): rowActions.openInBrowser(checked)
-        case .failure(let refusal): alert = AppAlert(title: "Can’t Open Link", message: refusal.message)
+        case .failure(let refusal):
+            alert = AppAlert(title: String(localized: "Can’t Open Link"), message: refusal.message)
         }
     }
 
@@ -233,11 +233,11 @@ extension AppState {
     }
 
     /// A worktree folder that is still there; a listed worktree is git's own record, so it may be anywhere.
-    private func existingFolder(_ path: GitPath, action: String) -> URL? {
+    private func existingFolder(_ path: GitPath, alertTitle: String) -> URL? {
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(atPath: path.display, isDirectory: &isDirectory), isDirectory.boolValue
         else {
-            alert = AppAlert(title: "Can’t \(action)", message: "The worktree folder no longer exists.")
+            alert = AppAlert(title: alertTitle, message: String(localized: "The worktree folder no longer exists."))
             return nil
         }
         return URL(fileURLWithPath: path.display, isDirectory: true)

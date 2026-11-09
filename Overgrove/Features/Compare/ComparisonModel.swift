@@ -87,20 +87,24 @@ struct ComparisonModel: Equatable {
     /// result stays, dimmed, under this notice, and nothing in it can be changed until a load succeeds.
     let staleNotice: String?
 
-    static let listFailedNotice = "The worktree list could not be read, so this comparison may be out of date."
+    static var listFailedNotice: String {
+        String(localized: "The worktree list could not be read, so this comparison may be out of date.")
+    }
     /// The worktree is still listed but its status was not read on the last load (#413).
-    static let worktreeUnreadNotice = "This worktree's status could not be read, so this comparison may be out of date."
+    static var worktreeUnreadNotice: String {
+        String(localized: "This worktree's status could not be read, so this comparison may be out of date.")
+    }
 
     /// - Parameter staleNotice: Why the result may be out of date (`listFailedNotice`, `worktreeUnreadNotice`), or
     ///   `nil` when it is current.
     init(session: ComparisonSession, workingState: WorkingState?, staleNotice: String? = nil) {
         self.staleNotice = staleNotice
-        let baseName = session.base.map(Self.shortName) ?? "base branch"
+        let baseName = session.base.map(Self.shortName) ?? String(localized: "base branch")
         self.baseName = baseName
         let uncommitted = Set(((workingState?.staged ?? []) + (workingState?.unstaged ?? [])).map(\.path))
         switch session.result {
         case .loading:
-            state = .loading("Comparing with \(baseName)…")
+            state = .loading(String(localized: "Comparing with \(baseName)…"))
             summary = nil
             commits = []
             hasMoreCommits = false
@@ -136,7 +140,8 @@ struct ComparisonModel: Equatable {
             files = shown.map { Self.fileRow($0, uncommitted: comparison.includesWorkingTree ? uncommitted : []) }
             totalFileCount = all.count
             showAllTitle =
-                all.count > shown.count ? "Show all \(WipDetailModel.formatted(all.count)) files" : nil
+                all.count > shown.count
+                ? String(localized: "Show all \(WipDetailModel.formatted(all.count)) files") : nil
             isFileListPartial = comparison.isFileListPartial
             untracked = comparison.untracked.map {
                 Self.fileRow(
@@ -160,7 +165,7 @@ struct ComparisonModel: Equatable {
             summary = Self.summary(comparison, uncommittedFiles: uncommittedInList, totalLineChange: totalLineChange)
             state =
                 all.isEmpty && comparison.untracked.isEmpty && comparison.commits.isEmpty
-                ? .noChanges("No changes compared with \(baseName)") : .loaded
+                ? .noChanges(String(localized: "No changes compared with \(baseName)")) : .loaded
         }
     }
 
@@ -177,17 +182,25 @@ struct ComparisonModel: Equatable {
     {
         var parts: [String] = []
         if let counts = comparison.counts {
-            parts.append("\(counts.ahead) \(counts.ahead == 1 ? "commit" : "commits") ahead · \(counts.behind) behind")
+            let ahead = counts.ahead
+            parts.append(
+                (ahead == 1 ? String(localized: "\(ahead) commit ahead") : String(localized: "\(ahead) commits ahead"))
+                    + " · " + String(localized: "\(counts.behind) behind"))
         } else {
             let count = comparison.commits.count
+            let shown = "\(count)\(comparison.isCommitListPartial ? "+" : "")"
             parts.append(
-                "\(count)\(comparison.isCommitListPartial ? "+" : "") \(count == 1 ? "commit" : "commits") ahead")
+                count == 1 ? String(localized: "\(shown) commit ahead") : String(localized: "\(shown) commits ahead"))
         }
         if comparison.includesWorkingTree {
-            parts.append("uncommitted: \(uncommittedFiles) \(uncommittedFiles == 1 ? "file" : "files")")
+            parts.append(
+                uncommittedFiles == 1
+                    ? String(localized: "uncommitted: \(uncommittedFiles) file")
+                    : String(localized: "uncommitted: \(uncommittedFiles) files"))
         }
         let files = comparison.files.count
-        parts.append("\(WipDetailModel.formatted(files)) \(files == 1 ? "file" : "files")")
+        let fileCount = WipDetailModel.formatted(files)
+        parts.append(files == 1 ? String(localized: "\(fileCount) file") : String(localized: "\(fileCount) files"))
         parts.append(totalLineChange)
         return parts.joined(separator: " · ")
     }
@@ -205,6 +218,7 @@ struct ComparisonModel: Equatable {
             isSelectable: stat.path.isRepresentable && (stat.originalPath?.isRepresentable ?? true),
             originalPath: stat.originalPath,
             accessibilityLabel: WipDetailModel.fileAccessibilityLabel(
-                stat, extras: uncommitted.contains(stat.path) ? ["also changed in the working tree"] : []))
+                stat,
+                extras: uncommitted.contains(stat.path) ? [String(localized: "also changed in the working tree")] : []))
     }
 }

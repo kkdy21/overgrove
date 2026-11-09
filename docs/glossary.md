@@ -62,6 +62,19 @@
 | Use Default | 기본값 사용 |
 | Setup Assistant | 설정 도우미 |
 | Show / Copy / Reveal in Finder / Open in Terminal | 보기 / 복사 / Finder에서 보기 / 터미널에서 열기 |
+| Base / Target (비교) | 기준 / 대상 |
+| Compare with Base | 기준과 비교 |
+| ahead / behind (VoiceOver) | 앞섬 / 뒤처짐 |
+| Committed / Uncommitted | 커밋됨 / 미커밋 |
+| Annotated tag / Lightweight tag | 주석 태그 / 경량 태그 |
+| Co-author / Committer / Parent | 공동 작성자 / 커미터 / 부모 |
+| path missing | 경로 없음 |
+| Open on GitHub / Quick Look | GitHub에서 열기 / 훑어보기(macOS 표기) |
+| Pull request / Draft / Merged / Open / Closed | 풀 리퀘스트 / 초안 / 병합됨 / 열림 / 닫힘 |
+| Approved / Changes requested / Review required | 승인됨 / 변경 요청됨 / 리뷰 필요 |
+| Open in Browser / Copy URL | 브라우저에서 열기 / URL 복사 |
+| Issue / Linked | 이슈 / 연결됨 |
+| Refreshing… / Never fetched / Fetched 2 min ago | 새로 고치는 중… / 페치한 적 없음 / 2분 전 페치함 |
 
 ## Git 출력·호출
 

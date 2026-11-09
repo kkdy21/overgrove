@@ -16,23 +16,24 @@ extension AppState {
             case .added:
                 openRegistered(registration.entry.id)
                 if let notice = registration.notice {
-                    alert = AppAlert(title: "Repository Added", message: notice)
+                    alert = AppAlert(title: String(localized: "Repository Added"), message: notice)
                 }
             case .alreadyRegistered:
                 guard let existing = registry.repository(withID: registration.entry.id) else { return }
                 openRegistered(existing.id)
                 alert = AppAlert(
-                    title: "Repository Already Added",
-                    message: "“\(existing.name)” is already in Overgrove, at \(existing.displayRootPath).")
+                    title: String(localized: "Repository Already Added"),
+                    message: String(
+                        localized: "“\(existing.name)” is already in Overgrove, at \(existing.displayRootPath)."))
             case .rejected:
                 // The registrar's checks make this unreachable; refuse rather than store a malformed path.
                 alert = AppAlert(
-                    title: "Couldn’t Add Repository",
+                    title: String(localized: "Couldn’t Add Repository"),
                     message: RegistrationError.invalidPath(.controlCharacters).message)
             }
         } catch {
             if error != .git(.cancelled) {
-                alert = AppAlert(title: "Couldn’t Add Repository", message: error.message)
+                alert = AppAlert(title: String(localized: "Couldn’t Add Repository"), message: error.message)
             }
         }
     }
@@ -50,10 +51,11 @@ extension AppState {
         else {
             if !quietly {
                 alert = AppAlert(
-                    title: "Repository Not Found",
-                    message:
-                        "The folder of “\(entry.name)” is missing or was replaced (\(entry.displayRootPath)). Restore "
-                        + "it, or remove the repository from Overgrove.")
+                    title: String(localized: "Repository Not Found"),
+                    message: String(
+                        localized:
+                            "The folder of “\(entry.name)” is missing or was replaced (\(entry.displayRootPath)). Restore it, or remove the repository from Overgrove."
+                    ))
             }
             return
         }

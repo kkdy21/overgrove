@@ -28,12 +28,14 @@ struct FetchRemoteLimit: Equatable, Sendable {
     let total: Int
 
     /// For the status bar: `16 of 40 remotes`.
-    var short: String { "\(fetched) of \(total) remotes" }
+    var short: String { String(localized: "\(fetched) of \(total) remotes") }
 
     /// For the Details sheet.
     var sentence: String {
-        "This repository has \(total) remotes. Overgrove fetched the first \(fetched), in the order of its "
-            + "configuration, and skipped the rest."
+        String(
+            localized:
+                "This repository has \(total) remotes. Overgrove fetched the first \(fetched), in the order of its configuration, and skipped the rest."
+        )
     }
 }
 
