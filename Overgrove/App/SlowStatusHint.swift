@@ -24,19 +24,26 @@ struct SlowStatusHint: Equatable, Sendable {
         guard let duration, duration > Self.threshold else { return nil }
         self.duration = duration
         let seconds = Self.seconds(duration)
-        short = "Status \(seconds) s"
-        let cause =
-            "Status took \(seconds) s. If files were rewritten outside git (a formatter or a build), git re-reads them "
-            + "every time until its index is refreshed. Overgrove does not write the index."
+        short = String(localized: "Status \(seconds) s")
+        let cause = String(
+            localized:
+                "Status took \(seconds) s. If files were rewritten outside git (a formatter or a build), git re-reads them every time until its index is refreshed. Overgrove does not write the index."
+        )
         if isConfigurationClean {
             message =
-                cause + " Running \"git status\" once in Terminal refreshes it and makes this fast again. Terminal git "
-                + "also runs the repository's own hooks and settings, so do this only for a repository you trust."
+                cause + " "
+                + String(
+                    localized:
+                        "Running \"git status\" once in Terminal refreshes it and makes this fast again. Terminal git also runs the repository's own hooks and settings, so do this only for a repository you trust."
+                )
             command = "git status"
         } else {
             message =
-                cause + " Overgrove does not suggest running git in Terminal for this repository: its configuration "
-                + "or hooks are not known to be safe."
+                cause + " "
+                + String(
+                    localized:
+                        "Overgrove does not suggest running git in Terminal for this repository: its configuration or hooks are not known to be safe."
+                )
             command = nil
         }
     }

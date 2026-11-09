@@ -11,8 +11,39 @@ enum ExternalAppRole: Sendable, Equatable {
 
     var title: String {
         switch self {
-        case .terminal: "Terminal"
-        case .editor: "Editor"
+        case .terminal: String(localized: "Terminal", comment: "App role")
+        case .editor: String(localized: "Editor", comment: "App role")
+        }
+    }
+
+    /// The alert title when the app cannot be opened (one key per role, so a translation can phrase it whole).
+    var cantOpenTitle: String {
+        switch self {
+        case .terminal: String(localized: "Can’t Open in Terminal")
+        case .editor: String(localized: "Can’t Open in Editor")
+        }
+    }
+
+    /// The chosen app is not installed.
+    var missingAppMessage: String {
+        switch self {
+        case .terminal:
+            String(localized: "The terminal chosen in Settings › Advanced is not installed. Choose another one there.")
+        case .editor:
+            String(localized: "The editor chosen in Settings › Advanced is not installed. Choose another one there.")
+        }
+    }
+
+    /// The app found for the chosen bundle identifier is inside a repository (#124).
+    var insideRepositoryMessage: String {
+        switch self {
+        case .terminal:
+            String(
+                localized:
+                    "The terminal found for the chosen app is inside a repository, so Overgrove does not open it.")
+        case .editor:
+            String(
+                localized: "The editor found for the chosen app is inside a repository, so Overgrove does not open it.")
         }
     }
 }
@@ -32,9 +63,9 @@ enum ExternalAppRefusal: Error, Equatable {
 
     var message: String {
         switch self {
-        case .notAnApp: "Choose an application (.app)."
+        case .notAnApp: String(localized: "Choose an application (.app).")
         case .noBundleIdentifier: "The application has no valid bundle identifier."
-        case .noExecutable: "The application has no executable."
+        case .noExecutable: String(localized: "The application has no executable.")
         }
     }
 }

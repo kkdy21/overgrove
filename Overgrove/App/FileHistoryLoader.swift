@@ -49,12 +49,13 @@ struct LiveFileHistoryLoader: FileHistoryLoading {
     /// Reading from the newest commit each time also keeps every commit's path right across renames.
     func page(_ target: FileHistoryTarget, skip: Int, limit: Int) async -> FileHistoryLoadResult {
         guard target.path.isRepresentable else {
-            return .unavailable("This path is not valid UTF-8, so Overgrove cannot show its history.")
+            return .unavailable(
+                String(localized: "This path is not valid UTF-8, so Overgrove cannot show its history."))
         }
         guard target.worktree.path.isRepresentable,
             let directory = PathValidator.canonical(
                 URL(fileURLWithPath: target.worktree.path.display, isDirectory: true))
-        else { return .unavailable("The worktree folder could not be found.") }
+        else { return .unavailable(String(localized: "The worktree folder could not be found.")) }
         do {
             let client = try await self.client()
             guard
@@ -63,7 +64,7 @@ struct LiveFileHistoryLoader: FileHistoryLoading {
             else { return .unavailable(LiveWorktreeInspector.noLongerMatches) }
             guard let safety = inspection.safetyContext else {
                 return .unavailable(
-                    "Overgrove stopped querying this worktree for safety. "
+                    String(localized: "Overgrove stopped querying this worktree for safety.") + " "
                         + PathValidator.displayable(inspection.report.blockingReason ?? ""))
             }
             // Past the command's limit the history is cut, not finished (security review of #70, T15).
@@ -81,7 +82,7 @@ struct LiveFileHistoryLoader: FileHistoryLoading {
         } catch let error as GitError {
             return .unavailable(PathValidator.displayable(error.message))
         } catch is ParseError {
-            return .unavailable("Overgrove could not read this file's history.")
+            return .unavailable(String(localized: "Overgrove could not read this file's history."))
         } catch {
             return .cancelled
         }

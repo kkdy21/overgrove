@@ -10,15 +10,13 @@ final class LocalizationTests: XCTestCase {
         .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     private static let catalog = repo.appendingPathComponent("Overgrove/Resources/Localizable.xcstrings")
 
-    /// Stage 1 screens (#120): every string the compiler extracts from these files must have Korean. Screens other
-    /// PRs are changing (sidebar, status bar, issue panel, S-05) come in stage 2 and are not listed yet.
-    private static let stageOneSources = [
-        "SettingsView", "GitExecutableSettingsView", "GitExecutableSettingsModel", "SetupAssistantView",
-        "GraphHeaderViews", "GraphColumnLayout", "GraphAuthorFilter", "DiffViewerView", "NavigationCommands",
-        "SearchCommands", "GraphZoomCommands", "OvergroveApp",
-    ]
-    /// Files with stage 1 strings among others: only these keys are checked.
-    private static let stageOneKeysIn = ["PanelChrome": Set(["Graph", "History"])]
+    /// A key with no letters once its placeholders are removed (`%@ (%@)`, `#%lld`, spacing) needs no Korean: it reads
+    /// the same in every language.
+    private static func needsTranslation(_ key: String) -> Bool {
+        let bare = key.replacingOccurrences(
+            of: "%(?:[0-9]+\\$)?(?:@|lld|ld|d)", with: "", options: .regularExpression)
+        return bare.rangeOfCharacter(from: .letters) != nil
+    }
 
     private func catalogStrings() throws -> [String: [String: Any]] {
         let data = try Data(contentsOf: Self.catalog)
@@ -54,23 +52,38 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
-    /// The strings the compiler extracted from the stage 1 sources (the build's `.stringsdata`) all have Korean.
-    func testStageOneStringsAreTranslated() throws {
+    /// Every string the compiler extracts anywhere in the app (the build's `.stringsdata`) has Korean (#454: the whole
+    /// app, not a list of screens). Text that must stay English (Copy Report, git's and gh's own output, copyable
+    /// commands) is never extracted in the first place.
+    func testEveryExtractedStringHasKorean() throws {
         let strings = try catalogStrings()
         let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
         var checked = 0
-        for name in Self.stageOneSources + Array(Self.stageOneKeysIn.keys) {
-            let files = objects.map { $0.appendingPathComponent("\(name).stringsdata") }
-                .filter { FileManager.default.fileExists(atPath: $0.path) }
-            XCTAssertFalse(files.isEmpty, "no strings extracted from \(name).swift")
+        var missing: [String] = []
+        for directory in objects {
+            let files = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+                .filter { $0.pathExtension == "stringsdata" }
             for file in files {
-                for key in try Self.extractedKeys(file) where Self.stageOneKeysIn[name]?.contains(key) ?? true {
+                for key in try Self.extractedKeys(file) where Self.needsTranslation(key) {
                     checked += 1
-                    XCTAssertNotNil(strings[key].flatMap(korean), "\(name).swift: no Korean for “\(key)”")
+                    if strings[key].flatMap(korean) == nil {
+                        missing.append("\(file.deletingPathExtension().lastPathComponent).swift: “\(key)”")
+                    }
                 }
             }
         }
-        XCTAssertGreaterThan(checked, 100)
+        XCTAssertEqual(missing.sorted(), [], "strings without Korean")
+        XCTAssertGreaterThan(checked, 600)
+    }
+
+    /// Copy Report (#110) is never localized (docs/glossary.md, #454): the report builder extracts no keys, so the
+    /// copied text is English in every language. Its rows keep English titles; the screen shows `displayTitle`.
+    func testCopyReportStaysEnglish() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        for file in objects.map({ $0.appendingPathComponent("SecurityReport.stringsdata") })
+        where FileManager.default.fileExists(atPath: file.path) {
+            XCTAssertEqual(try Self.extractedKeys(file), [], "SecurityReport.swift must not localize")
+        }
     }
 
     /// The Korean table is in the app bundle and translates; the tests themselves run in English.
