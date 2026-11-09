@@ -1,25 +1,28 @@
 import Foundation
 
-/// Where the issue panel reads issues from (S-06): a GitHub repository through gh (ADR-0004, ADR-0025) or a GitLab
-/// project through glab (ADR-0026). Chosen only from a verified listing's remotes, on a host the provider's CLI is
+/// Where the issue panel reads issues from (S-06): a GitHub repository through gh (ADR-0004, ADR-0025), a GitLab
+/// project through glab, or a Gitea repository through gt (ADR-0026). Chosen only from a verified listing's remotes, on a host the provider's CLI is
 /// logged in to.
 enum IssueSource: Sendable, Hashable {
     case github(GitHubRepository)
     case gitlab(GitLabProject)
+    case gitea(GiteaRepository)
 
     var host: RemoteHost {
         switch self {
         case .github(let repository): repository.host
         case .gitlab(let project): project.host
+        case .gitea(let repository): repository.instance.host
         }
     }
 
     /// Shown on S-06 so the user sees where the issues come from: `[HOST/]OWNER/NAME` for GitHub (no host for
-    /// github.com), `HOST/NAMESPACE/NAME` for GitLab.
+    /// github.com), `HOST/NAMESPACE/NAME` for GitLab, `HOST[:PORT][/BASE]/OWNER/NAME` for Gitea.
     var slug: String {
         switch self {
         case .github(let repository): repository.slug
         case .gitlab(let project): project.description
+        case .gitea(let repository): String(repository.description.dropFirst("https://".count))
         }
     }
 
@@ -28,6 +31,7 @@ enum IssueSource: Sendable, Hashable {
         switch self {
         case .github(let repository): repository.ownerAndName
         case .gitlab(let project): project.path
+        case .gitea(let repository): repository.slug
         }
     }
 
@@ -42,6 +46,7 @@ enum IssueSource: Sendable, Hashable {
         switch self {
         case .github(let repository): IssueDetailModel.browserURL(for: issue, host: repository.host)
         case .gitlab(let project): project.browserURL(for: issue)
+        case .gitea(let repository): repository.browserURL(for: issue)
         }
     }
 }

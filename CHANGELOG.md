@@ -50,6 +50,10 @@ While the major version is `0`, minor versions may contain breaking changes.
 - GitHub hosts are trusted only when gh has a working login there, not just any account entry.
 - The setup assistant counts a gh login on any host, as the status bar does: a login only on a GitHub Enterprise host
   shows as set up and names the host.
+- Graph Zoom In also answers ⌘= on keyboards where + needs Shift.
+- Quick Look refuses more file types whose preview renders web content or names a location, by extension and by
+  file type.
+- Open on GitHub for commits and files uses only the remotes the current load inspected, like branch rows.
 - Auto fetch catches up a repository newly opened in a window when the window becomes active, instead of waiting out
   the previous repository's interval.
 

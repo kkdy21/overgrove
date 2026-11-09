@@ -8,7 +8,7 @@ enum IssueLoadResult: Sendable, Equatable {
     case cancelled
 }
 
-/// Reads open issues through `GHClient` or `GLClient` (git-command-catalog.md §5, §5.1). Each CLI runs in its neutral
+/// Reads open issues through `GHClient`, `GLClient`, or `GTClient` (git-command-catalog.md §5, §5.1). Each CLI runs in its neutral
 /// folder, never in the repository; only the parsed issues come back.
 protocol IssueLoading: Sendable {
     func issues(in source: IssueSource) async -> IssueLoadResult
@@ -17,13 +17,28 @@ protocol IssueLoading: Sendable {
 struct LiveIssueLoader: IssueLoading {
     let client: GHClient
     let gitlab: GLClient
+    var gitea = GTClient()
 
-    static let live = LiveIssueLoader(client: GHClient(), gitlab: GLClient())
+    static let live = LiveIssueLoader(client: GHClient(), gitlab: GLClient(), gitea: GTClient())
 
     func issues(in source: IssueSource) async -> IssueLoadResult {
         switch source {
         case .github(let repository): await issues(in: repository)
         case .gitlab(let project): await issues(in: project)
+        case .gitea(let repository): await issues(in: repository)
+        }
+    }
+
+    private func issues(in repository: GiteaRepository) async -> IssueLoadResult {
+        do {
+            return .issues(try await gitea.issues(in: repository))
+        } catch GTError.cancelled {
+            return .cancelled
+        } catch let error as GTError {
+            // As for glab: the instance was trusted a moment ago; gt's stderr is never part of the message.
+            return .failed(error.message)
+        } catch {
+            return .cancelled
         }
     }
 
