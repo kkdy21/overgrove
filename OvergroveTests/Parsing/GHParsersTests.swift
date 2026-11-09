@@ -24,7 +24,7 @@ final class GHParsersTests: XCTestCase {
         XCTAssertEqual(try GHAuthParser.parse(data(otherHost)), .notLoggedIn)
     }
 
-    /// ADR-0025 §1: every host gh lists an account for, lowercased; a key that is not a DNS name is left out.
+    /// ADR-0025 §1: every host gh lists a working account for, lowercased; a key that is not a DNS name is left out.
     func testPARGH01_ReportListsLoggedInHosts() throws {
         let json = """
             {"hosts":{"github.com":[{"active":true,"state":"success","login":"octo-cat"}],\
@@ -34,7 +34,7 @@ final class GHParsersTests: XCTestCase {
             """
         let report = try GHAuthParser.parseReport(data(json))
         XCTAssertEqual(report.status, .loggedIn(login: "octo-cat"))
-        XCTAssertEqual(Set(report.hosts.map(\.name)), ["github.com", "ghe.example", "broken.example"])
+        XCTAssertEqual(Set(report.hosts.map(\.name)), ["github.com", "ghe.example"])
         let gheOnly = try GHAuthParser.parseReport(
             data(#"{"hosts":{"ghe.example":[{"active":true,"state":"success","login":"me"}]}}"#))
         XCTAssertEqual(gheOnly.status, .notLoggedIn)
@@ -113,6 +113,24 @@ final class GHParsersTests: XCTestCase {
         XCTAssertEqual(report.accounts[github], GHAccount(host: github, login: "mina-dev", otherCount: 2))
         XCTAssertEqual(report.accounts[ghe], GHAccount(host: ghe, login: "me", otherCount: 0))
         XCTAssertEqual(report.accounts.count, 2, "no account for an odd login or a broken one")
-        XCTAssertEqual(report.hosts.count, 4, "the hosts are still trusted")
+        XCTAssertEqual(
+            Set(report.hosts.map(\.name)), ["github.com", "ghe.example", "odd.example"],
+            "a working login is trusted even when its name is not shown; a broken one is not")
+    }
+
+    /// SEC-T9-467-1: only a host with an account in the `success` state is trusted. An account in any other state
+    /// (or none, or no state) does not trust its host; any working account does, active or not.
+    func testSECT9_467_1_OnlyHostsWithAWorkingLoginAreTrusted() throws {
+        let json = """
+            {"hosts":{"error.example":[{"active":true,"state":"error","login":"me"}],\
+            "timeout.example":[{"active":true,"state":"timeout","login":"me"}],\
+            "nostate.example":[{"active":true,"login":"me"}],\
+            "inactive-ok.example":[{"active":true,"state":"error","login":"me"},\
+            {"active":false,"state":"success","login":"other"}],\
+            "SUCCESS.example":[{"active":true,"state":"SUCCESS","login":"me"}]}}
+            """
+        let report = try GHAuthParser.parseReport(data(json))
+        XCTAssertEqual(report.hosts.map(\.name), ["inactive-ok.example"])
+        XCTAssertTrue(report.accounts.isEmpty, "no active working account to show")
     }
 }

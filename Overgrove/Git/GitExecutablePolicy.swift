@@ -37,18 +37,23 @@ enum GitExecutablePolicy {
         /// One line for Settings and the setup assistant. Paths are escaped for display.
         var message: String {
             switch self {
-            case .notAbsolute: "The path must be absolute."
-            case .invalidCharacters: "The path contains control characters."
-            case .notFound: "No file exists at that path."
-            case .notAFile: "The path is not a file."
-            case .notExecutable: "The file is not executable."
-            case .insideRepository: "A git inside a registered repository cannot be used."
+            case .notAbsolute: String(localized: "The path must be absolute.")
+            case .invalidCharacters: String(localized: "The path contains control characters.")
+            case .notFound: String(localized: "No file exists at that path.")
+            case .notAFile: String(localized: "The path is not a file.")
+            case .notExecutable: String(localized: "The file is not executable.")
+            case .insideRepository: String(localized: "A git inside a registered repository cannot be used.")
             case .unsafeOwner(let path):
-                "\(PathValidator.displayable(path)) is owned by another user. It must belong to you or root."
+                String(
+                    localized:
+                        "\(PathValidator.displayable(path)) is owned by another user. It must belong to you or root.")
             case .writableByOthers(let path):
-                "Other users can change \(PathValidator.displayable(path)). Only you, root, or administrators may write to it."
+                String(
+                    localized:
+                        "Other users can change \(PathValidator.displayable(path)). Only you, root, or administrators may write to it."
+                )
             case .untrustedVolume:
-                "The file is on a network volume or one that ignores ownership."
+                String(localized: "The file is on a network volume or one that ignores ownership.")
             }
         }
     }

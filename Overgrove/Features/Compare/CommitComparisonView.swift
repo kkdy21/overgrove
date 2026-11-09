@@ -66,9 +66,11 @@ struct CommitComparisonCenterView: View {
                     onBack: onBack, showsBackButton: false)
             } else {
                 PanelEmptyState(
-                    symbol: "doc.text", title: "Select a file",
-                    message: "Pick a file in the list to see how it changed from \(model.base.shortSHA) to "
-                        + "\(model.target.shortSHA).")
+                    symbol: "doc.text", title: String(localized: "Select a file"),
+                    message: String(
+                        localized:
+                            "Pick a file in the list to see how it changed from \(model.base.shortSHA) to \(model.target.shortSHA)."
+                    ))
             }
         }
     }
@@ -107,7 +109,7 @@ struct CommitComparisonListView: View {
         }
     }
 
-    private func sectionTitle(_ title: String) -> some View {
+    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .font(Tokens.Font.sectionHeader)
             .tracking(Tokens.Font.sectionHeaderTracking)
@@ -135,9 +137,9 @@ struct CommitComparisonListView: View {
     private var commits: some View {
         DetailCard {
             sectionTitle(
-                "COMMITS"
-                    + (model.commitsNotice == nil
-                        ? " (\(WipDetailModel.formatted(model.commits.count))\(model.hasMoreCommits ? "+" : ""))" : ""))
+                model.commitsNotice == nil
+                    ? "COMMITS (\(WipDetailModel.formatted(model.commits.count))\(model.hasMoreCommits ? "+" : ""))"
+                    : "COMMITS")
             if let notice = model.commitsNotice {
                 Text(notice).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)

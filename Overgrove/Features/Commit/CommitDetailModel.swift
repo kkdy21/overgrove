@@ -85,7 +85,7 @@ struct CommitDetailModel: Equatable {
         date = Self.format(commit.authorDate, timeZone: timeZone)
         parents = commit.parents
         self.pills = pills
-        filesNote = commit.isMerge ? "Changes vs first parent" : nil
+        filesNote = commit.isMerge ? String(localized: "Changes vs first parent") : nil
 
         var message = commit.subject
         switch detail {
@@ -98,7 +98,7 @@ struct CommitDetailModel: Equatable {
             let rows = loaded.files.map(Self.fileRow)
             let shown = showsAllFiles ? rows : Array(rows.prefix(Self.fileLimit))
             files = .loaded(rows: shown, hidden: rows.count - shown.count)
-            filesHeader = "Files (\(loaded.files.count))"
+            filesHeader = String(localized: "Files (\(loaded.files.count))")
             let added = loaded.files.compactMap(\.added).reduce(0, +)
             let deleted = loaded.files.compactMap(\.deleted).reduce(0, +)
             totalLineChange = "+\(added) −\(deleted)"
@@ -106,13 +106,13 @@ struct CommitDetailModel: Equatable {
         case .failed(let reason):
             committer = nil
             files = .failed(reason)
-            filesHeader = "Files"
+            filesHeader = String(localized: "Files")
             totalLineChange = ""
             isPartial = false
         case .loading, nil:
             committer = nil
             files = .loading
-            filesHeader = "Files"
+            filesHeader = String(localized: "Files")
             totalLineChange = ""
             isPartial = false
         }

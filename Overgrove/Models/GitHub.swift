@@ -35,7 +35,7 @@ struct GHAccount: Sendable, Hashable {
     var text: String { PathValidator.displayable("\(login)@\(host.name)") }
 
     /// `+2 more`, `nil` with one account.
-    var moreText: String? { otherCount > 0 ? "+\(otherCount) more" : nil }
+    var moreText: String? { otherCount > 0 ? String(localized: "+\(otherCount) more") : nil }
 
     /// `gh auth switch --hostname HOST` to copy, `nil` with one account. Only the validated host goes in, never the
     /// login, and the text is escaped like every clipboard value (ADR-0021 §3).

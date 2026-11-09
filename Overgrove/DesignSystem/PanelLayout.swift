@@ -18,8 +18,8 @@ struct PanelLayout: Codable, Equatable, Sendable {
         /// VoiceOver label of the divider; the width is the value (`Sidebar width, 256 points`).
         var accessibilityLabel: String {
             switch self {
-            case .sidebar: "Sidebar width"
-            case .detail: "Detail width"
+            case .sidebar: String(localized: "Sidebar width")
+            case .detail: String(localized: "Detail width")
             }
         }
     }

@@ -1,6 +1,6 @@
 # ADR-0025: GitHub 호스트는 gh에 로그인된 것만 신뢰하고, 계정은 앱이 바꾸지 않는다
 
-> 상태: Accepted · 날짜: 2026-11-08 · 개정: 2026-11-08 #117 구현 중 --repo에 항상 호스트를 넣도록 정정(§3) · 관련: #446, #117, ADR-0004, ADR-0021, ADR-0023, T9, T11, T16, [git-command-catalog.md §5](../architecture/git-command-catalog.md#5-ghcommand-gh-allowlist)
+> 상태: Accepted · 날짜: 2026-11-08 · 개정: 2026-11-08 #117 구현 중 --repo에 항상 호스트를 넣도록 정정(§3), 2026-11-08 #467 로그인 호스트를 동작하는 계정이 있는 호스트로 한정(§1) · 관련: #446, #117, ADR-0004, ADR-0021, ADR-0023, T9, T11, T16, [git-command-catalog.md §5](../architecture/git-command-catalog.md#5-ghcommand-gh-allowlist)
 
 ## 맥락
 
@@ -16,7 +16,7 @@
 
 ADR-0004 §8("github.com만")만 이 결정으로 대체한다. gh 위임, 토큰 비취급, 중립 작업 디렉터리, `--repo` 명시, 환경 하드닝은 ADR-0004 그대로다.
 
-1. **신뢰하는 호스트.** `github.com`과, `gh auth status --json hosts`에 있는 호스트(사용자가 gh로 로그인한 호스트)만 GitHub 호스트로 본다. 저장소의 원격 URL만으로는 새 호스트를 신뢰하지 않는다. 로그인하지 않은 호스트를 가리키는 원격은 지금처럼 `No GitHub remote`다. 로그인 목록을 읽기 전이나 읽지 못했을 때는 `github.com`만 신뢰한다.
+1. **신뢰하는 호스트.** `github.com`과, `gh auth status --json hosts`에 있는 호스트(사용자가 gh로 로그인한 호스트)만 GitHub 호스트로 본다. **개정 (2026-11-08, #467).** 그 호스트에 `state`가 `success`인 계정이 하나 이상 있어야 한다. 계정이 모두 다른 상태(만료·취소된 토큰, 실패한 확인)이면 로그인하지 않은 호스트로 본다. 저장소의 원격 URL만으로는 새 호스트를 신뢰하지 않는다. 로그인하지 않은 호스트를 가리키는 원격은 지금처럼 `No GitHub remote`다. 로그인 목록을 읽기 전이나 읽지 못했을 때는 `github.com`만 신뢰한다.
 2. **원격 판별.** 원격 URL에서 다음 세 형태만 인식한다. 비교는 UTF-8 바이트로 하고, `url.<base>.insteadOf`는 지금처럼 보지 않는다.
    - `https://HOST/OWNER/NAME(.git)?`
    - `git@HOST:OWNER/NAME(.git)?`

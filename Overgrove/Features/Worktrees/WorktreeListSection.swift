@@ -19,7 +19,9 @@ struct WorktreeListSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SidebarSectionHeader(title: "WORKTREES", count: model?.rows.count, isExpanded: $isExpanded)
+            SidebarSectionHeader(
+                title: String(localized: "WORKTREES", comment: "Sidebar section"), count: model?.rows.count,
+                isExpanded: $isExpanded)
             if isExpanded { content }
         }
     }
