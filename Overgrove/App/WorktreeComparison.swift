@@ -65,11 +65,11 @@ enum ComparisonError: Error, Sendable, Equatable {
     var message: String {
         switch self {
         case .worktreeNotQueried:
-            "This worktree's status is not available, so it cannot be compared."
+            String(localized: "This worktree's status is not available, so it cannot be compared.")
         case .noBaseBranch:
-            "No base branch was found (origin/HEAD, main, or master). Choose one to compare with."
+            String(localized: "No base branch was found (origin/HEAD, main, or master). Choose one to compare with.")
         case .baseNotFound(let base):
-            "The base branch \(PathValidator.displayable(base.value)) no longer exists."
+            String(localized: "The base branch \(PathValidator.displayable(base.value)) no longer exists.")
         case .git(let error):
             error.message
         }

@@ -130,8 +130,8 @@ struct SidebarPanel: View {
                 }
             } else {
                 PanelEmptyState(
-                    symbol: "folder", title: "No repository open",
-                    message: "Add a repository to see its worktrees.")
+                    symbol: "folder", title: String(localized: "No repository open"),
+                    message: String(localized: "Add a repository to see its worktrees."))
             }
         }
     }
@@ -228,12 +228,15 @@ struct GraphPanel: View {
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed(let message)?:
-                PanelEmptyState(symbol: "exclamationmark.triangle", title: "History unavailable", message: message)
+                PanelEmptyState(
+                    symbol: "exclamationmark.triangle", title: String(localized: "History unavailable"),
+                    message: message)
             case .idle?, nil:
                 PanelEmptyState(
-                    symbol: "point.3.connected.trianglepath.dotted", title: "Commit graph",
+                    symbol: "point.3.connected.trianglepath.dotted", title: String(localized: "Commit graph"),
                     message: hasRepository
-                        ? "The history of every worktree appears here." : "Open a repository to see its history.")
+                        ? String(localized: "The history of every worktree appears here.")
+                        : String(localized: "Open a repository to see its history."))
             }
         }
     }
@@ -278,10 +281,10 @@ struct DetailPanel: View {
     var onSetUntrusted: ((Bool) -> Void)?
 
     private var title: String {
-        if let commitModel { return "Commit \(commitModel.shortSHA)" }
+        if let commitModel { return String(localized: "Commit \(commitModel.shortSHA)") }
         if let issueModel { return issueModel.number }
         if let stashModel { return stashModel.refName }
-        return wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title ?? "No selection"
+        return wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title ?? String(localized: "No selection")
     }
 
     var body: some View {
@@ -321,8 +324,8 @@ struct DetailPanel: View {
                 ProgressView().controlSize(.small)
             } else {
                 PanelEmptyState(
-                    symbol: "doc.text.magnifyingglass", title: "Details",
-                    message: "Changes in the focused worktree or the selected commit appear here.")
+                    symbol: "doc.text.magnifyingglass", title: String(localized: "Details"),
+                    message: String(localized: "Changes in the focused worktree or the selected commit appear here."))
             }
         }
     }

@@ -157,7 +157,7 @@ struct WorktreeListModel: Equatable {
 
         let subtitle: String?
         if missing {
-            subtitle = "path missing"
+            subtitle = Text.pathMissing
         } else if let note {
             subtitle = note
         } else if worktree.isMain {
@@ -212,27 +212,35 @@ struct WorktreeListModel: Equatable {
         case .loaded, .missing:
             return (nil, nil)
         case .failed(let error):
-            return ("Status unavailable", PathValidator.displayable(error.message))
+            return (String(localized: "Status unavailable"), PathValidator.displayable(error.message))
         case .notQueried(.foreignRepository):
             return (
-                "Not part of this repository",
-                "This worktree entry points at a folder that belongs to another repository, so Overgrove does not "
-                    + "query it."
+                String(localized: "Not part of this repository"),
+                String(
+                    localized:
+                        "This worktree entry points at a folder that belongs to another repository, so Overgrove does not query it."
+                )
             )
         case .notQueried(.inspectionBlocked(let reason)):
-            return ("Blocked for safety", PathValidator.displayable(reason))
+            return (String(localized: "Blocked for safety"), PathValidator.displayable(reason))
         case .notQueried(.unrepresentablePath):
-            return ("Path cannot be read", "The path is not valid UTF-8, so Overgrove cannot pass it to git.")
+            return (
+                String(localized: "Path cannot be read"),
+                String(localized: "The path is not valid UTF-8, so Overgrove cannot pass it to git.")
+            )
         case .notQueried(.duplicate):
             return (
-                "Same folder as another entry",
-                "Another worktree entry leads to this folder, so its status is shown there."
+                String(localized: "Same folder as another entry"),
+                String(localized: "Another worktree entry leads to this folder, so its status is shown there.")
             )
         case .notQueried(.limit):
+            let limit = RepositoryService.defaultMaximumQueriedWorktrees
             return (
-                "Not loaded",
-                "This repository lists more than \(RepositoryService.defaultMaximumQueriedWorktrees) worktrees. "
-                    + "Overgrove loads the status of the first \(RepositoryService.defaultMaximumQueriedWorktrees)."
+                String(localized: "Not loaded"),
+                String(
+                    localized:
+                        "This repository lists more than \(limit) worktrees. Overgrove loads the status of the first \(limit)."
+                )
             )
         case .notQueried(.bare):
             return (nil, nil)
@@ -271,26 +279,30 @@ struct WorktreeListModel: Equatable {
         var lines = [path]
         if let state {
             var parts = [
-                "\(state.staged.count) staged", "\(state.unstaged.count) unstaged",
-                "\(state.untracked.count) untracked",
+                String(localized: "\(state.staged.count) staged"),
+                String(localized: "\(state.unstaged.count) unstaged"),
+                String(localized: "\(state.untracked.count) untracked"),
             ]
-            if !state.conflicted.isEmpty { parts.insert("\(state.conflicted.count) conflicted", at: 0) }
+            if !state.conflicted.isEmpty {
+                parts.insert(String(localized: "\(state.conflicted.count) conflicted"), at: 0)
+            }
             lines.append(parts.joined(separator: " · "))
             switch state.upstream {
             case .tracking(let upstream, let ahead, let behind):
-                lines.append("↑\(ahead) ↓\(behind) vs \(PathValidator.displayable(upstream))")
+                lines.append("↑\(ahead) ↓\(behind) " + String(localized: "vs \(PathValidator.displayable(upstream))"))
             case .gone(let upstream):
-                lines.append("Upstream \(PathValidator.displayable(upstream)) is gone")
+                lines.append(String(localized: "Upstream \(PathValidator.displayable(upstream)) is gone"))
             case .none:
-                lines.append("No upstream")
+                lines.append(String(localized: "No upstream"))
             }
         }
         if worktree.isLocked {
-            lines.append(lockReason(worktree).map { "Locked: \($0)" } ?? "Locked")
+            lines.append(lockReason(worktree).map { String(localized: "Locked: \($0)") } ?? String(localized: "Locked"))
         }
         if worktree.isPrunable {
             lines.append(
-                "Prunable" + (worktree.prunableReason.map { ": \(PathValidator.displayable($0))" } ?? ""))
+                worktree.prunableReason.map { String(localized: "Prunable: \(PathValidator.displayable($0))") }
+                    ?? String(localized: "Prunable"))
         }
         if let note { lines.append(note) }
         return lines.joined(separator: "\n")
@@ -299,19 +311,21 @@ struct WorktreeListModel: Equatable {
     private static func accessibilityLabel(
         title: String, worktree: Worktree, isFocused: Bool, missing: Bool, note: String?, state: WorkingState?
     ) -> String {
-        var parts = [title, "worktree"]
-        if worktree.isMain { parts.append("main worktree") }
-        if isFocused { parts.append("focused") }
+        var parts = [title, Text.worktree]
+        if worktree.isMain { parts.append(Text.mainWorktree) }
+        if isFocused { parts.append(Text.focused) }
         if let state {
-            if !state.conflicted.isEmpty { parts.append("\(state.conflicted.count) conflicted") }
+            if !state.conflicted.isEmpty { parts.append(String(localized: "\(state.conflicted.count) conflicted")) }
             let changed = changedCount(state)
-            if changed > 0 { parts.append("\(changed) changed") }
-            if state.upstream.ahead > 0 { parts.append("\(state.upstream.ahead) ahead") }
-            if state.upstream.behind > 0 { parts.append("\(state.upstream.behind) behind") }
+            if changed > 0 { parts.append(String(localized: "\(changed) changed")) }
+            if state.upstream.ahead > 0 { parts.append(String(localized: "\(state.upstream.ahead) ahead")) }
+            if state.upstream.behind > 0 { parts.append(String(localized: "\(state.upstream.behind) behind")) }
         }
-        if worktree.isLocked { parts.append(lockReason(worktree).map { "locked, \($0)" } ?? "locked") }
-        if worktree.isPrunable { parts.append("prunable") }
-        if missing { parts.append("path missing") } else if let note { parts.append(note) }
+        if worktree.isLocked {
+            parts.append(lockReason(worktree).map { String(localized: "locked, \($0)") } ?? String(localized: "locked"))
+        }
+        if worktree.isPrunable { parts.append(String(localized: "prunable")) }
+        if missing { parts.append(Text.pathMissing) } else if let note { parts.append(note) }
         return parts.joined(separator: ", ")
     }
 
@@ -319,19 +333,25 @@ struct WorktreeListModel: Equatable {
 
     private static func warning(for listing: WorktreeListing) -> String? {
         var notes: [String] = []
-        if listing.isPartial { notes.append("Some worktrees could not be listed because git's output was too large.") }
+        if listing.isPartial {
+            notes.append(String(localized: "Some worktrees could not be listed because git's output was too large."))
+        }
         if listing.isQueryLimited {
             let limit = RepositoryService.defaultMaximumQueriedWorktrees
             // Same wording as the detail of a worktree past the limit (WipDetailModel).
             notes.append(
-                "This repository lists more than \(limit) worktrees. Overgrove loads the changes of the first "
-                    + "\(limit).")
+                String(
+                    localized:
+                        "This repository lists more than \(limit) worktrees. Overgrove loads the changes of the first \(limit)."
+                ))
         }
         let incomplete = listing.entries.contains {
             if case .loaded(let state) = $0.state { return state.isPartial || state.skippedRecords > 0 }
             return false
         }
-        if incomplete { notes.append("Some changes could not be read, so counts may be incomplete.") }
+        if incomplete {
+            notes.append(String(localized: "Some changes could not be read, so counts may be incomplete."))
+        }
         return notes.isEmpty ? nil : notes.joined(separator: " ")
     }
 
@@ -377,7 +397,7 @@ extension WorktreeListModel {
             row.branch ?? (row.isDetached || row.head != nil ? "detached @ \(row.head ?? "unknown")" : folder))
         let path = PathValidator.displayable(abbreviated(row.path, home: home))
         let subtitle: String? =
-            if row.isMissing { "path missing" } else if row.isMain { path } else { folder == title ? nil : folder }
+            if row.isMissing { Text.pathMissing } else if row.isMain { path } else { folder == title ? nil : folder }
         var badges: [WorktreeRow.Badge] = []
         if row.hasStatus, row.conflicts > 0 { badges.append(.conflicts(row.conflicts)) }
         if row.isMissing { badges.append(.prunable) }
@@ -387,16 +407,27 @@ extension WorktreeListModel {
             if row.behind > 0 { badges.append(.behind(row.behind)) }
         }
         if row.isLocked { badges.append(.locked) }
-        var label = [title, "worktree"]
-        if row.isMain { label.append("main worktree") }
-        if isFocused { label.append("focused") }
-        label.append("updating")
+        var label = [title, Text.worktree]
+        if row.isMain { label.append(Text.mainWorktree) }
+        if isFocused { label.append(Text.focused) }
+        label.append(String(localized: "updating"))
         return WorktreeRow(
             id: GitPath(row.path), title: title, isMain: row.isMain, subtitle: subtitle,
             isSubtitleWarning: row.isMissing, isDimmed: row.isMissing, hasNeutralTile: row.isDetached || row.isMissing,
             isFocused: isFocused, badges: badges,
-            help: "\(path)\nShown from the last session while Overgrove updates this repository.",
+            help: path + "\n"
+                + String(localized: "Shown from the last session while Overgrove updates this repository."),
             accessibilityLabel: label.joined(separator: ", "),
             branchName: row.branch.map(PathValidator.displayable))
+    }
+}
+
+extension WorktreeListModel {
+    /// Fixed row texts, looked up once per launch.
+    fileprivate enum Text {
+        static let pathMissing = String(localized: "path missing")
+        static let worktree = String(localized: "worktree", comment: "VoiceOver: a worktree row")
+        static let mainWorktree = String(localized: "main worktree")
+        static let focused = String(localized: "focused")
     }
 }

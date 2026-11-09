@@ -15,8 +15,10 @@ struct ExternalAppsSection: View {
 
     var body: some View {
         Section {
-            row(.terminal, identifier: settings.terminalApp, defaultText: "Terminal (default)")
-            row(.editor, identifier: settings.editorApp, defaultText: "None")
+            row(.terminal, identifier: settings.terminalApp, defaultText: String(localized: "Terminal (default)"))
+            row(
+                .editor, identifier: settings.editorApp,
+                defaultText: String(localized: "None", comment: "No editor chosen"))
             if let error {
                 Label(error, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(Tokens.Color.statusWarning)
@@ -26,8 +28,7 @@ struct ExternalAppsSection: View {
             Text("Apps")
         } footer: {
             Text(
-                "Opened with macOS: Overgrove passes the worktree folder or file and nothing else. A folder whose "
-                    + "settings can run commands asks first."
+                "Opened with macOS: Overgrove passes the worktree folder or file and nothing else. A folder whose settings can run commands asks first."
             )
             .foregroundStyle(.secondary)
         }
@@ -48,7 +49,7 @@ struct ExternalAppsSection: View {
                 }
                 HStack {
                     Button("Choose…") { choose(role) }
-                    Button(role == .terminal ? "Use Default" : "Clear") { set(nil, for: role) }
+                    Button(role == .terminal ? "Use Default" : "Clear" as LocalizedStringKey) { set(nil, for: role) }
                         .disabled(identifier == nil)
                 }
                 .controlSize(.small)
@@ -56,11 +57,12 @@ struct ExternalAppsSection: View {
         }
     }
 
-    /// `com.example.Editor · Apple-signed`, or that it is not installed (a plain String, so nothing is localized).
+    /// `com.example.Editor · Apple-signed`, or that it is not installed. The identifier is never localized.
     static func summary(_ identifier: String, _ info: ExternalAppInfo?, isInstalled: Bool) -> String {
-        guard isInstalled else { return "\(identifier) · not installed" }
+        guard isInstalled else { return "\(identifier) · " + String(localized: "not installed") }
         guard let info else { return identifier }
-        return "\(identifier) · " + (info.isAppleSigned ? "Apple-signed" : "Not signed by Apple")
+        return "\(identifier) · "
+            + (info.isAppleSigned ? String(localized: "Apple-signed") : String(localized: "Not signed by Apple"))
     }
 
     private func set(_ identifier: String?, for role: ExternalAppRole) {
@@ -106,8 +108,8 @@ enum ExternalAppPicker {
         panel.canCreateDirectories = false
         panel.allowedContentTypes = [.application]
         panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
-        panel.prompt = "Use"
-        panel.message = "Choose the \(role.title.lowercased()) to open worktrees in."
+        panel.prompt = String(localized: "Use", comment: "The open panel's button that picks an app")
+        panel.message = String(localized: "Choose the \(role.title.lowercased()) to open worktrees in.")
         let response: NSApplication.ModalResponse
         if let window {
             response = await withCheckedContinuation { continuation in
