@@ -151,6 +151,7 @@ final class ExternalAppsTests: XCTestCase {
         XCTAssertEqual(confirmation.title, "Open in Example?")
         XCTAssertEqual(confirmation.role, .editor)
         XCTAssertTrue(confirmation.message.hasPrefix("Editors and their extensions"), confirmation.message)
+        XCTAssertTrue(confirmation.message.contains("in this folder"), "a folder keeps the folder wording")
         XCTAssertTrue(actions.openedInApps.isEmpty, "nothing opens until Open Anyway")
         state.confirmOpenTerminal()
         XCTAssertEqual(actions.openedInApps.map(\.app), ["com.example.editor"])
@@ -205,6 +206,10 @@ final class ExternalAppsTests: XCTestCase {
         state.setRepositoryUntrusted(true)
         state.openFileInEditor(GitPath("a.txt"), in: GitPath(root.path))
         XCTAssertEqual(state.terminalConfirmation?.reasons, [TerminalGuard.untrustedReason])
+        // #469: the confirmation is about the one file, not a folder.
+        let message = try XCTUnwrap(state.terminalConfirmation?.message)
+        XCTAssertTrue(message.contains("open this file"), message)
+        XCTAssertFalse(message.contains("folder"), message)
         XCTAssertTrue(actions.openedInApps.isEmpty)
         state.terminalConfirmation = nil
         state.setRepositoryUntrusted(false)

@@ -45,6 +45,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Open on GitHub for a remote-tracking branch uses the remote its row is grouped under: a branch of a non-GitHub
+  remote whose name starts with a GitHub remote's name no longer opens the GitHub remote's page.
 - Auto fetch catches up a repository newly opened in a window when the window becomes active, instead of waiting out
   the previous repository's interval.
 
