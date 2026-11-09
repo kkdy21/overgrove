@@ -34,8 +34,8 @@ struct FocusedWorktree: Equatable, Sendable {
     }
 
     var accessibilityLabel: String {
-        var label = "Focused worktree \(title)"
-        if aheadBadge != nil { label += ", \(ahead) ahead" }
+        var label = String(localized: "Focused worktree \(title)")
+        if aheadBadge != nil { label += String(localized: ", \(ahead) ahead") }
         return label
     }
 }

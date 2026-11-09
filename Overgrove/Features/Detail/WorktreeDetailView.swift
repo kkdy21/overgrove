@@ -86,7 +86,7 @@ private struct InfoCard: View {
                                     .accessibilityHidden(true)
                             }
                             Text(row.value)
-                                .font(row.label == "HEAD" ? Tokens.Font.monoSmall : Tokens.Font.callout)
+                                .font(row.kind == .head ? Tokens.Font.monoSmall : Tokens.Font.callout)
                                 .foregroundStyle(
                                     row.isDimmed
                                         ? Tokens.Color.textTertiary
@@ -94,7 +94,7 @@ private struct InfoCard: View {
                                 )
                                 .lineLimit(2)
                                 .truncationMode(.middle)
-                            if row.label == "Path", let path = model.copyablePath {
+                            if row.kind == .path, let path = model.copyablePath {
                                 Button {
                                     // Copying to the clipboard is not a repository write (ADR-0011).
                                     NSPasteboard.general.clearContents()
@@ -196,7 +196,9 @@ private struct SecurityCard: View {
                         Spacer(minLength: Tokens.Spacing.xs)
                         Text(finding.handling).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
                     }
-                    .help(finding.threat.map { "Threat \($0) in docs/design/security-review.md" } ?? "")
+                    .help(
+                        finding.threat.map { String(localized: "Threat \($0) in docs/design/security-review.md") } ?? ""
+                    )
                     .accessibilityElement(children: .combine)
                 }
             }
@@ -209,12 +211,15 @@ private struct SecurityCard: View {
 
     /// `Inspected 2 min ago · local and worktree scopes · git 2.50.1` (security-review.md §6).
     private func header(now: Date) -> String {
-        var parts = ["Inspected \(StatusBarItem.relative(model.inspectedAt, now: now))", "local and worktree scopes"]
+        var parts = [
+            String(localized: "Inspected \(StatusBarItem.relative(model.inspectedAt, now: now))"),
+            String(localized: "local and worktree scopes"),
+        ]
         if let version = model.gitVersion { parts.append(version) }
         return parts.joined(separator: " · ")
     }
 
-    private func banner(symbol: String, tint: Color, title: String, text: String) -> some View {
+    private func banner(symbol: String, tint: Color, title: LocalizedStringKey, text: String) -> some View {
         Label {
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
                 Text(title).font(Tokens.Font.callout.weight(.semibold)).foregroundStyle(Tokens.Color.textPrimary)
@@ -237,7 +242,7 @@ private struct SecurityRowView: View {
         VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
             HStack(spacing: Tokens.Spacing.sm) {
                 Image(systemName: symbol).foregroundStyle(tint).accessibilityHidden(true)
-                Text(row.title).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
+                Text(row.displayTitle).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
                 Spacer(minLength: Tokens.Spacing.xs)
                 if !row.details.isEmpty {
                     Button(action: toggle) {
@@ -249,7 +254,7 @@ private struct SecurityRowView: View {
                         .hitTarget()
                     }
                     .buttonStyle(.borderless)
-                    .accessibilityLabel(isExpanded ? "Hide keys" : "Show keys")
+                    .accessibilityLabel(isExpanded ? "Hide keys" : "Show keys" as LocalizedStringKey)
                 }
             }
             if isExpanded {
@@ -271,7 +276,7 @@ private struct SecurityRowView: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(row.title), \(markText)")
+        .accessibilityLabel("\(row.displayTitle), \(markText)")
     }
 
     private var symbol: String {
@@ -292,9 +297,9 @@ private struct SecurityRowView: View {
 
     private var markText: String {
         switch row.mark {
-        case .applied: "applied"
-        case .neutralized: "\(row.details.count) repository settings overridden"
-        case .unknown: "could not be confirmed"
+        case .applied: String(localized: "applied")
+        case .neutralized: String(localized: "\(row.details.count) repository settings overridden")
+        case .unknown: String(localized: "could not be confirmed")
         }
     }
 }

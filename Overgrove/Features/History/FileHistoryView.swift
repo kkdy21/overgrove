@@ -61,7 +61,8 @@ struct FileHistoryView: View {
         case .loading:
             ProgressView("Loading history…").controlSize(.small)
         case .failed(let reason):
-            PanelEmptyState(symbol: "exclamationmark.triangle", title: "History unavailable", message: reason)
+            PanelEmptyState(
+                symbol: "exclamationmark.triangle", title: String(localized: "History unavailable"), message: reason)
         case .loaded where store.entries.isEmpty:
             PanelEmptyState(symbol: "clock", title: FileHistoryText.empty, message: "")
         case .loaded:
@@ -139,7 +140,7 @@ struct FileHistoryView: View {
         return .handled
     }
 
-    private func column(_ text: String) -> some View {
+    private func column(_ text: LocalizedStringKey) -> some View {
         Text(text).font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textSecondary)
             .padding(.horizontal, Tokens.Spacing.sm)
     }

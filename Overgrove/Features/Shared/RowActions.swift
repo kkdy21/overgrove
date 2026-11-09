@@ -33,13 +33,16 @@ enum RowActionRefusal: Error, Equatable {
 
     var message: String {
         switch self {
-        case .outsideRepository: "This path points outside the repository."
-        case .missing: "This file no longer exists."
-        case .notHTTPS: "Only https links are opened."
-        case .notAFile: "Only regular files can be previewed, not links or special files."
-        case .tooLarge: "This file is too large to preview."
+        case .outsideRepository: String(localized: "This path points outside the repository.")
+        case .missing: String(localized: "This file no longer exists.")
+        case .notHTTPS: String(localized: "Only https links are opened.")
+        case .notAFile: String(localized: "Only regular files can be previewed, not links or special files.")
+        case .tooLarge: String(localized: "This file is too large to preview.")
         case .webContent:
-            "Web pages and SVG images from a repository are not previewed: they could load content from the internet."
+            String(
+                localized:
+                    "Web pages and SVG images from a repository are not previewed: they could load content from the internet."
+            )
         }
     }
 }

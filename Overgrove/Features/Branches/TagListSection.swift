@@ -27,11 +27,13 @@ struct TagListSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            SidebarSectionHeader(title: "TAGS", count: model.count, isExpanded: $isExpanded)
+            SidebarSectionHeader(
+                title: String(localized: "TAGS", comment: "Sidebar section"), count: model.count,
+                isExpanded: $isExpanded)
             if isExpanded || query != nil {
                 let visible = model.visible(query: query)
                 if visible.rows.isEmpty {
-                    Text(query == nil ? "No tags" : "No matching tags")
+                    Text(query == nil ? "No tags" : "No matching tags" as LocalizedStringKey)
                         .font(Tokens.Font.callout)
                         .foregroundStyle(Tokens.Color.textTertiary)
                         .padding(.horizontal, Tokens.Spacing.md)

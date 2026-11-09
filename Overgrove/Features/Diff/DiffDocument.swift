@@ -274,7 +274,7 @@ struct DiffDocument: Equatable, Sendable {
     }
 
     private static func shownLine(_ line: PatchLine, kind: LineKind) -> (text: String, marks: LineMarks) {
-        if kind == .noNewline { return ("No newline at end of file", .none) }
+        if kind == .noNewline { return (String(localized: "No newline at end of file"), .none) }
         var marks = LineMarks.none
         var content = line.content
         if content.last == 0x0D {
@@ -349,11 +349,11 @@ struct DiffDocument: Equatable, Sendable {
             return "Submodule commit \(old) → \(new)"
         }
         if file.hunks.isEmpty {
-            if file.renameFrom != nil || file.copyFrom != nil { return "Content unchanged." }
+            if file.renameFrom != nil || file.copyFrom != nil { return String(localized: "Content unchanged.") }
             if file.oldMode != file.newMode, file.oldMode != nil, file.newMode != nil {
-                return "Only the file mode changed."
+                return String(localized: "Only the file mode changed.")
             }
-            return isEmptyFile(file) ? "Empty file." : "No content changes."
+            return isEmptyFile(file) ? String(localized: "Empty file.") : String(localized: "No content changes.")
         }
         return nil
     }

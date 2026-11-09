@@ -20,7 +20,9 @@ struct RepositoryMenuModel: Equatable {
         items = repositories.map {
             Item(id: $0.id, name: $0.name, path: $0.displayRootPath, isOpen: $0.id == openID)
         }
-        removeTitle = repositories.first { $0.id == openID }.map { "Remove “\($0.name)” from Overgrove" }
+        removeTitle = repositories.first { $0.id == openID }.map {
+            String(localized: "Remove “\($0.name)” from Overgrove")
+        }
     }
 }
 
@@ -71,7 +73,10 @@ struct RepositorySwitcher: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .accessibilityLabel(
-            repository.map { "Repository \($0.name)" + ($0.owner.map { " by \($0)" } ?? "") } ?? "No repository")
+            repository.map { repository in
+                repository.owner.map { String(localized: "Repository \(repository.name) by \($0)") }
+                    ?? String(localized: "Repository \(repository.name)")
+            } ?? String(localized: "No repository"))
     }
 }
 
@@ -140,8 +145,8 @@ enum RepositoryPicker {
         // A Finder alias is returned as itself instead of silently swapped for its target, so registration sees
         // the picked path and warns about the difference (SEC-T14-01).
         panel.resolvesAliases = false
-        panel.prompt = "Add"
-        panel.message = "Choose a Git repository or one of its worktrees."
+        panel.prompt = String(localized: "Add", comment: "The open panel's button that adds a repository")
+        panel.message = String(localized: "Choose a Git repository or one of its worktrees.")
         return panel
     }
 

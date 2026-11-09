@@ -33,11 +33,12 @@ struct TagListModel: Equatable {
             let name = PathValidator.displayable(tag.shortName)
             let isAnnotated = tag.peeledTarget != nil
             let hasDetachedWorktree = detachedHeads.contains(tag.commit)
-            let kind = isAnnotated ? "Annotated tag" : "Lightweight tag"
-            var help = ["\(kind) \(name)", "Commit \(tag.commit.short)"]
-            if hasDetachedWorktree { help.append("A worktree is checked out at this commit") }
-            var label = ["\(kind) \(name)"]
-            if hasDetachedWorktree { label.append("checked out in a worktree") }
+            let kind =
+                isAnnotated ? String(localized: "Annotated tag \(name)") : String(localized: "Lightweight tag \(name)")
+            var help = [kind, String(localized: "Commit \(tag.commit.short)")]
+            if hasDetachedWorktree { help.append(String(localized: "A worktree is checked out at this commit")) }
+            var label = [kind]
+            if hasDetachedWorktree { label.append(String(localized: "checked out in a worktree")) }
             return TagRow(
                 id: tag.fullName, name: name, commit: tag.commit, date: tag.date, isAnnotated: isAnnotated,
                 hasDetachedWorktree: hasDetachedWorktree, help: help.joined(separator: "\n"),

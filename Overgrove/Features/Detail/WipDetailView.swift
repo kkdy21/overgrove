@@ -117,15 +117,17 @@ struct WipDetailView: View {
                 move(groups: groups, down: press.key == .downArrow)
             }
         case .clean:
-            DetailState(symbol: "checkmark.circle", tint: Tokens.Color.statusOk, title: "Working tree clean")
+            DetailState(
+                symbol: "checkmark.circle", tint: Tokens.Color.statusOk, title: String(localized: "Working tree clean"))
         case .missing:
             DetailState(
                 symbol: "questionmark.folder", tint: Tokens.Color.statusPrunable,
-                title: "Worktree directory is missing",
-                message: "Run git worktree prune in Terminal to clean up.")
+                title: String(localized: "Worktree directory is missing"),
+                message: String(localized: "Run git worktree prune in Terminal to clean up."))
         case .unavailable(let message):
             DetailState(
-                symbol: "exclamationmark.triangle", tint: Tokens.Color.statusWarning, title: "Changes unavailable",
+                symbol: "exclamationmark.triangle", tint: Tokens.Color.statusWarning,
+                title: String(localized: "Changes unavailable"),
                 message: message)
         }
     }

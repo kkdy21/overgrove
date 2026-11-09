@@ -14,17 +14,24 @@ enum RegistrationError: Error, Equatable, Sendable {
     var message: String {
         switch self {
         case .invalidPath(.notAbsolute), .invalidPath(.doesNotExist):
-            "The folder could not be found."
+            String(localized: "The folder could not be found.")
         case .invalidPath(.notADirectory):
-            "Choose a folder, not a file."
+            String(localized: "Choose a folder, not a file.")
         case .invalidPath(.controlCharacters):
-            "The folder's path contains control characters (such as a line break), so Overgrove will not add it."
+            String(
+                localized:
+                    "The folder's path contains control characters (such as a line break), so Overgrove will not add it."
+            )
         case .insideGitDirectory:
-            "This folder is a Git directory (such as .git) or a folder inside one, not a repository folder. Choose the "
-                + "repository or one of its worktrees; a bare repository (such as repo.git) can be chosen directly."
+            String(
+                localized:
+                    "This folder is a Git directory (such as .git) or a folder inside one, not a repository folder. Choose the repository or one of its worktrees; a bare repository (such as repo.git) can be chosen directly."
+            )
         case .inconsistentRepository:
-            "This repository's Git settings point outside the folder you chose (for example core.worktree, or a .git "
-                + "file that points into another repository), so Overgrove will not add it."
+            String(
+                localized:
+                    "This repository's Git settings point outside the folder you chose (for example core.worktree, or a .git file that points into another repository), so Overgrove will not add it."
+            )
         case .git(let error):
             error.message
         }
@@ -43,8 +50,8 @@ struct RepositoryRegistration: Equatable, Sendable {
     /// subfolder, or a linked worktree of the repository).
     var notice: String? {
         guard PathValidator.lexicallyNormalized(chosenPath) != entry.locationPath else { return nil }
-        let reason = isThroughSymlink ? "The folder you chose is a symbolic link. " : ""
-        return reason + "Overgrove added the repository at \(entry.displayRootPath)."
+        let added = String(localized: "Overgrove added the repository at \(entry.displayRootPath).")
+        return isThroughSymlink ? String(localized: "The folder you chose is a symbolic link.") + " " + added : added
     }
 }
 
