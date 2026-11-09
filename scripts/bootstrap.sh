@@ -148,10 +148,11 @@ fi
 
 if ! command -v gh >/dev/null 2>&1; then
   info "gh not installed (optional: the GitHub issues panel; contributors also use it for pull requests)"
-elif gh auth status >/dev/null 2>&1; then
+# Only github.com: without --hostname, another host's invalid token fails the whole check (#506).
+elif gh auth status --hostname github.com >/dev/null 2>&1; then
   ok "gh logged in (optional)"
 else
-  info "gh installed but not logged in (optional): gh auth login"
+  info "gh installed but not logged in to github.com (optional): gh auth login --hostname github.com"
 fi
 
 if [[ "$mode" == contributor ]]; then

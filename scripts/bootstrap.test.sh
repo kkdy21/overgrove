@@ -41,6 +41,21 @@ mkdir -p "$optional_stubs"
 printf '#!/bin/sh\necho 8.30.1\n' >"$optional_stubs/gitleaks"
 chmod +x "$optional_stubs/gitleaks"
 
+# gh with a working login for the hosts in STUB_GH_OK. Like the real gh, `gh auth status` without --hostname fails
+# when any host in STUB_GH_BAD has an invalid token, even if github.com is fine.
+gh_stubs="$work/gh"
+mkdir -p "$gh_stubs"
+cat >"$gh_stubs/gh" <<'EOF'
+#!/bin/sh
+[ "$1" = auth ] && [ "$2" = status ] || exit 1
+if [ "$3" = --hostname ]; then
+  case " $STUB_GH_OK " in *" $4 "*) exit 0 ;; esac
+  exit 1
+fi
+[ -n "$STUB_GH_OK" ] && [ -z "$STUB_GH_BAD" ]
+EOF
+chmod +x "$gh_stubs/gh"
+
 # run <name> [VAR=value …] -- [bootstrap arguments]: runs bootstrap in a fresh repository with the default stub answers
 # (a supported machine), overridden by the given variables. With preset_hooks=1, the repository already has
 # core.hooksPath=.githooks. Sets $repo, $out, and $code.
@@ -160,6 +175,19 @@ expect "contributor: already installed hooks are left as they are" 0 "already"
 run contributor-no-xcode "PATH=$optional_stubs:$stubs:/usr/bin:/bin" STUB_DEVDIR= STUB_XCODE= \
   BOOTSTRAP_APPLICATIONS="$work/apps-empty"
 expect "contributor: missing Xcode is a warning, not a failure" 0 "App Store"
+
+# --- gh login: only github.com counts -------------------------------------------------------------------------------
+
+run gh-logged-in "PATH=$gh_stubs:$optional_stubs:$stubs:/usr/bin:/bin" STUB_GH_OK=github.com
+expect "gh: github.com logged in" 0 "gh logged in"
+
+# Another host's broken token makes a plain `gh auth status` fail; github.com is still logged in (#506).
+run gh-other-host-bad "PATH=$gh_stubs:$optional_stubs:$stubs:/usr/bin:/bin" STUB_GH_OK=github.com \
+  STUB_GH_BAD=ghe.example.com
+expect "gh: another host's invalid token does not hide the github.com login" 0 "gh logged in"
+
+run gh-only-other-host "PATH=$gh_stubs:$optional_stubs:$stubs:/usr/bin:/bin" STUB_GH_OK=ghe.example.com
+expect "gh: a login to another host only is not a github.com login" 0 "not logged in"
 
 # --- Wording and usage ---------------------------------------------------------------------------------------------
 
