@@ -20,14 +20,15 @@ extension AppState {
     // MARK: Repository switcher (#477)
 
     /// The open repository as the toolbar's switcher shows it: its name, and the owner of the issue source this load
-    /// picked from inspected remotes (the GitHub owner, or the GitLab namespace). A cached paint, or a repository
-    /// without a source, shows the name alone (screens.md S-01).
+    /// picked from inspected remotes (the GitHub or Gitea owner, or the GitLab namespace). A cached paint, or a
+    /// repository without a source, shows the name alone (screens.md S-01).
     var displayedRepository: RepositoryContext? {
         guard let repository else { return nil }
         let owner: String? =
             switch issuePanel.repository {
             case .github(let github): PathValidator.displayable(github.owner)
             case .gitlab(let project): PathValidator.displayable(project.namespace.joined(separator: "/"))
+            case .gitea(let gitea): PathValidator.displayable(gitea.owner)
             case nil: nil
             }
         return RepositoryContext(repository: repository.repository, owner: owner)

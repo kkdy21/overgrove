@@ -311,7 +311,7 @@ final class AppStateGitHubHostTests: XCTestCase {
     // MARK: Switcher owner (#477)
 
     /// #477: the repository switcher names the owner of the issue source this load picked from inspected remotes: the
-    /// GitHub owner, or the GitLab namespace. Without a source there is no owner.
+    /// GitHub or Gitea owner, or the GitLab namespace. Without a source there is no owner.
     func testTheSwitcherNamesTheIssueSourcesOwner() async {
         let github = await loadedState(
             remotes: ["https://github.com/team/app"], issues: StubIssueLoader([.issues([])]),
@@ -324,6 +324,12 @@ final class AppStateGitHubHostTests: XCTestCase {
             checker: QueuedGHAuthReporter([report(["github.com"])]),
             gitlab: StubGitLabHostChecker(loggedIn: ["gitlab.example.com"]))
         XCTAssertEqual(gitlab.displayedRepository?.owner, "group/sub")
+
+        let gitea = await loadedState(
+            remotes: ["git@git.example.com:acme/widgets.git"], issues: StubIssueLoader([.issues([])]),
+            checker: QueuedGHAuthReporter([report(["github.com"])]),
+            gitea: StubGiteaInstanceChecker(["https://git.example.com"]))
+        XCTAssertEqual(gitea.displayedRepository?.owner, "acme")
 
         let none = await loadedState(
             remotes: ["https://ghe.example/team/app"], issues: StubIssueLoader([.issues([])]),
