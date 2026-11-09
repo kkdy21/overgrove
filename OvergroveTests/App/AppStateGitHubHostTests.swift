@@ -49,14 +49,15 @@ final class AppStateGitHubHostTests: XCTestCase {
     private func loadedState(
         remotes: [String], issues: StubIssueLoader,
         pullRequests: StubPullRequestLoader = StubPullRequestLoader([.unavailable]),
-        checker: QueuedGHAuthReporter, gitlab: StubGitLabHostChecker = StubGitLabHostChecker()
+        checker: QueuedGHAuthReporter, gitlab: StubGitLabHostChecker = StubGitLabHostChecker(),
+        gitea: StubGiteaInstanceChecker = StubGiteaInstanceChecker()
     ) async -> AppState {
         var listing = WorktreeListing.mockup
         listing.remotes = remotes.enumerated().map { WorktreeListing.Remote(name: "r\($0.offset)", url: $0.element) }
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
             loader: StubRepositoryLoader(result: .success(listing)), issueLoader: issues,
-            pullRequestLoader: pullRequests, ghChecker: checker, gitlabChecker: gitlab)
+            pullRequestLoader: pullRequests, ghChecker: checker, gitlabChecker: gitlab, giteaChecker: gitea)
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(
@@ -214,7 +215,10 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(loggedOut.issueListModel.notice?.text, "Not logged in to gitlab.example.com")
         XCTAssertEqual(
             loggedOut.issueListModel.setupCommands,
-            ["gh auth login --hostname gitlab.example.com", "glab auth login --hostname gitlab.example.com"])
+            [
+                "gh auth login --hostname gitlab.example.com", "glab auth login --hostname gitlab.example.com",
+                "gt auth login --host https://gitlab.example.com",
+            ])
         XCTAssertTrue(loggedOut.issueListModel.canCheckAgain)
 
         let glab = StubGitLabHostChecker(loggedIn: ["gitlab.example.com"])
@@ -357,5 +361,164 @@ final class AppStateGitHubHostTests: XCTestCase {
             checker: QueuedGHAuthReporter([report]), gitlab: none)
         XCTAssertEqual(unread.requests, [])
         XCTAssertEqual(notLoggedIn.issueListModel.notice?.text, "Not logged in to code.example.com")
+    }
+
+    private let giteaIssue = IssueModelsTests.issue(
+        7, "Crash", url: "https://git.example.com/acme/widgets/issues/7")
+
+    /// SEC-T11-449-4: with no GitHub repository and no host glab confirms, gt's credentialed instances are read once
+    /// (local state, no request) and a remote on one of them shows its issues; without one, nothing is read and the
+    /// notice offers the three login commands.
+    func testSECT11_449_4_GiteaIssuesOnlyForAnInstanceGtHasCredentialsFor() async {
+        let issues = StubIssueLoader([.issues([giteaIssue])])
+        let none = StubGiteaInstanceChecker()
+        let loggedOut = await loadedState(
+            remotes: ["git@git.example.com:acme/widgets.git"], issues: issues,
+            checker: QueuedGHAuthReporter([report(["github.com"])]), gitea: none)
+        XCTAssertEqual(none.calls, 1)
+        XCTAssertEqual(issues.requests, [])
+        XCTAssertEqual(loggedOut.issueListModel.notice?.text, "Not logged in to git.example.com")
+
+        let gt = StubGiteaInstanceChecker(["https://git.example.com"])
+        let state = await loadedState(
+            remotes: ["git@git.example.com:acme/widgets.git"], issues: issues,
+            checker: QueuedGHAuthReporter([report(["github.com"])]), gitea: gt)
+        XCTAssertEqual(issues.requests, ["git.example.com/acme/widgets"])
+        XCTAssertEqual(state.issueListModel.rows.map(\.number), ["#7"])
+        XCTAssertNotNil(state.issueListModel.rows.first?.browserURL, "this repository's issue page on the instance")
+        XCTAssertNil(state.pullRequestStore.repository, "pull requests stay GitHub only")
+
+    }
+
+    /// Auto refresh does not run gt again for the same remotes, whatever gt answered; ⌘R does.
+    func testGtIsAskedAgainOnlyOnCommandR() async {
+        for instances in [[], ["https://git.example.com"]] {
+            let gt = StubGiteaInstanceChecker(instances)
+            let state = await loadedState(
+                remotes: ["git@git.example.com:acme/widgets.git"], issues: StubIssueLoader([.issues([giteaIssue])]),
+                checker: QueuedGHAuthReporter([report(["github.com"]), report(["github.com"])]), gitea: gt)
+            XCTAssertEqual(gt.calls, 1)
+            state.refresh(.filesChanged(worktrees: [], refs: false, worktreeList: true))
+            await state.loadTask?.value
+            await state.ghCheckTask?.value
+            await state.gitlabCheckTask?.value
+            XCTAssertEqual(gt.calls, 1, "the same remotes: no gt (\(instances))")
+            state.reload()
+            await state.loadTask?.value
+            await state.ghCheckTask?.value
+            await state.gitlabCheckTask?.value
+            XCTAssertEqual(gt.calls, 2)
+        }
+    }
+
+    /// SEC-T11-449-4: a gt answer that arrives after another repository opened is dropped.
+    func testSECT11_449_4_ALateGtAnswerAfterAnotherRepositoryIsDropped() async {
+        let gt = GatedGiteaInstanceChecker(["https://git.example.com"])
+        let issues = StubIssueLoader([.issues([giteaIssue])])
+        var listing = WorktreeListing.mockup
+        listing.remotes = [WorktreeListing.Remote(name: "origin", url: "git@git.example.com:acme/widgets.git")]
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: StubRepositoryLoader(result: .success(listing)), issueLoader: issues,
+            pullRequestLoader: StubPullRequestLoader([.unavailable]),
+            ghChecker: QueuedGHAuthReporter([report(["github.com"])]), gitlabChecker: StubGitLabHostChecker(),
+            giteaChecker: gt)
+        func context(_ path: String) -> RepositoryContext {
+            let root = URL(fileURLWithPath: path, isDirectory: true)
+            return RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil)
+        }
+        state.open(context("/tmp/dev/api"))
+        state.reload()
+        await state.loadTask?.value
+        await state.ghCheckTask?.value
+        let pending = state.gitlabCheckTask
+        for _ in 0..<150 where gt.calls == 0 { try? await Task.sleep(for: .milliseconds(20)) }
+        XCTAssertEqual(gt.calls, 1, "gt is waiting with its answer")
+        state.open(context("/tmp/dev/other"))
+        gt.release()
+        await pending?.value
+        await state.issuePanel.task?.value
+        XCTAssertNil(state.issuePanel.repository)
+        XCTAssertEqual(issues.requests, [])
+    }
+
+    /// The first CLI that confirms a login takes the host, in the order gh → glab → gt: with glab logged in, gt is not
+    /// asked; a host gh is logged in to is never a gt candidate, even for a remote gh cannot read as `OWNER/NAME`.
+    func testCLIsTakeAHostInTheOrderGhGlabGt() async {
+        let issues = StubIssueLoader([.issues([giteaIssue])])
+        let gt = StubGiteaInstanceChecker(["https://git.example.com", "https://git.example.com/sub"])
+        _ = await loadedState(
+            remotes: ["git@git.example.com:acme/widgets.git"], issues: issues,
+            checker: QueuedGHAuthReporter([report(["github.com"])]),
+            gitlab: StubGitLabHostChecker(loggedIn: ["git.example.com"]), gitea: gt)
+        XCTAssertEqual(issues.requests, ["git.example.com/acme/widgets"], "glab's project")
+        XCTAssertEqual(gt.calls, 0)
+
+        let ghHost = StubIssueLoader([.issues([giteaIssue])])
+        let state = await loadedState(
+            remotes: ["https://git.example.com/sub/acme/widgets"], issues: ghHost,
+            checker: QueuedGHAuthReporter([report(["github.com", "git.example.com"])]), gitea: gt)
+        XCTAssertEqual(ghHost.requests, [], "gh handles git.example.com, so gt's instance there is skipped")
+        XCTAssertNil(state.issuePanel.repository)
+    }
+}
+
+/// Answers gt's credentialed instances from a fixed list and counts the calls.
+final class StubGiteaInstanceChecker: GiteaInstanceChecking, @unchecked Sendable {
+    private let lock = NSLock()
+    private let instances: [GiteaInstance]
+    private var count = 0
+
+    init(_ urls: [String] = []) {
+        instances = urls.compactMap(GiteaInstance.init)
+    }
+
+    var calls: Int { lock.withLock { count } }
+
+    func loggedInInstances() async -> [GiteaInstance] {
+        lock.withLock {
+            count += 1
+            return instances
+        }
+    }
+}
+
+/// Holds gt's answer until `release()`, so a test can change the repository meanwhile.
+final class GatedGiteaInstanceChecker: GiteaInstanceChecking, @unchecked Sendable {
+    private let lock = NSLock()
+    private let instances: [GiteaInstance]
+    private var waiting: [CheckedContinuation<Void, Never>] = []
+    private var isReleased = false
+    private var count = 0
+
+    init(_ urls: [String]) {
+        instances = urls.compactMap(GiteaInstance.init)
+    }
+
+    var calls: Int { lock.withLock { count } }
+
+    func release() {
+        let continuations = lock.withLock {
+            isReleased = true
+            defer { waiting = [] }
+            return waiting
+        }
+        for continuation in continuations { continuation.resume() }
+    }
+
+    func loggedInInstances() async -> [GiteaInstance] {
+        await withCheckedContinuation { continuation in
+            let resumeNow = lock.withLock {
+                count += 1
+                if isReleased { return true }
+                waiting.append(continuation)
+                return false
+            }
+            if resumeNow { continuation.resume() }
+        }
+        return instances
     }
 }

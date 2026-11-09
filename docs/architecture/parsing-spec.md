@@ -448,6 +448,32 @@ ADR-0023 §3. 공개 저장소에는 누구나 PR을 열 수 있으므로 항목
 
 ---
 
+### 10.5 GTAuthParser·GTIssueParser — gt (#449, ADR-0026)
+
+`gt auth status --json host,user,credential_available`는 객체 배열이다(gt 1.1.0, 계정이 없으면 `[]`, 종료 코드는 0). `host`가 없거나 빈 항목은 버리고, `credential_available`은 JSON `true`일 때만 참으로 본다. 최상위가 배열이 아니면 실패이고, 클라이언트는 이를 로그인 안 됨으로 다룬다. `host`(인스턴스 URL)는 `GiteaInstance`가 다시 검증한다: `https://HOST[:PORT][/BASE]`만 받는다. gt는 이 값을 소문자 호스트, 끝 `/` 없음, base path 유지 형태로 낸다(실측).
+
+`gt issue list --json number,title,state,labels,assignees,updated_at,url`은 객체 배열이다. 목록 전체가 실패하는 것은 최상위가 배열이 아닐 때뿐이다.
+
+| 필드 | 규칙 |
+|---|---|
+| `number` | 양의 Int. 없거나 형식이 다르면 그 항목만 버린다 |
+| `title` | 필수. 1,000자에서 자른다 |
+| `state` | `open` → 열림, `closed` → 닫힘. 다른 값은 그 항목만 버린다 |
+| `url` | `https://`로 시작해야 한다(gt가 API의 `html_url`을 옮긴 값) |
+| `updated_at` | 필수. ISO 8601(시간대 오프셋 포함) |
+| `labels` | `{name, color, …}` 객체 배열. 이름 없는 라벨·객체 아닌 항목은 그 라벨만 버린다. 50개, 이름 100자에서 자른다. `color`는 16진수 6자(`#` 허용)만 소문자로 두고, 그 밖에는 색 없음 |
+| `assignees` | 로그인 문자열 배열. 문자열 아닌 항목·빈 문자열은 버리고 50명에서 자른다 |
+| 본문 | 요청하지 않는다 |
+
+항목은 200개까지만 둔다. gt는 계정 없이 이슈를 읽을 수 없어서, 픽스처는 체크섬을 확인한 gt 1.1.0 공식 바이너리를 자리표시 `GITEA_TOKEN`으로 로컬 Gitea API 대역에 붙여 채집한 gt 자신의 출력이다(`OvergroveTests/Forges/GTFixtures.swift`). ADR-0026이 소스로 확인한 모양(`labels` 객체, `assignees` 문자열)과 같다.
+
+| 테스트 | 사례 |
+|---|---|
+| PAR-GT-01 | 계정 없음(실제 출력)·http 인스턴스(실제 출력)·여러 계정·문자열 `"true"`·host 없는 항목·배열 아님 |
+| PAR-GT-02 | 이슈 목록(실제 출력): 상태, 라벨 객체와 색, 담당자 문자열, URL, 시간대 오프셋, U+202E가 든 제목 |
+| PAR-GT-03 | 형식이 틀린 항목·라벨·담당자만 버림, 잘못된 색은 색 없음, 배열 아닌 출력·잘린 배열 → 실패 |
+| PAR-GT-04 | `gt --version` 첫 줄: `gt version X.Y.Z`만 받음(Graphite의 숫자만 출력, `gt X.Y.Z`, `v` 접두 거부) |
+
 ## 11. 기타 파서
 
 ### 11.1 VersionParser — `git version`

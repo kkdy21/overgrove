@@ -174,8 +174,8 @@ extension AppState {
         }
         guard let github = GitHubRemote.repository(remotes: remotes, trusting: trusted) else {
             pullRequestStore.load(nil)
-            // A GitLab project already shown stays; otherwise the other providers are asked again with the new list.
-            if case .gitlab = issuePanel.repository { return }
+            // A GitLab or Gitea repository already shown stays; otherwise the other providers are asked again.
+            if let shown = issuePanel.repository, shown.gitHubRepository == nil { return }
             showOtherIssueSource(remotes: remotes)
             return
         }
@@ -191,8 +191,9 @@ extension AppState {
     /// reports logged in, asked about one host at a time (at most `GitLabRemote.maximumHosts`). Without one, a remote
     /// on a host no CLI is logged in to gets the "Not logged in to HOST" notice and its login commands (§7); nothing is
     /// read from that host. The same projects are not asked about again until ⌘R, Check Again, or another repository
-    /// (`gitlabQuestion`), so auto refresh with the same remotes does not run glab. gh goes first: a host gh is
-    /// logged in to is never a glab candidate, so when both CLIs are logged in to a host, gh's repository is used.
+    /// (`gitlabQuestion`), so auto refresh with the same remotes does not run glab or gt. The CLIs go in order gh →
+    /// glab → gt, and the first that confirms a login takes the host: a host gh is logged in to is never a glab or gt
+    /// candidate, and gt is asked (once, from local credentials) only when glab confirmed no host.
     func showOtherIssueSource(remotes: [(name: String, url: String)]) {
         let candidates = GitLabRemote.candidates(remotes: remotes, excluding: trustedGitHubHosts)
         let untrusted = GitLabRemote.untrustedHost(remotes: remotes, excluding: trustedGitHubHosts)
@@ -207,18 +208,25 @@ extension AppState {
         }
         let generation = gitlabCheckGeneration
         let checker = gitlabChecker
+        let gitea = giteaChecker
+        let excluded = trustedGitHubHosts
         gitlabCheckTask = Task { [weak self] in
-            var found: GitLabProject?
+            var found: IssueSource?
             for project in candidates {
                 guard !Task.isCancelled else { return }
                 if await checker.isLoggedIn(project.host) {
-                    found = project
+                    found = .gitlab(project)
                     break
                 }
             }
+            if found == nil, !Task.isCancelled {
+                // gt last (ADR-0026 §2): instances on hosts gh handles are skipped; a host glab confirmed already won.
+                let instances = await gitea.loggedInInstances().filter { !excluded.contains($0.host) }
+                found = GiteaRemote.repository(remotes: remotes, instances: instances).map(IssueSource.gitea)
+            }
             guard let self, generation == self.gitlabCheckGeneration, !Task.isCancelled else { return }
             if let found {
-                self.issuePanel.show(.gitlab(found))
+                self.issuePanel.show(found)
             } else if let untrusted {
                 self.issuePanel.showNotLoggedIn(to: untrusted)
             } else {

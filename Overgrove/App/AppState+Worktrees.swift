@@ -118,6 +118,9 @@ extension AppState {
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
             branchListModel = nil
+            // The remotes this repository was last inspected with no longer count: a cached paint after this failure
+            // must not build links (or pick the gh repository again) from them (#470).
+            verifiedGitHubSource = nil
             comparisonListFailed(error)
             snapshot = nil
             // The memory cache is dropped on failure (overview.md §5); so is the snapshot (ADR-0018 §3).

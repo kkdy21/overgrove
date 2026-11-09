@@ -159,6 +159,34 @@ final class AutoFetchSchedulerTests: XCTestCase {
         await fetch.task?.value
     }
 
+    /// #479: the catch-up bound is per repository. After another repository opens in the window, coming back catches
+    /// it up even within one interval of the previous repository's automatic fetch; the new one is then bounded alike.
+    func testAnotherRepositoryCatchesUpAtOnce() async {
+        let (scheduler, settings, fetch, fetcher, _) = make()
+        settings.autoFetch = true
+        scheduler.windowActivityChanged(isActive: true)
+        await fetcher.waitForFetches(1)
+        fetcher.release(0, with: .finished(failures: []))
+        await fetch.task?.value
+
+        let other = Repository(
+            rootURL: URL(fileURLWithPath: "/tmp/dev/web", isDirectory: true),
+            commonGitDirectoryURL: URL(fileURLWithPath: "/tmp/dev/web/.git", isDirectory: true), isBare: false)
+        clock = clock.addingTimeInterval(120)
+        fetch.open(other)
+        scheduler.repositoryChanged()
+        scheduler.windowActivityChanged(isActive: false)
+        scheduler.windowActivityChanged(isActive: true)
+        await fetcher.waitForFetches(2)
+        fetcher.release(1, with: .finished(failures: []))
+        await fetch.task?.value
+
+        clock = clock.addingTimeInterval(120)
+        scheduler.windowActivityChanged(isActive: false)
+        scheduler.windowActivityChanged(isActive: true)
+        XCTAssertEqual(fetcher.count, 2, "the new repository is bounded by its own last attempt")
+    }
+
     func testIntervalChangeRestartsAndOffStops() async {
         let (scheduler, settings, _, _, gate) = make()
         settings.autoFetch = true
