@@ -11,6 +11,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+: > "$work/gitconfig-empty"
 fail=0
 
 pass() { echo "ok   $1"; }
@@ -71,6 +72,7 @@ run() {
     "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
     "STUB_XCODE=Xcode 26.1" "STUB_LICENSE=ok" "STUB_FIRSTLAUNCH=ok" "STUB_GIT=git version 2.39.5 (Apple Git-154)"
     "BOOTSTRAP_APPLICATIONS=$work/apps-with-xcode"
+    "GIT_CONFIG_GLOBAL=$work/gitconfig-empty" "GIT_CONFIG_SYSTEM=/dev/null" "GIT_CONFIG_NOSYSTEM=1"
   )
   while [[ $# -gt 0 && "$1" != "--" ]]; do
     vars+=("$1")
