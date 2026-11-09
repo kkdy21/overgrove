@@ -159,6 +159,8 @@ final class AppState {
     var verifiedGitHubSource: VerifiedGitHubSource?
     /// Asks glab about a remote's host when no GitHub repository is found (ADR-0026 §2).
     let gitlabChecker: any GitLabHostChecking
+    /// Which Gitea instances gt has credentials for, asked after glab finds no host (ADR-0026 §2).
+    let giteaChecker: any GiteaInstanceChecking
     /// The glab login check in flight; tests await it.
     var gitlabCheckTask: Task<Void, Never>?
     var gitlabCheckGeneration = 0
@@ -270,6 +272,7 @@ final class AppState {
         gitChecker: any GitSetupChecking = LiveGitSetupChecker.live,
         ghChecker: any GHAuthChecking = LiveGHAuthChecker.live,
         gitlabChecker: any GitLabHostChecking = LiveGitLabHostChecker.live,
+        giteaChecker: any GiteaInstanceChecking = LiveGiteaInstanceChecker.live,
         settings: AppSettings? = nil,
         fileWatcher: any FileEventWatching = LiveFileEventWatcher.live,
         launchSnapshots: LaunchSnapshotStore? = nil,
@@ -282,6 +285,7 @@ final class AppState {
         self.gitIdentity = gitIdentity
         self.ghChecker = ghChecker
         self.gitlabChecker = gitlabChecker
+        self.giteaChecker = giteaChecker
         self.graph = GraphStore(loader: graphLoader)
         self.commitDetail = CommitDetailStore(loader: commitLoader)
         self.commitLoader = commitLoader

@@ -175,7 +175,7 @@ final class GLClientTests: XCTestCase {
         try Data("hosts: {}\n".utf8).write(to: file)
     }
 
-    private func client(_ fake: FakeGlab?, limits: ProcessLimits = .gh) -> GLClient {
+    private func client(_ fake: FakeForgeCLI?, limits: ProcessLimits = .gh) -> GLClient {
         GLClient(
             parentEnvironment: hostileParent, neutralDirectory: neutral,
             executableCandidates: fake.map { [$0.executable] } ?? [], limits: limits, home: home)
