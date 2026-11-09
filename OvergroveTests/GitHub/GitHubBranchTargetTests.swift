@@ -27,10 +27,10 @@ final class GitHubBranchTargetTests: XCTestCase {
             GitHubBranchTarget.forLocal(local("main", remote: "upstream", merge: "refs/heads/main"), remotes: remotes),
             GitHubBranchTarget(repository: original, branch: "main"))
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/origin/feat/x", remotes: remotes),
+            GitHubBranchTarget.forRemoteRef("refs/remotes/origin/feat/x", remotes: remotes, configuredRemotes: []),
             GitHubBranchTarget(repository: fork, branch: "feat/x"))
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/upstream/main", remotes: remotes),
+            GitHubBranchTarget.forRemoteRef("refs/remotes/upstream/main", remotes: remotes, configuredRemotes: []),
             GitHubBranchTarget(repository: original, branch: "main"))
     }
 
@@ -60,27 +60,52 @@ final class GitHubBranchTargetTests: XCTestCase {
         XCTAssertNil(GitHubBranchTarget.forLocal(remoteKind, remotes: remotes), "only local branches")
     }
 
+    /// #466: the longest configured remote decides, not the longest GitHub one. With `my` on GitHub and `my/fork`
+    /// elsewhere, `refs/remotes/my/fork/topic` belongs to `my/fork` and opens nothing; it never opens `my`'s
+    /// `tree/fork/topic`.
+    func testTheLongestConfiguredRemoteDecidesEvenWhenItIsNotOnGitHub() {
+        let remotes = ["my": original]
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/fork/topic", remotes: remotes, configuredRemotes: ["my", "my/fork"]))
+        XCTAssertEqual(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/topic", remotes: remotes, configuredRemotes: ["my", "my/fork"]),
+            GitHubBranchTarget(repository: original, branch: "topic"))
+        // A GitHub remote missing from the configured list (a stale map) still counts.
+        XCTAssertEqual(
+            GitHubBranchTarget.forRemoteRef("refs/remotes/my/topic", remotes: remotes, configuredRemotes: []),
+            GitHubBranchTarget(repository: original, branch: "topic"))
+    }
+
     /// Remote names may contain `/`: the longest known remote name wins, and `HEAD` is not a branch.
     func testRemoteRefsMatchTheLongestRemoteName() {
         let remotes = ["my": original, "my/fork": fork]
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/topic", remotes: remotes),
+            GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/topic", remotes: remotes, configuredRemotes: []),
             GitHubBranchTarget(repository: fork, branch: "topic"))
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/my/topic", remotes: remotes),
+            GitHubBranchTarget.forRemoteRef("refs/remotes/my/topic", remotes: remotes, configuredRemotes: []),
             GitHubBranchTarget(repository: original, branch: "topic"))
-        XCTAssertNil(GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/HEAD", remotes: remotes))
-        XCTAssertNil(GitHubBranchTarget.forRemoteRef("refs/remotes/gitlab/main", remotes: remotes))
-        XCTAssertNil(GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/", remotes: remotes))
-        XCTAssertNil(GitHubBranchTarget.forRemoteRef("refs/heads/my/fork/topic", remotes: remotes))
-        XCTAssertNil(GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/-x", remotes: remotes), "invalid ref")
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/HEAD", remotes: remotes, configuredRemotes: []))
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef("refs/remotes/gitlab/main", remotes: remotes, configuredRemotes: []))
+        XCTAssertNil(GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/", remotes: remotes, configuredRemotes: []))
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef("refs/heads/my/fork/topic", remotes: remotes, configuredRemotes: []))
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/-x", remotes: remotes, configuredRemotes: []),
+            "invalid ref")
     }
 
     /// Prefixes compare by bytes: an NFD spelling of a remote name is a different remote.
     func testRemoteNamesCompareByBytes() {
         let remotes = ["caf\u{E9}": fork]
-        XCTAssertNil(GitHubBranchTarget.forRemoteRef("refs/remotes/cafe\u{301}/main", remotes: remotes))
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef("refs/remotes/cafe\u{301}/main", remotes: remotes, configuredRemotes: []))
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/caf\u{E9}/main", remotes: remotes)?.repository, fork)
+            GitHubBranchTarget.forRemoteRef("refs/remotes/caf\u{E9}/main", remotes: remotes, configuredRemotes: [])?
+                .repository, fork)
     }
 }

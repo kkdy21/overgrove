@@ -45,6 +45,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Open on GitHub for a remote-tracking branch uses the remote its row is grouped under: a branch of a non-GitHub
+  remote whose name starts with a GitHub remote's name no longer opens the GitHub remote's page.
 - The setup assistant counts a gh login on any host, as the status bar does: a login only on a GitHub Enterprise host
   shows as set up and names the host.
 
