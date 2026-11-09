@@ -48,6 +48,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Open on GitHub for a remote-tracking branch uses the remote its row is grouped under: a branch of a non-GitHub
   remote whose name starts with a GitHub remote's name no longer opens the GitHub remote's page.
 - GitHub hosts are trusted only when gh has a working login there, not just any account entry.
+- The setup assistant counts a gh login on any host, as the status bar does: a login only on a GitHub Enterprise host
+  shows as set up and names the host.
 - Auto fetch catches up a repository newly opened in a window when the window becomes active, instead of waiting out
   the previous repository's interval.
 
