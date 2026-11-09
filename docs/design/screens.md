@@ -557,7 +557,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 |---|---|---|
 | 1 저장소 | 경로와 `✓` | 저장소가 아님: `This folder is not a Git repository`. 소유권 거부: `Git refused this folder (ownership check)` + 설명 링크. 앱은 `safe.directory`를 바꾸지 않는다 |
 | 2 git | 버전과 경로 | 없음: `Install Xcode Command Line Tools: xcode-select --install` (복사 버튼). 2.36 미만: `git 2.36 or later is required` |
-| 3 GitHub | `✓ Logged in as @login` | 미설치: `Install GitHub CLI (brew install gh) to see issues` / 미로그인: 위 와이어프레임. **이 단계는 건너뛸 수 있다** |
+| 3 GitHub | `✓ Logged in as @login`. github.com 밖의 호스트에만 동작하는 로그인이 있으면(#476, 상태바와 같은 보고) `✓ Logged in to HOST as @login`(호스트가 여럿이면 `… and n more host(s)`)과 `Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to.` | 미설치: `Install GitHub CLI (brew install gh) to see issues` / 미로그인: 위 와이어프레임. **이 단계는 건너뛸 수 있다** |
 
 - 앱은 `gh auth login`이나 `xcode-select --install`을 **직접 실행하지 않는다.** 명령을 복사할 수 있게만 한다 (HANDOFF §7.2).
 - `Open Repository`는 1, 2단계가 성공하면 활성화된다.
