@@ -120,7 +120,8 @@ struct BranchListModel: Equatable {
             byRemote[remote, default: []].append(
                 Self.row(
                     branch, name: name, isCheckedOut: false, isDefault: false,
-                    gitHub: GitHubBranchTarget.forRemoteRef(branch.fullName, remotes: githubRemotes)))
+                    gitHub: GitHubBranchTarget.forRemoteRef(
+                        branch.fullName, remotes: githubRemotes, configuredRemotes: remoteNames)))
         }
         // `origin` first, then the rest by name (information-architecture.md §4.2).
         let order = byRemote.keys.sorted { lhs, rhs in
