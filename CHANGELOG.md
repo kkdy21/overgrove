@@ -51,6 +51,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - The setup assistant counts a gh login on any host, as the status bar does: a login only on a GitHub Enterprise host
   shows as set up and names the host.
 - Graph Zoom In also answers ⌘= on keyboards where + needs Shift.
+- Quick Look refuses more file types whose preview renders web content or names a location, by extension and by
+  file type.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
