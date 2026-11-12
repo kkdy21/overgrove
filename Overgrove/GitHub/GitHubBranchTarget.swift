@@ -45,9 +45,10 @@ struct GitHubBranchTarget: Equatable, Sendable {
         let prefix = "refs/remotes/"
         guard FullRefName(ref) != nil, ref.utf8.starts(with: prefix.utf8),
             let match = index.remote(of: String(decoding: ref.utf8.dropFirst(prefix.utf8.count), as: UTF8.self)),
-            // By bytes too: a `String` key lookup would fold normalization.
-            let repository = remotes.first(where: { $0.key.utf8.elementsEqual(match.utf8) })?.value
+            // O(1) by key, then the stored key's bytes: a `String` key lookup folds normalization (#489, T15).
+            let found = remotes.index(forKey: match), remotes[found].key.utf8.elementsEqual(match.utf8)
         else { return nil }
+        let repository = remotes[found].value
         guard let target = target(repository, ref, prefix: "refs/remotes/\(match)/"), target.branch != "HEAD" else {
             return nil
         }
