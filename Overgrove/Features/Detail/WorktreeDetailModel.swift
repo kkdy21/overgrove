@@ -321,7 +321,7 @@ struct WorktreeSecurityModel: Equatable {
         failure = result.failure.map(PathValidator.displayable)
         var fetchReason = inspection?.fetchBlockingReason
         if fetchReason == nil, inspection?.isPartialClone == true {
-            fetchReason = "This repository is a partial clone; Overgrove never downloads missing objects."
+            fetchReason = SafetyReason.partialClone
         }
         fetchBlockingReason = fetchReason.map(PathValidator.displayable)
         let omitted = [

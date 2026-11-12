@@ -90,6 +90,21 @@ final class GHStatusGuidanceTests: XCTestCase {
         XCTAssertTrue(two.isOK)
         XCTAssertEqual(two.title, "Logged in to code.example.org and 1 more host", "sorted; no account to name")
 
+        // github.com's state could not be read (an odd login, #486): other hosts still count, but nothing claims a
+        // github.com login; without another host it reads as a failed check.
+        let unread = GHStatusGuidance(
+            report: GHAuthReport(
+                status: nil, hosts: [GitHubRepository.publicHost, ghe],
+                accounts: [ghe: GHAccount(host: ghe, login: "me", otherCount: 0)]))
+        XCTAssertTrue(unread.isOK)
+        XCTAssertEqual(unread.title, "Logged in to ghe.example as @me")
+        XCTAssertEqual(
+            unread.message,
+            "Couldn't read the github.com account. Issues appear for repositories on the hosts gh is logged in to.")
+        XCTAssertEqual(
+            GHStatusGuidance(report: GHAuthReport(status: nil, hosts: [GitHubRepository.publicHost])),
+            GHStatusGuidance(checkFailed: nil))
+
         // No working login anywhere (the report lists only working hosts, #467): the usual guidance.
         XCTAssertEqual(
             GHStatusGuidance(report: GHAuthReport(status: .notLoggedIn, hosts: [])),

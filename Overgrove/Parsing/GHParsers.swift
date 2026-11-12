@@ -38,7 +38,8 @@ enum GHAuthParser {
                 active[host] = GHAccount(host: host, login: login, otherCount: accounts.count - 1)
             }
         }
-        return GHAuthReport(status: try status(response, host: GHCommand.host), hosts: hosts, accounts: active)
+        // An odd github.com login leaves only github.com's state unread, not the other hosts (#486).
+        return GHAuthReport(status: try? status(response, host: GHCommand.host), hosts: hosts, accounts: active)
     }
 
     private static func decode(_ data: Data) throws -> Response {
@@ -60,11 +61,12 @@ enum GHAuthParser {
         return .loggedIn(login: login)
     }
 
-    /// GitHub logins: 1–39 ASCII letters, digits, or hyphens.
+    /// GitHub logins: 1–39 ASCII letters, digits, or hyphens, or an Enterprise Managed User's `handle_shortcode`
+    /// whose handle follows the same rule (`GitHubName`, #486).
     static func isGitHubLogin(_ login: String) -> Bool {
-        let utf8 = login.utf8
-        return (1...39).contains(utf8.count)
-            && utf8.allSatisfy {
+        guard (1...39).contains(login.utf8.count), let handle = GitHubName.handle(login) else { return false }
+        return !handle.isEmpty
+            && handle.allSatisfy {
                 ($0 | 0x20) >= 0x61 && ($0 | 0x20) <= 0x7A || (0x30...0x39).contains($0) || $0 == 0x2D
             }
     }
