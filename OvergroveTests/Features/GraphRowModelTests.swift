@@ -33,7 +33,7 @@ final class GraphRowModelTests: XCTestCase {
                 branch("refs/remotes/origin/HEAD", a, symbolic: "refs/remotes/origin/main"),
                 branch("refs/remotes/origin/only", a),
             ],
-            tags: [Tag(fullName: "refs/tags/v1", target: c, peeledTarget: a, date: nil)])
+            tags: [Tag(fullName: "refs/tags/v1", target: c, peeledTarget: a, date: nil, objectType: .commit)])
         let worktrees = [
             worktree("/tmp/dev/repo", branch: "refs/heads/main", head: a),
             worktree("/tmp/dev/wt-feature", branch: "refs/heads/feature", head: a),
@@ -61,7 +61,7 @@ final class GraphRowModelTests: XCTestCase {
             tags: [
                 Tag(fullName: "refs/tags/tree", target: a, peeledTarget: nil, date: nil, objectType: .tree),
                 Tag(fullName: "refs/tags/blob", target: c, peeledTarget: b, date: nil, objectType: .blob),
-                Tag(fullName: "refs/tags/v1", target: a, peeledTarget: nil, date: nil),
+                Tag(fullName: "refs/tags/v1", target: a, peeledTarget: nil, date: nil, objectType: .commit),
             ])
         let pills = GraphRefDecorations.make(refs: refs, worktrees: [], focused: nil)
         XCTAssertEqual(pills[a]?.map(\.title), ["v1"])

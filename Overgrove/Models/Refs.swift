@@ -49,7 +49,7 @@ struct Tag: Sendable, Hashable, Identifiable {
     let peeledTarget: ObjectID?
     let date: Date?
     /// The type of `object`: a tag may name a tree or a blob (#432), which the graph does not have.
-    var objectType: GitObjectType = .commit
+    let objectType: GitObjectType
 
     var id: String { fullName }
     var shortName: String { fullName.hasPrefix("refs/tags/") ? String(fullName.dropFirst(10)) : fullName }
