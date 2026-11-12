@@ -71,6 +71,16 @@
         }
       }
     },
+    "%@ column width" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 열 너비"
+          }
+        }
+      }
+    },
     "%@ commit ahead" : {
       "localizations" : {
         "ko" : {
@@ -197,6 +207,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "태그 %@개 더 — 필터로 찾으세요"
+          }
+        }
+      }
+    },
+    "%@ renamed to %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@에서 %2$@(으)로 이름 바뀜"
           }
         }
       }
@@ -1228,6 +1248,16 @@
         }
       }
     },
+    "Changes in %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@의 변경 사항"
+          }
+        }
+      }
+    },
     "Changes in the focused worktree or the selected commit appear here." : {
       "localizations" : {
         "ko" : {
@@ -1494,6 +1524,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "커밋 %@"
+          }
+        }
+      }
+    },
+    "Commit %@, %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋 %1$@, %2$@"
           }
         }
       }
@@ -5369,6 +5409,46 @@
         }
       }
     },
+    "Stash" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스태시"
+          }
+        }
+      }
+    },
+    "Stash %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스태시 %@"
+          }
+        }
+      }
+    },
+    "Stash %@: %@, %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스태시 %1$@: %2$@, %3$@"
+          }
+        }
+      }
+    },
+    "Stash %@: %@, made on %@, %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스태시 %1$@: %2$@, %3$@에서 만듦, %4$@"
+          }
+        }
+      }
+    },
     "State" : {
       "localizations" : {
         "ko" : {
@@ -6760,6 +6840,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "워크트리"
+          }
+        }
+      }
+    },
+    "Worktree %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 %@"
           }
         }
       }

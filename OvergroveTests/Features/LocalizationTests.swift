@@ -126,6 +126,33 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// VoiceOver labels and announcements built as strings (#500) are looked up in the catalog and have Korean.
+    func testVoiceOverLabelsAreLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let expected: [String: [String]] = [
+            "AppState+SelectionHistory": [
+                "Changes in %@", "Worktree %@", "Commit %@", "Commit %@, %@", "Stash", "Stash %@", "Issue %lld",
+            ],
+            "GraphStashRow": ["Stash %@: %@, made on %@, %@", "Stash %@: %@, %@"],
+            "GraphColumnLayout": ["%@ column width"],
+            "WipDetailModel": [
+                "submodule", "%@ renamed to %@", "This path is not valid UTF-8, so Overgrove cannot show its diff.",
+            ],
+            "WipDetailView": ["%lld file", "%lld files"],
+        ]
+        let strings = try catalogStrings()
+        for (source, keys) in expected {
+            let file = try XCTUnwrap(
+                objects.map { $0.appendingPathComponent("\(source).stringsdata") }
+                    .first { FileManager.default.fileExists(atPath: $0.path) }, source)
+            let extracted = Set(try Self.extractedKeys(file))
+            for key in keys {
+                XCTAssertTrue(extracted.contains(key), "\(source): not extracted: \(key)")
+                XCTAssertNotNil(strings[key].flatMap(korean), "no Korean: \(key)")
+            }
+        }
+    }
+
     /// The remaining error and source strings (#503) are looked up in the catalog and have Korean. None of them is in
     /// Copy Report (`testCopyReportStaysEnglish`).
     func testRemainingErrorAndSourceStringsAreLocalized() throws {
