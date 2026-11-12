@@ -78,6 +78,13 @@ struct WorktreeListing: Sendable, Equatable {
     struct Remote: Sendable, Equatable {
         let name: String
         let url: String
+        /// The remote's fetch refspecs (#490): only a ref they map from `refs/heads/` opens as a branch on GitHub.
+        var fetchRefspecs: [String] = []
+    }
+
+    /// Each inspected remote's fetch refspecs, by name (the first entry of a name listed twice).
+    var fetchRefspecs: [String: [String]] {
+        Dictionary(remotes.map { ($0.name, $0.fetchRefspecs) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// The GitHub repository whose issues and pull requests the app shows (#81), from the inspected remotes on
@@ -115,7 +122,9 @@ extension WorktreeListing {
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
             remoteNames: overview.inspection.remoteNames,
-            remotes: overview.inspection.remotes.map { Remote(name: $0.name.value, url: $0.url) })
+            remotes: overview.inspection.remotes.map {
+                Remote(name: $0.name.value, url: $0.url, fetchRefspecs: $0.fetchRefspecs)
+            })
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {

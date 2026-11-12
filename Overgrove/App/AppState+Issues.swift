@@ -14,7 +14,8 @@ extension AppState {
             refs: refs, checkedOut: Set(listing.entries.compactMap(\.worktree.branch)),
             remoteNames: listing.remoteNames,
             detachedHeads: Set(listing.entries.filter(\.worktree.isDetached).compactMap(\.worktree.head)),
-            githubRemotes: isVerified ? listing.githubRemotes(trusting: hosts) : [:])
+            githubRemotes: isVerified ? listing.githubRemotes(trusting: hosts) : [:],
+            fetchRefspecs: listing.fetchRefspecs)
     }
 
     // MARK: Repository switcher (#477)

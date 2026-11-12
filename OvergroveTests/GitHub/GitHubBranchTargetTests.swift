@@ -3,6 +3,11 @@ import XCTest
 
 @testable import Overgrove
 
+/// git's default fetch refspec for each remote name (`+refs/heads/*:refs/remotes/<name>/*`), for tests (#490).
+func standardFetchRefspecs(_ names: some Sequence<String>) -> [String: [String]] {
+    Dictionary(names.map { ($0, ["+refs/heads/*:refs/remotes/\($0)/*"]) }, uniquingKeysWith: { first, _ in first })
+}
+
 /// #406: a branch opens on GitHub in the repository of the remote it tracks, found without splitting refs on `/`.
 final class GitHubBranchTargetTests: XCTestCase {
     private let fork = GitHubRepository(owner: "me", name: "app")!
@@ -27,11 +32,41 @@ final class GitHubBranchTargetTests: XCTestCase {
             GitHubBranchTarget.forLocal(local("main", remote: "upstream", merge: "refs/heads/main"), remotes: remotes),
             GitHubBranchTarget(repository: original, branch: "main"))
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/origin/feat/x", remotes: remotes, configuredRemotes: []),
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/origin/feat/x", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])),
             GitHubBranchTarget(repository: fork, branch: "feat/x"))
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/upstream/main", remotes: remotes, configuredRemotes: []),
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/upstream/main", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])),
             GitHubBranchTarget(repository: original, branch: "main"))
+    }
+
+    /// #490: Open on GitHub only for a ref the remote's fetch refspec maps from `refs/heads/`. With GitHub's pull
+    /// request refspec, `origin/pr/123` is not the branch `pr/123`; a remote without refspecs opens nothing.
+    func testOnlyRefsFetchedFromBranchesOpenABranch() {
+        let refspecs = [
+            "origin": ["+refs/heads/*:refs/remotes/origin/*", "+refs/pull/*/head:refs/remotes/origin/pr/*"]
+        ]
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/origin/pr/123", remotes: ["origin": fork], configuredRemotes: ["origin"],
+                fetchRefspecs: refspecs))
+        XCTAssertEqual(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/origin/main", remotes: ["origin": fork], configuredRemotes: ["origin"],
+                fetchRefspecs: refspecs),
+            GitHubBranchTarget(repository: fork, branch: "main"))
+        XCTAssertEqual(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/origin/b/x", remotes: ["origin": fork], configuredRemotes: ["origin"],
+                fetchRefspecs: ["origin": ["+refs/heads/*:refs/remotes/origin/b/*"]]),
+            GitHubBranchTarget(repository: fork, branch: "x"))
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/origin/main", remotes: ["origin": fork], configuredRemotes: ["origin"], fetchRefspecs: [:]
+            ))
     }
 
     /// The merge ref names the branch on GitHub, even when the local name differs.
@@ -67,14 +102,18 @@ final class GitHubBranchTargetTests: XCTestCase {
         let remotes = ["my": original]
         XCTAssertNil(
             GitHubBranchTarget.forRemoteRef(
-                "refs/remotes/my/fork/topic", remotes: remotes, configuredRemotes: ["my", "my/fork"]))
+                "refs/remotes/my/fork/topic", remotes: remotes, configuredRemotes: ["my", "my/fork"],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + ["my", "my/fork"])))
         XCTAssertEqual(
             GitHubBranchTarget.forRemoteRef(
-                "refs/remotes/my/topic", remotes: remotes, configuredRemotes: ["my", "my/fork"]),
+                "refs/remotes/my/topic", remotes: remotes, configuredRemotes: ["my", "my/fork"],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + ["my", "my/fork"])),
             GitHubBranchTarget(repository: original, branch: "topic"))
         // A GitHub remote missing from the configured list (a stale map) still counts.
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/my/topic", remotes: remotes, configuredRemotes: []),
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/topic", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])),
             GitHubBranchTarget(repository: original, branch: "topic"))
     }
 
@@ -82,20 +121,35 @@ final class GitHubBranchTargetTests: XCTestCase {
     func testRemoteRefsMatchTheLongestRemoteName() {
         let remotes = ["my": original, "my/fork": fork]
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/topic", remotes: remotes, configuredRemotes: []),
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/fork/topic", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])),
             GitHubBranchTarget(repository: fork, branch: "topic"))
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/my/topic", remotes: remotes, configuredRemotes: []),
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/topic", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])),
             GitHubBranchTarget(repository: original, branch: "topic"))
         XCTAssertNil(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/HEAD", remotes: remotes, configuredRemotes: []))
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/fork/HEAD", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])))
         XCTAssertNil(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/gitlab/main", remotes: remotes, configuredRemotes: []))
-        XCTAssertNil(GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/", remotes: remotes, configuredRemotes: []))
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/gitlab/main", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])))
         XCTAssertNil(
-            GitHubBranchTarget.forRemoteRef("refs/heads/my/fork/topic", remotes: remotes, configuredRemotes: []))
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/fork/", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])))
         XCTAssertNil(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/my/fork/-x", remotes: remotes, configuredRemotes: []),
+            GitHubBranchTarget.forRemoteRef(
+                "refs/heads/my/fork/topic", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])))
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/my/fork/-x", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])),
             "invalid ref")
     }
 
@@ -103,9 +157,13 @@ final class GitHubBranchTargetTests: XCTestCase {
     func testRemoteNamesCompareByBytes() {
         let remotes = ["caf\u{E9}": fork]
         XCTAssertNil(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/cafe\u{301}/main", remotes: remotes, configuredRemotes: []))
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/cafe\u{301}/main", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + [])))
         XCTAssertEqual(
-            GitHubBranchTarget.forRemoteRef("refs/remotes/caf\u{E9}/main", remotes: remotes, configuredRemotes: [])?
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/caf\u{E9}/main", remotes: remotes, configuredRemotes: [],
+                fetchRefspecs: standardFetchRefspecs(Array(remotes.keys) + []))?
                 .repository, fork)
     }
 }
