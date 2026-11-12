@@ -71,6 +71,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   GitHub remote whose name is a prefix of theirs.
 - Open on GitHub for a remote-tracking branch follows the remote's fetch refspecs: a ref fetched from somewhere other
   than a branch (such as `origin/pr/123` from `refs/pull/123/head`) no longer opens a `tree/` page.
+- Open in Terminal and Open in Editor ask first while the worktree list is still drawn from the in-memory cache: the
+  cached settings check is the previous load's. This load's check decides once it arrives.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
