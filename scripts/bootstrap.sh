@@ -39,7 +39,11 @@ for arg in "$@"; do
   esac
 done
 
-cd "$(git rev-parse --show-toplevel)"
+# Work on the clone this script is in, not on whatever repository the current directory belongs to (#492). A copy
+# outside any clone (a downloaded archive) can still check the build; it has no hooks to install.
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+clone=$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null || true)
+cd "${clone:-$script_dir/..}"
 
 # Where Xcode is looked for when the Command Line Tools are selected instead (tests point this elsewhere).
 applications="${BOOTSTRAP_APPLICATIONS:-/Applications}"
@@ -157,7 +161,9 @@ fi
 
 if [[ "$mode" == contributor ]]; then
   echo "Git hooks"
-  if [[ "$(git config --get core.hooksPath || true)" == ".githooks" ]]; then
+  if [[ -z "$clone" ]]; then
+    bad "$script_dir is not in a Git clone, so there are no hooks to install. Get the repository with git clone, then run this again"
+  elif [[ "$(git config --get core.hooksPath || true)" == ".githooks" ]]; then
     ok "already installed (core.hooksPath=.githooks)"
   else
     echo "  This sets core.hooksPath=.githooks in this clone's .git/config, for every worktree of it."
@@ -172,8 +178,11 @@ if [[ "$mode" == contributor ]]; then
         exit 1
       fi
     fi
-    git config core.hooksPath .githooks
-    ok "core.hooksPath=.githooks (pre-commit, prepare-commit-msg, commit-msg, pre-push)"
+    if git config core.hooksPath .githooks; then
+      ok "core.hooksPath=.githooks (pre-commit, prepare-commit-msg, commit-msg, pre-push)"
+    else
+      bad "could not set core.hooksPath. Run: git -C $clone config core.hooksPath .githooks"
+    fi
   fi
   chmod +x .githooks/* scripts/*.sh scripts/lint/*.sh scripts/github/*.sh 2>/dev/null || true
 fi
