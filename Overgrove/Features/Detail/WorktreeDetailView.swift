@@ -148,17 +148,19 @@ private struct SecurityCard: View {
                 }
             }
             if let reason = model.blockingReason {
-                banner(symbol: "xmark.octagon", tint: Tokens.Color.statusError, title: "Queries stopped", text: reason)
+                banner(
+                    symbol: "xmark.octagon", tint: Tokens.Color.statusError, title: "Queries stopped",
+                    text: SafetyReason.display(reason))
             }
             if let reason = model.failure {
                 banner(
                     symbol: "exclamationmark.triangle", tint: Tokens.Color.statusWarning,
-                    title: "Configuration not read", text: reason)
+                    title: "Configuration not read", text: SafetyReason.display(reason))
             }
             if let reason = model.fetchBlockingReason {
                 banner(
                     symbol: "arrow.down.circle", tint: Tokens.Color.statusWarning, title: "Fetch disabled",
-                    text: reason)
+                    text: SafetyReason.display(reason))
             }
             if let note = model.limitNote {
                 banner(symbol: "list.bullet", tint: Tokens.Color.statusWarning, title: "Report shortened", text: note)
