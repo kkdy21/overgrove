@@ -130,15 +130,32 @@ extension AppState {
         comparison?.showsAllFiles = true
     }
 
-    private func runComparison() {
+    /// A worktree list load succeeded while S-11 is open (#412): compares again on the new basis, so a comparison
+    /// dropped by a failed load does not keep spinning and a result from before a commit is not shown as current.
+    /// The shown result and the picked file stay until the new result arrives; the file's patch is then loaded again
+    /// if it is still listed, like the WIP diff after a load.
+    func comparisonListSucceeded() {
+        guard comparison != nil, !isComparisonStale else { return }
+        runComparison(keepingResult: true)
+    }
+
+    /// - Parameter keepingResult: Leaves a loaded result and its picked file shown while the new one runs (#412).
+    private func runComparison(keepingResult: Bool = false) {
         guard let session = comparison, !isComparisonStale, let repository else { return }
         comparisonTask?.cancel()
         comparisonPatchTask?.cancel()
+        comparisonPatchTask = nil
         comparisonGeneration += 1
         let generation = comparisonGeneration
-        comparison?.result = .loading
-        comparison?.selectedFile = nil
-        comparison?.patch = nil
+        let keptFile: ComparisonFile?
+        if keepingResult, case .loaded = session.result {
+            keptFile = session.selectedFile
+        } else {
+            keptFile = nil
+            comparison?.result = .loading
+            comparison?.selectedFile = nil
+            comparison?.patch = nil
+        }
         let loader = comparisonLoader
         let target = repository.repository
         comparisonTask = Task { [weak self] in
@@ -160,9 +177,17 @@ extension AppState {
                     self.comparison?.workingState = state
                 }
                 self.comparison?.result = .loaded(comparison)
+                // The file picked before this run, or while it ran: shown again only if still listed (#412).
+                if let file = self.comparison?.selectedFile ?? keptFile, keepingResult {
+                    self.comparison?.selectedFile = nil
+                    self.comparison?.patch = nil
+                    self.selectComparisonFile(file)
+                }
             case .failure(let error):
                 self.comparison?.base = base
                 self.comparison?.result = .failed(error)
+                self.comparison?.selectedFile = nil
+                self.comparison?.patch = nil
             }
         }
     }
