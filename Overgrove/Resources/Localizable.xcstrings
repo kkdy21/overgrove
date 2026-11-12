@@ -1949,6 +1949,16 @@
         }
       }
     },
+    "Couldn't read the github.com account. Issues appear for repositories on the hosts gh is logged in to." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "github.com 계정을 읽지 못했습니다. gh가 로그인한 호스트의 저장소에서만 이슈가 보입니다."
+          }
+        }
+      }
+    },
     "Couldn’t Add Repository" : {
       "localizations" : {
         "ko" : {
@@ -3373,6 +3383,64 @@
         }
       }
     },
+    "Logged in to %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에 로그인됨"
+          }
+        }
+      }
+    },
+    "Logged in to %@ and %lld more hosts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Logged in to %1$@ and %#@hosts@"
+          },
+          "substitutions" : {
+            "hosts" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg more host"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg more hosts"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 외 호스트 %2$lld곳에 로그인됨"
+          }
+        }
+      }
+    },
+    "Logged in to %@ as @%@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@에 @%2$@(으)로 로그인됨"
+          }
+        }
+      }
+    },
     "Manage Repositories…" : {
       "localizations" : {
         "ko" : {
@@ -3800,6 +3868,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub에 로그인 안 됨"
+          }
+        }
+      }
+    },
+    "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "github.com에는 로그인되어 있지 않습니다. gh가 로그인한 호스트의 저장소에서만 이슈가 보입니다."
           }
         }
       }
