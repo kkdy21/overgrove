@@ -254,6 +254,8 @@ extension AppState {
         history.close()
         graph.select(nil)
         commitDetail.clearFile()
+        // S-12 shows two commits, not a worktree: choosing any sidebar worktree closes it, the focused one too (#414).
+        closeCommitComparison()
         if focusedWorktreePath != path {
             selectedFile = nil
             // S-11 belongs to one worktree.
