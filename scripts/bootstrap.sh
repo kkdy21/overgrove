@@ -87,6 +87,13 @@ else
   need "macOS ${macos:-(unknown)} is older than 14 Sonoma, which Overgrove needs"
 fi
 
+# The app does not pass DEVELOPER_DIR on (it is not in its environment allowlist), so it runs the git of the Xcode that
+# xcode-select chose. Check that one, as the app sees it, and say when this shell points somewhere else (#493).
+if [[ -n "${DEVELOPER_DIR:-}" ]]; then
+  info "DEVELOPER_DIR=$DEVELOPER_DIR is set in this shell. Overgrove does not use it, so the checks below follow xcode-select (command-line builds from this shell still use DEVELOPER_DIR)"
+  unset DEVELOPER_DIR
+fi
+
 dev_dir=$(xcode-select -p 2>/dev/null || true)
 if [[ "$dev_dir" != *.app/Contents/Developer ]]; then
   shopt -s nullglob
