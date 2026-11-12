@@ -188,6 +188,31 @@ final class RepositoryServiceCacheTests: XCTestCase {
         XCTAssertEqual(selected.stashes.stashes.count, 1)
     }
 
+    /// #417: a dropped stash changes no status (`# stash N` is not re-read), so the file event's stash flag is what
+    /// re-reads the list. Nothing else runs.
+    func testStashEventRequeriesOnlyTheStashList() async throws {
+        let service = try makeService()
+        for content in ["one\n", "two\n"] {
+            try content.write(to: worktree(0).appendingPathComponent("a.txt"), atomically: true, encoding: .utf8)
+            try await repository.git(["-C", worktree(0).path, "stash", "push", "-q"])
+        }
+        let first = try overview(await service.refresh(model, trigger: .user))
+        XCTAssertEqual(first.stashes.stashes.count, 2)
+        try await repository.git(["-C", worktree(0).path, "stash", "drop", "-q", "stash@{1}"])
+        resetCalls()
+
+        let dropped = try overview(
+            await service.refresh(
+                model, trigger: .filesChanged(worktrees: [], refs: false, worktreeList: false, stashes: true)))
+
+        XCTAssertEqual(dropped.stashes.stashes.count, 1)
+        let counted = calls()
+        XCTAssertEqual(counted["log"], 1, "the stash list")
+        XCTAssertNil(counted["status"])
+        XCTAssertNil(counted["for-each-ref"])
+        XCTAssertNil(counted["worktree"])
+    }
+
     func testRefsAreRequeriedWhenABranchTipMoves() async throws {
         let service = try makeService()
         let first = try overview(await service.refresh(model, trigger: .user))

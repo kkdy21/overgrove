@@ -195,7 +195,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | 워크트리 목록 | 저장소 | 수동 새로고침, fetch 완료, 창 활성화. → #88 |
 | `WorkingState` (status) | 워크트리 경로 | 수동 새로고침, 워크트리 선택, 창 활성화(마지막 조회 후 5초 이상), fetch 완료. → #88 |
 | WIP 줄 수 (`worktreeNumstat`) | 워크트리 경로 | 그 워크트리의 status를 다시 조회했을 때(status와 같은 무효화). 포커스 워크트리를 상세로 볼 때만 조회한다. → #230 |
-| stash 목록 | 저장소 | `# stash N` 헤더 값 변화, 수동 새로고침. → #88 |
+| stash 목록 | 저장소 | `# stash N` 헤더 값 변화, `refs/stash`·`logs/refs/stash` 파일 이벤트(drop·clear·store는 status를 바꾸지 않는다, #417), 수동 새로고침. → #88 |
 | 브랜치·ahead/behind | 저장소 | fetch 완료, 수동 새로고침, status가 보고한 브랜치 tip이 캐시와 다를 때. → #88 |
 | 그래프 페이지 | 저장소 + ref 집합(브랜치·원격·태그 tip과 워크트리 HEAD의 정렬된 목록 그 자체, 해시 충돌 없음) + skip·limit | ref 집합이 바뀌면 새 키. 수동 새로고침(⌘R)과 `forget`이면 그 저장소 페이지를 모두 버림(목록에 없는 ref 이름공간이 움직일 수 있다). 최대 40페이지 LRU. → #68 (`RepositoryService.graphPage`, `GraphStore`) |
 | 커밋 상세 | 저장소 + object ID | 무효화 없음 (불변). 최대 200개 LRU, `forget`이면 함께 버림. 잘린 결과는 캐시하지 않는다. 파일 patch는 캐시하지 않는다. → #69 (`RepositoryService.commitDetail`, `CommitDetailStore`) |

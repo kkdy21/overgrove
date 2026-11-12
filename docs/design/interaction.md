@@ -168,7 +168,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | 창이 다시 보임 (가려짐·최소화 뒤) | 창 활성화와 같음 | 한 번 |
 
 **자동 새로고침 (#119, #163 결정 B).** 창이 화면에 보이는 동안(`NSWindow.occlusionState`)만 FSEvents로 감시한다.
-- **감시 범위**: #226으로 검증된 워크트리 폴더들과 공통 git 디렉터리. 공통 디렉터리 안에서는 `HEAD`·`index`(메인 워크트리), `refs/`·`packed-refs`(refs), `worktrees/<id>/HEAD|index`(그 연결 워크트리. `HEAD`는 워크트리 목록도: switch나 detached commit은 `HEAD`만 바꾸고, 목록의 브랜치·head가 사이드바와 그래프의 기준이다, #416), `worktrees/<id>` 자체와 `gitdir`·`locked`(워크트리 목록), `config`(전부)만 반영한다. `objects/`, `logs/`, `FETCH_HEAD`, `ORIG_HEAD`, hooks 등은 무시한다. 그래서 fetch나 gc가 모든 status를 다시 돌리지 않는다. 시스템이 세부를 잃었다고 알리면(rescan) 전부 다시 조회한다.
+- **감시 범위**: #226으로 검증된 워크트리 폴더들과 공통 git 디렉터리. 공통 디렉터리 안에서는 `HEAD`·`index`(메인 워크트리), `refs/`·`packed-refs`(refs. 단 `refs/stash`는 stash 목록만, #417), `worktrees/<id>/HEAD|index`(그 연결 워크트리. `HEAD`는 워크트리 목록도: switch나 detached commit은 `HEAD`만 바꾸고, 목록의 브랜치·head가 사이드바와 그래프의 기준이다, #416), `worktrees/<id>` 자체와 `gitdir`·`locked`(워크트리 목록), `config`(전부)만 반영한다. `logs/` 중에는 `logs/refs/stash`만 stash 목록으로 반영한다(`git stash drop stash@{1}`은 reflog만 바꿀 수 있다). `objects/`, 나머지 `logs/`, `FETCH_HEAD`, `ORIG_HEAD`, hooks 등은 무시한다. 그래서 fetch나 gc가 모든 status를 다시 돌리지 않는다. 시스템이 세부를 잃었다고 알리면(rescan) 전부 다시 조회한다.
 - **경로**: 이벤트 경로는 신뢰하지 않는 문자열이다. 검증된 폴더와 경로 구성 요소로만 비교하고, 디스크에서 읽지 않는다. 폴더 밖의 경로는 버린다. 워크트리가 다른 워크트리 안에 있으면 가장 깊은 폴더에 속한다.
 - **묶음과 상한**:
   - 이벤트 지연 1초. 마지막 이벤트 후 1초 디바운스한다. 이벤트가 계속 오더라도 첫 변경 후 최대 5초 안에는 요청한다(쉬지 않고 쓰는 에이전트를 지켜볼 때도 화면이 따라온다).

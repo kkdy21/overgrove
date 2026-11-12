@@ -49,6 +49,22 @@ final class FileChangeClassifierTests: XCTestCase {
         XCTAssertEqual(classify("/dev/api/.git/config"), classifier.everything)
     }
 
+    /// #417: dropping, popping, clearing or storing a stash rewrites `refs/stash` and `logs/refs/stash` and nothing a
+    /// status reads, so those two re-read the stash list. Branches and tags are not affected: the ref listing and the
+    /// graph do not include `refs/stash`.
+    func testStashRefAndReflogRereadTheStashList() {
+        XCTAssertEqual(classify("/dev/api/.git/refs/stash"), FileChangeSet(stashes: true))
+        XCTAssertEqual(classify("/dev/api/.git/logs/refs/stash"), FileChangeSet(stashes: true))
+        XCTAssertEqual(classify("/dev/api/.git/refs/stash/x"), FileChangeSet(refs: true), "not the stash ref")
+        XCTAssertEqual(classify("/dev/api/.git/logs/refs/stash/x"), FileChangeSet())
+        XCTAssertEqual(classify("/dev/api/.git/logs/refs/heads/main"), FileChangeSet(), "other reflogs stay ignored")
+        XCTAssertTrue(classifier.everything.stashes, "a rescan or a configuration change re-reads the stash list too")
+        XCTAssertFalse(FileChangeSet(stashes: true).isEmpty)
+        var merged = FileChangeSet(refs: true)
+        merged.merge(FileChangeSet(stashes: true))
+        XCTAssertEqual(merged, FileChangeSet(refs: true, stashes: true))
+    }
+
     /// Objects, logs, FETCH_HEAD and the like change on fetch and gc without changing any status (#163).
     func testIgnoredGitFiles() {
         for path in [

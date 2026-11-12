@@ -9,13 +9,17 @@ struct FileChangeSet: Equatable, Sendable {
     /// `worktrees/<id>` appeared, disappeared, or changed its lock or location, or a `HEAD` moved: the worktree list
     /// changed (#416).
     var worktreeList = false
+    /// `refs/stash` or its reflog changed: a stash was pushed, dropped, popped, cleared, or stored (#417). No status
+    /// changes with it, so the stash count in a fresh status cannot tell.
+    var stashes = false
 
-    var isEmpty: Bool { worktrees.isEmpty && !refs && !worktreeList }
+    var isEmpty: Bool { worktrees.isEmpty && !refs && !worktreeList && !stashes }
 
     mutating func merge(_ other: FileChangeSet) {
         worktrees.formUnion(other.worktrees)
         refs = refs || other.refs
         worktreeList = worktreeList || other.worktreeList
+        stashes = stashes || other.stashes
     }
 }
 
@@ -33,9 +37,10 @@ struct FileEvent: Equatable, Sendable {
 /// read from disk here, and a path outside every watched folder is ignored.
 ///
 /// In the shared git directory only what changes a status or the lists counts (#163): `HEAD` and `index` (the main
-/// worktree), `refs/` and `packed-refs`, `worktrees/<id>/HEAD|index` (that linked worktree; `HEAD` also the list,
+/// worktree), `refs/` and `packed-refs` (`refs/stash` and `logs/refs/stash` re-read only the stash list, #417),
+/// `worktrees/<id>/HEAD|index` (that linked worktree; `HEAD` also the list,
 /// #416), `worktrees/<id>` itself and its `gitdir`/`locked` (the list), and `config` (everything, it can change how
-/// queries run). Objects, logs, `FETCH_HEAD`, `ORIG_HEAD`, hooks and the rest are ignored, so a fetch or gc does not
+/// queries run). Objects, the other logs, `FETCH_HEAD`, `ORIG_HEAD`, hooks and the rest are ignored, so a fetch or gc does not
 /// re-run every status.
 struct FileChangeClassifier: Equatable, Sendable {
     struct WatchedWorktree: Equatable, Sendable {
@@ -92,9 +97,9 @@ struct FileChangeClassifier: Equatable, Sendable {
         return change
     }
 
-    /// Every worktree, the refs, and the list (a rescan, or `config` changed).
+    /// Every worktree, the refs, the list, and the stashes (a rescan, or `config` changed).
     var everything: FileChangeSet {
-        FileChangeSet(worktrees: Set(worktrees.map(\.path)), refs: true, worktreeList: true)
+        FileChangeSet(worktrees: Set(worktrees.map(\.path)), refs: true, worktreeList: true, stashes: true)
     }
 
     private func classify(path: String) -> FileChangeSet {
@@ -123,8 +128,13 @@ struct FileChangeClassifier: Equatable, Sendable {
             guard relative.count == 1, let main = worktrees.first(where: { $0.gitDirectory == commonDirectory })
             else { return FileChangeSet() }
             return FileChangeSet(worktrees: [main.path], worktreeList: first == "HEAD")
+        case "refs" where relative.count == 2 && relative[1] == "stash":
+            return FileChangeSet(stashes: true)
         case "refs", "packed-refs":
             return FileChangeSet(refs: true)
+        case "logs":
+            // Only the stash reflog: `git stash drop stash@{1}` may leave `refs/stash` as it was (#417).
+            return relative == ["logs", "refs", "stash"] ? FileChangeSet(stashes: true) : FileChangeSet()
         case "config":
             return relative.count == 1 ? everything : FileChangeSet()
         case "worktrees":
