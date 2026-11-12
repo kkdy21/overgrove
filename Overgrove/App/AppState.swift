@@ -358,6 +358,8 @@ final class AppState {
         selection = nil
         selectionHistory.clear()
         selectedFile = nil
+        // The panel shows a file of the previous repository (#496).
+        quickLookURL = nil
         stashTask?.cancel()
         stashGeneration += 1
         stashDetail = nil
