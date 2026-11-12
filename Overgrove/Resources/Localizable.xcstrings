@@ -3386,6 +3386,16 @@
         }
       }
     },
+    "No Repository" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 없음"
+          }
+        }
+      }
+    },
     "No base branch was found (origin/HEAD, main, or master). Choose one to compare with." : {
       "localizations" : {
         "ko" : {
