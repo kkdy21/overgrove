@@ -40,6 +40,17 @@ enum GitHubRemote {
         return result
     }
 
+    /// The repository of the remote whose name is exactly `name`, byte for byte (#546). `remotes[name]` is not enough:
+    /// a `String` key folds canonical equivalence, so a hand-edited `branch.<b>.remote` spelled with KELVIN SIGN
+    /// (U+212A) or in NFD would find the GitHub remote spelled in ASCII or NFC, which git treats as a different remote.
+    /// Found by key in O(1), then the stored key's bytes are compared.
+    static func repository(named name: String, in remotes: [String: GitHubRepository]) -> GitHubRepository? {
+        guard let found = remotes.index(forKey: name), remotes[found].key.utf8.elementsEqual(name.utf8) else {
+            return nil
+        }
+        return remotes[found].value
+    }
+
     /// `[HOST/]OWNER/NAME` from one of `HostedRemoteURL`'s forms, when HOST is trusted and the path is exactly
     /// `OWNER/NAME(.git)?` with valid names (`GitHubRepository`, ASCII only).
     static func repository(fromURL url: String, trusting hosts: TrustedHosts = publicOnly) -> GitHubRepository? {

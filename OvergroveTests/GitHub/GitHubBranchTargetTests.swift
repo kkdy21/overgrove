@@ -108,4 +108,26 @@ final class GitHubBranchTargetTests: XCTestCase {
             GitHubBranchTarget.forRemoteRef("refs/remotes/caf\u{E9}/main", remotes: remotes, configuredRemotes: [])?
                 .repository, fork)
     }
+
+    /// SEC-T9-546-1 (#546): a local branch's upstream remote is matched byte for byte. `branch.<b>.remote` spelled
+    /// with KELVIN SIGN (U+212A) or in NFD is not the GitHub remote spelled in ASCII or NFC, though Swift's `String`
+    /// equality says they are equal.
+    func testSECT9_546_1_LocalUpstreamRemoteComparesByBytes() {
+        XCTAssertEqual("\u{212A}", "K", "precondition: String equality folds canonical equivalence")
+        let remotes = ["K": fork, "caf\u{E9}": original]
+        for spoofed in ["\u{212A}", "cafe\u{301}"] {
+            XCTAssertNil(
+                GitHubBranchTarget.forLocal(local("a", remote: spoofed, merge: "refs/heads/a"), remotes: remotes),
+                spoofed.unicodeScalars.map { String($0.value, radix: 16) }.joined(separator: " "))
+        }
+        XCTAssertEqual(
+            GitHubBranchTarget.forLocal(local("a", remote: "K", merge: "refs/heads/a"), remotes: remotes)?.repository,
+            fork)
+        XCTAssertEqual(
+            GitHubBranchTarget.forLocal(local("a", remote: "caf\u{E9}", merge: "refs/heads/a"), remotes: remotes)?
+                .repository, original)
+        // The stored key is the non-ASCII one: an ASCII upstream does not reach it either.
+        XCTAssertNil(
+            GitHubBranchTarget.forLocal(local("a", remote: "K", merge: "refs/heads/a"), remotes: ["\u{212A}": fork]))
+    }
 }

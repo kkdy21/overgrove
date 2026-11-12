@@ -62,6 +62,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   install since the last check shows the host's issues without restarting the app. Auto refresh still does not run gh.
 - Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
   that the app cannot read no longer drops the other hosts gh is logged in to.
+- Open on GitHub and pull request links for a local branch match its upstream remote's name byte for byte, so a
+  hand-edited name that only looks like a GitHub remote's (KELVIN SIGN for `K`, or NFD for NFC) no longer reaches it.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
