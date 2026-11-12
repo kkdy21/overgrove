@@ -100,7 +100,8 @@ final class BranchListModelTests: XCTestCase {
         let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
         let model = BranchListModel(
             refs: refs([remote("my/fork/topic", guess: "my"), remote("my/main", guess: "my")]), checkedOut: [],
-            remoteNames: ["my", "my/fork"], githubRemotes: ["my": repository])
+            remoteNames: ["my", "my/fork"], githubRemotes: ["my": repository],
+            fetchRefspecs: standardFetchRefspecs(["my", "my/fork"]))
         func rows(_ nodes: [BranchNode]) -> [BranchRow] {
             nodes.flatMap { node -> [BranchRow] in
                 switch node {
@@ -129,7 +130,8 @@ final class BranchListModelTests: XCTestCase {
         XCTAssertNil(row.gitHubTarget)
         XCTAssertNil(
             GitHubBranchTarget.forRemoteRef(
-                "refs/remotes/gh/fork+1/topic", remotes: ["gh": repository], configuredRemotes: ["gh", "gh/fork+1"]))
+                "refs/remotes/gh/fork+1/topic", remotes: ["gh": repository], configuredRemotes: ["gh", "gh/fork+1"],
+                fetchRefspecs: standardFetchRefspecs(Array(["gh": repository].keys) + ["gh", "gh/fork+1"])))
     }
 
     /// #489: remotes spelled in NFC and NFD are two remotes. The NFD one's rows are not merged into the NFC folder,
@@ -150,7 +152,8 @@ final class BranchListModelTests: XCTestCase {
         }
         XCTAssertNil(
             GitHubBranchTarget.forRemoteRef(
-                "refs/remotes/\(nfd)/b", remotes: ["gh": repository], configuredRemotes: ["gh", nfc, nfd]))
+                "refs/remotes/\(nfd)/b", remotes: ["gh": repository], configuredRemotes: ["gh", nfc, nfd],
+                fetchRefspecs: standardFetchRefspecs(Array(["gh": repository].keys) + ["gh", nfc, nfd])))
     }
 
     /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
