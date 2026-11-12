@@ -44,8 +44,9 @@ done
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 clone=$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null || true)
 # Only this copy's own root counts: a loose copy unpacked inside another repository must not touch that one (#535).
-# rev-parse prints the physical path, so compare with one.
-if [[ "$clone" != "$(cd "$script_dir/.." && pwd -P)" ]]; then clone=; fi
+# Compared as files, not strings: rev-parse prints the stored case and resolves symbolic links, while the path the
+# script was run by keeps what was typed (review of #536).
+if [[ -n "$clone" && ! "$clone" -ef "$script_dir/.." ]]; then clone=; fi
 cd "${clone:-$script_dir/..}"
 
 # Where Xcode is looked for when the Command Line Tools are selected instead (tests point this elsewhere).

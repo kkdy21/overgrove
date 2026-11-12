@@ -72,8 +72,8 @@ chmod +x "$gh_stubs/gh"
 # run <name> [VAR=value …] -- [bootstrap arguments]: runs bootstrap in a fresh repository with the default stub answers
 # (a supported machine), overridden by the given variables. With preset_hooks=1, the repository already has
 # core.hooksPath=.githooks. With no_git=1, the copy of bootstrap is not in a Git repository at all. bootstrap runs from
-# the repository unless cwd names another directory. The repository is made under base (default $work). Sets $repo,
-# $out, and $code.
+# the repository unless cwd names another directory, and as script names it (default: the repository's copy). The
+# repository is made under base (default $work). Sets $repo, $out, and $code.
 run() {
   local name="$1"
   shift
@@ -94,7 +94,7 @@ run() {
   done
   [[ "${1:-}" == "--" ]] && shift
   set +e
-  out=$(cd "${cwd:-$repo}" && env -i "${vars[@]}" bash "$repo/scripts/bootstrap.sh" "$@" </dev/null 2>&1)
+  out=$(cd "${cwd:-$repo}" && env -i "${vars[@]}" bash "${script:-$repo/scripts/bootstrap.sh}" "$@" </dev/null 2>&1)
   code=$?
   set -e
 }
@@ -285,6 +285,22 @@ if [[ -z "$(git -C "$outer" config --get core.hooksPath || true)" && ! -x "$oute
   pass "clone: the outer repository is left alone"
 else
   failed "clone: the outer repository is left alone"
+fi
+
+# The clone reached through a path typed in another case, on a case-insensitive disk (the macOS default): rev-parse
+# prints the stored case, the typed path keeps the typed one, and it is still the same clone (review of #536).
+mkdir -p "$work/case"
+if [[ -d "$work/CASE" ]]; then
+  base="$work/case" cwd="$work/CASE/repo-cased" script="$work/CASE/repo-cased/scripts/bootstrap.sh" \
+    run cased "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
+  expect "clone: a path typed in another case is still the clone" 0 "Ready to contribute"
+  if [[ "$(hooks_path)" == ".githooks" ]]; then
+    pass "clone: a path typed in another case installs the hooks"
+  else
+    failed "clone: a path typed in another case installs the hooks"
+  fi
+else
+  pass "clone: a path typed in another case (skipped: case-sensitive disk)"
 fi
 
 # A clone path with a space. When the hook path cannot be written, the suggested command works when pasted.
