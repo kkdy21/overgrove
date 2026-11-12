@@ -8,7 +8,9 @@ extension AppState {
     var commitComparisonModel: CommitComparisonModel? {
         guard let session = commitComparison else { return nil }
         let graph = graph
-        return CommitComparisonModel(session: session) { oid in graph.index(of: oid).map { graph.commits[$0] } }
+        return CommitComparisonModel(session: session, graphHasEveryCommit: graph.hasEveryCommit) { oid in
+            graph.index(of: oid).map { graph.commits[$0] }
+        }
     }
 
     private func loadedCommit(_ oid: ObjectID) -> CommitNode? {

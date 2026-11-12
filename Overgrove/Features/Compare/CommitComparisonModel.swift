@@ -39,8 +39,9 @@ struct CommitComparisonModel: Equatable {
         let subject: String
         let author: String
         let isAIAssisted: Bool
-        /// BASE or TARGET is still a loaded graph row: choosing it opens the commit. Otherwise the row says so and choosing
-        /// it does nothing (#428). Always `true` for COMMITS rows.
+        /// `false` only when BASE or TARGET is missing from a graph that has every commit loaded (#428): the row says
+        /// "Not in the graph". A commit on a page not read yet (a refresh reads the first page again) is not marked.
+        /// Choosing a commit the graph has not loaded does nothing either way. Always `true` for COMMITS rows.
         let isInGraph: Bool
         var accessibilityLabel: String {
             String(localized: "Commit \(shortSHA), \(subject), by \(author)")
@@ -76,7 +77,11 @@ struct CommitComparisonModel: Equatable {
     /// Instead of the rows while they load, when they failed, or when there are none.
     let commitsNotice: String?
 
-    init(session: CommitComparisonSession, commit: (ObjectID) -> CommitNode?, rule: AIAgentRule = .builtIn) {
+    /// - Parameter graphHasEveryCommit: `GraphStore.hasEveryCommit`; without it no row is marked "Not in the graph".
+    init(
+        session: CommitComparisonSession, graphHasEveryCommit: Bool = false, commit: (ObjectID) -> CommitNode?,
+        rule: AIAgentRule = .builtIn
+    ) {
         func row(_ oid: ObjectID, opened: CommitNode?) -> CommitRow {
             let loaded = commit(oid)
             // Out of the graph since S-12 opened: what it showed then (#428).
@@ -84,7 +89,8 @@ struct CommitComparisonModel: Equatable {
             return CommitRow(
                 oid: oid, shortSHA: oid.short, subject: PathValidator.displayable(node?.subject ?? ""),
                 author: PathValidator.displayable(node?.authorName ?? ""),
-                isAIAssisted: node?.coAuthors.contains(where: rule.isAgent) ?? false, isInGraph: loaded != nil)
+                isAIAssisted: node?.coAuthors.contains(where: rule.isAgent) ?? false,
+                isInGraph: loaded != nil || !graphHasEveryCommit)
         }
         base = row(session.base, opened: session.baseNode)
         target = row(session.target, opened: session.targetNode)

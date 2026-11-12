@@ -70,6 +70,9 @@ final class GraphStore {
     private(set) var isLoadingMore = false
     /// No more commits: the last page was short, or output was cut (pages after it would not line up).
     private(set) var isComplete = false
+    /// Every commit of the history is loaded: the last page was short, not cut. A commit the rows lack is then really
+    /// outside the graph, not on a page not read yet (#428).
+    private(set) var hasEveryCommit = false
     /// Columns used by the loaded rows, for the Graph column width.
     private(set) var laneCount = 0
 
@@ -172,6 +175,7 @@ final class GraphStore {
         refSet = nil
         areRowsChecked = true
         isComplete = false
+        hasEveryCommit = false
         isLoadingMore = false
         isChecking = false
         wantsMoreAfterCheck = false
@@ -264,6 +268,7 @@ final class GraphStore {
         layoutState = laid.state
         pendingSegments = laid.state.pendingSegments
         isComplete = page.isPartial || page.commits.count < Self.pageSize
+        hasEveryCommit = !page.isPartial && page.commits.count < Self.pageSize
         if refSet != page.refSet {
             refSet = page.refSet
             refs = page.refs
