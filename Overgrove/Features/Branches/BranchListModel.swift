@@ -78,9 +78,11 @@ struct BranchListModel: Equatable {
     ///   - remoteNames: Configured remotes, to split `refs/remotes/<remote>/<branch>` when a name has `/`.
     ///   - detachedHeads: Commits a worktree has checked out detached, for the TAGS `tree` mark.
     ///   - githubRemotes: The verified listing's github.com remotes by name, for Open on GitHub (#406).
+    ///   - fetchRefspecs: Each remote's fetch refspecs, by name: a remote-tracking row opens on GitHub only when they
+    ///     map it from a branch (#490).
     init(
         refs: RefParser.Listing, checkedOut: Set<String>, remoteNames: [String], detachedHeads: Set<ObjectID> = [],
-        githubRemotes: [String: GitHubRepository] = [:]
+        githubRemotes: [String: GitHubRepository] = [:], fetchRefspecs: [String: [String]] = [:]
     ) {
         tags = TagListModel(tags: refs.tags, detachedHeads: detachedHeads)
         let symbolic = refs.branches.filter { $0.symbolicTarget != nil }
@@ -104,6 +106,8 @@ struct BranchListModel: Equatable {
         remoteCount = remotes.count
         // The longest configured remote wins, so `team/a` owns `refs/remotes/team/a/x`, not `team` (#466, #489).
         let index = RemoteNameIndex(remoteNames + githubRemotes.keys)
+        // Parsed once per remote, not per row (T15).
+        let parsedRefspecs = fetchRefspecs.mapValues { $0.compactMap(FetchRefspec.init) }
         // Grouped by the name's bytes: `String` keys would merge a remote spelled in NFC with one in NFD (#489).
         var byRemote: [[UInt8]: (name: String, rows: [BranchRow])] = [:]
         for branch in remotes {
@@ -121,7 +125,8 @@ struct BranchListModel: Equatable {
             byRemote[Array(remote.utf8), default: (remote, [])].rows.append(
                 Self.row(
                     branch, name: name, isCheckedOut: false, isDefault: false,
-                    gitHub: GitHubBranchTarget.forRemoteRef(branch.fullName, remotes: githubRemotes, index: index)))
+                    gitHub: GitHubBranchTarget.forRemoteRef(
+                        branch.fullName, remotes: githubRemotes, index: index, fetchRefspecs: parsedRefspecs)))
         }
         // `origin` first, then the rest by name (information-architecture.md §4.2).
         let order = byRemote.values.sorted { lhs, rhs in
