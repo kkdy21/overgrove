@@ -121,6 +121,7 @@ extension AppState {
         case .failure(let error):
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
+            isShownListingVerified = false
             branchListModel = nil
             // The remotes this repository was last inspected with no longer count: a cached paint after this failure
             // must not build links (or pick the gh repository again) from them (#470).
@@ -146,6 +147,9 @@ extension AppState {
     /// - Parameter trigger: The load that brought `listing`; `nil` for a cached paint or a preview.
     private func apply(_ listing: WorktreeListing, isVerified: Bool, trigger: RepositoryService.Trigger? = nil) {
         worktreeList = .loaded(listing)
+        // A cached paint's inspections are the previous load's: Open in Terminal and Open in Editor ask until this
+        // load's arrive (#491).
+        isShownListingVerified = isVerified
         // Watch only what this load verified (#226), never a cached paint (#119).
         if isVerified, let repository {
             autoRefresh.update(FileChangeClassifier(listing: listing, repository: repository.repository))
@@ -250,6 +254,8 @@ extension AppState {
         history.close()
         graph.select(nil)
         commitDetail.clearFile()
+        // S-12 shows two commits, not a worktree: choosing any sidebar worktree closes it, the focused one too (#414).
+        closeCommitComparison()
         if focusedWorktreePath != path {
             selectedFile = nil
             // S-11 belongs to one worktree.

@@ -18,9 +18,11 @@ struct GitHubBranchTarget: Equatable, Sendable {
     let branch: String
 
     /// For a local branch: its upstream's remote and merge ref. `nil` without an upstream, for a local upstream
-    /// (`.`), a remote that is not a GitHub repository on a trusted host, or a merge ref outside `refs/heads/`.
+    /// (`.`), a remote that is not a GitHub repository on a trusted host, or a merge ref outside `refs/heads/`. The
+    /// remote name matches byte for byte (#546).
     static func forLocal(_ branch: Branch, remotes: [String: GitHubRepository]) -> GitHubBranchTarget? {
-        guard branch.kind == .local, let remote = branch.upstreamRemote, let repository = remotes[remote],
+        guard branch.kind == .local, let remote = branch.upstreamRemote,
+            let repository = GitHubRemote.repository(named: remote, in: remotes),
             let ref = branch.upstreamRemoteRef, FullRefName(ref) != nil
         else { return nil }
         return target(repository, ref, prefix: "refs/heads/")

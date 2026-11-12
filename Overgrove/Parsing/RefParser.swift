@@ -2,9 +2,9 @@ import Foundation
 
 /// Parses `git for-each-ref` output in the `ReadOnlyGitCommand.refs` format (parsing-spec.md §6).
 ///
-/// Each record ends with LF and has ten NUL-separated fields: refname, objectname, `*objectname`, upstream, HEAD,
-/// committer date, symref, `upstream:track,nobracket`, `upstream:remotename`, and `upstream:remoteref`. Ref names cannot contain control characters, so LF is a
-/// safe record separator.
+/// Each record ends with LF and has twelve NUL-separated fields: refname, objectname, `*objectname`, upstream, HEAD,
+/// committer date, symref, `upstream:track,nobracket`, `upstream:remotename`, `upstream:remoteref`, objecttype, and
+/// `*objecttype`. Ref names cannot contain control characters, so LF is a safe record separator.
 ///
 /// Format violations (field count, OIDs, HEAD marker, numbers, track syntax) fail the whole parse: a shifted field
 /// would show wrong information (parsing-spec.md §1.6).
@@ -28,7 +28,7 @@ enum RefParser {
     }
 
     private static let name = "RefParser"
-    private static let fieldCount = 10
+    private static let fieldCount = 12
     private static let lineFeed = UInt8(ascii: "\n")
 
     private static let headsPrefix = "refs/heads/"
@@ -87,6 +87,12 @@ extension RefParser {
         let isHead = try headMarker(fields[4], in: data)
         let date = try committerDate(fields[5], in: data)
         let track = try track(fields[7], hasUpstream: !fields[3].isEmpty, in: data)
+        let objectType = try objectType(fields[10], in: data)
+        // `*objecttype` is there exactly when `*objectname` is: only for a tag object.
+        let peeledType = fields[11].isEmpty ? nil : try self.objectType(fields[11], in: data)
+        guard (peeled == nil) == (peeledType == nil), (peeled == nil) == (objectType != .tag) else {
+            throw fail(fields[11], "peeled fields disagree with the object type", in: data)
+        }
 
         let kind: Branch.Kind?
         if fields[0].starts(with: tagsPrefix.utf8) {
@@ -102,7 +108,11 @@ extension RefParser {
         }
         guard let refname = refName(fields[0]) else { return .unrepresentable }
         guard let kind else {
-            return .tag(Tag(fullName: refname, target: target, peeledTarget: peeled, date: date))
+            // Older git peels `*` one level only: a tag of a tag shows as `tag`, not a commit, and is not drawn (#432).
+            return .tag(
+                Tag(
+                    fullName: refname, target: target, peeledTarget: peeled, date: date,
+                    objectType: peeledType ?? objectType))
         }
 
         let upstreamStatus: UpstreamStatus
@@ -130,6 +140,13 @@ extension RefParser {
     }
 
     // MARK: - Fields
+
+    private static func objectType(_ token: Token, in data: Data) throws -> GitObjectType {
+        guard let type = GitObjectType(rawValue: String(decoding: token, as: UTF8.self)) else {
+            throw fail(token, "invalid object type", in: data)
+        }
+        return type
+    }
 
     private static func offset(of token: Token, in data: Data) -> Int {
         token.startIndex - data.startIndex
