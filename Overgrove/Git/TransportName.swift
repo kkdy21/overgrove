@@ -29,8 +29,7 @@ enum TransportName {
     static let fetchSchemes: Set<String> = ["https", "http", "ssh", "git", "file", "git+ssh", "ssh+git"]
 
     /// Shown when fetch refuses a remote that is not in a built-in transport form (#350).
-    static let nonBuiltInRemoteReason =
-        "This remote does not use a built-in transport (https, ssh, git, or a local path); fetching it is disabled."
+    static let nonBuiltInRemoteReason = SafetyReason.nonBuiltInRemote
 
     /// Whether git would fetch `url` with a built-in transport: `<scheme>://` with a scheme in `fetchSchemes`, an
     /// scp-style address, or a path. Any `<name>::<address>` form, an unknown or differently cased scheme, and

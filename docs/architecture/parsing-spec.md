@@ -367,9 +367,10 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 {"hosts":{"github.com":[{"active":true,"gitProtocol":"https","host":"github.com","login":"<login>","scopes":"...","state":"success","tokenSource":"keyring"}]}}
 ```
 
-- 로그인 판정: `hosts["github.com"]`에 `active == true && state == "success"`인 항목이 있다.
+- 로그인 판정: `hosts["github.com"]`에 `active == true && state == "success"`인 항목이 있다. 그 login이 아래 GitHub login 규칙을 통과하지 못하면 `parse`는 실패하고, `parseReport`는 github.com 상태만 읽지 못한 것(`status == nil`)으로 두고 호스트와 다른 호스트의 계정은 그대로 모은다(#486).
+- GitHub login 규칙: 1–39바이트. 영숫자·`-`로만 된 이름이거나, Enterprise Managed User의 `handle_shortcode`(밑줄 하나 뒤에 3–8자 영숫자 short code, handle은 앞의 규칙)다(#486). 그 밖의 밑줄 형태는 거부한다.
 - 로그인 호스트(ADR-0025 §1): `state == "success"`인 계정이 하나 이상 있는 `hosts`의 키를(활성 여부는 따지지 않는다. 계정이 모두 다른 상태이면 신뢰하지 않는다, #467) `RemoteHost`로 검증해 소문자로 모은다. 통과하지 못한 키는 버린다. github.com 로그인이 없어도 다른 호스트는 모은다.
-- 활성 계정(ADR-0025 §4, 표시용): 호스트마다 `active == true && state == "success"`인 항목의 login이 GitHub login 규칙(1–39자 영숫자·`-`)을 통과하면 `GHAccount`로 남기고, 그 호스트의 나머지 계정 수를 함께 센다. 규칙을 통과하지 못한 login은 그 계정만 숨기고 보고 전체를 실패로 보지 않는다(github.com의 상태 판정은 그대로 실패).
+- 활성 계정(ADR-0025 §4, 표시용): 호스트마다 `active == true && state == "success"`인 항목의 login이 GitHub login 규칙을 통과하면 `GHAccount`로 남기고, 그 호스트의 나머지 계정 수를 함께 센다. 규칙을 통과하지 못한 login은 그 계정만 숨기고 보고 전체를 실패로 보지 않는다.
 - 종료 코드는 판단에 쓰지 않는다. `--json`이면 인증 문제가 있어도 0이다.
 - `scopes`와 `tokenSource`는 표시하지 않는다. 그 밖의 필드도 판단에 필요한 것만 쓴다.
 
@@ -392,6 +393,7 @@ unknown␀credential.helper\nosxkeychain␀global␀user.name\nt␀local␀x.v\n
 | PAR-GH-03 | 이슈 목록 (라벨, 담당자, 선택 필드 누락) |
 | PAR-GH-04 | 예상 밖 JSON → 실패 |
 | PAR-GH-07 | 호스트별 활성 계정과 나머지 계정 수, 이상한 login·실패 상태 계정은 그 계정만 숨김 (ADR-0025 §4) |
+| PAR-GH-08 | Enterprise Managed User login(`handle_shortcode`) 허용, 다른 밑줄 형태 거부, github.com login이 이상해도 다른 호스트와 계정은 남음 (#486) |
 
 ### 10.3 PullRequestParser — `gh pr list --json number,title,state,isDraft,isCrossRepository,headRefName,headRepositoryOwner,headRepository,baseRefName,reviewDecision,mergedAt,updatedAt,url`
 
