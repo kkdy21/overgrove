@@ -197,6 +197,22 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
     }
 
+    // MARK: SSH over port 443 (#487)
+
+    /// SEC-T9-487-2 (#487): `ssh://git@ssh.github.com:443/…` is github.com's repository: its issues are read with
+    /// `--repo github.com/OWNER/NAME`, and glab is never asked about it.
+    func testSECT9_487_2_SSHOverPort443ReadsGitHubDotCom() async {
+        let issues = StubIssueLoader([.issues([IssueModelsTests.issue(12)])])
+        let glab = StubGitLabHostChecker()
+        let checker = QueuedGHAuthReporter([report(["github.com"])])
+        let state = await loadedState(
+            remotes: ["ssh://git@ssh.github.com:443/team/app.git"], issues: issues, checker: checker, gitlab: glab)
+        XCTAssertEqual(issues.requests, ["team/app"])
+        XCTAssertEqual(state.issuePanel.repository?.gitHubRepository?.repoArgument, "github.com/team/app")
+        XCTAssertEqual(glab.hosts, [])
+        XCTAssertNil(state.issueListModel.notice)
+    }
+
     // MARK: Reading gh's login list again (#485)
 
     private func settle(_ state: AppState) async {
