@@ -28,7 +28,8 @@ final class AppStateGitHubLinkTests: XCTestCase {
         if let github, let remote { all[remote] = github }
         listing.remotes = all.sorted { $0.key < $1.key }.map {
             WorktreeListing.Remote(
-                name: $0.key, url: "https://\($0.value.host.name)/\($0.value.owner)/\($0.value.name).git")
+                name: $0.key, url: "https://\($0.value.host.name)/\($0.value.owner)/\($0.value.name).git",
+                fetchRefspecs: ["+refs/heads/*:refs/remotes/\($0.key)/*"])
         }
         listing.refs = RefParser.Listing(branches: branches, tags: [], isPartial: false, skippedRecords: 0)
         let state = AppState(

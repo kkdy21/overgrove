@@ -152,6 +152,82 @@ final class TerminalGuardTests: XCTestCase {
         XCTAssertEqual(actions.terminals.map(\.lastPathComponent), ["clean", "unchecked"])
     }
 
+    /// SEC-T14-491-1: while the sidebar is painted from the in-memory cache, Open in Terminal and Open in Editor ask
+    /// first: the cached inspection is the previous load's, and the settings may have changed since. Once this load's
+    /// inspection arrives, its findings (or none) decide.
+    func testSECT14_491_1_ACachedPaintAsksUntilThisLoadsInspection() async throws {
+        let actions = RecordingRowActions()
+        actions.installed["com.example.editor"] = "Example"
+        let clean = base.appendingPathComponent("clean").path
+        func listing(_ inspection: RepoConfigInspection) -> WorktreeListing {
+            let mock = WorktreeListing.entry(
+                clean, branch: "main", isMain: true, state: .loaded(WorktreeListing.state(branch: "main")))
+            return WorktreeListing(
+                entries: [WorktreeListing.Entry(worktree: mock.worktree, state: mock.state, inspection: inspection)],
+                isPartial: false)
+        }
+        let loader = TriggerRecordingLoader(cached: listing(inspection([])))
+        let settings = AppSettings(defaults: defaults)
+        settings.editorApp = "com.example.editor"
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: loader, graphLoader: SampleGraphLoader(), commitLoader: StubCommitLoader(), settings: settings)
+        state.rowActions = actions
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: URL(fileURLWithPath: clean), commonGitDirectoryURL: URL(fileURLWithPath: clean + "/.git"),
+                    isBare: false), owner: nil))
+        state.reload()
+        await loader.waitForRequests(1)
+        XCTAssertNotNil(state.entry(at: GitPath(clean)), "the cached paint is shown")
+
+        let unchecked = ["The repository’s settings could not be checked."]
+        state.openTerminal(at: GitPath(clean))
+        XCTAssertEqual(state.terminalConfirmation?.reasons, unchecked, "the cached clean inspection does not count")
+        state.terminalConfirmation = nil
+        state.openEditor(at: GitPath(clean))
+        XCTAssertEqual(state.terminalConfirmation?.reasons, unchecked)
+        state.terminalConfirmation = nil
+        XCTAssertTrue(actions.terminals.isEmpty)
+        XCTAssertTrue(actions.openedInApps.isEmpty)
+
+        // This load found a setting that runs code: it is named, not the cached result.
+        loader.release(0, with: listing(inspection([("core", nil, "fsmonitor", "./x")])))
+        await state.loadTask?.value
+        state.openTerminal(at: GitPath(clean))
+        XCTAssertEqual(state.terminalConfirmation?.reasons, ["core.fsmonitor"])
+        state.terminalConfirmation = nil
+
+        // ⌘R on a shown, verified list keeps the verified inspection while the next load runs.
+        state.reload()
+        await loader.waitForRequests(2)
+        state.openTerminal(at: GitPath(clean))
+        XCTAssertEqual(state.terminalConfirmation?.reasons, ["core.fsmonitor"])
+        state.terminalConfirmation = nil
+        loader.release(1, with: listing(inspection([])))
+        await state.loadTask?.value
+        state.openTerminal(at: GitPath(clean))
+        XCTAssertNil(state.terminalConfirmation, "this load's clean inspection opens directly")
+        XCTAssertEqual(actions.terminals.count, 1)
+
+        // Another repository opens: its cached paint asks again, whatever the previous repository's load verified.
+        let other = base.appendingPathComponent("risky").path
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: URL(fileURLWithPath: other), commonGitDirectoryURL: URL(fileURLWithPath: other + "/.git"),
+                    isBare: false), owner: nil))
+        state.reload()
+        await loader.waitForRequests(3)
+        XCTAssertNotNil(state.entry(at: GitPath(clean)), "the cached paint is shown")
+        state.openTerminal(at: GitPath(clean))
+        XCTAssertEqual(state.terminalConfirmation?.reasons, unchecked)
+        XCTAssertEqual(actions.terminals.count, 1)
+        state.terminalConfirmation = nil
+        loader.release(2, with: nil)
+    }
+
     /// #107: once the open repository is marked untrusted (S-05 toggle), even a clean worktree asks first; marked
     /// trusted again, it opens directly.
     func testUntrustedRepositoryAsksBeforeOpeningEvenWhenClean() async throws {
