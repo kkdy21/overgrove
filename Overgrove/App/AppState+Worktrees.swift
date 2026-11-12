@@ -113,6 +113,8 @@ extension AppState {
             } else {
                 worktreeList = .loading
                 branchListModel = nil
+                // S-11 goes stale with the list: a comparison already running was asked on the old basis (#412).
+                comparisonListFailed(.git(.cancelled))
                 snapshot = nil
                 needsFullLoad = true
             }
@@ -169,6 +171,8 @@ extension AppState {
         if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
         // S-11 belongs to one worktree: it closes or goes stale with it (#311, #413).
         comparisonListApplied(listing)
+        // A verified load is the new basis: an open S-11 compares again (#412). A cached paint is not.
+        if isVerified { comparisonListSucceeded() }
         // A stash that is gone (dropped or applied elsewhere) falls back to the focused worktree.
         if case .stash(let oid) = selection, !listing.stashes.contains(where: { $0.oid == oid }) {
             selection = nil
