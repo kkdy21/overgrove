@@ -90,15 +90,17 @@ final class AutoRefreshController {
         lastDuration = .zero
         lastEvent = nil
         firstPending = nil
-        wasHidden = false
+        // Kept while hidden: the next repository's first load also runs unwatched until the window appears (#425).
+        wasHidden = !isVisible
     }
 
     /// `NSWindow.occlusionState` changed (or the window closed: `false`).
     func setVisible(_ visible: Bool) {
+        // Before the guard: a window first reported hidden (it starts out not visible) catches up when shown (#425).
+        if !visible { wasHidden = true }
         guard visible != isVisible else { return }
         isVisible = visible
         if !visible {
-            wasHidden = true
             timer?.cancel()
             timer = nil
         }
