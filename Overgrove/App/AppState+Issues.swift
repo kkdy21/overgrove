@@ -62,7 +62,7 @@ extension AppState {
     /// (information-architecture.md §3.2).
     var highlightedCommits: Set<ObjectID> {
         guard let number = selectedIssueNumber else { return [] }
-        return Set(issueLinks.links(number).branches.map(\.target))
+        return Set(issueLinks.links(number).branches.compactMap(\.target))
     }
 
     private func linkedCommits(_ number: Int, repository: String?) -> [CommitLink] {

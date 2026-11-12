@@ -25,8 +25,13 @@ struct Branch: Sendable, Hashable, Identifiable {
     /// without an upstream or when the value is not valid UTF-8.
     var upstreamRemote: String? = nil
     var upstreamRemoteRef: String? = nil
+    /// The type of `target`: a hand-edited ref may name a tree or a blob (#559), which the graph does not have.
+    var objectType: GitObjectType = .commit
 
     var id: String { fullName }
+
+    /// The commit the branch points to; `nil` when it names something else (#559).
+    var commit: ObjectID? { objectType == .commit ? target : nil }
 
     /// Full upstream ref name, if configured (also when its remote-tracking ref is gone).
     var upstream: String? { upstreamStatus.upstreamName }

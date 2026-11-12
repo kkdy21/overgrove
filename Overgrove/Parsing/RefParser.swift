@@ -134,7 +134,9 @@ extension RefParser {
                 symbolicTarget: symref,
                 // Only matched against gh's head branch (ADR-0023 §4), never passed back to git.
                 upstreamRemote: kind == .local ? utf8(fields[8]) : nil,
-                upstreamRemoteRef: kind == .local ? utf8(fields[9]) : nil
+                upstreamRemoteRef: kind == .local ? utf8(fields[9]) : nil,
+                // Unpeeled: a branch of a tag object is not a commit either, and `target` stays the tag's own OID.
+                objectType: objectType
             )
         )
     }
