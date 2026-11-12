@@ -68,11 +68,11 @@ struct LiveStashLoader: StashLoading {
             guard
                 let inspection = try await LiveWorktreeInspector.verifiedInspection(
                     at: folder, of: repository, client: client)
-            else { return unavailable(LiveWorktreeInspector.noLongerMatches) }
+            else { return unavailable(SafetyReason.display(LiveWorktreeInspector.noLongerMatches)) }
             guard let safety = inspection.safetyContext else {
                 return unavailable(
                     String(localized: "Overgrove stopped querying this repository for safety.") + " "
-                        + PathValidator.displayable(inspection.report.blockingReason ?? ""))
+                        + PathValidator.displayable(SafetyReason.display(inspection.report.blockingReason ?? "")))
             }
             return try await body(client, folder, safety)
         } catch let error as GitError {
