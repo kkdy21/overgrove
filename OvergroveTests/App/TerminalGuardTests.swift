@@ -210,6 +210,22 @@ final class TerminalGuardTests: XCTestCase {
         state.openTerminal(at: GitPath(clean))
         XCTAssertNil(state.terminalConfirmation, "this load's clean inspection opens directly")
         XCTAssertEqual(actions.terminals.count, 1)
+
+        // Another repository opens: its cached paint asks again, whatever the previous repository's load verified.
+        let other = base.appendingPathComponent("risky").path
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: URL(fileURLWithPath: other), commonGitDirectoryURL: URL(fileURLWithPath: other + "/.git"),
+                    isBare: false), owner: nil))
+        state.reload()
+        await loader.waitForRequests(3)
+        XCTAssertNotNil(state.entry(at: GitPath(clean)), "the cached paint is shown")
+        state.openTerminal(at: GitPath(clean))
+        XCTAssertEqual(state.terminalConfirmation?.reasons, unchecked)
+        XCTAssertEqual(actions.terminals.count, 1)
+        state.terminalConfirmation = nil
+        loader.release(2, with: nil)
     }
 
     /// #107: once the open repository is marked untrusted (S-05 toggle), even a clean worktree asks first; marked
