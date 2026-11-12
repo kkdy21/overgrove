@@ -131,6 +131,20 @@ run build-clt STUB_DEVDIR=/Library/Developer/CommandLineTools -- --build
 expect "build: Command Line Tools selected, Xcode installed" 1 \
   "sudo xcode-select -s $work/apps-with-xcode/Xcode.app/Contents/Developer"
 
+# An Xcode path with a space: the printed command must work when pasted as is (#504). It is run here through a
+# stand-in for xcode-select that reports the path it received as one argument.
+mkdir -p "$work/apps-spaced/Xcode 26.app"
+run build-clt-spaced STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-spaced" -- --build
+fix=$(printf '%s\n' "$out" | sed -n 's/.*Run: sudo //p' | head -1)
+pasted=$(PATH="$work/paste:$PATH" && mkdir -p "$work/paste" &&
+  printf '#!/bin/sh\n[ "$1" = -s ] && [ $# -eq 2 ] && printf %%s "$2"\n' >"$work/paste/xcode-select" &&
+  chmod +x "$work/paste/xcode-select" && eval "$fix" || true)
+if [[ "$pasted" == "$work/apps-spaced/Xcode 26.app/Contents/Developer" ]]; then
+  pass "build: the xcode-select command works when pasted, even with a space in the path"
+else
+  failed "build: the xcode-select command works when pasted, even with a space in the path (got: $fix)"
+fi
+
 run build-no-xcode STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-empty" -- --build
 expect "build: no Xcode installed" 1 "App Store"
 
