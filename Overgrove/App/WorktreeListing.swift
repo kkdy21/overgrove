@@ -67,8 +67,9 @@ struct WorktreeListing: Sendable, Equatable {
     var isStashListPartial = false
     /// Local and remote-tracking branches and tags (sidebar LOCAL / REMOTE, #72); `nil` before a service load.
     var refs: RefParser.Listing?
-    /// The configured remote names (from the repository's inspection), to split `refs/remotes/<remote>/<branch>`
-    /// when a remote name contains `/`.
+    /// Every configured remote name (from the repository's inspection), to split `refs/remotes/<remote>/<branch>`
+    /// when a remote name contains `/`. Includes names `RemoteName` refuses (#489): display and matching only, never
+    /// an argument to git.
     var remoteNames: [String] = []
     /// The inspected remotes' names and URLs, in configuration order: where the GitHub repository comes from (#81,
     /// ADR-0025).
@@ -113,7 +114,7 @@ extension WorktreeListing {
             },
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
-            remoteNames: overview.inspection.remotes.map(\.name.value),
+            remoteNames: overview.inspection.remoteNames,
             remotes: overview.inspection.remotes.map { Remote(name: $0.name.value, url: $0.url) })
     }
 
