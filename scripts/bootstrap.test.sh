@@ -13,6 +13,15 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
 
+# Neither the cases' own git calls nor bootstrap read the user's global or system git config (#509): a global
+# core.hooksPath would otherwise decide what the cases see. The stand-in home, used by both, carries a global
+# core.hooksPath=.githooks, so a leak shows up: bootstrap would report the hooks as installed without setting them.
+empty_git_config="$work/empty.gitconfig"
+: >"$empty_git_config"
+mkdir -p "$work/home"
+printf '[core]\n\thooksPath = .githooks\n' >"$work/home/.gitconfig"
+export HOME="$work/home" GIT_CONFIG_GLOBAL="$empty_git_config" GIT_CONFIG_NOSYSTEM=1
+
 pass() { echo "ok   $1"; }
 failed() {
   echo "FAIL $1"
@@ -26,14 +35,18 @@ stub() {
   chmod +x "$stubs/$1"
 }
 stub sw_vers 'echo "$STUB_MACOS"'
-stub xcode-select '[ "$1" = "-p" ] && [ -n "$STUB_DEVDIR" ] && { echo "$STUB_DEVDIR"; exit 0; }; exit 2'
-stub xcodebuild 'case "$1" in
+# Like the real tools, these follow DEVELOPER_DIR when it is set: it then names another Xcode (STUB_*_DEVDIR answers).
+stub xcode-select '[ "$1" = "-p" ] && [ -n "$DEVELOPER_DIR" ] && { echo "$DEVELOPER_DIR"; exit 0; }
+[ "$1" = "-p" ] && [ -n "$STUB_DEVDIR" ] && { echo "$STUB_DEVDIR"; exit 0; }; exit 2'
+stub xcodebuild '[ -n "$DEVELOPER_DIR" ] && STUB_XCODE="$STUB_XCODE_DEVDIR"
+case "$1" in
   -version) [ -n "$STUB_XCODE" ] || exit 1; printf "%s\nBuild version 1A1\n" "$STUB_XCODE" ;;
   -license) [ "$STUB_LICENSE" = ok ] ;;
   -checkFirstLaunchStatus) [ "$STUB_FIRSTLAUNCH" = ok ] ;;
   *) exit 1 ;;
 esac'
-stub xcrun '[ "$1" = git ] && [ "$2" = --version ] && { echo "$STUB_GIT"; exit 0; }; exit 1'
+stub xcrun '[ -n "$DEVELOPER_DIR" ] && STUB_GIT="$STUB_GIT_DEVDIR"
+[ "$1" = git ] && [ "$2" = --version ] && { echo "$STUB_GIT"; exit 0; }; exit 1'
 stub swift '[ "$1" = format ] && [ "$2" = --version ] && echo 6.2.0'
 
 optional_stubs="$work/optional"
@@ -69,7 +82,8 @@ run() {
   if [[ "${preset_hooks:-0}" == 1 ]]; then git -C "$repo" config core.hooksPath .githooks; fi
   cp "$here/bootstrap.sh" "$repo/scripts/"
   local -a vars=(
-    "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
+    "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "GIT_CONFIG_GLOBAL=$empty_git_config" "GIT_CONFIG_NOSYSTEM=1"
+    "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
     "STUB_XCODE=Xcode 26.1" "STUB_LICENSE=ok" "STUB_FIRSTLAUNCH=ok" "STUB_GIT=git version 2.39.5 (Apple Git-154)"
     "BOOTSTRAP_APPLICATIONS=$work/apps-with-xcode"
   )
@@ -121,6 +135,37 @@ run build-clt STUB_DEVDIR=/Library/Developer/CommandLineTools -- --build
 expect "build: Command Line Tools selected, Xcode installed" 1 \
   "sudo xcode-select -s $work/apps-with-xcode/Xcode.app/Contents/Developer"
 
+# An Xcode path with a space: the printed command must work when pasted as is (#504). It is run here through a
+# stand-in for xcode-select that reports the path it received as one argument.
+mkdir -p "$work/apps-spaced/Xcode 26.app"
+run build-clt-spaced STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-spaced" -- --build
+fix=$(printf '%s\n' "$out" | sed -n 's/.*Run: sudo //p' | head -1)
+pasted=$(PATH="$work/paste:$PATH" && mkdir -p "$work/paste" &&
+  printf '#!/bin/sh\n[ "$1" = -s ] && [ $# -eq 2 ] && printf %%s "$2"\n' >"$work/paste/xcode-select" &&
+  chmod +x "$work/paste/xcode-select" && eval "$fix" || true)
+if [[ "$pasted" == "$work/apps-spaced/Xcode 26.app/Contents/Developer" ]]; then
+  pass "build: the xcode-select command works when pasted, even with a space in the path"
+else
+  failed "build: the xcode-select command works when pasted, even with a space in the path (got: $fix)"
+fi
+
+# Several Xcodes: the newest by CFBundleShortVersionString is suggested, not the last by name (#505). Xcode_15.4 sorts
+# after Xcode by name; a copy without a readable version comes last.
+xcode_app() { # xcode_app <apps folder> <app name> [version]
+  mkdir -p "$1/$2/Contents"
+  if [[ -n "${3:-}" ]]; then
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>%s</dict></plist>\n' \
+      "<key>CFBundleShortVersionString</key><string>$3</string>" >"$1/$2/Contents/Info.plist"
+  fi
+}
+xcode_app "$work/apps-many" Xcode.app 26.1
+xcode_app "$work/apps-many" Xcode_15.4.app 15.4
+xcode_app "$work/apps-many" Xcode_26.0.1.app 26.0.1
+xcode_app "$work/apps-many" Xcode_unknown.app
+run build-clt-many STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-many" -- --build
+expect "build: the newest Xcode is suggested, not the last by name" 1 \
+  "sudo xcode-select -s $work/apps-many/Xcode.app/Contents/Developer"
+
 run build-no-xcode STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-empty" -- --build
 expect "build: no Xcode installed" 1 "App Store"
 
@@ -142,6 +187,16 @@ expect "build: xcrun's git decides, not PATH's" 1 "git 2.35.1 (xcrun git) is old
 
 run build-git-unparsed "STUB_GIT=something else" -- --build
 expect "build: unreadable git version" 1 "xcrun git"
+
+# The app does not pass DEVELOPER_DIR on, so it runs the git of the Xcode that xcode-select chose (#493). The shell's
+# DEVELOPER_DIR names a newer Xcode and git here; the checks still judge xcode-select's, and say the shell differs.
+devdir_vars=("DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer" "STUB_XCODE_DEVDIR=Xcode 27.0"
+  "STUB_GIT_DEVDIR=git version 2.50.1 (Apple Git-160)")
+run build-developer-dir "${devdir_vars[@]}" -- --build
+expect "build: DEVELOPER_DIR is ignored, as the app ignores it" 0 "Xcode 26.1 at /Applications/Xcode.app" \
+  "git 2.39.5 (xcrun git, the one Overgrove runs)" "DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer"
+run build-developer-dir-old-git "${devdir_vars[@]}" "STUB_GIT=git version 2.35.1 (Apple Git-131)" -- --build
+expect "build: an old git is not hidden by a newer one in DEVELOPER_DIR" 1 "git 2.35.1 (xcrun git) is older than 2.36"
 
 # --- Contributor mode (the default): installs the hooks after saying so, gitleaks is required ------------------------
 

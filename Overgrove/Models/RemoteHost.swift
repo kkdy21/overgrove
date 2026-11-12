@@ -122,9 +122,10 @@ struct TrustedHosts: Sendable, Equatable {
         host == publicHost || loggedIn.contains(host)
     }
 
-    /// Some URL among `urls` is in a remote form for a host not trusted yet, and the login list has not been read:
-    /// reading it may make that remote usable.
-    func mayTrustMore(_ urls: [String]) -> Bool {
-        !isLoginListRead && urls.contains { HostedRemoteURL($0).map { !contains($0.host) } ?? false }
+    /// Some URL among `urls` is in a remote form for a host not trusted yet, and the login list has not been read, or
+    /// the user asked to read it again (`rereading`: ⌘R or Check Again, #485): reading it may make that remote usable.
+    /// Auto refresh never rereads, so it does not run the CLI on every tick.
+    func mayTrustMore(_ urls: [String], rereading: Bool = false) -> Bool {
+        (rereading || !isLoginListRead) && urls.contains { HostedRemoteURL($0).map { !contains($0.host) } ?? false }
     }
 }

@@ -375,7 +375,9 @@ struct WipDetailModel: Equatable {
             )
         case .inspectionBlocked(let reason):
             String(
-                localized: "Overgrove stopped querying this worktree for safety. \(PathValidator.displayable(reason))")
+                localized:
+                    "Overgrove stopped querying this worktree for safety. \(PathValidator.displayable(SafetyReason.display(reason)))"
+            )
         case .duplicate:
             String(localized: "Another worktree entry leads to this folder; its changes are shown under that entry.")
         case .limit:
