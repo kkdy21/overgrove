@@ -190,6 +190,23 @@ final class BranchListModelTests: XCTestCase {
         XCTAssertEqual(BranchNode.key("50%"), "50%25", "a literal % cannot stand in for an encoded byte")
     }
 
+    /// #565 (review): the REMOTE folder tooltip is looked up by the folder's id, so its key is built the same way, also
+    /// for a name with non-ASCII bytes or `%`.
+    func testRemoteFolderTooltipKeysMatchTheFolderIds() {
+        // `remoteURLTooltips` is a `String`-keyed dictionary built with `uniquingKeysWith`, so it never holds two
+        // canonically equivalent names; each name here is distinct under `String` equality too.
+        let names = ["origin", "caf\u{E9}", "50%"]
+        let model = BranchListModel(
+            refs: refs(names.map { remote("\($0)/main", guess: $0) }), checkedOut: [], remoteNames: names)
+        let help = SidebarPanel.remoteFolderHelp(Dictionary(uniqueKeysWithValues: names.map { ($0, "url-\($0)") }))
+        XCTAssertEqual(help.count, names.count)
+        XCTAssertEqual(Set(help.keys), Set(model.remote.map(\.id)))
+        for node in model.remote {
+            guard case .folder(let id, _, _, _) = node else { return XCTFail("\(node)") }
+            XCTAssertNotNil(help[id], id)
+        }
+    }
+
     /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
     /// (`origin/x`); an empty remainder shows the whole name (security review of #72).
     func testRemoteSplitIsByteExact() {
