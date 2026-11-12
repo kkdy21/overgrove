@@ -153,6 +153,34 @@ final class BranchListModelTests: XCTestCase {
                 "refs/remotes/\(nfd)/b", remotes: ["gh": repository], configuredRemotes: ["gh", nfc, nfd]))
     }
 
+    /// SEC-T9-554-1 (#554): `my/K` and `my/\u{212A}` (KELVIN SIGN) are two remotes that `String` equality takes for
+    /// one. Neither is folded into the other, so no ref of either falls back to the shorter GitHub remote `my`, and
+    /// both keep their own folder.
+    func testSECT9_554_1_KelvinSignRemoteIsNotFoldedIntoTheASCIIOne() throws {
+        let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
+        let names = ["my", "my/K", "my/\u{212A}"]
+        for order in [names, names.reversed()] {
+            let model = BranchListModel(
+                refs: refs([remote("my/K/a", guess: "my"), remote("my/\u{212A}/b", guess: "my")]), checkedOut: [],
+                remoteNames: order, githubRemotes: ["my": repository])
+            XCTAssertEqual(model.remote.count, 2, "two folders")
+            for node in model.remote {
+                guard case .folder(_, _, _, let children) = node, case .branch(let row) = children.first else {
+                    return XCTFail("\(model.remote)")
+                }
+                XCTAssertNil(row.gitHubTarget, row.name)
+            }
+            for ref in ["refs/remotes/my/K/a", "refs/remotes/my/\u{212A}/b"] {
+                XCTAssertNil(
+                    GitHubBranchTarget.forRemoteRef(ref, remotes: ["my": repository], configuredRemotes: order), ref)
+            }
+            XCTAssertEqual(
+                GitHubBranchTarget.forRemoteRef(
+                    "refs/remotes/my/z", remotes: ["my": repository], configuredRemotes: order)?
+                    .branch, "z")
+        }
+    }
+
     /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
     /// (`origin/x`); an empty remainder shows the whole name (security review of #72).
     func testRemoteSplitIsByteExact() {
