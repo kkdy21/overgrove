@@ -79,6 +79,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   remote names that differ only that way both go without GitHub links instead of one taking the other's place.
 - The graph's checked-out branch pill follows a switch to another branch on the same commit on the next refresh,
   keeping the rows, selection, and scroll.
+- A tag of a tree or a file says so in TAGS instead of showing as a commit, and choosing it no longer clears the
+  graph selection while the detail panel keeps the old commit.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

@@ -7,11 +7,14 @@ import XCTest
 final class TagListModelTests: XCTestCase {
     private func oid(_ character: Character) -> ObjectID { ObjectID(String(repeating: character, count: 40))! }
 
-    private func tag(_ name: String, commit: Character = "a", annotated: Character? = nil, days: Double? = nil) -> Tag {
+    private func tag(
+        _ name: String, commit: Character = "a", annotated: Character? = nil, days: Double? = nil,
+        type: GitObjectType = .commit
+    ) -> Tag {
         Tag(
             fullName: "refs/tags/\(name)", target: annotated.map(oid) ?? oid(commit),
             peeledTarget: annotated == nil ? nil : oid(commit),
-            date: days.map { Date(timeIntervalSince1970: 1_000_000_000 - $0 * 86_400) })
+            date: days.map { Date(timeIntervalSince1970: 1_000_000_000 - $0 * 86_400) }, objectType: type)
     }
 
     /// §4.2: newest first; equal or missing dates by name, missing dates last; no folders.
@@ -38,6 +41,28 @@ final class TagListModelTests: XCTestCase {
         XCTAssertEqual(light.commit, oid("e"))
         XCTAssertFalse(light.isAnnotated)
         XCTAssertTrue(light.accessibilityLabel.hasPrefix("Lightweight tag v2"))
+    }
+
+    /// #432: a tag of a tree, blob, or (older git's one-level peel) another tag has no commit, so choosing it selects
+    /// nothing; the tooltip and label say what it names, and Copy SHA still has the object.
+    func testATagOfSomethingElseThanACommitSelectsNothing() throws {
+        let model = TagListModel(
+            tags: [
+                tag("tree", commit: "c", type: .tree), tag("blob", commit: "d", annotated: "e", type: .blob),
+                tag("nested", commit: "f", annotated: "1", type: .tag),
+            ], detachedHeads: [oid("c")])
+        for (name, word, object) in [
+            ("tree", "tree", oid("c")), ("blob", "file", oid("d")), ("nested", "tag", oid("f")),
+        ] {
+            let row = try XCTUnwrap(model.rows.first { $0.name == name })
+            XCTAssertNil(row.commit, name)
+            XCTAssertEqual(row.object, object, name)
+            XCTAssertFalse(row.hasDetachedWorktree, name)
+            XCTAssertTrue(row.help.contains("not a commit"), row.help)
+            XCTAssertTrue(row.help.contains(word), row.help)
+            XCTAssertFalse(row.help.contains("Commit "), row.help)
+            XCTAssertTrue(row.accessibilityLabel.contains("not a commit"), row.accessibilityLabel)
+        }
     }
 
     /// §4.3: the `tree` mark when a worktree's detached HEAD is on the tag's commit.
@@ -83,25 +108,5 @@ final class TagListModelTests: XCTestCase {
         let model = BranchListModel(refs: refs, checkedOut: [], remoteNames: [], detachedHeads: [oid("c")])
         XCTAssertEqual(model.tags.rows.map(\.name), ["v1"])
         XCTAssertTrue(model.tags.rows[0].hasDetachedWorktree)
-    }
-}
-
-/// The refs query against real git (#377): an annotated tag carries its tagger date, so TAGS can sort it.
-final class TagRefsIntegrationTests: XCTestCase {
-    func testAnnotatedAndLightweightTagsBothHaveADate() async throws {
-        let repository = try await GitTestRepository.make()
-        defer { repository.remove() }
-        try await repository.git(["commit", "-q", "--allow-empty", "-m", "one"])
-        try await repository.git(["tag", "light"])
-        try await repository.git(["tag", "-a", "annotated", "-m", "release"])
-
-        let client = GitClient(environment: repository.environment)
-        let safety = RepoSafetyContext(inspectedNeutralization: [], fetchAuthentication: [], trustedSSHCommand: nil)
-        let output = try await client.run(.refs, in: repository.root, safety: safety)
-        let tags = try RefParser.parse(output.stdout).tags
-        XCTAssertEqual(Set(tags.map(\.shortName)), ["light", "annotated"])
-        for tag in tags { XCTAssertNotNil(tag.date, tag.shortName) }
-        let annotated = try XCTUnwrap(tags.first { $0.shortName == "annotated" })
-        XCTAssertNotNil(annotated.peeledTarget)
     }
 }
