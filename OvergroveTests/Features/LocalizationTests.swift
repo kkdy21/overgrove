@@ -126,6 +126,20 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// The issue detail's Labels and Assignees headings (#502) are looked up in the catalog and have Korean.
+    func testIssueDetailHeadingsAreLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let file = try XCTUnwrap(
+            objects.map { $0.appendingPathComponent("IssueViews.stringsdata") }
+                .first { FileManager.default.fileExists(atPath: $0.path) })
+        let extracted = try Self.extractedKeys(file)
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        for (key, korean) in [("Labels", "라벨"), ("Assignees", "담당자")] {
+            XCTAssertTrue(extracted.contains(key), "not extracted: \(key)")
+            XCTAssertEqual(ko.localizedString(forKey: key, value: nil, table: nil), korean)
+        }
+    }
+
     /// The repository switcher's "No Repository" (#501), the first thing a new user sees in the toolbar, is looked up
     /// in the catalog and has Korean.
     func testNoRepositoryIsLocalized() throws {
