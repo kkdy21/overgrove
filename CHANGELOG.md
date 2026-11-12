@@ -77,6 +77,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   hand-edited name that only looks like a GitHub remote's (KELVIN SIGN for `K`, or NFD for NFC) no longer reaches it.
 - Two local branches whose names differ only in Unicode normalization each show their own pull request, and two
   remote names that differ only that way both go without GitHub links instead of one taking the other's place.
+- The graph's checked-out branch pill follows a switch to another branch on the same commit on the next refresh,
+  keeping the rows, selection, and scroll.
 - A tag of a tree or a file says so in TAGS instead of showing as a commit, and choosing it no longer clears the
   graph selection while the detail panel keeps the old commit.
 
