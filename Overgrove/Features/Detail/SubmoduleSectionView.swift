@@ -107,7 +107,7 @@ private struct SubmoduleRowView: View {
         .frame(height: Tokens.Size.rowFile)
         .help(row.help ?? "")
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(row.path), \(row.badge)\(row.isUnlisted ? ", not in .gitmodules" : "")")
+        .accessibilityLabel(SubmoduleSectionModel.accessibilityLabel(row))
         .accessibilityHint(row.help ?? "")
     }
 
