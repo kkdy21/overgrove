@@ -75,6 +75,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   cached settings check is the previous load's. This load's check decides once it arrives.
 - Open on GitHub and pull request links for a local branch match its upstream remote's name byte for byte, so a
   hand-edited name that only looks like a GitHub remote's (KELVIN SIGN for `K`, or NFD for NFC) no longer reaches it.
+- Two local branches whose names differ only in Unicode normalization each show their own pull request, and two
+  remote names that differ only that way both go without GitHub links instead of one taking the other's place.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
