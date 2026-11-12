@@ -49,6 +49,24 @@ final class GraphStashTests: XCTestCase {
         XCTAssertEqual(rows.count, 2, "the stash outside the graph and the one without parents stay in the sidebar")
     }
 
+    /// #433: an entry with one parent (a plain commit in `refs/stash`) is not a stash node, and a stash commit that is
+    /// already a graph row is not drawn again above its base.
+    func testOnlyRealStashCommitsThatAreNotRowsArePlaced() async throws {
+        let store = try await loadedStore()
+        let two = try XCTUnwrap(store.index(of: SampleGraphLoader.oid("2")))
+        let plain = Stash(
+            index: 0, oid: ObjectID(String(format: "%040x", 0x6000))!, subject: "plain", branch: nil,
+            message: "plain", date: now, parents: [SampleGraphLoader.oid("2")])
+        let row = Stash(
+            index: 1, oid: SampleGraphLoader.oid("1"), subject: "On main: x", branch: "main", message: "x", date: now,
+            parents: [SampleGraphLoader.oid("2"), ObjectID(String(repeating: "e", count: 40))!])
+        let real = stash(2, base: "2", message: "real")
+        XCTAssertNotNil(store.index(of: row.oid), "precondition: the stash commit is a graph row")
+        let rows = GraphStashPlacement.byBaseRow([plain, row, real], index: { store.index(of: $0) })
+        XCTAssertEqual(rows[two]?.map(\.index), [2])
+        XCTAssertEqual(rows.count, 1)
+    }
+
     func testText() {
         var hostile = stash(0, base: "2", message: "evil\u{1B}[31m")
         let text = GraphStashText(hostile, now: now)

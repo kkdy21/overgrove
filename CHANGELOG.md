@@ -62,6 +62,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   install since the last check shows the host's issues without restarting the app. Auto refresh still does not run gh.
 - Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
   that the app cannot read no longer drops the other hosts gh is logged in to.
+- The graph draws a stash node only for a real stash commit that is not already a row: a plain commit written to
+  `refs/stash`, or a stash a branch points to, no longer appears twice.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
