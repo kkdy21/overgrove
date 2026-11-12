@@ -394,6 +394,11 @@ struct WipDetailModel: Equatable {
         return path.hasPrefix(prefix) ? "~/" + path.dropFirst(prefix.count) : path
     }
 
+    /// `3 changed files` for the WIP header, plural in the catalog (#499).
+    static func changedFilesText(_ count: Int) -> String {
+        String(localized: "\(count) changed files")
+    }
+
     /// `5,000`: the screens use English UI text (information-architecture.md §5).
     static func formatted(_ count: Int) -> String {
         count.formatted(.number.grouping(.automatic).locale(Locale(identifier: "en_US")))

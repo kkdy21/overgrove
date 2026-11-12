@@ -284,7 +284,7 @@ GitHub 원격 판별([ADR-0025](../adr/0025-github-hosts-and-accounts.md)): `con
 
 - `https://HOST/OWNER/NAME(.git)?`
 - `git@HOST:OWNER/NAME(.git)?`
-- `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받되 호스트 판단에 쓰지 않는다)
+- `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받되 호스트 판단에 쓰지 않는다. 예외로 GitHub의 SSH-over-443 엔드포인트 `ssh.github.com:443`은 `github.com`으로 읽는다. 다른 호스트·포트·형식은 별칭을 두지 않는다, #487)
 
 HOST는 소문자로 바꾼 ASCII DNS 이름이다. 라벨 1–63자의 영숫자·`-`(앞뒤 `-` 금지), 라벨 2개 이상, 전체 253자 이하이고, 마지막 라벨이 숫자로 시작하면(10진·8진·16진 IPv4) 거부한다. userinfo·포트(https)·경로가 섞인 값도 거부한다. URL 형식과 호스트 신뢰는 제공자와 무관한 `RemoteHost`·`HostedRemoteURL`·`TrustedHosts`(`Overgrove/Models/RemoteHost.swift`)가 맡고, `GitHubRemote`는 경로가 정확히 `OWNER/NAME`인지만 본다. `--repo`는 github.com을 포함해 항상 `HOST/OWNER/NAME`이다. `GH_HOST`·`GH_ENTERPRISE_TOKEN`·`GH_TOKEN`은 환경 allowlist에 없다.
 
