@@ -39,9 +39,9 @@ final class RemoteHostTests: XCTestCase {
         }
     }
 
-    /// #487: GitHub's SSH-over-443 endpoint is github.com. Only that host on port 443 in the ssh form is aliased;
+    /// SEC-T9-487-1 (#487): GitHub's SSH-over-443 endpoint is github.com. Only that host on port 443 in the ssh form is aliased;
     /// other ports, other forms, and look-alike hosts keep the host they name.
-    func testSSHOverPort443IsGitHubDotCom() {
+    func testSECT9_487_1_SSHOverPort443IsGitHubDotCom() {
         for url in ["ssh://git@ssh.github.com:443/team/app.git", "ssh://git@SSH.GitHub.com:443/team/app"] {
             let remote = HostedRemoteURL(url)
             XCTAssertEqual(remote?.host.name, "github.com", url)
