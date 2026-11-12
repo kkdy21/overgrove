@@ -565,6 +565,61 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertEqual(result.remotes.first?.displayURL, "https://***@github.com/o/r.git")
     }
 
+    /// #489: every `remote.<name>` section is a remote-tracking namespace, so its name is matched against
+    /// `refs/remotes/` even when `RemoteName` refuses it (a hand-edited config can hold `+`, `@`, or non-ASCII). Only
+    /// valid names become `remotes`, the ones passed to git. Names compare in bytes: NFC and NFD are two remotes.
+    func testEveryRemoteSectionNameIsKeptForMatching() {
+        let result = inspect([
+            entry(.local, "remote.gh.url", "https://github.com/o/r.git"),
+            entry(.local, "remote.gh/fork+1.url", "https://example.invalid/r.git"),
+            entry(.local, "remote.caf\u{E9}.url", "https://example.invalid/a.git"),
+            entry(.local, "remote.cafe\u{301}.url", "https://example.invalid/b.git"),
+            entry(.local, "remote.me@host.fetch", "+refs/heads/*:refs/remotes/me@host/*"),
+            entry(.local, "remote.gh.fetch", "+refs/heads/*:refs/remotes/gh/*"),
+            entry(.local, "remote.-evil.url", "https://x/y"),
+            // Longer than any valid ref could start with (T15): left out.
+            entry(.local, "remote.\(String(repeating: "x", count: 1_010)).url", "https://x/y"),
+            entry(.local, "remote.\(String(repeating: "y", count: 1_009)).url", "https://x/y"),
+        ])
+        XCTAssertEqual(result.remotes.map(\.name.value), ["gh"])
+        XCTAssertEqual(
+            result.remoteNames.map { Array($0.utf8) },
+            ["gh", "gh/fork+1", "caf\u{E9}", "cafe\u{301}", "me@host", "-evil", String(repeating: "y", count: 1_009)]
+                .map { Array($0.utf8) })
+    }
+
+    /// #490: each listed remote's fetch refspecs, in configuration order and from every scope, so Open on GitHub can
+    /// tell a branch from another kind of ref. Past the bound a remote has none, which opens nothing.
+    func testRemotesCarryTheirFetchRefspecs() {
+        var entries = [
+            entry(.local, "remote.origin.url", "https://github.com/o/r.git"),
+            entry(.local, "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"),
+            entry(.local, "remote.origin.fetch", "+refs/pull/*/head:refs/remotes/origin/pr/*"),
+            entry(.local, "remote.many.url", "https://github.com/o/many.git"),
+            entry(.local, "remote.none.url", "https://github.com/o/none.git"),
+            entry(.local, "remote.huge.url", "https://github.com/o/huge.git"),
+            entry(.local, "remote.huge.fetch", "+refs/heads/*:refs/remotes/huge/*"),
+            entry(
+                .local, "remote.huge.fetch",
+                "+refs/heads/*:refs/remotes/huge/" + String(repeating: "x", count: FetchRefspec.maximumLength)),
+            // KELVIN SIGN is canonically `K` but another remote to git: its refspec is not `K`'s.
+            entry(.local, "remote.K.url", "https://github.com/o/k.git"),
+            entry(.local, "remote.K.fetch", "+refs/heads/*:refs/remotes/K/*"),
+            entry(.local, "remote.\u{212A}.fetch", "+refs/pull/*/head:refs/remotes/K/*"),
+        ]
+        for index in 0...RepoConfigInspector.maximumFetchRefspecsPerRemote {
+            entries.append(entry(.local, "remote.many.fetch", "+refs/heads/\(index)/*:refs/remotes/many/\(index)/*"))
+        }
+        let remotes = Dictionary(
+            uniqueKeysWithValues: inspect(entries).remotes.map { ($0.name.value, $0.fetchRefspecs) })
+        XCTAssertEqual(
+            remotes["origin"], ["+refs/heads/*:refs/remotes/origin/*", "+refs/pull/*/head:refs/remotes/origin/pr/*"])
+        XCTAssertEqual(remotes["many"], [])
+        XCTAssertEqual(remotes["none"], [])
+        XCTAssertEqual(remotes["huge"], [], "a value past the bound leaves the remote with none")
+        XCTAssertEqual(remotes["K"], ["+refs/heads/*:refs/remotes/K/*"])
+    }
+
     func testCacheInvalidatesWhenAFileChanges() async throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("overgrove-cfg-\(UUID().uuidString)")
         try "a".write(to: file, atomically: true, encoding: .utf8)
@@ -608,6 +663,7 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertEqual(result.remotes.count, RepoConfigInspector.maximumRemotes)
         XCTAssertEqual(result.remotes.first?.name.value, "r0")
         XCTAssertEqual(result.omittedRemotes, 100_000 - RepoConfigInspector.maximumRemotes)
+        XCTAssertEqual(result.remoteNames.count, RepoConfigInspector.maximumRemotes, "matching names are bounded too")
         XCTAssertEqual(result.report.findings.count, RepoConfigInspector.maximumFindings)
         XCTAssertEqual(result.report.omittedFindings, 200_000 - RepoConfigInspector.maximumFindings)
         XCTAssertNotNil(result.fetchBlockingReason, "too many URL overrides: fetch is disabled")

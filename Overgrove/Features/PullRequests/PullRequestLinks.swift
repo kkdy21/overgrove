@@ -42,7 +42,9 @@ struct PullRequestLinkIndex: Equatable {
         var byBranch: [String: PullRequest] = [:]
         let headsPrefix = Array("refs/heads/".utf8)
         for branch in branches where branch.kind == .local {
-            guard let remote = branch.upstreamRemote, let repository = remotes[remote],
+            // The remote name matches byte for byte, like the branch (#546).
+            guard let remote = branch.upstreamRemote,
+                let repository = GitHubRemote.repository(named: remote, in: remotes),
                 let ref = branch.upstreamRemoteRef.map({ Array($0.utf8) }), ref.starts(with: headsPrefix),
                 ref.count > headsPrefix.count
             else { continue }
