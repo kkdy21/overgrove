@@ -43,6 +43,10 @@ done
 # outside any clone (a downloaded archive) can still check the build; it has no hooks to install.
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 clone=$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null || true)
+# Only this copy's own root counts: a loose copy unpacked inside another repository must not touch that one (#535).
+# Compared as files, not strings: rev-parse prints the stored case and resolves symbolic links, while the path the
+# script was run by keeps what was typed (review of #536).
+if [[ -n "$clone" && ! "$clone" -ef "$script_dir/.." ]]; then clone=; fi
 cd "${clone:-$script_dir/..}"
 
 # Where Xcode is looked for when the Command Line Tools are selected instead (tests point this elsewhere).
@@ -200,7 +204,8 @@ if [[ "$mode" == contributor ]]; then
     if git config core.hooksPath .githooks; then
       ok "core.hooksPath=.githooks (pre-commit, prepare-commit-msg, commit-msg, pre-push)"
     else
-      bad "could not set core.hooksPath. Run: git -C $clone config core.hooksPath .githooks"
+      printf -v quoted_clone '%q' "$clone"
+      bad "could not set core.hooksPath. Run: git -C $quoted_clone config core.hooksPath .githooks"
     fi
   fi
   chmod +x .githooks/* scripts/*.sh scripts/lint/*.sh scripts/github/*.sh 2>/dev/null || true
