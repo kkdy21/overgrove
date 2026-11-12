@@ -23,6 +23,14 @@ struct SubmoduleSectionModel: Equatable {
         let isUnlisted: Bool
     }
 
+    /// VoiceOver text for a row: `lib/a, modified, not in .gitmodules` (#503).
+    static func accessibilityLabel(_ row: Row) -> String {
+        let path = row.path
+        let badge = row.badge
+        return row.isUnlisted
+            ? String(localized: "\(path), \(badge), not in .gitmodules") : String(localized: "\(path), \(badge)")
+    }
+
     enum Content: Equatable {
         case checking
         case failed
