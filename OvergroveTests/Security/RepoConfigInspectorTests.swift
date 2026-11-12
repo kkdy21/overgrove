@@ -588,6 +588,38 @@ final class RepoConfigInspectorTests: XCTestCase {
                 .map { Array($0.utf8) })
     }
 
+    /// #490: each listed remote's fetch refspecs, in configuration order and from every scope, so Open on GitHub can
+    /// tell a branch from another kind of ref. Past the bound a remote has none, which opens nothing.
+    func testRemotesCarryTheirFetchRefspecs() {
+        var entries = [
+            entry(.local, "remote.origin.url", "https://github.com/o/r.git"),
+            entry(.local, "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"),
+            entry(.local, "remote.origin.fetch", "+refs/pull/*/head:refs/remotes/origin/pr/*"),
+            entry(.local, "remote.many.url", "https://github.com/o/many.git"),
+            entry(.local, "remote.none.url", "https://github.com/o/none.git"),
+            entry(.local, "remote.huge.url", "https://github.com/o/huge.git"),
+            entry(.local, "remote.huge.fetch", "+refs/heads/*:refs/remotes/huge/*"),
+            entry(
+                .local, "remote.huge.fetch",
+                "+refs/heads/*:refs/remotes/huge/" + String(repeating: "x", count: FetchRefspec.maximumLength)),
+            // KELVIN SIGN is canonically `K` but another remote to git: its refspec is not `K`'s.
+            entry(.local, "remote.K.url", "https://github.com/o/k.git"),
+            entry(.local, "remote.K.fetch", "+refs/heads/*:refs/remotes/K/*"),
+            entry(.local, "remote.\u{212A}.fetch", "+refs/pull/*/head:refs/remotes/K/*"),
+        ]
+        for index in 0...RepoConfigInspector.maximumFetchRefspecsPerRemote {
+            entries.append(entry(.local, "remote.many.fetch", "+refs/heads/\(index)/*:refs/remotes/many/\(index)/*"))
+        }
+        let remotes = Dictionary(
+            uniqueKeysWithValues: inspect(entries).remotes.map { ($0.name.value, $0.fetchRefspecs) })
+        XCTAssertEqual(
+            remotes["origin"], ["+refs/heads/*:refs/remotes/origin/*", "+refs/pull/*/head:refs/remotes/origin/pr/*"])
+        XCTAssertEqual(remotes["many"], [])
+        XCTAssertEqual(remotes["none"], [])
+        XCTAssertEqual(remotes["huge"], [], "a value past the bound leaves the remote with none")
+        XCTAssertEqual(remotes["K"], ["+refs/heads/*:refs/remotes/K/*"])
+    }
+
     func testCacheInvalidatesWhenAFileChanges() async throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("overgrove-cfg-\(UUID().uuidString)")
         try "a".write(to: file, atomically: true, encoding: .utf8)
