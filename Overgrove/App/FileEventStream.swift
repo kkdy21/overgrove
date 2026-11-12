@@ -4,14 +4,31 @@ import Foundation
 /// Watches folders and reports file events (auto refresh, #119). The live version is FSEvents (CoreServices, part of
 /// macOS: no dependency); tests pass their own.
 protocol FileEventWatching: Sendable {
+    /// The system's latest event ID: a stream started `since` it misses nothing that happens afterwards (#422).
+    var currentEventID: FileEventID { get }
+
     /// Starts watching `paths`; `handler` gets batches of events on a background queue until the returned stream is
-    /// stopped.
+    /// stopped. With `since`, events after that ID are replayed first; without it, the stream starts now.
     func watch(
-        _ paths: [String], latency: TimeInterval, handler: @escaping @Sendable ([FileEvent]) -> Void
+        _ paths: [String], since: FileEventID?, latency: TimeInterval,
+        handler: @escaping @Sendable ([FileEvent]) -> Void
     ) -> any FileEventSubscription
 }
 
+extension FileEventWatching {
+    func watch(
+        _ paths: [String], latency: TimeInterval, handler: @escaping @Sendable ([FileEvent]) -> Void
+    ) -> any FileEventSubscription {
+        watch(paths, since: nil, latency: latency, handler: handler)
+    }
+}
+
+/// An FSEvents event ID (`FSEventStreamEventId`).
+typealias FileEventID = UInt64
+
 protocol FileEventSubscription: AnyObject, Sendable {
+    /// Delivers the events the stream still holds through its handler, then stops it (#422). Nothing is delivered
+    /// after it returns.
     func stop()
 }
 
@@ -20,10 +37,13 @@ protocol FileEventSubscription: AnyObject, Sendable {
 struct LiveFileEventWatcher: FileEventWatching {
     static let live = LiveFileEventWatcher()
 
+    var currentEventID: FileEventID { FSEventsGetCurrentEventId() }
+
     func watch(
-        _ paths: [String], latency: TimeInterval, handler: @escaping @Sendable ([FileEvent]) -> Void
+        _ paths: [String], since: FileEventID?, latency: TimeInterval,
+        handler: @escaping @Sendable ([FileEvent]) -> Void
     ) -> any FileEventSubscription {
-        FSEventsSubscription(paths: paths, latency: latency, handler: handler)
+        FSEventsSubscription(paths: paths, since: since, latency: latency, handler: handler)
     }
 }
 
@@ -51,7 +71,10 @@ final class FSEventsSubscription: FileEventSubscription, @unchecked Sendable {
     private let queue = DispatchQueue(label: "overgrove.fsevents")
     private let box: FSEventsHandlerBox
 
-    init(paths: [String], latency: TimeInterval, handler: @escaping @Sendable ([FileEvent]) -> Void) {
+    init(
+        paths: [String], since: FileEventID? = nil, latency: TimeInterval,
+        handler: @escaping @Sendable ([FileEvent]) -> Void
+    ) {
         box = FSEventsHandlerBox(handler)
         guard !paths.isEmpty else { return }
         var context = FSEventStreamContext(
@@ -72,7 +95,7 @@ final class FSEventsSubscription: FileEventSubscription, @unchecked Sendable {
         guard
             let created = FSEventStreamCreate(
                 kCFAllocatorDefault, fsEventsCallback, &context, paths as CFArray,
-                FSEventStreamEventId(kFSEventStreamEventIdSinceNow), latency, flags)
+                since ?? FSEventStreamEventId(kFSEventStreamEventIdSinceNow), latency, flags)
         else { return }
         FSEventStreamSetDispatchQueue(created, queue)
         guard FSEventStreamStart(created) else {
@@ -84,12 +107,14 @@ final class FSEventsSubscription: FileEventSubscription, @unchecked Sendable {
     }
 
     func stop() {
-        box.stop()
         let current = lock.withLock {
             defer { stream = nil }
             return stream
         }
-        guard let current else { return }
+        guard let current else { return box.stop() }
+        // Events FSEvents holds for the latency are delivered now, on the stream's queue, before this returns (#422).
+        FSEventStreamFlushSync(current)
+        box.stop()
         FSEventStreamStop(current)
         FSEventStreamInvalidate(current)
         FSEventStreamRelease(current)
@@ -109,10 +134,12 @@ private func fsEventsCallback(
     let array = Unmanaged<CFArray>.fromOpaque(paths).takeUnretainedValue() as NSArray
     let rescan = FSEventStreamEventFlags(
         kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged)
+    let historyDone = FSEventStreamEventFlags(kFSEventStreamEventFlagHistoryDone)
     var events: [FileEvent] = []
     events.reserveCapacity(count)
     for index in 0..<count {
-        guard let path = array[index] as? String else { continue }
+        // The marker after a replay (`since`) names no changed file.
+        guard flags[index] & historyDone == 0, let path = array[index] as? String else { continue }
         events.append(FileEvent(path: path, needsRescan: flags[index] & rescan != 0))
     }
     box.deliver(events)

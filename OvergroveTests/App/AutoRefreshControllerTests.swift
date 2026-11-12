@@ -8,21 +8,46 @@ final class FakeFileWatcher: FileEventWatching, @unchecked Sendable {
     final class Subscription: FileEventSubscription, @unchecked Sendable {
         private let lock = NSLock()
         private var stopped = false
+        /// Events the stream still holds: `stop()` flushes them through the handler first, as FSEvents does.
+        var undelivered: [FileEvent] = []
+        var handler: (@Sendable ([FileEvent]) -> Void)?
         var isStopped: Bool { lock.withLock { stopped } }
-        func stop() { lock.withLock { stopped = true } }
+        func stop() {
+            let flushed: [FileEvent] = lock.withLock {
+                guard !stopped else { return [] }
+                stopped = true
+                defer { undelivered = [] }
+                return undelivered
+            }
+            if !flushed.isEmpty { handler?(flushed) }
+        }
     }
 
     private let lock = NSLock()
-    private var watches: [(paths: [String], subscription: Subscription, handler: @Sendable ([FileEvent]) -> Void)] = []
+    private var watches:
+        [(
+            paths: [String], since: FileEventID?, subscription: Subscription,
+            handler: @Sendable ([FileEvent]) -> Void
+        )] = []
+    private var eventID: FileEventID = 1
 
     var watchedPaths: [[String]] { lock.withLock { watches.map(\.paths) } }
+    var startIDs: [FileEventID?] { lock.withLock { watches.map(\.since) } }
     var activeCount: Int { lock.withLock { watches.filter { !$0.subscription.isStopped }.count } }
+    var latest: Subscription? { lock.withLock { watches.last?.subscription } }
+
+    var currentEventID: FileEventID {
+        get { lock.withLock { eventID } }
+        set { lock.withLock { eventID = newValue } }
+    }
 
     func watch(
-        _ paths: [String], latency: TimeInterval, handler: @escaping @Sendable ([FileEvent]) -> Void
+        _ paths: [String], since: FileEventID?, latency: TimeInterval,
+        handler: @escaping @Sendable ([FileEvent]) -> Void
     ) -> any FileEventSubscription {
         let subscription = Subscription()
-        lock.withLock { watches.append((paths, subscription, handler)) }
+        subscription.handler = handler
+        lock.withLock { watches.append((paths, since, subscription, handler)) }
         return subscription
     }
 
@@ -164,6 +189,44 @@ final class AutoRefreshControllerTests: XCTestCase {
         h.controller.setVisible(true)
         h.controller.update(nil)
         XCTAssertFalse(h.controller.isWatching, "repository closed")
+    }
+
+    /// Events the old stream still held when the watched worktrees changed are not lost (#422): stopping flushes them
+    /// through the old stream's handler, and they are applied before the new stream starts.
+    func testEventsTheOldStreamHeldSurviveARestart() {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        h.watcher.latest?.undelivered = event("/dev/api-wt/lane/b.swift")
+        let more = FileChangeClassifier(
+            commonDirectory: "/dev/api/.git",
+            worktrees: classifier.worktrees + [
+                .init(
+                    path: GitPath("/dev/api-wt/new"), folder: "/dev/api-wt/new",
+                    gitDirectory: "/dev/api/.git/worktrees/new")
+            ])
+
+        h.controller.update(more)
+
+        XCTAssertEqual(h.watcher.activeCount, 1)
+        XCTAssertEqual(h.controller.pending, FileChangeSet(worktrees: [lane]))
+    }
+
+    /// The new stream starts where the old one stopped, not "since now" (#422): what changed between the two (a new
+    /// worktree's last index write) is replayed to it.
+    func testRestartedStreamStartsWhereTheOldOneStopped() {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        h.watcher.currentEventID = 42
+        h.controller.update(
+            FileChangeClassifier(commonDirectory: "/dev/api/.git", worktrees: Array(classifier.worktrees.prefix(1))))
+        XCTAssertEqual(h.watcher.startIDs, [nil, 42], "the first stream starts now; the restart resumes at 42")
+
+        // Shown again after being hidden: everything is pending anyway, so the stream starts now.
+        h.controller.setVisible(false)
+        h.controller.setVisible(true)
+        XCTAssertEqual(h.watcher.startIDs.last, .some(nil))
     }
 
     func testEventsAreBatchedIntoOneRequest() async {
