@@ -48,6 +48,8 @@ final class AutoRefreshController {
     private var inbox: ChangeInbox?
     private(set) var isVisible = false
     private var wasHidden = false
+    /// Whether the window reported its visibility yet: not yet reported is not hidden (#425).
+    private var hasReportedVisibility = false
     private(set) var pending = FileChangeSet()
     private var inFlight: FileChangeSet?
     private var lastStart: ContinuousClock.Instant?
@@ -91,12 +93,14 @@ final class AutoRefreshController {
         lastEvent = nil
         firstPending = nil
         // Kept while hidden: the next repository's first load also runs unwatched until the window appears (#425).
-        wasHidden = !isVisible
+        // A window not reported yet is not hidden: its first appearance follows the first load.
+        wasHidden = hasReportedVisibility && !isVisible
     }
 
     /// `NSWindow.occlusionState` changed (or the window closed: `false`).
     func setVisible(_ visible: Bool) {
         // Before the guard: a window first reported hidden (it starts out not visible) catches up when shown (#425).
+        hasReportedVisibility = true
         if !visible { wasHidden = true }
         guard visible != isVisible else { return }
         isVisible = visible

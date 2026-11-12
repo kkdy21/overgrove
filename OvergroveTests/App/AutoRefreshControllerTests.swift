@@ -298,6 +298,16 @@ final class AutoRefreshControllerTests: XCTestCase {
         XCTAssertEqual(h.controller.pending, classifier.everything)
     }
 
+    /// A window not reported yet is not hidden: switching repositories before it first appears queues nothing extra.
+    func testARepositoryOpenedBeforeTheWindowIsReportedQueuesNothing() {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.update(nil)
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        XCTAssertTrue(h.controller.pending.isEmpty, "the first appearance follows the first load")
+    }
+
     /// Opening another repository while the window is shown needs no catch-up: its own first load reads everything.
     func testARepositoryOpenedWhileShownQueuesNothing() {
         let h = make()
