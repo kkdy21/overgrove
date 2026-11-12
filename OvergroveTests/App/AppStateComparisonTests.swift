@@ -364,6 +364,24 @@ final class AppStateComparisonStaleTests: XCTestCase {
         XCTAssertFalse(state.comparison?.bases.isEmpty ?? true, "the base picker has its branches")
     }
 
+    /// #412: a list load that succeeds while a comparison runs does not restart it (files written all the time would
+    /// keep it from ever ending); one more comparison follows when it ends, however many loads came meanwhile.
+    func testLoadsDuringAComparisonAddOneMoreAfterIt() async {
+        let loader = StubComparisonLoader()
+        let state = await comparedState(loader, answers: [.mockup])
+        let requests = loader.compareRequests.count
+        state.setIncludeUncommitted(false)
+        let running = state.comparisonTask
+        state.comparisonListSucceeded()
+        state.comparisonListSucceeded()
+        XCTAssertFalse(running?.isCancelled ?? true, "the running comparison is not restarted")
+        await running?.value
+        await state.comparisonTask?.value
+        XCTAssertEqual(loader.compareRequests.count, requests + 2, "it, then one more")
+        XCTAssertFalse(state.isComparisonRunning)
+        guard case .loaded = state.comparison?.result else { return XCTFail("the comparison ends") }
+    }
+
     /// #412 B: a successful load (a commit made in Terminal, then the automatic refresh) compares again, so the files
     /// are not the result from before. The shown result and the picked file stay while it runs, and the file's
     /// patch loads again.
@@ -386,13 +404,22 @@ final class AppStateComparisonStaleTests: XCTestCase {
         state.comparisonListSucceeded()
         guard case .loaded = state.comparison?.result else { return XCTFail("the shown result stays while it runs") }
         XCTAssertEqual(state.comparison?.selectedFile, picked)
+        guard case .loaded = state.comparison?.patch else { return XCTFail("the patch stays shown while it runs") }
         await state.comparisonTask?.value
+        guard case .loaded = state.comparison?.patch else { return XCTFail("no spinner while the patch is read again") }
         await state.comparisonPatchTask?.value
         XCTAssertEqual(
             Set(state.comparisonModel?.files.map(\.path) ?? []), [GitPath("committed.swift"), GitPath("staged0.swift")])
         XCTAssertEqual(state.comparison?.selectedFile, picked, "still listed, so still picked")
         XCTAssertEqual(loader.patchRequests.count, 2, "its patch loads again")
         guard case .loaded = state.comparison?.patch else { return XCTFail("the patch shows again") }
+
+        // The same result again (nothing changed, or `⌘R`): the patch is not read again.
+        state.comparisonListSucceeded()
+        await state.comparisonTask?.value
+        await state.comparisonPatchTask?.value
+        XCTAssertEqual(loader.patchRequests.count, 2)
+        guard case .loaded = state.comparison?.patch else { return XCTFail("the patch stays") }
 
         // A file no longer listed is let go.
         loader.result = .success(
