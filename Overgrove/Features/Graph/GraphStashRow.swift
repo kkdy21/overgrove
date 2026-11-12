@@ -34,8 +34,14 @@ struct GraphStashText: Equatable {
         date = GraphCommitText.compact(stash.date, now: now)
         absoluteDate = GraphCommitText.absolute(stash.date)
         shortSHA = stash.oid.short
-        let base = stash.baseCommit.map { ", made on \($0.short)" } ?? ""
-        accessibilityLabel = "Stash \(stash.refName): \(message)\(base), \(date)"
+        let ref = stash.refName
+        let shownMessage = message
+        let shownDate = date
+        if let base = stash.baseCommit?.short {
+            accessibilityLabel = String(localized: "Stash \(ref): \(shownMessage), made on \(base), \(shownDate)")
+        } else {
+            accessibilityLabel = String(localized: "Stash \(ref): \(shownMessage), \(shownDate)")
+        }
     }
 }
 
