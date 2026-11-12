@@ -40,18 +40,27 @@ struct GHStatusGuidance: Equatable, Sendable {
             if let status = report.status { self.init(status: status) } else { self.init(checkFailed: nil) }
             return
         }
+        let host = first.name
         let title: String
         if others.count > 1 {
-            title = "Logged in to \(first.name) and \(others.count - 1) more host" + (others.count > 2 ? "s" : "")
+            let more = others.count - 1
+            title = String(localized: "Logged in to \(host) and \(more) more hosts")
         } else if let account = report.accounts[first] {
-            title = "Logged in to \(first.name) as @\(PathValidator.displayable(account.login))"
+            let login = PathValidator.displayable(account.login)
+            title = String(localized: "Logged in to \(host) as @\(login)")
         } else {
-            title = "Logged in to \(first.name)"
+            title = String(localized: "Logged in to \(host)")
         }
-        let github =
-            report.status == nil ? "Couldn't read the github.com account." : "Not logged in to github.com."
         self.init(
-            title: title, message: "\(github) Issues appear for repositories on the hosts gh is logged in to.",
+            title: title,
+            message: report.status == nil
+                ? String(
+                    localized:
+                        "Couldn't read the github.com account. Issues appear for repositories on the hosts gh is logged in to."
+                )
+                : String(
+                    localized:
+                        "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to."),
             command: nil, isOK: true)
     }
 
