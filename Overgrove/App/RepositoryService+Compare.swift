@@ -40,6 +40,18 @@ extension RepositoryService {
         return result
     }
 
+    /// The refs S-11 offers as bases, from the cached overview. The cache is shared by every window and dropped when a
+    /// refresh fails or the repository is pushed out of it, so the repository is read first when it is gone, as
+    /// `compare` does (#415). `nil` when that read fails or is superseded.
+    func comparisonRefs(_ repository: Repository) async -> RefParser.Listing? {
+        if cachedOverview(of: repository) == nil {
+            guard let refresh = await refresh(repository, trigger: .user), case .success = refresh.result else {
+                return nil
+            }
+        }
+        return cachedOverview(of: repository)?.refs
+    }
+
     /// One file's patch in the comparison. Not cached: patches are read one file at a time.
     func comparePatch(
         _ repository: Repository,
