@@ -91,6 +91,13 @@ else
   need "macOS ${macos:-(unknown)} is older than 14 Sonoma, which Overgrove needs"
 fi
 
+# The app does not pass DEVELOPER_DIR on (it is not in its environment allowlist), so it runs the git of the Xcode that
+# xcode-select chose. Check that one, as the app sees it, and say when this shell points somewhere else (#493).
+if [[ -n "${DEVELOPER_DIR:-}" ]]; then
+  info "DEVELOPER_DIR=$DEVELOPER_DIR is set in this shell. Overgrove does not use it, so the checks below follow xcode-select (command-line builds from this shell still use DEVELOPER_DIR)"
+  unset DEVELOPER_DIR
+fi
+
 dev_dir=$(xcode-select -p 2>/dev/null || true)
 if [[ "$dev_dir" != *.app/Contents/Developer ]]; then
   shopt -s nullglob
@@ -98,7 +105,17 @@ if [[ "$dev_dir" != *.app/Contents/Developer ]]; then
   shopt -u nullglob
   if ((${#xcodes[@]} > 0)); then
     # Quoted for the shell so the command can be pasted as is, even with a space in the path (#504).
-    printf -v developer_dir '%q' "${xcodes[${#xcodes[@]} - 1]}/Contents/Developer"
+    # The newest by version, not the last by name: Xcode_15.4.app sorts after Xcode.app (#505). A copy whose version
+    # cannot be read is suggested only when no other is installed.
+    newest=${xcodes[0]} newest_version=
+    for candidate in "${xcodes[@]}"; do
+      version=$(plutil -extract CFBundleShortVersionString raw -o - "$candidate/Contents/Info.plist" 2>/dev/null || true)
+      [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || continue
+      if [[ -z "$newest_version" ]] || ! version_at_least "$newest_version" "$version"; then
+        newest=$candidate newest_version=$version
+      fi
+    done
+    printf -v developer_dir '%q' "$newest/Contents/Developer"
     need "the Command Line Tools are selected, not Xcode. Run: sudo xcode-select -s $developer_dir"
   else
     need "Xcode not found. Install Xcode 26 or later from the App Store, then run this again"
