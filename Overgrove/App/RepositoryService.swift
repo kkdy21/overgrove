@@ -85,6 +85,8 @@ actor RepositoryService {
     private var cache: BoundedCache<String, CachedRepository>
     private var latestGeneration: [String: Int] = [:]
     private var running: [String: (generation: Int, task: Task<CachedRepository, Error>)] = [:]
+    /// The latest request per repository, from when it is made until it returns, debounce included (#424).
+    private var pending: [String: Int] = [:]
     /// WIP line counts per repository and worktree, with the status query time they belong to (#230).
     private var lineCountCache: [String: [GitPath: CachedLineCounts]] = [:]
     /// Base comparisons (#157), keyed so that a moved base tip, a new HEAD, or (with the working tree) a newer status
@@ -167,10 +169,13 @@ actor RepositoryService {
     func refresh(_ repository: Repository, trigger: Trigger) async -> Refresh? {
         let id = repository.id
         // A file-change refresh never replaces a load already running for this repository, from this window or
-        // another one (#119): it returns `nil` like a superseded request, and the controller sends it again later.
-        if case .filesChanged = trigger, running[id] != nil { return nil }
+        // another one (#119), nor one still waiting out its debounce or the inspection reset before it runs (#424):
+        // it returns `nil` like a superseded request, and the controller sends it again later.
+        if case .filesChanged = trigger, running[id] != nil || pending[id] != nil { return nil }
         let generation = (latestGeneration[id] ?? 0) + 1
         latestGeneration[id] = generation
+        pending[id] = generation
+        defer { if pending[id] == generation { pending[id] = nil } }
         running[id]?.task.cancel()  // superseded: stop its git processes now
 
         if trigger.isDebounced {
