@@ -137,14 +137,25 @@ extension AppState {
         ghCheckTask = Task { [weak self] in
             let report = await checker.authReport()
             guard let self, generation == self.ghCheckGeneration, !Task.isCancelled else { return }
-            self.ghStatus = report?.status
-            self.isCheckingGitHub = false
-            // A failed check keeps what was trusted.
-            // A failed check keeps the trusted hosts but shows no account it can no longer vouch for.
-            self.ghAccounts = report?.accounts ?? [:]
-            if let report { self.trustGitHubHosts(report.hosts) }
-            self.askGitLabAfterGitHub()
+            self.applyGitHubReport(report)
         }
+    }
+
+    /// The setup assistant (S-07) read gh's state (#488): the app takes it as its own check. A check of the app's
+    /// still in flight started earlier, so its answer is dropped.
+    func gitHubReportFromSetup(_ report: GHAuthReport?) {
+        ghCheckTask?.cancel()
+        ghCheckGeneration += 1
+        applyGitHubReport(report)
+    }
+
+    private func applyGitHubReport(_ report: GHAuthReport?) {
+        ghStatus = report?.status
+        isCheckingGitHub = false
+        // A failed check keeps the trusted hosts but shows no account it can no longer vouch for.
+        ghAccounts = report?.accounts ?? [:]
+        if let report { trustGitHubHosts(report.hosts) }
+        askGitLabAfterGitHub()
     }
 
     /// The gh check that a load waited for finished (or failed): without a GitHub repository, glab is asked now,

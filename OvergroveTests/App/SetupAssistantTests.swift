@@ -216,6 +216,20 @@ final class SetupAssistantStateTests: XCTestCase {
         XCTAssertTrue(guidance.isOK)
     }
 
+    /// #488: every report S-07 reads, a failed one included, is handed on for the app's own gh state.
+    func testTheAssistantHandsOnEachReport() async {
+        let report = GHAuthReport(status: .loggedIn(login: "octocat"), hosts: [GitHubRepository.publicHost])
+        let setup = SetupAssistantState(
+            gitChecker: StubGitSetupChecker(ready), ghChecker: QueuedGHAuthReporter([report, nil]))
+        var received: [GHAuthReport?] = []
+        setup.onGitHubReport = { received.append($0) }
+        setup.checkGitHub()
+        await setup.gitHubTask?.value
+        setup.checkGitHub()
+        await setup.gitHubTask?.value
+        XCTAssertEqual(received, [report, nil])
+    }
+
     func testGitHubCheckFailureIsShownAsUnknown() async {
         let setup = SetupAssistantState(gitChecker: StubGitSetupChecker(ready), ghChecker: StubGHAuthChecker(nil))
         setup.checkGitHub()

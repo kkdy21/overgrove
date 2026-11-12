@@ -320,6 +320,8 @@ final class AppState {
         autoFetch = AutoFetchScheduler(settings: self.settings, fetch: fetch)
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
+        // S-07's gh check is the app's too (#488).
+        setup.onGitHubReport = { [weak self] report in self?.gitHubReportFromSetup(report) }
         autoRefresh.request = { [weak self] change in self?.requestAutoRefresh(change) ?? false }
         stopFetchWhenUntrusted()
     }

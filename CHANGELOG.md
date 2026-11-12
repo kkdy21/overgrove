@@ -58,6 +58,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   the previous repository's interval.
 - The repository switcher shows the remote owner next to the name: the GitHub or Gitea owner, or GitLab namespace, of
   the repository whose issues the panel reads.
+- Check Again in the setup assistant also updates the status bar's gh field, the gh accounts, and the trusted GitHub
+  hosts, so issue panels follow a `gh auth login` without another check.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

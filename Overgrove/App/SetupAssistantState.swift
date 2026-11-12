@@ -24,6 +24,9 @@ final class SetupAssistantState {
     @ObservationIgnored private let ghChecker: any GHAuthChecking
     /// Forgets the git chosen in Settings and drops the shared client (ADR-0019 §4, #106); `nil` hides Use Default.
     @ObservationIgnored private let useDefaultGitAction: (@MainActor () async -> Void)?
+    /// Each GitHub CLI report this assistant reads, a failed one (`nil`) included: the app's status bar, accounts,
+    /// and trusted hosts take it too (#488).
+    @ObservationIgnored var onGitHubReport: (@MainActor (GHAuthReport?) -> Void)?
 
     init(
         gitChecker: any GitSetupChecking, ghChecker: any GHAuthChecking,
@@ -85,6 +88,7 @@ final class SetupAssistantState {
             let report = await checker.authReport()
             guard !Task.isCancelled else { return }
             self?.gitHub = .done(report.map(GHStatusGuidance.init(report:)) ?? GHStatusGuidance(checkFailed: nil))
+            self?.onGitHubReport?(report)
         }
     }
 
