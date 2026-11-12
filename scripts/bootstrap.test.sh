@@ -62,13 +62,14 @@ chmod +x "$gh_stubs/gh"
 
 # run <name> [VAR=value …] -- [bootstrap arguments]: runs bootstrap in a fresh repository with the default stub answers
 # (a supported machine), overridden by the given variables. With preset_hooks=1, the repository already has
-# core.hooksPath=.githooks. Sets $repo, $out, and $code.
+# core.hooksPath=.githooks. With no_git=1, the copy of bootstrap is not in a Git repository at all. bootstrap runs from
+# the repository unless cwd names another directory. Sets $repo, $out, and $code.
 run() {
   local name="$1"
   shift
   repo="$work/repo-$name"
   mkdir -p "$repo/scripts"
-  git init -q "$repo"
+  if [[ "${no_git:-0}" != 1 ]]; then git init -q "$repo"; fi
   if [[ "${preset_hooks:-0}" == 1 ]]; then git -C "$repo" config core.hooksPath .githooks; fi
   cp "$here/bootstrap.sh" "$repo/scripts/"
   local -a vars=(
@@ -82,7 +83,7 @@ run() {
   done
   [[ "${1:-}" == "--" ]] && shift
   set +e
-  out=$(cd "$repo" && env -i "${vars[@]}" bash scripts/bootstrap.sh "$@" </dev/null 2>&1)
+  out=$(cd "${cwd:-$repo}" && env -i "${vars[@]}" bash "$repo/scripts/bootstrap.sh" "$@" </dev/null 2>&1)
   code=$?
   set -e
 }
@@ -202,6 +203,33 @@ expect "gh: another host's invalid token does not hide the github.com login" 0 "
 
 run gh-only-other-host "PATH=$gh_stubs:$optional_stubs:$stubs:/usr/bin:/bin" STUB_GH_OK=ghe.example.com
 expect "gh: a login to another host only is not a github.com login" 0 "not logged in"
+
+# --- Which clone: the one bootstrap is in, wherever it is run from (#492) -------------------------------------------
+
+other="$work/other-repo"
+git init -q "$other"
+cwd="$other" run from-other-repo "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
+expect "clone: run from inside another repository" 0 "Ready to contribute"
+if [[ -z "$(git -C "$other" config --get core.hooksPath || true)" && "$(hooks_path)" == ".githooks" ]]; then
+  pass "clone: hooks go to bootstrap's own clone, not the current directory's repository"
+else
+  failed "clone: hooks go to bootstrap's own clone, not the current directory's repository"
+fi
+
+mkdir -p "$work/not-a-repo"
+cwd="$work/not-a-repo" run from-outside "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
+expect "clone: run from outside any repository" 0 "Ready to contribute"
+if [[ "$(hooks_path)" == ".githooks" ]]; then
+  pass "clone: run from outside any repository installs the hooks"
+else
+  failed "clone: run from outside any repository installs the hooks"
+fi
+
+# A copy that is not in a clone (a downloaded archive) can still check the build; it has no hooks to install.
+no_git=1 run loose-build -- --build
+expect "clone: a copy outside any clone still checks the build" 0 "Ready to build"
+no_git=1 run loose-contributor "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
+expect "clone: a copy outside any clone cannot install the hooks" 1 "not in a Git clone" "git clone"
 
 # --- Wording and usage ---------------------------------------------------------------------------------------------
 
