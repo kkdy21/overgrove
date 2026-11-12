@@ -58,6 +58,14 @@ While the major version is `0`, minor versions may contain breaking changes.
   the previous repository's interval.
 - The repository switcher shows the remote owner next to the name: the GitHub or Gitea owner, or GitLab namespace, of
   the repository whose issues the panel reads.
+- Check Again and ⌘R on a "Not logged in to HOST" issue panel read gh's login list again, so a `gh auth login` or a gh
+  install since the last check shows the host's issues without restarting the app. Auto refresh still does not run gh.
+- Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
+  that the app cannot read no longer drops the other hosts gh is logged in to.
+- A remote on GitHub's SSH-over-443 endpoint (`ssh://git@ssh.github.com:443/OWNER/NAME`) is read as github.com, so
+  its issues and pull requests show instead of "Not logged in to ssh.github.com".
+- Check Again in the setup assistant also updates the status bar's gh field, the gh accounts, and the trusted GitHub
+  hosts, so issue panels follow a `gh auth login` without another check.
 - Remote-tracking branches of a remote whose name Overgrove does not pass to git (one with `+`, `@`, or non-ASCII
   from a hand-edited config) stay under their own remote, instead of being grouped under, and opening on GitHub as, a
   GitHub remote whose name is a prefix of theirs.

@@ -153,7 +153,7 @@ enum RepositoryLoadError: Error, Equatable, Sendable {
     var message: String {
         switch self {
         case .blocked(let reason):
-            String(localized: "Overgrove stopped querying this repository for safety. \(reason)")
+            String(localized: "Overgrove stopped querying this repository for safety. \(SafetyReason.display(reason))")
         case .git(let error):
             error.message
         }

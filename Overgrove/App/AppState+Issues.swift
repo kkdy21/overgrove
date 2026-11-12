@@ -135,17 +135,31 @@ extension AppState {
         let generation = ghCheckGeneration
         let checker = ghChecker
         isCheckingGitHub = true
+        ghCheckStartedAt = ContinuousClock.now
         ghCheckTask = Task { [weak self] in
             let report = await checker.authReport()
             guard let self, generation == self.ghCheckGeneration, !Task.isCancelled else { return }
-            self.ghStatus = report?.status
-            self.isCheckingGitHub = false
-            // A failed check keeps what was trusted.
-            // A failed check keeps the trusted hosts but shows no account it can no longer vouch for.
-            self.ghAccounts = report?.accounts ?? [:]
-            if let report { self.trustGitHubHosts(report.hosts) }
-            self.askGitLabAfterGitHub()
+            self.applyGitHubReport(report)
         }
+    }
+
+    /// The setup assistant (S-07) read gh's state (#488): the app takes it as its own check. A check of the app's in
+    /// flight that started before the assistant's is older, so it is dropped; one that started after is newer, so the
+    /// assistant's answer is dropped and the app's arrives instead.
+    func gitHubReportFromSetup(_ report: GHAuthReport?, startedAt started: ContinuousClock.Instant) {
+        if isCheckingGitHub, let appStarted = ghCheckStartedAt, appStarted > started { return }
+        ghCheckTask?.cancel()
+        ghCheckGeneration += 1
+        applyGitHubReport(report)
+    }
+
+    private func applyGitHubReport(_ report: GHAuthReport?) {
+        ghStatus = report?.status
+        isCheckingGitHub = false
+        // A failed check keeps the trusted hosts but shows no account it can no longer vouch for.
+        ghAccounts = report?.accounts ?? [:]
+        if let report { trustGitHubHosts(report.hosts) }
+        askGitLabAfterGitHub()
     }
 
     /// The gh check that a load waited for finished (or failed): without a GitHub repository, glab is asked now,

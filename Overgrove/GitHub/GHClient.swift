@@ -96,7 +96,10 @@ actor GHClient {
 
     /// Login state for github.com (parsing-spec.md §10.1).
     func authStatus() async throws -> GHAuthStatus {
-        try await authReport().status
+        guard let status = try await authReport().status else {
+            throw GHError(ParseError(parser: "GHAuthParser", offset: 0, reason: "invalid login"))
+        }
+        return status
     }
 
     /// Login state for github.com and the hosts gh is logged in to (parsing-spec.md §10.1, ADR-0025 §1).

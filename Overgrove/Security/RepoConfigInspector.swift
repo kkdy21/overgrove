@@ -128,7 +128,7 @@ enum RepoConfigInspector {
         var fetchBlockingReason: String?
 
         if listing.isPartial {
-            blockingReason = "The configuration listing was truncated, so it could not be inspected completely."
+            blockingReason = SafetyReason.truncatedListing
         }
 
         for entry in listing.entries where entry.scope.isRepositoryControlled {
@@ -140,9 +140,9 @@ enum RepoConfigInspector {
                 || (entry.section == "remote" && (entry.variable == "proxy" || entry.variable == "proxyauthmethod"))
             if isOverridden, let subsection = entry.subsection {
                 if subsection.contains("=") {
-                    blockingReason = "A configuration key contains \"=\" and cannot be overridden safely."
+                    blockingReason = SafetyReason.keyContainsEquals
                 } else if subsection.unicodeScalars.contains("\u{FFFD}") {
-                    blockingReason = "A configuration key is not valid UTF-8 and cannot be overridden safely."
+                    blockingReason = SafetyReason.keyNotUTF8
                 }
             }
             guard let (threat, handling) = classify(entry) else { continue }
@@ -156,7 +156,7 @@ enum RepoConfigInspector {
             case ("filter", _):
                 guard let driver = entry.subsection else { continue }
                 if !ConfigParser.isNeutralizableDriverName(driver) {
-                    blockingReason = "A filter driver name contains characters that cannot be neutralized safely."
+                    blockingReason = SafetyReason.unsafeFilterDriver
                 } else if seenDrivers.insert(driver).inserted {
                     neutralizedDrivers.append(driver)
                 }
@@ -196,12 +196,11 @@ enum RepoConfigInspector {
                 }
             case ("http", "sslcainfo"), ("http", "sslcapath"), ("http", "sslcert"), ("http", "sslkey"),
                 ("http", "proxysslcainfo"), ("http", "proxysslcert"), ("http", "proxysslkey"):
-                fetchBlockingReason = "This repository sets its own TLS certificate files; fetching is disabled."
+                fetchBlockingReason = SafetyReason.ownTLSFiles
             case ("http", "curloptresolve"):
-                fetchBlockingReason = "This repository pins host names to addresses; fetching is disabled."
+                fetchBlockingReason = SafetyReason.pinnedHosts
             case ("extensions", "refstorage"):
-                fetchBlockingReason =
-                    "This repository keeps its references in a location it chose; fetching is disabled."
+                fetchBlockingReason = SafetyReason.ownRefStorage
             // URL-specific keys win over the generic ones fetch pins, so each is forced on under its own key (#356).
             case ("credential", "protectprotocol"), ("credential", "sanitizeprompt"):
                 if seenCredentialSwitches.insert(Array(entry.key.utf8)).inserted {
@@ -213,18 +212,16 @@ enum RepoConfigInspector {
         }
 
         if neutralizedDrivers.count > maximumNeutralizedDrivers {
-            blockingReason =
-                "This repository defines \(neutralizedDrivers.count) filter drivers, more than Overgrove can "
-                + "neutralize (\(maximumNeutralizedDrivers))."
+            blockingReason = SafetyReason.tooManyFilterDrivers(
+                neutralizedDrivers.count, limit: maximumNeutralizedDrivers)
         }
         if restoreTLS.count + resetProxies.count + resetCookies.count + resetProxyAuth.count + credentialSwitches.count
             > maximumFetchOverrides
         {
-            fetchBlockingReason =
-                "This repository sets TLS or proxy options for too many URLs to override; fetching is disabled."
+            fetchBlockingReason = SafetyReason.tooManyFetchOverrides
         }
         if hasUnneutralizedHooks {
-            blockingReason = "This repository defines hooks in its settings that Overgrove cannot turn off."
+            blockingReason = SafetyReason.unneutralizedHooks
         }
         let neutralization =
             neutralizedDrivers.flatMap { driver in

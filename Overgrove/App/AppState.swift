@@ -149,9 +149,15 @@ final class AppState {
     var ghCheckGeneration = 0
     /// A gh login check is running.
     var isCheckingGitHub = false
+    /// When the app's gh check in flight started; a setup assistant check that started earlier does not replace it
+    /// (#488).
+    var ghCheckStartedAt: ContinuousClock.Instant?
     /// The hosts whose GitHub remotes gh may be asked about (ADR-0025 §1): github.com, plus the hosts gh reported a
     /// login for at the last successful check.
     var trustedGitHubHosts = GitHubRemote.publicOnly
+    /// ⌘R or Check Again asked to read gh's login list again (#485); the next verified load takes it. Auto refresh
+    /// never sets it, so it does not run gh on every tick.
+    var shouldRereadGitHubLogins = false
     /// Each host's active gh account from the last successful check (ADR-0025 §4).
     var ghAccounts: [RemoteHost: GHAccount] = [:]
     /// The last verified listing's remotes and branches, to pick the GitHub repository again when gh's login list
@@ -320,6 +326,9 @@ final class AppState {
         autoFetch = AutoFetchScheduler(settings: self.settings, fetch: fetch)
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
+        // S-07's gh check is the app's too (#488).
+        setup.onGitHubReport = { [weak self] report, started in self?.gitHubReportFromSetup(report, startedAt: started)
+        }
         autoRefresh.request = { [weak self] change in self?.requestAutoRefresh(change) ?? false }
         stopFetchWhenUntrusted()
     }
@@ -355,6 +364,8 @@ final class AppState {
         selection = nil
         selectionHistory.clear()
         selectedFile = nil
+        // The panel shows a file of the previous repository (#496).
+        quickLookURL = nil
         stashTask?.cancel()
         stashGeneration += 1
         stashDetail = nil

@@ -94,6 +94,9 @@ final class DiffDocumentTests: XCTestCase {
         let long = show(Data(String(repeating: "x", count: 5_000).utf8))
         XCTAssertTrue(long.hasPrefix(String(repeating: "x", count: DiffDocument.maximumLineScalars)))
         XCTAssertTrue(long.hasSuffix(" … (3,000 more characters)"), long)
+        // One over the limit reads in the singular (#542).
+        let oneOver = show(Data(String(repeating: "x", count: DiffDocument.maximumLineScalars + 1).utf8))
+        XCTAssertTrue(oneOver.hasSuffix(" … (1 more character)"), oneOver)
         // One character with thousands of combining marks is cut by scalars too.
         let combining = show(Data(("a" + String(repeating: "\u{301}", count: 10_000)).utf8))
         XCTAssertLessThan(combining.unicodeScalars.count, DiffDocument.maximumLineScalars + 100)

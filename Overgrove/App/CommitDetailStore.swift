@@ -128,7 +128,7 @@ final class CommitDetailStore {
         let generation = fileGeneration
         let loader = loader
         let source = DiffDocument.Source(
-            label: commit.oid.short + (commit.isMerge ? " · vs first parent" : ""),
+            label: commit.oid.short + (commit.isMerge ? " · " + String(localized: "vs first parent") : ""),
             kindLetter: String((file.status ?? .modified).code))
         fileTask = Task { [weak self] in
             let result = await loader.patch(

@@ -64,7 +64,7 @@ enum ExternalAppRefusal: Error, Equatable {
     var message: String {
         switch self {
         case .notAnApp: String(localized: "Choose an application (.app).")
-        case .noBundleIdentifier: "The application has no valid bundle identifier."
+        case .noBundleIdentifier: String(localized: "The application has no valid bundle identifier.")
         case .noExecutable: String(localized: "The application has no executable.")
         }
     }
