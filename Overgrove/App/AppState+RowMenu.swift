@@ -120,8 +120,10 @@ extension AppState {
         guard let name = usableApplication(bundleIdentifier, role: role) else { return }
         let hooks =
             repository.map { LiveWorktreeInspector.hookExecutables(in: $0.repository.commonGitDirectoryURL) } ?? []
-        let reasons = TerminalGuard.reasons(
-            inspection: entry(at: path)?.inspection, hooks: hooks, isUntrusted: isRepositoryUntrusted)
+        // Only this load's inspection counts: a cached paint's is the previous load's, so it reads as not checked and
+        // the user is asked (#491, SEC-T14-491-1).
+        let inspection = isShownListingVerified ? entry(at: path)?.inspection : nil
+        let reasons = TerminalGuard.reasons(inspection: inspection, hooks: hooks, isUntrusted: isRepositoryUntrusted)
         if reasons.isEmpty {
             open(folder, in: bundleIdentifier, role: role)
         } else {

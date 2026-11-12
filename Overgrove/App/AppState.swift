@@ -126,6 +126,9 @@ final class AppState {
     var loadGeneration = 0
     /// Whether this open has shown a service-verified result, not only the cached paint (security review of #243).
     var hasVerifiedListing = false
+    /// The listing on screen came from this open's verified load, not the cached paint before it (#491): only then
+    /// do its inspections decide whether Open in Terminal and Open in Editor ask first.
+    var isShownListingVerified = false
     /// `.user` retries after superseded loads, and whether they ran out (the next activation loads everything).
     var supersededRetries = 0
     var needsFullLoad = false
@@ -345,6 +348,7 @@ final class AppState {
         runningTrigger = nil
         loadGeneration += 1
         hasVerifiedListing = false
+        isShownListingVerified = false
         supersededRetries = 0
         needsFullLoad = false
         snapshot = nil
