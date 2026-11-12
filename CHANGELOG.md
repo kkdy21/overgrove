@@ -81,6 +81,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   keeping the rows, selection, and scroll.
 - A tag of a tree or a file says so in TAGS instead of showing as a commit, and choosing it no longer clears the
   graph selection while the detail panel keeps the old commit.
+- The graph draws a stash node only for a real stash commit that is not already a row: a plain commit written to
+  `refs/stash`, or a stash a branch points to, no longer appears twice.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
