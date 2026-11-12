@@ -235,4 +235,15 @@ final class WipDetailModelTests: XCTestCase {
         XCTAssertNil(
             model.row(for: FileSelection(worktree: GitPath("/tmp/dev/api"), group: .unstaged, path: GitPath("a"))))
     }
+
+    /// The WIP header's count (#499): one localized string with a plural variation, not an English noun passed into
+    /// a localized format.
+    func testChangedFileCountIsOnePluralString() throws {
+        XCTAssertEqual(WipDetailModel.changedFilesText(1), "1 changed file")
+        XCTAssertEqual(WipDetailModel.changedFilesText(3), "3 changed files")
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        XCTAssertEqual(
+            String(format: ko.localizedString(forKey: "%lld changed files", value: nil, table: nil), 3),
+            "변경된 파일 3개")
+    }
 }
