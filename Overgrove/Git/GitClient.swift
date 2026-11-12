@@ -224,9 +224,7 @@ actor GitClient {
         let isPartialClone =
             safety.isPartialClone || Self.hasPromisorPack(commonDirectory: repository.commonGitDirectoryURL)
         if isPartialClone && environment.version < GitEnvironment.lazyFetchControlVersion {
-            throw GitError.configInspectionFailed(
-                reason: "This repository is a partial clone. Fetching it safely needs git "
-                    + "\(GitEnvironment.lazyFetchControlVersion) or later; fetching is disabled.")
+            throw GitError.configInspectionFailed(reason: SafetyReason.partialCloneNeedsNewerGit)
         }
         if let reason = safety.fetchBlockingReason {
             throw GitError.configInspectionFailed(reason: reason)
@@ -272,9 +270,7 @@ actor GitClient {
         version >= GitEnvironment.lazyFetchControlVersion
     }
 
-    static let passwordInURLReason =
-        "This remote's URL contains a password, so Overgrove does not fetch it: git would send the password and "
-        + "could save it to your credential helper. Remove it from the URL and use a credential helper instead."
+    static let passwordInURLReason = SafetyReason.passwordInURL
 
     /// Turns raw stderr chunks into progress updates. Only phases and numbers leave the parser, never server text.
     ///

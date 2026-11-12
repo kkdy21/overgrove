@@ -142,7 +142,7 @@ final class MainWindowContentTests: XCTestCase {
     func testGhFieldShowsTheHostAccount() throws {
         let now = Date()
         let account = GHAccount(host: try XCTUnwrap(RemoteHost("ghe.example")), login: "me", otherCount: 1)
-        func gh(_ status: GHAuthStatus, _ account: GHAccount?) -> String? {
+        func gh(_ status: GHAuthStatus?, _ account: GHAccount?) -> String? {
             text(
                 StatusBarItem.items(snapshot: nil, fetchStatus: .never, ghStatus: status, ghAccount: account, now: now),
                 .gh)
@@ -153,5 +153,8 @@ final class MainWindowContentTests: XCTestCase {
             "gh: mina@github.com")
         XCTAssertEqual(gh(.loggedIn(login: "mina"), nil), "gh: @mina")
         XCTAssertEqual(gh(.notInstalled, account), "gh: not installed")
+        // #486: github.com's state unread (an odd login) keeps another host's account; nothing to show without one.
+        XCTAssertEqual(gh(nil, account), "gh: me@ghe.example +1")
+        XCTAssertNil(gh(nil, nil))
     }
 }

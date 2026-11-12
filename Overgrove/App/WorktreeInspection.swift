@@ -35,7 +35,7 @@ struct LiveWorktreeInspector: WorktreeInspecting {
     /// Hook names listed at most; a forged repository could hold many files.
     static let maximumHookNames = 20
 
-    static let notInspected = "This worktree's configuration was not inspected when the list loaded."
+    static let notInspected = SafetyReason.notInspected
 
     func inspect(_ entry: WorktreeListing.Entry, of repository: Repository) async -> WorktreeInspection {
         let worktree = entry.worktree
@@ -57,7 +57,7 @@ struct LiveWorktreeInspector: WorktreeInspecting {
         // The version comes from discovery, done once per app run (no command runs for it here).
         let version = try? await self.client().environment.version
         guard worktree.path.isRepresentable, real != nil else {
-            return result(nil, failure: "The worktree folder could not be found.", version: version)
+            return result(nil, failure: SafetyReason.worktreeFolderMissing, version: version)
         }
         guard let inspection = entry.inspection else {
             return result(nil, failure: Self.notInspected, version: version)
@@ -65,7 +65,7 @@ struct LiveWorktreeInspector: WorktreeInspecting {
         return result(inspection, failure: nil, version: version)
     }
 
-    static let noLongerMatches = "This folder no longer matches the repository, so it was not inspected."
+    static let noLongerMatches = SafetyReason.noLongerMatches
 
     /// Checks that the worktree at `directory` (canonical) still belongs to `repository`, then reads and inspects its
     /// configuration. `nil` when it no longer belongs. Only commands allowed before inspection run (`probeRepository`,

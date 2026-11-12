@@ -84,8 +84,8 @@ struct StatusBarItem: Equatable, Identifiable {
                         tone: .warning))
             }
         }
-        if let ghStatus {
-            items.append(ghItem(ghStatus, account: ghAccount))
+        if let item = ghItem(ghStatus, account: ghAccount) {
+            items.append(item)
         }
         return items
     }
@@ -125,13 +125,16 @@ struct StatusBarItem: Equatable, Identifiable {
         }
     }
 
-    /// The repository's host account when gh has one (`gh: mina@ghe.example +1`), else github.com's state.
-    private static func ghItem(_ status: GHAuthStatus, account: GHAccount?) -> StatusBarItem {
+    /// The repository's host account when gh has one (`gh: mina@ghe.example +1`), else github.com's state. github.com's
+    /// state that could not be read (`nil`, an odd login, #486) still shows another host's account; with no account
+    /// either, there is no item.
+    private static func ghItem(_ status: GHAuthStatus?, account: GHAccount?) -> StatusBarItem? {
         if let account, status != .notInstalled {
             let more = account.otherCount > 0 ? " +\(account.otherCount)" : ""
             return StatusBarItem(
                 kind: .gh, text: "gh: \(account.text)\(more)", symbol: "person.crop.circle.badge.checkmark", tone: .ok)
         }
+        guard let status else { return nil }
         return switch status {
         case .loggedIn(let login):
             StatusBarItem(kind: .gh, text: "gh: @\(login)", symbol: "person.crop.circle.badge.checkmark", tone: .ok)

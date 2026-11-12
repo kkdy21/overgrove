@@ -102,7 +102,8 @@ struct SubmoduleSectionModel: Equatable {
         case .blocked(let reason):
             String(localized: "Its own settings block queries:") + " "
                 + PathValidator.displayable(
-                    CredentialMasker.mask(reason.isEmpty ? String(localized: "unsafe configuration") : reason))
+                    CredentialMasker.mask(
+                        reason.isEmpty ? String(localized: "unsafe configuration") : SafetyReason.display(reason)))
         }
     }
 }
