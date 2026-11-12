@@ -10,13 +10,15 @@ enum GHAuthStatus: Sendable, Hashable {
 /// One `gh auth status` reading (ADR-0025 §1): github.com's state for the status bar, and the hosts gh is logged in
 /// to, which the app trusts besides github.com.
 struct GHAuthReport: Sendable, Hashable {
-    let status: GHAuthStatus
+    /// `nil` when gh reports a github.com login the app cannot read (its name fails the login rule, #486); the hosts
+    /// and the other hosts' accounts are still read.
+    let status: GHAuthStatus?
     /// Empty when gh is missing or lists no host.
     let hosts: Set<RemoteHost>
     /// Each host's active account, for display only (ADR-0025 §4); a host without a usable active account is absent.
     let accounts: [RemoteHost: GHAccount]
 
-    init(status: GHAuthStatus, hosts: Set<RemoteHost>, accounts: [RemoteHost: GHAccount] = [:]) {
+    init(status: GHAuthStatus?, hosts: Set<RemoteHost>, accounts: [RemoteHost: GHAccount] = [:]) {
         self.status = status
         self.hosts = hosts
         self.accounts = accounts
@@ -107,4 +109,23 @@ struct PullRequest: Sendable, Hashable, Identifiable {
     let url: URL
 
     var id: Int { number }
+}
+
+/// GitHub account and organization names (#486). Besides the plain form, an Enterprise Managed User is
+/// `handle_shortcode`: one underscore, then the enterprise's short code of 3–8 ASCII letters or digits. The whole
+/// name is still 39 bytes at most.
+enum GitHubName {
+    /// Splits off an Enterprise Managed User short code: the part before the underscore is returned for the caller's
+    /// plain-name rule, or `nil` when `name` has an underscore in any other form. A name without one comes back whole.
+    static func handle(_ name: String) -> Substring.UTF8View? {
+        let utf8 = Substring(name).utf8
+        guard let underscore = utf8.firstIndex(of: UInt8(ascii: "_")) else { return utf8 }
+        let shortCode = utf8[utf8.index(after: underscore)...]
+        guard (3...8).contains(shortCode.count),
+            shortCode.allSatisfy({
+                (0x30...0x39).contains($0) || (0x41...0x5A).contains($0) || (0x61...0x7A).contains($0)
+            })
+        else { return nil }
+        return utf8[..<underscore]
+    }
 }

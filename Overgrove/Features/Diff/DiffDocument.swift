@@ -313,7 +313,9 @@ struct DiffDocument: Equatable, Sendable {
         var cut = String.UnicodeScalarView()
         cut.append(contentsOf: shown.prefix(maximumLineScalars))
         let count = WipDetailModel.formatted(more)
-        return (String(cut) + " … (" + String(localized: "\(count) more characters") + ")", marks)
+        let rest =
+            more == 1 ? String(localized: "\(count) more character") : String(localized: "\(count) more characters")
+        return (String(cut) + " … (" + rest + ")", marks)
     }
 
     private static func kind(_ kind: PatchLine.Kind) -> LineKind {

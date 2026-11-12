@@ -167,7 +167,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
   다시 읽기는 `SubmodulePanel`이 조절한다. 같은 status에서는 진행 중인 읽기를 취소하지 않고, 그동안 온 새로고침은 끝난 뒤 한 번으로 합친다. 다음 읽기는 직전 읽기가 끝나고 `max(2초, 소요 × 10)`이 지난 뒤에 시작한다(SEC-T15-20).
 
-- **원격 이름과 URL**은 `configList` 결과의 `remote.<name>.url`에서 얻는다. 별도 명령을 쓰지 않는다. URL은 표시 전에 `CredentialMasker`를 거친다.
+- **원격 이름과 URL**은 `configList` 결과의 `remote.<name>.url`에서 얻는다. 별도 명령을 쓰지 않는다. URL은 표시 전에 `CredentialMasker`를 거친다. 원격 추적 ref(`refs/remotes/<remote>/…`)가 어느 원격의 것인지 가를 때는 `remote.<name>.*` 섹션의 이름을 형식 검증과 상관없이 모두 쓴다(바이트 비교, 최대 `maximumRemotes`개, 이름당 1,009바이트, #489). `RemoteName` 규칙(아래 §4)을 통과하지 못한 이름은 그룹 표시와 매칭에만 쓰고 git 인자로는 넘기지 않는다.
 - **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 사이드바 LOCAL의 로컬 브랜치는 `refs`의 `%(upstream:track,nobracket)`에서 한 번에 얻고, 브랜치마다 `rev-list`를 실행하지 않는다(#54, 2026-11-06 측정 S5). `aheadBehind`는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에만 쓴다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).
 - **그래프 페이지**는 `--skip`과 `-n`으로 나눈다. 같은 ref 집합이면 순서가 결정적이라 GraphEngine이 열린 레인 상태를 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다. 10만 커밋에서 뒤쪽 페이지의 `--skip` 비용이 PB-4를 넘으면, 스트리밍 읽기 모드(한 프로세스의 출력을 페이지 단위로 소비)로 바꾼다. 이 결정은 Phase 3 성능 측정 뒤에 ADR-0010을 갱신해 남긴다.
 - **untrackedPreview**는 `PathValidator.worktreeFile`이 만든 `WorktreeFile`만 받는다(상대 경로, `..` 없음, 실제 위치가 워크트리 안, 일반 파일 또는 심볼릭 링크 — FIFO는 git을 멈추게 하므로 거부). 심볼릭 링크는 내용 대신 링크 대상 문자열만 보여 준다 (T14).
@@ -252,7 +252,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 - 실행 파일은 `/opt/homebrew/bin/gh`, `/usr/local/bin/gh` 순서로 찾는다.
 - 작업 디렉터리는 **저장소 밖**의 중립 디렉터리다. 앱 전용 임시 디렉터리(`<사용자 임시 디렉터리>/io.github.kkdy21.overgrove.gh-neutral`, 모드 `0700`, 처음 쓸 때 만듦)를 쓴다. `gh`가 내부적으로 실행하는 git이 저장소 설정을 읽지 않게 하려는 것이다.
-- `--repo HOST/OWNER/NAME`을 항상 명시한다(github.com 포함, ADR-0025 §3). HOST는 `RemoteHost`다. OWNER는 `[A-Za-z0-9-]{1,39}`이고 `-`로 시작하지 않는다. NAME은 `[A-Za-z0-9._-]{1,100}`이다.
+- `--repo HOST/OWNER/NAME`을 항상 명시한다(github.com 포함, ADR-0025 §3). HOST는 `RemoteHost`다. OWNER는 `[A-Za-z0-9-]{1,39}`이고 `-`로 시작하지 않는다. Enterprise Managed User의 `handle_shortcode`(밑줄 하나 뒤에 3–8자 영숫자, 전체 39자 이내)도 받는다(#486). NAME은 `[A-Za-z0-9._-]{1,100}`이다.
 - 환경 변수 allowlist는 다음과 같다. `GH_TOKEN`, `GITHUB_TOKEN`, `GH_HOST`, `GH_REPO`, `GH_ENTERPRISE_TOKEN`, `GH_CONFIG_DIR`, `BROWSER`, `GH_BROWSER`, `EDITOR`는 전달하지 않는다.
 
   ```
@@ -284,7 +284,7 @@ GitHub 원격 판별([ADR-0025](../adr/0025-github-hosts-and-accounts.md)): `con
 
 - `https://HOST/OWNER/NAME(.git)?`
 - `git@HOST:OWNER/NAME(.git)?`
-- `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받되 호스트 판단에 쓰지 않는다)
+- `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받되 호스트 판단에 쓰지 않는다. 예외로 GitHub의 SSH-over-443 엔드포인트 `ssh.github.com:443`은 `github.com`으로 읽는다. 다른 호스트·포트·형식은 별칭을 두지 않는다, #487)
 
 HOST는 소문자로 바꾼 ASCII DNS 이름이다. 라벨 1–63자의 영숫자·`-`(앞뒤 `-` 금지), 라벨 2개 이상, 전체 253자 이하이고, 마지막 라벨이 숫자로 시작하면(10진·8진·16진 IPv4) 거부한다. userinfo·포트(https)·경로가 섞인 값도 거부한다. URL 형식과 호스트 신뢰는 제공자와 무관한 `RemoteHost`·`HostedRemoteURL`·`TrustedHosts`(`Overgrove/Models/RemoteHost.swift`)가 맡고, `GitHubRemote`는 경로가 정확히 `OWNER/NAME`인지만 본다. `--repo`는 github.com을 포함해 항상 `HOST/OWNER/NAME`이다. `GH_HOST`·`GH_ENTERPRISE_TOKEN`·`GH_TOKEN`은 환경 allowlist에 없다.
 

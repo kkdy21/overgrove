@@ -10,6 +10,8 @@ extension AppState {
     func reload() {
         issuePanel.markStale()
         gitlabQuestion = nil
+        // gh's login list too: a login or an install since the last read can trust a remote's host (#485).
+        shouldRereadGitHubLogins = true
         refresh(.user)
     }
 
@@ -185,6 +187,8 @@ extension AppState {
         // Pull requests load at the same times as the issues (ADR-0023 §6).
         // Without a GitHub repository, GitLab is asked next, only about hosts glab is logged in to (ADR-0026 §2).
         if isVerified {
+            let rereading = shouldRereadGitHubLogins
+            shouldRereadGitHubLogins = false
             if let github = listing.githubRepository(trusting: trustedGitHubHosts) {
                 gitlabCheckTask?.cancel()
                 gitlabCheckGeneration += 1
@@ -197,7 +201,7 @@ extension AppState {
                 pullRequestStore.load(nil)
                 // A remote on a host not trusted yet: gh's login list may trust it, and then the check picks the
                 // repository again (ADR-0025 §1).
-                if trustedGitHubHosts.mayTrustMore(listing.remotes.map(\.url)) {
+                if trustedGitHubHosts.mayTrustMore(listing.remotes.map(\.url), rereading: rereading) {
                     // gh's login list first: glab is asked only about hosts gh does not handle (ADR-0026 §2).
                     isWaitingForGitHubBeforeGitLab = true
                     if !isCheckingGitHub { checkGitHub() }
