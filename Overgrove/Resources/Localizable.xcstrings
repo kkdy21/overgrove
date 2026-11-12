@@ -161,6 +161,16 @@
         }
       }
     },
+    "%@ more characters" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@자 더 있음"
+          }
+        }
+      }
+    },
     "%@ more tags — filter to find one" : {
       "localizations" : {
         "ko" : {
@@ -767,6 +777,26 @@
         }
       }
     },
+    "Added file" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "추가된 파일"
+          }
+        }
+      }
+    },
+    "Added symbolic link" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "추가된 심볼릭 링크"
+          }
+        }
+      }
+    },
     "Add…" : {
       "localizations" : {
         "ko" : {
@@ -958,6 +988,16 @@
         }
       }
     },
+    "Binary file. Its contents are not shown." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "바이너리 파일이라 내용을 보여 주지 않습니다."
+          }
+        }
+      }
+    },
     "Blocked for safety" : {
       "localizations" : {
         "ko" : {
@@ -1084,6 +1124,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Finder에서 보기 실패"
+          }
+        }
+      }
+    },
+    "Changed" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경됨"
           }
         }
       }
@@ -1561,6 +1611,26 @@
         }
       }
     },
+    "Copied from %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 복사됨"
+          }
+        }
+      }
+    },
+    "Copied from %@ (%lld%%)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@에서 복사됨 (%2$lld%%)"
+          }
+        }
+      }
+    },
     "Copy" : {
       "localizations" : {
         "ko" : {
@@ -1838,6 +1908,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기본값 (Xcode 개발자 도구)"
+          }
+        }
+      }
+    },
+    "Deleted file" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제된 파일"
+          }
+        }
+      }
+    },
+    "Deleted symbolic link" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제된 심볼릭 링크"
           }
         }
       }
@@ -3226,6 +3316,16 @@
         }
       }
     },
+    "Mode %@ → %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "모드 %1$@ → %2$@"
+          }
+        }
+      }
+    },
     "More authors" : {
       "localizations" : {
         "ko" : {
@@ -3322,6 +3422,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@와(과) 비교해 변경이 없습니다"
+          }
+        }
+      }
+    },
+    "No changes. The file matches the other side." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경이 없습니다. 파일이 비교 대상과 같습니다."
           }
         }
       }
@@ -4408,6 +4518,26 @@
         }
       }
     },
+    "Renamed from %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@에서 이름 바뀜"
+          }
+        }
+      }
+    },
+    "Renamed from %@ (%lld%%)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@에서 이름 바뀜 (%2$lld%%)"
+          }
+        }
+      }
+    },
     "Reopen anytime from Help › Setup Assistant." : {
       "localizations" : {
         "ko" : {
@@ -5121,6 +5251,16 @@
         }
       }
     },
+    "Submodule commit %@ → %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "서브모듈 커밋 %1$@ → %2$@"
+          }
+        }
+      }
+    },
     "Submodules" : {
       "localizations" : {
         "ko" : {
@@ -5147,6 +5287,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "기준과 대상 바꾸기"
+          }
+        }
+      }
+    },
+    "Symbolic link: the link target text is shown" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "심볼릭 링크: 링크 대상 텍스트를 보여 줍니다"
           }
         }
       }
@@ -7004,6 +7154,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "수정됨"
+          }
+        }
+      }
+    },
+    "none" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "없음"
           }
         }
       }

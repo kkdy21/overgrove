@@ -99,6 +99,33 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(ko.localizedString(forKey: "Step %lld, done", value: nil, table: nil), "%lld단계, 완료")
     }
 
+    /// The diff viewer's notices, block titles and facts (#494) are looked up in the catalog, not built as plain
+    /// strings: each key is extracted from `DiffDocument.swift` and has Korean.
+    func testDiffViewerStringsAreLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let file = try XCTUnwrap(
+            objects.map { $0.appendingPathComponent("DiffDocument.stringsdata") }
+                .first { FileManager.default.fileExists(atPath: $0.path) })
+        let extracted = Set(try Self.extractedKeys(file))
+        let expected = [
+            "No changes. The file matches the other side.",
+            "Conflicted file. The combined diff is not shown yet; resolve it in Terminal.",
+            "Binary file. Its contents are not shown.",
+            "Submodule commit %@ → %@",
+            "none",
+            "Deleted file", "Deleted symbolic link", "Added file", "Added symbolic link", "Changed",
+            "Renamed from %@", "Renamed from %@ (%lld%%)", "Copied from %@", "Copied from %@ (%lld%%)",
+            "Mode %@ → %@",
+            "Symbolic link: the link target text is shown",
+            "%@ more characters",
+        ]
+        let strings = try catalogStrings()
+        for key in expected {
+            XCTAssertTrue(extracted.contains(key), "not extracted: \(key)")
+            XCTAssertNotNil(strings[key].flatMap(korean), "no Korean: \(key)")
+        }
+    }
+
     /// `…/Build/Products/<config>/Overgrove.app` → `…/Build/Intermediates.noindex/Overgrove.build/<config>/
     /// Overgrove.build/Objects-normal/<arch>`.
     private static func objectDirectories() -> [URL]? {
