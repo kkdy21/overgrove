@@ -13,6 +13,15 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
 
+# Neither the cases' own git calls nor bootstrap read the user's global or system git config (#509): a global
+# core.hooksPath would otherwise decide what the cases see. The stand-in home, used by both, carries a global
+# core.hooksPath=.githooks, so a leak shows up: bootstrap would report the hooks as installed without setting them.
+empty_git_config="$work/empty.gitconfig"
+: >"$empty_git_config"
+mkdir -p "$work/home"
+printf '[core]\n\thooksPath = .githooks\n' >"$work/home/.gitconfig"
+export HOME="$work/home" GIT_CONFIG_GLOBAL="$empty_git_config" GIT_CONFIG_NOSYSTEM=1
+
 pass() { echo "ok   $1"; }
 failed() {
   echo "FAIL $1"
@@ -69,7 +78,8 @@ run() {
   if [[ "${preset_hooks:-0}" == 1 ]]; then git -C "$repo" config core.hooksPath .githooks; fi
   cp "$here/bootstrap.sh" "$repo/scripts/"
   local -a vars=(
-    "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
+    "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "GIT_CONFIG_GLOBAL=$empty_git_config" "GIT_CONFIG_NOSYSTEM=1"
+    "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
     "STUB_XCODE=Xcode 26.1" "STUB_LICENSE=ok" "STUB_FIRSTLAUNCH=ok" "STUB_GIT=git version 2.39.5 (Apple Git-154)"
     "BOOTSTRAP_APPLICATIONS=$work/apps-with-xcode"
   )
@@ -120,6 +130,20 @@ fi
 run build-clt STUB_DEVDIR=/Library/Developer/CommandLineTools -- --build
 expect "build: Command Line Tools selected, Xcode installed" 1 \
   "sudo xcode-select -s $work/apps-with-xcode/Xcode.app/Contents/Developer"
+
+# An Xcode path with a space: the printed command must work when pasted as is (#504). It is run here through a
+# stand-in for xcode-select that reports the path it received as one argument.
+mkdir -p "$work/apps-spaced/Xcode 26.app"
+run build-clt-spaced STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-spaced" -- --build
+fix=$(printf '%s\n' "$out" | sed -n 's/.*Run: sudo //p' | head -1)
+pasted=$(PATH="$work/paste:$PATH" && mkdir -p "$work/paste" &&
+  printf '#!/bin/sh\n[ "$1" = -s ] && [ $# -eq 2 ] && printf %%s "$2"\n' >"$work/paste/xcode-select" &&
+  chmod +x "$work/paste/xcode-select" && eval "$fix" || true)
+if [[ "$pasted" == "$work/apps-spaced/Xcode 26.app/Contents/Developer" ]]; then
+  pass "build: the xcode-select command works when pasted, even with a space in the path"
+else
+  failed "build: the xcode-select command works when pasted, even with a space in the path (got: $fix)"
+fi
 
 run build-no-xcode STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-empty" -- --build
 expect "build: no Xcode installed" 1 "App Store"

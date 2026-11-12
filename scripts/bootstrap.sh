@@ -97,7 +97,9 @@ if [[ "$dev_dir" != *.app/Contents/Developer ]]; then
   xcodes=("$applications"/Xcode*.app)
   shopt -u nullglob
   if ((${#xcodes[@]} > 0)); then
-    need "the Command Line Tools are selected, not Xcode. Run: sudo xcode-select -s ${xcodes[${#xcodes[@]} - 1]}/Contents/Developer"
+    # Quoted for the shell so the command can be pasted as is, even with a space in the path (#504).
+    printf -v developer_dir '%q' "${xcodes[${#xcodes[@]} - 1]}/Contents/Developer"
+    need "the Command Line Tools are selected, not Xcode. Run: sudo xcode-select -s $developer_dir"
   else
     need "Xcode not found. Install Xcode 26 or later from the App Store, then run this again"
   fi
