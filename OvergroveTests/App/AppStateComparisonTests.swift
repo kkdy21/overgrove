@@ -414,12 +414,30 @@ final class AppStateComparisonStaleTests: XCTestCase {
         XCTAssertEqual(loader.patchRequests.count, 2, "its patch loads again")
         guard case .loaded = state.comparison?.patch else { return XCTFail("the patch shows again") }
 
-        // The same result again (nothing changed, or `⌘R`): the patch is not read again.
+        // The same result with uncommitted changes included: the same `+n −m` can hide new content (a line edited
+        // again), so the patch is read again, the old one shown meanwhile.
+        state.comparisonListSucceeded()
+        await state.comparisonTask?.value
+        guard case .loaded = state.comparison?.patch else { return XCTFail("the patch stays shown") }
+        await state.comparisonPatchTask?.value
+        XCTAssertEqual(loader.patchRequests.count, 3)
+
+        // Committed changes only: HEAD and the base tip fix the content, so the same result reads nothing again.
+        loader.result = nil  // the stub's own answer follows `Include uncommitted`
+        state.setIncludeUncommitted(false)
+        await state.comparisonTask?.value
+        state.selectComparisonFile(picked)
+        await state.comparisonPatchTask?.value
+        let committedOnly = loader.patchRequests.count
         state.comparisonListSucceeded()
         await state.comparisonTask?.value
         await state.comparisonPatchTask?.value
-        XCTAssertEqual(loader.patchRequests.count, 2)
+        XCTAssertEqual(loader.patchRequests.count, committedOnly)
         guard case .loaded = state.comparison?.patch else { return XCTFail("the patch stays") }
+        state.setIncludeUncommitted(true)
+        await state.comparisonTask?.value
+        state.selectComparisonFile(picked)
+        await state.comparisonPatchTask?.value
 
         // A file no longer listed is let go.
         loader.result = .success(
@@ -431,7 +449,7 @@ final class AppStateComparisonStaleTests: XCTestCase {
         await state.comparisonTask?.value
         XCTAssertNil(state.comparison?.selectedFile)
         XCTAssertNil(state.comparison?.patch)
-        XCTAssertEqual(loader.patchRequests.count, 2)
+        XCTAssertEqual(loader.patchRequests.count, committedOnly + 1, "nothing read for the file let go")
     }
 
     /// A patch asked before the list failed is dropped, not shown as new under the stale notice.

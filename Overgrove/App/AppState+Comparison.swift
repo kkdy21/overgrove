@@ -202,11 +202,12 @@ extension AppState {
     }
 
     /// After comparing again with a result shown (#412): the picked file stays only if still listed. Its patch is
-    /// read again, keeping the old one shown, unless the result is the same and the patch had already arrived.
+    /// read again, keeping the old one shown. Only a committed-only comparison that came back the same skips it: HEAD
+    /// and the base tip fix its content. With uncommitted changes the same `+n −m` can hide new content.
     private func keepComparisonFile(after shown: WorktreeComparison, now current: WorktreeComparison) {
         guard let file = comparison?.selectedFile else { return }
         let hasPatch = comparison?.patch != nil && comparison?.patch != .loading
-        if current == shown, hasPatch, !file.isUntracked { return }
+        if current == shown, !current.includesWorkingTree, hasPatch, !file.isUntracked { return }
         if !loadComparisonFile(file, keepingShown: true) {
             // No longer listed (or not selectable): let it go.
             comparisonPatchTask?.cancel()
@@ -235,7 +236,7 @@ extension AppState {
         else { return false }
         comparisonPatchTask?.cancel()
         let keepsPatch: Bool =
-            if keepingShown, session.selectedFile == file, case .loaded = session.patch { true } else { false }
+            keepingShown && session.selectedFile == file && session.patch != nil && session.patch != .loading
         comparison?.selectedFile = file
         if !keepsPatch { comparison?.patch = .loading }
         let generation = comparisonGeneration
