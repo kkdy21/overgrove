@@ -102,34 +102,33 @@ struct BranchListModel: Equatable {
         local = pinned.map(BranchNode.branch) + Self.folders(localRows.filter { !$0.isDefault }, idPrefix: "local")
 
         remoteCount = remotes.count
-        // Longest configured remote first, so `team/a` wins over `team` for `refs/remotes/team/a/x`.
-        let configured = remoteNames.sorted { $0.count > $1.count }
-        var byRemote: [String: [BranchRow]] = [:]
+        // The longest configured remote wins, so `team/a` owns `refs/remotes/team/a/x`, not `team` (#466, #489).
+        let index = RemoteNameIndex(remoteNames + githubRemotes.keys)
+        // Grouped by the name's bytes: `String` keys would merge a remote spelled in NFC with one in NFD (#489).
+        var byRemote: [[UInt8]: (name: String, rows: [BranchRow])] = [:]
         for branch in remotes {
             let rest = String(branch.fullName.dropFirst("refs/remotes/".count))
             // Compared and cut in UTF-8 bytes: by characters, a combining mark after `/` would join it and hide the
             // match (security review of #72).
             let remote =
-                configured.first { rest.utf8.starts(with: ($0 + "/").utf8) }
+                index.remote(of: rest)
                 ?? {
                     guard case .remote(let guess) = branch.kind else { return "" }
                     return guess
                 }()
             let cut = String(decoding: rest.utf8.dropFirst(remote.utf8.count + 1), as: UTF8.self)
             let name = cut.isEmpty ? rest : cut
-            byRemote[remote, default: []].append(
+            byRemote[Array(remote.utf8), default: (remote, [])].rows.append(
                 Self.row(
                     branch, name: name, isCheckedOut: false, isDefault: false,
-                    gitHub: GitHubBranchTarget.forRemoteRef(
-                        branch.fullName, remotes: githubRemotes, configuredRemotes: remoteNames)))
+                    gitHub: GitHubBranchTarget.forRemoteRef(branch.fullName, remotes: githubRemotes, index: index)))
         }
         // `origin` first, then the rest by name (information-architecture.md §4.2).
-        let order = byRemote.keys.sorted { lhs, rhs in
-            if (lhs == "origin") != (rhs == "origin") { return lhs == "origin" }
-            return lhs.localizedStandardCompare(rhs) == .orderedAscending
+        let order = byRemote.values.sorted { lhs, rhs in
+            if (lhs.name == "origin") != (rhs.name == "origin") { return lhs.name == "origin" }
+            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
-        remote = order.map { name in
-            let rows = byRemote[name] ?? []
+        remote = order.map { name, rows in
             return .folder(
                 id: "remote:\(name)", name: PathValidator.displayable(name), count: rows.count,
                 children: Self.folders(rows, idPrefix: "remote:\(name)"))

@@ -201,6 +201,22 @@ final class WorktreeListModelTests: XCTestCase {
         XCTAssertTrue(WorktreeListing(overview: overview).isPartial, "a truncated worktree list is reported (#88)")
     }
 
+    /// #489: the listing splits remote-tracking refs by every configured remote name, valid or not; only valid ones
+    /// are the remotes whose URLs pick the GitHub repository.
+    func testRemoteNamesIncludeNamesRemoteNameRefuses() {
+        let entries = [("gh", "https://github.com/o/r.git"), ("gh/fork+1", "https://example.invalid/r.git")].map {
+            ConfigEntry(scope: .local, section: "remote", subsection: $0.0, variable: "url", value: $0.1)
+        }
+        let overview = RepositoryOverview(
+            entries: [], isWorktreeListPartial: false,
+            refs: RefParser.Listing(branches: [], tags: [], isPartial: false, skippedRecords: 0),
+            stashes: StashParser.Listing(stashes: [], isPartial: false),
+            inspection: RepoConfigInspector.inspect(ConfigParser.Listing(entries: entries, isPartial: false)))
+        let listing = WorktreeListing(overview: overview)
+        XCTAssertEqual(listing.remoteNames, ["gh", "gh/fork+1"])
+        XCTAssertEqual(listing.remotes.map(\.name), ["gh"])
+    }
+
     func testBareEntriesAreHidden() {
         let listing = Listing(
             entries: [

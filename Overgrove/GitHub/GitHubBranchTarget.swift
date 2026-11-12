@@ -34,11 +34,20 @@ struct GitHubBranchTarget: Equatable, Sendable {
     static func forRemoteRef(
         _ ref: String, remotes: [String: GitHubRepository], configuredRemotes: [String]
     ) -> GitHubBranchTarget? {
-        guard FullRefName(ref) != nil else { return nil }
-        let match = Set(configuredRemotes).union(remotes.keys)
-            .filter { ref.utf8.starts(with: "refs/remotes/\($0)/".utf8) }
-            .max { $0.utf8.count < $1.utf8.count }
-        guard let match, let repository = remotes[match] else { return nil }
+        forRemoteRef(ref, remotes: remotes, index: RemoteNameIndex(configuredRemotes + remotes.keys))
+    }
+
+    /// The same, with the configured and GitHub remote names already indexed (once per sidebar, not per row).
+    /// Names compare in bytes, so a remote spelled in NFD is not taken for one in NFC (#489).
+    static func forRemoteRef(
+        _ ref: String, remotes: [String: GitHubRepository], index: RemoteNameIndex
+    ) -> GitHubBranchTarget? {
+        let prefix = "refs/remotes/"
+        guard FullRefName(ref) != nil, ref.utf8.starts(with: prefix.utf8),
+            let match = index.remote(of: String(decoding: ref.utf8.dropFirst(prefix.utf8.count), as: UTF8.self)),
+            // By bytes too: a `String` key lookup would fold normalization.
+            let repository = remotes.first(where: { $0.key.utf8.elementsEqual(match.utf8) })?.value
+        else { return nil }
         guard let target = target(repository, ref, prefix: "refs/remotes/\(match)/"), target.branch != "HEAD" else {
             return nil
         }
