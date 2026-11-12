@@ -51,16 +51,6 @@
         }
       }
     },
-    "%@ changed %@" : {
-      "localizations" : {
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ 변경 %2$@"
-          }
-        }
-      }
-    },
     "%@ commit ahead" : {
       "localizations" : {
         "ko" : {
@@ -287,6 +277,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld개 변경됨"
+          }
+        }
+      }
+    },
+    "%lld changed files" : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld changed file"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld changed files"
+                }
+              }
+            }
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경된 파일 %lld개"
           }
         }
       }
@@ -1901,6 +1919,16 @@
         }
       }
     },
+    "Couldn't read the github.com account. Issues appear for repositories on the hosts gh is logged in to." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "github.com 계정을 읽지 못했습니다. gh가 로그인한 호스트의 저장소에서만 이슈가 보입니다."
+          }
+        }
+      }
+    },
     "Couldn’t Add Repository" : {
       "localizations" : {
         "ko" : {
@@ -3470,6 +3498,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "GitHub 원격 없음"
+          }
+        }
+      }
+    },
+    "No Repository" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장소 없음"
           }
         }
       }

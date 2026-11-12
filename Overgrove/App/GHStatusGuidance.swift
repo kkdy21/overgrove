@@ -35,8 +35,9 @@ struct GHStatusGuidance: Equatable, Sendable {
     /// working login (the report lists only those, #467), a ready state that names where gh is logged in.
     init(report: GHAuthReport) {
         let others = report.hosts.subtracting([GitHubRepository.publicHost]).sorted { $0.name < $1.name }
-        guard report.status == .notLoggedIn, let first = others.first else {
-            self.init(status: report.status)
+        // github.com's login could not be read (#486): other hosts still count, and nothing claims github.com.
+        guard report.status == .notLoggedIn || report.status == nil, let first = others.first else {
+            if let status = report.status { self.init(status: status) } else { self.init(checkFailed: nil) }
             return
         }
         let host = first.name
@@ -52,9 +53,14 @@ struct GHStatusGuidance: Equatable, Sendable {
         }
         self.init(
             title: title,
-            message: String(
-                localized:
-                    "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to."),
+            message: report.status == nil
+                ? String(
+                    localized:
+                        "Couldn't read the github.com account. Issues appear for repositories on the hosts gh is logged in to."
+                )
+                : String(
+                    localized:
+                        "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to."),
             command: nil, isOK: true)
     }
 

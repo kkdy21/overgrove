@@ -82,6 +82,8 @@ jobs:
           done
           echo "ok  JSON"
           scripts/github/board-sync-rules.test.sh
+          # #507: pr-policy's local toolchain warning.
+          scripts/github/pr-toolchain-check.test.sh
           # #301: guard-bash blocks and allows what it should (per-segment push checks, every other rule).
           .claude/hooks/guard-bash.test.sh
 

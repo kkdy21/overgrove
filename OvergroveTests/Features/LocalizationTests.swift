@@ -126,6 +126,18 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// The repository switcher's "No Repository" (#501), the first thing a new user sees in the toolbar, is looked up
+    /// in the catalog and has Korean.
+    func testNoRepositoryIsLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let file = try XCTUnwrap(
+            objects.map { $0.appendingPathComponent("RepositorySwitcher.stringsdata") }
+                .first { FileManager.default.fileExists(atPath: $0.path) })
+        XCTAssertTrue(try Self.extractedKeys(file).contains("No Repository"))
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        XCTAssertEqual(ko.localizedString(forKey: "No Repository", value: nil, table: nil), "저장소 없음")
+    }
+
     /// `…/Build/Products/<config>/Overgrove.app` → `…/Build/Intermediates.noindex/Overgrove.build/<config>/
     /// Overgrove.build/Objects-normal/<arch>`.
     private static func objectDirectories() -> [URL]? {
