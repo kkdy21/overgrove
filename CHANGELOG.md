@@ -71,6 +71,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   GitHub remote whose name is a prefix of theirs.
 - Open on GitHub for a remote-tracking branch follows the remote's fetch refspecs: a ref fetched from somewhere other
   than a branch (such as `origin/pr/123` from `refs/pull/123/head`) no longer opens a `tree/` page.
+- Open in Terminal and Open in Editor ask first while the worktree list is still drawn from the in-memory cache: the
+  cached settings check is the previous load's. This load's check decides once it arrives.
 - Open on GitHub and pull request links for a local branch match its upstream remote's name byte for byte, so a
   hand-edited name that only looks like a GitHub remote's (KELVIN SIGN for `K`, or NFD for NFC) no longer reaches it.
 
