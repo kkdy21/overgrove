@@ -14,6 +14,10 @@ struct RepoConfigInspection: Sendable, Equatable {
         /// A URL of the remote carries a password, as written or after a rewrite (#356). Fetch refuses the remote:
         /// git would send it, and after a successful fetch ask the trusted helper to store it for that host.
         var hasPasswordInURL = false
+        /// `remote.<name>.fetch` values in configuration order, from every scope (#490): which refs on the remote
+        /// its remote-tracking refs hold. Empty past `RepoConfigInspector.maximumFetchRefspecsPerRemote` values or with
+        /// one longer than `FetchRefspec.maximumLength`, which then maps no ref to a branch.
+        var fetchRefspecs: [String] = []
     }
 
     let report: RepoSecurityReport
@@ -35,6 +39,10 @@ struct RepoConfigInspection: Sendable, Equatable {
     let isPartialClone: Bool
     /// Remotes past `RepoConfigInspector.maximumRemotes`, counted but not listed (#262).
     var omittedRemotes = 0
+    /// Every `remote.<name>` section's name, in configuration order and compared in bytes, whether `RemoteName`
+    /// accepts it or not, at most `RepoConfigInspector.maximumRemotes` (#489). Only for telling which remote a
+    /// `refs/remotes/` ref belongs to; never pass one to git (use `remotes`).
+    var remoteNames: [String] = []
     /// A repository-controlled config-defined hook could not be neutralized (its name, or too many), so queries and
     /// fetch stop (#354).
     var hasUnneutralizedHooks = false
@@ -72,6 +80,12 @@ enum RepoConfigInspector {
     /// Remotes listed (configuration order). Fetch uses fewer still (`maximumFetchedRemotes`, #259); the rest are
     /// counted in `omittedRemotes`. Remotes never affect neutralization, so this is not fail closed.
     static let maximumRemotes = 1_000
+    /// Fetch refspecs kept per listed remote (#490). A remote with more keeps none: Open on GitHub is then not offered
+    /// for its remote-tracking refs.
+    static let maximumFetchRefspecsPerRemote = 64
+    /// The longest remote name kept for matching remote-tracking refs (#489): 1024 (`FullRefName`) minus
+    /// `refs/remotes/` and a `/x` branch. A longer name cannot be the start of a valid ref.
+    static let maximumMatchedRemoteNameLength = 1_009
     /// Findings kept for the report (S-05); the rest are counted in `omittedFindings`.
     static let maximumFindings = 1_000
     /// Bounds on the remote form check (#350, T15). Past any of them a remote is not fetchable; queries go on.
@@ -292,15 +306,45 @@ enum RepoConfigInspector {
             }
             listedRemotes.append((name, url))
         }
+        // Every remote section, valid name or not, so a remote-tracking ref of a refused name is not taken for a
+        // shorter remote's (#489). Bytes, not `String` equality, which folds normalization.
+        var remoteNames: [String] = []
+        var seenNames = Set<[UInt8]>()
+        // A longer name cannot start a valid ref (`FullRefName`: 1024 bytes, after `refs/remotes/` and before `/x`).
+        for entry in listing.entries where entry.section == "remote" && remoteNames.count < maximumRemotes {
+            guard let subsection = entry.subsection, subsection.utf8.count <= maximumMatchedRemoteNameLength,
+                seenNames.insert(Array(subsection.utf8)).inserted
+            else { continue }
+            remoteNames.append(subsection)
+        }
         let builtInRemotes = builtInRemoteNames(
             listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
         let withPassword = remotesWithPassword(
             listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
+        // Only the listed remotes' refspecs, matched by name bytes (`String` equality folds normalization), each list
+        // and value bounded (T15). A remote past either bound keeps none.
+        let listedNames = Set(listedRemotes.map { Array($0.name.value.utf8) })
+        var refspecs: [[UInt8]: [String]] = [:]
+        var overfull = Set<[UInt8]>()
+        for entry in listing.entries where entry.section == "remote" && entry.variable == "fetch" {
+            guard let subsection = entry.subsection, case let name = Array(subsection.utf8), listedNames.contains(name),
+                !overfull.contains(name), let value = entry.value
+            else { continue }
+            if refspecs[name, default: []].count == maximumFetchRefspecsPerRemote
+                || value.utf8.count > FetchRefspec.maximumLength
+            {
+                overfull.insert(name)
+                refspecs[name] = nil
+                continue
+            }
+            refspecs[name, default: []].append(value)
+        }
         let remotes = listedRemotes.map {
             RepoConfigInspection.Remote(
                 name: $0.name, url: $0.url, displayURL: CredentialMasker.mask($0.url),
                 isBuiltInTransport: builtInRemotes.contains($0.name.value),
-                hasPasswordInURL: withPassword.contains($0.name.value))
+                hasPasswordInURL: withPassword.contains($0.name.value),
+                fetchRefspecs: refspecs[Array($0.name.value.utf8)] ?? [])
         }
 
         let dependsOnHEAD = listing.entries.contains {
@@ -325,6 +369,7 @@ enum RepoConfigInspector {
             isPartialClone: listing.entries.contains(where: isPartialCloneSetting)
         )
         inspection.omittedRemotes = omittedRemotes
+        inspection.remoteNames = remoteNames
         inspection.hasUnneutralizedHooks = hasUnneutralizedHooks
         return inspection
     }

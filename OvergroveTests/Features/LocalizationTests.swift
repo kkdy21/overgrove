@@ -117,12 +117,53 @@ final class LocalizationTests: XCTestCase {
             "Renamed from %@", "Renamed from %@ (%lld%%)", "Copied from %@", "Copied from %@ (%lld%%)",
             "Mode %@ → %@",
             "Symbolic link: the link target text is shown",
-            "%@ more characters",
+            "%@ more character", "%@ more characters",
         ]
         let strings = try catalogStrings()
         for key in expected {
             XCTAssertTrue(extracted.contains(key), "not extracted: \(key)")
             XCTAssertNotNil(strings[key].flatMap(korean), "no Korean: \(key)")
+        }
+    }
+
+    /// The remaining error and source strings (#503) are looked up in the catalog and have Korean. None of them is in
+    /// Copy Report (`testCopyReportStaysEnglish`).
+    func testRemainingErrorAndSourceStringsAreLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let expected: [String: [String]] = [
+            "ExternalApps": ["The application has no valid bundle identifier."],
+            "GHError": ["A name looked unsafe, so gh was not run."],
+            "CommitDetailStore": ["vs first parent"],
+            "AppState+Commit": ["vs first parent"],
+            "SubmoduleSectionModel": ["%@, %@, not in .gitmodules", "%@, %@"],
+        ]
+        let strings = try catalogStrings()
+        for (source, keys) in expected {
+            let file = try XCTUnwrap(
+                objects.map { $0.appendingPathComponent("\(source).stringsdata") }
+                    .first { FileManager.default.fileExists(atPath: $0.path) }, source)
+            let extracted = Set(try Self.extractedKeys(file))
+            for key in keys {
+                XCTAssertTrue(extracted.contains(key), "\(source): not extracted: \(key)")
+                XCTAssertNotNil(strings[key].flatMap(korean), "no Korean: \(key)")
+            }
+        }
+        let row = SubmoduleSectionModel.Row(
+            id: GitPath("lib"), path: "lib", badge: "modified", tone: .attention, help: nil, isUnlisted: true)
+        XCTAssertEqual(SubmoduleSectionModel.accessibilityLabel(row), "lib, modified, not in .gitmodules")
+    }
+
+    /// The issue detail's Labels and Assignees headings (#502) are looked up in the catalog and have Korean.
+    func testIssueDetailHeadingsAreLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let file = try XCTUnwrap(
+            objects.map { $0.appendingPathComponent("IssueViews.stringsdata") }
+                .first { FileManager.default.fileExists(atPath: $0.path) })
+        let extracted = try Self.extractedKeys(file)
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        for (key, korean) in [("Labels", "라벨"), ("Assignees", "담당자")] {
+            XCTAssertTrue(extracted.contains(key), "not extracted: \(key)")
+            XCTAssertEqual(ko.localizedString(forKey: key, value: nil, table: nil), korean)
         }
     }
 
