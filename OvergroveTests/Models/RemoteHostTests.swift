@@ -92,5 +92,9 @@ final class RemoteHostTests: XCTestCase {
         XCTAssertTrue(after.contains(ghe))
         XCTAssertFalse(after.contains(try XCTUnwrap(RemoteHost("other.example"))))
         XCTAssertFalse(after.mayTrustMore(["https://other.example/o/r"]), "the list was read: nothing more to learn")
+        // ⌘R or Check Again reads the list again (#485): an untrusted remote may become trusted.
+        XCTAssertTrue(after.mayTrustMore(["https://other.example/o/r"], rereading: true))
+        XCTAssertFalse(after.mayTrustMore(["git@ghe.example:o/r.git", "https://github.com/o/r"], rereading: true))
+        XCTAssertFalse(after.mayTrustMore(["https://localhost/o/r", "~/dev/o/r"], rereading: true))
     }
 }

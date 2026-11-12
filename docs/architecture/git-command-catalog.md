@@ -252,7 +252,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
 - 실행 파일은 `/opt/homebrew/bin/gh`, `/usr/local/bin/gh` 순서로 찾는다.
 - 작업 디렉터리는 **저장소 밖**의 중립 디렉터리다. 앱 전용 임시 디렉터리(`<사용자 임시 디렉터리>/io.github.kkdy21.overgrove.gh-neutral`, 모드 `0700`, 처음 쓸 때 만듦)를 쓴다. `gh`가 내부적으로 실행하는 git이 저장소 설정을 읽지 않게 하려는 것이다.
-- `--repo HOST/OWNER/NAME`을 항상 명시한다(github.com 포함, ADR-0025 §3). HOST는 `RemoteHost`다. OWNER는 `[A-Za-z0-9-]{1,39}`이고 `-`로 시작하지 않는다. NAME은 `[A-Za-z0-9._-]{1,100}`이다.
+- `--repo HOST/OWNER/NAME`을 항상 명시한다(github.com 포함, ADR-0025 §3). HOST는 `RemoteHost`다. OWNER는 `[A-Za-z0-9-]{1,39}`이고 `-`로 시작하지 않는다. Enterprise Managed User의 `handle_shortcode`(밑줄 하나 뒤에 3–8자 영숫자, 전체 39자 이내)도 받는다(#486). NAME은 `[A-Za-z0-9._-]{1,100}`이다.
 - 환경 변수 allowlist는 다음과 같다. `GH_TOKEN`, `GITHUB_TOKEN`, `GH_HOST`, `GH_REPO`, `GH_ENTERPRISE_TOKEN`, `GH_CONFIG_DIR`, `BROWSER`, `GH_BROWSER`, `EDITOR`는 전달하지 않는다.
 
   ```

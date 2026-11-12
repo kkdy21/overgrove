@@ -111,15 +111,10 @@ extension RepositoryService {
     }
 
     /// Overgrove's own text: the remote is on this Mac and the repository is untrusted. No command is offered.
-    static let untrustedLocalReason =
-        "This repository is marked untrusted, so Overgrove does not fetch remotes on this Mac (local paths and "
-        + "file:// URLs): fetching runs git in the other repository with its own settings. Mark the repository "
-        + "trusted to fetch them."
+    static let untrustedLocalReason = SafetyReason.untrustedLocalRemote
 
     /// Overgrove's own text: this git cannot fetch a remote on this Mac safely (#361). No command is offered.
-    static let olderGitLocalReason =
-        "This git version cannot fetch remotes on this Mac (local paths and file:// URLs) safely. Overgrove needs git "
-        + "\(GitEnvironment.lazyFetchControlVersion) or later to fetch them."
+    static let olderGitLocalReason = SafetyReason.localRemoteNeedsNewerGit
 
     private static func localRemoteNeedsNewerGit(_ remote: RepoConfigInspection.Remote) -> FetchFailureGuidance {
         FetchFailureGuidance(gitVersionLimitFor: remote.name, reason: olderGitLocalReason)

@@ -213,6 +213,104 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertNil(state.issueListModel.notice)
     }
 
+    // MARK: Reading gh's login list again (#485)
+
+    private func settle(_ state: AppState) async {
+        await state.loadTask?.value
+        await state.ghCheckTask?.value
+        await state.gitlabCheckTask?.value
+        await state.issuePanel.task?.value
+        await state.pullRequestStore.task?.value
+    }
+
+    /// #485: after `gh auth login --hostname HOST`, Check Again on the "Not logged in to HOST" panel reads gh's login
+    /// list again and the host's issues load. Auto refresh in between does not run gh.
+    func testCheckAgainReadsTheLoginListAfterALogin() async {
+        let issues = StubIssueLoader([.issues([issue])])
+        let checker = QueuedGHAuthReporter([report(["github.com"]), report(["github.com", "ghe.example"])])
+        let state = await loadedState(remotes: ["git@ghe.example:team/app.git"], issues: issues, checker: checker)
+        XCTAssertEqual(state.issueListModel.notice?.text, "Not logged in to ghe.example")
+        XCTAssertEqual(checker.checks, 1)
+        state.refresh(.filesChanged(worktrees: [], refs: false, worktreeList: true))
+        await settle(state)
+        state.refresh(.automatic)
+        await settle(state)
+        XCTAssertEqual(checker.checks, 1, "auto refresh does not run gh again")
+        state.checkIssuesAgain()
+        await settle(state)
+        XCTAssertEqual(checker.checks, 2)
+        XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
+        XCTAssertEqual(state.issueListModel.rows.map(\.number), ["#12"])
+    }
+
+    /// #485: gh installed after the first read (which reported it missing): ⌘R reads the login list again.
+    func testCommandRReadsTheLoginListAfterGhIsInstalled() async {
+        let issues = StubIssueLoader([.issues([issue])])
+        let checker = QueuedGHAuthReporter([
+            GHAuthReport(status: .notInstalled, hosts: []), report(["ghe.example"]),
+        ])
+        let state = await loadedState(remotes: ["https://ghe.example/team/app"], issues: issues, checker: checker)
+        XCTAssertEqual(state.issueListModel.notice?.text, "Not logged in to ghe.example")
+        state.refresh(.automatic)
+        await settle(state)
+        XCTAssertEqual(checker.checks, 1, "auto refresh does not run gh again")
+        state.reload()
+        await settle(state)
+        XCTAssertEqual(checker.checks, 2)
+        XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
+        XCTAssertEqual(state.issueListModel.rows.map(\.number), ["#12"])
+    }
+
+    /// #485: ⌘R with the host still logged out reads the list once and keeps the notice; no remote that gh could
+    /// learn about runs no gh even on ⌘R.
+    func testCommandRWithoutALoginKeepsTheNotice() async {
+        let issues = StubIssueLoader([.issues([issue])])
+        let checker = QueuedGHAuthReporter([report(["github.com"])])
+        let state = await loadedState(remotes: ["https://ghe.example/team/app"], issues: issues, checker: checker)
+        state.reload()
+        await settle(state)
+        XCTAssertEqual(checker.checks, 2)
+        XCTAssertEqual(issues.requests, [])
+        XCTAssertEqual(state.issueListModel.notice?.text, "Not logged in to ghe.example")
+
+        let local = QueuedGHAuthReporter([report(["github.com"])])
+        let other = await loadedState(remotes: ["~/dev/app"], issues: issues, checker: local)
+        other.reload()
+        await settle(other)
+        XCTAssertEqual(local.checks, 0)
+    }
+
+    // MARK: Enterprise Managed Users (#486)
+
+    /// #486: an Enterprise Managed User's personal repository on github.com is read, and the account is shown.
+    func testAnEnterpriseManagedUsersRepositoryIsRead() async throws {
+        let github = try XCTUnwrap(RemoteHost("github.com"))
+        let account = GHAccount(host: github, login: "mina_acme", otherCount: 0)
+        let issues = StubIssueLoader([.issues([IssueModelsTests.issue(12)])])
+        let checker = QueuedGHAuthReporter([
+            GHAuthReport(status: .loggedIn(login: "mina_acme"), hosts: [github], accounts: [github: account])
+        ])
+        let state = await loadedState(remotes: ["git@github.com:mina_acme/app.git"], issues: issues, checker: checker)
+        XCTAssertEqual(issues.requests, ["mina_acme/app"])
+        XCTAssertEqual(state.ghStatus, .loggedIn(login: "mina_acme"))
+        XCTAssertEqual(state.ghAccount, account)
+    }
+
+    /// #486: github.com's state that could not be read (an odd login) does not drop the other hosts: a GitHub
+    /// Enterprise host gh is logged in to is still trusted and read, with its account.
+    func testAnUnreadGitHubDotComStateKeepsTheOtherHosts() async throws {
+        let github = try XCTUnwrap(RemoteHost("github.com"))
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let account = GHAccount(host: ghe, login: "me", otherCount: 0)
+        let issues = StubIssueLoader([.issues([issue])])
+        let checker = QueuedGHAuthReporter([GHAuthReport(status: nil, hosts: [github, ghe], accounts: [ghe: account])])
+        let state = await loadedState(remotes: ["git@ghe.example:team/app.git"], issues: issues, checker: checker)
+        XCTAssertNil(state.ghStatus)
+        XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
+        XCTAssertEqual(state.issueListModel.account, account)
+        XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
+    }
+
     // MARK: GitLab (#154, ADR-0026)
 
     private let gitlabIssue = IssueModelsTests.issue(
