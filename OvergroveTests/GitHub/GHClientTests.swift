@@ -88,6 +88,8 @@ final class GHCommandTests: XCTestCase {
             XCTAssertNotNil(GitHubRepository(owner: owner, name: name), "\(owner)/\(name)")
         }
         XCTAssertFalse(GitHubRepository(owner: "owner", name: "--json")!.slug.hasPrefix("-"))
+        // An Enterprise Managed User's personal repository (#486).
+        XCTAssertEqual(GitHubRepository(owner: "mina_acme", name: "app")?.slug, "mina_acme/app")
         XCTAssertEqual(repository.slug, "kkdy21/overgrove")
     }
 
@@ -97,6 +99,9 @@ final class GHCommandTests: XCTestCase {
             (String(repeating: "a", count: 40), "repo"), ("owner", String(repeating: "b", count: 101)),
             ("owner", "re po"), ("owner", "re/po"), ("owner", "."), ("owner", ".."), ("ówner", "repo"),
             ("owner", "repo\n"), ("owner", "repo;rm"),
+            // Only the Enterprise Managed User form takes an underscore (#486).
+            ("_acme", "repo"), ("owner_", "repo"), ("-mina_acme", "repo"), ("mina_acme_x", "repo"),
+            ("mina_abcdefghi", "repo"), (String(repeating: "a", count: 35) + "_acme", "repo"),
         ] {
             XCTAssertNil(GitHubRepository(owner: owner, name: name), "\(owner)/\(name)")
         }

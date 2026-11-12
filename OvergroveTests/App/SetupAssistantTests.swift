@@ -89,6 +89,24 @@ final class GHStatusGuidanceTests: XCTestCase {
         let two = GHStatusGuidance(report: GHAuthReport(status: .notLoggedIn, hosts: [ghe, other]))
         XCTAssertTrue(two.isOK)
         XCTAssertEqual(two.title, "Logged in to code.example.org and 1 more host", "sorted; no account to name")
+        let third = try XCTUnwrap(RemoteHost("forge.example.net"))
+        let three = GHStatusGuidance(report: GHAuthReport(status: .notLoggedIn, hosts: [ghe, other, third]))
+        XCTAssertEqual(three.title, "Logged in to code.example.org and 2 more hosts", "plural from the catalog (#483)")
+
+        // github.com's state could not be read (an odd login, #486): other hosts still count, but nothing claims a
+        // github.com login; without another host it reads as a failed check.
+        let unread = GHStatusGuidance(
+            report: GHAuthReport(
+                status: nil, hosts: [GitHubRepository.publicHost, ghe],
+                accounts: [ghe: GHAccount(host: ghe, login: "me", otherCount: 0)]))
+        XCTAssertTrue(unread.isOK)
+        XCTAssertEqual(unread.title, "Logged in to ghe.example as @me")
+        XCTAssertEqual(
+            unread.message,
+            "Couldn't read the github.com account. Issues appear for repositories on the hosts gh is logged in to.")
+        XCTAssertEqual(
+            GHStatusGuidance(report: GHAuthReport(status: nil, hosts: [GitHubRepository.publicHost])),
+            GHStatusGuidance(checkFailed: nil))
 
         // No working login anywhere (the report lists only working hosts, #467): the usual guidance.
         XCTAssertEqual(
@@ -281,5 +299,25 @@ final class SetupAssistantStateTests: XCTestCase {
         state.restoreLastSelected()
         XCTAssertFalse(state.setup.isPresented)
         XCTAssertEqual(gh.count, 0, "no gh check without the assistant")
+    }
+
+    /// The host guidance (#483) is in the catalog with Korean, and the host count is a plural variation.
+    func testHostGuidanceIsLocalized() throws {
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        let missing = "\u{0}missing"
+        for key in [
+            "Logged in to %@ and %lld more hosts", "Logged in to %@ as @%@", "Logged in to %@",
+            "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to.",
+            "Couldn't read the github.com account. Issues appear for repositories on the hosts gh is logged in to.",
+        ] {
+            let korean = ko.localizedString(forKey: key, value: missing, table: nil)
+            XCTAssertNotEqual(korean, missing, "no Korean: \(key)")
+            XCTAssertNotEqual(korean, key, "not translated: \(key)")
+        }
+        XCTAssertEqual(
+            String.localizedStringWithFormat(
+                ko.localizedString(forKey: "Logged in to %@ and %lld more hosts", value: nil, table: nil),
+                "a.example", 2),
+            "a.example 외 호스트 2곳에 로그인됨")
     }
 }

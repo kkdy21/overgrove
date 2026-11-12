@@ -118,6 +118,38 @@ final class GHParsersTests: XCTestCase {
             "a working login is trusted even when its name is not shown; a broken one is not")
     }
 
+    /// PAR-GH-08 (#486): an Enterprise Managed User login (`handle_shortcode`, a 3–8 character alphanumeric short
+    /// code) is a GitHub login; every other underscore form, and everything the base rule rejects, still is not.
+    func testPARGH08_EnterpriseManagedUserLogins() {
+        for login in [
+            "mina_acme", "mina-dev_ab1", "a_abcdefgh", "Mina_ACME", String(repeating: "a", count: 34) + "_acme",
+        ] {
+            XCTAssertTrue(GHAuthParser.isGitHubLogin(login), login)
+        }
+        for login in [
+            "mina_", "_acme", "mina_ac", "mina_abcdefghi", "mina__acme", "mina_ac_me", "mina_ac-e", "mina_acm\u{e9}",
+            "a_b", "mina acme", String(repeating: "a", count: 35) + "_acme", "_", "mina_acme\n",
+        ] {
+            XCTAssertFalse(GHAuthParser.isGitHubLogin(login), login)
+        }
+        let json = #"{"hosts":{"github.com":[{"active":true,"state":"success","login":"mina_acme"}]}}"#
+        XCTAssertEqual(try GHAuthParser.parse(data(json)), .loggedIn(login: "mina_acme"))
+    }
+
+    /// PAR-GH-08 (#486): a github.com login that fails the rule leaves github.com's state unread (`nil`), but the
+    /// report keeps every host gh is logged in to and the other hosts' accounts.
+    func testPARGH08_AnOddGitHubLoginKeepsTheOtherHosts() throws {
+        let json = """
+            {"hosts":{"github.com":[{"active":true,"state":"success","login":"a b;rm"}],\
+            "ghe.example":[{"active":true,"state":"success","login":"me"}]}}
+            """
+        let report = try GHAuthParser.parseReport(data(json))
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        XCTAssertNil(report.status)
+        XCTAssertEqual(Set(report.hosts.map(\.name)), ["github.com", "ghe.example"])
+        XCTAssertEqual(report.accounts, [ghe: GHAccount(host: ghe, login: "me", otherCount: 0)])
+    }
+
     /// SEC-T9-467-1: only a host with an account in the `success` state is trusted. An account in any other state
     /// (or none, or no state) does not trust its host; any working account does, active or not.
     func testSECT9_467_1_OnlyHostsWithAWorkingLoginAreTrusted() throws {
