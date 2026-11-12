@@ -211,6 +211,16 @@
         }
       }
     },
+    "%@, %@, not in .gitmodules" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, %2$@, .gitmodules에 없음"
+          }
+        }
+      }
+    },
     "%@, %lld items" : {
       "localizations" : {
         "ko" : {
@@ -721,6 +731,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "등록된 저장소 안에 있는 git은 쓸 수 없습니다."
+          }
+        }
+      }
+    },
+    "A name looked unsafe, so gh was not run." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이름이 안전하지 않아 보여서 gh를 실행하지 않았습니다."
           }
         }
       }
@@ -1351,7 +1371,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "응용 프로그램(.app)을 고르세요."
+            "value" : "앱(.app)을 고르세요."
           }
         }
       }
@@ -5475,7 +5495,17 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "응용 프로그램에 실행 파일이 없습니다."
+            "value" : "앱에 실행 파일이 없습니다."
+          }
+        }
+      }
+    },
+    "The application has no valid bundle identifier." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱에 올바른 번들 식별자가 없습니다."
           }
         }
       }
@@ -7694,6 +7724,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "대상: %@"
+          }
+        }
+      }
+    },
+    "vs first parent" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "첫 번째 부모 대비"
           }
         }
       }
