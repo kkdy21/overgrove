@@ -219,7 +219,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 
   - 캐시가 없으면 어느 트리거든 전부 조회한다.
   - 처음 보는 워크트리는 항상 조회한다.
-  - "파생"은 이번에 받은 결과로 판단한다는 뜻이다. status·워크트리 목록의 브랜치 tip이 캐시한 refs와 다르면 refs를 다시 조회하고, `# stash N`이 캐시한 stash 수와 다르면 stash 목록을 다시 조회한다.
+  - "파생"은 이번에 받은 결과로 판단한다는 뜻이다. status·워크트리 목록의 브랜치 tip이 캐시한 refs와 다르면 refs를 다시 조회하고, `# stash N`이 캐시한 stash 수와 다르면 stash 목록을 다시 조회한다. 반대 방향도 본다. 새로 읽은 refs가 보여 주는 브랜치의 upstream과 ahead/behind가 캐시한 status와 다르면, 그 브랜치의 워크트리 status를 다시 조회한다. 앱 밖의 `git push`나 `git fetch`는 `refs/remotes/`만 바꾸기 때문이다(#420).
   - fetch 완료 때 status도 다시 조회한다. 워크트리 행의 ahead/behind가 status에서 오기 때문이다(표의 "브랜치·ahead/behind" 행).
   - 실패한 새로고침(예: 설정이 이제 조회를 막음)은 그 저장소의 캐시를 버린다. 막히기 전 결과를 계속 보여 주지 않는다.
 - **설정 검사 캐시** (`RepoConfigInspectionCache`, 최대 256개):

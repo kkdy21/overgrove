@@ -391,6 +391,27 @@ actor RepositoryService {
         let readRefs = refs != nil || refsMoved
         let finalStashes = stashes ?? recounted
 
+        // The other direction (#420): refs read now show another upstream relation than a cached status. A push or
+        // fetch from outside the app changes only `refs/remotes/`, so no status was planned for it.
+        if readRefs, let finalRefs {
+            let relations = upstreamRelations(finalRefs)
+            let cached = Dictionary(
+                (previous?.overview.entries ?? []).map { ($0.worktree.path, $0) }, uniquingKeysWith: { $1 })
+            let moved: [(Worktree, URL)] = zip(worktrees, admissions).compactMap { worktree, admission in
+                guard case .query(let folder) = admission, fresh[worktree.path] == nil,
+                    case .loaded(let state) = cached[worktree.path]?.status, case .branch(let name) = state.head,
+                    let relation = relations["refs/heads/\(name)"], relation != UpstreamRelation(state.upstream)
+                else { return nil }
+                return (worktree, folder)
+            }
+            await withTaskGroup(of: RepositoryOverview.Entry.self) { group in
+                for (worktree, folder) in moved {
+                    group.addTask { await Self.status(of: worktree, at: folder, context) }
+                }
+                for await entry in group { fresh[entry.worktree.path] = entry }
+            }
+        }
+
         // A cancelled refresh ends here, instead of reporting every worktree as failed.
         guard !Task.isCancelled, let finalRefs, let finalStashes else { throw GitError.cancelled }
         var loaded = assemble(
@@ -450,6 +471,32 @@ actor RepositoryService {
     ) async throws -> Value? {
         guard let cached else { return nil }
         return needed ? try await query() : cached
+    }
+
+    /// A branch's upstream relation as both status and refs report it: whether it has one, ahead/behind, and whether
+    /// it is gone. Not the name: status shortens it unambiguously (`remotes/origin/main` when a local branch is named
+    /// `origin/main`), refs give the full ref, and a remote may be named `remotes` (review of #518).
+    private struct UpstreamRelation: Hashable {
+        let hasUpstream: Bool
+        let ahead: Int
+        let behind: Int
+        let isGone: Bool
+
+        init(_ status: UpstreamStatus) {
+            hasUpstream = status.upstreamName != nil
+            ahead = status.ahead
+            behind = status.behind
+            if case .gone = status { isGone = true } else { isGone = false }
+        }
+    }
+
+    /// Each local branch's upstream relation, by full ref name.
+    private static func upstreamRelations(_ refs: RefParser.Listing) -> [String: UpstreamRelation] {
+        var relations: [String: UpstreamRelation] = [:]
+        for branch in refs.branches where branch.kind == .local {
+            relations[branch.fullName] = UpstreamRelation(branch.upstreamStatus)
+        }
+        return relations
     }
 
     /// Every fresh branch tip (status and worktree list) matches the cached refs.
