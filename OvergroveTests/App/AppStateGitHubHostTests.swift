@@ -223,6 +223,30 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertEqual(state.issueListModel.rows.map(\.number), ["#12"])
     }
 
+    /// #488: of the app's check and the assistant's, the one that started later wins. An app check that started after
+    /// the assistant's keeps running and its answer applies; one that started before is dropped.
+    func testTheLaterStartedCheckWins() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let state = await loadedState(
+            remotes: ["git@ghe.example:team/app.git"], issues: StubIssueLoader([.issues([issue])]),
+            checker: QueuedGHAuthReporter([report(["github.com"]), report(["github.com", "ghe.example"])]))
+        let stale = GHAuthReport(status: .notLoggedIn, hosts: [])
+
+        let assistantStarted = ContinuousClock.now
+        state.checkGitHub()
+        state.gitHubReportFromSetup(stale, startedAt: assistantStarted)
+        XCTAssertTrue(state.isCheckingGitHub, "the newer app check keeps running")
+        await state.ghCheckTask?.value
+        XCTAssertTrue(state.trustedGitHubHosts.contains(ghe), "the app's newer answer applies")
+        XCTAssertEqual(state.ghStatus, .loggedIn(login: "octocat"))
+
+        state.checkGitHub()
+        state.gitHubReportFromSetup(stale, startedAt: ContinuousClock.now)
+        XCTAssertFalse(state.isCheckingGitHub, "the older app check is dropped")
+        await state.ghCheckTask?.value
+        XCTAssertEqual(state.ghStatus, .notLoggedIn, "the assistant's newer answer stays")
+    }
+
     /// #488: a failed check in S-07 reads as the app's own failed check: no status or account it can vouch for, the
     /// trusted hosts kept.
     func testAFailedSetupCheckClearsTheStatusAndKeepsTheHosts() async throws {

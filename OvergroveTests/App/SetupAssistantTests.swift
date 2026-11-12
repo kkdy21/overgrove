@@ -222,7 +222,7 @@ final class SetupAssistantStateTests: XCTestCase {
         let setup = SetupAssistantState(
             gitChecker: StubGitSetupChecker(ready), ghChecker: QueuedGHAuthReporter([report, nil]))
         var received: [GHAuthReport?] = []
-        setup.onGitHubReport = { received.append($0) }
+        setup.onGitHubReport = { report, _ in received.append(report) }
         setup.checkGitHub()
         await setup.gitHubTask?.value
         setup.checkGitHub()

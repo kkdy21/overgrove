@@ -134,6 +134,7 @@ extension AppState {
         let generation = ghCheckGeneration
         let checker = ghChecker
         isCheckingGitHub = true
+        ghCheckStartedAt = ContinuousClock.now
         ghCheckTask = Task { [weak self] in
             let report = await checker.authReport()
             guard let self, generation == self.ghCheckGeneration, !Task.isCancelled else { return }
@@ -141,9 +142,11 @@ extension AppState {
         }
     }
 
-    /// The setup assistant (S-07) read gh's state (#488): the app takes it as its own check. A check of the app's
-    /// still in flight started earlier, so its answer is dropped.
-    func gitHubReportFromSetup(_ report: GHAuthReport?) {
+    /// The setup assistant (S-07) read gh's state (#488): the app takes it as its own check. A check of the app's in
+    /// flight that started before the assistant's is older, so it is dropped; one that started after is newer, so the
+    /// assistant's answer is dropped and the app's arrives instead.
+    func gitHubReportFromSetup(_ report: GHAuthReport?, startedAt started: ContinuousClock.Instant) {
+        if isCheckingGitHub, let appStarted = ghCheckStartedAt, appStarted > started { return }
         ghCheckTask?.cancel()
         ghCheckGeneration += 1
         applyGitHubReport(report)
