@@ -151,6 +151,16 @@
         }
       }
     },
+    "%@ more character" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@자 더 있음"
+          }
+        }
+      }
+    },
     "%@ more characters" : {
       "localizations" : {
         "ko" : {
