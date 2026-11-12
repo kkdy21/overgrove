@@ -69,6 +69,8 @@ final class FSEventsSubscription: FileEventSubscription, @unchecked Sendable {
     private let lock = NSLock()
     private var stream: FSEventStreamRef?
     private let queue = DispatchQueue(label: "overgrove.fsevents")
+    /// Marks `queue`, so `stop()` can tell it runs on it (a last release from inside a callback).
+    private static let queueKey = DispatchSpecificKey<ObjectIdentifier>()
     private let box: FSEventsHandlerBox
 
     init(
@@ -97,6 +99,7 @@ final class FSEventsSubscription: FileEventSubscription, @unchecked Sendable {
                 kCFAllocatorDefault, fsEventsCallback, &context, paths as CFArray,
                 since ?? FSEventStreamEventId(kFSEventStreamEventIdSinceNow), latency, flags)
         else { return }
+        queue.setSpecific(key: Self.queueKey, value: ObjectIdentifier(self))
         FSEventStreamSetDispatchQueue(created, queue)
         guard FSEventStreamStart(created) else {
             FSEventStreamInvalidate(created)
@@ -113,7 +116,11 @@ final class FSEventsSubscription: FileEventSubscription, @unchecked Sendable {
         }
         guard let current else { return box.stop() }
         // Events FSEvents holds for the latency are delivered now, on the stream's queue, before this returns (#422).
-        FSEventStreamFlushSync(current)
+        // On that queue itself (the last reference released inside a callback) the flush would wait for itself; a
+        // callback is running then anyway, and nothing it already handed on is lost.
+        if DispatchQueue.getSpecific(key: Self.queueKey) != ObjectIdentifier(self) {
+            FSEventStreamFlushSync(current)
+        }
         box.stop()
         FSEventStreamStop(current)
         FSEventStreamInvalidate(current)
