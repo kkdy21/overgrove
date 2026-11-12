@@ -39,17 +39,22 @@ struct GHStatusGuidance: Equatable, Sendable {
             self.init(status: report.status)
             return
         }
+        let host = first.name
         let title: String
         if others.count > 1 {
-            title = "Logged in to \(first.name) and \(others.count - 1) more host" + (others.count > 2 ? "s" : "")
+            let more = others.count - 1
+            title = String(localized: "Logged in to \(host) and \(more) more hosts")
         } else if let account = report.accounts[first] {
-            title = "Logged in to \(first.name) as @\(PathValidator.displayable(account.login))"
+            let login = PathValidator.displayable(account.login)
+            title = String(localized: "Logged in to \(host) as @\(login)")
         } else {
-            title = "Logged in to \(first.name)"
+            title = String(localized: "Logged in to \(host)")
         }
         self.init(
             title: title,
-            message: "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to.",
+            message: String(
+                localized:
+                    "Not logged in to github.com. Issues appear for repositories on the hosts gh is logged in to."),
             command: nil, isOK: true)
     }
 
