@@ -149,6 +149,23 @@ else
   failed "build: the xcode-select command works when pasted, even with a space in the path (got: $fix)"
 fi
 
+# Several Xcodes: the newest by CFBundleShortVersionString is suggested, not the last by name (#505). Xcode_15.4 sorts
+# after Xcode by name; a copy without a readable version comes last.
+xcode_app() { # xcode_app <apps folder> <app name> [version]
+  mkdir -p "$1/$2/Contents"
+  if [[ -n "${3:-}" ]]; then
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>%s</dict></plist>\n' \
+      "<key>CFBundleShortVersionString</key><string>$3</string>" >"$1/$2/Contents/Info.plist"
+  fi
+}
+xcode_app "$work/apps-many" Xcode.app 26.1
+xcode_app "$work/apps-many" Xcode_15.4.app 15.4
+xcode_app "$work/apps-many" Xcode_26.0.1.app 26.0.1
+xcode_app "$work/apps-many" Xcode_unknown.app
+run build-clt-many STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-many" -- --build
+expect "build: the newest Xcode is suggested, not the last by name" 1 \
+  "sudo xcode-select -s $work/apps-many/Xcode.app/Contents/Developer"
+
 run build-no-xcode STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-empty" -- --build
 expect "build: no Xcode installed" 1 "App Store"
 
