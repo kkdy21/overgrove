@@ -15,8 +15,8 @@ struct RepoConfigInspection: Sendable, Equatable {
         /// git would send it, and after a successful fetch ask the trusted helper to store it for that host.
         var hasPasswordInURL = false
         /// `remote.<name>.fetch` values in configuration order, from every scope (#490): which refs on the remote
-        /// its remote-tracking refs hold. Empty past `RepoConfigInspector.maximumFetchRefspecsPerRemote`, which then
-        /// maps no ref to a branch.
+        /// its remote-tracking refs hold. Empty past `RepoConfigInspector.maximumFetchRefspecsPerRemote` values or with
+        /// one longer than `FetchRefspec.maximumLength`, which then maps no ref to a branch.
         var fetchRefspecs: [String] = []
     }
 
@@ -324,15 +324,18 @@ enum RepoConfigInspector {
             listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
         let withPassword = remotesWithPassword(
             listing, among: listedRemotes.prefix(maximumCheckedRemotes).map(\.name.value))
-        // Only the listed remotes' refspecs, each list bounded (T15).
-        let listedNames = Set(listedRemotes.map(\.name.value))
-        var refspecs: [String: [String]] = [:]
-        var overfull = Set<String>()
+        // Only the listed remotes' refspecs, matched by name bytes (`String` equality folds normalization), each list
+        // and value bounded (T15). A remote past either bound keeps none.
+        let listedNames = Set(listedRemotes.map { Array($0.name.value.utf8) })
+        var refspecs: [[UInt8]: [String]] = [:]
+        var overfull = Set<[UInt8]>()
         for entry in listing.entries where entry.section == "remote" && entry.variable == "fetch" {
-            guard let name = entry.subsection, listedNames.contains(name), !overfull.contains(name),
-                let value = entry.value
+            guard let subsection = entry.subsection, case let name = Array(subsection.utf8), listedNames.contains(name),
+                !overfull.contains(name), let value = entry.value
             else { continue }
-            if refspecs[name, default: []].count == maximumFetchRefspecsPerRemote {
+            if refspecs[name, default: []].count == maximumFetchRefspecsPerRemote
+                || value.utf8.count > FetchRefspec.maximumLength
+            {
                 overfull.insert(name)
                 refspecs[name] = nil
                 continue
@@ -343,7 +346,8 @@ enum RepoConfigInspector {
             RepoConfigInspection.Remote(
                 name: $0.name, url: $0.url, displayURL: CredentialMasker.mask($0.url),
                 isBuiltInTransport: builtInRemotes.contains($0.name.value),
-                hasPasswordInURL: withPassword.contains($0.name.value), fetchRefspecs: refspecs[$0.name.value] ?? [])
+                hasPasswordInURL: withPassword.contains($0.name.value),
+                fetchRefspecs: refspecs[Array($0.name.value.utf8)] ?? [])
         }
 
         let dependsOnHEAD = listing.entries.contains {

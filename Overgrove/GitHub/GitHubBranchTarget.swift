@@ -37,7 +37,7 @@ struct GitHubBranchTarget: Equatable, Sendable {
     ) -> GitHubBranchTarget? {
         forRemoteRef(
             ref, remotes: remotes, index: RemoteNameIndex(configuredRemotes + remotes.keys),
-            fetchRefspecs: fetchRefspecs)
+            fetchRefspecs: fetchRefspecs.mapValues { $0.compactMap(FetchRefspec.init) })
     }
 
     /// The same, with the configured and GitHub remote names already indexed (once per sidebar, not per row).
@@ -47,7 +47,8 @@ struct GitHubBranchTarget: Equatable, Sendable {
     /// `refs/heads/` (#490): `origin/pr/123` fetched from `refs/pull/123/head` opens nothing, and a remote without
     /// refspecs opens nothing.
     static func forRemoteRef(
-        _ ref: String, remotes: [String: GitHubRepository], index: RemoteNameIndex, fetchRefspecs: [String: [String]]
+        _ ref: String, remotes: [String: GitHubRepository], index: RemoteNameIndex,
+        fetchRefspecs: [String: [FetchRefspec]]
     ) -> GitHubBranchTarget? {
         let prefix = "refs/remotes/"
         guard FullRefName(ref) != nil, ref.utf8.starts(with: prefix.utf8),
@@ -56,7 +57,9 @@ struct GitHubBranchTarget: Equatable, Sendable {
             let repository = remotes.first(where: { $0.key.utf8.elementsEqual(match.utf8) })?.value
         else { return nil }
         guard !ref.utf8.dropFirst(prefix.utf8.count + match.utf8.count + 1).elementsEqual("HEAD".utf8),
-            let branch = FetchRefspec.sourceBranch(of: ref, refspecs: fetchRefspecs[match] ?? [])
+            let branch = FetchRefspec.sourceBranch(of: ref, refspecs: fetchRefspecs[match] ?? []),
+            // The branch comes from the repository's refspec now, not only from the checked ref: check it again.
+            FullRefName("refs/heads/\(branch)") != nil
         else { return nil }
         return GitHubBranchTarget(repository: repository, branch: branch)
     }

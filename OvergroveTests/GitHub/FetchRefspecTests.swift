@@ -49,4 +49,28 @@ final class FetchRefspecTests: XCTestCase {
         XCTAssertNil(branch("refs/remotes/origin/x", ["+refs/heads/*:refs/remotes/origin/x"]), "one-sided glob")
         XCTAssertNil(branch("refs/remotes/origin/", [standard]), "an empty branch")
     }
+
+    /// SEC-T15-490-1: a repository chooses its refspecs. Each is parsed once and bounded: 64 values of 2,050 bytes
+    /// against 20,000 rows stay fast, and a longer value is not read at all.
+    func testSECT15_490_1_LargeRefspecsAndManyRowsStayBounded() {
+        let long =
+            "+refs/heads/" + String(repeating: "a", count: 1_000) + "*:refs/remotes/origin/"
+            + String(repeating: "b", count: 1_000) + "*"
+        XCTAssertLessThanOrEqual(long.utf8.count, FetchRefspec.maximumLength)
+        let refspecs = Array(repeating: long, count: 64).compactMap(FetchRefspec.init)
+        XCTAssertEqual(refspecs.count, 64)
+        let clock = ContinuousClock()
+        let started = clock.now
+        var matched = 0
+        for index in 0..<20_000
+        where FetchRefspec.sourceBranch(of: "refs/remotes/origin/b\(index)", refspecs: refspecs) != nil {
+            matched += 1
+        }
+        let elapsed = clock.now - started
+        XCTAssertEqual(matched, 0)
+        XCTAssertLessThan(elapsed, .seconds(20), "took \(elapsed)")
+        XCTAssertNil(
+            FetchRefspec(long + String(repeating: "x", count: FetchRefspec.maximumLength - long.utf8.count + 1)),
+            "past the bound")
+    }
 }

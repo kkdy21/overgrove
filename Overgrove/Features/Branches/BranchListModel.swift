@@ -106,6 +106,8 @@ struct BranchListModel: Equatable {
         remoteCount = remotes.count
         // The longest configured remote wins, so `team/a` owns `refs/remotes/team/a/x`, not `team` (#466, #489).
         let index = RemoteNameIndex(remoteNames + githubRemotes.keys)
+        // Parsed once per remote, not per row (T15).
+        let parsedRefspecs = fetchRefspecs.mapValues { $0.compactMap(FetchRefspec.init) }
         // Grouped by the name's bytes: `String` keys would merge a remote spelled in NFC with one in NFD (#489).
         var byRemote: [[UInt8]: (name: String, rows: [BranchRow])] = [:]
         for branch in remotes {
@@ -124,7 +126,7 @@ struct BranchListModel: Equatable {
                 Self.row(
                     branch, name: name, isCheckedOut: false, isDefault: false,
                     gitHub: GitHubBranchTarget.forRemoteRef(
-                        branch.fullName, remotes: githubRemotes, index: index, fetchRefspecs: fetchRefspecs)))
+                        branch.fullName, remotes: githubRemotes, index: index, fetchRefspecs: parsedRefspecs)))
         }
         // `origin` first, then the rest by name (information-architecture.md §4.2).
         let order = byRemote.values.sorted { lhs, rhs in

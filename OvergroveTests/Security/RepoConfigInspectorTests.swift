@@ -597,6 +597,15 @@ final class RepoConfigInspectorTests: XCTestCase {
             entry(.local, "remote.origin.fetch", "+refs/pull/*/head:refs/remotes/origin/pr/*"),
             entry(.local, "remote.many.url", "https://github.com/o/many.git"),
             entry(.local, "remote.none.url", "https://github.com/o/none.git"),
+            entry(.local, "remote.huge.url", "https://github.com/o/huge.git"),
+            entry(.local, "remote.huge.fetch", "+refs/heads/*:refs/remotes/huge/*"),
+            entry(
+                .local, "remote.huge.fetch",
+                "+refs/heads/*:refs/remotes/huge/" + String(repeating: "x", count: FetchRefspec.maximumLength)),
+            // KELVIN SIGN is canonically `K` but another remote to git: its refspec is not `K`'s.
+            entry(.local, "remote.K.url", "https://github.com/o/k.git"),
+            entry(.local, "remote.K.fetch", "+refs/heads/*:refs/remotes/K/*"),
+            entry(.local, "remote.\u{212A}.fetch", "+refs/pull/*/head:refs/remotes/K/*"),
         ]
         for index in 0...RepoConfigInspector.maximumFetchRefspecsPerRemote {
             entries.append(entry(.local, "remote.many.fetch", "+refs/heads/\(index)/*:refs/remotes/many/\(index)/*"))
@@ -607,6 +616,8 @@ final class RepoConfigInspectorTests: XCTestCase {
             remotes["origin"], ["+refs/heads/*:refs/remotes/origin/*", "+refs/pull/*/head:refs/remotes/origin/pr/*"])
         XCTAssertEqual(remotes["many"], [])
         XCTAssertEqual(remotes["none"], [])
+        XCTAssertEqual(remotes["huge"], [], "a value past the bound leaves the remote with none")
+        XCTAssertEqual(remotes["K"], ["+refs/heads/*:refs/remotes/K/*"])
     }
 
     func testCacheInvalidatesWhenAFileChanges() async throws {

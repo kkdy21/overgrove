@@ -69,6 +69,30 @@ final class GitHubBranchTargetTests: XCTestCase {
             ))
     }
 
+    /// SEC-T14-490-1: the branch now comes from a refspec the repository wrote. A source that is not a valid branch
+    /// (`..`, `?`, a control character) opens nothing, and what passes stays a path inside the repository's page.
+    func testSECT14_490_1_HostileRefspecsStayInsideTheRepository() throws {
+        func target(_ refspec: String, _ ref: String = "refs/remotes/origin/x") -> GitHubBranchTarget? {
+            GitHubBranchTarget.forRemoteRef(
+                ref, remotes: ["origin": fork], configuredRemotes: ["origin"], fetchRefspecs: ["origin": [refspec]])
+        }
+        for refspec in [
+            "+refs/heads/..*:refs/remotes/origin/*", "+refs/heads/?x=*:refs/remotes/origin/*",
+            "+refs/heads/a\n*:refs/remotes/origin/*", "+refs/heads/*/..:refs/remotes/origin/*",
+            "+refs/heads/ *:refs/remotes/origin/*", "+refs/heads/-*:refs/remotes/origin/*",
+            "+refs/heads/.*:refs/remotes/origin/*", "+refs/heads/*:refs/remotes/origin/*/",
+        ] {
+            XCTAssertNil(target(refspec), refspec)
+        }
+        let encoded = try XCTUnwrap(target("+refs/heads/a%2F*:refs/remotes/origin/*"))
+        XCTAssertEqual(encoded.branch, "a%2Fx")
+        let url = try XCTUnwrap(GitHubLinks.tree(encoded))
+        XCTAssertEqual(url.host, "github.com")
+        XCTAssertEqual(url.absoluteString, "https://github.com/me/app/tree/a%252Fx")
+        let hash = try XCTUnwrap(target("+refs/heads/x#*:refs/remotes/origin/*"))
+        XCTAssertEqual(GitHubLinks.tree(hash)?.absoluteString, "https://github.com/me/app/tree/x%23x")
+    }
+
     /// The merge ref names the branch on GitHub, even when the local name differs.
     func testLocalBranchUsesTheMergeRef() {
         let target = GitHubBranchTarget.forLocal(
