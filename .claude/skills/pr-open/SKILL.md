@@ -40,6 +40,11 @@ xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'pla
   - 첫 줄에 `Closes #<n>`
   - 이슈의 `## 의존성` 절에 없는 의존 이슈(작업 중 발견)는 그다음 줄부터 `Depends on #<d>`로 한 줄씩 적는다. 의존 이슈가 남아 있으면 Draft로 열고, stand-in으로 대신한 부분을 요약에 적는다
   - 검증 방법(실행한 명령과 결과)
+  - `xcodebuild test`를 돌렸으면 `- Local toolchain:` 줄을 채운다(#507). 값은 `xcodebuild -version`의 두 줄과 `sw_vers -productVersion`으로 만든다. 예: `Xcode 26.1 (17B55), macOS 26.1`. 앱 코드를 건드리지 않았으면 `N/A`로 둔다. CI의 Xcode major(`ci.yml`의 `XCODE_MAJOR`)와 다르거나 비어 있으면 `pr-policy`가 경고한다(실패하지는 않는다)
+    ```sh
+    printf 'Xcode %s (%s), macOS %s\n' "$(xcodebuild -version | sed -n '1s/^Xcode //p')" \
+      "$(xcodebuild -version | sed -n '2s/^Build version //p')" "$(sw_vers -productVersion)"
+    ```
   - 체크리스트에서 해당 없는 항목은 이유를 적는다
   - AI로 만든 변경이면 "AI-assisted: Claude Code" 한 줄을 넣는다
 - **라벨·마일스톤**: 이슈와 같게(협업자는 권한이 없으면 생략해도 된다)
