@@ -250,7 +250,7 @@ refs/tags/tree-tag␀4b825dc6…␀␀␀ ␀␀␀␀␀␀tree␀
 - 원격 이름은 `refs/remotes/` 뒤 첫 구성 요소로 정한다. 원격 이름에 `/`가 들어간 경우는 `configList`의 원격 목록과 맞춰 보정한다.
 - 잘린 출력은 LF로 끝나지 않은 마지막 레코드만 버리고 `isPartial`을 표시한다.
 - 태그의 `objectType`은 주석 태그면 `%(*objecttype)`, 경량 태그면 `%(objecttype)`이다. `commit`이 아닌 태그(tree·blob, 한 단계만 벗긴 태그의 태그)는 `Tag.commit`이 `nil`이다. 그래프에 행이 없으므로 알약을 그리지 않고, TAGS 행은 무엇을 가리키는지 보이며 눌러도 선택을 바꾸지 않는다(#432).
-- 브랜치의 `objectType`은 `%(objecttype)` 그대로다(벗기지 않는다). 손으로 고친 packed-refs에서 로컬·원격 브랜치가 tree·blob·태그 객체를 가리키면 `Branch.commit`이 `nil`이다. LOCAL·REMOTE 행은 태그처럼 무엇을 가리키는지 툴팁과 VoiceOver로 알리고, Show in Graph를 끈다. 이슈 연결에서는 목록에만 보이고 고르거나 그래프에 표시하지 않는다. 기준 브랜치 비교(S-11)의 기준 목록과 기본 기준에서도 뺀다(#559).
+- 브랜치의 `objectType`은 `%(objecttype)` 그대로다(벗기지 않는다). 손으로 고친 packed-refs에서 로컬·원격 브랜치가 tree·blob·태그 객체를 가리키면 `Branch.commit`이 `nil`이다. 그래프 알약을 그리지 않고, LOCAL·REMOTE 행은 태그처럼 무엇을 가리키는지 툴팁과 VoiceOver로 알리고, Show in Graph를 끈다. 이슈 연결에서는 목록에만 보이고 고르거나 그래프에 표시하지 않는다. 기준 브랜치 비교(S-11)의 기준 목록과 기본 기준에서도 뺀다(#559).
 - 결과 모델: `Branch.upstreamStatus`(`UpstreamStatus`)가 ahead/behind를 담는다. upstream 이름은 전체 ref 이름이다. 사이드바 LOCAL의 `↑n ↓n`은 이 값을 쓰고, 브랜치마다 `rev-list`를 실행하지 않는다(#167 S5).
 
 연결 워크트리에서 체크아웃한 브랜치는 `WorktreeParser` 결과의 `branch`와 맞춰 표시한다.
