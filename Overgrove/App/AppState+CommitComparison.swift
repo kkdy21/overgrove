@@ -11,6 +11,10 @@ extension AppState {
         return CommitComparisonModel(session: session) { oid in graph.index(of: oid).map { graph.commits[$0] } }
     }
 
+    private func loadedCommit(_ oid: ObjectID) -> CommitNode? {
+        graph.index(of: oid).map { graph.commits[$0] }
+    }
+
     /// `Compare with Selected Commit` is on: another commit is the main selection, and both are loaded in the graph.
     func canCompareCommit(with target: ObjectID) -> Bool {
         guard case .commit(let base) = selection, base != target, graph.index(of: base) != nil,
@@ -25,14 +29,16 @@ extension AppState {
         closeComparison()
         history.close()
         clearSelectedFile()
-        commitComparison = CommitComparisonSession(base: base, target: target)
+        commitComparison = CommitComparisonSession(
+            base: base, target: target, baseNode: loadedCommit(base), targetNode: loadedCommit(target))
         loadCommitComparison()
     }
 
     /// `⇄`: the target becomes the base.
     func swapCommitComparison() {
         guard let session = commitComparison else { return }
-        commitComparison = CommitComparisonSession(base: session.target, target: session.base)
+        commitComparison = CommitComparisonSession(
+            base: session.target, target: session.base, baseNode: session.targetNode, targetNode: session.baseNode)
         loadCommitComparison()
     }
 
@@ -50,8 +56,10 @@ extension AppState {
         commitComparison?.showsAllFiles = true
     }
 
-    /// A BASE or TARGET row: S-12 closes and that commit's S-03 opens.
+    /// A BASE or TARGET row: S-12 closes and that commit's S-03 opens. A commit no longer in the graph (#428) has
+    /// nothing to open, so S-12 stays.
     func showCommitFromComparison(_ oid: ObjectID) {
+        guard graph.index(of: oid) != nil else { return }
         closeCommitComparison()
         selectCommit(oid)
         graph.scroll(to: oid)

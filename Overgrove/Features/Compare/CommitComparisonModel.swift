@@ -18,6 +18,10 @@ struct CommitComparisonSession: Equatable {
     var base: ObjectID
     /// The row whose menu opened it.
     var target: ObjectID
+    /// The two commits as the graph had them when S-12 opened (#428): a rebase or reset may drop them from the graph
+    /// while S-12 is open, and the rows still name them.
+    var baseNode: CommitNode?
+    var targetNode: CommitNode?
     var files: Files = .loading
     /// The commits between them (#389): what `target` has that `base` does not.
     var commits: Commits = .loading
@@ -35,9 +39,13 @@ struct CommitComparisonModel: Equatable {
         let subject: String
         let author: String
         let isAIAssisted: Bool
+        /// BASE or TARGET is still a loaded graph row: choosing it opens the commit. Otherwise the row says so and choosing
+        /// it does nothing (#428). Always `true` for COMMITS rows.
+        let isInGraph: Bool
         var accessibilityLabel: String {
             String(localized: "Commit \(shortSHA), \(subject), by \(author)")
                 + (isAIAssisted ? ", " + String(localized: "AI-assisted") : "")
+                + (isInGraph ? "" : ", " + String(localized: "Not in the graph"))
         }
     }
 
@@ -69,15 +77,17 @@ struct CommitComparisonModel: Equatable {
     let commitsNotice: String?
 
     init(session: CommitComparisonSession, commit: (ObjectID) -> CommitNode?, rule: AIAgentRule = .builtIn) {
-        func row(_ oid: ObjectID) -> CommitRow {
-            let node = commit(oid)
+        func row(_ oid: ObjectID, opened: CommitNode?) -> CommitRow {
+            let loaded = commit(oid)
+            // Out of the graph since S-12 opened: what it showed then (#428).
+            let node = loaded ?? (opened?.oid == oid ? opened : nil)
             return CommitRow(
                 oid: oid, shortSHA: oid.short, subject: PathValidator.displayable(node?.subject ?? ""),
                 author: PathValidator.displayable(node?.authorName ?? ""),
-                isAIAssisted: node?.coAuthors.contains(where: rule.isAgent) ?? false)
+                isAIAssisted: node?.coAuthors.contains(where: rule.isAgent) ?? false, isInGraph: loaded != nil)
         }
-        base = row(session.base)
-        target = row(session.target)
+        base = row(session.base, opened: session.baseNode)
+        target = row(session.target, opened: session.targetNode)
         title = "\(base.shortSHA) → \(target.shortSHA)"
         switch session.commits {
         case .loading:
@@ -94,7 +104,9 @@ struct CommitComparisonModel: Equatable {
                 CommitRow(
                     oid: node.oid, shortSHA: node.oid.short, subject: PathValidator.displayable(node.subject),
                     author: PathValidator.displayable(node.authorName),
-                    isAIAssisted: node.coAuthors.contains(where: rule.isAgent))
+                    // Not marked: a commit between may only be on a graph page not loaded yet. Choosing one the graph
+                    // lacks does nothing (`AppState.showCommitFromComparison`).
+                    isAIAssisted: node.coAuthors.contains(where: rule.isAgent), isInGraph: true)
             }
             hasMoreCommits = page.isPartial
             // The target may be behind the base (picked in either order); ⇄ shows the other direction.

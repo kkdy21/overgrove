@@ -117,6 +117,24 @@ final class AppStateCommitComparisonTests: XCTestCase {
         XCTAssertNil(state.commitComparison, "S-11 and S-12 are never open together")
     }
 
+    /// #428: opening keeps the two commits as the graph had them, ⇄ swaps them with the ends, and a row the graph no
+    /// longer has leaves S-12 open instead of closing it onto nothing.
+    func testOpeningKeepsTheCommitsAndARowOutsideTheGraphKeepsItOpen() async throws {
+        let state = try await loadedState()
+        state.selectCommit(base)
+        state.showCommitComparison(with: target)
+        XCTAssertEqual(state.commitComparison?.baseNode?.oid, base)
+        XCTAssertEqual(state.commitComparison?.targetNode?.subject, "feat(ratelimit): add sliding window limiter")
+        state.swapCommitComparison()
+        XCTAssertEqual(state.commitComparison?.baseNode?.oid, target)
+        XCTAssertEqual(state.commitComparison?.targetNode?.oid, base)
+
+        let gone = ObjectID(String(repeating: "9", count: 40))!
+        state.showCommitFromComparison(gone)
+        XCTAssertNotNil(state.commitComparison, "nothing to open: S-12 stays")
+        XCTAssertEqual(state.selection, .commit(base))
+    }
+
     /// #405: a security stop on the worktree list closes S-12 even without S-11, cancelling its loads and patch; any
     /// other list failure leaves it as it is (two commits do not go out of date).
     func testASecurityStopClosesItAlone() async throws {
@@ -234,6 +252,29 @@ final class CommitComparisonModelTests: XCTestCase {
 
         session.showsAllFiles = true
         XCTAssertEqual(CommitComparisonModel(session: session) { _ in nil }.rows.count, files.count)
+    }
+
+    /// #428: BASE and TARGET dropped from the graph after S-12 opened keep what they showed then, marked as not in the
+    /// graph; a snapshot of another commit is never used.
+    func testRowsDroppedFromTheGraphKeepTheirOpeningTexts() {
+        func node(_ character: Character, _ subject: String) -> CommitNode {
+            CommitNode(
+                oid: oid(character), parents: [], authorName: "Ann", authorEmail: "a@example.com",
+                authorDate: Date(timeIntervalSince1970: 0), subject: subject)
+        }
+        let session = CommitComparisonSession(
+            base: oid("a"), target: oid("b"), baseNode: node("a", "base subject"), targetNode: node("c", "other"))
+        let gone = CommitComparisonModel(session: session) { _ in nil }
+        XCTAssertEqual(gone.base.subject, "base subject")
+        XCTAssertEqual(gone.base.author, "Ann")
+        XCTAssertFalse(gone.base.isInGraph)
+        XCTAssertTrue(gone.base.accessibilityLabel.hasSuffix(", Not in the graph"), gone.base.accessibilityLabel)
+        XCTAssertEqual(gone.target.subject, "", "a snapshot of another commit is not used")
+        XCTAssertFalse(gone.target.isInGraph)
+
+        let loaded = CommitComparisonModel(session: session) { $0 == oid("a") ? node("a", "rewritten") : nil }
+        XCTAssertEqual(loaded.base.subject, "rewritten", "the graph's row wins while it is loaded")
+        XCTAssertTrue(loaded.base.isInGraph)
     }
 
     func testLoadingText() {
