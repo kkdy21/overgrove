@@ -58,6 +58,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   the previous repository's interval.
 - The repository switcher shows the remote owner next to the name: the GitHub or Gitea owner, or GitLab namespace, of
   the repository whose issues the panel reads.
+- Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
+  that the app cannot read no longer drops the other hosts gh is logged in to.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

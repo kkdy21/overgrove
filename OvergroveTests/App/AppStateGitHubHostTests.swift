@@ -197,6 +197,37 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
     }
 
+    // MARK: Enterprise Managed Users (#486)
+
+    /// #486: an Enterprise Managed User's personal repository on github.com is read, and the account is shown.
+    func testAnEnterpriseManagedUsersRepositoryIsRead() async throws {
+        let github = try XCTUnwrap(RemoteHost("github.com"))
+        let account = GHAccount(host: github, login: "mina_acme", otherCount: 0)
+        let issues = StubIssueLoader([.issues([IssueModelsTests.issue(12)])])
+        let checker = QueuedGHAuthReporter([
+            GHAuthReport(status: .loggedIn(login: "mina_acme"), hosts: [github], accounts: [github: account])
+        ])
+        let state = await loadedState(remotes: ["git@github.com:mina_acme/app.git"], issues: issues, checker: checker)
+        XCTAssertEqual(issues.requests, ["mina_acme/app"])
+        XCTAssertEqual(state.ghStatus, .loggedIn(login: "mina_acme"))
+        XCTAssertEqual(state.ghAccount, account)
+    }
+
+    /// #486: github.com's state that could not be read (an odd login) does not drop the other hosts: a GitHub
+    /// Enterprise host gh is logged in to is still trusted and read, with its account.
+    func testAnUnreadGitHubDotComStateKeepsTheOtherHosts() async throws {
+        let github = try XCTUnwrap(RemoteHost("github.com"))
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let account = GHAccount(host: ghe, login: "me", otherCount: 0)
+        let issues = StubIssueLoader([.issues([issue])])
+        let checker = QueuedGHAuthReporter([GHAuthReport(status: nil, hosts: [github, ghe], accounts: [ghe: account])])
+        let state = await loadedState(remotes: ["git@ghe.example:team/app.git"], issues: issues, checker: checker)
+        XCTAssertNil(state.ghStatus)
+        XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
+        XCTAssertEqual(state.issueListModel.account, account)
+        XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
+    }
+
     // MARK: GitLab (#154, ADR-0026)
 
     private let gitlabIssue = IssueModelsTests.issue(
