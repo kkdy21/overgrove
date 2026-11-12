@@ -1313,7 +1313,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "응용 프로그램(.app)을 고르세요."
+            "value" : "앱(.app)을 고르세요."
           }
         }
       }
@@ -5417,7 +5417,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "응용 프로그램에 실행 파일이 없습니다."
+            "value" : "앱에 실행 파일이 없습니다."
           }
         }
       }
