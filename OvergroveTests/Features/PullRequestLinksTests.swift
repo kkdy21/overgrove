@@ -168,4 +168,41 @@ final class PullRequestLinksTests: XCTestCase {
         ])
         XCTAssertEqual(remotes, ["origin": fork, "upstream": team])
     }
+
+    /// #548: NFC and NFD spellings of a local branch are two branches to git; each gets only its own pull request.
+    func testCanonicallyEquivalentLocalBranchesKeepTheirOwnPullRequests() {
+        let nfc = "caf\u{E9}"
+        let nfd = "cafe\u{301}"
+        let links = index(
+            [Self.pullRequest(1, branch: nfc), Self.pullRequest(2, branch: nfd)], [Self.branch(nfc), Self.branch(nfd)])
+        XCTAssertEqual(links.pullRequest(forBranch: "refs/heads/\(nfc)")?.number, 1)
+        XCTAssertEqual(links.pullRequest(forBranch: "refs/heads/\(nfd)")?.number, 2)
+        // Only the NFD branch has a PR: the NFC branch shows none, in either listing order.
+        for branches in [[Self.branch(nfc), Self.branch(nfd)], [Self.branch(nfd), Self.branch(nfc)]] {
+            let only = index([Self.pullRequest(2, branch: nfd)], branches)
+            XCTAssertNil(only.pullRequest(forBranch: "refs/heads/\(nfc)"))
+            XCTAssertEqual(only.pullRequest(forBranch: "refs/heads/\(nfd)")?.number, 2)
+        }
+    }
+
+    /// #548: two remote names git tells apart but `String` equates (`K` and KELVIN SIGN, NFC and NFD) are both left
+    /// out, whatever their order and whether or not the other one is on GitHub. The same name listed twice keeps its
+    /// first URL.
+    func testRemoteNamesThatOnlyStringEqualityConfusesAreBothLeftOut() {
+        let github = "https://github.com/team/app"
+        let gitlab = "https://gitlab.com/team/app"
+        for pair in [("K", "\u{212A}"), ("caf\u{E9}", "cafe\u{301}")] {
+            for (first, second) in [(pair.0, pair.1), (pair.1, pair.0)] {
+                for urls in [(github, github), (github, gitlab), (gitlab, github)] {
+                    let remotes = GitHubRemote.repositories(remotes: [
+                        (name: first, url: urls.0), (name: second, url: urls.1),
+                        (name: "origin", url: "git@github.com:me/app.git"),
+                    ])
+                    XCTAssertEqual(remotes, ["origin": fork], "\(Array(first.utf8)) \(urls)")
+                }
+            }
+        }
+        XCTAssertEqual(
+            GitHubRemote.repositories(remotes: [(name: "K", url: github), (name: "K", url: gitlab)]), ["K": team])
+    }
 }

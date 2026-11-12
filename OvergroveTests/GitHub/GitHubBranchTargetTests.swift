@@ -126,18 +126,14 @@ final class GitHubBranchTargetTests: XCTestCase {
         XCTAssertEqual(
             GitHubBranchTarget.forLocal(local("a", remote: "caf\u{E9}", merge: "refs/heads/a"), remotes: remotes)?
                 .repository, original)
-        // Both spellings configured: `repositories` keeps one of them (String keys fold), and neither upstream reaches
-        // the other spelling's repository.
+        // Both spellings configured: neither is kept (#548), so neither upstream reaches a repository.
         let both = GitHubRemote.repositories(remotes: [
             (name: "\u{212A}", url: "https://github.com/evil/app"), (name: "K", url: "https://github.com/me/app"),
         ])
-        XCTAssertEqual(both.count, 1)
-        XCTAssertNil(
-            GitHubBranchTarget.forLocal(local("a", remote: "K", merge: "refs/heads/a"), remotes: both),
-            "ASCII K never opens the KELVIN SIGN remote's repository")
-        XCTAssertEqual(
-            GitHubBranchTarget.forLocal(local("a", remote: "\u{212A}", merge: "refs/heads/a"), remotes: both)?
-                .repository.owner, "evil")
+        XCTAssertEqual(both, [:])
+        for name in ["K", "\u{212A}"] {
+            XCTAssertNil(GitHubBranchTarget.forLocal(local("a", remote: name, merge: "refs/heads/a"), remotes: both))
+        }
         // The stored key is the non-ASCII one: an ASCII upstream does not reach it either.
         XCTAssertNil(
             GitHubBranchTarget.forLocal(local("a", remote: "K", merge: "refs/heads/a"), remotes: ["\u{212A}": fork]))

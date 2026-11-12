@@ -30,13 +30,29 @@ enum GitHubRemote {
 
     /// Every remote whose URL is a GitHub repository on a trusted host, by name. A name listed twice keeps its first
     /// URL.
+    ///
+    /// A `String` key folds canonical equivalence, so two names git tells apart (`K` and KELVIN SIGN U+212A, or NFC
+    /// and NFD) cannot both be keys (#548). Neither is kept: which spelling came first in the configuration must not
+    /// decide which repository a look-alike name gets, and `repository(named:in:)` would refuse the other spelling
+    /// anyway. Such names only come from a hand-edited config; their rows get no GitHub link or pull request.
     static func repositories(
         remotes: [(name: String, url: String)], trusting hosts: TrustedHosts = publicOnly
     ) -> [String: GitHubRepository] {
+        // The first spelling of each `String`-equal class, in bytes, whether or not it is on GitHub, so the outcome does
+        // not depend on configuration order.
+        var spelling: [String: [UInt8]] = [:]
+        var ambiguous = Set<String>()
         var result: [String: GitHubRepository] = [:]
-        for remote in remotes where result[remote.name] == nil {
+        for remote in remotes {
+            let bytes = Array(remote.name.utf8)
+            if let first = spelling[remote.name] {
+                if first != bytes { ambiguous.insert(remote.name) }
+                continue  // The same name again keeps its first URL.
+            }
+            spelling[remote.name] = bytes
             if let repository = repository(fromURL: remote.url, trusting: hosts) { result[remote.name] = repository }
         }
+        for name in ambiguous { result[name] = nil }
         return result
     }
 
