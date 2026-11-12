@@ -54,6 +54,20 @@ final class GraphRowModelTests: XCTestCase {
         XCTAssertFalse(pills.values.joined().contains { $0.title == "origin/HEAD" }, "symbolic refs are not drawn")
     }
 
+    /// #432: a tag of a tree or blob has no row, so it draws no pill, not even on a commit with the same OID.
+    func testTagsOfATreeOrBlobDrawNoPill() {
+        let refs = listing(
+            branches: [],
+            tags: [
+                Tag(fullName: "refs/tags/tree", target: a, peeledTarget: nil, date: nil, objectType: .tree),
+                Tag(fullName: "refs/tags/blob", target: c, peeledTarget: b, date: nil, objectType: .blob),
+                Tag(fullName: "refs/tags/v1", target: a, peeledTarget: nil, date: nil),
+            ])
+        let pills = GraphRefDecorations.make(refs: refs, worktrees: [], focused: nil)
+        XCTAssertEqual(pills[a]?.map(\.title), ["v1"])
+        XCTAssertNil(pills[b])
+    }
+
     func testFocusedDetachedWorktreeComesFirstAndHostileNamesAreEscaped() {
         let refs = listing(branches: [branch("refs/heads/main", a)])
         let worktrees = [worktree("/tmp/dev/wt\u{202E}evil", branch: nil, head: a)]

@@ -4462,6 +4462,36 @@
         }
       }
     },
+    "Points to a file, not a commit (%@)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋이 아닌 파일을 가리킴 (%@)"
+          }
+        }
+      }
+    },
+    "Points to a tree, not a commit (%@)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋이 아닌 트리를 가리킴 (%@)"
+          }
+        }
+      }
+    },
+    "Points to another tag, not a commit (%@)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋이 아닌 다른 태그를 가리킴 (%@)"
+          }
+        }
+      }
+    },
     "Previous match" : {
       "localizations" : {
         "ko" : {

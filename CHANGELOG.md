@@ -62,6 +62,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   install since the last check shows the host's issues without restarting the app. Auto refresh still does not run gh.
 - Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
   that the app cannot read no longer drops the other hosts gh is logged in to.
+- A tag of a tree or a file says so in TAGS instead of showing as a commit, and choosing it no longer clears the
+  graph selection while the detail panel keeps the old commit.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
