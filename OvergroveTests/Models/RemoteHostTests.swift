@@ -39,6 +39,31 @@ final class RemoteHostTests: XCTestCase {
         }
     }
 
+    /// SEC-T9-487-1 (#487): GitHub's SSH-over-443 endpoint is github.com. Only that host on port 443 in the ssh form is aliased;
+    /// other ports, other forms, and look-alike hosts keep the host they name.
+    func testSECT9_487_1_SSHOverPort443IsGitHubDotCom() {
+        for url in ["ssh://git@ssh.github.com:443/team/app.git", "ssh://git@SSH.GitHub.com:443/team/app"] {
+            let remote = HostedRemoteURL(url)
+            XCTAssertEqual(remote?.host.name, "github.com", url)
+            XCTAssertEqual(remote?.pathSegments, ["team", "app"], url)
+            XCTAssertEqual(remote?.isHTTPS, false, url)
+        }
+        for (url, host) in [
+            ("ssh://git@ssh.github.com/team/app", "ssh.github.com"),
+            ("ssh://git@ssh.github.com:22/team/app", "ssh.github.com"),
+            ("ssh://git@ssh.github.com:0443/team/app", "ssh.github.com"),
+            ("git@ssh.github.com:team/app.git", "ssh.github.com"),
+            ("https://ssh.github.com/team/app", "ssh.github.com"),
+            ("ssh://git@ssh.gitlab.com:443/team/app", "ssh.gitlab.com"),
+            ("ssh://git@altssh.gitlab.com:443/team/app", "altssh.gitlab.com"),
+            ("ssh://git@ssh.github.com.evil.example:443/team/app", "ssh.github.com.evil.example"),
+            ("ssh://git@x.ssh.github.com:443/team/app", "x.ssh.github.com"),
+            ("ssh://git@ssh.ghe.example:443/team/app", "ssh.ghe.example"),
+        ] {
+            XCTAssertEqual(HostedRemoteURL(url)?.host.name, host, url)
+        }
+    }
+
     /// SEC-T9-117-01 (URL): anything outside the three forms, or a host that is not a DNS name, is not a hosted remote.
     func testSECT9_117_01_OtherURLsAreNotHostedRemotes() {
         for url in [

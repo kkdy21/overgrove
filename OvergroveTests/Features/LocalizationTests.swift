@@ -117,7 +117,7 @@ final class LocalizationTests: XCTestCase {
             "Renamed from %@", "Renamed from %@ (%lld%%)", "Copied from %@", "Copied from %@ (%lld%%)",
             "Mode %@ → %@",
             "Symbolic link: the link target text is shown",
-            "%@ more characters",
+            "%@ more character", "%@ more characters",
         ]
         let strings = try catalogStrings()
         for key in expected {

@@ -9,6 +9,8 @@ final class GitHubRemoteTests: XCTestCase {
             "https://github.com/kkdy21/overgrove", "https://github.com/kkdy21/overgrove.git",
             "git@github.com:kkdy21/overgrove.git", "git@github.com:kkdy21/overgrove",
             "ssh://git@github.com/kkdy21/overgrove.git", "ssh://git@github.com:22/kkdy21/overgrove",
+            // GitHub's SSH-over-443 endpoint (#487).
+            "ssh://git@ssh.github.com:443/kkdy21/overgrove.git",
             // ADR-0025 §2: the host is lowercased before it is compared.
             "https://GitHub.com/kkdy21/overgrove",
         ] {

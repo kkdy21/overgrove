@@ -79,10 +79,12 @@ final class AppStateCacheTriggerTests: XCTestCase {
     private let feature = GitPath("/tmp/dev/api-wt/42-rate-limit")
     private let login = GitPath("/tmp/dev/api-wt/login")
 
-    private func makeState(_ loader: TriggerRecordingLoader) -> AppState {
+    private func makeState(
+        _ loader: TriggerRecordingLoader, comparisonLoader: StubComparisonLoader = StubComparisonLoader()
+    ) -> AppState {
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: loader)
+            loader: loader, comparisonLoader: comparisonLoader)
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         state.open(
             RepositoryContext(
@@ -194,6 +196,29 @@ final class AppStateCacheTriggerTests: XCTestCase {
         loader.release(attempts, with: .mockup)
         await state.loadTask?.value
         XCTAssertEqual(state.worktreeList, .loaded(.mockup))
+    }
+
+    /// #412 C: S-11 opened on the cached paint goes stale when the repeatedly superseded first load takes the list
+    /// down, and the comparison it started is dropped like after a failed load (interaction.md §4.1).
+    func testRepeatedlySupersededFirstLoadDropsTheComparison() async {
+        let loader = TriggerRecordingLoader(cached: .mockup)
+        let state = makeState(loader)
+        state.reload()
+        await loader.waitForRequests(1)
+        guard case .loaded = state.worktreeList else { return XCTFail("the cached listing is painted") }
+        state.selectWorktree(feature)
+        state.showComparison()
+        XCTAssertNotNil(state.comparisonTask)
+        let attempts = 1 + AppState.maximumSupersededRetries
+        for index in 0..<attempts {
+            await loader.waitForRequests(index + 1)
+            loader.release(index, with: nil)
+        }
+        await state.loadTask?.value
+        XCTAssertEqual(state.worktreeList, .loading)
+        XCTAssertNotNil(state.comparison, "S-11 stays open")
+        XCTAssertEqual(state.comparisonModel?.staleNotice, ComparisonModel.listFailedNotice)
+        XCTAssertNil(state.comparisonTask, "the comparison asked on the cached paint is dropped")
     }
 
     // MARK: Worktree selection

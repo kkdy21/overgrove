@@ -217,22 +217,23 @@ stash@{0}␀9db73c1d…␀On feat/x: exp: try␀1793853652␀0f047e0d… 64575ab
 
 ---
 
-## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)%00%(upstream:remotename)%00%(upstream:remoteref)`
+## 6. RefParser — `for-each-ref --format=%(refname)%00%(objectname)%00%(*objectname)%00%(upstream)%00%(HEAD)%00%(creatordate:unix)%00%(symref)%00%(upstream:track,nobracket)%00%(upstream:remotename)%00%(upstream:remoteref)%00%(objecttype)%00%(*objecttype)`
 
-**형식.** 레코드는 LF로 끝나고, 필드 10개는 NUL로 나눈다. refname에는 제어 문자가 들어갈 수 없으므로(`check-ref-format` 규칙) LF 구분이 안전하다. 예시는 Apple Git 2.54.0, `LC_ALL=C` 출력이다.
+**형식.** 레코드는 LF로 끝나고, 필드 12개는 NUL로 나눈다. refname에는 제어 문자가 들어갈 수 없으므로(`check-ref-format` 규칙) LF 구분이 안전하다. 예시는 Apple Git 2.54.0, `LC_ALL=C` 출력이다.
 
 ```
-refs/heads/both␀2880404c…␀␀refs/remotes/origin/both␀ ␀1793853652␀␀ahead 1, behind 2␀origin␀refs/heads/both
-refs/heads/main␀9692941d…␀␀refs/remotes/origin/main␀*␀1793853652␀␀␀origin␀refs/heads/main
-refs/remotes/origin/HEAD␀9692941d…␀␀␀ ␀1793853652␀refs/remotes/origin/main␀␀␀
-refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀␀␀
+refs/heads/both␀2880404c…␀␀refs/remotes/origin/both␀ ␀1793853652␀␀ahead 1, behind 2␀origin␀refs/heads/both␀commit␀
+refs/heads/main␀9692941d…␀␀refs/remotes/origin/main␀*␀1793853652␀␀␀origin␀refs/heads/main␀commit␀
+refs/remotes/origin/HEAD␀9692941d…␀␀␀ ␀1793853652␀refs/remotes/origin/main␀␀␀␀commit␀
+refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀␀␀␀tag␀commit
+refs/tags/tree-tag␀4b825dc6…␀␀␀ ␀␀␀␀␀␀tree␀
 ```
 
 | 필드 | 규칙 |
 |---|---|
 | `%(refname)` | `refs/heads/`, `refs/remotes/`, `refs/tags/`로 분류. 그 밖의 접두사는 무시 |
 | `%(objectname)` | OID. 주석 태그는 태그 객체 OID |
-| `%(*objectname)` | 주석 태그가 가리키는 커밋 OID. 경량 태그·브랜치는 빈 값 (확인) |
+| `%(*objectname)` | 주석 태그가 가리키는 객체 OID(보통 커밋). 경량 태그·브랜치는 빈 값 (확인) |
 | `%(upstream)` | 전체 ref 이름 또는 빈 값 |
 | `%(HEAD)` | `*`(메인 워크트리가 체크아웃한 브랜치) 또는 공백 |
 | `%(creatordate:unix)` | epoch 초. 커밋(브랜치, 가벼운 태그)은 committer 날짜, 주석 태그는 tagger 날짜다. `committerdate`는 주석 태그에서 비어 있어 TAGS 정렬에 쓸 수 없었다(#377). 그래도 비어 있을 수 있다(tagger 없는 태그 객체) |
@@ -240,12 +241,15 @@ refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀␀␀
 | `%(upstream:track,nobracket)` | 빈 값, `ahead N`, `behind M`, `ahead N, behind M`, `gone` 다섯 가지(#54, Apple Git 2.54.0 확인). 빈 값은 `%(upstream)`이 있으면 "같음", 없으면 "upstream 없음"이다. upstream 없이 값이 있으면 형식 위반이다 |
 | `%(upstream:remotename)` | `branch.<n>.remote`. 원격 이름 전체(`/`가 들어갈 수 있다), 로컬 upstream은 `.`, 없으면 빈 값(#115, Apple Git 2.54.0·git 2.36.6 확인). 로컬 브랜치에서만 읽는다 |
 | `%(upstream:remoteref)` | `branch.<n>.merge`. 그 원격의 전체 ref 이름(`refs/heads/feature`) 또는 빈 값. 로컬 브랜치에서만 읽는다 |
+| `%(objecttype)` | `commit`, `tree`, `blob`, `tag` 중 하나(#432). 그 밖의 값과 빈 값은 형식 위반이다 |
+| `%(*objecttype)` | 태그 객체가 가리키는 객체의 타입. `%(*objectname)`이 있을 때만 있고, 그때 `%(objecttype)`은 `tag`다. 셋이 어긋나면 형식 위반이다. Apple Git 2.54.0은 태그의 태그를 끝까지 벗기고(`commit`, 확인), 한 단계만 벗기는 git은 `tag`를 준다 |
 
 - refname, `%(upstream)`, `%(symref)`는 git 인자로 되돌아갈 수 있으므로 손실 디코딩하지 않는다. git은 이런 이름을 허용하므로 형식 위반이 아니라 내용 문제로 다룬다. refname이나 `%(upstream)`이 올바른 UTF-8이 아니거나 `FullRefName` 검증(`-`로 시작하는 구성 요소, `..`, `.lock` 등)을 통과하지 못하면 그 레코드만 건너뛰고 `skippedRecords`를 올린다(UI는 비차단 경고). upstream이 있는 브랜치를 "upstream 없음"으로 보이지 않기 위해서다. `%(symref)`가 그렇다면 `symbolicTarget`만 비운다. 다른 필드의 형식 위반은 이 레코드에서도 전체 실패다.
 - `%(upstream:remotename)`·`%(upstream:remoteref)`는 PR head 저장소·브랜치와 맞춰 보는 데만 쓰고 git 인자로 되돌리지 않는다(ADR-0023 §4). 올바른 UTF-8이 아니면 그 값만 비우고 레코드는 남긴다.
 - `%(HEAD)`는 `*` 또는 공백 한 글자, 날짜는 부호 없는 10진수 또는 빈 값, 카운트는 부호 없는 10진수만 허용한다.
 - 원격 이름은 `refs/remotes/` 뒤 첫 구성 요소로 정한다. 원격 이름에 `/`가 들어간 경우는 `configList`의 원격 목록과 맞춰 보정한다.
 - 잘린 출력은 LF로 끝나지 않은 마지막 레코드만 버리고 `isPartial`을 표시한다.
+- 태그의 `objectType`은 주석 태그면 `%(*objecttype)`, 경량 태그면 `%(objecttype)`이다. `commit`이 아닌 태그(tree·blob, 한 단계만 벗긴 태그의 태그)는 `Tag.commit`이 `nil`이다. 그래프에 행이 없으므로 알약을 그리지 않고, TAGS 행은 무엇을 가리키는지 보이며 눌러도 선택을 바꾸지 않는다(#432).
 - 결과 모델: `Branch.upstreamStatus`(`UpstreamStatus`)가 ahead/behind를 담는다. upstream 이름은 전체 ref 이름이다. 사이드바 LOCAL의 `↑n ↓n`은 이 값을 쓰고, 브랜치마다 `rev-list`를 실행하지 않는다(#167 S5).
 
 연결 워크트리에서 체크아웃한 브랜치는 `WorktreeParser` 결과의 `branch`와 맞춰 표시한다.
@@ -259,6 +263,7 @@ refs/tags/v1␀4fa02a16…␀9692941d…␀␀ ␀␀␀␀␀
 | PAR-REF-05 | upstream 없음 |
 | PAR-REF-06 | `%(upstream:track,nobracket)` 다섯 경우, 형식 위반 → 실패 |
 | PAR-REF-07 | `%(upstream:remotename)`·`%(upstream:remoteref)`: `/`가 든 원격 이름, 로컬 upstream `.`, upstream 없음, 원격 추적 ref는 무시, UTF-8 아님 → 그 값만 비움 |
+| PAR-REF-08 | `%(objecttype)`·`%(*objecttype)`: 경량·주석 태그의 tree·blob, 태그의 태그(`tag`)는 커밋 없음, 모르는 타입·빈 타입·peel 필드와 타입이 어긋남 → 실패 (#432) |
 
 ---
 
