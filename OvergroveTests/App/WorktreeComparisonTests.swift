@@ -156,6 +156,21 @@ final class WorktreeComparisonTests: XCTestCase {
         XCTAssertEqual(comparison.commits.map(\.subject), ["feature work"])
     }
 
+    /// #427: detached HEAD and a branch at the same commit are different comparisons. Ahead/behind is counted only on
+    /// a branch, so the cached result of one is not reused for the other.
+    func testDetachingAtTheSameCommitIsANewComparison() async throws {
+        let onBranch = try await compare(base: main, includeWorkingTree: false)
+        XCTAssertNotNil(onBranch.counts)
+
+        try await repository.git(["-C", feature.path, "switch", "-q", "--detach"])
+        let detached = try await compare(base: main, includeWorkingTree: false)
+        XCTAssertNil(detached.counts, "detached at the same commit: no ahead/behind")
+
+        try await repository.git(["-C", feature.path, "switch", "-q", "feature"])
+        let back = try await compare(base: main, includeWorkingTree: false)
+        XCTAssertEqual(back.counts, onBranch.counts, "on the branch again: ahead/behind again")
+    }
+
     func testPatchOfOneFile() async throws {
         let path = try await featurePath()
         let result = await service.comparePatch(

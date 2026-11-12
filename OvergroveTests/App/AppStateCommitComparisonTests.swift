@@ -176,6 +176,30 @@ final class AppStateCommitComparisonTests: XCTestCase {
         }
     }
 
+    /// #414: choosing the already focused worktree closes S-12 too, by every route that shows its changes or info:
+    /// the sidebar row, `⌘↑`, `⌘I`, and the row menu's Show Changes / Show Info.
+    func testChoosingTheFocusedWorktreeClosesIt() async throws {
+        let state = try await loadedState()
+        let focused = try XCTUnwrap(state.focusedWorktreePath)
+        let routes: [(String, (AppState) -> Void)] = [
+            ("the sidebar row", { $0.selectWorktree(focused) }),
+            ("⌘↑", { $0.selectFocusedWip() }),
+            ("⌘I", { $0.toggleWorktreeInfo() }),
+            ("Show Changes", { $0.showWorktree(focused, info: false) }),
+            ("Show Info", { $0.showWorktree(focused, info: true) }),
+        ]
+        for (name, route) in routes {
+            state.selectCommit(base)
+            state.showCommitComparison(with: target)
+            XCTAssertNotNil(state.commitComparison)
+            route(state)
+            XCTAssertNil(state.commitComparison, "\(name) closes S-12")
+            XCTAssertNil(state.commitComparisonTask, "\(name) cancels its loads")
+            XCTAssertEqual(state.focusedWorktreePath, focused)
+            XCTAssertEqual(state.selection?.worktreePath, focused, "\(name) shows that worktree")
+        }
+    }
+
     /// #405: a security stop on the worktree list closes S-12 even without S-11, cancelling its loads and patch; any
     /// other list failure leaves it as it is (two commits do not go out of date).
     func testASecurityStopClosesItAlone() async throws {
