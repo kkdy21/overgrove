@@ -72,11 +72,12 @@ chmod +x "$gh_stubs/gh"
 # run <name> [VAR=value …] -- [bootstrap arguments]: runs bootstrap in a fresh repository with the default stub answers
 # (a supported machine), overridden by the given variables. With preset_hooks=1, the repository already has
 # core.hooksPath=.githooks. With no_git=1, the copy of bootstrap is not in a Git repository at all. bootstrap runs from
-# the repository unless cwd names another directory. Sets $repo, $out, and $code.
+# the repository unless cwd names another directory, and as script names it (default: the repository's copy). The
+# repository is made under base (default $work). Sets $repo, $out, and $code.
 run() {
   local name="$1"
   shift
-  repo="$work/repo-$name"
+  repo="${base:-$work}/repo-$name"
   mkdir -p "$repo/scripts"
   if [[ "${no_git:-0}" != 1 ]]; then git init -q "$repo"; fi
   if [[ "${preset_hooks:-0}" == 1 ]]; then git -C "$repo" config core.hooksPath .githooks; fi
@@ -93,7 +94,7 @@ run() {
   done
   [[ "${1:-}" == "--" ]] && shift
   set +e
-  out=$(cd "${cwd:-$repo}" && env -i "${vars[@]}" bash "$repo/scripts/bootstrap.sh" "$@" </dev/null 2>&1)
+  out=$(cd "${cwd:-$repo}" && env -i "${vars[@]}" bash "${script:-$repo/scripts/bootstrap.sh}" "$@" </dev/null 2>&1)
   code=$?
   set -e
 }
@@ -271,6 +272,62 @@ no_git=1 run loose-build -- --build
 expect "clone: a copy outside any clone still checks the build" 0 "Ready to build"
 no_git=1 run loose-contributor "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
 expect "clone: a copy outside any clone cannot install the hooks" 1 "not in a Git clone" "git clone"
+
+# A loose copy unpacked inside another repository (an archive under a home kept as a dotfiles repository) is not a
+# clone of its own: the outer repository is left alone, and nothing is made executable there (#535).
+outer="$work/outer-repo"
+git init -q "$outer"
+mkdir -p "$outer/scripts"
+printf '#!/bin/sh\n' >"$outer/scripts/outer.sh"
+base="$outer" no_git=1 run nested-loose "PATH=$optional_stubs:$stubs:/usr/bin:/bin" -- --yes
+expect "clone: a loose copy inside another repository cannot install the hooks" 1 "not in a Git clone"
+if [[ -z "$(git -C "$outer" config --get core.hooksPath || true)" && ! -x "$outer/scripts/outer.sh" ]]; then
+  pass "clone: the outer repository is left alone"
+else
+  failed "clone: the outer repository is left alone"
+fi
+
+# The clone reached through a path typed in another case, on a case-insensitive disk (the macOS default): rev-parse
+# prints the stored case, the typed path keeps the typed one, and it is still the same clone (review of #536).
+mkdir -p "$work/case"
+if [[ -d "$work/CASE" ]]; then
+  base="$work/case" cwd="$work/CASE/repo-cased" script="$work/CASE/repo-cased/scripts/bootstrap.sh" \
+    run cased "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
+  expect "clone: a path typed in another case is still the clone" 0 "Ready to contribute"
+  if [[ "$(hooks_path)" == ".githooks" ]]; then
+    pass "clone: a path typed in another case installs the hooks"
+  else
+    failed "clone: a path typed in another case installs the hooks"
+  fi
+else
+  pass "clone: a path typed in another case (skipped: case-sensitive disk)"
+fi
+
+# A clone path with a space. When the hook path cannot be written, the suggested command works when pasted.
+mkdir -p "$work/with space"
+base="$work/with space" run spaced "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
+expect "clone: a path with a space installs the hooks" 0 "Ready to contribute"
+spaced_repo="$work/with space/repo-spaced-fail"
+mkdir -p "$spaced_repo/scripts"
+git init -q "$spaced_repo"
+cp "$here/bootstrap.sh" "$spaced_repo/scripts/"
+chmod a-w "$spaced_repo/.git"
+set +e
+out=$(cd "$spaced_repo" && env -i "PATH=$optional_stubs:$stubs:/usr/bin:/bin" "HOME=$work/home" \
+  "GIT_CONFIG_GLOBAL=$empty_git_config" GIT_CONFIG_NOSYSTEM=1 STUB_MACOS=14.6 \
+  STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer "STUB_XCODE=Xcode 26.1" STUB_LICENSE=ok STUB_FIRSTLAUNCH=ok \
+  "STUB_GIT=git version 2.39.5 (Apple Git-154)" bash "$spaced_repo/scripts/bootstrap.sh" --yes </dev/null 2>&1)
+code=$?
+set -e
+chmod u+w "$spaced_repo/.git"
+fix=$(printf '%s\n' "$out" | sed -n 's/.*could not set core.hooksPath. Run: //p' | head -1)
+if [[ $code -eq 1 && -n "$fix" ]] && (cd "$work" && eval "$fix") &&
+  [[ "$(git -C "$spaced_repo" config --get core.hooksPath || true)" == ".githooks" ]]; then
+  pass "clone: the suggested git config command works when pasted, even with a space in the path"
+else
+  failed "clone: the suggested git config command works when pasted (exit $code, got: $fix)"
+  printf '%s\n' "$out" | sed 's/^/     | /'
+fi
 
 # --- Wording and usage ---------------------------------------------------------------------------------------------
 

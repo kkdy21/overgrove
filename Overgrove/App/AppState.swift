@@ -153,6 +153,9 @@ final class AppState {
     var ghCheckGeneration = 0
     /// A gh login check is running.
     var isCheckingGitHub = false
+    /// When the app's gh check in flight started; a setup assistant check that started earlier does not replace it
+    /// (#488).
+    var ghCheckStartedAt: ContinuousClock.Instant?
     /// The hosts whose GitHub remotes gh may be asked about (ADR-0025 §1): github.com, plus the hosts gh reported a
     /// login for at the last successful check.
     var trustedGitHubHosts = GitHubRemote.publicOnly
@@ -327,6 +330,9 @@ final class AppState {
         autoFetch = AutoFetchScheduler(settings: self.settings, fetch: fetch)
         fetch.onFinished = { [weak self] in self?.refresh(.fetchCompleted) }
         issuePanel.onLoaded = { [weak self] issues in self?.issuesDidLoad(issues) }
+        // S-07's gh check is the app's too (#488).
+        setup.onGitHubReport = { [weak self] report, started in self?.gitHubReportFromSetup(report, startedAt: started)
+        }
         autoRefresh.request = { [weak self] change in self?.requestAutoRefresh(change) ?? false }
         stopFetchWhenUntrusted()
     }
