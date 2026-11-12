@@ -54,8 +54,8 @@ struct IssueLinkIndex: Equatable {
                     path: entry.worktree.path,
                     title: PathValidator.displayable(entry.worktree.branchShortName ?? branch)))
         }
-        // Longest configured remote first, so `team/a` wins over `team` (as in `BranchListModel`).
-        let configured = listing.remoteNames.sorted { $0.utf8.count > $1.utf8.count }
+        // The longest configured remote wins, so `team/a` owns `team/a/x`, not `team` (as in `BranchListModel`).
+        let configured = RemoteNameIndex(listing.remoteNames)
         for branch in listing.refs?.branches ?? [] where branch.symbolicTarget == nil {
             let isRemote = branch.kind != .local
             // A remote branch's first part is the remote name; the branch rule then reads the rest.
@@ -90,8 +90,8 @@ struct IssueLinkIndex: Equatable {
 
     /// `origin/feat/12-x` → `feat/12-x`: a configured remote's name (which may contain `/`, or look like `99-x`) is
     /// cut byte-exactly; otherwise the first segment.
-    private static func dropRemote(_ shortName: String, configured: [String]) -> String {
-        if let remote = configured.first(where: { shortName.utf8.starts(with: ($0 + "/").utf8) }) {
+    private static func dropRemote(_ shortName: String, configured: RemoteNameIndex) -> String {
+        if let remote = configured.remote(of: shortName) {
             return String(decoding: shortName.utf8.dropFirst(remote.utf8.count + 1), as: UTF8.self)
         }
         guard let slash = shortName.firstIndex(of: "/") else { return shortName }
