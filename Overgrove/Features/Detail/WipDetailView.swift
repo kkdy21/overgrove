@@ -59,10 +59,8 @@ struct WipDetailView: View {
             .foregroundStyle(Tokens.Color.textSecondary)
             if model.changedFileCount > 0 {
                 HStack(spacing: Tokens.Spacing.sm) {
-                    Text(
-                        "\(WipDetailModel.formatted(model.changedFileCount)) changed \(model.changedFileCount == 1 ? "file" : "files")"
-                    )
-                    .foregroundStyle(Tokens.Color.textTertiary)
+                    Text(WipDetailModel.changedFilesText(model.changedFileCount))
+                        .foregroundStyle(Tokens.Color.textTertiary)
                     if let totals = model.lineTotals {
                         if let fraction = totals.addedFraction {
                             LineRatioBar(addedFraction: fraction)

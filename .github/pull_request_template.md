@@ -20,6 +20,7 @@ with STAND-IN(#<issue>) comments. See CONTRIBUTING.md, "When your issue depends 
 <!-- Commands you ran, tests added, fixtures used, screenshots for UI. -->
 
 - [ ] `xcodebuild test` passes locally (or N/A: no app code touched)
+- Local toolchain: <!-- The Xcode and macOS you built and tested with, e.g. "Xcode 26.1 (17B55), macOS 26.1", from `xcodebuild -version` and `sw_vers -productVersion`. N/A when no app code is touched. -->
 - [ ] New or changed behavior has tests (parser changes **must** include parser tests)
 
 ## Checklist / 체크리스트

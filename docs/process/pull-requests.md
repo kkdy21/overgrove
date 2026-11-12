@@ -32,6 +32,10 @@ Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으�
 - 이 검사는 실수를 막는 장치다. 통과한 뒤 의존 이슈가 다시 열려도 검사는 다시 돌지 않으므로, 메인테이너는 머지 직전에 의존 이슈 상태를 직접 확인한다.
 - 의존 이슈를 기다리는 PR은 Draft로 둔다. 절차는 [collaboration.md §4.1](collaboration.md#41-의존-이슈가-아직-끝나지-않았을-때)에 있다.
 
+`pr-policy`는 로컬 도구 버전도 본다(#507). 실패는 아니고 경고만 남긴다.
+- 템플릿의 `- Local toolchain:` 줄에 로컬에서 빌드하고 테스트한 Xcode와 macOS를 적는다. 예: `Xcode 26.1 (17B55), macOS 26.1`. `xcodebuild -version`과 `sw_vers -productVersion`으로 확인한다. `/pr-open`이 `xcodebuild test`를 돌릴 때 자동으로 채운다.
+- 앱 코드(`Overgrove/`, `OvergroveTests/`, `Overgrove.xcodeproj/`)를 건드린 Ready PR에서 이 줄이 비었거나 없거나, Xcode major가 CI(`ci.yml`의 `XCODE_MAJOR`)와 다르면 경고한다. Draft와 앱 코드를 건드리지 않은 PR은 보지 않는다.
+
 ## 3. 필수 상태 검사
 
 `main` 룰셋이 아래 세 검사의 통과를 요구한다. 브랜치는 최신 `main` 기준이어야 한다(strict).
@@ -39,7 +43,7 @@ Dependabot PR은 이슈 연결 규칙에서 예외다(`pr-policy`가 자동으�
 | 검사 | 워크플로우 | 내용 |
 |---|---|---|
 | `gitleaks` | `secret-scan.yml` | PR 커밋 범위의 비밀 정보·개인 경로 검사 |
-| `pr-policy` | `pr-policy.yml` | 제목, 연결 이슈, 브랜치명, 선점, 의존성 |
+| `pr-policy` | `pr-policy.yml` | 제목, 연결 이슈, 브랜치명, 선점, 의존성(로컬 도구 버전은 경고만) |
 | `build-test` | `ci.yml` | 도구 검증, 픽스처 스모크, (Phase 3 이후) swift-format lint, 빌드와 테스트 |
 
 `codeql`은 필수가 아니지만, 경고가 나오면 머지 전에 확인한다.

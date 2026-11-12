@@ -58,6 +58,10 @@ While the major version is `0`, minor versions may contain breaking changes.
   the previous repository's interval.
 - The repository switcher shows the remote owner next to the name: the GitHub or Gitea owner, or GitLab namespace, of
   the repository whose issues the panel reads.
+- Check Again and ⌘R on a "Not logged in to HOST" issue panel read gh's login list again, so a `gh auth login` or a gh
+  install since the last check shows the host's issues without restarting the app. Auto refresh still does not run gh.
+- Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
+  that the app cannot read no longer drops the other hosts gh is logged in to.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

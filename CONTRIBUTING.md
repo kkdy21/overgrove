@@ -205,6 +205,10 @@ scripts/lint/check-sec-ids.sh
 xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
 ```
 
+When you touch app code, fill the template's `Local toolchain` line with the Xcode and macOS you built and tested
+with (`xcodebuild -version`, `sw_vers -productVersion`), for example `Xcode 26.1 (17B55), macOS 26.1`. `/pr-open`
+fills it for you. CI builds with one Xcode major, so a different local one is worth knowing about.
+
 If you changed design tokens or the app icon, regenerate them (`swift scripts/tokens/generate.swift`,
 `scripts/render-app-icon.sh`) and commit the result.
 
@@ -213,7 +217,7 @@ If you changed design tokens or the app icon, regenerate them (`swift scripts/to
 | Check | What it runs |
 |---|---|
 | `gitleaks` (required) | Secret scan of the PR's commits |
-| `pr-policy` (required) | Conventional title, `Closes #n`, branch name, claim, and dependencies. A draft that builds on an unfinished issue fails here on purpose until that issue is done |
+| `pr-policy` (required) | Conventional title, `Closes #n`, branch name, claim, and dependencies. A draft that builds on an unfinished issue fails here on purpose until that issue is done. A ready PR that touches app code gets a warning (not a failure) when its `Local toolchain` line is empty or names another Xcode major than CI |
 | `build-test` (required) | Shell syntax of every script and hook; forbidden process APIs outside `Overgrove/Execution/`; no third-party dependencies; GitHub Actions pinned to full SHAs with minimal `permissions:`; secret-scanning settings; unique test IDs; the normal and malicious fixture repositories; `swift format lint`; design tokens and the app icon are up to date; the build, unit tests, and integration tests (including the minimum Git version) |
 | `codeql` | GitHub Actions workflow analysis |
 | `perf` | Opt-in performance tests; run by hand from the Actions tab or weekly on `main` |
