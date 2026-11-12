@@ -62,6 +62,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   install since the last check shows the host's issues without restarting the app. Auto refresh still does not run gh.
 - Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
   that the app cannot read no longer drops the other hosts gh is logged in to.
+- Sidebar remotes, branch folders, and branches whose names differ only in Unicode normalization (or by KELVIN SIGN)
+  open and close on their own instead of sharing one row's state.
 - A remote on GitHub's SSH-over-443 endpoint (`ssh://git@ssh.github.com:443/OWNER/NAME`) is read as github.com, so
   its issues and pull requests show instead of "Not logged in to ssh.github.com".
 - Check Again in the setup assistant also updates the status bar's gh field, the gh accounts, and the trusted GitHub
