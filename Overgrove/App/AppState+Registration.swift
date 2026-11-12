@@ -59,6 +59,12 @@ extension AppState {
             }
             return
         }
+        // Picking the open repository again keeps everything as it is (#497): a reload would reset the selection,
+        // history, search, filters and comparison.
+        if repository?.repository.id == entry.repository.id {
+            registry.lastSelected = id
+            return
+        }
         // No owner yet: the switcher takes it from the issue source a verified load picks (`displayedRepository`,
         // #477), never from remotes before they are inspected.
         open(RepositoryContext(repository: entry.repository, owner: nil))
