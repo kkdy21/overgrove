@@ -49,7 +49,7 @@ extension AppState {
             let commit = commitDetail.commit
         else { return nil }
         let source =
-            commit.oid.short + (commit.isMerge ? " · vs first parent" : "")
+            commit.oid.short + (commit.isMerge ? " · " + String(localized: "vs first parent") : "")
             + " · \(String((file.status ?? .modified).code))"
         let title: String =
             if case .loaded(let document) = state { document.title } else {
