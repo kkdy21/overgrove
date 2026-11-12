@@ -201,7 +201,7 @@ PB-1(워크트리 10개 목록과 상태 요약 1초 이내)은 4~5단계까지�
 | 커밋 상세 | 저장소 + object ID | 무효화 없음 (불변). 최대 200개 LRU, `forget`이면 함께 버림. 잘린 결과는 캐시하지 않는다. 파일 patch는 캐시하지 않는다. → #69 (`RepositoryService.commitDetail`, `CommitDetailStore`) |
 | 이슈 목록 | 저장소 원격(owner/name) | 다른 저장소를 열 때, 수동 새로고침(⌘R), Check Again. fetch 완료나 시간 경과로는 다시 받지 않는다. → #81 |
 | PR 목록 (v0.2.0) | 저장소 원격(owner/name) | 이슈 목록과 같은 시점: 다른 저장소를 열 때, 수동 새로고침(⌘R), Check Again. 실패해도 이슈 패널은 끄지 않고 PR 표시만 없앤다. → [ADR-0023](../adr/0023-pull-request-status-from-gh-pr-list.md), #115 |
-| 기준 브랜치 비교 (`WorktreeComparison`) | 워크트리 + 기준 ref + 기준 tip + HEAD (+ 작업 트리 포함이면 그 워크트리의 status 조회 시각) | 키가 바뀌면 새 항목. 커밋만 비교하면 불변이라 status가 새로 와도 유지하고, 작업 트리 포함이면 status를 다시 조회할 때 무효. 최대 32개 LRU, `forget`이면 함께 버림. → #157 |
+| 기준 브랜치 비교 (`WorktreeComparison`) | 워크트리 + 기준 ref + 기준 tip + HEAD + HEAD가 있는 로컬 브랜치(detached면 없음, #427) (+ 작업 트리 포함이면 그 워크트리의 status 조회 시각) | 키가 바뀌면 새 항목. 커밋만 비교하면 불변이라 status가 새로 와도 유지하고, 작업 트리 포함이면 status를 다시 조회할 때 무효. 최대 32개 LRU, `forget`이면 함께 버림. → #157 |
 
 위 캐시는 모두 메모리에만 있다. 실행 간 디스크 캐시는 사이드바 워크트리 요약 스냅샷 하나로 정했다. 표시 전용이고 보안 판단에 쓰지 않는다([ADR-0018](../adr/0018-launch-snapshot-disk-cache.md), 구현 #109).
 
