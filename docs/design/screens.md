@@ -824,8 +824,8 @@ S-09, S-11처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 
 |---|---|
 | 머리 | `Compare` + 기준 짧은 SHA `→` 대상 짧은 SHA. `⇄` 버튼은 기준과 대상을 바꾼다(파일 목록과 패치를 다시 읽음) |
 | 요약 줄 | 파일 수, `+n −m` |
-| BASE / TARGET | 각 커밋 한 행: 아바타 + 짧은 SHA + 제목 + AI 배지. 행을 누르면 S-12를 닫고 그 커밋의 S-03을 연다 |
-| COMMITS (#389) | 대상에는 있고 기준에는 없는 커밋(`base..target`), 최신순. 행 모양과 누를 때 동작은 BASE/TARGET과 같다. 최대 500개, 넘으면 `COMMITS (500+)`와 `Showing the newest 500 commits`. 없으면 `a91f3c2 has no commits that 3c5d6f1 does not have`(대상이 기준보다 뒤일 때, `⇄`로 반대 방향을 본다). 읽는 중에는 `Reading commits…`, 실패하면 마스킹한 오류 문구. 파일 목록과 따로 읽고 따로 실패한다 |
+| BASE / TARGET | 각 커밋 한 행: 아바타 + 짧은 SHA + 제목 + AI 배지. 행을 누르면 S-12를 닫고 그 커밋의 S-03을 연다. 열어 둔 사이 rebase·reset으로 커밋이 그래프에서 빠지면, S-12를 열 때의 제목·작성자를 그대로 보인다. `Not in the graph`는 그래프가 이력을 끝까지 읽었는데도 그 커밋이 없을 때만 붙인다. 새로고침은 첫 페이지만 다시 읽으므로, 아직 읽지 않은 페이지에 있는 커밋에는 붙이지 않는다. 그래프에 로드되지 않은 커밋은 눌러도 S-12를 닫지 않는다(#428) |
+| COMMITS (#389) | 대상에는 있고 기준에는 없는 커밋(`base..target`), 최신순. 행 모양과 누를 때 동작은 BASE/TARGET과 같다. 다만 아직 불러오지 않은 그래프 페이지에 있을 수 있어 `Not in the graph`는 붙이지 않는다. 그래프에 없는 커밋은 눌러도 S-12를 닫지 않는다. 최대 500개, 넘으면 `COMMITS (500+)`와 `Showing the newest 500 commits`. 없으면 `a91f3c2 has no commits that 3c5d6f1 does not have`(대상이 기준보다 뒤일 때, `⇄`로 반대 방향을 본다). 읽는 중에는 `Reading commits…`, 실패하면 마스킹한 오류 문구. 파일 목록과 따로 읽고 따로 실패한다 |
 | FILES CHANGED | S-11과 같다: 종류 글자(M/A/D/R/C/T) + 경로 + `+n −m`, rename은 `{old → new}`, 경로 오름차순 |
 | 패치 머리 | 경로, 변경 종류, 그 파일의 `+n −m` |
 
