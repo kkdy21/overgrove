@@ -235,7 +235,7 @@ struct DiffDocument: Equatable, Sendable {
 
     // MARK: Text
 
-    static let noChanges = "No changes. The file matches the other side."
+    static let noChanges = String(localized: "No changes. The file matches the other side.")
 
     /// One line, safe to show: lossy UTF-8, a trailing CR (CRLF files) dropped, TABs expanded, control, format
     /// (bidi), and separator characters escaped, and very long lines cut.
@@ -312,7 +312,8 @@ struct DiffDocument: Equatable, Sendable {
         let more = shown.count - maximumLineScalars
         var cut = String.UnicodeScalarView()
         cut.append(contentsOf: shown.prefix(maximumLineScalars))
-        return (String(cut) + " … (\(WipDetailModel.formatted(more)) more characters)", marks)
+        let count = WipDetailModel.formatted(more)
+        return (String(cut) + " … (" + String(localized: "\(count) more characters") + ")", marks)
     }
 
     private static func kind(_ kind: PatchLine.Kind) -> LineKind {
@@ -332,21 +333,25 @@ struct DiffDocument: Equatable, Sendable {
     }
 
     private static func blockTitle(_ file: FilePatch) -> String {
-        if file.isDeletedFile { return "Deleted \(file.isSymlink ? "symbolic link" : "file")" }
-        if file.isNewFile { return "Added \(file.isSymlink ? "symbolic link" : "file")" }
-        return "Changed"
+        if file.isDeletedFile {
+            return file.isSymlink ? String(localized: "Deleted symbolic link") : String(localized: "Deleted file")
+        }
+        if file.isNewFile {
+            return file.isSymlink ? String(localized: "Added symbolic link") : String(localized: "Added file")
+        }
+        return String(localized: "Changed")
     }
 
     /// A block shown as one line instead of hunks.
     private static func notice(_ file: FilePatch) -> String? {
         if file.isCombined || file.isUnmerged {
-            return "Conflicted file. The combined diff is not shown yet; resolve it in Terminal."
+            return String(localized: "Conflicted file. The combined diff is not shown yet; resolve it in Terminal.")
         }
-        if file.isBinary { return "Binary file. Its contents are not shown." }
+        if file.isBinary { return String(localized: "Binary file. Its contents are not shown.") }
         if let submodule = file.submodule {
-            let old = submodule.old?.short ?? "none"
-            let new = submodule.new?.short ?? "none"
-            return "Submodule commit \(old) → \(new)"
+            let old = submodule.old?.short ?? String(localized: "none")
+            let new = submodule.new?.short ?? String(localized: "none")
+            return String(localized: "Submodule commit \(old) → \(new)")
         }
         if file.hunks.isEmpty {
             if file.renameFrom != nil || file.copyFrom != nil { return String(localized: "Content unchanged.") }
@@ -363,17 +368,21 @@ struct DiffDocument: Equatable, Sendable {
     private static func facts(_ file: FilePatch) -> [String] {
         var facts: [String] = []
         if let from = file.renameFrom {
+            let path = PathValidator.displayable(from.display)
             facts.append(
-                "Renamed from \(PathValidator.displayable(from.display))" + (file.similarity.map { " (\($0)%)" } ?? ""))
+                file.similarity.map { String(localized: "Renamed from \(path) (\($0)%)") }
+                    ?? String(localized: "Renamed from \(path)"))
         }
         if let from = file.copyFrom {
+            let path = PathValidator.displayable(from.display)
             facts.append(
-                "Copied from \(PathValidator.displayable(from.display))" + (file.similarity.map { " (\($0)%)" } ?? ""))
+                file.similarity.map { String(localized: "Copied from \(path) (\($0)%)") }
+                    ?? String(localized: "Copied from \(path)"))
         }
         if let old = file.oldMode, let new = file.newMode, old != new, !file.isNewFile, !file.isDeletedFile {
-            facts.append("Mode \(old) → \(new)")
+            facts.append(String(localized: "Mode \(old) → \(new)"))
         }
-        if file.isSymlink { facts.append("Symbolic link: the link target text is shown") }
+        if file.isSymlink { facts.append(String(localized: "Symbolic link: the link target text is shown")) }
         return facts
     }
 }
