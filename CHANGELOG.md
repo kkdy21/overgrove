@@ -64,6 +64,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   that the app cannot read no longer drops the other hosts gh is logged in to.
 - A remote on GitHub's SSH-over-443 endpoint (`ssh://git@ssh.github.com:443/OWNER/NAME`) is read as github.com, so
   its issues and pull requests show instead of "Not logged in to ssh.github.com".
+- Check Again in the setup assistant also updates the status bar's gh field, the gh accounts, and the trusted GitHub
+  hosts, so issue panels follow a `gh auth login` without another check.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
