@@ -43,14 +43,23 @@ struct Branch: Sendable, Hashable, Identifiable {
 /// A tag from `git for-each-ref refs/tags` (parsing-spec.md §6).
 struct Tag: Sendable, Hashable, Identifiable {
     let fullName: String
-    /// The tag object for annotated tags, the commit for lightweight tags.
+    /// The tag object for annotated tags, the object itself for lightweight tags.
     let target: ObjectID
-    /// The commit an annotated tag points to (`%(*objectname)`); `nil` for lightweight tags.
+    /// The object an annotated tag points to (`%(*objectname)`); `nil` for lightweight tags.
     let peeledTarget: ObjectID?
     let date: Date?
+    /// The type of `object`: a tag may name a tree or a blob (#432), which the graph does not have.
+    let objectType: GitObjectType
 
     var id: String { fullName }
     var shortName: String { fullName.hasPrefix("refs/tags/") ? String(fullName.dropFirst(10)) : fullName }
-    /// The commit to show in the graph.
-    var commit: ObjectID { peeledTarget ?? target }
+    /// The object the tag names: the peeled object for an annotated tag.
+    var object: ObjectID { peeledTarget ?? target }
+    /// The commit to show in the graph; `nil` when the tag names something else.
+    var commit: ObjectID? { objectType == .commit ? object : nil }
+}
+
+/// A git object's type (`%(objecttype)`).
+enum GitObjectType: String, Sendable, Hashable {
+    case commit, tree, blob, tag
 }

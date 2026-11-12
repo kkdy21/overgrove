@@ -46,7 +46,7 @@ struct SampleGraphLoader: GraphLoading {
             branch("refs/heads/feat/42-rate-limit", "1"), branch("refs/heads/main", "3"),
             branch("refs/remotes/origin/main", "3"), branch("refs/remotes/origin/fix/timeout", "6"),
         ],
-        tags: [Tag(fullName: "refs/tags/v0.1.0", target: oid("5"), peeledTarget: nil, date: nil)],
+        tags: [Tag(fullName: "refs/tags/v0.1.0", target: oid("5"), peeledTarget: nil, date: nil, objectType: .commit)],
         isPartial: false, skippedRecords: 0)
 
     static let worktree = Worktree(

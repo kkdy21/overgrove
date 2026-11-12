@@ -80,12 +80,14 @@ enum GraphRefDecorations {
                     tooltip: PathValidator.displayable(name)),
                 at: branch.target)
         }
+        // A tag of a tree or blob has no row (#432).
         for tag in refs.tags {
+            guard let commit = tag.commit else { continue }
             add(
                 GraphRefPill(
                     kind: .tag, title: PathValidator.displayable(tag.shortName), hasMatchingRemote: false,
                     tooltip: PathValidator.displayable(tag.fullName)),
-                at: tag.commit)
+                at: commit)
         }
         return pills.mapValues { list in
             list.sorted { ($0.kind, $0.title) < ($1.kind, $1.title) }
