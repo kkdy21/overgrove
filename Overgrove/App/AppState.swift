@@ -152,6 +152,9 @@ final class AppState {
     /// The hosts whose GitHub remotes gh may be asked about (ADR-0025 §1): github.com, plus the hosts gh reported a
     /// login for at the last successful check.
     var trustedGitHubHosts = GitHubRemote.publicOnly
+    /// ⌘R or Check Again asked to read gh's login list again (#485); the next verified load takes it. Auto refresh
+    /// never sets it, so it does not run gh on every tick.
+    var shouldRereadGitHubLogins = false
     /// Each host's active gh account from the last successful check (ADR-0025 §4).
     var ghAccounts: [RemoteHost: GHAccount] = [:]
     /// The last verified listing's remotes and branches, to pick the GitHub repository again when gh's login list
