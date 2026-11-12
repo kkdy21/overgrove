@@ -250,6 +250,25 @@ final class RepositoryServiceCacheTests: XCTestCase {
         XCTAssertNil(calls()["status"], "no worktree's ahead/behind changed")
     }
 
+    /// With a local branch named like the upstream, status shortens the upstream to `remotes/origin/lane/1` while refs
+    /// say `refs/remotes/origin/lane/1` (review of #518): that is not a change, so no status is re-run for it.
+    func testUpstreamNamedLikeALocalBranchIsNotAChange() async throws {
+        try await trackRemoteBranchOneCommitBehind()
+        try await repository.git(["branch", "origin/lane/1", "lane/0"])
+        let service = try makeService()
+        let first = try overview(await service.refresh(model, trigger: .user))
+        XCTAssertEqual(
+            try state(try entry(first, lane: 1)).upstream.upstreamName, "remotes/origin/lane/1",
+            "control: status shortens the upstream unambiguously")
+        try await repository.git(["tag", "v1"])
+        resetCalls()
+
+        _ = try overview(
+            await service.refresh(model, trigger: .filesChanged(worktrees: [], refs: true, worktreeList: false)))
+
+        XCTAssertNil(calls()["status"], "the same upstream and counts, only named differently")
+    }
+
     // MARK: - Inspections are never served stale (security)
 
     private func canaries(_ directory: URL) -> [String] {

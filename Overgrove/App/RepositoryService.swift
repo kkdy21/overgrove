@@ -473,20 +473,17 @@ actor RepositoryService {
         return needed ? try await query() : cached
     }
 
-    /// A branch's upstream and ahead/behind, comparable between status (`origin/main`) and refs
-    /// (`refs/remotes/origin/main`).
+    /// A branch's upstream relation as both status and refs report it: whether it has one, ahead/behind, and whether
+    /// it is gone. Not the name: status shortens it unambiguously (`remotes/origin/main` when a local branch is named
+    /// `origin/main`), refs give the full ref, and a remote may be named `remotes` (review of #518).
     private struct UpstreamRelation: Hashable {
-        let upstream: String?
+        let hasUpstream: Bool
         let ahead: Int
         let behind: Int
         let isGone: Bool
 
         init(_ status: UpstreamStatus) {
-            var name = status.upstreamName
-            for prefix in ["refs/remotes/", "refs/heads/"] {
-                if let full = name, full.hasPrefix(prefix) { name = String(full.dropFirst(prefix.count)) }
-            }
-            upstream = name
+            hasUpstream = status.upstreamName != nil
             ahead = status.ahead
             behind = status.behind
             if case .gone = status { isGone = true } else { isGone = false }
