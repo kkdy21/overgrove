@@ -45,4 +45,28 @@ final class RemoteNameIndexTests: XCTestCase {
         // About 1 s in a local Debug build; a scan of every name per ref compares tens of gigabytes.
         XCTAssertLessThan(elapsed, .seconds(20), "took \(elapsed)")
     }
+
+    /// SEC-T15-489-1 (sidebar): the same holds through `BranchListModel` with every remote on GitHub. 1,000 remotes of
+    /// 100 bytes sharing 95, and 20,000 remote-tracking rows: each row finds its remote and repository without
+    /// scanning the remotes.
+    func testSECT15_489_1_ManyGitHubRemotesAndRowsStayLinear() throws {
+        let repository = try XCTUnwrap(GitHubRepository(owner: "team", name: "app"))
+        let stem = String(repeating: "r", count: 95)
+        let names = (0..<1_000).map { stem + String(format: "%05d", $0) }
+        let oid = try XCTUnwrap(ObjectID(String(repeating: "ab", count: 20)))
+        let branches = (0..<20_000).map {
+            Branch(
+                fullName: "refs/remotes/\(names[$0 % 1_000])/topic\($0)", kind: .remote(remote: names[$0 % 1_000]),
+                target: oid, upstreamStatus: .none, isHead: false, committerDate: nil, symbolicTarget: nil)
+        }
+        let clock = ContinuousClock()
+        let started = clock.now
+        let model = BranchListModel(
+            refs: RefParser.Listing(branches: branches, tags: [], isPartial: false, skippedRecords: 0), checkedOut: [],
+            remoteNames: names, githubRemotes: Dictionary(uniqueKeysWithValues: names.map { ($0, repository) }))
+        let elapsed = clock.now - started
+        XCTAssertEqual(model.remoteCount, 20_000)
+        // A scan of every GitHub remote per row took 48 s in a Debug build; this is well under a second.
+        XCTAssertLessThan(elapsed, .seconds(20), "took \(elapsed)")
+    }
 }
