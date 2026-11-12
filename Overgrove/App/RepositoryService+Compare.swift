@@ -1,6 +1,7 @@
 import Foundation
 
-/// The cache key of a base comparison (#157, overview.md §5): the worktree, the base and its tip, HEAD, and, when
+/// The cache key of a base comparison (#157, overview.md §5): the worktree, the base and its tip, HEAD and the local
+/// branch it is on (`nil` when detached: ahead/behind is counted only on a branch, #427), and, when
 /// the working tree is included, the time of the status query that the untracked list and the uncommitted changes
 /// belong to. Any of these changing makes a new entry; old ones age out of the bounded cache.
 struct ComparisonKey: Sendable, Hashable {
@@ -9,6 +10,7 @@ struct ComparisonKey: Sendable, Hashable {
     let base: FullRefName
     let baseTip: ObjectID
     let head: ObjectID?
+    let localBranch: FullRefName?
     let includesWorkingTree: Bool
     let statusQueried: ContinuousClock.Instant?
 }
@@ -31,7 +33,7 @@ extension RepositoryService {
         }
         let key = ComparisonKey(
             repositoryID: repository.id, worktree: path, base: target.base, baseTip: target.baseTip,
-            head: target.state.headCommit, includesWorkingTree: includeWorkingTree,
+            head: target.state.headCommit, localBranch: target.localBranch, includesWorkingTree: includeWorkingTree,
             statusQueried: includeWorkingTree ? target.statusQueried : nil)
         if let cached = comparisons.value(for: key) { return .success(cached) }
 
@@ -81,6 +83,11 @@ extension RepositoryService {
         let statusQueried: ContinuousClock.Instant?
         let base: FullRefName
         let baseTip: ObjectID
+
+        /// The local branch HEAD is on, `nil` when detached: ahead/behind is counted against it.
+        var localBranch: FullRefName? {
+            if case .branch(let name) = state.head { FullRefName("refs/heads/\(name)") } else { nil }
+        }
     }
 
     private func comparisonTarget(
@@ -115,8 +122,7 @@ extension RepositoryService {
         _ context: Context
     ) async -> Result<WorktreeComparison, ComparisonError> {
         let base = target.base
-        let localBranch: FullRefName? =
-            if case .branch(let name) = target.state.head { FullRefName("refs/heads/\(name)") } else { nil }
+        let localBranch = target.localBranch
         return await run(target, context) { folder, safety, client in
             async let files = client.run(
                 .compareFiles(base: base, includeWorkingTree: includeWorkingTree), in: folder, safety: safety)
