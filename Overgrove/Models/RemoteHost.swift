@@ -33,7 +33,8 @@ struct RemoteHost: Sendable, Hashable, CustomStringConvertible {
 ///
 /// - `https://HOST/PATH`
 /// - `git@HOST:PATH`
-/// - `ssh://git@HOST(:PORT)?/PATH` (the port is accepted and ignored)
+/// - `ssh://git@HOST(:PORT)?/PATH` (the port is accepted and ignored, except that GitHub's SSH-over-443 endpoint
+///   `ssh.github.com:443` is read as `github.com`, #487)
 ///
 /// Compared in UTF-8 bytes, so a combining mark cannot join a separator. `url.<base>.insteadOf` is never applied. One
 /// trailing `.git` is dropped from the path; an empty segment (`//`, a trailing `/`) fails. What the segments mean
@@ -58,11 +59,13 @@ struct HostedRemoteURL: Sendable, Equatable {
         } else if let rest = Self.dropPrefix("ssh://git@", bytes) {
             guard let slash = rest.firstIndex(of: UInt8(ascii: "/")) else { return nil }
             var hostPart = rest[..<slash]
+            var port: ArraySlice<UInt8> = []
             if let colon = hostPart.firstIndex(of: UInt8(ascii: ":")) {
-                guard Self.isPort(hostPart[(colon + 1)...]) else { return nil }
+                port = hostPart[(colon + 1)...]
+                guard Self.isPort(port) else { return nil }
                 hostPart = hostPart[..<colon]
             }
-            authority = hostPart
+            authority = Self.alias(host: hostPart, port: port) ?? hostPart
             path = rest[(slash + 1)...]
         } else if let rest = Self.dropPrefix("git@", bytes) {
             guard let colon = rest.firstIndex(of: UInt8(ascii: ":")) else { return nil }
@@ -83,6 +86,14 @@ struct HostedRemoteURL: Sendable, Equatable {
 
     private static func dropPrefix(_ prefix: String, _ bytes: [UInt8]) -> ArraySlice<UInt8>? {
         bytes.starts(with: prefix.utf8) ? bytes[prefix.utf8.count...] : nil
+    }
+
+    /// GitHub's SSH-over-443 endpoint (`ssh://git@ssh.github.com:443/…`) is github.com (#487). Only this host and
+    /// port, spelled exactly `443`; no other host is aliased.
+    private static func alias(host: ArraySlice<UInt8>, port: ArraySlice<UInt8>) -> ArraySlice<UInt8>? {
+        let lowered = host.map { (0x41...0x5A).contains($0) ? $0 | 0x20 : $0 }
+        guard lowered.elementsEqual("ssh.github.com".utf8), port.elementsEqual("443".utf8) else { return nil }
+        return ArraySlice("github.com".utf8)
     }
 
     /// 1–5 ASCII digits, 1...65535.
