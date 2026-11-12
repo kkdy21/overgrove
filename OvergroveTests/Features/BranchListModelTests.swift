@@ -165,7 +165,7 @@ final class BranchListModelTests: XCTestCase {
         for order in [names, names.reversed()] {
             let model = BranchListModel(
                 refs: refs([remote("my/K/a", guess: "my"), remote("my/\u{212A}/b", guess: "my")]), checkedOut: [],
-                remoteNames: order, githubRemotes: ["my": repository])
+                remoteNames: order, githubRemotes: ["my": repository], fetchRefspecs: standardFetchRefspecs(["my"]))
             XCTAssertEqual(model.remote.count, 2, "two folders")
             for node in model.remote {
                 guard case .folder(_, _, _, let children) = node, case .branch(let row) = children.first else {
@@ -175,11 +175,14 @@ final class BranchListModelTests: XCTestCase {
             }
             for ref in ["refs/remotes/my/K/a", "refs/remotes/my/\u{212A}/b"] {
                 XCTAssertNil(
-                    GitHubBranchTarget.forRemoteRef(ref, remotes: ["my": repository], configuredRemotes: order), ref)
+                    GitHubBranchTarget.forRemoteRef(
+                        ref, remotes: ["my": repository], configuredRemotes: order,
+                        fetchRefspecs: standardFetchRefspecs(["my"])), ref)
             }
             XCTAssertEqual(
                 GitHubBranchTarget.forRemoteRef(
-                    "refs/remotes/my/z", remotes: ["my": repository], configuredRemotes: order)?
+                    "refs/remotes/my/z", remotes: ["my": repository], configuredRemotes: order,
+                    fetchRefspecs: standardFetchRefspecs(["my"]))?
                     .branch, "z")
         }
     }
