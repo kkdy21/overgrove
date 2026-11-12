@@ -197,6 +197,22 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
     }
 
+    // MARK: SSH over port 443 (#487)
+
+    /// SEC-T9-487-2 (#487): `ssh://git@ssh.github.com:443/…` is github.com's repository: its issues are read with
+    /// `--repo github.com/OWNER/NAME`, and glab is never asked about it.
+    func testSECT9_487_2_SSHOverPort443ReadsGitHubDotCom() async {
+        let issues = StubIssueLoader([.issues([IssueModelsTests.issue(12)])])
+        let glab = StubGitLabHostChecker()
+        let checker = QueuedGHAuthReporter([report(["github.com"])])
+        let state = await loadedState(
+            remotes: ["ssh://git@ssh.github.com:443/team/app.git"], issues: issues, checker: checker, gitlab: glab)
+        XCTAssertEqual(issues.requests, ["team/app"])
+        XCTAssertEqual(state.issuePanel.repository?.gitHubRepository?.repoArgument, "github.com/team/app")
+        XCTAssertEqual(glab.hosts, [])
+        XCTAssertNil(state.issueListModel.notice)
+    }
+
     // MARK: Reading gh's login list again (#485)
 
     private func settle(_ state: AppState) async {
@@ -292,6 +308,71 @@ final class AppStateGitHubHostTests: XCTestCase {
         XCTAssertNil(state.ghStatus)
         XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
         XCTAssertEqual(state.issueListModel.account, account)
+        XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
+    }
+
+    // MARK: The setup assistant's gh check (#488)
+
+    /// #488: Check Again in S-07 after `gh auth login` updates the app too: gh's status, the accounts, and the trusted
+    /// hosts, so a GitHub Enterprise remote's issues load without another check.
+    func testTheSetupAssistantsCheckUpdatesTheApp() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let account = GHAccount(host: ghe, login: "me", otherCount: 0)
+        let issues = StubIssueLoader([.issues([issue])])
+        let checker = QueuedGHAuthReporter([
+            GHAuthReport(status: .notLoggedIn, hosts: []),
+            GHAuthReport(status: .loggedIn(login: "octocat"), hosts: [ghe], accounts: [ghe: account]),
+        ])
+        let state = await loadedState(remotes: ["git@ghe.example:team/app.git"], issues: issues, checker: checker)
+        XCTAssertEqual(state.issueListModel.notice?.text, "Not logged in to ghe.example")
+        state.setup.checkGitHub()
+        await state.setup.gitHubTask?.value
+        await state.issuePanel.task?.value
+        await state.pullRequestStore.task?.value
+        XCTAssertEqual(checker.checks, 2)
+        XCTAssertEqual(state.ghStatus, .loggedIn(login: "octocat"))
+        XCTAssertEqual(state.ghAccounts, [ghe: account])
+        XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
+        XCTAssertEqual(issues.requests, ["ghe.example/team/app"])
+        XCTAssertEqual(state.issueListModel.rows.map(\.number), ["#12"])
+    }
+
+    /// #488: of the app's check and the assistant's, the one that started later wins. An app check that started after
+    /// the assistant's keeps running and its answer applies; one that started before is dropped.
+    func testTheLaterStartedCheckWins() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let state = await loadedState(
+            remotes: ["git@ghe.example:team/app.git"], issues: StubIssueLoader([.issues([issue])]),
+            checker: QueuedGHAuthReporter([report(["github.com"]), report(["github.com", "ghe.example"])]))
+        let stale = GHAuthReport(status: .notLoggedIn, hosts: [])
+
+        let assistantStarted = ContinuousClock.now
+        state.checkGitHub()
+        state.gitHubReportFromSetup(stale, startedAt: assistantStarted)
+        XCTAssertTrue(state.isCheckingGitHub, "the newer app check keeps running")
+        await state.ghCheckTask?.value
+        XCTAssertTrue(state.trustedGitHubHosts.contains(ghe), "the app's newer answer applies")
+        XCTAssertEqual(state.ghStatus, .loggedIn(login: "octocat"))
+
+        state.checkGitHub()
+        state.gitHubReportFromSetup(stale, startedAt: ContinuousClock.now)
+        XCTAssertFalse(state.isCheckingGitHub, "the older app check is dropped")
+        await state.ghCheckTask?.value
+        XCTAssertEqual(state.ghStatus, .notLoggedIn, "the assistant's newer answer stays")
+    }
+
+    /// #488: a failed check in S-07 reads as the app's own failed check: no status or account it can vouch for, the
+    /// trusted hosts kept.
+    func testAFailedSetupCheckClearsTheStatusAndKeepsTheHosts() async throws {
+        let ghe = try XCTUnwrap(RemoteHost("ghe.example"))
+        let issues = StubIssueLoader([.issues([issue])])
+        let checker = QueuedGHAuthReporter([report(["ghe.example"]), nil])
+        let state = await loadedState(remotes: ["git@ghe.example:team/app.git"], issues: issues, checker: checker)
+        XCTAssertNotNil(state.ghStatus)
+        state.setup.checkGitHub()
+        await state.setup.gitHubTask?.value
+        XCTAssertNil(state.ghStatus)
+        XCTAssertEqual(state.ghAccounts, [:])
         XCTAssertTrue(state.trustedGitHubHosts.contains(ghe))
     }
 
