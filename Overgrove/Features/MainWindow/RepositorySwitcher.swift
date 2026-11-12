@@ -67,7 +67,7 @@ struct RepositorySwitcher: View {
         } label: {
             HStack(spacing: Tokens.Spacing.xs) {
                 Image(systemName: "folder")
-                Text(repository?.name ?? "No Repository").font(Tokens.Font.bodyEmphasized)
+                Text(repository?.name ?? String(localized: "No Repository")).font(Tokens.Font.bodyEmphasized)
             }
         }
         .menuStyle(.borderlessButton)

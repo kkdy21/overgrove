@@ -13,6 +13,15 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
 
+# Neither the cases' own git calls nor bootstrap read the user's global or system git config (#509): a global
+# core.hooksPath would otherwise decide what the cases see. The stand-in home, used by both, carries a global
+# core.hooksPath=.githooks, so a leak shows up: bootstrap would report the hooks as installed without setting them.
+empty_git_config="$work/empty.gitconfig"
+: >"$empty_git_config"
+mkdir -p "$work/home"
+printf '[core]\n\thooksPath = .githooks\n' >"$work/home/.gitconfig"
+export HOME="$work/home" GIT_CONFIG_GLOBAL="$empty_git_config" GIT_CONFIG_NOSYSTEM=1
+
 pass() { echo "ok   $1"; }
 failed() {
   echo "FAIL $1"
@@ -26,14 +35,18 @@ stub() {
   chmod +x "$stubs/$1"
 }
 stub sw_vers 'echo "$STUB_MACOS"'
-stub xcode-select '[ "$1" = "-p" ] && [ -n "$STUB_DEVDIR" ] && { echo "$STUB_DEVDIR"; exit 0; }; exit 2'
-stub xcodebuild 'case "$1" in
+# Like the real tools, these follow DEVELOPER_DIR when it is set: it then names another Xcode (STUB_*_DEVDIR answers).
+stub xcode-select '[ "$1" = "-p" ] && [ -n "$DEVELOPER_DIR" ] && { echo "$DEVELOPER_DIR"; exit 0; }
+[ "$1" = "-p" ] && [ -n "$STUB_DEVDIR" ] && { echo "$STUB_DEVDIR"; exit 0; }; exit 2'
+stub xcodebuild '[ -n "$DEVELOPER_DIR" ] && STUB_XCODE="$STUB_XCODE_DEVDIR"
+case "$1" in
   -version) [ -n "$STUB_XCODE" ] || exit 1; printf "%s\nBuild version 1A1\n" "$STUB_XCODE" ;;
   -license) [ "$STUB_LICENSE" = ok ] ;;
   -checkFirstLaunchStatus) [ "$STUB_FIRSTLAUNCH" = ok ] ;;
   *) exit 1 ;;
 esac'
-stub xcrun '[ "$1" = git ] && [ "$2" = --version ] && { echo "$STUB_GIT"; exit 0; }; exit 1'
+stub xcrun '[ -n "$DEVELOPER_DIR" ] && STUB_GIT="$STUB_GIT_DEVDIR"
+[ "$1" = git ] && [ "$2" = --version ] && { echo "$STUB_GIT"; exit 0; }; exit 1'
 stub swift '[ "$1" = format ] && [ "$2" = --version ] && echo 6.2.0'
 
 optional_stubs="$work/optional"
@@ -59,17 +72,19 @@ chmod +x "$gh_stubs/gh"
 # run <name> [VAR=value …] -- [bootstrap arguments]: runs bootstrap in a fresh repository with the default stub answers
 # (a supported machine), overridden by the given variables. With preset_hooks=1, the repository already has
 # core.hooksPath=.githooks. With no_git=1, the copy of bootstrap is not in a Git repository at all. bootstrap runs from
-# the repository unless cwd names another directory. Sets $repo, $out, and $code.
+# the repository unless cwd names another directory, and as script names it (default: the repository's copy). The
+# repository is made under base (default $work). Sets $repo, $out, and $code.
 run() {
   local name="$1"
   shift
-  repo="$work/repo-$name"
+  repo="${base:-$work}/repo-$name"
   mkdir -p "$repo/scripts"
   if [[ "${no_git:-0}" != 1 ]]; then git init -q "$repo"; fi
   if [[ "${preset_hooks:-0}" == 1 ]]; then git -C "$repo" config core.hooksPath .githooks; fi
   cp "$here/bootstrap.sh" "$repo/scripts/"
   local -a vars=(
-    "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
+    "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "GIT_CONFIG_GLOBAL=$empty_git_config" "GIT_CONFIG_NOSYSTEM=1"
+    "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
     "STUB_XCODE=Xcode 26.1" "STUB_LICENSE=ok" "STUB_FIRSTLAUNCH=ok" "STUB_GIT=git version 2.39.5 (Apple Git-154)"
     "BOOTSTRAP_APPLICATIONS=$work/apps-with-xcode"
   )
@@ -79,7 +94,7 @@ run() {
   done
   [[ "${1:-}" == "--" ]] && shift
   set +e
-  out=$(cd "${cwd:-$repo}" && env -i "${vars[@]}" bash "$repo/scripts/bootstrap.sh" "$@" </dev/null 2>&1)
+  out=$(cd "${cwd:-$repo}" && env -i "${vars[@]}" bash "${script:-$repo/scripts/bootstrap.sh}" "$@" </dev/null 2>&1)
   code=$?
   set -e
 }
@@ -135,6 +150,23 @@ else
   failed "build: the xcode-select command works when pasted, even with a space in the path (got: $fix)"
 fi
 
+# Several Xcodes: the newest by CFBundleShortVersionString is suggested, not the last by name (#505). Xcode_15.4 sorts
+# after Xcode by name; a copy without a readable version comes last.
+xcode_app() { # xcode_app <apps folder> <app name> [version]
+  mkdir -p "$1/$2/Contents"
+  if [[ -n "${3:-}" ]]; then
+    printf '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0"><dict>%s</dict></plist>\n' \
+      "<key>CFBundleShortVersionString</key><string>$3</string>" >"$1/$2/Contents/Info.plist"
+  fi
+}
+xcode_app "$work/apps-many" Xcode.app 26.1
+xcode_app "$work/apps-many" Xcode_15.4.app 15.4
+xcode_app "$work/apps-many" Xcode_26.0.1.app 26.0.1
+xcode_app "$work/apps-many" Xcode_unknown.app
+run build-clt-many STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-many" -- --build
+expect "build: the newest Xcode is suggested, not the last by name" 1 \
+  "sudo xcode-select -s $work/apps-many/Xcode.app/Contents/Developer"
+
 run build-no-xcode STUB_DEVDIR=/Library/Developer/CommandLineTools BOOTSTRAP_APPLICATIONS="$work/apps-empty" -- --build
 expect "build: no Xcode installed" 1 "App Store"
 
@@ -156,6 +188,16 @@ expect "build: xcrun's git decides, not PATH's" 1 "git 2.35.1 (xcrun git) is old
 
 run build-git-unparsed "STUB_GIT=something else" -- --build
 expect "build: unreadable git version" 1 "xcrun git"
+
+# The app does not pass DEVELOPER_DIR on, so it runs the git of the Xcode that xcode-select chose (#493). The shell's
+# DEVELOPER_DIR names a newer Xcode and git here; the checks still judge xcode-select's, and say the shell differs.
+devdir_vars=("DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer" "STUB_XCODE_DEVDIR=Xcode 27.0"
+  "STUB_GIT_DEVDIR=git version 2.50.1 (Apple Git-160)")
+run build-developer-dir "${devdir_vars[@]}" -- --build
+expect "build: DEVELOPER_DIR is ignored, as the app ignores it" 0 "Xcode 26.1 at /Applications/Xcode.app" \
+  "git 2.39.5 (xcrun git, the one Overgrove runs)" "DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer"
+run build-developer-dir-old-git "${devdir_vars[@]}" "STUB_GIT=git version 2.35.1 (Apple Git-131)" -- --build
+expect "build: an old git is not hidden by a newer one in DEVELOPER_DIR" 1 "git 2.35.1 (xcrun git) is older than 2.36"
 
 # --- Contributor mode (the default): installs the hooks after saying so, gitleaks is required ------------------------
 
@@ -230,6 +272,62 @@ no_git=1 run loose-build -- --build
 expect "clone: a copy outside any clone still checks the build" 0 "Ready to build"
 no_git=1 run loose-contributor "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
 expect "clone: a copy outside any clone cannot install the hooks" 1 "not in a Git clone" "git clone"
+
+# A loose copy unpacked inside another repository (an archive under a home kept as a dotfiles repository) is not a
+# clone of its own: the outer repository is left alone, and nothing is made executable there (#535).
+outer="$work/outer-repo"
+git init -q "$outer"
+mkdir -p "$outer/scripts"
+printf '#!/bin/sh\n' >"$outer/scripts/outer.sh"
+base="$outer" no_git=1 run nested-loose "PATH=$optional_stubs:$stubs:/usr/bin:/bin" -- --yes
+expect "clone: a loose copy inside another repository cannot install the hooks" 1 "not in a Git clone"
+if [[ -z "$(git -C "$outer" config --get core.hooksPath || true)" && ! -x "$outer/scripts/outer.sh" ]]; then
+  pass "clone: the outer repository is left alone"
+else
+  failed "clone: the outer repository is left alone"
+fi
+
+# The clone reached through a path typed in another case, on a case-insensitive disk (the macOS default): rev-parse
+# prints the stored case, the typed path keeps the typed one, and it is still the same clone (review of #536).
+mkdir -p "$work/case"
+if [[ -d "$work/CASE" ]]; then
+  base="$work/case" cwd="$work/CASE/repo-cased" script="$work/CASE/repo-cased/scripts/bootstrap.sh" \
+    run cased "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
+  expect "clone: a path typed in another case is still the clone" 0 "Ready to contribute"
+  if [[ "$(hooks_path)" == ".githooks" ]]; then
+    pass "clone: a path typed in another case installs the hooks"
+  else
+    failed "clone: a path typed in another case installs the hooks"
+  fi
+else
+  pass "clone: a path typed in another case (skipped: case-sensitive disk)"
+fi
+
+# A clone path with a space. When the hook path cannot be written, the suggested command works when pasted.
+mkdir -p "$work/with space"
+base="$work/with space" run spaced "PATH=$optional_stubs:$stubs:/usr/bin:/bin"
+expect "clone: a path with a space installs the hooks" 0 "Ready to contribute"
+spaced_repo="$work/with space/repo-spaced-fail"
+mkdir -p "$spaced_repo/scripts"
+git init -q "$spaced_repo"
+cp "$here/bootstrap.sh" "$spaced_repo/scripts/"
+chmod a-w "$spaced_repo/.git"
+set +e
+out=$(cd "$spaced_repo" && env -i "PATH=$optional_stubs:$stubs:/usr/bin:/bin" "HOME=$work/home" \
+  "GIT_CONFIG_GLOBAL=$empty_git_config" GIT_CONFIG_NOSYSTEM=1 STUB_MACOS=14.6 \
+  STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer "STUB_XCODE=Xcode 26.1" STUB_LICENSE=ok STUB_FIRSTLAUNCH=ok \
+  "STUB_GIT=git version 2.39.5 (Apple Git-154)" bash "$spaced_repo/scripts/bootstrap.sh" --yes </dev/null 2>&1)
+code=$?
+set -e
+chmod u+w "$spaced_repo/.git"
+fix=$(printf '%s\n' "$out" | sed -n 's/.*could not set core.hooksPath. Run: //p' | head -1)
+if [[ $code -eq 1 && -n "$fix" ]] && (cd "$work" && eval "$fix") &&
+  [[ "$(git -C "$spaced_repo" config --get core.hooksPath || true)" == ".githooks" ]]; then
+  pass "clone: the suggested git config command works when pasted, even with a space in the path"
+else
+  failed "clone: the suggested git config command works when pasted (exit $code, got: $fix)"
+  printf '%s\n' "$out" | sed 's/^/     | /'
+fi
 
 # --- Wording and usage ---------------------------------------------------------------------------------------------
 

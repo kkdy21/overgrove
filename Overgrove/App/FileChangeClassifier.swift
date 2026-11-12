@@ -36,9 +36,10 @@ struct FileEvent: Equatable, Sendable {
 /// worktree), `refs/` and `packed-refs`, `worktrees/<id>/HEAD|index` (that linked worktree; `HEAD` also the list,
 /// #416), `worktrees/<id>` itself and its `gitdir`/`locked` (the list), `config` (everything, it can change how
 /// queries run), and what changes what status reports (#426): `info/exclude` (every worktree), `info/sparse-checkout`
-/// and `config.worktree` (the main worktree), `worktrees/<id>/info/sparse-checkout` and `worktrees/<id>/config.worktree`
-/// (that linked worktree). Objects, logs, `FETCH_HEAD`, `ORIG_HEAD`, hooks and the rest are ignored, so a fetch or gc does not
-/// re-run every status.
+/// and `config.worktree` (the main worktree), `worktrees/<id>/info/sparse-checkout` and
+/// `worktrees/<id>/config.worktree` (that linked worktree). Objects, logs, `FETCH_HEAD`, `ORIG_HEAD`, hooks and the
+/// rest are ignored, so a fetch or gc does not re-run every status. A worktree folder inside the shared git directory
+/// (a bare repository's `repo.git/main`, #421) is that worktree's files, not the git directory's.
 struct FileChangeClassifier: Equatable, Sendable {
     struct WatchedWorktree: Equatable, Sendable {
         let path: GitPath
@@ -102,14 +103,22 @@ struct FileChangeClassifier: Equatable, Sendable {
     private func classify(path: String) -> FileChangeSet {
         let components = Self.components(path)
         guard !components.isEmpty else { return FileChangeSet() }
+        let innermost = byDepth.lazy.compactMap { worktree in
+            Self.relative(components, to: worktree.folderComponents).map { (worktree, $0) }
+        }.first
         if let relative = Self.relative(components, to: commonComponents) {
+            // A worktree folder inside the shared git directory (`git -C repo.git worktree add main` in a bare
+            // repository, #421) holds that worktree's files. It is deeper than the git directory, so it wins.
+            if let (worktree, below) = innermost, worktree.folderComponents.count > commonComponents.count {
+                return worktreeChange(worktree, below)
+            }
             return classifyGitDirectory(Array(relative))
         }
-        guard
-            let (worktree, relative) = byDepth.lazy.compactMap({ worktree in
-                Self.relative(components, to: worktree.folderComponents).map { (worktree, $0) }
-            }).first
-        else { return FileChangeSet() }
+        guard let (worktree, relative) = innermost else { return FileChangeSet() }
+        return worktreeChange(worktree, relative)
+    }
+
+    private func worktreeChange(_ worktree: WatchedWorktree, _ relative: ArraySlice<Substring>) -> FileChangeSet {
         // A linked worktree's `.git` file, or a nested repository's git directory: not this worktree's files.
         if relative.first == ".git" { return FileChangeSet() }
         return FileChangeSet(worktrees: [worktree.path])

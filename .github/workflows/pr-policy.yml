@@ -2,6 +2,7 @@
 # Enforces docs/process/pull-requests.md: Conventional title, `Closes #n` to an open issue, branch naming,
 # the claim policy of ADR-0013 (claimed issues belong to their assignee; otherwise the first open PR wins), and the
 # dependency rule of ADR-0015 (a PR passes only after every issue it depends on is done and no stand-in code is left).
+# It also warns, without failing, about a missing or mismatched local toolchain line (#507).
 # Untrusted PR fields are passed through env vars only (never interpolated into the script) to prevent injection.
 name: pr-policy
 
@@ -20,6 +21,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # The check script and CI's XCODE_MAJOR are read from the default branch, not from the PR head.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      # #507: a warning only, never a failure.
+      - name: Check the local toolchain line
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BODY: ${{ github.event.pull_request.body }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          if files=$(gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files?per_page=100" --jq '.[].filename'); then
+            bash scripts/github/pr-toolchain-check.sh .github/workflows/ci.yml <<<"$files" || true
+          else
+            echo "::warning title=Local toolchain::Could not list the changed files, so the local toolchain line was not checked."
+          fi
       - name: Check title, linked issue, branch name, claim, and dependencies
         env:
           GH_TOKEN: ${{ github.token }}

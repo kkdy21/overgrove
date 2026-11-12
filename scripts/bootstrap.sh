@@ -43,6 +43,10 @@ done
 # outside any clone (a downloaded archive) can still check the build; it has no hooks to install.
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 clone=$(git -C "$script_dir" rev-parse --show-toplevel 2>/dev/null || true)
+# Only this copy's own root counts: a loose copy unpacked inside another repository must not touch that one (#535).
+# Compared as files, not strings: rev-parse prints the stored case and resolves symbolic links, while the path the
+# script was run by keeps what was typed (review of #536).
+if [[ -n "$clone" && ! "$clone" -ef "$script_dir/.." ]]; then clone=; fi
 cd "${clone:-$script_dir/..}"
 
 # Where Xcode is looked for when the Command Line Tools are selected instead (tests point this elsewhere).
@@ -91,6 +95,13 @@ else
   need "macOS ${macos:-(unknown)} is older than 14 Sonoma, which Overgrove needs"
 fi
 
+# The app does not pass DEVELOPER_DIR on (it is not in its environment allowlist), so it runs the git of the Xcode that
+# xcode-select chose. Check that one, as the app sees it, and say when this shell points somewhere else (#493).
+if [[ -n "${DEVELOPER_DIR:-}" ]]; then
+  info "DEVELOPER_DIR=$DEVELOPER_DIR is set in this shell. Overgrove does not use it, so the checks below follow xcode-select (command-line builds from this shell still use DEVELOPER_DIR)"
+  unset DEVELOPER_DIR
+fi
+
 dev_dir=$(xcode-select -p 2>/dev/null || true)
 if [[ "$dev_dir" != *.app/Contents/Developer ]]; then
   shopt -s nullglob
@@ -98,7 +109,17 @@ if [[ "$dev_dir" != *.app/Contents/Developer ]]; then
   shopt -u nullglob
   if ((${#xcodes[@]} > 0)); then
     # Quoted for the shell so the command can be pasted as is, even with a space in the path (#504).
-    printf -v developer_dir '%q' "${xcodes[${#xcodes[@]} - 1]}/Contents/Developer"
+    # The newest by version, not the last by name: Xcode_15.4.app sorts after Xcode.app (#505). A copy whose version
+    # cannot be read is suggested only when no other is installed.
+    newest=${xcodes[0]} newest_version=
+    for candidate in "${xcodes[@]}"; do
+      version=$(plutil -extract CFBundleShortVersionString raw -o - "$candidate/Contents/Info.plist" 2>/dev/null || true)
+      [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || continue
+      if [[ -z "$newest_version" ]] || ! version_at_least "$newest_version" "$version"; then
+        newest=$candidate newest_version=$version
+      fi
+    done
+    printf -v developer_dir '%q' "$newest/Contents/Developer"
     need "the Command Line Tools are selected, not Xcode. Run: sudo xcode-select -s $developer_dir"
   else
     need "Xcode not found. Install Xcode 26 or later from the App Store, then run this again"
@@ -183,7 +204,8 @@ if [[ "$mode" == contributor ]]; then
     if git config core.hooksPath .githooks; then
       ok "core.hooksPath=.githooks (pre-commit, prepare-commit-msg, commit-msg, pre-push)"
     else
-      bad "could not set core.hooksPath. Run: git -C $clone config core.hooksPath .githooks"
+      printf -v quoted_clone '%q' "$clone"
+      bad "could not set core.hooksPath. Run: git -C $quoted_clone config core.hooksPath .githooks"
     fi
   fi
   chmod +x .githooks/* scripts/*.sh scripts/lint/*.sh scripts/github/*.sh 2>/dev/null || true

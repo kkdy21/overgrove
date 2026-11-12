@@ -1,6 +1,6 @@
 # ADR-0025: GitHub 호스트는 gh에 로그인된 것만 신뢰하고, 계정은 앱이 바꾸지 않는다
 
-> 상태: Accepted · 날짜: 2026-11-08 · 개정: 2026-11-08 #117 구현 중 --repo에 항상 호스트를 넣도록 정정(§3), 2026-11-08 #467 로그인 호스트를 동작하는 계정이 있는 호스트로 한정(§1) · 관련: #446, #117, ADR-0004, ADR-0021, ADR-0023, T9, T11, T16, [git-command-catalog.md §5](../architecture/git-command-catalog.md#5-ghcommand-gh-allowlist)
+> 상태: Accepted · 날짜: 2026-11-08 · 개정: 2026-11-08 #117 구현 중 --repo에 항상 호스트를 넣도록 정정(§3), 2026-11-08 #467 로그인 호스트를 동작하는 계정이 있는 호스트로 한정(§1), 2026-11-12 #487 `ssh.github.com:443`을 `github.com`으로 읽는 별칭 하나 추가(§2) · 관련: #446, #117, ADR-0004, ADR-0021, ADR-0023, T9, T11, T16, [git-command-catalog.md §5](../architecture/git-command-catalog.md#5-ghcommand-gh-allowlist)
 
 ## 맥락
 
@@ -20,7 +20,7 @@ ADR-0004 §8("github.com만")만 이 결정으로 대체한다. gh 위임, 토�
 2. **원격 판별.** 원격 URL에서 다음 세 형태만 인식한다. 비교는 UTF-8 바이트로 하고, `url.<base>.insteadOf`는 지금처럼 보지 않는다.
    - `https://HOST/OWNER/NAME(.git)?`
    - `git@HOST:OWNER/NAME(.git)?`
-   - `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받아들이되 호스트 판단에는 쓰지 않는다)
+   - `ssh://git@HOST(:PORT)?/OWNER/NAME(.git)?` (포트는 받아들이되 호스트 판단에는 쓰지 않는다. 예외는 GitHub의 SSH-over-443 엔드포인트 하나로, 이 형식에서 호스트가 `ssh.github.com`이고 포트가 정확히 `443`이면 `github.com`으로 읽는다(#487). 이미 신뢰하는 `github.com`으로만 바뀌므로 신뢰 범위는 넓어지지 않는다. 다른 호스트·포트·형식에는 별칭을 두지 않는다)
 
    HOST는 소문자로 바꾼 ASCII DNS 이름만 받는다. 라벨은 1–63자의 영숫자와 `-`(앞뒤 `-` 금지)이고, 전체는 253자 이하다. IP 주소 리터럴, 사용자 정보(`user:pass@`), 경로·쿼리가 섞인 값은 받지 않는다. OWNER·NAME은 기존 `GitHubRepository` 규칙 그대로다. `GitHubRepository`에 `host`를 더하고 기본값은 `github.com`이다.
 3. **gh 호출.** 호스트는 `--repo`로만 고른다. `github.com`을 포함해 항상 `HOST/OWNER/NAME`으로 넘겨 gh가 호스트를 스스로 고르지 않게 한다(#117 보안 검토에서 `OWNER/NAME`에서 바꿈). `GH_HOST`, `GH_ENTERPRISE_TOKEN`, `GH_TOKEN` 같은 변수는 환경 allowlist에 넣지 않는다. 중립 작업 디렉터리와 실행 제한은 그대로다.

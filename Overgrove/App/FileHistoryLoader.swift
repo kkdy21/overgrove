@@ -61,11 +61,11 @@ struct LiveFileHistoryLoader: FileHistoryLoading {
             guard
                 let inspection = try await LiveWorktreeInspector.verifiedInspection(
                     at: directory, of: target.repository, client: client)
-            else { return .unavailable(LiveWorktreeInspector.noLongerMatches) }
+            else { return .unavailable(SafetyReason.display(LiveWorktreeInspector.noLongerMatches)) }
             guard let safety = inspection.safetyContext else {
                 return .unavailable(
                     String(localized: "Overgrove stopped querying this worktree for safety.") + " "
-                        + PathValidator.displayable(inspection.report.blockingReason ?? ""))
+                        + PathValidator.displayable(SafetyReason.display(inspection.report.blockingReason ?? "")))
             }
             // Past the command's limit the history is cut, not finished (security review of #70, T15).
             let requested = min(skip + limit, Self.maximumCommits)

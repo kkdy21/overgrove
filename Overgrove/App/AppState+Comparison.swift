@@ -77,6 +77,8 @@ extension AppState {
         comparisonTask = nil
         comparisonPatchTask = nil
         comparisonGeneration += 1
+        isComparisonRunning = false
+        isComparisonRerunPending = false
         if comparison?.patch == .loading {
             comparison?.patch = nil
             comparison?.selectedFile = nil
@@ -108,6 +110,8 @@ extension AppState {
         comparisonTask = nil
         comparisonPatchTask = nil
         comparisonGeneration += 1
+        isComparisonRunning = false
+        isComparisonRerunPending = false
         comparison = nil
     }
 
@@ -130,15 +134,40 @@ extension AppState {
         comparison?.showsAllFiles = true
     }
 
-    private func runComparison() {
+    /// A worktree list load succeeded while S-11 is open (#412): compares again on the new basis, so a comparison
+    /// dropped by a failed load does not keep spinning and a result from before a commit is not shown as current.
+    /// The shown result, the picked file, and its patch stay until the new result arrives. The patch is read again
+    /// only if the result changed (an untracked file's preview always), and the old one stays shown meanwhile.
+    /// A comparison still running is not restarted: it would never end while files keep changing in the worktree, so
+    /// one more comparison follows when it ends.
+    func comparisonListSucceeded() {
+        guard comparison != nil, !isComparisonStale else { return }
+        if isComparisonRunning {
+            isComparisonRerunPending = true
+        } else {
+            runComparison(keepingResult: true)
+        }
+    }
+
+    /// - Parameter keepingResult: Leaves a loaded result and its picked file shown while the new one runs (#412).
+    private func runComparison(keepingResult: Bool = false) {
         guard let session = comparison, !isComparisonStale, let repository else { return }
         comparisonTask?.cancel()
         comparisonPatchTask?.cancel()
+        comparisonPatchTask = nil
         comparisonGeneration += 1
+        isComparisonRunning = true
+        isComparisonRerunPending = false
         let generation = comparisonGeneration
-        comparison?.result = .loading
-        comparison?.selectedFile = nil
-        comparison?.patch = nil
+        let shown: WorktreeComparison?
+        if keepingResult, case .loaded(let result) = session.result {
+            shown = result
+        } else {
+            shown = nil
+            comparison?.result = .loading
+            comparison?.selectedFile = nil
+            comparison?.patch = nil
+        }
         let loader = comparisonLoader
         let target = repository.repository
         comparisonTask = Task { [weak self] in
@@ -152,6 +181,7 @@ extension AppState {
                     .failure(.noBaseBranch)
                 }
             guard let self, generation == self.comparisonGeneration, !Task.isCancelled else { return }
+            self.isComparisonRunning = false
             self.comparison?.bases = bases.all
             switch result {
             case .success(let comparison):
@@ -160,25 +190,55 @@ extension AppState {
                     self.comparison?.workingState = state
                 }
                 self.comparison?.result = .loaded(comparison)
+                if let shown { self.keepComparisonFile(after: shown, now: comparison) }
             case .failure(let error):
                 self.comparison?.base = base
                 self.comparison?.result = .failed(error)
+                self.comparison?.selectedFile = nil
+                self.comparison?.patch = nil
             }
+            if self.isComparisonRerunPending { self.runComparison(keepingResult: true) }
+        }
+    }
+
+    /// After comparing again with a result shown (#412): the picked file stays only if still listed. Its patch is
+    /// read again, keeping the old one shown. Only a committed-only comparison that came back the same skips it: HEAD
+    /// and the base tip fix its content. With uncommitted changes the same `+n −m` can hide new content.
+    private func keepComparisonFile(after shown: WorktreeComparison, now current: WorktreeComparison) {
+        guard let file = comparison?.selectedFile else { return }
+        let hasPatch = comparison?.patch != nil && comparison?.patch != .loading
+        if current == shown, !current.includesWorkingTree, hasPatch, !file.isUntracked { return }
+        if !loadComparisonFile(file, keepingShown: true) {
+            // No longer listed (or not selectable): let it go.
+            comparisonPatchTask?.cancel()
+            comparisonPatchTask = nil
+            comparison?.selectedFile = nil
+            comparison?.patch = nil
         }
     }
 
     /// Picks a file in S-11: committed (and uncommitted) changes come from the comparison patch, untracked files from
     /// the same preview as S-02.
     func selectComparisonFile(_ file: ComparisonFile) {
+        loadComparisonFile(file, keepingShown: false)
+    }
+
+    /// - Parameter keepingShown: The same file again after comparing again (#412): its loaded patch stays shown until
+    ///   the new one arrives, as the WIP diff does after a load.
+    /// - Returns: Whether the file was picked (still listed and selectable, and S-11 not stale).
+    @discardableResult
+    private func loadComparisonFile(_ file: ComparisonFile, keepingShown: Bool) -> Bool {
         guard let session = comparison, !isComparisonStale, case .loaded(let result) = session.result, let repository,
             // Untracked selections come only from the listed untracked files, and tracked ones from FILES CHANGED.
             let row = (file.isUntracked ? comparisonModel?.untracked : comparisonModel?.files)?
                 .first(where: { $0.path == file.path }),
             row.isSelectable, let entry = entry(at: session.worktree)
-        else { return }
+        else { return false }
         comparisonPatchTask?.cancel()
+        let keepsPatch: Bool =
+            keepingShown && session.selectedFile == file && session.patch != nil && session.patch != .loading
         comparison?.selectedFile = file
-        comparison?.patch = .loading
+        if !keepsPatch { comparison?.patch = .loading }
         let generation = comparisonGeneration
         let loader = comparisonLoader
         let diffLoader = diffLoader
@@ -211,5 +271,6 @@ extension AppState {
                 self.comparison?.patch = .unavailable(reason)
             }
         }
+        return true
     }
 }
