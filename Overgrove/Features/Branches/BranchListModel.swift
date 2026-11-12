@@ -103,7 +103,7 @@ struct BranchListModel: Equatable {
 
         remoteCount = remotes.count
         // Longest configured remote first, so `team/a` wins over `team` for `refs/remotes/team/a/x`.
-        let configured = remoteNames.sorted { $0.count > $1.count }
+        let configured = remoteNames.sorted { $0.utf8.count > $1.utf8.count }
         var byRemote: [String: [BranchRow]] = [:]
         for branch in remotes {
             let rest = String(branch.fullName.dropFirst("refs/remotes/".count))

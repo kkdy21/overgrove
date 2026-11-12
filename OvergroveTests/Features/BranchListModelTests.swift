@@ -115,6 +115,23 @@ final class BranchListModelTests: XCTestCase {
             all.first { $0.name == "main" }?.gitHubTarget, GitHubBranchTarget(repository: repository, branch: "main"))
     }
 
+    /// #489: a remote whose name `RemoteName` refuses (`gh/fork+1`) still owns its rows: they are not grouped under,
+    /// and do not open, the GitHub remote `gh`.
+    func testARowOfARemoteWithARefusedNameStaysItsOwn() throws {
+        let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
+        let model = BranchListModel(
+            refs: refs([remote("gh/fork+1/topic", guess: "gh"), remote("gh/main", guess: "gh")]), checkedOut: [],
+            remoteNames: ["gh", "gh/fork+1"], githubRemotes: ["gh": repository])
+        XCTAssertEqual(names(model.remote), ["gh[main]", "gh/fork+1[topic]"])
+        guard case .folder(_, _, _, let children) = model.remote.last, case .branch(let row) = children.first else {
+            return XCTFail("\(model.remote)")
+        }
+        XCTAssertNil(row.gitHubTarget)
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/gh/fork+1/topic", remotes: ["gh": repository], configuredRemotes: ["gh", "gh/fork+1"]))
+    }
+
     /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
     /// (`origin/x`); an empty remainder shows the whole name (security review of #72).
     func testRemoteSplitIsByteExact() {

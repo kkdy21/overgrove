@@ -565,6 +565,25 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertEqual(result.remotes.first?.displayURL, "https://***@github.com/o/r.git")
     }
 
+    /// #489: every `remote.<name>` section is a remote-tracking namespace, so its name is matched against
+    /// `refs/remotes/` even when `RemoteName` refuses it (a hand-edited config can hold `+`, `@`, or non-ASCII). Only
+    /// valid names become `remotes`, the ones passed to git. Names compare in bytes: NFC and NFD are two remotes.
+    func testEveryRemoteSectionNameIsKeptForMatching() {
+        let result = inspect([
+            entry(.local, "remote.gh.url", "https://github.com/o/r.git"),
+            entry(.local, "remote.gh/fork+1.url", "https://example.invalid/r.git"),
+            entry(.local, "remote.caf\u{E9}.url", "https://example.invalid/a.git"),
+            entry(.local, "remote.cafe\u{301}.url", "https://example.invalid/b.git"),
+            entry(.local, "remote.me@host.fetch", "+refs/heads/*:refs/remotes/me@host/*"),
+            entry(.local, "remote.gh.fetch", "+refs/heads/*:refs/remotes/gh/*"),
+            entry(.local, "remote.-evil.url", "https://x/y"),
+        ])
+        XCTAssertEqual(result.remotes.map(\.name.value), ["gh"])
+        XCTAssertEqual(
+            result.remoteNames.map { Array($0.utf8) },
+            ["gh", "gh/fork+1", "caf\u{E9}", "cafe\u{301}", "me@host", "-evil"].map { Array($0.utf8) })
+    }
+
     func testCacheInvalidatesWhenAFileChanges() async throws {
         let file = FileManager.default.temporaryDirectory.appendingPathComponent("overgrove-cfg-\(UUID().uuidString)")
         try "a".write(to: file, atomically: true, encoding: .utf8)
@@ -608,6 +627,7 @@ final class RepoConfigInspectorTests: XCTestCase {
         XCTAssertEqual(result.remotes.count, RepoConfigInspector.maximumRemotes)
         XCTAssertEqual(result.remotes.first?.name.value, "r0")
         XCTAssertEqual(result.omittedRemotes, 100_000 - RepoConfigInspector.maximumRemotes)
+        XCTAssertEqual(result.remoteNames.count, RepoConfigInspector.maximumRemotes, "matching names are bounded too")
         XCTAssertEqual(result.report.findings.count, RepoConfigInspector.maximumFindings)
         XCTAssertEqual(result.report.omittedFindings, 200_000 - RepoConfigInspector.maximumFindings)
         XCTAssertNotNil(result.fetchBlockingReason, "too many URL overrides: fetch is disabled")
