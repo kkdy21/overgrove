@@ -14,7 +14,8 @@ final class TagListRenderTests: XCTestCase {
         func tag(_ name: String, _ commit: Character, annotated: Bool, days: Double) -> Tag {
             Tag(
                 fullName: "refs/tags/\(name)", target: annotated ? oid("f") : oid(commit),
-                peeledTarget: annotated ? oid(commit) : nil, date: now.addingTimeInterval(-days * 86_400))
+                peeledTarget: annotated ? oid(commit) : nil, date: now.addingTimeInterval(-days * 86_400),
+                objectType: .commit)
         }
         let model = TagListModel(
             tags: [

@@ -11,6 +11,7 @@ final class FakeGraphLoader: GraphLoading, @unchecked Sendable {
     private var failure: GitError?
     private var calls: [Int] = []
     private var refSetComplete = true
+    private var worktreeBranch: String?
 
     init(count: Int) {
         history = FakeGraphLoader.linear(count)
@@ -33,6 +34,14 @@ final class FakeGraphLoader: GraphLoading, @unchecked Sendable {
     func failNext(_ error: GitError) { lock.withLock { failure = error } }
     /// The ref set misses refs (`GraphRefSet.isComplete`, #333): it cannot show a move.
     func missRefs() { lock.withLock { refSetComplete = false } }
+    /// The main worktree's branch, on commit 0: switching it leaves the ref set alone (it keys HEADs by commit).
+    func checkOut(_ branch: String?) { lock.withLock { worktreeBranch = branch } }
+
+    static func worktree(branch: String?) -> Worktree {
+        Worktree(
+            path: GitPath("/tmp/dev/repo"), head: oid(0), branch: branch.map { "refs/heads/\($0)" }, isMain: true,
+            isDetached: branch == nil, isBare: false, lock: .unlocked, isPrunable: false, prunableReason: nil)
+    }
 
     /// New commits on top that only a ref outside the ref set reaches: the history moves, the ref set does not.
     func addCommitsOnHiddenRef(_ count: Int) {
@@ -63,7 +72,11 @@ final class FakeGraphLoader: GraphLoading, @unchecked Sendable {
             let branch = Branch(
                 fullName: "refs/heads/main", kind: .local, target: Self.oid(0), upstreamStatus: .none, isHead: true,
                 committerDate: nil, symbolicTarget: nil)
-            let refs = RefParser.Listing(branches: [branch], tags: [], isPartial: false, skippedRecords: 0)
+            let other = Branch(
+                fullName: "refs/heads/other", kind: .local, target: Self.oid(0), upstreamStatus: .none, isHead: false,
+                committerDate: nil, symbolicTarget: nil)
+            let refs = RefParser.Listing(branches: [branch, other], tags: [], isPartial: false, skippedRecords: 0)
+            let worktrees = worktreeBranch == nil ? [] : [Self.worktree(branch: worktreeBranch)]
             let refSet = GraphRefSet(
                 refs: RefParser.Listing(
                     branches: [
@@ -76,7 +89,7 @@ final class FakeGraphLoader: GraphLoading, @unchecked Sendable {
             let commits = skip < end ? Array(history[skip..<end]) : []
             return .success(
                 GraphPageSnapshot(
-                    commits: commits, isPartial: false, refSet: refSet, refs: refs, worktrees: [],
+                    commits: commits, isPartial: false, refSet: refSet, refs: refs, worktrees: worktrees,
                     isRefSetComplete: refSetComplete))
         }
     }
@@ -447,6 +460,39 @@ final class GraphStoreTests: XCTestCase {
         XCTAssertEqual(loader.skips, [0, 500, 0])
         XCTAssertEqual(store.rows.count, 1_000, "nothing moved: the loaded pages stay")
         XCTAssertEqual(store.selected, FakeGraphLoader.oid(700))
+    }
+
+    /// #419: switching a worktree to another branch on the same commit leaves the ref set alone, so the rows stay,
+    /// but its checked-out pill follows the switch on the next refresh.
+    func testABranchSwitchOnTheSameCommitMovesThePillAndKeepsTheRows() async throws {
+        let loader = FakeGraphLoader(count: 10)
+        loader.checkOut("main")
+        let store = GraphStore(loader: loader)
+        store.load(repository, focus: nil)
+        try await waitUntil { store.status == .loaded }
+        XCTAssertEqual(checkedOut(store), ["main"])
+        store.select(FakeGraphLoader.oid(3))
+        let generation = store.decorationGeneration
+
+        loader.checkOut("other")
+        store.refresh(focus: nil)
+        try await waitUntil { checkedOut(store) == ["other"] }
+        XCTAssertEqual(loader.skips, [0, 0])
+        XCTAssertEqual(store.rows.count, 10, "the same commits: rows stay")
+        XCTAssertEqual(store.selected, FakeGraphLoader.oid(3))
+        XCTAssertGreaterThan(store.decorationGeneration, generation)
+
+        // When nothing changed, the check's answer does not rebuild the pills again (`refresh` itself redraws once).
+        store.refresh(focus: nil)
+        let settled = store.decorationGeneration
+        try await waitUntil { loader.skips.count == 3 }
+        try await Task.sleep(for: .milliseconds(20))
+        XCTAssertEqual(store.decorationGeneration, settled)
+    }
+
+    /// The branch names with a checked-out pill on commit 0.
+    private func checkedOut(_ store: GraphStore) -> [String] {
+        (store.pills[FakeGraphLoader.oid(0)] ?? []).filter { $0.kind == .worktreeBranch }.map(\.title)
     }
 
     /// #333: the restart keeps the selected commit when it is still in the reloaded rows, and drops it otherwise.

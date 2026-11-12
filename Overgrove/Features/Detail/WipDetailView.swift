@@ -229,7 +229,9 @@ struct WipGroupCard: View {
     }
 
     private var headerLabel: String {
-        var label = "\(group.group.title), \(group.totalCount) files"
+        let count = group.totalCount
+        let files = count == 1 ? String(localized: "\(count) file") : String(localized: "\(count) files")
+        var label = group.group.title + ", " + files
         if let totals = group.lineTotals {
             label += ", \(WipDetailModel.lineCountDescription(.lines(added: totals.added, deleted: totals.deleted)))"
         }
