@@ -126,6 +126,59 @@ final class LocalizationTests: XCTestCase {
         }
     }
 
+    /// The remaining error and source strings (#503) are looked up in the catalog and have Korean. None of them is in
+    /// Copy Report (`testCopyReportStaysEnglish`).
+    func testRemainingErrorAndSourceStringsAreLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let expected: [String: [String]] = [
+            "ExternalApps": ["The application has no valid bundle identifier."],
+            "GHError": ["A name looked unsafe, so gh was not run."],
+            "CommitDetailStore": ["vs first parent"],
+            "AppState+Commit": ["vs first parent"],
+            "SubmoduleSectionModel": ["%@, %@, not in .gitmodules", "%@, %@"],
+        ]
+        let strings = try catalogStrings()
+        for (source, keys) in expected {
+            let file = try XCTUnwrap(
+                objects.map { $0.appendingPathComponent("\(source).stringsdata") }
+                    .first { FileManager.default.fileExists(atPath: $0.path) }, source)
+            let extracted = Set(try Self.extractedKeys(file))
+            for key in keys {
+                XCTAssertTrue(extracted.contains(key), "\(source): not extracted: \(key)")
+                XCTAssertNotNil(strings[key].flatMap(korean), "no Korean: \(key)")
+            }
+        }
+        let row = SubmoduleSectionModel.Row(
+            id: GitPath("lib"), path: "lib", badge: "modified", tone: .attention, help: nil, isUnlisted: true)
+        XCTAssertEqual(SubmoduleSectionModel.accessibilityLabel(row), "lib, modified, not in .gitmodules")
+    }
+
+    /// The issue detail's Labels and Assignees headings (#502) are looked up in the catalog and have Korean.
+    func testIssueDetailHeadingsAreLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let file = try XCTUnwrap(
+            objects.map { $0.appendingPathComponent("IssueViews.stringsdata") }
+                .first { FileManager.default.fileExists(atPath: $0.path) })
+        let extracted = try Self.extractedKeys(file)
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        for (key, korean) in [("Labels", "라벨"), ("Assignees", "담당자")] {
+            XCTAssertTrue(extracted.contains(key), "not extracted: \(key)")
+            XCTAssertEqual(ko.localizedString(forKey: key, value: nil, table: nil), korean)
+        }
+    }
+
+    /// The repository switcher's "No Repository" (#501), the first thing a new user sees in the toolbar, is looked up
+    /// in the catalog and has Korean.
+    func testNoRepositoryIsLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let file = try XCTUnwrap(
+            objects.map { $0.appendingPathComponent("RepositorySwitcher.stringsdata") }
+                .first { FileManager.default.fileExists(atPath: $0.path) })
+        XCTAssertTrue(try Self.extractedKeys(file).contains("No Repository"))
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        XCTAssertEqual(ko.localizedString(forKey: "No Repository", value: nil, table: nil), "저장소 없음")
+    }
+
     /// `…/Build/Products/<config>/Overgrove.app` → `…/Build/Intermediates.noindex/Overgrove.build/<config>/
     /// Overgrove.build/Objects-normal/<arch>`.
     private static func objectDirectories() -> [URL]? {

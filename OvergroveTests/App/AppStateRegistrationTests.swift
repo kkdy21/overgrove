@@ -142,6 +142,50 @@ final class AppStateRegistrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: api.path))
     }
 
+    /// Picking the open repository again in the switcher does nothing (#497): no reload resets the search, filters or
+    /// selection.
+    func testPickingTheOpenRepositoryAgainKeepsItsState() async throws {
+        let api = try folder("api")
+        let registry = RepositoryRegistry(defaults: defaults)
+        registry.add(RegisteredRepository(rootPath: api.path, commonDirectoryPath: api.path + "/.git"))
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: StubRepositoryLoader())
+        let apiID = registry.repositories[0].id
+
+        state.openRegistered(apiID)
+        let opened = state.repository
+        state.searchText = "fix"
+        state.sidebarFilter = "feat"
+        state.openRegistered(apiID)
+        XCTAssertEqual(state.repository, opened)
+        XCTAssertEqual(state.searchText, "fix")
+        XCTAssertEqual(state.sidebarFilter, "feat")
+        XCTAssertEqual(registry.lastSelected, apiID)
+    }
+
+    /// Quick Look shows the previous repository's file until something closes it (#496): switching to another
+    /// repository or removing the open one does.
+    func testSwitchingOrRemovingTheRepositoryClosesQuickLook() async throws {
+        let api = try folder("api")
+        let web = try folder("web")
+        let registry = RepositoryRegistry(defaults: defaults)
+        registry.add(RegisteredRepository(rootPath: api.path, commonDirectoryPath: api.path + "/.git"))
+        registry.add(RegisteredRepository(rootPath: web.path, commonDirectoryPath: web.path + "/.git"))
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: StubRepositoryLoader())
+        let apiID = registry.repositories[0].id
+        let webID = registry.repositories[1].id
+
+        state.openRegistered(webID)
+        state.quickLookURL = web.appendingPathComponent("README.md")
+        state.openRegistered(apiID)
+        XCTAssertNil(state.quickLookURL, "switching closes the panel")
+
+        state.quickLookURL = api.appendingPathComponent("README.md")
+        state.removeRepository(apiID)
+        XCTAssertNil(state.quickLookURL, "removing the open repository closes the panel")
+    }
+
     func testRestoreOpensTheLastSelectedRepositoryOnce() throws {
         let api = try folder("api")
         let web = try folder("web")
