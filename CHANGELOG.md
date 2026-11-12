@@ -64,6 +64,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   that the app cannot read no longer drops the other hosts gh is logged in to.
 - A remote on GitHub's SSH-over-443 endpoint (`ssh://git@ssh.github.com:443/OWNER/NAME`) is read as github.com, so
   its issues and pull requests show instead of "Not logged in to ssh.github.com".
+- Check Again in the setup assistant also updates the status bar's gh field, the gh accounts, and the trusted GitHub
+  hosts, so issue panels follow a `gh auth login` without another check.
 - Remote-tracking branches of a remote whose name Overgrove does not pass to git (one with `+`, `@`, or non-ASCII
   from a hand-edited config) stay under their own remote, instead of being grouped under, and opening on GitHub as, a
   GitHub remote whose name is a prefix of theirs.
