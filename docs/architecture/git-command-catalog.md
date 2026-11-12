@@ -167,7 +167,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 
   다시 읽기는 `SubmodulePanel`이 조절한다. 같은 status에서는 진행 중인 읽기를 취소하지 않고, 그동안 온 새로고침은 끝난 뒤 한 번으로 합친다. 다음 읽기는 직전 읽기가 끝나고 `max(2초, 소요 × 10)`이 지난 뒤에 시작한다(SEC-T15-20).
 
-- **원격 이름과 URL**은 `configList` 결과의 `remote.<name>.url`에서 얻는다. 별도 명령을 쓰지 않는다. URL은 표시 전에 `CredentialMasker`를 거친다. 원격 추적 ref(`refs/remotes/<remote>/…`)가 어느 원격의 것인지 가를 때는 `remote.<name>.*` 섹션의 이름을 형식 검증과 상관없이 모두 쓴다(바이트 비교, 최대 `maximumRemotes`개, #489). `RemoteName` 규칙(아래 §4)을 통과하지 못한 이름은 그룹 표시와 매칭에만 쓰고 git 인자로는 넘기지 않는다.
+- **원격 이름과 URL**은 `configList` 결과의 `remote.<name>.url`에서 얻는다. 별도 명령을 쓰지 않는다. URL은 표시 전에 `CredentialMasker`를 거친다. 원격 추적 ref(`refs/remotes/<remote>/…`)가 어느 원격의 것인지 가를 때는 `remote.<name>.*` 섹션의 이름을 형식 검증과 상관없이 모두 쓴다(바이트 비교, 최대 `maximumRemotes`개, 이름당 1,009바이트, #489). `RemoteName` 규칙(아래 §4)을 통과하지 못한 이름은 그룹 표시와 매칭에만 쓰고 git 인자로는 넘기지 않는다.
 - **ahead/behind**는 워크트리마다 `status`의 `# branch.ab +A -B` 헤더에서 얻는다. 사이드바 LOCAL의 로컬 브랜치는 `refs`의 `%(upstream:track,nobracket)`에서 한 번에 얻고, 브랜치마다 `rev-list`를 실행하지 않는다(#54, 2026-11-06 측정 S5). `aheadBehind`는 upstream이 아닌 기준 브랜치와의 ahead/behind(비교 카드, S-11, #157)에만 쓴다. `rev-list` 출력은 `<behind>\t<ahead>`다 (확인).
 - **그래프 페이지**는 `--skip`과 `-n`으로 나눈다. 같은 ref 집합이면 순서가 결정적이라 GraphEngine이 열린 레인 상태를 이어서 계산한다. ref 집합 해시가 바뀌면 처음부터 다시 계산한다. 10만 커밋에서 뒤쪽 페이지의 `--skip` 비용이 PB-4를 넘으면, 스트리밍 읽기 모드(한 프로세스의 출력을 페이지 단위로 소비)로 바꾼다. 이 결정은 Phase 3 성능 측정 뒤에 ADR-0010을 갱신해 남긴다.
 - **untrackedPreview**는 `PathValidator.worktreeFile`이 만든 `WorktreeFile`만 받는다(상대 경로, `..` 없음, 실제 위치가 워크트리 안, 일반 파일 또는 심볼릭 링크 — FIFO는 git을 멈추게 하므로 거부). 심볼릭 링크는 내용 대신 링크 대상 문자열만 보여 준다 (T14).

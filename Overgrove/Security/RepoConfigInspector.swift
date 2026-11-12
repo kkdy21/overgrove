@@ -76,6 +76,9 @@ enum RepoConfigInspector {
     /// Remotes listed (configuration order). Fetch uses fewer still (`maximumFetchedRemotes`, #259); the rest are
     /// counted in `omittedRemotes`. Remotes never affect neutralization, so this is not fail closed.
     static let maximumRemotes = 1_000
+    /// The longest remote name kept for matching remote-tracking refs (#489): 1024 (`FullRefName`) minus
+    /// `refs/remotes/` and a `/x` branch. A longer name cannot be the start of a valid ref.
+    static let maximumMatchedRemoteNameLength = 1_009
     /// Findings kept for the report (S-05); the rest are counted in `omittedFindings`.
     static let maximumFindings = 1_000
     /// Bounds on the remote form check (#350, T15). Past any of them a remote is not fetchable; queries go on.
@@ -303,8 +306,11 @@ enum RepoConfigInspector {
         // shorter remote's (#489). Bytes, not `String` equality, which folds normalization.
         var remoteNames: [String] = []
         var seenNames = Set<[UInt8]>()
+        // A longer name cannot start a valid ref (`FullRefName`: 1024 bytes, after `refs/remotes/` and before `/x`).
         for entry in listing.entries where entry.section == "remote" && remoteNames.count < maximumRemotes {
-            guard let subsection = entry.subsection, seenNames.insert(Array(subsection.utf8)).inserted else { continue }
+            guard let subsection = entry.subsection, subsection.utf8.count <= maximumMatchedRemoteNameLength,
+                seenNames.insert(Array(subsection.utf8)).inserted
+            else { continue }
             remoteNames.append(subsection)
         }
         let builtInRemotes = builtInRemoteNames(

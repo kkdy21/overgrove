@@ -132,6 +132,27 @@ final class BranchListModelTests: XCTestCase {
                 "refs/remotes/gh/fork+1/topic", remotes: ["gh": repository], configuredRemotes: ["gh", "gh/fork+1"]))
     }
 
+    /// #489: remotes spelled in NFC and NFD are two remotes. The NFD one's rows are not merged into the NFC folder,
+    /// and neither opens the GitHub remote `gh` whose name is a prefix of both.
+    func testRemotesInNFCAndNFDStaySeparate() throws {
+        let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
+        let nfc = "gh/caf\u{E9}"
+        let nfd = "gh/cafe\u{301}"
+        let model = BranchListModel(
+            refs: refs([remote("\(nfc)/a", guess: "gh"), remote("\(nfd)/b", guess: "gh")]), checkedOut: [],
+            remoteNames: ["gh", nfc, nfd], githubRemotes: ["gh": repository])
+        XCTAssertEqual(model.remote.count, 2, "two folders")
+        for node in model.remote {
+            guard case .folder(_, _, _, let children) = node, case .branch(let row) = children.first else {
+                return XCTFail("\(model.remote)")
+            }
+            XCTAssertNil(row.gitHubTarget, row.name)
+        }
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/\(nfd)/b", remotes: ["gh": repository], configuredRemotes: ["gh", nfc, nfd]))
+    }
+
     /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
     /// (`origin/x`); an empty remainder shows the whole name (security review of #72).
     func testRemoteSplitIsByteExact() {

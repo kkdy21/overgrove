@@ -577,11 +577,15 @@ final class RepoConfigInspectorTests: XCTestCase {
             entry(.local, "remote.me@host.fetch", "+refs/heads/*:refs/remotes/me@host/*"),
             entry(.local, "remote.gh.fetch", "+refs/heads/*:refs/remotes/gh/*"),
             entry(.local, "remote.-evil.url", "https://x/y"),
+            // Longer than any valid ref could start with (T15): left out.
+            entry(.local, "remote.\(String(repeating: "x", count: 1_010)).url", "https://x/y"),
+            entry(.local, "remote.\(String(repeating: "y", count: 1_009)).url", "https://x/y"),
         ])
         XCTAssertEqual(result.remotes.map(\.name.value), ["gh"])
         XCTAssertEqual(
             result.remoteNames.map { Array($0.utf8) },
-            ["gh", "gh/fork+1", "caf\u{E9}", "cafe\u{301}", "me@host", "-evil"].map { Array($0.utf8) })
+            ["gh", "gh/fork+1", "caf\u{E9}", "cafe\u{301}", "me@host", "-evil", String(repeating: "y", count: 1_009)]
+                .map { Array($0.utf8) })
     }
 
     func testCacheInvalidatesWhenAFileChanges() async throws {
