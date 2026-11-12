@@ -897,6 +897,16 @@
         }
       }
     },
+    "Assignees" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "담당자"
+          }
+        }
+      }
+    },
     "Authentication failed for %@" : {
       "localizations" : {
         "ko" : {
@@ -3131,6 +3141,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "로컬"
+          }
+        }
+      }
+    },
+    "Labels" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "라벨"
           }
         }
       }
