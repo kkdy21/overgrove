@@ -13,6 +13,15 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 fail=0
 
+# Neither the cases' own git calls nor bootstrap read the user's global or system git config (#509): a global
+# core.hooksPath would otherwise decide what the cases see. The stand-in home, used by both, carries a global
+# core.hooksPath=.githooks, so a leak shows up: bootstrap would report the hooks as installed without setting them.
+empty_git_config="$work/empty.gitconfig"
+: >"$empty_git_config"
+mkdir -p "$work/home"
+printf '[core]\n\thooksPath = .githooks\n' >"$work/home/.gitconfig"
+export HOME="$work/home" GIT_CONFIG_GLOBAL="$empty_git_config" GIT_CONFIG_NOSYSTEM=1
+
 pass() { echo "ok   $1"; }
 failed() {
   echo "FAIL $1"
@@ -69,7 +78,8 @@ run() {
   if [[ "${preset_hooks:-0}" == 1 ]]; then git -C "$repo" config core.hooksPath .githooks; fi
   cp "$here/bootstrap.sh" "$repo/scripts/"
   local -a vars=(
-    "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
+    "PATH=$stubs:/usr/bin:/bin" "HOME=$work/home" "GIT_CONFIG_GLOBAL=$empty_git_config" "GIT_CONFIG_NOSYSTEM=1"
+    "STUB_MACOS=14.6" "STUB_DEVDIR=/Applications/Xcode.app/Contents/Developer"
     "STUB_XCODE=Xcode 26.1" "STUB_LICENSE=ok" "STUB_FIRSTLAUNCH=ok" "STUB_GIT=git version 2.39.5 (Apple Git-154)"
     "BOOTSTRAP_APPLICATIONS=$work/apps-with-xcode"
   )
