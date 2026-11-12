@@ -222,7 +222,7 @@ struct WorktreeListModel: Equatable {
                 )
             )
         case .notQueried(.inspectionBlocked(let reason)):
-            return (String(localized: "Blocked for safety"), PathValidator.displayable(reason))
+            return (String(localized: "Blocked for safety"), PathValidator.displayable(SafetyReason.display(reason)))
         case .notQueried(.unrepresentablePath):
             return (
                 String(localized: "Path cannot be read"),

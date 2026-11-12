@@ -382,7 +382,7 @@ struct IssueDetailView: View {
         .accessibilityLabel([sha, text, note].compactMap { $0 }.joined(separator: " "))
     }
 
-    private func label(_ text: String) -> some View {
+    private func label(_ text: LocalizedStringKey) -> some View {
         Text(text).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
     }
 

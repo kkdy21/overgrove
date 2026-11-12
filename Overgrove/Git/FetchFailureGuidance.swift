@@ -110,7 +110,7 @@ struct FetchFailureGuidance: Sendable, Equatable {
             remote: remote,
             reason: .blockedByConfiguration,
             summary: String(localized: "Overgrove does not fetch \(remote.value) with this git"),
-            guidance: reason,
+            guidance: SafetyReason.display(reason),
             commands: [],
             detail: nil
         )
@@ -261,7 +261,7 @@ struct FetchFailureGuidance: Sendable, Equatable {
             return Content(
                 reason: .blockedByConfiguration,
                 summary: String(localized: "Fetching \(remote) is turned off for this repository"),
-                guidance: reason, commands: [])
+                guidance: SafetyReason.display(reason), commands: [])
         case .nonZeroExit:
             // Not `error.message`: for this case it is the first stderr line, which a server can write over ssh.
             return Content(
