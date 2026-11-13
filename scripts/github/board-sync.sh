@@ -8,10 +8,15 @@
 #   scripts/github/board-sync.sh reconcile        recompute every issue (open issues, and every issue on the board)
 #   add --dry-run to print the changes without making them (dry runs never write to the board)
 #
+# Every issue it looks at gets one log line: what it read, the status it computed, and whether it changed it (#595),
+# so a run's log alone explains the board.
+#
 # Env:
 #   GH_TOKEN        token with the `project` scope (CI: secrets.PROJECT_TOKEN). Locally gh's own login is used.
 #   REPO            owner/name (default kkdy21/overgrove). The project belongs to the repository owner (a user).
 #   PROJECT_NUMBER  default 4
+#   RECHECK_SECONDS how long `pr` waits before reading again an issue its merged PR closes but that still reads open
+#                   (default 5, #595)
 #
 # Rules (docs/process/development-workflow.md §2.1). The first match wins:
 #   closed                                    → Done
@@ -46,6 +51,9 @@ for arg in "$@"; do
 done
 MODE="${POSITIONAL[0]:-}"
 TARGET="${POSITIONAL[1]:-}"
+RECHECK_SECONDS="${RECHECK_SECONDS:-5}"
+[[ "$RECHECK_SECONDS" =~ ^[0-9]{1,2}$ ]] || { echo "RECHECK_SECONDS must be 0-99" >&2; exit 2; }
+
 case "$MODE" in
   issue | pr | dependents)
     [[ "$TARGET" =~ ^[0-9]{1,9}$ ]] || { echo "usage: $0 $MODE <number> [--dry-run]" >&2; exit 2; } ;;
@@ -158,12 +166,14 @@ board_item() {
 
 CHANGED=0
 CHECKED=0
-set_status() { # number item current want
-  local number=$1 item=$2 cur=$3 want=$4
+set_status() { # number item current want inputs
+  local number=$1 item=$2 cur=$3 want=$4 inputs=$5
   CHECKED=$((CHECKED + 1))
-  [[ -n "${VERBOSE:-}" ]] && echo "  #$number: cur=${cur:-none} want=$want" >&2
-  [[ "$cur" == "$want" ]] && return 0
-  echo "#$number: ${cur:-(not on board)} -> $want"
+  if [[ "$cur" == "$want" ]]; then
+    echo "#$number: $inputs -> $want (unchanged)"
+    return 0
+  fi
+  echo "#$number: $inputs -> $want (was ${cur:-not on board})"
   CHANGED=$((CHANGED + 1))
   ((DRY_RUN)) && return 0
   gh api graphql -f project="$PROJECT_ID" -f item="$item" -f field="$FIELD_ID" -f opt="$(option_id "$want")" -f query='
@@ -174,7 +184,7 @@ set_status() { # number item current want
 
 # issue JSON, item id ("-" if not on the board), current status ("" if none) → apply the desired status
 sync_with() {
-  local json=$1 item=$2 cur=$3 body summary total want if_done if_not
+  local json=$1 item=$2 cur=$3 body summary total want if_done if_not inputs
   body=$(jq -r '.body // ""' <<<"$json")
   summary=$(deps_summary 0 <<<"$body") || return 1
   total=${summary% *}
@@ -191,18 +201,34 @@ sync_with() {
   else
     want=$(desired_status "$total" "${summary#* }" "$cur" <<<"$json")
   fi
+  # What the rule saw: state, assignees, open PRs (draft or ready, by branch), dependencies (count, done or not looked up).
+  # Any open PR that names the issue is listed, counted or not, so its branch name is quoted: a fork's branch cannot
+  # pass for extra entries.
+  inputs=$(jq -r --arg deps "$total:${summary#* }" '
+    "state=\(.state) assignees=\([.assignees.nodes[].login] | join(",") | if . == "" then "-" else . end)"
+    + " prs=\([(.closedByPullRequestsReferences.nodes // [])[] | select(.state == "OPEN")
+        | "\(.headRefName | @json)(\(if .isDraft then "draft" else "ready" end))"] | join(",") | if . == "" then "-" else . end)"
+    + " deps=\($deps)"' <<<"$json")
   if [[ "$item" == "-" ]] && ! ((DRY_RUN)); then
     item=$(gh api graphql -f project="$PROJECT_ID" -f content="$(jq -r '.id' <<<"$json")" -f query='
       mutation($project: ID!, $content: ID!) { addProjectV2ItemById(input: {projectId: $project, contentId: $content}) { item { id } } }' \
       --jq '.data.addProjectV2ItemById.item.id') || return 1
   fi
-  set_status "$(jq -r '.number' <<<"$json")" "$item" "$cur" "$want"
+  set_status "$(jq -r '.number' <<<"$json")" "$item" "$cur" "$want" "$inputs"
 }
 
+# $1 issue number; $2 (optional) the merged pull request that closes it: an issue that still reads open is read once
+# more after RECHECK_SECONDS. The merge closes both at once, and a run that saw the issue open in between would put
+# it back to its assignee's "In progress" after the issue's own run set Done (#595).
 sync_issue() {
   local json found item cur
   json=$(fetch_issue "$1") || { echo "could not read issue #$1" >&2; return 1; }
   [[ -n "$json" && "$json" != null ]] || { echo "issue #$1 not found" >&2; return 1; }
+  if [[ -n "${2:-}" && "$(jq -r '.state' <<<"$json")" == OPEN ]]; then
+    echo "#$1: still open after PR #$2 merged; reading it again in $RECHECK_SECONDS s"
+    sleep "$RECHECK_SECONDS"
+    json=$(fetch_issue "$1") || { echo "could not read issue #$1" >&2; return 1; }
+  fi
   found=$(board_item "$(jq -r '.id' <<<"$json")") || { echo "could not read the board item of #$1" >&2; return 1; }
   item=${found%% *}
   cur=${found#* }
@@ -233,7 +259,7 @@ case "$MODE" in
     pr_json=$(gh api graphql -F owner="$OWNER" -F name="$NAME" -F n="$TARGET" -f query='
       query($owner: String!, $name: String!, $n: Int!) {
         repository(owner: $owner, name: $name) {
-          pullRequest(number: $n) { headRefName closingIssuesReferences(first: 20) { nodes { number repository { nameWithOwner } } } }
+          pullRequest(number: $n) { merged headRefName closingIssuesReferences(first: 20) { nodes { number repository { nameWithOwner } } } }
         }
       }')
     for n in $(jq -r --arg repo "$REPO" '.data.repository.pullRequest as $p
@@ -242,7 +268,11 @@ case "$MODE" in
         | . as $i
         | select($p.headRefName | test("^[a-z]+/" + ($i.number | tostring) + "-"))
         | $i.number' <<<"$pr_json"); do
-      sync_issue "$n"
+      if [[ "$(jq -r '.data.repository.pullRequest.merged' <<<"$pr_json")" == true ]]; then
+        sync_issue "$n" "$TARGET"
+      else
+        sync_issue "$n"
+      fi
     done
     ;;
   dependents)

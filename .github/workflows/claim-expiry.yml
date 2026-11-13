@@ -50,7 +50,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$GH_TOKEN" ]]; then
-            echo "::notice title=board-sync::PROJECT_TOKEN is not set, so the board was not reconciled."
+            msg="PROJECT_TOKEN is not set, so the board was not reconciled (docs/process/github-settings.md §3)."
+            # A warning, not a notice, and on the summary page: a skipped reconcile hid the missing token (#595).
+            echo "::warning title=board-sync::$msg"
+            echo "**Board reconcile skipped:** $msg" >>"$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           scripts/github/board-sync.sh reconcile $DRY_RUN
