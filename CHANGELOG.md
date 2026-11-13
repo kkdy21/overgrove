@@ -50,6 +50,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 - The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show
   the pointing hand.
+- Stepping through commits no longer flashes a loading state: the commit detail keeps the previous commit for up to
+  150 ms while the next one loads. The comparison screens fade in instead of popping in after a blank frame.
 - Opening a sidebar section or a Security card's keys no longer draws the new rows over the rows below while they
   slide down: the rows below cover them until they move out of the way.
 - In the sidebar LOCAL and REMOTE trees, branch and folder rows of one depth line up their icons and names.
