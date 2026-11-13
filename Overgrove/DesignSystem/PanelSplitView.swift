@@ -220,8 +220,9 @@ private struct PanelDivider: View {
         .frame(width: PanelLayout.gap)
         .frame(maxHeight: .infinity)
         .contentShape(Rectangle())
-        // AppKit cursor rects (as NSSplitView does): AppKit owns hover, key/inactive windows, and drag end.
-        .background(CursorArea(cursor: cursor))
+        // The resize cursor (`View.cursor`, #634), as NSSplitView shows: only in the key window, gone when the pointer
+        // leaves; a drag keeps it below.
+        .cursor(cursor)
         .onHover { isHovering = $0 }
         .gesture(
             // 3pt so a slightly jittery double-click on a trackpad is not taken for a drag.
@@ -311,8 +312,44 @@ private struct CollapsiblePanel: ViewModifier {
     }
 }
 
-/// An AppKit cursor rect over a divider (panels, and graph columns #255). It takes no mouse events (`hitTest`
-/// returns nil), so SwiftUI gestures and hover still work.
+/// A pointer cursor over a view (#634): the resize cursors on the panel dividers and graph column dividers, the
+/// pointing hand on clickable status bar fields.
+///
+/// macOS 15 and later: SwiftUI's `pointerStyle`, which follows the window's key state and the pointer leaving.
+/// macOS 14: `CursorArea`. An `NSView` cursor rect alone lost to the hosting view: AppKit sends cursor updates to the
+/// view under the pointer, and the cursor view must not take hits (it would swallow the clicks and drags), so the
+/// SwiftUI hosting view set the arrow back. `CursorArea` also tracks the pointer itself and sets its cursor on enter
+/// and move, the arrow on exit.
+extension View {
+    func cursor(_ cursor: NSCursor) -> some View {
+        modifier(CursorModifier(cursor: cursor))
+    }
+}
+
+struct CursorModifier: ViewModifier {
+    let cursor: NSCursor
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *), let style = Self.pointerStyle(for: cursor) {
+            content.pointerStyle(style)
+        } else {
+            content.background(CursorArea(cursor: cursor))
+        }
+    }
+
+    /// The SwiftUI style for the AppKit cursors the app uses; `nil` for any other, which falls back to `CursorArea`.
+    @available(macOS 15, *)
+    static func pointerStyle(for cursor: NSCursor) -> PointerStyle? {
+        switch cursor {
+        case .resizeLeftRight: .columnResize
+        case .resizeLeft: .columnResize(directions: .leading)
+        case .resizeRight: .columnResize(directions: .trailing)
+        case .pointingHand: .link
+        default: nil
+        }
+    }
+}
+
 struct CursorArea: NSViewRepresentable {
     let cursor: NSCursor
 
@@ -327,9 +364,12 @@ struct CursorArea: NSViewRepresentable {
     final class CursorView: NSView {
         var cursor: NSCursor = .arrow {
             didSet {
-                if cursor !== oldValue { window?.invalidateCursorRects(for: self) }
+                guard cursor !== oldValue else { return }
+                window?.invalidateCursorRects(for: self)
+                if isInside { cursor.set() }
             }
         }
+        private(set) var isInside = false
 
         override func resetCursorRects() {
             addCursorRect(bounds, cursor: cursor)
@@ -338,6 +378,40 @@ struct CursorArea: NSViewRepresentable {
         override func setFrameSize(_ newSize: NSSize) {
             super.setFrameSize(newSize)
             window?.invalidateCursorRects(for: self)
+        }
+
+        /// Enter, move, and exit come to the area's owner whatever is under the pointer, so they work although this
+        /// view takes no hits. Only in the key window, like the cursor rect.
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+            addTrackingArea(
+                NSTrackingArea(
+                    rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect],
+                    owner: self))
+        }
+
+        override func mouseEntered(with event: NSEvent) {
+            isInside = true
+            cursor.set()
+        }
+
+        /// Again on every move: the hosting view under the pointer may set the arrow back.
+        override func mouseMoved(with event: NSEvent) {
+            if isInside { cursor.set() }
+        }
+
+        override func mouseExited(with event: NSEvent) {
+            isInside = false
+            NSCursor.arrow.set()
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if window == nil, isInside {
+                isInside = false
+                NSCursor.arrow.set()
+            }
         }
 
         override func hitTest(_ point: NSPoint) -> NSView? {

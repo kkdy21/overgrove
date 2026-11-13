@@ -232,9 +232,9 @@ struct StatusBar: View {
         Button(action: action) { field(item) }
             .buttonStyle(.hover)
             .padding(.horizontal, -Tokens.Spacing.xs)
-            // An AppKit cursor rect, like the dividers: AppKit owns hover, so the hand never outlives the field in an
-            // inactive window or after a redraw.
-            .background(CursorArea(cursor: .pointingHand))
+            // The pointing hand, like the dividers' resize cursor (`View.cursor`, #634): it never outlives the field in an
+            // inactive window or after the pointer leaves.
+            .cursor(.pointingHand)
     }
 
     /// Leading fields put the icon first; the trailing gh status puts it last (`gh: @login ✓`, §3.5).

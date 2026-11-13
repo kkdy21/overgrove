@@ -297,7 +297,7 @@ private struct GraphColumnDivider: View {
         }
         .frame(width: GraphColumnHeader.handleWidth, height: Tokens.Size.columnHeader)
         .contentShape(Rectangle())
-        .background(CursorArea(cursor: cursor))
+        .cursor(cursor)
         .onHover { isHovering = $0 }
         .gesture(
             DragGesture(minimumDistance: 3, coordinateSpace: .global)
