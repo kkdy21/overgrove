@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 /// A sidebar section that opens and closes (interaction.md §1.2, #592).
 enum SidebarSection: Hashable, Sendable, CaseIterable {
@@ -162,4 +162,47 @@ enum SidebarNavigation {
         if case .at(let index) = position, index == target { return nil }
         return items[target]
     }
+}
+
+/// Where each built sidebar row is, in the sidebar scroll view's coordinates (#636): the arrow keys scroll only when
+/// the row they move to is not fully in view below the pinned section header. A reference type, so recording frames
+/// on every scroll does not redraw the sidebar.
+@MainActor
+final class SidebarRowFrames {
+    private(set) var frames: [String: CGRect] = [:]
+
+    func record(_ frame: CGRect, for id: String) { frames[id] = frame }
+    func forget(_ id: String) { frames[id] = nil }
+}
+
+extension EnvironmentValues {
+    /// Set by `SidebarPanel` (or a test) so rows can report where they are (#636).
+    @Entry var sidebarRowFrames: SidebarRowFrames?
+}
+
+extension View {
+    /// Reports this sidebar row's frame under `id` (its `SidebarItem.scrollID`), for the arrow keys (#636).
+    func sidebarRowFrame(_ id: String) -> some View {
+        modifier(SidebarRowFrameReporter(id: id))
+    }
+}
+
+private struct SidebarRowFrameReporter: ViewModifier {
+    let id: String
+    @Environment(\.sidebarRowFrames) private var frames
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: CGRect.self) {
+                $0.frame(in: .named(SidebarRowFrameSpace.name))
+            } action: { frame in
+                frames?.record(frame, for: id)
+            }
+            .onDisappear { frames?.forget(id) }
+    }
+}
+
+/// The coordinate space of the sidebar's scroll view: (0, 0) is the top of the visible area.
+enum SidebarRowFrameSpace {
+    static let name = "sidebar.scroll"
 }

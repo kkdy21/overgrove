@@ -68,6 +68,7 @@ struct TagListSection: View {
                     .onTapGesture { choose(row) }
                     .accessibilityAction { choose(row) }
                     .contextMenu { TagRowMenu(row: row, onShow: { choose(row) }) }
+                    .sidebarRowFrame(row.sidebarScrollID)
                 }
                 if visible.hidden > 0 {
                     Text("\(WorktreeListModel.badgeText(visible.hidden)) more tags — filter to find one")

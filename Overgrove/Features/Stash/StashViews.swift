@@ -39,6 +39,7 @@ struct StashListSection: View {
                             .onTapGesture { onSelect(row.id) }
                             .accessibilityAction { onSelect(row.id) }
                             .contextMenu { StashRowMenu(row: row, onShowChanges: { onSelect(row.id) }) }
+                            .sidebarRowFrame(row.sidebarScrollID)
                     }
                 }
             }
