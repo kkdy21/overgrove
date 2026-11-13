@@ -113,4 +113,37 @@ final class GraphRenderTests: XCTestCase {
             }
         }
     }
+
+    /// #574: a selected WIP row shows the 3 pt accent bar, and at the graph panel's minimum width (480 pt) Message keeps
+    /// its minimum with the AI-badged row's columns in line (the layout itself is checked in GraphColumnLayoutTests).
+    func testSelectedWipRowShowsTheAccentBarAtTheMinimumWidth() async throws {
+        let store = try await loadedStore()
+        XCTAssertNotNil(store.wip)
+        let size = CGSize(width: 480, height: 260)
+        for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
+            func render(selected: Bool) throws -> NSBitmapImageRep {
+                try self.render(
+                    GraphView(store: store, now: Date(timeIntervalSince1970: 1_800_000_000), isWipSelected: selected),
+                    size: size, appearance: appearance)
+            }
+            let selected = try render(selected: true)
+            let plain = try render(selected: false)
+            // The WIP row is the first row under the column header.
+            let scale = CGFloat(selected.pixelsWide) / size.width
+            let y = Int((Tokens.Size.columnHeader + GraphGeometry.standard.rowHeight / 2) * scale)
+            let x = Int(1 * scale)
+            let bar = try XCTUnwrap(selected.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
+            let row = try XCTUnwrap(plain.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
+            let difference =
+                abs(bar.redComponent - row.redComponent) + abs(bar.greenComponent - row.greenComponent)
+                + abs(bar.blueComponent - row.blueComponent)
+            XCTAssertGreaterThan(difference, 0.2, "\(name): the selected WIP row has a bar at its left edge")
+            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+                let png = selected.representation(using: .png, properties: [:])
+            {
+                try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("graph-480-wip-\(name).png"))
+            }
+        }
+    }
 }
