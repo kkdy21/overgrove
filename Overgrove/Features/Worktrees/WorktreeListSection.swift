@@ -255,7 +255,9 @@ struct WorktreeRowView: View {
         .background {
             if isSelected {
                 let shape = RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
-                SidebarSelectionBackground(isFocused: isListFocused)
+                // The lane border already tells the selection from the hover; the inactive outline under it would
+                // dull the lane colour, so only a neutral row keeps it (#605).
+                SidebarSelectionBackground(isFocused: isListFocused, outlinesWhenInactive: laneColor == nil)
                     .overlay {
                         // The branch's lane colour, so the selection reads as the same line in the graph (#300).
                         if let lane = laneColor {

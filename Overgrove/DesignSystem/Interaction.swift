@@ -204,6 +204,9 @@ extension ButtonStyle where Self == HoverButtonStyle {
 /// `surface.selection-inactive` with a `border.strong` outline otherwise, with `radius.card`.
 struct SidebarSelectionBackground: View {
     let isFocused: Bool
+    /// `false` for a row that marks its selection another way (a worktree row's lane border), so the outline does not
+    /// sit under that mark.
+    var outlinesWhenInactive = true
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
@@ -211,7 +214,7 @@ struct SidebarSelectionBackground: View {
             .fill(isFocused ? Tokens.Color.surfaceSelection : Tokens.Color.surfaceSelectionInactive)
             // Inactive, the fill is nearly `surface.hover`; a `border.strong` outline tells the two apart, as on file
             // rows (#605).
-            .overlay { if !isFocused { shape.strokeBorder(Tokens.Color.borderStrong) } }
+            .overlay { if !isFocused && outlinesWhenInactive { shape.strokeBorder(Tokens.Color.borderStrong) } }
     }
 }
 

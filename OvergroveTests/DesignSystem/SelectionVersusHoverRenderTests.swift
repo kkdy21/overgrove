@@ -47,6 +47,12 @@ final class SelectionVersusHoverRenderTests: XCTestCase {
             let focusedEdge = try XCTUnwrap(focused.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
             let focusedMiddle = try XCTUnwrap(focused.colorAt(x: Int(100 * scale), y: y)?.usingColorSpace(.sRGB))
             XCTAssertEqual(focusedEdge.redComponent, focusedMiddle.redComponent, accuracy: 0.03, "no outline")
+            // A worktree row with a lane border asks for no outline under it.
+            let laned = try render(
+                SidebarSelectionBackground(isFocused: false, outlinesWhenInactive: false), appearance: appearance)
+            let lanedEdge = try XCTUnwrap(laned.colorAt(x: x, y: y)?.usingColorSpace(.sRGB))
+            let lanedMiddle = try XCTUnwrap(laned.colorAt(x: Int(100 * scale), y: y)?.usingColorSpace(.sRGB))
+            XCTAssertEqual(lanedEdge.redComponent, lanedMiddle.redComponent, accuracy: 0.03, "no outline under a lane")
         }
     }
 }
