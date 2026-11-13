@@ -241,10 +241,14 @@ final class AppStateIssueTests: XCTestCase {
             await state.loadTask?.value
             await state.issuePanel.task?.value
             await state.pullRequestStore.task?.value
+            await state.ghCheckTask?.value
         }
         XCTAssertEqual(loader.requests, ["team/app"], "the cached paint's remote is never asked about")
         XCTAssertEqual(pullRequests.requests, ["team/app"])
-        // Check Again after the failed refresh asks about the last verified repository only.
+        // Check Again after the failed refresh asks about the last verified repository only. It does nothing while
+        // the issue panel or gh's login check is busy, so both must be idle here (#570).
+        XCTAssertFalse(state.issuePanel.isLoading)
+        XCTAssertFalse(state.isCheckingGitHub)
         state.checkIssuesAgain()
         await state.issuePanel.task?.value
         await state.pullRequestStore.task?.value
