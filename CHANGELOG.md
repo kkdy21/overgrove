@@ -59,6 +59,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   ends with `·`. The issue panel's setup commands wrap instead of being cut, and add no hyphens of their own.
 - The graph search’s previous and next buttons and the fetch failure details’ Copy Command button respond to the
   pointer like the other icon buttons.
+- The status bar no longer leaves a gap after a short ahead/behind or fetch field; the fields still shorten in a
+  narrow window.
 - The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
   section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
   issue.
