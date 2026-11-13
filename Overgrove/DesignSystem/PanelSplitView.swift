@@ -75,6 +75,8 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
             .padding(.vertical, Self.gap)
         }
         .background(Tokens.Color.surfaceWindow)
+        // A cursor set over this window (a divider's resize cursor) must not stay when another window takes over (#648).
+        .background(KeyWindowCursorReset())
         .frame(minWidth: layout.minimumWindowWidth)
         .focusedSceneValue(
             \.panelLayoutActions,
@@ -182,7 +184,7 @@ private struct PanelBox<Content: View>: View {
 
 /// The gutter between two panels: the whole 8pt-wide, full-height gutter is the hit area, with a 4×28 grip in the
 /// middle (art-direction.md §3.2).
-private struct PanelDivider: View {
+struct PanelDivider: View {
     let side: PanelLayout.Side
     let limitState: PanelLayout.LimitState
     let accessibilityValue: String
@@ -196,6 +198,8 @@ private struct PanelDivider: View {
     let onEdge: (PanelLayout.Edge) -> Void
 
     @State private var isHovering = false
+    /// The gutter in the drag's (global) coordinates, to tell whether a released drag ends over it (#648).
+    @State private var gutterFrame: CGRect = .zero
     /// True while the drag gesture runs; SwiftUI resets it on end *and* on cancel, unlike `onEnded`.
     @GestureState private var isGestureActive = false
 
@@ -224,6 +228,11 @@ private struct PanelDivider: View {
         // leaves; a drag keeps it below.
         .cursor(cursor)
         .onHover { isHovering = $0 }
+        .onGeometryChange(for: CGRect.self) {
+            $0.frame(in: .global)
+        } action: {
+            gutterFrame = $0
+        }
         .gesture(
             // 3pt so a slightly jittery double-click on a trackpad is not taken for a drag.
             DragGesture(minimumDistance: 3, coordinateSpace: .global)
@@ -234,7 +243,9 @@ private struct PanelDivider: View {
                 }
                 .onEnded { value in
                     onDragEnded(value.translation.width)
-                    NSCursor.arrow.set()
+                    // The resize cursor while the pointer is still over the gutter, the arrow once it is not: the
+                    // `pointerStyle` path only sets it again when the pointer enters (#648).
+                    Self.cursorAfterDrag(cursor, pointer: value.location, gutter: gutterFrame).set()
                 }
         )
         .onChange(of: isGestureActive) { _, active in
@@ -243,7 +254,7 @@ private struct PanelDivider: View {
             // (e.g. the divider disappeared mid-drag) it is the only signal. Deferred so it never races `onEnded`.
             Task { @MainActor in
                 onDragCancelled()
-                NSCursor.arrow.set()
+                if !isHovering { NSCursor.arrow.set() }
             }
         }
         .onTapGesture(count: 2, perform: onReset)
@@ -276,6 +287,12 @@ private struct PanelDivider: View {
             onStep(widens ? 1 : -1)
         }
         return .handled
+    }
+
+    /// The cursor when a drag is released at `pointer`: `cursor` over the gutter, the arrow elsewhere (#648). The
+    /// gutter follows the pointer, so it is over it unless a panel limit stopped the gutter.
+    static func cursorAfterDrag(_ cursor: NSCursor, pointer: CGPoint, gutter: CGRect) -> NSCursor {
+        gutter.contains(pointer) ? cursor : .arrow
     }
 
     /// `resizeLeftRight`, or the one direction that still moves at a limit.
@@ -417,6 +434,41 @@ struct CursorArea: NSViewRepresentable {
         override func hitTest(_ point: NSPoint) -> NSView? {
             nil
         }
+    }
+}
+
+/// Puts the arrow back when another window of the app becomes key (#648), such as Settings. This window's cursors
+/// (`View.cursor`) only work while it is key: without this, a divider's resize cursor stayed while the pointer crossed
+/// this window and after Settings closed, until the pointer moved again. Nothing happens while another app becomes
+/// active, so its cursor is never touched.
+struct KeyWindowCursorReset: NSViewRepresentable {
+    func makeNSView(context: Context) -> ResetView { ResetView() }
+
+    func updateNSView(_ view: ResetView, context: Context) {}
+
+    final class ResetView: NSView {
+        private var observer: NSObjectProtocol?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+            observer = nil
+            guard window != nil else { return }
+            observer = NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main
+            ) { [weak self] note in
+                let other = note.object as? NSWindow
+                MainActor.assumeIsolated { self?.windowBecameKey(other) }
+            }
+        }
+
+        /// `other` became key: the arrow, unless it is this view's own window or the app is not active.
+        func windowBecameKey(_ other: NSWindow?, appIsActive: Bool = NSApp.isActive) {
+            guard let window, let other, other !== window, appIsActive else { return }
+            NSCursor.arrow.set()
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
     }
 }
 

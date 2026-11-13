@@ -49,4 +49,43 @@ final class CursorTests: XCTestCase {
         view.mouseMoved(with: event)
         XCTAssertEqual(NSCursor.current, .arrow, "no cursor after the pointer left")
     }
+
+    /// #648: a released divider drag keeps the resize cursor while the pointer is over the gutter, and shows the
+    /// arrow once it is not (it used to set the arrow either way).
+    func testAReleasedDragKeepsTheResizeCursorOverTheGutter() {
+        let gutter = CGRect(x: 300, y: 8, width: 8, height: 600)
+        XCTAssertEqual(
+            PanelDivider.cursorAfterDrag(.resizeLeftRight, pointer: CGPoint(x: 304, y: 200), gutter: gutter),
+            .resizeLeftRight)
+        XCTAssertEqual(
+            PanelDivider.cursorAfterDrag(.resizeRight, pointer: CGPoint(x: 304, y: 590), gutter: gutter), .resizeRight)
+        XCTAssertEqual(
+            PanelDivider.cursorAfterDrag(.resizeLeftRight, pointer: CGPoint(x: 380, y: 200), gutter: gutter), .arrow,
+            "stopped at a limit, the pointer went on")
+        XCTAssertEqual(
+            PanelDivider.cursorAfterDrag(.resizeLeftRight, pointer: CGPoint(x: 304, y: 700), gutter: gutter), .arrow)
+    }
+
+    /// #648: when another window of the app becomes key (Settings), the main window's resize cursor does not stay;
+    /// its own key change and another app's activation leave the cursor alone.
+    func testAnotherKeyWindowPutsTheArrowBack() {
+        let main = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: 200, height: 200), styleMask: [.titled],
+            backing: .buffered, defer: true)
+        let settings = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: 200, height: 200), styleMask: [.titled],
+            backing: .buffered, defer: true)
+        let view = KeyWindowCursorReset.ResetView(frame: .zero)
+        main.contentView = view
+        defer { main.contentView = nil }
+
+        NSCursor.resizeLeftRight.set()
+        view.windowBecameKey(main, appIsActive: true)
+        XCTAssertEqual(NSCursor.current, .resizeLeftRight, "its own window")
+        view.windowBecameKey(settings, appIsActive: false)
+        XCTAssertEqual(NSCursor.current, .resizeLeftRight, "another app is active")
+        view.windowBecameKey(settings, appIsActive: true)
+        XCTAssertEqual(NSCursor.current, .arrow)
+        XCTAssertNil(view.hitTest(.zero), "takes no clicks")
+    }
 }
