@@ -9,6 +9,7 @@
   - `scripts/lint/check-forbidden-apis.sh`
   - `gitleaks git --log-opts="origin/main..HEAD" .`
   - (Phase 3 이후) `swift format lint --strict`, `xcodebuild test`
+  - `xcodebuild test`의 로그를 `scripts/lint/check-actor-isolation-warnings.sh <로그>`로 확인한다(#630). 로컬 Xcode 27(Swift 6.4)은 nonisolated 문맥에서 main actor 메서드를 부르는 것을 `[#ActorIsolatedCall]` 경고로만 낸다. 이 경고는 `SWIFT_TREAT_WARNINGS_AS_ERRORS`로도 오류가 되지 않는다. 하지만 CI의 Xcode 26(Swift 6.3)에서는 오류라 `build-test`가 막힌다. 예: `xcodebuild test … 2>&1 | tee xcodebuild.log` 뒤 `scripts/lint/check-actor-isolation-warnings.sh xcodebuild.log`
 - 변경이 이슈 하나의 범위인지 확인한다. 범위 밖 변경은 빼서 새 이슈로 보낸다.
 
 ## 2. 제목과 본문
