@@ -178,14 +178,57 @@ final class AppStateLaunchSnapshotTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.file(for: repository).path))
     }
 
+    /// The repository is removed while the snapshot task waits for git's identity, so the registry check decides
+    /// (#626). The first write does not wait (`launchSnapshotSpacing` only spaces later ones): without the gates the task
+    /// could finish before the test removed the repository, and the file existed.
     func testNothingIsWrittenForARepositoryNoLongerRegistered() async throws {
-        let state = makeState(StubRepositoryLoader(result: .success(.mockup)))
+        let reached = Gate()
+        let proceed = Gate()
+        let executable = gitExecutable!
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry(),
+            loader: StubRepositoryLoader(result: .success(.mockup)), graphLoader: SampleGraphLoader(),
+            commitLoader: StubCommitLoader(), launchSnapshots: store,
+            gitIdentity: {
+                reached.open(finishedNormally: true)
+                guard await proceed.wait() else { return nil }
+                return (executable, GitVersion(major: 2, minor: 50, patch: 1))
+            })
         state.open(RepositoryContext(repository: repository, owner: nil))
         state.reload()
         await state.loadTask?.value
+        // The snapshot task is now waiting inside `gitIdentity`, before its registry check.
+        let didReach = await reached.wait()
+        XCTAssertTrue(didReach)
         state.registry.remove(registeredEntry.id)
+        proceed.open(finishedNormally: true)
         await state.launchSnapshotTask?.value
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.file(for: repository).path))
+    }
+
+    /// The control for the test above: the same gates without removing the repository write the snapshot, so the
+    /// missing file there comes from the registry check and not from the gates.
+    func testTheGatedSnapshotIsWrittenWhileStillRegistered() async throws {
+        let reached = Gate()
+        let proceed = Gate()
+        let executable = gitExecutable!
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry(),
+            loader: StubRepositoryLoader(result: .success(.mockup)), graphLoader: SampleGraphLoader(),
+            commitLoader: StubCommitLoader(), launchSnapshots: store,
+            gitIdentity: {
+                reached.open(finishedNormally: true)
+                guard await proceed.wait() else { return nil }
+                return (executable, GitVersion(major: 2, minor: 50, patch: 1))
+            })
+        state.open(RepositoryContext(repository: repository, owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        let didReach = await reached.wait()
+        XCTAssertTrue(didReach)
+        proceed.open(finishedNormally: true)
+        await state.launchSnapshotTask?.value
+        XCTAssertTrue(FileManager.default.fileExists(atPath: store.file(for: repository).path))
     }
 
     func testWithoutAStoreNothingIsPaintedOrWritten() async throws {
