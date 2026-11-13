@@ -23,7 +23,7 @@ struct IssueListSection: View {
             // focus, `↑`/`↓`, and `⌘4` belong to the whole sidebar (`SidebarPanel`, #592).
             if isExpanded.wrappedValue {
                 if let account = model.account {
-                    IssueAccountRow(account: account)
+                    IssueAccountRow(account: account).frame(maxWidth: .infinity, alignment: .leading).sidebarOpaque()
                 }
                 if let notice = model.notice {
                     SidebarNotice(symbol: notice.symbol, text: notice.text)
@@ -33,7 +33,10 @@ struct IssueListSection: View {
                     IssueSetupHint(
                         message: model.setupMessage, commands: model.setupCommands,
                         canCheckAgain: model.canCheckAgain,
-                        isChecking: model.isLoading, onCheckAgain: onCheckAgain)
+                        isChecking: model.isLoading, onCheckAgain: onCheckAgain
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .sidebarOpaque()
                 }
                 // Up to 200 rows (`--limit 200`).
                 ForEach(model.rows, id: \.sidebarScrollID) { row in
@@ -42,6 +45,7 @@ struct IssueListSection: View {
                         .onTapGesture { onSelect(row.id) }
                         .accessibilityAction { onSelect(row.id) }
                         .contextMenu { IssueRowMenu(row: row) }
+                        .sidebarOpaque()
                 }
             }
         } header: {

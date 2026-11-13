@@ -55,6 +55,8 @@ struct TagListSection: View {
                         .foregroundStyle(Tokens.Color.textTertiary)
                         .padding(.horizontal, SidebarInset.content)
                         .frame(height: Tokens.Size.rowSidebar)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .sidebarOpaque()
                 }
                 ForEach(visible.rows, id: \.sidebarScrollID) { row in
                     // One timer per built row for the relative date; the stack builds only the rows on screen.
@@ -68,6 +70,7 @@ struct TagListSection: View {
                     .onTapGesture { choose(row) }
                     .accessibilityAction { choose(row) }
                     .contextMenu { TagRowMenu(row: row, onShow: { choose(row) }) }
+                    .sidebarOpaque()
                     .sidebarRowFrame(row.sidebarScrollID)
                 }
                 if visible.hidden > 0 {
@@ -76,6 +79,8 @@ struct TagListSection: View {
                         .foregroundStyle(Tokens.Color.textTertiary)
                         .padding(.horizontal, SidebarInset.content)
                         .frame(height: Tokens.Size.rowSidebar)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .sidebarOpaque()
                 }
             }
         } header: {

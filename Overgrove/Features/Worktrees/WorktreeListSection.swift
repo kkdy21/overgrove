@@ -46,6 +46,8 @@ struct WorktreeListSection: View {
             .foregroundStyle(Tokens.Color.textSecondary)
             .padding(.horizontal, SidebarInset.content)
             .frame(height: Tokens.Size.rowSidebar)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .sidebarOpaque()
         case .failed(let message):
             SidebarNotice(symbol: "exclamationmark.triangle", text: message)
         case .snapshot(let snapshot):
@@ -73,6 +75,7 @@ struct WorktreeListSection: View {
                     .opacity(Tokens.Opacity.stale)
             }
         }
+        .sidebarOpaque()
         .allowsHitTesting(false)
     }
 
@@ -95,11 +98,21 @@ struct WorktreeListSection: View {
                     .accessibilityRotorEntry(id: row.id, in: rotor)
             }
         }
+        .sidebarOpaque()
         // VoiceOver's rotor jumps between worktrees (interaction.md §6.1).
         .accessibilityRotor("Worktrees") {
             ForEach(model.rows) { row in AccessibilityRotorEntry(Text(row.title), id: row.id, in: rotor) }
         }
         // Keyboard focus and `↑`/`↓` belong to the whole sidebar (`SidebarPanel`, #592).
+    }
+}
+
+extension View {
+    /// Draws this sidebar row, notice, or empty text on `surface.panel` (#638). Rows below a disclosure come later in
+    /// the lazy stack, so they are drawn over the rows it inserts: opaque, they slide down over them and uncover them
+    /// instead of showing both while the list is still moving.
+    func sidebarOpaque() -> some View {
+        background(Tokens.Color.surfacePanel)
     }
 }
 
@@ -177,6 +190,8 @@ struct SidebarNotice: View {
         .foregroundStyle(Tokens.Color.textSecondary)
         .padding(.horizontal, SidebarInset.content)
         .padding(.vertical, Tokens.Spacing.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .sidebarOpaque()
         .accessibilityElement(children: .combine)
     }
 }
