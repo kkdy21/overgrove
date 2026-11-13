@@ -79,11 +79,13 @@ extension View {
 // MARK: - Hover
 
 /// Where a hover fill sits.
-enum HoverShape: Sendable {
+enum HoverShape: Equatable, Sendable {
     /// Edge to edge, like graph rows.
     case fullWidth
     /// Rounded like the sidebar selection (`radius.card`); the caller's outer padding insets it.
     case inset
+    /// Rounded like a row's own selection background, e.g. `radius.md` for detail file rows.
+    case rounded(radius: CGFloat)
 }
 
 /// The `surface.hover` fill under the pointer (art-direction.md §5.2). Clear when not hovered.
@@ -96,6 +98,7 @@ struct HoverFill: View {
         switch shape {
         case .fullWidth: Rectangle().fill(color)
         case .inset: RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous).fill(color)
+        case .rounded(let radius): RoundedRectangle(cornerRadius: radius, style: .continuous).fill(color)
         }
     }
 }
@@ -103,12 +106,15 @@ struct HoverFill: View {
 private struct HoverHighlight: ViewModifier {
     let shape: HoverShape
     let isEnabled: Bool
+    let horizontalInset: CGFloat
     @State private var isHovering = false
 
     func body(content: Content) -> some View {
         content
             .background {
-                HoverFill(shape: shape, isHovering: isHovering && isEnabled).motion(.fast, value: isHovering)
+                HoverFill(shape: shape, isHovering: isHovering && isEnabled)
+                    .motion(.fast, value: isHovering)
+                    .padding(.horizontal, horizontalInset)
             }
             .onHover { isHovering = $0 }
     }
@@ -116,9 +122,45 @@ private struct HoverHighlight: ViewModifier {
 
 extension View {
     /// Fills the row with `surface.hover` under the pointer, fading in `motion.duration-fast` (at once under Reduce
-    /// Motion). Pass `isEnabled: false` for a selected row, whose selection background wins.
-    func hoverHighlight(_ shape: HoverShape = .fullWidth, isEnabled: Bool = true) -> some View {
-        modifier(HoverHighlight(shape: shape, isEnabled: isEnabled))
+    /// Motion). Pass `isEnabled: false` for a selected row, whose selection background wins, or a row that does
+    /// nothing when clicked. `horizontalInset` matches a selection background drawn inside the row's padding.
+    func hoverHighlight(
+        _ shape: HoverShape = .fullWidth, isEnabled: Bool = true, horizontalInset: CGFloat = 0
+    ) -> some View {
+        modifier(HoverHighlight(shape: shape, isEnabled: isEnabled, horizontalInset: horizontalInset))
+    }
+}
+
+// MARK: - Content swaps
+
+/// What kind of content a panel shows, as a coarse `fadeIn(on:)` key: new text or rows within the same phase
+/// update in place, and only a change of phase fades.
+enum LoadPhase: Hashable, Sendable {
+    case loading
+    case empty
+    case failed
+    case loaded
+}
+
+private struct FadeIn<Key: Hashable>: ViewModifier {
+    let key: Key
+
+    func body(content: Content) -> some View {
+        // The old content leaves at once and only the new one fades in, so the two never overlap: a view on its way
+        // out keeps no focus request handler, keyboard shortcut, or heavy rows alive during the fade (#576).
+        ZStack {
+            content.id(key).transition(.asymmetric(insertion: .opacity, removal: .identity))
+        }
+        .motion(.standard, value: key)
+    }
+}
+
+extension View {
+    /// Fades new content in when `key` changes (a screen opening over the graph, loading → loaded), in
+    /// `motion.duration-standard`; at once under Reduce Motion (interaction.md §6.5). Keep `key` coarse: content that
+    /// changes under the same key updates in place.
+    func fadeIn<Key: Hashable>(on key: Key) -> some View {
+        modifier(FadeIn(key: key))
     }
 }
 

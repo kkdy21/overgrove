@@ -102,7 +102,7 @@ private struct InfoCard: View {
                                 } label: {
                                     Image(systemName: "doc.on.doc").hitTarget()
                                 }
-                                .buttonStyle(.borderless)
+                                .buttonStyle(.hover)
                                 .help("Copy Path")
                                 .accessibilityLabel("Copy path")
                             }
@@ -123,6 +123,7 @@ private struct SecurityCard: View {
     var onSetUntrusted: ((Bool) -> Void)?
     @State private var expanded: Set<String> = []
     @Environment(\.rowMenu) private var actions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         DetailCard {
@@ -182,7 +183,10 @@ private struct SecurityCard: View {
             }
             ForEach(model.rows) { row in
                 SecurityRowView(row: row, isExpanded: expanded.contains(row.id)) {
-                    if expanded.contains(row.id) { expanded.remove(row.id) } else { expanded.insert(row.id) }
+                    // The keys open with the standard disclosure motion, at once under Reduce Motion (#576).
+                    withMotion(.standard, reduceMotion: reduceMotion) {
+                        if expanded.contains(row.id) { expanded.remove(row.id) } else { expanded.insert(row.id) }
+                    }
                 }
             }
             if !model.others.isEmpty {
@@ -230,7 +234,7 @@ private struct SecurityCard: View {
             } label: {
                 Image(systemName: "doc.on.doc")
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.hover)
             .hitTarget()
             .help("Copy Report: key names and results only, without values, paths, or remote URLs")
             .accessibilityLabel("Copy security report")
@@ -275,35 +279,42 @@ private struct SecurityRowView: View {
                     Button(action: toggle) {
                         HStack(spacing: Tokens.Spacing.xxs) {
                             Text("\(row.details.count)").font(Tokens.Font.pill)
-                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            Image(systemName: "chevron.down")
+                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
                         }
                         .foregroundStyle(Tokens.Color.textSecondary)
                         .hitTarget()
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.hover)
                     .accessibilityLabel(isExpanded ? "Hide keys" : "Show keys" as LocalizedStringKey)
                 }
             }
             if isExpanded {
-                ForEach(row.details, id: \.self) { key in
-                    Text(key)
-                        .font(Tokens.Font.monoSmall)
-                        .foregroundStyle(Tokens.Color.textSecondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .padding(.leading, Tokens.Spacing.xl)
-                }
-                if let advice = row.advice {
-                    Text(advice)
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.leading, Tokens.Spacing.xl)
-                }
+                keys.transition(.opacity)
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("\(row.displayTitle), \(markText)")
+    }
+
+    private var keys: some View {
+        VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
+            ForEach(row.details, id: \.self) { key in
+                Text(key)
+                    .font(Tokens.Font.monoSmall)
+                    .foregroundStyle(Tokens.Color.textSecondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.leading, Tokens.Spacing.xl)
+            }
+            if let advice = row.advice {
+                Text(advice)
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, Tokens.Spacing.xl)
+            }
+        }
     }
 
     private var symbol: String {

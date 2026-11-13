@@ -60,6 +60,15 @@ struct ComparisonModel: Equatable {
         case noChanges(String)
         case failed(message: String, canChooseBase: Bool)
         case loaded
+
+        var phase: LoadPhase {
+            switch self {
+            case .loading: .loading
+            case .noChanges: .empty
+            case .failed: .failed
+            case .loaded: .loaded
+            }
+        }
     }
 
     /// Files shown before `Show all n files`.

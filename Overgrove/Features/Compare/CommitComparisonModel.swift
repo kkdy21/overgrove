@@ -55,6 +55,15 @@ struct CommitComparisonModel: Equatable {
         case noChanges(String)
         case failed(String)
         case loaded
+
+        var phase: LoadPhase {
+            switch self {
+            case .loading: .loading
+            case .noChanges: .empty
+            case .failed: .failed
+            case .loaded: .loaded
+            }
+        }
     }
 
     /// `3c5d6f1 → a91f3c2`.

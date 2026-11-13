@@ -29,7 +29,7 @@ struct FileHistoryView: View {
     private var header: some View {
         PanelHeader {
             Button(action: onBack) { Label("Graph", systemImage: "chevron.left") }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover)
                 .keyboardShortcut(.cancelAction)
                 .help("Back to the graph (⎋)")
             Text(store.target.map { FileHistoryText.title($0.path) } ?? "")
@@ -208,6 +208,7 @@ private struct FileHistoryRowView: View {
         }
         .frame(height: GraphGeometry.standard.rowHeight)
         .background(isSelected ? Tokens.Color.surfaceSelection : Color.clear)
+        .hoverHighlight(isEnabled: !isSelected)
         .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)

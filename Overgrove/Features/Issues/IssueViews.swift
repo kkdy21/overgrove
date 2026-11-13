@@ -389,6 +389,7 @@ struct IssueDetailView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .hoverHighlight(.rounded(radius: Tokens.Radius.sm))
         .help(text)
         .accessibilityLabel([sha, text, note].compactMap { $0 }.joined(separator: " "))
     }

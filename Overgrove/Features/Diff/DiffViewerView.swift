@@ -6,6 +6,14 @@ enum DiffLoadState: Equatable {
     case loaded(DiffDocument)
     /// The patch could not be read or shown; the text says why.
     case unavailable(String)
+
+    var phase: LoadPhase {
+        switch self {
+        case .loading: .loading
+        case .loaded: .loaded
+        case .unavailable: .failed
+        }
+    }
 }
 
 /// S-10, one file's diff in the center area (screens.md S-10). Read-only: no staging, no editing (ADR-0011).
@@ -38,7 +46,7 @@ struct DiffViewerView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            content.frame(maxWidth: .infinity, maxHeight: .infinity).fadeIn(on: state.phase)
         }
         .onChange(of: documentID) { _, _ in showsLargeDiff = false }
     }
@@ -49,7 +57,7 @@ struct DiffViewerView: View {
                 Button(action: onBack) {
                     Label(backTitle, systemImage: "chevron.left")
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover)
                 .keyboardShortcut(.cancelAction)
                 .help(String(localized: "Back to the \(backTitle.lowercased()) (⎋)"))
             }
@@ -134,6 +142,7 @@ private struct DiffBody: View {
                     .padding(.horizontal, Tokens.Spacing.md)
                     .padding(.vertical, Tokens.Spacing.xxs)
             }
+            // No fade here (#576): the rows of a large diff are the heaviest view in the app, so they appear at once.
             if let built = isSplit
                 ? rows.split(for: document.id).map(AnyRows.split) : rows.unified(for: document.id).map(AnyRows.unified)
             {

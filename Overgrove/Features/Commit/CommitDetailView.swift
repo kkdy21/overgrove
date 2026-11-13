@@ -178,6 +178,7 @@ struct CommitDetailView: View {
             if let note = model.filesNote {
                 Text(note).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
             }
+            // No fade (#576): stepping through commits with ↑/↓ passes loading → loaded on every commit.
             switch model.files {
             case .loading:
                 ProgressView().controlSize(.small)
@@ -199,7 +200,8 @@ struct CommitDetailView: View {
     }
 
     private func fileRow(_ row: CommitDetailModel.FileRow) -> some View {
-        HStack(spacing: Tokens.Spacing.sm) {
+        let isSelected = selectedFile == row.stat.path
+        return HStack(spacing: Tokens.Spacing.sm) {
             Text(row.kindLetter).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
                 .frame(width: 14)
             (Text(row.directory).foregroundStyle(Tokens.Color.textTertiary)
@@ -213,10 +215,11 @@ struct CommitDetailView: View {
         .padding(.vertical, Tokens.Spacing.xxs)
         .padding(.horizontal, Tokens.Spacing.xs)
         .background {
-            if selectedFile == row.stat.path {
+            if isSelected {
                 RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection)
             }
         }
+        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable)
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelectFile(row.stat) } }
         .contextMenu {
