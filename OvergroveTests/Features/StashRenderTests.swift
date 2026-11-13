@@ -25,7 +25,7 @@ final class StashRenderTests: XCTestCase {
         let detail = StashDetail(
             stash: stash,
             files: [
-                StashDetailModelTests.file("Sources/Parsing/Status.swift", 42, 8),
+                StashDetailModelTests.file("Sources/Parsing/Status.swift", 42, 8, status: .modified),
                 StashDetailModelTests.file("Sources/Untracked.swift", 20, 0, untracked: true),
             ],
             isPartial: false)
