@@ -264,6 +264,8 @@ enum Tokens {
         static let detailWidthIdeal: CGFloat = 344
         static let detailWidthMax: CGFloat = 560
         static let detailWidthMin: CGFloat = 300
+        /// The sidebar filter field (art-direction.md §6, #573).
+        static let filterField: CGFloat = 24
         static let graphEdge: CGFloat = 3
         /// Horizontal distance between lane centres.
         static let graphLaneWidth: CGFloat = 20
@@ -292,6 +294,8 @@ enum Tokens {
         static let rowSidebar: CGFloat = 28
         /// Two-line worktree row: branch name, then folder and path tail.
         static let rowWorktree: CGFloat = 46
+        /// Sidebar section header row (WORKTREES, BRANCHES, …) (art-direction.md §6).
+        static let sectionHeader: CGFloat = 30
         static let sidebarWidthIdeal: CGFloat = 256
         static let sidebarWidthMax: CGFloat = 420
         static let sidebarWidthMin: CGFloat = 220

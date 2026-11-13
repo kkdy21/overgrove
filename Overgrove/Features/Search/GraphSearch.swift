@@ -211,8 +211,8 @@ struct SidebarFilterField: View {
 
     @FocusState private var isFocused: Bool
 
-    /// art-direction.md §6: the filter field is 24pt high with a 6pt radius (#573). No size token for it.
-    static let height: CGFloat = 24
+    /// art-direction.md §6: the filter field is 24pt high (`size.filter-field`, #584) with a 6pt radius (#573).
+    static let height = Tokens.Size.filterField
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {

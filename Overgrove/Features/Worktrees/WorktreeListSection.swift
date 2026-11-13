@@ -170,8 +170,8 @@ struct SidebarSectionHeader: View {
         .accessibilityValue(isExpanded ? "expanded" : "collapsed")
     }
 
-    /// art-direction.md §6: section headers are 30pt high. No size token for them.
-    static let height: CGFloat = 30
+    /// art-direction.md §6: section headers are 30pt high (`size.section-header`, #584).
+    static let height = Tokens.Size.sectionHeader
 }
 
 /// A one-line note inside a section: a load failure, or a parser warning that does not block the list.
