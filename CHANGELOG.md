@@ -48,6 +48,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - Sidebar rows respond to the pointer, select the same way everywhere (grey when the list does not have keyboard
   focus), and sections and folders open and close with the standard disclosure motion (at once under Reduce Motion).
   Clicking a LOCAL or REMOTE branch selects its tip commit.
+- Every detail file list (WIP, commit, stash, comparisons) uses one 26pt row with the same kind badge and coloured
+  line counts; a long path shortens its directory and keeps the file name whole.
 - Sidebar: section headers stay at the top while their rows scroll; every header and row starts on one line; a
   narrow sidebar keeps the worktree name and hides the PR pill, then `#n`, then the lowest status badges first; the
   Filter field is 24pt high; with no repository open, the sidebar offers Add Repository….

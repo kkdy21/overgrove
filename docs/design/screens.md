@@ -256,7 +256,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 세그먼트 | `Changes`(S-02) / `Worktree`(S-05). 워크트리 행에서 들어왔을 때만 보인다 |
 | 그룹 순서 | **CONFLICTED → STAGED → UNSTAGED → UNTRACKED.** 충돌을 가장 먼저 본다. 빈 그룹은 숨긴다 |
 | 그룹 | 그룹마다 카드(`surface.raised`) 하나. 카드 머리는 상태 심볼, 이름, 개수 칩, 그룹 합계 `+n −m` (untracked는 합계 없음) |
-| 파일 행 | 변경 종류 배지(M/A/D/R/C/T/U/?, 상태 색으로 채운 16pt 사각형 + `on-status.*` 글자) + 경로 + `+n −m`(0인 쪽은 숨김). 경로는 디렉터리를 `text.tertiary`, 파일 이름을 `text.primary` Medium으로 쓴다. 길면 디렉터리 앞부분을 `…/`로 줄인다 |
+| 파일 행 | 변경 종류 배지(M/A/D/R/C/T/U/?, 상태 색으로 채운 16pt 사각형 + `on-status.*` 글자) + 경로 + `+n −m`(0인 쪽은 숨김). 경로는 디렉터리를 `text.tertiary`, 파일 이름을 `text.primary` Medium으로 쓴다. 길면 디렉터리 앞부분만 줄이고 파일 이름은 끝까지 보인다. 높이 26(`size.row-file`). S-03·S-04·S-11·S-12의 파일 행도 같은 행(`FileRowView`, #577)을 쓰고, 커밋된 변경에는 staged·unstaged 구분이 없으므로 배지를 같은 모양의 중립색(`surface.control` + `text.secondary`)으로 채운다 |
 | rename | `{Old.swift → New.swift}` (공통 디렉터리는 앞에 한 번) |
 | 한 파일이 staged와 unstaged에 모두 있음 (`MM`) | 두 그룹에 각각 한 번씩 나타난다 |
 | 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 파일 목록에서 펼치지 않는다 |
@@ -318,7 +318,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 제목줄 | 전체 SHA는 툴팁과 `Copy SHA`로, 화면에는 7자 |
 | 메타 | Author(아바타 + 이름 + 이메일), Co-author(트레일러가 있을 때만, AI면 AI 배지), Date(작성 시각), Committer(다를 때만), Parents(merge면 둘 이상, 누르면 그 커밋 선택), Refs, Issues(메시지와 ref에서 찾은 번호, gh 로그인 시 제목 표시) |
 | 본문 | 메시지 전체. 고정폭이 아닌 `typography.body`. URL은 링크로 만들지 않는다(v0.1) |
-| 파일 | 종류 글자 + 경로 + `+n −m`. 바이너리는 `binary`. merge 커밋은 첫 번째 부모 기준 diff이고 그 사실을 헤더에 적는다 (`Changes vs first parent`) |
+| 파일 | S-02와 같은 파일 행(중립색 종류 배지) + 경로 + `+n −m`. 바이너리는 `binary`. merge 커밋은 첫 번째 부모 기준 diff이고 그 사실을 헤더에 적는다 (`Changes vs first parent`) |
 | 서명 | 표시하지 않는다. 서명 검증은 `gpg.program`을 실행하므로 v0.1에서 하지 않는다 (T7) |
 
 **데이터.** `CommitDetail` (선택 시 지연 로드).
@@ -377,7 +377,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | Base commit | stash의 첫 번째 부모. 누르면 그래프에서 그 커밋 선택 |
 | Branch | 메시지 `WIP on <branch>` / `On <branch>`에서 추정. 추정임을 `(from message)`로 밝힌다 |
 | Includes | index 커밋(두 번째 부모), untracked 커밋(세 번째 부모) 존재 여부 |
-| 파일 | 종류 배지 + 경로 + `+n −m`. untracked 커밋에서 온 파일은 `questionmark` 심볼로 표시하고, 파일 카드 아래에 범례 한 줄(`From the stash’s untracked-files commit`)을 둔다 |
+| 파일 | S-02와 같은 파일 행 + 경로 + `+n −m`. stash 파일 목록은 numstat만 읽어 변경 종류를 모르므로 배지를 빈 칸으로 두고, untracked 커밋에서 온 파일은 `?` 배지(`status.untracked`)로 표시하고(범례도 같은 배지), 파일 카드 아래에 범례 한 줄(`From the stash’s untracked-files commit`)을 둔다 |
 | 버튼 | `Copy Ref`만 둔다 |
 
 **데이터.** `Stash`, `StashDetail`.
@@ -767,7 +767,7 @@ S-09, S-10처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 
 | `Include uncommitted` | 켜면(기본) 워크트리의 staged·unstaged 변경을 파일 목록과 패치에 합치고 UNTRACKED 섹션을 보인다. 끄면 merge base와 HEAD 사이의 커밋된 변경만 |
 | 요약 줄 | ahead 커밋 수, 기준이 앞선 커밋 수(behind), 미커밋 파일 수(토글이 켜졌을 때), 파일 수, `+n −m`, merge base 짧은 SHA |
 | COMMITS AHEAD | merge base 이후 이 워크트리 HEAD에만 있는 커밋. 아바타 + SHA + 제목 + AI 배지. 토글이 켜져 있으면 맨 위에 `Uncommitted changes`(점선 WIP 노드)를 둔다. 커밋을 고르면 상세가 S-03으로 바뀌고 S-11은 닫힌다 |
-| FILES CHANGED | 종류 글자(M/A/D/R/C/T) + 경로 + `+n −m`. rename은 `{old → new}`. 미커밋 변경이 섞인 파일은 `WIP` 알약을 붙인다(색 없음). 정렬은 경로 오름차순 |
+| FILES CHANGED | S-02와 같은 파일 행(중립색 종류 배지 M/A/D/R/C/T) + 경로 + `+n −m`. rename은 `{old → new}`. 미커밋 변경이 섞인 파일은 `WIP` 알약을 붙인다(색 없음). 정렬은 경로 오름차순 |
 | UNTRACKED | 토글이 켜졌을 때만. `questionmark.circle` + `?` + 경로. 줄 수는 세지 않는다 |
 | 패치 머리 | 경로, 변경 종류, 출처(`n commits`, `+ uncommitted`), 그 파일의 `+n −m` |
 | 사이드바 배지 (선택) | 워크트리 행에 `plus.forwardslash.minus` + 기준 대비 변경 파일 수. 우선순위는 이슈 번호 다음(가장 낮음). 기본은 끔 |
@@ -829,7 +829,7 @@ S-09, S-11처럼 **중앙 영역을 잠시 덮는다.** `‹ Graph`나 `⎋`로 
 | 요약 줄 | 파일 수, `+n −m` |
 | BASE / TARGET | 각 커밋 한 행: 아바타 + 짧은 SHA + 제목 + AI 배지. 행을 누르면 S-12를 닫고 그 커밋의 S-03을 연다. 열어 둔 사이 rebase·reset으로 커밋이 그래프에서 빠지면, S-12를 열 때의 제목·작성자를 그대로 보인다. `Not in the graph`는 그래프가 이력을 끝까지 읽었는데도 그 커밋이 없을 때만 붙인다. 새로고침은 첫 페이지만 다시 읽으므로, 아직 읽지 않은 페이지에 있는 커밋에는 붙이지 않는다. 그래프에 로드되지 않은 커밋은 눌러도 S-12를 닫지 않는다(#428) |
 | COMMITS (#389) | 대상에는 있고 기준에는 없는 커밋(`base..target`), 최신순. 행 모양과 누를 때 동작은 BASE/TARGET과 같다. 다만 아직 불러오지 않은 그래프 페이지에 있을 수 있어 `Not in the graph`는 붙이지 않는다. 그래프에 없는 커밋은 눌러도 S-12를 닫지 않는다. 최대 500개, 넘으면 `COMMITS (500+)`와 `Showing the newest 500 commits`. 없으면 `a91f3c2 has no commits that 3c5d6f1 does not have`(대상이 기준보다 뒤일 때, `⇄`로 반대 방향을 본다). 읽는 중에는 `Reading commits…`, 실패하면 마스킹한 오류 문구. 파일 목록과 따로 읽고 따로 실패한다 |
-| FILES CHANGED | S-11과 같다: 종류 글자(M/A/D/R/C/T) + 경로 + `+n −m`, rename은 `{old → new}`, 경로 오름차순 |
+| FILES CHANGED | S-11과 같다: 중립색 종류 배지(M/A/D/R/C/T) + 경로 + `+n −m`, rename은 `{old → new}`, 경로 오름차순 |
 | 패치 머리 | 경로, 변경 종류, 그 파일의 `+n −m` |
 
 **데이터.** 파일 목록과 패치에는 새 git 명령이 없다. 커밋 상세의 `commitFiles`와 `commitPatch`(`diff-tree`, plumbing이라 저장소 diff 설정의 영향을 받지 않는다)에 부모 자리로 기준 커밋을 넘긴다: 기준→대상 두 트리의 차이다. 두 커밋은 그래프가 불러온 커밋이고 `ObjectID`로 검증되며 `--end-of-options` 뒤에 온다. 모든 diff는 `--no-ext-diff --no-textconv` (T3). [git-command-catalog.md](../architecture/git-command-catalog.md)의 두 행에 이 쓰임을 적었다. COMMITS는 `commitsBetween`(#389, 두 `ObjectID`의 `log base..target`)이다.

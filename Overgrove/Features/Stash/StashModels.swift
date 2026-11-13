@@ -32,9 +32,7 @@ struct StashDetailModel: Equatable {
         let file: FileStat
         let directory: String
         let fileName: String
-        /// `+42 −8`; `nil` for binary files.
-        let lineChange: String?
-        /// From the stash's untracked-files commit (shown with a `questionmark` symbol and a legend line).
+        /// From the stash's untracked-files commit (shown with a `?` badge and a legend line with the same badge).
         let isFromUntracked: Bool
         let isSelectable: Bool
         /// `src/a.swift, 2 lines added, 1 removed, from untracked files` (interaction.md §6.1).
@@ -106,11 +104,8 @@ struct StashDetailModel: Equatable {
     private static func row(_ file: FileStat) -> FileRow {
         let change = FileChange(path: file.path, originalPath: file.originalPath, status: file.status ?? .modified)
         let (directory, fileName) = WipDetailModel.displayParts(change)
-        let lineChange: String? =
-            file.isBinary
-            ? nil : "+\(file.added ?? 0) −\(file.deleted ?? 0)"
         return FileRow(
-            file: file, directory: directory, fileName: fileName, lineChange: lineChange,
+            file: file, directory: directory, fileName: fileName,
             isFromUntracked: file.isFromUntracked,
             isSelectable: file.path.isRepresentable && (file.originalPath?.isRepresentable ?? true))
     }

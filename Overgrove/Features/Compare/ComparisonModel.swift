@@ -36,8 +36,8 @@ struct ComparisonModel: Equatable {
         /// Leading directories (`internal/http/`) and the name or `{old → new}`, escaped (as in S-02).
         let directory: String
         let fileName: String
-        /// `+12 −3`; `nil` for binary files.
-        let lineChange: String?
+        /// The counts drawn in the row; `nil` for untracked files (#577).
+        var lineCount: WipLineCount?
         /// The file also has uncommitted changes (shown with a `WIP` pill, no colour).
         let hasUncommittedChanges: Bool
         let isSelectable: Bool
@@ -217,13 +217,10 @@ struct ComparisonModel: Equatable {
     private static func fileRow(_ stat: FileStat, uncommitted: Set<GitPath>) -> FileRow {
         let change = FileChange(path: stat.path, originalPath: stat.originalPath, status: stat.status ?? .modified)
         let (directory, fileName) = WipDetailModel.displayParts(change)
-        let lineChange: String? =
-            stat.isBinary || stat.isFromUntracked
-            ? nil
-            : [stat.added.map { "+\($0)" }, stat.deleted.map { "−\($0)" }].compactMap { $0 }.joined(separator: " ")
         return FileRow(
             path: stat.path, kindLetter: String((stat.status ?? .modified).code), directory: directory,
-            fileName: fileName, lineChange: lineChange, hasUncommittedChanges: uncommitted.contains(stat.path),
+            fileName: fileName, lineCount: stat.isFromUntracked ? nil : stat.lineCount,
+            hasUncommittedChanges: uncommitted.contains(stat.path),
             isSelectable: stat.path.isRepresentable && (stat.originalPath?.isRepresentable ?? true),
             originalPath: stat.originalPath,
             accessibilityLabel: WipDetailModel.fileAccessibilityLabel(
