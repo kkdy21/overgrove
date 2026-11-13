@@ -69,11 +69,18 @@ enum AdversarialParserFixtures {
                 + "CTAJYmFk//4udHh0ADIJMAlsaW5lCmJyZWFrLnR4dAAwCTAJAG9sZCBuYW1lLnR4dABuZXcKbmFtZS50eHQA"
         ) ?? Data()
 
-    /// `stash show --include-untracked --numstat -z stash@{1}`: `-dash.txt`, `bad\xFF\xFE.txt` and the rename.
+    /// `stashFiles` output (`stash show --include-untracked -z --raw --numstat -M --no-abbrev`) for a stash of the same
+    /// hostile names, rebuilt for #602 with Apple Git 2.54.0: `-dash.txt` modified, `bad\xFF\xFE.txt` added (put into
+    /// the index with `update-index --index-info`), and the rename `old name.txt` → `new⏎name.txt`.
     static let stashShow =
         Data(
             base64Encoded:
-                "MQkwCS1kYXNoLnR4dAAxCTAJYmFk//4udHh0ADAJMAkAb2xkIG5hbWUudHh0AG5ldwpuYW1lLnR4dAA="
+                "OjEwMDY0NCAxMDA2NDQgNzg5ODE5MjI2MTNiMmFmYjYwMjUwNDJmZjZiZDg3OGFjMTk5NGU4NSA0MjJjMmI3YWIzYjNjNjY4MDM4"
+                + "ZGE5NzdlNGU5M2E1ZmM2MjMxNjljIE0ALWRhc2gudHh0ADowMDAwMDAgMTAwNjQ0IDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw"
+                + "MDAwMDAwMDAwMDAwMDAgNTg3YmU2YjRjM2Y5M2Y5M2M0ODljMDExMWJiYTU1OTYxNDdhMjZjYiBBAGJhZP/+LnR4dAA6MTAwNjQ0"
+                + "IDEwMDY0NCA4YmEzYTE2Mzg0YWFjYzM3ZDAxNTY0YjI4NDAxNzU1Y2U4MDUzZjUxIDhiYTNhMTYzODRhYWNjMzdkMDE1NjRiMjg0"
+                + "MDE3NTVjZTgwNTNmNTEgUjEwMABvbGQgbmFtZS50eHQAbmV3Cm5hbWUudHh0ADEJMAktZGFzaC50eHQAMQkwCWJhZP/+LnR4dAAw"
+                + "CTAJAG9sZCBuYW1lLnR4dABuZXcKbmFtZS50eHQA"
         ) ?? Data()
 
     /// `config --list --show-scope -z --includes` of the same repository (no global or system config).

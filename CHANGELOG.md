@@ -48,6 +48,7 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- In the sidebar LOCAL and REMOTE trees, branch and folder rows of one depth line up their icons and names.
 - The graph search’s previous and next buttons and the fetch failure details’ Copy Command button respond to the
   pointer like the other icon buttons.
 - The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every

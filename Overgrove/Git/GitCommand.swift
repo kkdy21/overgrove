@@ -119,9 +119,13 @@ enum ReadOnlyGitCommand: Sendable, Hashable {
                 "log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct%x00%P", "refs/stash", "--",
             ]
         case .stashFiles(let oid):
+            // `--raw` with `--numstat` in one call (#602): the raw records carry each file's change kind (the S-04
+            // badge), in the same shape `commitFiles` reads. `stash show` is porcelain: `--no-abbrev` keeps raw object
+            // names whole and `-M` finds renames whatever `diff.renames` says, as `stashPatch` does.
             return [
-                "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
-                "--end-of-options", oid.hex,
+                "stash", "show", "--include-untracked", "-z", "--raw", "--numstat", "-M", "--no-abbrev",
+                "--no-ext-diff",
+                "--no-textconv", "--end-of-options", oid.hex,
             ]
         case .stashPatch(let oid, let path, let originalPath, let fromUntracked):
             // Options (including --root) must come before --end-of-options, revisions after it.
