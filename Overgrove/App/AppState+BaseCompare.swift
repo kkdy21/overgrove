@@ -26,9 +26,10 @@ extension AppState {
     /// card was idle for longer (the same 5 s as auto refresh's longest wait).
     static let baseSummaryMinimumGap: Duration = .seconds(5)
 
-    /// The card for the focused worktree, `nil` when there is none.
+    /// The card for the focused worktree, `nil` when there is none. Without `baseSummaryLoader` (previews, the mockup,
+    /// render tests) nothing would ever fill it, so it is not shown rather than left on "Comparing…" (#619).
     var baseCompareCardModel: BaseCompareCardModel? {
-        guard let path = focusedWorktreePath else { return nil }
+        guard baseSummaryLoader != nil, let path = focusedWorktreePath else { return nil }
         let summary = baseSummary?.worktree == path ? baseSummary : nil
         return BaseCompareCardModel(summary: summary, canCompare: canCompare(path))
     }

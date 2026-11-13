@@ -277,6 +277,17 @@ final class TokensTests: XCTestCase {
         }
     }
 
+    /// #617: a chip outline shows on every surface a chip sits on, including a selected sidebar row, in both modes.
+    func testChipOutlineReaches1_3OnPanelsAndSelections() throws {
+        for mode in [Mode.light, .dark] {
+            let chip = try asset("Tokens/borderChip", mode)
+            for surface in ["surfacePanel", "surfaceRaised", "surfaceSelection", "surfaceSelectionInactive"] {
+                let ratio = chip.contrast(with: try asset("Tokens/\(surface)", mode))
+                XCTAssertGreaterThanOrEqual(ratio, 1.3, "chip outline on \(surface) [\(mode.rawValue)]")
+            }
+        }
+    }
+
     /// Status and lane colours held to 4.5:1 in the Increase Contrast modes.
     private static let increaseContrastForegrounds =
         ["statusStaged", "statusUnstaged", "statusUntracked", "statusConflicted", "statusAhead", "statusBehind"]
