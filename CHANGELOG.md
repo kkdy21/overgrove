@@ -48,6 +48,7 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
 - The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show
   the pointing hand.
 - Stepping through commits no longer flashes a loading state: the commit detail, header included, keeps the previous
