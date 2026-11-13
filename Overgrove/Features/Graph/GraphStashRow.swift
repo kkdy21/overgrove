@@ -8,10 +8,15 @@ enum GraphStashPlacement {
     /// The stashes whose base commit is a loaded row, by that row's index, each list in `stash@{n}` order (the
     /// newest on top). A stash whose base is on a page not loaded yet appears once that page loads; one whose base
     /// is outside the graph (not reachable from a branch, a tag, or a worktree HEAD) stays in the sidebar only.
+    ///
+    /// Only real stash commits are drawn (#433): two or three parents, the first being the base. A commit with one
+    /// parent written to `refs/stash` by hand, or a stash commit that is already a graph row (a branch points to
+    /// it), stays in the sidebar, so no commit is drawn twice.
     static func byBaseRow(_ stashes: [Stash], index: (ObjectID) -> Int?) -> [Int: [Stash]] {
         var rows: [Int: [Stash]] = [:]
         for stash in stashes.sorted(by: { $0.index < $1.index }) {
-            guard let base = stash.baseCommit, let row = index(base) else { continue }
+            guard stash.includesIndex, index(stash.oid) == nil, let base = stash.baseCommit, let row = index(base)
+            else { continue }
             rows[row, default: []].append(stash)
         }
         return rows
@@ -34,8 +39,14 @@ struct GraphStashText: Equatable {
         date = GraphCommitText.compact(stash.date, now: now)
         absoluteDate = GraphCommitText.absolute(stash.date)
         shortSHA = stash.oid.short
-        let base = stash.baseCommit.map { ", made on \($0.short)" } ?? ""
-        accessibilityLabel = "Stash \(stash.refName): \(message)\(base), \(date)"
+        let ref = stash.refName
+        let shownMessage = message
+        let shownDate = date
+        if let base = stash.baseCommit?.short {
+            accessibilityLabel = String(localized: "Stash \(ref): \(shownMessage), made on \(base), \(shownDate)")
+        } else {
+            accessibilityLabel = String(localized: "Stash \(ref): \(shownMessage), \(shownDate)")
+        }
     }
 }
 

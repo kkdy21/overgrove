@@ -235,4 +235,17 @@ final class WipDetailModelTests: XCTestCase {
         XCTAssertNil(
             model.row(for: FileSelection(worktree: GitPath("/tmp/dev/api"), group: .unstaged, path: GitPath("a"))))
     }
+
+    /// The WIP header's count (#499, #543): whole localized strings, not an English noun passed into a localized
+    /// format, and the number keeps its thousands separator.
+    func testChangedFileCountIsLocalizedAndGrouped() throws {
+        XCTAssertEqual(WipDetailModel.changedFilesText(1), "1 changed file")
+        XCTAssertEqual(WipDetailModel.changedFilesText(3), "3 changed files")
+        XCTAssertEqual(WipDetailModel.changedFilesText(5_000), "5,000 changed files")
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        for key in ["%@ changed file", "%@ changed files"] {
+            XCTAssertEqual(
+                String(format: ko.localizedString(forKey: key, value: nil, table: nil), "5,000"), "변경된 파일 5,000개")
+        }
+    }
 }

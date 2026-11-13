@@ -343,7 +343,7 @@ struct IssueDetailView: View {
             }
             ForEach(model.linkedBranches, id: \.fullName) { link in
                 linkRow(symbol: link.isRemote ? "network" : "arrow.triangle.branch", text: link.title, note: nil) {
-                    onSelectCommit(link.target)
+                    if let target = link.target { onSelectCommit(target) }
                 }
             }
             if model.hiddenLinkCount > 0 {
@@ -382,7 +382,7 @@ struct IssueDetailView: View {
         .accessibilityLabel([sha, text, note].compactMap { $0 }.joined(separator: " "))
     }
 
-    private func label(_ text: String) -> some View {
+    private func label(_ text: LocalizedStringKey) -> some View {
         Text(text).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
     }
 

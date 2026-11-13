@@ -45,9 +45,10 @@ enum GHCommand: Sendable, Hashable {
 /// A validated GitHub `[HOST/]OWNER/NAME` for `--repo` (git-command-catalog.md §5, ADR-0025 §2–§3).
 ///
 /// OWNER is 1–39 ASCII letters, digits, or hyphens and does not start with a hyphen, so the `--repo` value can
-/// never be read as an option. NAME is 1–100 ASCII letters, digits, `.`, `_`, or `-`, and is not `.` or `..`. HOST
-/// is a `RemoteHost` (a DNS name, which cannot start with a hyphen either); `github.com` unless a remote on a host
-/// gh is logged in to says otherwise.
+/// never be read as an option; an Enterprise Managed User's `handle_shortcode` is accepted too (`GitHubName`, #486).
+/// NAME is 1–100 ASCII letters, digits, `.`, `_`, or `-`, and is not `.` or `..`. HOST is a `RemoteHost` (a DNS
+/// name, which cannot start with a hyphen either); `github.com` unless a remote on a host gh is logged in to says
+/// otherwise.
 struct GitHubRepository: Sendable, Hashable, CustomStringConvertible {
     // swift-format-ignore: NeverForceUnwrap
     /// A constant that is a valid host name.
@@ -77,9 +78,9 @@ struct GitHubRepository: Sendable, Hashable, CustomStringConvertible {
     var description: String { slug }
 
     private static func isValidOwner(_ owner: String) -> Bool {
-        let utf8 = owner.utf8
-        return (1...39).contains(utf8.count) && utf8.first != UInt8(ascii: "-")
-            && utf8.allSatisfy { isASCIIAlphanumeric($0) || $0 == UInt8(ascii: "-") }
+        guard (1...39).contains(owner.utf8.count), let handle = GitHubName.handle(owner) else { return false }
+        return !handle.isEmpty && handle.first != UInt8(ascii: "-")
+            && handle.allSatisfy { isASCIIAlphanumeric($0) || $0 == UInt8(ascii: "-") }
     }
 
     private static func isValidName(_ name: String) -> Bool {

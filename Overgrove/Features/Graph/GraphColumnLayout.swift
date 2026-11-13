@@ -36,7 +36,7 @@ struct GraphColumnLayout: Codable, Equatable, Sendable {
         }
 
         /// `Author column width, 108 points` (the divider's VoiceOver label and value).
-        var accessibilityLabel: String { "\(title) column width" }
+        var accessibilityLabel: String { String(localized: "\(title) column width") }
     }
 
     /// Message keeps at least this much (art-direction.md §5.1).

@@ -44,6 +44,21 @@ final class ComparisonIntegrationTests: XCTestCase {
                 .unifiedRows().isEmpty)
     }
 
+    /// #415: the overview cache is shared by every window and dropped when a refresh fails (or the repository is
+    /// pushed out of it). The base list reads the repository again instead of offering no base at all.
+    func testBasesReadTheRepositoryWhenTheCacheIsGone() async throws {
+        let context = try await IntegrationContext.make(fixture: try await makeFixture())
+        let client = context.client
+        let service = RepositoryService(client: client)
+        let services: @Sendable () async throws -> (GitClient, RepositoryService) = { (client, service) }
+        let cached = await service.cachedOverview(of: context.repository)
+        XCTAssertNil(cached, "nothing cached yet")
+
+        let bases = await LiveComparisonLoader(services: services).bases(of: context.repository)
+        XCTAssertNotNil(bases.preferred)
+        XCTAssertTrue(bases.all.contains(FullRefName("refs/heads/main")!))
+    }
+
     func testUnknownBaseFails() async throws {
         let context = try await IntegrationContext.make(fixture: try await makeFixture())
         let client = context.client

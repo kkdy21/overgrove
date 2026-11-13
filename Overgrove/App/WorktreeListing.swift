@@ -67,8 +67,9 @@ struct WorktreeListing: Sendable, Equatable {
     var isStashListPartial = false
     /// Local and remote-tracking branches and tags (sidebar LOCAL / REMOTE, #72); `nil` before a service load.
     var refs: RefParser.Listing?
-    /// The configured remote names (from the repository's inspection), to split `refs/remotes/<remote>/<branch>`
-    /// when a remote name contains `/`.
+    /// Every configured remote name (from the repository's inspection), to split `refs/remotes/<remote>/<branch>`
+    /// when a remote name contains `/`. Includes names `RemoteName` refuses (#489): display and matching only, never
+    /// an argument to git.
     var remoteNames: [String] = []
     /// The inspected remotes' names and URLs, in configuration order: where the GitHub repository comes from (#81,
     /// ADR-0025).
@@ -77,6 +78,13 @@ struct WorktreeListing: Sendable, Equatable {
     struct Remote: Sendable, Equatable {
         let name: String
         let url: String
+        /// The remote's fetch refspecs (#490): only a ref they map from `refs/heads/` opens as a branch on GitHub.
+        var fetchRefspecs: [String] = []
+    }
+
+    /// Each inspected remote's fetch refspecs, by name (the first entry of a name listed twice).
+    var fetchRefspecs: [String: [String]] {
+        Dictionary(remotes.map { ($0.name, $0.fetchRefspecs) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// The GitHub repository whose issues and pull requests the app shows (#81), from the inspected remotes on
@@ -113,8 +121,10 @@ extension WorktreeListing {
             },
             isPartial: overview.isWorktreeListPartial, stashes: overview.stashes.stashes,
             isStashListPartial: overview.stashes.isPartial, refs: overview.refs,
-            remoteNames: overview.inspection.remotes.map(\.name.value),
-            remotes: overview.inspection.remotes.map { Remote(name: $0.name.value, url: $0.url) })
+            remoteNames: overview.inspection.remoteNames,
+            remotes: overview.inspection.remotes.map {
+                Remote(name: $0.name.value, url: $0.url, fetchRefspecs: $0.fetchRefspecs)
+            })
     }
 
     private static func state(_ status: RepositoryOverview.Status) -> State {
@@ -143,7 +153,7 @@ enum RepositoryLoadError: Error, Equatable, Sendable {
     var message: String {
         switch self {
         case .blocked(let reason):
-            String(localized: "Overgrove stopped querying this repository for safety. \(reason)")
+            String(localized: "Overgrove stopped querying this repository for safety. \(SafetyReason.display(reason))")
         case .git(let error):
             error.message
         }

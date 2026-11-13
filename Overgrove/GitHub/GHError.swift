@@ -31,7 +31,7 @@ enum GHError: Error, Sendable, Equatable {
         case .launchFailed(let code):
             String(localized: "GitHub CLI could not be started (error \(code)).")
         case .invalidArgument:
-            "A name looked unsafe, so gh was not run."
+            String(localized: "A name looked unsafe, so gh was not run.")
         case .timeout(let seconds):
             String(localized: "GitHub CLI did not respond within \(seconds) seconds and was stopped.")
         case .outputTruncated:

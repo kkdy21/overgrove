@@ -25,7 +25,7 @@ enum TerminalGuard {
         }
         var reasons = untrusted
         if let blocked = report.blockingReason {
-            reasons.append(PathValidator.displayable(CredentialMasker.mask(blocked)))
+            reasons.append(PathValidator.displayable(CredentialMasker.mask(SafetyReason.display(blocked))))
         }
         var seen = Set<String>()
         // Every finding: what the app overrides or ignores for its own commands, the shell's git still applies.

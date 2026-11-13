@@ -102,6 +102,23 @@ final class PullRequestLinksTests: XCTestCase {
         XCTAssertEqual(links.pullRequest(forBranch: "refs/heads/feat/42")?.number, 6)
     }
 
+    /// SEC-T9-546-1 (#546): the upstream remote name is matched byte for byte, like the branch. A hand-edited
+    /// `branch.<b>.remote` with KELVIN SIGN (U+212A) or in NFD does not link the PRs of the GitHub remote spelled in
+    /// ASCII or NFC.
+    func testSECT9_546_1_UpstreamRemoteNameComparesByBytes() {
+        let remotes = ["K": team, "caf\u{E9}": team]
+        for spoofed in ["\u{212A}", "cafe\u{301}"] {
+            XCTAssertTrue(
+                index([Self.pullRequest(7)], [Self.branch("feat/42", remote: spoofed)], remotes: remotes).isEmpty,
+                spoofed.unicodeScalars.map { String($0.value, radix: 16) }.joined(separator: " "))
+        }
+        for exact in ["K", "caf\u{E9}"] {
+            XCTAssertEqual(
+                index([Self.pullRequest(7)], [Self.branch("feat/42", remote: exact)], remotes: remotes)
+                    .pullRequest(forBranch: "refs/heads/feat/42")?.number, 7, exact)
+        }
+    }
+
     func testSECT9_06_NothingIsLinkedWithoutAMatchingUpstream() {
         let pullRequests = [Self.pullRequest(1)]
         // No upstream, a local upstream (`.`), a remote that is not github.com, a ref outside refs/heads.
@@ -150,5 +167,42 @@ final class PullRequestLinksTests: XCTestCase {
             (name: "origin", url: "https://github.com/other/x"),
         ])
         XCTAssertEqual(remotes, ["origin": fork, "upstream": team])
+    }
+
+    /// #548: NFC and NFD spellings of a local branch are two branches to git; each gets only its own pull request.
+    func testCanonicallyEquivalentLocalBranchesKeepTheirOwnPullRequests() {
+        let nfc = "caf\u{E9}"
+        let nfd = "cafe\u{301}"
+        let links = index(
+            [Self.pullRequest(1, branch: nfc), Self.pullRequest(2, branch: nfd)], [Self.branch(nfc), Self.branch(nfd)])
+        XCTAssertEqual(links.pullRequest(forBranch: "refs/heads/\(nfc)")?.number, 1)
+        XCTAssertEqual(links.pullRequest(forBranch: "refs/heads/\(nfd)")?.number, 2)
+        // Only the NFD branch has a PR: the NFC branch shows none, in either listing order.
+        for branches in [[Self.branch(nfc), Self.branch(nfd)], [Self.branch(nfd), Self.branch(nfc)]] {
+            let only = index([Self.pullRequest(2, branch: nfd)], branches)
+            XCTAssertNil(only.pullRequest(forBranch: "refs/heads/\(nfc)"))
+            XCTAssertEqual(only.pullRequest(forBranch: "refs/heads/\(nfd)")?.number, 2)
+        }
+    }
+
+    /// #548: two remote names git tells apart but `String` equates (`K` and KELVIN SIGN, NFC and NFD) are both left
+    /// out, whatever their order and whether or not the other one is on GitHub. The same name listed twice keeps its
+    /// first URL.
+    func testRemoteNamesThatOnlyStringEqualityConfusesAreBothLeftOut() {
+        let github = "https://github.com/team/app"
+        let gitlab = "https://gitlab.com/team/app"
+        for pair in [("K", "\u{212A}"), ("caf\u{E9}", "cafe\u{301}")] {
+            for (first, second) in [(pair.0, pair.1), (pair.1, pair.0)] {
+                for urls in [(github, github), (github, gitlab), (gitlab, github)] {
+                    let remotes = GitHubRemote.repositories(remotes: [
+                        (name: first, url: urls.0), (name: second, url: urls.1),
+                        (name: "origin", url: "git@github.com:me/app.git"),
+                    ])
+                    XCTAssertEqual(remotes, ["origin": fork], "\(Array(first.utf8)) \(urls)")
+                }
+            }
+        }
+        XCTAssertEqual(
+            GitHubRemote.repositories(remotes: [(name: "K", url: github), (name: "K", url: gitlab)]), ["K": team])
     }
 }

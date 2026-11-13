@@ -10,6 +10,8 @@ extension AppState {
     func reload() {
         issuePanel.markStale()
         gitlabQuestion = nil
+        // gh's login list too: a login or an install since the last read can trust a remote's host (#485).
+        shouldRereadGitHubLogins = true
         refresh(.user)
     }
 
@@ -111,12 +113,15 @@ extension AppState {
             } else {
                 worktreeList = .loading
                 branchListModel = nil
+                // S-11 goes stale with the list: a comparison already running was asked on the old basis (#412).
+                comparisonListFailed(.git(.cancelled))
                 snapshot = nil
                 needsFullLoad = true
             }
         case .failure(let error):
             // The message can carry masked stderr, which still keeps separators such as U+2028.
             worktreeList = .failed(message: PathValidator.displayable(error.message))
+            isShownListingVerified = false
             branchListModel = nil
             // The remotes this repository was last inspected with no longer count: a cached paint after this failure
             // must not build links (or pick the gh repository again) from them (#470).
@@ -142,6 +147,9 @@ extension AppState {
     /// - Parameter trigger: The load that brought `listing`; `nil` for a cached paint or a preview.
     private func apply(_ listing: WorktreeListing, isVerified: Bool, trigger: RepositoryService.Trigger? = nil) {
         worktreeList = .loaded(listing)
+        // A cached paint's inspections are the previous load's: Open in Terminal and Open in Editor ask until this
+        // load's arrive (#491).
+        isShownListingVerified = isVerified
         // Watch only what this load verified (#226), never a cached paint (#119).
         if isVerified, let repository {
             autoRefresh.update(FileChangeClassifier(listing: listing, repository: repository.repository))
@@ -163,6 +171,8 @@ extension AppState {
         if let path = selection?.worktreePath, path != focusedWorktreePath { selection = nil }
         // S-11 belongs to one worktree: it closes or goes stale with it (#311, #413).
         comparisonListApplied(listing)
+        // A verified load is the new basis: an open S-11 compares again (#412). A cached paint is not.
+        if isVerified { comparisonListSucceeded() }
         // A stash that is gone (dropped or applied elsewhere) falls back to the focused worktree.
         if case .stash(let oid) = selection, !listing.stashes.contains(where: { $0.oid == oid }) {
             selection = nil
@@ -181,6 +191,8 @@ extension AppState {
         // Pull requests load at the same times as the issues (ADR-0023 §6).
         // Without a GitHub repository, GitLab is asked next, only about hosts glab is logged in to (ADR-0026 §2).
         if isVerified {
+            let rereading = shouldRereadGitHubLogins
+            shouldRereadGitHubLogins = false
             if let github = listing.githubRepository(trusting: trustedGitHubHosts) {
                 gitlabCheckTask?.cancel()
                 gitlabCheckGeneration += 1
@@ -193,7 +205,7 @@ extension AppState {
                 pullRequestStore.load(nil)
                 // A remote on a host not trusted yet: gh's login list may trust it, and then the check picks the
                 // repository again (ADR-0025 §1).
-                if trustedGitHubHosts.mayTrustMore(listing.remotes.map(\.url)) {
+                if trustedGitHubHosts.mayTrustMore(listing.remotes.map(\.url), rereading: rereading) {
                     // gh's login list first: glab is asked only about hosts gh does not handle (ADR-0026 §2).
                     isWaitingForGitHubBeforeGitLab = true
                     if !isCheckingGitHub { checkGitHub() }
@@ -242,6 +254,8 @@ extension AppState {
         history.close()
         graph.select(nil)
         commitDetail.clearFile()
+        // S-12 shows two commits, not a worktree: choosing any sidebar worktree closes it, the focused one too (#414).
+        closeCommitComparison()
         if focusedWorktreePath != path {
             selectedFile = nil
             // S-11 belongs to one worktree.

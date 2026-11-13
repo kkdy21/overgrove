@@ -59,10 +59,8 @@ struct WipDetailView: View {
             .foregroundStyle(Tokens.Color.textSecondary)
             if model.changedFileCount > 0 {
                 HStack(spacing: Tokens.Spacing.sm) {
-                    Text(
-                        "\(WipDetailModel.formatted(model.changedFileCount)) changed \(model.changedFileCount == 1 ? "file" : "files")"
-                    )
-                    .foregroundStyle(Tokens.Color.textTertiary)
+                    Text(WipDetailModel.changedFilesText(model.changedFileCount))
+                        .foregroundStyle(Tokens.Color.textTertiary)
                     if let totals = model.lineTotals {
                         if let fraction = totals.addedFraction {
                             LineRatioBar(addedFraction: fraction)
@@ -231,7 +229,9 @@ struct WipGroupCard: View {
     }
 
     private var headerLabel: String {
-        var label = "\(group.group.title), \(group.totalCount) files"
+        let count = group.totalCount
+        let files = count == 1 ? String(localized: "\(count) file") : String(localized: "\(count) files")
+        var label = group.group.title + ", " + files
         if let totals = group.lineTotals {
             label += ", \(WipDetailModel.lineCountDescription(.lines(added: totals.added, deleted: totals.deleted)))"
         }
