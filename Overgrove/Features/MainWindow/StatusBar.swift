@@ -245,11 +245,16 @@ struct StatusBar: View {
             } else if !item.isTrailing {
                 icon(item)
             }
-            Text(item.text).lineLimit(1).truncationMode(.middle)
-                // The fields that give way keep enough to read their start and end (`Last…ails`, `fix…↓3`); the
-                // others never shorten.
-                .frame(minWidth: Self.minimumTextWidth(item.kind), alignment: .leading)
-                .fixedSize(horizontal: Self.minimumTextWidth(item.kind) == nil, vertical: false)
+            if let floor = Self.minimumTextWidth(item.kind) {
+                // The fields that give way keep enough to read their start and end (`Last…ails`, `fix…↓3`), but take
+                // only their text's width when there is room: a floor, not a minimum width (#613).
+                ShrinkFloor(floor: floor) {
+                    Text(item.text).lineLimit(1).truncationMode(.middle)
+                }
+            } else {
+                // The others never shorten.
+                Text(item.text).lineLimit(1).fixedSize(horizontal: true, vertical: false)
+            }
             if item.isTrailing { icon(item) }
         }
         .foregroundStyle(item.tone == .warning ? color(for: .warning) : Tokens.Color.textSecondary)
@@ -280,5 +285,30 @@ struct StatusBar: View {
         case .neutral: Tokens.Color.textSecondary
         case .warning: Tokens.Color.statusPrunable
         }
+    }
+}
+
+/// Lays out one view at its ideal width when there is room, and lets it shrink down to `min(ideal, floor)` but no
+/// further (#613). `frame(minWidth:)` would also widen a short text to `floor`, leaving a gap after it.
+struct ShrinkFloor: Layout {
+    let floor: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        let ideal = child.sizeThatFits(.unspecified)
+        let width: CGFloat
+        if let proposed = proposal.width, proposed.isFinite {
+            width = max(min(proposed, ideal.width), min(ideal.width, floor))
+        } else {
+            width = ideal.width
+        }
+        let height = child.sizeThatFits(ProposedViewSize(width: width, height: proposal.height)).height
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(
+            at: CGPoint(x: bounds.minX, y: bounds.midY), anchor: .leading,
+            proposal: ProposedViewSize(width: bounds.width, height: bounds.height))
     }
 }
