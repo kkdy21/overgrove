@@ -162,7 +162,12 @@ struct GraphPanel: View {
     var stashes: [Stash] = []
     var selectedStash: ObjectID?
     var onSelectStash: (ObjectID) -> Void = { _ in }
+    /// The WIP row shows the selection bar (#574).
+    var isWipSelected = false
     var showsStashes = true
+    /// The author chips' width and the room they get: the row fades at its end only when it overflows.
+    @State private var chipsWidth: CGFloat = 0
+    @State private var chipsViewport: CGFloat = 0
     var onSetShowsStashes: ((Bool) -> Void)?
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
@@ -199,11 +204,24 @@ struct GraphPanel: View {
     private var graph: some View {
         PanelSection {
             if let authorSummary, authorSummary.hasChoices, graphStore?.status == .loaded {
-                // Wider than the panel with many long names: the row scrolls rather than squeezing the `⋯` out.
+                // Wider than the panel with many long names: the row scrolls rather than squeezing the `⋯` out, and
+                // fades out at its end instead of cutting a chip in half (#574).
                 ScrollView(.horizontal, showsIndicators: false) {
                     GraphAuthorFilterBar(summary: authorSummary, selection: authorFilter, onSelect: onSelectAuthor)
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.width
+                        } action: {
+                            chipsWidth = $0
+                        }
                 }
                 .scrollBounceBehavior(.basedOnSize)
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.width
+                } action: {
+                    chipsViewport = $0
+                }
+                .mask { TrailingFade(isActive: chipsWidth > chipsViewport + 0.5) }
+                .padding(.trailing, Tokens.Spacing.sm)
             } else {
                 Image(systemName: "person.2").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
                 Text("Commits").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
@@ -223,7 +241,7 @@ struct GraphPanel: View {
                         onSelectWip: onSelectWip, onOpen: onOpen, search: search, onFindNext: onFindNext,
                         onFindPrevious: onFindPrevious, authorMatches: authorMatches, columns: columns,
                         onCommitColumns: onCommitColumns, stashes: showsStashes ? stashes : [],
-                        selectedStash: selectedStash, onSelectStash: onSelectStash)
+                        selectedStash: selectedStash, onSelectStash: onSelectStash, isWipSelected: isWipSelected)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -336,5 +354,18 @@ extension SidebarPanel {
     /// tooltip is `origin — github.com/acme/api`. Distinct names give distinct keys, so the keys stay unique.
     static func remoteFolderHelp(_ urls: [String: String]) -> [String: String] {
         Dictionary(uniqueKeysWithValues: urls.map { ("remote:\(BranchNode.key($0.key))", "\($0.key) — \($0.value)") })
+    }
+}
+
+/// A mask that fades the last `Spacing.lg` of a row to clear when `isActive`, and shows everything otherwise.
+private struct TrailingFade: View {
+    let isActive: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+            LinearGradient(colors: [.black, isActive ? .clear : .black], startPoint: .leading, endPoint: .trailing)
+                .frame(width: Tokens.Spacing.lg)
+        }
     }
 }

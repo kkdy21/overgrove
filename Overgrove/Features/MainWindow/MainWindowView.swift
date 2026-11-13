@@ -122,6 +122,7 @@ struct MainWindowView: View {
                     authorMatches: state.graphAuthorFilter?.matchSet, onSelectAuthor: state.selectAuthorFilter,
                     columns: state.graphColumns, onCommitColumns: state.commitGraphColumns,
                     stashes: state.stashes, selectedStash: state.selectedStashOID, onSelectStash: state.selectStash,
+                    isWipSelected: state.selection?.isWip ?? false,
                     showsStashes: state.settings.showsGraphStashes,
                     onSetShowsStashes: { state.settings.showsGraphStashes = $0 },
                     diff: state.diffViewer,

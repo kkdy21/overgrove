@@ -400,6 +400,8 @@ final class TokensTests: XCTestCase {
                 "ref-pill-border-opacity": Tokens.Graph.refPillBorderOpacity,
                 "ref-connector-opacity": Tokens.Graph.refConnectorOpacity,
                 "selection-opacity": Tokens.Graph.selectionOpacity,
+                "selection-inactive-opacity": Tokens.Graph.selectionInactiveOpacity,
+                "highlight-opacity": Tokens.Graph.highlightOpacity,
                 "worktree-selection-border-opacity": Tokens.Graph.worktreeSelectionBorderOpacity,
                 "focus-chip-fill-opacity": Tokens.Graph.focusChipFillOpacity,
                 "focus-chip-border-opacity": Tokens.Graph.focusChipBorderOpacity,

@@ -88,6 +88,8 @@ final class GraphPolishRenderTests: XCTestCase {
             hasRepository: true, graphStore: store, authorSummary: summary, authorFilter: selection,
             authorMatches: matches, columns: GraphColumnLayout.default.toggling(.sha).setting(.refs, to: 200))
         try render(panel, size: CGSize(width: 960, height: 280), name: "graph-author-filter")
+        // The panel's minimum (#574): the chips overflow and fade out before the `⋯` menu.
+        try render(panel, size: CGSize(width: 480, height: 280), name: "graph-author-filter-480")
     }
 
     func testMoreThanTwelveLanesScrollInsideTheGraphColumn() async throws {

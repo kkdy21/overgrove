@@ -30,6 +30,8 @@ struct GraphView: View {
     var stashes: [Stash] = []
     var selectedStash: ObjectID?
     var onSelectStash: (ObjectID) -> Void = { _ in }
+    /// The WIP row is the primary selection (`selection == .wip`): it shows the accent bar (#574).
+    var isWipSelected = false
 
     @FocusState private var hasFocus: Bool
     @Environment(\.rowMenu) private var rowMenu
@@ -44,7 +46,13 @@ struct GraphView: View {
     private var geometry: GraphGeometry { zoom.geometry }
     private var graphWidth: CGFloat { geometry.width(lanes: store.laneCount) }
     private var headIndex: Int? { store.head.flatMap(store.index(of:)) }
-    private var shownColumns: GraphColumnLayout { dragColumns ?? columns }
+    /// The stored (or dragged) layout, fitted to the panel so Message keeps its minimum (#574). Widths are stored at
+    /// 100 %; the panel and the graph column are measured at the zoom.
+    private var shownColumns: GraphColumnLayout {
+        let layout = dragColumns ?? columns
+        guard panelWidth > 0 else { return layout }
+        return layout.fitting(panelWidth: panelWidth / zoom.scale, graphWidth: graphWidth / zoom.scale)
+    }
     private var laneScroll: GraphLaneScroll {
         GraphLaneScroll(offset: laneOffset, lanes: store.laneCount, geometry: geometry)
     }
@@ -69,8 +77,9 @@ struct GraphView: View {
                         if let wip = store.wip {
                             GraphWipRowView(
                                 wip: wip, column: headIndex.map { store.rows[$0].column } ?? 0,
-                                hasLine: headIndex != nil, graphWidth: graphWidth,
-                                refsWidth: shownColumns.width(of: .refs) * zoom.scale, laneOffset: laneScroll.offset
+                                hasLine: headIndex != nil, isSelected: isWipSelected,
+                                graphWidth: graphWidth, refsWidth: shownColumns.width(of: .refs) * zoom.scale,
+                                laneOffset: laneScroll.offset
                             )
                             .id(Self.wipRowID)
                             // interaction.md §2: clicking the WIP row selects the worktree's changes (#311).
@@ -337,7 +346,10 @@ struct GraphCommitRowView: View {
                 if text.isAIAssisted { AIBadge() }
             }
             .padding(.horizontal, Tokens.Spacing.sm)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // Message takes what the fixed columns leave: badges never push Author, Date, and SHA out of line (#574).
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .clipped()
+            .layoutPriority(-1)
             if columns.isVisible(.author) {
                 cell(text.author, width: columns.width(of: .author) * zoom.scale, color: Tokens.Color.textSecondary)
             }
@@ -351,8 +363,12 @@ struct GraphCommitRowView: View {
             }
         }
         .frame(height: zoom.geometry.rowHeight)
+        // art-direction.md §5.2: `surface.hover` under the pointer; a selected row keeps its tint (#574).
+        .hoverHighlight(.fullWidth, isEnabled: !isSelected)
         .background(
-            isSelected ? lane.opacity(isListFocused ? 0.16 : 0.10) : (isHighlighted ? lane.opacity(0.06) : Color.clear)
+            isSelected
+                ? lane.opacity(isListFocused ? Tokens.Graph.selectionOpacity : Tokens.Graph.selectionInactiveOpacity)
+                : (isHighlighted ? lane.opacity(Tokens.Graph.highlightOpacity) : Color.clear)
         )
         .overlay(alignment: .leading) {
             if isSelected { Rectangle().fill(lane).frame(width: 3) }
@@ -497,6 +513,8 @@ struct GraphWipRowView: View {
     let wip: GraphWipRow
     let column: Int
     let hasLine: Bool
+    /// `selection == .wip` (art-direction.md §5.2: a 3pt accent bar at the left edge, #574).
+    var isSelected = false
     let graphWidth: CGFloat
     var refsWidth = Tokens.Size.columnRefsIdeal
     var laneOffset: CGFloat = 0
@@ -523,12 +541,19 @@ struct GraphWipRowView: View {
             GraphWipCell(column: column, hasLine: hasLine, width: graphWidth, offset: laneOffset)
             Text(wip.summary).font(zoom.typography.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
                 .padding(.horizontal, Tokens.Spacing.sm)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                .clipped()
+                .layoutPriority(-1)
         }
         .frame(height: zoom.geometry.rowHeight)
+        .hoverHighlight(.fullWidth, isEnabled: !isSelected)
         .background(Tokens.Color.surfaceWipRow)
+        .overlay(alignment: .leading) {
+            if isSelected { Rectangle().fill(Tokens.Color.accent).frame(width: 3) }
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(wip.accessibilityLabel)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

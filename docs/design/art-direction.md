@@ -182,6 +182,9 @@ Overgrove 메인 창이 어떻게 보여야 하는지를 수치로 정한다. �
 
 - 열 머리는 높이 28, `surface.panel-header`, 11pt Medium, Title Case다. 열 사이 구분선(1×12pt, `border.strong`)이 폭 조절 손잡이다.
 - 패널 머리 오른쪽 `⋯` 메뉴에서 Author, Date, SHA 열을 숨기거나 보인다. Refs, Graph, Message는 숨길 수 없다.
+- 패널이 좁아져 Message가 200 아래로 내려가면, 그릴 때만 Refs와 Author를 차례로 최소 폭까지 줄인다. 그래도 모자라면 Date, SHA 순서로 숨긴다. 저장한 폭과 `⋯` 메뉴의 표시 여부는 그대로라 패널을 넓히면 돌아온다(#574).
+- Message 칸은 남는 폭만 쓰고 넘치면 잘린다. AI 배지나 이슈 알약이 있어도 Author·Date·SHA는 다른 행과 같은 자리에 있다.
+- 작성자 칩 줄이 패널보다 길면 끝 16pt를 흐리게 하고 `⋯` 앞에 8pt를 둔다.
 
 ### 5.2 행
 
