@@ -311,17 +311,22 @@ raw 레코드가 모두 나온 뒤 numstat 레코드가 나온다 (확인).
     - 파서는 numstat과 짝이 맞지 않는 raw 레코드 가운데 **목적지 객체 이름이 0인 것만** 건너뛰고 결과에서 뺀다. 내용이 바뀌지 않았으므로 변경이 아니다.
     - 커밋의 레코드(`diff-tree`, 객체 이름이 실제 값)는 지금처럼 numstat이 꼭 있어야 하고, 어긋나면 `parseFailed`다.
 
-### 8.2 stash 파일 — `stash show --include-untracked --numstat -z`
+### 8.2 stash 파일 — `stash show --include-untracked -z --raw --numstat -M --no-abbrev`
 
-numstat 레코드만 나온다. `--include-untracked`가 있으면 untracked 부분 파일도 포함된다 (git 2.32+, 확인). untracked 출신 파일인지는 stash 커밋의 세 번째 부모(`%P`)에 있는지로 구분한다. 세 번째 부모는 untracked 트리만 담은 루트 커밋이라서 `commitFiles(<stash>^3)`의 파일 목록이 곧 untracked 파일 목록이다. 이 경로 집합을 `parseStashFiles(untrackedPaths:)`에 넘기고 raw 바이트로 비교한다 (PAR-NUMSTAT-05, Apple Git 2.50.1 확인).
+§8.1과 같은 모양이다. raw 레코드가 모두 먼저 나오고, 그다음 numstat 레코드가 같은 순서로 하나씩 나온다(Apple Git 2.54.0 확인, #602). 변경 종류(M/A/D/R/C/T)는 raw에서, 줄 수는 numstat에서 읽는다. 짝 맞춤, 중복 경로, 잘림 규칙은 §8.1과 같다. `parseStashFiles`는 `parseCommitFiles`로 읽은 뒤 untracked 출신 표시만 더한다. numstat만 있는 출력(예전 `stashFiles` 인자)은 "numstat record without raw record"로 거부한다.
 
-- stash 출력에도 이름 변경 numstat(`<added>\t<deleted>\t␀<old>␀<new>␀`)이 나온다. `stash show`는 `diff.renames` 기본값(켜짐)을 따른다 (확인).
+- `stash show`는 porcelain이라 `--no-abbrev`가 없으면 raw의 객체 이름을 줄여 쓴다(확인). `-M`은 `diff.renames` 설정과 상관없이 이름 변경을 찾게 한다(`-c diff.renames=false`에서 확인). `stashPatch`도 `-M`을 쓴다.
+- untracked 부분의 파일은 raw에서 `A`(추가)로 나온다. 화면에서는 `isFromUntracked`로 `?` 배지를 그린다.
+
+`--include-untracked`가 있으면 untracked 부분 파일도 포함된다 (git 2.32+, 확인). untracked 출신 파일인지는 stash 커밋의 세 번째 부모(`%P`)에 있는지로 구분한다. 세 번째 부모는 untracked 트리만 담은 루트 커밋이라서 `commitFiles(<stash>^3)`의 파일 목록이 곧 untracked 파일 목록이다. 이 경로 집합을 `parseStashFiles(untrackedPaths:)`에 넘기고 raw 바이트로 비교한다 (PAR-NUMSTAT-05, Apple Git 2.50.1 확인).
+
+- stash 출력에도 이름 변경 raw(`R<score>␀<old>␀<new>␀`)와 numstat(`<added>\t<deleted>\t␀<old>␀<new>␀`)이 나온다. `-M`이 있으므로 저장소의 `diff.renames`가 꺼져 있어도 이름 변경으로 나온다.
 
 
 - untracked 출신 판별은 세 번째 부모(`<stash>^3`)의 `commitFiles`(`--root`)로 한다. 조작된 stash에서 `^3`이 루트 커밋이 아니면 그 부모와의 diff가 나오지만, 보이는 패치가 달라질 뿐 읽기 전용 `diff-tree`라 보안 영향은 없다(#71 리뷰).
 ### 8.3 워크트리 줄 수 — `diff [--cached] --numstat -z -M` (#230)
 
-numstat 레코드만 나온다. 형식은 §8.2와 같다(`status`는 `nil`). `parseWorktreeFiles(_:excluding:truncated:)`가 읽는다.
+numstat 레코드만 나온다. 형식은 §8.1의 numstat 부분과 같다(`status`는 `nil`). `parseWorktreeFiles(_:excluding:truncated:)`가 읽는다.
 
 - 충돌 중인 경로는 unstaged 출력에 레코드가 두 개 나온다(확인, [git-command-catalog.md §3](git-command-catalog.md)). 호출자는 status의 conflicted 경로를 `excluding`으로 넘기고, 파서는 그 레코드를 버린다. 나머지 경로가 두 번 나오면 파싱 실패다.
 - 잘린 출력에서는 잘린 마지막 레코드만 버린다. 줄 수를 모르는 파일은 결과에 없으므로 화면에서 줄 수 없이 보인다(`isPartial`).

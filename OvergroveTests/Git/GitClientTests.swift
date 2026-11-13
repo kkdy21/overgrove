@@ -83,8 +83,9 @@ final class GitCommandTests: XCTestCase {
             ],
             ["log", "-g", "-z", "--ignore-missing", "--format=%gd%x00%H%x00%gs%x00%ct%x00%P", "refs/stash", "--"],
             [
-                "stash", "show", "--include-untracked", "--numstat", "-z", "--no-ext-diff", "--no-textconv",
-                "--end-of-options", oid.hex,
+                "stash", "show", "--include-untracked", "-z", "--raw", "--numstat", "-M", "--no-abbrev",
+                "--no-ext-diff",
+                "--no-textconv", "--end-of-options", oid.hex,
             ],
             [
                 "diff-tree", "-p", "-M", "--no-ext-diff", "--no-textconv", "--end-of-options", "\(oid.hex)^1", oid.hex,

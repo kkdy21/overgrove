@@ -1,7 +1,8 @@
 import Foundation
 
 /// Parses the file list of a commit (`diff-tree -r -z --raw --numstat -M`, parsing-spec.md §8.1) and of a stash
-/// (`stash show --include-untracked --numstat -z`, §8.2), and a worktree's line counts (`diff --numstat -z`, §8.3).
+/// (`stash show --include-untracked -z --raw --numstat -M`, §8.2), and a worktree's line counts (`diff --numstat -z`,
+/// §8.3).
 ///
 /// Records are read by position, never by guessing from content: a path such as `:x` or one containing tabs cannot be
 /// mistaken for a record start. Paths stay raw bytes (`GitPath`) because they go back to git for patches. Modes, OIDs,
@@ -58,25 +59,26 @@ enum NumstatParser {
         return Files(files: files, isPartial: truncated)
     }
 
-    /// `stash show --include-untracked --numstat -z` output: numstat records only, so `status` stays `nil`.
+    /// `stash show --include-untracked -z --raw --numstat -M` output (#602): the same raw-then-numstat shape as a
+    /// commit, so each file has its change kind and the same checks apply (pairs must match, no duplicate paths).
     ///
-    /// The output itself does not say which files came from the untracked part (§8.2). Those are exactly the files of
-    /// the stash's third parent, a root commit holding the untracked tree: pass the paths from
-    /// `parseCommitFiles` of `commitFiles(<stash>^3)` as `untrackedPaths` (PAR-NUMSTAT-05). Matching is by raw bytes.
+    /// The output itself does not say which files came from the untracked part (§8.2); git reports them as added.
+    /// Those are exactly the files of the stash's third parent, a root commit holding the untracked tree: pass the
+    /// paths from `parseCommitFiles` of `commitFiles(<stash>^3)` as `untrackedPaths` (PAR-NUMSTAT-05). Matching is by
+    /// raw bytes.
     static func parseStashFiles(
         _ data: Data,
         untrackedPaths: Set<GitPath> = [],
         truncated: Bool = false
     ) throws -> Files {
-        var reader = try TokenReader(data, truncated: truncated)
-        var files: [FileStat] = []
-        var seenPaths = Set<Data>()
-        while !reader.isAtEnd, let stat = try readNumstat(&reader) {
-            guard seenPaths.insert(stat.path).inserted else { throw failure("duplicate path", at: stat.offset) }
-            let path = GitPath(raw: Data(stat.path))
-            files.append(stat.fileStat(status: nil, isFromUntracked: untrackedPaths.contains(path)))
+        let parsed = try parseCommitFiles(data, truncated: truncated)
+        guard !untrackedPaths.isEmpty else { return parsed }
+        let files = parsed.files.map { file in
+            FileStat(
+                path: file.path, originalPath: file.originalPath, status: file.status, added: file.added,
+                deleted: file.deleted, isFromUntracked: untrackedPaths.contains(file.path))
         }
-        return Files(files: files, isPartial: truncated)
+        return Files(files: files, isPartial: parsed.isPartial)
     }
 
     /// `diff [--cached] --numstat -z -M` output of a worktree (§8.3, #230): numstat records only, so `status` stays

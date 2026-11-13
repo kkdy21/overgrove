@@ -2,7 +2,8 @@ import Foundation
 
 /// Real output (Apple Git 2.50.1) for PAR-NUMSTAT-xx, captured with the exact `commitFiles` arguments
 /// (`diff-tree -r -z --raw --numstat -M --no-ext-diff --no-textconv --no-commit-id --root`) and `stashFiles` arguments
-/// (`stash show --include-untracked --numstat -z --no-ext-diff --no-textconv`). ␉ is a tab, ␀ a NUL.
+/// (`stash show --include-untracked -z --raw --numstat -M --no-abbrev --no-ext-diff --no-textconv`; the stash
+/// fixtures were recaptured with Apple Git 2.54.0 for #602). ␉ is a tab, ␀ a NUL.
 /// A fixture that fails to decode becomes empty data, which the tests below would notice as missing files.
 enum NumstatParserFixtures {
     /// `root`: four files added. Needs `--root`, which `commitFiles` always passes.
@@ -69,19 +70,29 @@ enum NumstatParserFixtures {
                 "OjEwMDY0NCAxMDA2NDQgZjg2MjVlNDNmOWUwNGYyNDI5MWY3N2NkYmU0YzcxYjNjMmEzYjAwMDNmNjA0MTliM2VkMDZhMDU4ZDc2NmM4YiA1NTUzMWFhZTM0YTg2NDhmMTlhMWNkZTZhMzQ4NDQzMmVmZWEzOThjZDcwNWQ1ZTRiMjAxZmQwZmMxZjhkZWQ3IFIwNTAAYS50eHQAYi50eHQAMQkwCQBhLnR4dABiLnR4dAA="
         ) ?? Data()
 
-    /// `stash show --include-untracked --numstat -z` for a stash with a staged rename-with-edit
-    /// (`docs/manual.md` → `docs/handbook.md`), a modified `keep.txt`, and the untracked files `stash-untracked.txt`
-    /// and binary `ud/untracked.bin`.
+    /// `stashFiles` output (`stash show --include-untracked -z --raw --numstat -M --no-abbrev`, Apple Git 2.54.0, #602)
+    /// for a stash with a staged rename-with-edit (`docs/manual.md` → `docs/handbook.md`, R091), a modified
+    /// `keep.txt`, and the untracked files `stash-untracked.txt` and binary `ud/untracked.bin`.
     static let stash =
         Data(
             base64Encoded:
-                "MQkwCQBkb2NzL21hbnVhbC5tZABkb2NzL2hhbmRib29rLm1kADEJMAlrZWVwLnR4dAAxCTAJc3Rhc2gtdW50cmFja2VkLnR4dAAtCS0JdWQvdW50cmFja2VkLmJpbgA="
+                "OjEwMDY0NCAxMDA2NDQgMGZmM2JiYjljOGJiYTIyOTE2NTRjZDY0MDY3ZmE0MTdmZjU0YzUwOCAzMDc4MTA1MTk4YjM5YjBiMmEy"
+                + "NWZmNjZkNTc1M2M5NTU0Y2UxZjE5IFIwOTEAZG9jcy9tYW51YWwubWQAZG9jcy9oYW5kYm9vay5tZAA6MTAwNjQ0IDEwMDY0NCBi"
+                + "NjhmZGUyYTA1MWQ5YWYyZmUzZmY0Yzk2YzA4OThlNWEzMjEyZTRkIGFkMjcwNWE5N2I0ZTc2OGVlMTkyNWE2Y2M1NWM2MWVmNDFl"
+                + "NWQ5NjAgTQBrZWVwLnR4dAA6MDAwMDAwIDEwMDY0NCAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIDRh"
+                + "ZThlZjAyMWJmNmZjZmZmNDNhMTNiZTVhYmZhNTJiYjZmYjVkYmMgQQBzdGFzaC11bnRyYWNrZWQudHh0ADowMDAwMDAgMTAwNjQ0"
+                + "IDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAgODM1MjY3NWQ2N2FlZDY2MjVlY2U3OWFmNDFjMjdmZGI0"
+                + "ZWUyZTg2NyBBAHVkL3VudHJhY2tlZC5iaW4AMQkwCQBkb2NzL21hbnVhbC5tZABkb2NzL2hhbmRib29rLm1kADEJMAlrZWVwLnR4"
+                + "dAAxCTAJc3Rhc2gtdW50cmFja2VkLnR4dAAtCS0JdWQvdW50cmFja2VkLmJpbgA="
         ) ?? Data()
 
     /// `commitFiles` output for the same stash's third parent (`stash@{0}^3`, the untracked part, a root commit).
     static let stashUntrackedPart =
         Data(
             base64Encoded:
-                "OjAwMDAwMCAxMDA2NDQgMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCBkYjcyM2Y5ZjI0MDAzZTVjZDM1N2ViNWRhZGE2NWMzMmQ0ODg4MmIzIEEAc3Rhc2gtdW50cmFja2VkLnR4dAA6MDAwMDAwIDEwMDY0NCAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIGJhZGM4MDZlZDdkNzkzN2Q2ZmNiNzI3YjA3ZDBlOTBlYzc1MmJmOWYgQQB1ZC91bnRyYWNrZWQuYmluADEJMAlzdGFzaC11bnRyYWNrZWQudHh0AC0JLQl1ZC91bnRyYWNrZWQuYmluAA=="
+                "OjAwMDAwMCAxMDA2NDQgMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMCA0YWU4ZWYwMjFiZjZmY2ZmZjQz"
+                + "YTEzYmU1YWJmYTUyYmI2ZmI1ZGJjIEEAc3Rhc2gtdW50cmFja2VkLnR4dAA6MDAwMDAwIDEwMDY0NCAwMDAwMDAwMDAwMDAwMDAw"
+                + "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwIDgzNTI2NzVkNjdhZWQ2NjI1ZWNlNzlhZjQxYzI3ZmRiNGVlMmU4NjcgQQB1ZC91bnRy"
+                + "YWNrZWQuYmluADEJMAlzdGFzaC11bnRyYWNrZWQudHh0AC0JLQl1ZC91bnRyYWNrZWQuYmluAA=="
         ) ?? Data()
 }
