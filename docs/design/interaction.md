@@ -90,7 +90,7 @@
 **그래프 열.**
 - 열 머리(Refs, Graph, Message, Author, Date, SHA)의 구분선을 끌어 폭을 바꾼다. 더블클릭하면 내용에 맞춘다.
 - 패널 머리 오른쪽 `⋯` 메뉴에서 Author, Date, SHA를 숨기거나 보인다. Refs, Graph, Message는 숨길 수 없다.
-- Graph 열은 레인 수에 맞춰 자동으로 정해진다. 레인이 `size.graph-max-lanes-visible`(12)을 넘으면 Graph 열 안에서만 가로로 스크롤한다.
+- Graph 열은 레인 수에 맞춰 자동으로 정해진다. 레인이 `size.graph-max-lanes-visible`(12)을 넘으면 Graph 열 안에서만 가로로 스크롤한다. 패널이 좁아 Message가 200을 지킬 수 없으면 보이는 레인 수를 줄인다(최소 3개, [art-direction.md §5.1](art-direction.md#51-열), #603).
 
 **스크롤.**
 - 세 패널은 각자 따로 세로 스크롤한다. 패널 머리와 그래프 열 머리는 고정이다.

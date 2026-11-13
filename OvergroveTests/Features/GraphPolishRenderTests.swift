@@ -105,6 +105,9 @@ final class GraphPolishRenderTests: XCTestCase {
         try render(
             GraphView(store: store, now: now, columns: GraphColumnLayout.default.toggling(.date)),
             size: CGSize(width: 960, height: 560), name: "graph-wide-lanes")
+        // The panel's 480 pt minimum (#603): fewer lanes show, Message keeps its 200 pt, the rest scroll.
+        try render(
+            GraphView(store: store, now: now), size: CGSize(width: 480, height: 560), name: "graph-wide-lanes-480")
     }
 
     func testFitMeasuresTheLoadedRows() async throws {

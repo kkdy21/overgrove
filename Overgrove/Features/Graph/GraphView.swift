@@ -43,16 +43,19 @@ struct GraphView: View {
     /// How far the lanes are scrolled sideways (more than `size.graph-max-lanes-visible` lanes).
     @State private var laneOffset: CGFloat = 0
 
-    private var geometry: GraphGeometry { zoom.geometry }
+    /// The stored (or dragged) layout fitted to the panel so Message keeps its minimum (#574), and how many lanes the
+    /// Graph column shows (#603). Widths are stored at 100 %; the panel and the graph column are measured at the zoom.
+    private var fit: (columns: GraphColumnLayout, lanes: Int) {
+        let layout = dragColumns ?? columns
+        guard panelWidth > 0 else { return (layout, Tokens.Size.graphMaxLanesVisible) }
+        let panel = panelWidth / zoom.scale
+        let fitted = layout.fitting(panel: panel, lanes: store.laneCount)
+        return (fitted, fitted.visibleLanes(panelWidth: panel, lanes: store.laneCount))
+    }
+    private var geometry: GraphGeometry { zoom.geometry.showing(lanes: fit.lanes) }
     private var graphWidth: CGFloat { geometry.width(lanes: store.laneCount) }
     private var headIndex: Int? { store.head.flatMap(store.index(of:)) }
-    /// The stored (or dragged) layout, fitted to the panel so Message keeps its minimum (#574). Widths are stored at
-    /// 100 %; the panel and the graph column are measured at the zoom.
-    private var shownColumns: GraphColumnLayout {
-        let layout = dragColumns ?? columns
-        guard panelWidth > 0 else { return layout }
-        return layout.fitting(panelWidth: panelWidth / zoom.scale, graphWidth: graphWidth / zoom.scale)
-    }
+    private var shownColumns: GraphColumnLayout { fit.columns }
     private var laneScroll: GraphLaneScroll {
         GraphLaneScroll(offset: laneOffset, lanes: store.laneCount, geometry: geometry)
     }
@@ -161,7 +164,8 @@ struct GraphView: View {
 
     /// `delta` is the width change since the drag began.
     private func resize(_ column: GraphColumnLayout.Column, by delta: CGFloat) {
-        let base = dragBase ?? columns
+        // From the widths on screen, so the divider follows the pointer at once (#603).
+        let base = dragBase ?? columns.adoptingWidths(from: shownColumns)
         dragBase = base
         // Widths are stored at 100 %; the panel and the graph column are measured at the zoom (#121).
         dragColumns = base.resizing(

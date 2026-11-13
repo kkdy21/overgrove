@@ -172,7 +172,85 @@ final class GraphColumnLayoutTests: XCTestCase {
         let fitted = layout.fitting(panelWidth: 300, graphWidth: 80)
         XCTAssertFalse(fitted.isVisible(.date))
         XCTAssertFalse(fitted.isVisible(.sha))
-        XCTAssertTrue(fitted.isVisible(.author), "Author is never hidden for room, only shrunk")
+        XCTAssertFalse(fitted.isVisible(.author), "Author goes last, after Date and SHA (#603)")
         XCTAssertTrue(layout.isVisible(.sha))
+        XCTAssertTrue(layout.isVisible(.author))
+    }
+
+    // MARK: Many lanes in a narrow panel (#603)
+
+    private func message(_ fitted: GraphColumnLayout, panel: CGFloat, lanes: Int) -> CGFloat {
+        let visible = fitted.visibleLanes(panelWidth: panel, lanes: lanes)
+        return panel - fitted.fixedWidth(graphWidth: GraphGeometry.standard.showing(lanes: visible).width(lanes: lanes))
+    }
+
+    /// Twelve lanes are 254 pt: at the panel's 480 pt minimum they left Message 58 pt once Refs and Author were at
+    /// their minimums and Date and SHA hidden.
+    func testTwelveLanesKeepMessageAtItsMinimum() {
+        let fitted = GraphColumnLayout.default.fitting(panel: 480, lanes: 12)
+        XCTAssertEqual(fitted.trailingColumns, [], "Date, SHA, then Author are hidden")
+        let visible = fitted.visibleLanes(panelWidth: 480, lanes: 12)
+        XCTAssertEqual(visible, 8)
+        XCTAssertGreaterThanOrEqual(message(fitted, panel: 480, lanes: 12), GraphColumnLayout.messageMinimum)
+    }
+
+    /// Lanes give way only after every other column: a panel where hiding Author is enough keeps all twelve lanes.
+    func testLanesShrinkOnlyAfterAuthorIsHidden() {
+        let layout = GraphColumnLayout.default
+        let graph = GraphGeometry.standard.width(lanes: 12)
+        let withAuthor =
+            GraphColumnLayout.Column.refs.limits.minimum + graph
+            + GraphColumnLayout.Column.author.limits.minimum + GraphColumnLayout.messageMinimum
+        let justEnough = withAuthor - GraphColumnLayout.Column.author.limits.minimum
+        let fitted = layout.fitting(panel: justEnough, lanes: 12)
+        XCTAssertFalse(fitted.isVisible(.author))
+        XCTAssertEqual(fitted.visibleLanes(panelWidth: justEnough, lanes: 12), 12)
+        XCTAssertEqual(layout.fitting(panel: withAuthor, lanes: 12).trailingColumns, [.author])
+    }
+
+    func testVisibleLanesStayWithinTheirRange() {
+        let fitted = GraphColumnLayout.default.fitting(panel: 300, lanes: 20)
+        XCTAssertEqual(fitted.visibleLanes(panelWidth: 300, lanes: 20), GraphColumnLayout.minimumVisibleLanes)
+        XCTAssertEqual(GraphColumnLayout.default.visibleLanes(panelWidth: 2_000, lanes: 20), 12, "never more than 12")
+        XCTAssertEqual(
+            GraphColumnLayout.default.visibleLanes(panelWidth: 2_000, lanes: 2), 2, "never more than there are")
+    }
+
+    /// The geometry's lane cap: the column narrows and the rest scroll inside it.
+    func testGeometryShowingFewerLanesScrollsTheRest() {
+        let geometry = GraphGeometry.standard.showing(lanes: 8)
+        XCTAssertEqual(geometry.width(lanes: 12), 8 * geometry.lane + geometry.inset * 2)
+        XCTAssertEqual(geometry.maxOffset(lanes: 12), 4 * geometry.lane)
+        XCTAssertEqual(geometry.width(lanes: 5), 5 * geometry.lane + geometry.inset * 2)
+    }
+
+    /// A divider drag starts from the widths on screen. From the stored widths, the first points of a drag would only
+    /// eat into what `fitting` had already taken, and the divider would not move under the pointer.
+    func testDragStartsFromTheWidthsOnScreen() {
+        let stored = GraphColumnLayout.default
+        let full = stored.fixedWidth(graphWidth: 80) + GraphColumnLayout.messageMinimum
+        let shown = stored.fitting(panelWidth: full - 10, graphWidth: 80)
+        XCTAssertEqual(shown.width(of: .refs), stored.width(of: .refs) - 10)
+
+        let base = stored.adoptingWidths(from: shown)
+        let dragged = base.resizing(.refs, by: -5, panelWidth: full - 10, graphWidth: 80)
+        XCTAssertEqual(
+            dragged.fitting(panelWidth: full - 10, graphWidth: 80).width(of: .refs), shown.width(of: .refs) - 5)
+
+        let fromStored = stored.resizing(.refs, by: -5, panelWidth: full - 10, graphWidth: 80)
+        XCTAssertEqual(
+            fromStored.fitting(panelWidth: full - 10, graphWidth: 80).width(of: .refs), shown.width(of: .refs),
+            "the old base: the divider stayed put")
+    }
+
+    /// The drag base keeps the stored visibility: a column that `fitting` hid is not saved as hidden.
+    func testDragBaseKeepsTheStoredVisibility() {
+        let stored = GraphColumnLayout.default
+        let shown = stored.fitting(panel: 480, lanes: 12)
+        XCTAssertFalse(shown.isVisible(.date))
+        let base = stored.adoptingWidths(from: shown)
+        XCTAssertTrue(base.isVisible(.date))
+        XCTAssertTrue(base.isVisible(.author))
+        XCTAssertEqual(base.width(of: .refs), shown.width(of: .refs))
     }
 }
