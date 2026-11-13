@@ -242,7 +242,11 @@ Overgrove 메인 창이 어떻게 보여야 하는지를 수치로 정한다. �
 
 ## 7. 상세 패널
 
-- **머리.** 높이 40. 대상 표시(워크트리 타일, 또는 커밋 노드와 같은 아바타 링) + 제목 13pt Semibold + 오른쪽 세그먼트(`Changes | Worktree`) 또는 `⋯`.
+- **머리.** 높이 40. 대상 표시 + 제목 13pt Semibold + 오른쪽 세그먼트(`Changes | Worktree`) 또는 `⋯`.
+  - 대상 표시는 선택에 따른다(#578). 워크트리는 레인 색 타일, 커밋은 커밋 노드와 같은 아바타 링, stash는 `archivebox`, 이슈는 `number.circle`이다. 비교(S-11·S-12)는 `arrow.left.arrow.right`, 선택 없음은 `doc.text.magnifyingglass`다.
+  - 비교가 열려 있으면 제목도 비교 대상을 말한다. S-11은 `Changes vs main`, S-12는 `3c5d6f1 → a91f3c2`다.
+  - 제목은 세그먼트보다 먼저 자리를 잡고 끝에서 자른다. 패널이 340pt보다 좁으면 세그먼트를 작은 크기로 그린다.
+- **하단 버튼 영역.** S-03 `Copy SHA`, S-04 `Copy Ref`, S-06 `Open in Browser`·`Copy URL`은 `PanelFooter`(`surface.panel-header`, 위 1px 구분선)에 둔다.
 - **카드.** `surface.raised`, 반경 8, 1px `border.separator`, 좌우 10pt 안쪽. 카드 머리 32(상태 심볼 + 이름 12pt Semibold + 개수 칩 + 오른쪽 `+n −m`), 파일 행 26.
 - **변경 막대.** WIP 상세 위쪽에 `n changed files`와 추가·삭제 비율 막대(높이 6, 초록·빨강).
 - **비교 카드(하단 고정).** S-02, S-05 아래에 고정한다. `Changes vs [main ▾]`, `n commits ahead · n behind · n files`, `+n −m`, 기준 커밋, `Compare with Base…`(액센트 버튼, `⌘⇧B`). 액센트 7% 채움 + 35% 테두리. 커밋 작성 영역이 없는 읽기 전용 앱에서 S-11로 들어가는 입구다.
