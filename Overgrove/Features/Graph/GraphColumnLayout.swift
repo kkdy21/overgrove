@@ -95,6 +95,25 @@ struct GraphColumnLayout: Codable, Equatable, Sendable {
         return resizing(column, by: min(delta, room))
     }
 
+    /// The layout to draw in a panel `panelWidth` wide (#574). The stored widths can leave Message under its minimum
+    /// once the panel narrows (only a divider drag enforces it), so this shrinks Refs, then Author, toward their
+    /// minimums and, if Message is still short, hides Date, then SHA. Nothing here is saved: widening the panel brings
+    /// the stored layout back, and the `⋯` menu keeps showing the stored visibility.
+    func fitting(panelWidth: CGFloat, graphWidth: CGFloat) -> GraphColumnLayout {
+        var copy = self
+        func shortfall() -> CGFloat {
+            copy.fixedWidth(graphWidth: graphWidth) + Self.messageMinimum - panelWidth
+        }
+        for column in [Column.refs, .author] where copy.isVisible(column) && shortfall() > 0 {
+            let width = copy.width(of: column)
+            copy.widths[column] = max(column.limits.minimum, width - shortfall())
+        }
+        for column in [Column.date, .sha] where copy.isVisible(column) && shortfall() > 0 {
+            copy.hidden.insert(column)
+        }
+        return copy
+    }
+
     /// The `⋯` menu: shows or hides Author, Date, or SHA. Refs stays.
     func toggling(_ column: Column) -> GraphColumnLayout {
         guard column.isHideable else { return self }

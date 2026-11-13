@@ -155,7 +155,9 @@ struct GraphStashRowView: View {
                 hasStashAbove: hasStashAbove, width: graphWidth, offset: laneOffset)
             Text(text.message).font(zoom.typography.body).foregroundStyle(Tokens.Color.textSecondary).lineLimit(1)
                 .padding(.horizontal, Tokens.Spacing.sm)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+                .clipped()
+                .layoutPriority(-1)
             if columns.isVisible(.author) {
                 Color.clear.frame(width: columns.width(of: .author) * zoom.scale)
             }
@@ -167,7 +169,8 @@ struct GraphStashRowView: View {
             }
         }
         .frame(height: zoom.geometry.rowHeight)
-        .background(isSelected ? lane.opacity(0.16) : Color.clear)
+        .hoverHighlight(.fullWidth, isEnabled: !isSelected)
+        .background(isSelected ? lane.opacity(Tokens.Graph.selectionOpacity) : Color.clear)
         .overlay(alignment: .leading) {
             if isSelected { Rectangle().fill(lane).frame(width: 3) }
         }
