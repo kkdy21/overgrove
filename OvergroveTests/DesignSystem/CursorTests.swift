@@ -147,18 +147,110 @@ final class CursorTests: XCTestCase {
         XCTAssertEqual(NSCursor.current, .arrow)
     }
 
-    /// #656: what a pointer check does to the divider's cursor.
-    func testAPointerCheckFollowsThePointerExceptDuringADrag() {
+    /// #656: the divider's pointer style stays on, so it is there for the event the pointer enters on (with it off
+    /// until hover said "over", the first event showed the arrow and a pointer that stopped there kept it). It is off
+    /// only after the pointer was found gone behind hover's back, until hover reports again.
+    func testTheStyleIsOnForTheEnterAndOffOnlyWhileHoverIsStale() {
+        var pointer = DividerPointer()
+        XCTAssertTrue(pointer.isStyleOn, "on before the pointer ever entered")
+        XCTAssertEqual(pointer.hover(true, cursor: .resizeLeftRight), .enter(.resizeLeftRight))
+        XCTAssertTrue(pointer.isOver)
+        XCTAssertEqual(pointer.hover(false, cursor: .resizeLeftRight), .none, "SwiftUI sets the arrow on its exit")
+        XCTAssertTrue(pointer.isStyleOn, "a normal exit leaves the style on for the next enter")
+
+        // Settings opened over the gutter: the window stops being key, the pointer leaves unseen, Settings closes.
+        _ = pointer.hover(true, cursor: .resizeLeft)
+        XCTAssertEqual(pointer.check(false, cursor: .resizeLeft, isDragging: false), .set(.arrow))
+        XCTAssertFalse(pointer.isStyleOn, "off, or it comes back when the window is key again")
+        XCTAssertEqual(pointer.check(false, cursor: .resizeLeft, isDragging: false), .none)
+        XCTAssertFalse(pointer.isStyleOn)
+        XCTAssertEqual(pointer.hover(true, cursor: .resizeLeft), .enter(.resizeLeft), "hover is current again")
+        XCTAssertTrue(pointer.isStyleOn)
+
+        // Settings closed with the pointer still on the gutter.
+        _ = pointer.check(false, cursor: .resizeLeft, isDragging: false)
+        XCTAssertEqual(pointer.check(true, cursor: .resizeLeft, isDragging: false), .set(.resizeLeft))
+        XCTAssertTrue(pointer.isStyleOn)
+        XCTAssertTrue(pointer.isOver)
+    }
+
+    /// #656: a check that finds the pointer over the gutter sets the cursor every time, also when the divider already
+    /// thought so: the enter that came while the other main window was key set nothing.
+    func testAWindowThatBecomesKeySetsTheCursorUnderAStillPointer() {
+        var pointer = DividerPointer()
+        XCTAssertEqual(pointer.check(true, cursor: .resizeLeftRight, isDragging: false), .set(.resizeLeftRight))
+        XCTAssertEqual(pointer.check(true, cursor: .resizeLeftRight, isDragging: false), .set(.resizeLeftRight))
         XCTAssertEqual(
-            PanelDivider.cursorAfterCheck(.resizeLeftRight, inside: true, wasOver: false, isDragging: false),
-            .resizeLeftRight, "key again with the pointer already on the gutter")
-        XCTAssertEqual(
-            PanelDivider.cursorAfterCheck(.resizeLeft, inside: false, wasOver: true, isDragging: false), .arrow,
-            "a missed exit (Settings closed, panel collapsed)")
-        XCTAssertNil(PanelDivider.cursorAfterCheck(.resizeLeftRight, inside: false, wasOver: false, isDragging: false))
-        XCTAssertNil(PanelDivider.cursorAfterCheck(.resizeLeftRight, inside: true, wasOver: true, isDragging: false))
-        XCTAssertNil(
-            PanelDivider.cursorAfterCheck(.resizeLeftRight, inside: false, wasOver: true, isDragging: true),
-            "a drag keeps its cursor")
+            pointer.check(false, cursor: .resizeLeftRight, isDragging: true), .none, "a drag keeps its cursor")
+        XCTAssertTrue(pointer.isOver)
+        XCTAssertTrue(pointer.isStyleOn)
+    }
+
+    /// #656: a drag released off the gutter (a collapse, a limit) turns the style off like a missed exit; released on
+    /// it, the style stays.
+    func testADragReleasedOffTheGutterTurnsTheStyleOff() {
+        var pointer = DividerPointer()
+        _ = pointer.hover(true, cursor: .resizeLeftRight)
+        XCTAssertEqual(pointer.dragEnded(inside: false, cursor: .resizeLeftRight), .set(.arrow))
+        XCTAssertFalse(pointer.isOver)
+        XCTAssertFalse(pointer.isStyleOn)
+        XCTAssertEqual(pointer.dragEnded(inside: true, cursor: .resizeRight), .set(.resizeRight))
+        XCTAssertTrue(pointer.isOver)
+        XCTAssertTrue(pointer.isStyleOn)
+    }
+
+    /// #656: the probe checks once the window becomes key and again after SwiftUI's own cursor update for it; a hover
+    /// re-render alone (same gutter frame) does not check.
+    func testTheProbeChecksAgainAfterTheWindowBecomesKey() throws {
+        let window = offscreenWindow()
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        window.contentView = content
+        defer { window.contentView = nil }
+        let probe = PointerProbe.ProbeView(frame: NSRect(x: 300, y: 0, width: 8, height: 300))
+        probe.pointerLocation = { NSPoint(x: 304, y: 150) }
+        probe.isWindowKey = { true }
+        content.addSubview(probe)
+        var reports = 0
+        probe.onCheck = { _ in reports += 1 }
+        drain(seconds: 0.05)
+        reports = 0
+
+        NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: window)
+        drain(seconds: (PointerProbe.ProbeView.followUpDelays.last ?? 0) + 0.2)
+        XCTAssertEqual(reports, 1 + PointerProbe.ProbeView.followUpDelays.count)
+
+        reports = 0
+        NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: window)
+        drain(seconds: 0.05)
+        XCTAssertEqual(reports, 1)
+    }
+
+    /// #656: an update with the same gutter frame (the highlight re-render after an enter) does not check; a moved
+    /// gutter does. A check there could disagree with hover on the edge pixel and take the cursor away.
+    func testTheProbeChecksOnlyWhenTheGutterMoved() {
+        let window = offscreenWindow()
+        var reports = 0
+        let frame = CGRect(x: 300, y: 0, width: 8, height: 300)
+        let host = NSHostingView(rootView: PointerProbe(layoutKey: frame, onCheck: { _ in reports += 1 }))
+        host.frame = NSRect(x: 0, y: 0, width: 400, height: 300)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.layoutSubtreeIfNeeded()
+        drain(seconds: 0.05)
+        reports = 0
+
+        host.rootView = PointerProbe(layoutKey: frame, onCheck: { _ in reports += 1 })
+        host.layoutSubtreeIfNeeded()
+        drain(seconds: 0.05)
+        XCTAssertEqual(reports, 0, "same frame")
+
+        host.rootView = PointerProbe(layoutKey: frame.offsetBy(dx: -180, dy: 0), onCheck: { _ in reports += 1 })
+        host.layoutSubtreeIfNeeded()
+        drain(seconds: 0.05)
+        XCTAssertEqual(reports, 1, "the gutter moved")
+    }
+
+    private func drain(seconds: TimeInterval) {
+        RunLoop.main.run(until: Date().addingTimeInterval(seconds))
     }
 }

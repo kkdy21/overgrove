@@ -52,6 +52,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   pointer leaves and appear again after a drag or a menu.
 - The panel dividers' resize cursor follows the pointer after Settings closes, after switching between main windows,
   and after a panel is collapsed by dragging, without waiting for the pointer to move.
+- The panel dividers show the resize cursor from the moment the pointer enters them again, also when the pointer
+  stops right on a divider or was already there when its window becomes key.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings
   no longer leaves a resize cursor over the main window.
