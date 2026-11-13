@@ -180,29 +180,24 @@ struct CommitDetailView: View {
             if let note = model.filesNote {
                 Text(note).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
             }
-            VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
-                switch model.files {
-                case .loading:
-                    ProgressView().controlSize(.small)
-                case .failed(let reason):
-                    Text(reason).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
-                case .loaded(let rows, let hidden):
-                    if rows.isEmpty {
-                        Text("No file changes").font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
-                    }
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(rows) { row in fileRow(row) }
-                    }
-                    if hidden > 0 {
-                        Button(
-                            "Show all \(WipDetailModel.formatted(rows.count + hidden)) files", action: onShowAllFiles
-                        )
+            // No fade (#576): stepping through commits with ↑/↓ passes loading → loaded on every commit.
+            switch model.files {
+            case .loading:
+                ProgressView().controlSize(.small)
+            case .failed(let reason):
+                Text(reason).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
+            case .loaded(let rows, let hidden):
+                if rows.isEmpty {
+                    Text("No file changes").font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
+                }
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { row in fileRow(row) }
+                }
+                if hidden > 0 {
+                    Button("Show all \(WipDetailModel.formatted(rows.count + hidden)) files", action: onShowAllFiles)
                         .buttonStyle(.link)
-                    }
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fadeIn(on: model.files.phase)
         }
     }
 

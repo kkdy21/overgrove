@@ -41,14 +41,6 @@ struct CommitDetailModel: Equatable {
         case loading
         case failed(String)
         case loaded(rows: [FileRow], hidden: Int)
-
-        var phase: LoadPhase {
-            switch self {
-            case .loading: .loading
-            case .failed: .failed
-            case .loaded: .loaded
-            }
-        }
     }
 
     /// Files shown before `Show all n files` (screens.md S-03).

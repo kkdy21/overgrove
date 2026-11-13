@@ -29,9 +29,6 @@ final class DetailMotionTests: XCTestCase {
         XCTAssertEqual(ComparisonModel.State.loaded.phase, .loaded)
         XCTAssertEqual(CommitComparisonModel.State.noChanges("Same").phase, .empty)
         XCTAssertEqual(CommitComparisonModel.State.failed("x").phase, .failed)
-        XCTAssertEqual(CommitDetailModel.Files.loading.phase, .loading)
-        XCTAssertEqual(CommitDetailModel.Files.failed("x").phase, .failed)
-        XCTAssertEqual(CommitDetailModel.Files.loaded(rows: [], hidden: 0).phase, .loaded)
         XCTAssertEqual(
             ComparisonModel.State.loading("a").phase, ComparisonModel.State.loading("b").phase,
             "new progress text under the same phase does not fade")
