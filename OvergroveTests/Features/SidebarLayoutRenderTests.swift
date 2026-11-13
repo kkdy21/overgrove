@@ -168,15 +168,136 @@ final class SidebarLayoutRenderTests: XCTestCase {
         XCTAssertEqual(scrollView.contentView.bounds.origin.y, 0)
     }
 
-    /// The section takes a pending request when it appears and reports it handled, so it is used once.
-    func testIssuesSectionTakesAPendingRequestWhenItAppears() throws {
-        let issues = try XCTUnwrap(AppState.mockup(layoutStore: store).issueListModel)
-        var handled = 0
-        let section = IssueListSection(
-            model: issues, selectedNumber: nil, onSelect: { _ in }, pendingFocus: UUID(),
-            onFocusHandled: { handled += 1 })
-        try render(LazyVStack { section }, size: CGSize(width: 220, height: 300), name: "sidebar-573-issues-pending")
-        XCTAssertGreaterThanOrEqual(handled, 1)
+    /// #592: the sidebar is one focus unit. After `⌘1`, `↓` moves from the focused worktree to the next row, and from
+    /// the last worktree on into LOCAL, as a click on that row would.
+    func testArrowKeysMoveAcrossSections() async throws {
+        let state = AppState.mockup(layoutStore: store)
+        let rows = try XCTUnwrap(state.worktreeListModel?.rows.map(\.id))
+        XCTAssertGreaterThan(rows.count, 1)
+        final class Box {
+            var worktrees: [GitPath] = []
+            var commits: [ObjectID] = []
+        }
+        let box = Box()
+        let size = CGSize(width: 220, height: 400)
+        func view(_ focused: GitPath, _ request: PanelFocusRequest?) -> AnyView {
+            AnyView(
+                SidebarPanel(
+                    hasRepository: true, worktreeStatus: state.worktreeList, worktreeModel: state.worktreeListModel,
+                    selectedWorktree: focused, onSelectWorktree: { box.worktrees.append($0) }, branchModel: branches
+                )
+                .environment(\.panelFocusRequest, request)
+                .environment(\.rowMenu, RowMenuActions(showCommit: { box.commits.append($0) }))
+                .frame(width: size.width, height: size.height))
+        }
+        let host = NSHostingView(rootView: view(rows[0], nil))
+        host.frame = NSRect(origin: .zero, size: size)
+        // Offscreen and never ordered in: nothing on screen changes, no mouse, no app focus.
+        let window = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: size.width, height: size.height),
+            styleMask: [.borderless], backing: .buffered, defer: true)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.layoutSubtreeIfNeeded()
+        host.rootView = view(rows[0], PanelFocusRequest(panel: .sidebar))
+        func settle() async throws {
+            for _ in 0..<5 {
+                host.layoutSubtreeIfNeeded()
+                try await Task.sleep(for: .milliseconds(20))
+            }
+        }
+        func press(_ key: Int, keyCode: UInt16) async throws {
+            let character = String(Character(Unicode.Scalar(key)!))
+            let event = try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+                    context: nil, characters: character, charactersIgnoringModifiers: character, isARepeat: false,
+                    keyCode: keyCode))
+            window.sendEvent(event)
+            try await settle()
+        }
+        try await settle()
+        try await press(NSDownArrowFunctionKey, keyCode: 125)
+        XCTAssertEqual(box.worktrees, [rows[1]], "↓ from the focused worktree")
+
+        // From the last worktree, `↓` crosses into LOCAL and selects the first branch's tip.
+        box.worktrees = []
+        host.rootView = view(rows[rows.count - 1], PanelFocusRequest(panel: .sidebar))
+        try await settle()
+        try await press(NSDownArrowFunctionKey, keyCode: 125)
+        XCTAssertEqual(box.worktrees, [], "no worktree after the last")
+        XCTAssertEqual(box.commits.count, 1, "the first LOCAL branch's tip")
+    }
+
+    /// Review of #598: `⌘↓` to a row far down a long, lazily built list (400 REMOTE branches, opened by the filter)
+    /// still scrolls it into view, not only selects it.
+    func testCommandDownScrollsToARowTheLazyListHasNotBuilt() async throws {
+        let state = AppState.mockup(layoutStore: store)
+        let oid = ObjectID(String(repeating: "ab", count: 20))!
+        let names = (0..<400).map { String(format: "refs/remotes/origin/b%03d", $0) }
+        let refs = RefParser.Listing(
+            branches: names.map {
+                Branch(
+                    fullName: $0, kind: .remote(remote: "origin"), target: oid, upstreamStatus: .none, isHead: false,
+                    committerDate: nil, symbolicTarget: nil)
+            }, tags: [], isPartial: false, skippedRecords: 0)
+        let model = BranchListModel(refs: refs, checkedOut: [], remoteNames: ["origin"])
+        final class Box { var commits: [ObjectID] = [] }
+        let box = Box()
+        let size = CGSize(width: 220, height: 400)
+        func view(_ request: PanelFocusRequest?) -> AnyView {
+            AnyView(
+                SidebarPanel(
+                    hasRepository: true, worktreeStatus: state.worktreeList, worktreeModel: state.worktreeListModel,
+                    selectedWorktree: state.worktreeListModel?.rows.first?.id, branchModel: model,
+                    filter: .constant("b")
+                )
+                .environment(\.panelFocusRequest, request)
+                .environment(\.rowMenu, RowMenuActions(showCommit: { box.commits.append($0) }))
+                .frame(width: size.width, height: size.height))
+        }
+        let host = NSHostingView(rootView: view(nil))
+        host.frame = NSRect(origin: .zero, size: size)
+        let window = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: size.width, height: size.height),
+            styleMask: [.borderless], backing: .buffered, defer: true)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.layoutSubtreeIfNeeded()
+        host.rootView = view(PanelFocusRequest(panel: .sidebar))
+        func settle(_ count: Int = 5) async throws {
+            for _ in 0..<count {
+                host.layoutSubtreeIfNeeded()
+                try await Task.sleep(for: .milliseconds(30))
+            }
+        }
+        try await settle()
+        let scrollView = try XCTUnwrap(Self.scrollView(in: host))
+        let character = String(Character(Unicode.Scalar(NSDownArrowFunctionKey)!))
+        let event = try XCTUnwrap(
+            NSEvent.keyEvent(
+                with: .keyDown, location: .zero, modifierFlags: [.command, .function, .numericPad], timestamp: 0,
+                windowNumber: window.windowNumber, context: nil, characters: character,
+                charactersIgnoringModifiers: character, isARepeat: false, keyCode: 125))
+        window.sendEvent(event)
+        try await settle(20)
+        XCTAssertEqual(box.commits.count, 1, "⌘↓ selected the last row's tip")
+        let afterKey = scrollView.contentView.bounds.minY
+        XCTAssertGreaterThan(afterKey, 1_000, "scrolled far down the list")
+        // The lazy stack's document height is an estimate until rows are measured, so find the real bottom by
+        // scrolling there until it stops moving. Below the last branch row are TAGS (header and "No matching tags")
+        // and STASHES (header and "No stashes"), about 116pt; the row is in view when the key left the sidebar within
+        // that of the bottom.
+        var bottom = -1.0
+        for _ in 0..<20 where bottom != scrollView.contentView.bounds.minY {
+            bottom = scrollView.contentView.bounds.minY
+            let height = scrollView.documentView?.frame.height ?? 0
+            scrollView.contentView.scroll(to: NSPoint(x: 0, y: max(0, height - scrollView.contentView.bounds.height)))
+            scrollView.reflectScrolledClipView(scrollView.contentView)
+            try await settle(2)
+        }
+        let below = 2 * SidebarSectionHeader.height + 2 * Tokens.Size.rowSidebar
+        XCTAssertGreaterThanOrEqual(afterKey, bottom - below - 4, "the last row is in view (bottom \(bottom))")
     }
 
     /// The empty sidebar offers `Add Repository…` (screens.md, next step).

@@ -48,6 +48,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
+  section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
+  issue.
 - Sidebar rows respond to the pointer, select the same way everywhere (grey when the list does not have keyboard
   focus), and sections and folders open and close with the standard disclosure motion (at once under Reduce Motion).
   Clicking a LOCAL or REMOTE branch selects its tip commit.

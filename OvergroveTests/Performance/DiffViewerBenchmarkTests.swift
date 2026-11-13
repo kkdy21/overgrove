@@ -73,7 +73,9 @@ final class DiffViewerBenchmarkTests: XCTestCase {
                     rootView: DiffViewerView(
                         title: "big.swift", sourceLabel: "Unstaged · M", state: .loaded(document), onBack: {}
                     )
-                    .frame(width: 1000, height: 800))
+                    .frame(width: 1000, height: 800)
+                    // Unified, whatever view mode the app saved on this Mac (#601).
+                    .defaultAppStorage(UserDefaults(suiteName: "overgrove-diff-benchmark") ?? .standard))
                 host.frame = NSRect(x: 0, y: 0, width: 1000, height: 800)
                 host.layoutSubtreeIfNeeded()
                 let firstScreen = ContinuousClock.now - started
