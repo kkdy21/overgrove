@@ -152,14 +152,21 @@ final class AutoRefreshController {
         pending.merge(change)
     }
 
+    /// Replacing a running stream loses nothing (#422): the new one starts at the event ID read before the old one
+    /// stopped, and what the old one still held is flushed into its inbox and applied. A stream started after being
+    /// hidden starts now, since everything is pending then anyway.
     private func restartStream() {
+        let resume = subscription == nil ? nil : watcher.currentEventID
+        let previous = inbox
         subscription?.stop()
         subscription = nil
         inbox = nil
+        if let previous { apply(previous.take()) }
         guard isVisible, let classifier, !classifier.watchedPaths.isEmpty else { return }
         let inbox = ChangeInbox()
         self.inbox = inbox
-        subscription = watcher.watch(classifier.watchedPaths, latency: Self.latency) { [weak self] events in
+        subscription = watcher.watch(classifier.watchedPaths, since: resume, latency: Self.latency) {
+            [weak self] events in
             // On the stream's queue: classify here, and hop to the main actor only when the inbox was empty.
             let change = classifier.classify(events)
             guard !change.isEmpty, inbox.add(change), let self else { return }
