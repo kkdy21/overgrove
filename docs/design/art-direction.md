@@ -118,6 +118,9 @@ Overgrove 메인 창이 어떻게 보여야 하는지를 수치로 정한다. �
 
 왼쪽부터 `🛡 Read-only`(`status.ok`) · 마지막 fetch · 포커스 워크트리의 `↑n ↓n` · 워크트리 수 · `⚠ n prunable`(있을 때)를 두고, 오른쪽 끝에 gh 상태를 둔다. 구분점은 `text.quaternary` 지름 3pt 점이다.
 
+- 모든 필드는 한 줄이고, 줄일 때는 가운데를 자른다(#575). 창이 좁아지면 마지막 fetch가 먼저, 그다음 `↑n ↓n`이 줄어든다. 각각 앞뒤를 읽을 만큼(56pt, 56pt)은 남긴다. Read-only, 워크트리 수, prunable, gh는 줄이지 않는다.
+- 눌러서 여는 필드(`Fetch failed — Details`, gh)는 공용 호버 버튼(둥근 `surface.hover`)과 손가락 커서로 정적인 글자와 구별한다. 글자 위치는 다른 필드와 같다.
+
 ---
 
 ## 4. 색
@@ -182,6 +185,9 @@ Overgrove 메인 창이 어떻게 보여야 하는지를 수치로 정한다. �
 
 - 열 머리는 높이 28, `surface.panel-header`, 11pt Medium, Title Case다. 열 사이 구분선(1×12pt, `border.strong`)이 폭 조절 손잡이다.
 - 패널 머리 오른쪽 `⋯` 메뉴에서 Author, Date, SHA 열을 숨기거나 보인다. Refs, Graph, Message는 숨길 수 없다.
+- 패널이 좁아져 Message가 200 아래로 내려가면, 그릴 때만 Refs와 Author를 차례로 최소 폭까지 줄인다. 그래도 모자라면 Date, SHA 순서로 숨긴다. 저장한 폭과 `⋯` 메뉴의 표시 여부는 그대로라 패널을 넓히면 돌아온다(#574).
+- Message 칸은 남는 폭만 쓰고 넘치면 잘린다. AI 배지나 이슈 알약이 있어도 Author·Date·SHA는 다른 행과 같은 자리에 있다.
+- 작성자 칩 줄이 패널보다 길면 끝 16pt를 흐리게 하고 `⋯` 앞에 8pt를 둔다.
 
 ### 5.2 행
 
@@ -242,7 +248,11 @@ Overgrove 메인 창이 어떻게 보여야 하는지를 수치로 정한다. �
 
 ## 7. 상세 패널
 
-- **머리.** 높이 40. 대상 표시(워크트리 타일, 또는 커밋 노드와 같은 아바타 링) + 제목 13pt Semibold + 오른쪽 세그먼트(`Changes | Worktree`) 또는 `⋯`.
+- **머리.** 높이 40. 대상 표시 + 제목 13pt Semibold + 오른쪽 세그먼트(`Changes | Worktree`) 또는 `⋯`.
+  - 대상 표시는 선택에 따른다(#578). 워크트리는 레인 색 타일, 커밋은 커밋 노드와 같은 아바타 링, stash는 `archivebox`, 이슈는 `number.circle`이다. 비교(S-11·S-12)는 `arrow.left.arrow.right`, 선택 없음은 `doc.text.magnifyingglass`다.
+  - 비교가 열려 있으면 제목도 비교 대상을 말한다. S-11은 `Changes vs main`, S-12는 `3c5d6f1 → a91f3c2`다.
+  - 제목은 세그먼트보다 먼저 자리를 잡고 끝에서 자른다. 패널이 340pt보다 좁으면 세그먼트를 작은 크기로 그린다.
+- **하단 버튼 영역.** S-03 `Copy SHA`, S-04 `Copy Ref`, S-06 `Open in Browser`·`Copy URL`은 `PanelFooter`(`surface.panel-header`, 위 1px 구분선)에 둔다.
 - **카드.** `surface.raised`, 반경 8, 1px `border.separator`, 좌우 10pt 안쪽. 카드 머리 32(상태 심볼 + 이름 12pt Semibold + 개수 칩 + 오른쪽 `+n −m`), 파일 행 26.
 - **변경 막대.** WIP 상세 위쪽에 `n changed files`와 추가·삭제 비율 막대(높이 6, 초록·빨강).
 - **비교 카드(하단 고정).** S-02, S-05 아래에 고정한다. `Changes vs [main ▾]`, `n commits ahead · n behind · n files`, `+n −m`, 기준 커밋, `Compare with Base…`(액센트 버튼, `⌘⇧B`). 액센트 7% 채움 + 35% 테두리. 커밋 작성 영역이 없는 읽기 전용 앱에서 S-11로 들어가는 입구다.

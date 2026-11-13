@@ -22,17 +22,15 @@ struct CommitDetailView: View {
                 }
                 .padding(Tokens.Spacing.md)
             }
-            Tokens.Color.borderSeparator.frame(height: 1)
-            HStack {
+            // Pinned on `surface.panel-header` like the panel's head (#578).
+            PanelFooter {
                 Button("Copy SHA") {
                     // Copying to the clipboard is not a repository write (ADR-0011).
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(model.fullSHA, forType: .string)
                 }
                 .help(model.fullSHA)
-                Spacer()
             }
-            .padding(Tokens.Spacing.sm + Tokens.Spacing.xxs)
         }
     }
 

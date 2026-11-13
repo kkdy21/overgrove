@@ -364,9 +364,11 @@ enum Tokens {
     enum Graph {
         static let focusChipBorderOpacity = 0.45
         static let focusChipFillOpacity = 0.14
+        static let highlightOpacity = 0.06
         static let refConnectorOpacity = 0.55
         static let refPillBorderOpacity = 0.75
         static let refPillLocalFillOpacity = 0.2
+        static let selectionInactiveOpacity = 0.1
         static let selectionOpacity = 0.16
         static let worktreeSelectionBorderOpacity = 0.55
     }

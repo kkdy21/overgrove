@@ -122,6 +122,7 @@ struct MainWindowView: View {
                     authorMatches: state.graphAuthorFilter?.matchSet, onSelectAuthor: state.selectAuthorFilter,
                     columns: state.graphColumns, onCommitColumns: state.commitGraphColumns,
                     stashes: state.stashes, selectedStash: state.selectedStashOID, onSelectStash: state.selectStash,
+                    isWipSelected: state.selection?.isWip ?? false,
                     showsStashes: state.settings.showsGraphStashes,
                     onSetShowsStashes: { state.settings.showsGraphStashes = $0 },
                     diff: state.diffViewer,
@@ -152,7 +153,8 @@ struct MainWindowView: View {
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
                     comparisonList: comparisonList, commitComparisonList: commitComparisonList,
                     onCompare: state.canCompare() ? { state.showComparison() } : nil,
-                    onSetUntrusted: { state.setRepositoryUntrusted($0) })
+                    onSetUntrusted: { state.setRepositoryUntrusted($0) },
+                    worktreeLane: state.worktreeListModel?.rows.first(where: \.isFocused)?.laneIndex)
             }
             statusBar
         }

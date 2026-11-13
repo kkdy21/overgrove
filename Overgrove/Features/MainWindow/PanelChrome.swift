@@ -194,7 +194,12 @@ struct GraphPanel: View {
     var stashes: [Stash] = []
     var selectedStash: ObjectID?
     var onSelectStash: (ObjectID) -> Void = { _ in }
+    /// The WIP row shows the selection bar (#574).
+    var isWipSelected = false
     var showsStashes = true
+    /// The author chips' width and the room they get: the row fades at its end only when it overflows.
+    @State private var chipsWidth: CGFloat = 0
+    @State private var chipsViewport: CGFloat = 0
     var onSetShowsStashes: ((Bool) -> Void)?
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
@@ -251,11 +256,24 @@ struct GraphPanel: View {
     private var graph: some View {
         PanelSection {
             if let authorSummary, authorSummary.hasChoices, graphStore?.status == .loaded {
-                // Wider than the panel with many long names: the row scrolls rather than squeezing the `⋯` out.
+                // Wider than the panel with many long names: the row scrolls rather than squeezing the `⋯` out, and
+                // fades out at its end instead of cutting a chip in half (#574).
                 ScrollView(.horizontal, showsIndicators: false) {
                     GraphAuthorFilterBar(summary: authorSummary, selection: authorFilter, onSelect: onSelectAuthor)
+                        .onGeometryChange(for: CGFloat.self) {
+                            $0.size.width
+                        } action: {
+                            chipsWidth = $0
+                        }
                 }
                 .scrollBounceBehavior(.basedOnSize)
+                .onGeometryChange(for: CGFloat.self) {
+                    $0.size.width
+                } action: {
+                    chipsViewport = $0
+                }
+                .mask { TrailingFade(isActive: chipsWidth > chipsViewport + 0.5) }
+                .padding(.trailing, Tokens.Spacing.sm)
             } else {
                 Image(systemName: "person.2").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
                 Text("Commits").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
@@ -275,7 +293,7 @@ struct GraphPanel: View {
                         onSelectWip: onSelectWip, onOpen: onOpen, search: search, onFindNext: onFindNext,
                         onFindPrevious: onFindPrevious, authorMatches: authorMatches, columns: columns,
                         onCommitColumns: onCommitColumns, stashes: showsStashes ? stashes : [],
-                        selectedStash: selectedStash, onSelectStash: onSelectStash)
+                        selectedStash: selectedStash, onSelectStash: onSelectStash, isWipSelected: isWipSelected)
                 }
             case .loading?:
                 ProgressView("Loading history…").controlSize(.small).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -331,28 +349,48 @@ struct DetailPanel: View {
     var onCompare: (() -> Void)?
     /// S-05 "Treat as untrusted" (#107).
     var onSetUntrusted: ((Bool) -> Void)?
+    /// The focused worktree's lane (`WorktreeRow.laneIndex`): the header's worktree tile (#578).
+    var worktreeLane: Int?
 
-    private var title: String {
-        if let commitModel { return String(localized: "Commit \(commitModel.shortSHA)") }
-        if let issueModel { return issueModel.number }
-        if let stashModel { return stashModel.refName }
-        return wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title ?? String(localized: "No selection")
+    @State private var width: CGFloat = 0
+
+    /// The header follows the content's order (#578): a comparison names what it compares instead of the WIP or
+    /// commit behind it.
+    private var header: DetailHeader {
+        DetailHeader(
+            DetailHeader.Subject(
+                comparisonBase: comparisonList?.model.baseName,
+                commitComparisonTitle: commitComparisonList?.model.title,
+                commit: commitModel.map { ($0.shortSHA, $0.author, commitLane) },
+                issueNumber: issueModel?.number, stashRef: stashModel?.refName,
+                worktreeTitle: wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title,
+                worktreeLane: worktreeLane))
     }
 
     var body: some View {
+        let header = header
         PanelSection {
-            Image(systemName: "tree.fill").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
-            Text(title)
+            DetailHeaderMark(mark: header.mark)
+            // The title keeps its room before the segment does and is cut at its end (#578).
+            Text(header.title)
                 .font(Tokens.Font.headline)
                 .foregroundStyle(Tokens.Color.textPrimary)
                 .lineLimit(1)
-                .truncationMode(.middle)
+                .truncationMode(.tail)
+                .layoutPriority(1)
+                .help(header.title)
             if let isWorktree = showsWorktreeSegment {
                 Spacer(minLength: Tokens.Spacing.sm)
                 DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
+                    .controlSize(width < Self.compactWidth ? .small : .regular)
             }
         } content: {
             detailContent.fadeIn(on: content)
+        }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
         }
     }
 
@@ -406,6 +444,10 @@ struct DetailPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
+
+    /// Below this width the `Changes | Worktree` segment is small, so the title keeps room at the panel's 300pt
+    /// minimum (#578). No token.
+    static let compactWidth: CGFloat = 340
 }
 
 extension SidebarPanel {
@@ -413,5 +455,18 @@ extension SidebarPanel {
     /// tooltip is `origin — github.com/acme/api`. Distinct names give distinct keys, so the keys stay unique.
     static func remoteFolderHelp(_ urls: [String: String]) -> [String: String] {
         Dictionary(uniqueKeysWithValues: urls.map { ("remote:\(BranchNode.key($0.key))", "\($0.key) — \($0.value)") })
+    }
+}
+
+/// A mask that fades the last `Spacing.lg` of a row to clear when `isActive`, and shows everything otherwise.
+private struct TrailingFade: View {
+    let isActive: Bool
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+            LinearGradient(colors: [.black, isActive ? .clear : .black], startPoint: .leading, endPoint: .trailing)
+                .frame(width: Tokens.Spacing.lg)
+        }
     }
 }

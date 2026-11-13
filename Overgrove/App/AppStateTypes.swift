@@ -122,6 +122,11 @@ enum MainSelection: Equatable {
     /// An issue (S-06, #81), by number.
     case issue(Int)
 
+    /// The graph's WIP row is selected: it is the focused worktree's changes (#574).
+    var isWip: Bool {
+        if case .wip = self { true } else { false }
+    }
+
     /// The worktree either segment shows; `nil` for a stash, a commit, or an issue.
     var worktreePath: GitPath? {
         switch self {
