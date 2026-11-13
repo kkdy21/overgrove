@@ -85,6 +85,50 @@ final class AppStateHistoryTests: XCTestCase {
         XCTAssertFalse(state.history.isOpen)
     }
 
+    /// #659: S-10 opened from a history row shows the commit's real change kind, not `M` for every row.
+    func testS10FromHistoryShowsTheChangeKind() async {
+        let created = FileHistoryStoreTests.entry(0, path: "conflict.txt")
+        let renamed = FileHistoryStoreTests.entry(1, path: "Status.swift", from: "Parser.swift")
+        let edited = FileHistoryStoreTests.entry(2, path: "conflict.txt")
+        let commits = StubCommitLoader()
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: StubRepositoryLoader(result: .success(.mockup)), commitLoader: commits,
+            historyLoader: StubFileHistoryLoader([
+                .page(LogParser.FileHistoryPage(entries: [edited, renamed, created], isPartial: false))
+            ]))
+        let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        state.showHistory(of: GitPath("conflict.txt"))
+        await state.history.task?.value
+
+        commits.patchText =
+            "diff --git a/conflict.txt b/conflict.txt\nnew file mode 100644\n--- /dev/null\n+++ b/conflict.txt\n"
+            + "@@ -0,0 +1 @@\n+x\n"
+        state.openHistoryDiff(created)
+        await state.commitDetail.fileTask?.value
+        XCTAssertEqual(state.diffViewer?.source, "\(created.commit.oid.short) · A")
+
+        commits.patchText =
+            "diff --git a/Parser.swift b/Status.swift\nsimilarity index 100%\n"
+            + "rename from Parser.swift\nrename to Status.swift\n"
+        state.openHistoryDiff(renamed)
+        await state.commitDetail.fileTask?.value
+        XCTAssertEqual(state.diffViewer?.source, "\(renamed.commit.oid.short) · R")
+
+        commits.patchText =
+            "diff --git a/conflict.txt b/conflict.txt\n--- a/conflict.txt\n+++ b/conflict.txt\n@@ -1 +1 @@\n-x\n+y\n"
+        state.openHistoryDiff(edited)
+        await state.commitDetail.fileTask?.value
+        XCTAssertEqual(state.diffViewer?.source, "\(edited.commit.oid.short) · M")
+    }
+
     /// The file row menu's Show History (#73's `FileRowMenu`) opens S-09 in the row's worktree.
     func testRowMenuShowHistory() async {
         let loader = StubFileHistoryLoader([FileHistoryStoreTests.page(0..<1)])

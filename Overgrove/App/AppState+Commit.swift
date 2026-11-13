@@ -48,9 +48,15 @@ extension AppState {
         guard selectedCommitOID != nil, let file = commitDetail.selectedFile, let state = commitDetail.fileDiff,
             let commit = commitDetail.commit
         else { return nil }
+        // The loaded patch's kind, which a history row's file (no status, #659) only learns from the patch; until then
+        // the file's own status, if it has one.
+        let letter: String? =
+            if case .loaded(let document) = state { document.source.kindLetter } else {
+                file.status.map { String($0.code) }
+            }
         let source =
             commit.oid.short + (commit.isMerge ? " · " + String(localized: "vs first parent") : "")
-            + " · \(String((file.status ?? .modified).code))"
+            + (letter.map { " · \($0)" } ?? "")
         let title: String =
             if case .loaded(let document) = state { document.title } else {
                 PathValidator.displayable(file.path.display)

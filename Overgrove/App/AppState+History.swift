@@ -39,12 +39,13 @@ extension AppState {
     }
 
     /// ⏎ or a double click: that commit's diff of the file (its path in that commit) in S-10. ⎋ there returns here.
+    /// The history knows a rename but not an add or a delete, so S-10's kind otherwise comes from the patch (#659).
     func openHistoryDiff(_ entry: FileHistoryEntry) {
         selectHistoryEntry(entry)
         commitDetail.selectFile(
             FileStat(
                 path: entry.path, originalPath: entry.originalPath,
-                status: entry.originalPath.map { _ in .renamed(score: nil) } ?? .modified, added: entry.added,
+                status: entry.originalPath.map { _ in .renamed(score: nil) }, added: entry.added,
                 deleted: entry.deleted))
     }
 
