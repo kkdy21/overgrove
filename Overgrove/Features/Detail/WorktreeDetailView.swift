@@ -368,35 +368,79 @@ struct DetailSegmentPicker: View {
     var iconsOnly = false
 
     var body: some View {
-        Picker(
-            "View",
-            selection: Binding(
-                get: { isWorktree },
-                set: { $0 ? onWorktree() : onChanges() })
-        ) {
-            segment("Changes", symbol: "list.bullet").tag(false)
-            segment("Worktree", symbol: "info.circle").tag(true)
+        // Two different controls, so switching widths builds the other one afresh: a segmented control reused across
+        // the switch kept the icons in its text segments (#635).
+        if iconsOnly {
+            DetailIconSegments(isWorktree: isWorktree, onChanges: onChanges, onWorktree: onWorktree)
+        } else {
+            Picker(
+                "View",
+                selection: Binding(
+                    get: { isWorktree },
+                    set: { $0 ? onWorktree() : onChanges() })
+            ) {
+                Text("Changes").tag(false)
+                Text("Worktree").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            // The panel theme's outline under Increase Contrast (#304); AppKit draws the rest of the control.
+            .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.sm), normal: nil)
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        // Icon segments are Labels drawn `.iconOnly`: the symbol shows and the title stays for VoiceOver (#635). The text
-        // segments are plain Text, which a label style leaves alone.
-        .labelStyle(.iconOnly)
+    }
+}
+
+/// The icons-only `Changes | Worktree` segment (#618): two icon buttons drawn like a small segmented control. The
+/// real segmented control drew each segment's accessibility name as text beside its icon, whether it came from an
+/// `Image`'s label or a `Label` drawn `.iconOnly` (#635), and offscreen renders never showed it. Plain buttons draw
+/// only the icon, and still give VoiceOver and the tooltip the segment's name.
+struct DetailIconSegments: View {
+    let isWorktree: Bool
+    let onChanges: () -> Void
+    let onWorktree: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
+        HStack(spacing: 0) {
+            segment("Changes", symbol: "list.bullet", isSelected: !isWorktree, action: onChanges)
+            segment("Worktree", symbol: "info.circle", isSelected: isWorktree, action: onWorktree)
+        }
+        .padding(1)
+        .background(shape.fill(Tokens.Color.surfaceControl))
+        // `surface.control` takes a `border.separator` outline in light mode, and `border.strong` under Increase
+        // Contrast (#304).
+        .controlOutline(shape, normal: colorScheme == .light ? Tokens.Color.borderSeparator : nil)
         .fixedSize()
-        // The panel theme's outline under Increase Contrast (#304); AppKit draws the rest of the control.
-        .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.sm), normal: nil)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text("View"))
     }
 
-    /// Icons only: a `Label` drawn `.iconOnly`, whose title is the segment's name for VoiceOver, with the same name as
-    /// its tooltip. An `Image` with an `accessibilityLabel` looked right offscreen, but the real segmented control drew
-    /// that label as text beside the icon (#635).
-    @ViewBuilder
-    private func segment(_ title: LocalizedStringKey, symbol: String) -> some View {
-        if iconsOnly {
-            Label(title, systemImage: symbol).labelStyle(.iconOnly).help(Text(title))
-        } else {
-            Text(title)
+    private func segment(
+        _ title: LocalizedStringKey, symbol: String, isSelected: Bool, action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            if !isSelected { action() }
+        } label: {
+            Image(systemName: symbol)
+                .font(Tokens.Font.callout)
+                .foregroundStyle(isSelected ? Tokens.Color.textPrimary : Tokens.Color.textSecondary)
+                .padding(.horizontal, Tokens.Spacing.xs)
+                // With the 1 pt inset on both sides, the control is `size.hit-target-min` tall.
+                .frame(minWidth: Tokens.Size.hitTargetMin, minHeight: Tokens.Size.hitTargetMin - 2)
+                .background {
+                    RoundedRectangle(cornerRadius: Tokens.Radius.sm - 1, style: .continuous)
+                        .fill(isSelected ? Tokens.Color.surfaceSelection : Color.clear)
+                }
+                // The other segment answers the pointer like the panels' icon buttons (#571).
+                .hoverHighlight(.rounded(radius: Tokens.Radius.sm - 1), isEnabled: !isSelected)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(title))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .help(Text(title))
     }
 }
 

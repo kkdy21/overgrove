@@ -258,7 +258,7 @@ Overgrove 메인 창이 어떻게 보여야 하는지를 수치로 정한다. �
 - **머리.** 높이 40. 대상 표시 + 제목 13pt Semibold + 오른쪽 세그먼트(`Changes | Worktree`) 또는 `⋯`.
   - 대상 표시는 선택에 따른다(#578). 워크트리는 레인 색 타일, 커밋은 커밋 노드와 같은 아바타 링, stash는 `archivebox`, 이슈는 `number.circle`이다. 비교(S-11·S-12)는 `arrow.left.arrow.right`, 선택 없음은 `doc.text.magnifyingglass`다.
   - 비교가 열려 있으면 제목도 비교 대상을 말한다. S-11은 `Changes vs main`, S-12는 `3c5d6f1 → a91f3c2`다.
-  - 제목은 세그먼트보다 먼저 자리를 잡고 끝에서 자른다. 패널이 340pt보다 좁으면 세그먼트를 작은 크기에 아이콘만(`list.bullet` / `info.circle`)으로 그린다(#618).
+  - 제목은 세그먼트보다 먼저 자리를 잡고 끝에서 자른다. 패널이 340pt보다 좁으면 세그먼트를 작은 크기에 아이콘만(`list.bullet` / `info.circle`)으로 그린다(#618). 이때는 segmented control 대신 `surface.control` 위에 아이콘 버튼 두 개를 놓고, 고른 쪽을 `surface.selection`으로 칠한다. 실제 segmented control은 세그먼트 이름을 아이콘 옆에 글자로 그렸기 때문이다(#635).
 - **하단 버튼 영역.** S-03 `Copy SHA`, S-04 `Copy Ref`, S-06 `Open in Browser`·`Copy URL`은 `PanelFooter`(`surface.panel-header`, 위 1px 구분선)에 둔다.
 - **카드.** `surface.raised`, 반경 8, 1px `border.separator`, 좌우 10pt 안쪽. 카드 머리 32(상태 심볼 + 이름 12pt Semibold + 개수 칩 + 오른쪽 `+n −m`), 파일 행 26.
 - **변경 막대.** WIP 상세 위쪽에 `n changed files`와 추가·삭제 비율 막대(높이 6, 초록·빨강).

@@ -55,6 +55,44 @@ final class DetailHeaderRenderTests: XCTestCase {
         XCTAssertGreaterThan(text - icons, 20, "icons \(icons) pt vs text \(text) pt")
     }
 
+    private func segmentedControls(in view: NSView) -> [NSSegmentedControl] {
+        (view as? NSSegmentedControl).map { [$0] } ?? view.subviews.flatMap(segmentedControls(in:))
+    }
+
+    /// #635: the real segmented control drew each icon segment's name as text beside the icon, so the icons-only
+    /// segment does not use one; it is two buttons with only the icon drawn.
+    func testIconSegmentIsNotASegmentedControl() {
+        let host = NSHostingView(
+            rootView: DetailSegmentPicker(isWorktree: false, onChanges: {}, onWorktree: {}, iconsOnly: true)
+                .controlSize(.small))
+        host.frame = NSRect(x: 0, y: 0, width: 200, height: 40)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertEqual(segmentedControls(in: host).count, 0)
+    }
+
+    /// #635: after the icons-only segment, the text segment is a fresh control with titles and no icons left over.
+    func testTextSegmentAfterIconsHasNoIcons() throws {
+        let host = NSHostingView(
+            rootView: AnyView(
+                DetailSegmentPicker(isWorktree: false, onChanges: {}, onWorktree: {}, iconsOnly: true)
+                    .controlSize(.small)))
+        host.frame = NSRect(x: 0, y: 0, width: 300, height: 40)
+        host.layoutSubtreeIfNeeded()
+        host.rootView = AnyView(
+            DetailSegmentPicker(isWorktree: false, onChanges: {}, onWorktree: {}, iconsOnly: false))
+        host.layoutSubtreeIfNeeded()
+        let control = try XCTUnwrap(segmentedControls(in: host).first)
+        XCTAssertEqual(control.segmentCount, 2)
+        XCTAssertEqual((0..<2).map { control.label(forSegment: $0) }, ["Changes", "Worktree"])
+        XCTAssertEqual((0..<2).map { control.image(forSegment: $0) == nil }, [true, true])
+    }
+
+    func testIconSegmentSelected() throws {
+        try render(
+            DetailSegmentPicker(isWorktree: true, onChanges: {}, onWorktree: {}, iconsOnly: true).controlSize(.small),
+            name: "detail-icon-segment")
+    }
+
     func testEmptyHeader() throws {
         try render(DetailPanel(focusedWorktree: nil), name: "detail-header-empty-300")
     }
