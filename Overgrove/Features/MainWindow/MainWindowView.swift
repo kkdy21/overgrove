@@ -20,6 +20,8 @@ struct MainWindowView: View {
             .focusedSceneValue(\.navigationActions, navigationActions)
             .focusedSceneValue(\.searchActions, searchActions)
             .onExitCommand(perform: state.escape)
+            // ⎋ in the toolbar search field, and ⎋ while nothing in the window holds focus (#650).
+            .background(EscapeFocusMonitor(onEscape: state.escape, onFocusGraph: { state.focus(.center) }))
             // `⌘C` with no text selected copies what the selection names (interaction.md §3.1).
             .onCopyCommand {
                 state.selectionCopyText.map { [NSItemProvider(object: RowActions.clipboardText($0) as NSString)] } ?? []
