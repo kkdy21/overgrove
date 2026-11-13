@@ -28,8 +28,9 @@ actor RepositoryService {
         /// A fetch finished: the worktree list, every status (ahead/behind), and the refs. Debounced.
         case fetchCompleted
         /// Files changed on disk (auto refresh, #119): only these worktrees' statuses, plus the refs or the worktree
-        /// list when they changed. Not debounced here; the watcher batches and rate-limits its requests.
-        case filesChanged(worktrees: Set<GitPath>, refs: Bool, worktreeList: Bool)
+        /// list when they changed, and the stash list when `refs/stash` or its reflog changed (#417). Not debounced
+        /// here; the watcher batches and rate-limits its requests.
+        case filesChanged(worktrees: Set<GitPath>, refs: Bool, worktreeList: Bool, stashes: Bool = false)
 
         var isDebounced: Bool {
             switch self {
@@ -44,7 +45,7 @@ actor RepositoryService {
         var mayMoveGraphRefs: Bool {
             switch self {
             case .user, .automatic, .fetchCompleted, .worktreeSelected: true
-            case .filesChanged(_, let refs, let worktreeList): refs || worktreeList
+            case .filesChanged(_, let refs, let worktreeList, _): refs || worktreeList
             }
         }
     }
@@ -322,8 +323,8 @@ actor RepositoryService {
                 )
             case (.worktreeSelected(let path), true):
                 (worktreeList, statuses, refs, stashes) = (false, .only(path), false, false)
-            case (.filesChanged(let worktrees, let changedRefs, let changedList), true):
-                (worktreeList, statuses, refs, stashes) = (changedList, .some(worktrees), changedRefs, false)
+            case (.filesChanged(let worktrees, let changedRefs, let changedList, let changedStashes), true):
+                (worktreeList, statuses, refs, stashes) = (changedList, .some(worktrees), changedRefs, changedStashes)
             }
         }
     }
