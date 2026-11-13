@@ -111,20 +111,39 @@ struct GraphChipButtonStyle: ButtonStyle {
     let isSelected: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Tokens.Font.pill)
-            .foregroundStyle(isSelected ? Tokens.Color.textOnAccent : Tokens.Color.textPrimary)
-            .padding(.horizontal, Tokens.Spacing.sm)
-            .frame(height: Self.height)
-            .background(Capsule().fill(isSelected ? Tokens.Color.accent : Tokens.Color.surfaceControl))
-            // No outline normally; `border.strong` 1.5pt under Increase Contrast (#304).
-            .controlOutline(Capsule(), normal: nil)
-            .opacity(configuration.isPressed ? 0.8 : 1)
-            .contentShape(Capsule())
+        GraphChipBody(configuration: configuration, isSelected: isSelected)
     }
 
     /// Fits the 40pt panel header with the ref pill's rhythm. No token for chip height.
     static let height: CGFloat = 24
+}
+
+/// An unpicked chip takes `surface.hover` over its fill under the pointer; hover and press fade in
+/// `motion.duration-fast` (#571).
+private struct GraphChipBody: View {
+    let configuration: ButtonStyleConfiguration
+    let isSelected: Bool
+    @State private var isHovering = false
+
+    var body: some View {
+        configuration.label
+            .font(Tokens.Font.pill)
+            .foregroundStyle(isSelected ? Tokens.Color.textOnAccent : Tokens.Color.textPrimary)
+            .padding(.horizontal, Tokens.Spacing.sm)
+            .frame(height: GraphChipButtonStyle.height)
+            .background {
+                Capsule().fill(isSelected ? Tokens.Color.accent : Tokens.Color.surfaceControl)
+                    .overlay {
+                        Capsule().fill(isHovering && !isSelected ? Tokens.Color.surfaceHover : Color.clear)
+                            .motion(.fast, value: isHovering)
+                    }
+            }
+            // No outline normally; `border.strong` 1.5pt under Increase Contrast (#304).
+            .controlOutline(Capsule(), normal: nil)
+            .pressedOpacity(configuration.isPressed)
+            .contentShape(Capsule())
+            .onHover { isHovering = $0 }
+    }
 }
 
 /// The 16pt initials avatar used outside graph nodes (screens.md "작성자 표현").
