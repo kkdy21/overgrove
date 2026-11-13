@@ -301,8 +301,11 @@ struct GraphSearchBar: View {
             Button(action: onNext) { Image(systemName: "chevron.down") }
                 .help("Find Next (⌘G)")
                 .accessibilityLabel("Next match")
+                // The hover style pads the label; keep the chevron where it was at the trailing edge (#616).
+                .padding(.trailing, -Tokens.Spacing.xs)
         }
-        .buttonStyle(.borderless)
+        // Pointer feedback like the other icon buttons in panels (#571, #616).
+        .buttonStyle(.hover)
         .disabled(result.matches.isEmpty)
         .padding(.horizontal, Tokens.Spacing.md)
         .frame(height: Tokens.Size.columnHeader)
