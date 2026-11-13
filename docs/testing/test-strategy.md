@@ -209,6 +209,7 @@ func test_SEC_T4_01_cleanFilterDoesNotRunOnStatus() { … }
 3. 시간에 의존하는 테스트는 시계를 주입한다. `sleep`으로 기다리지 않는다. 타임아웃 테스트(SEC-T15-02)는 짧은 제한값을 주입해 1초 안에 끝낸다.
 4. 파일 시스템 이벤트, 병렬 실행, 프로세스 종료 순서처럼 비결정적인 요소는 테스트 경계 밖으로 뺀다. 남는 것은 결과 상태만 비교한다.
 5. 같은 테스트가 2주 안에 두 번 불안정하면 `priority:p1`로 올린다.
+6. 테스트는 앱 안에서 돌아 앱의 UserDefaults(사용자가 실제 앱에서 고른 설정)를 함께 쓴다. `@AppStorage`를 읽는 뷰를 그리는 테스트는 `.defaultAppStorage(_:)`로 테스트마다 새 suite를 쓰고, 값도 그 suite에 넣는다. `UserDefaults.standard`에는 쓰지 않는다. 저장된 Split 보기 모드 때문에 Diff 렌더 테스트가 한 맥에서만 실패한 일이 있었다(#601).
 
 ---
 
