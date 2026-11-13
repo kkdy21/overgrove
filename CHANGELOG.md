@@ -45,6 +45,7 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- The `main worktree` pill stays on one line in a narrow sidebar; the path beside it shortens instead.
 - Sidebar rows respond to the pointer, select the same way everywhere (grey when the list does not have keyboard
   focus), and sections and folders open and close with the standard disclosure motion (at once under Reduce Motion).
   Clicking a LOCAL or REMOTE branch selects its tip commit.
