@@ -49,54 +49,64 @@ struct BranchListSection: View {
 
     var body: some View {
         Section {
-            VStack(alignment: .leading, spacing: 0) {
-                if isExpanded.wrappedValue {
-                    if let warning {
-                        SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
-                    }
-                    if nodes.isEmpty {
-                        Text(
-                            isFiltered
-                                ? "No matching branches"
-                                : title == "LOCAL"
-                                    ? "No local branches"
-                                    : "No remote branches"
-                                        as LocalizedStringKey
-                        )
-                        .font(Tokens.Font.callout)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                        .padding(.horizontal, SidebarInset.content)
-                        .frame(height: Tokens.Size.rowSidebar)
-                    }
-                    // One lazy stack over the visible rows (folders flattened), one timer for every relative date.
-                    TimelineView(.periodic(from: .now, by: 60)) { context in
-                        let rows = BranchListModel.visibleRows(
-                            nodes, open: isFiltered ? SidebarFilter.folderIDs(nodes) : openFolders.wrappedValue)
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(rows, id: \.node.id) { item in
-                                switch item.node {
-                                case .branch(let row):
-                                    BranchRowView(
-                                        row: row, depth: item.depth, now: title == "REMOTE" ? context.date : nil,
-                                        isSelected: Self.isHighlighted(
-                                            row, chosenID: chosenID, selectedCommit: selectedCommit),
-                                        isListFocused: isListFocused
-                                    )
-                                    .id(row.tip.map { SidebarItem.branch(id: row.id, tip: $0).scrollID } ?? row.id)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture { choose(row) }
-                                    .accessibilityAction { choose(row) }
-                                case .folder(let id, let name, let count, _):
-                                    folderRow(id: id, name: name, count: count, depth: item.depth)
-                                }
-                            }
-                        }
+            // The rows are direct children of the sidebar's lazy stack, not a stack of their own: `scrollTo` can only
+            // find a row the outer stack knows, even one it has not built yet (`⌘↓` past hundreds of rows, review of
+            // #598).
+            if isExpanded.wrappedValue {
+                if let warning {
+                    SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
+                }
+                if nodes.isEmpty {
+                    Text(
+                        isFiltered
+                            ? "No matching branches"
+                            : title == "LOCAL"
+                                ? "No local branches"
+                                : "No remote branches"
+                                    as LocalizedStringKey
+                    )
+                    .font(Tokens.Font.callout)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .padding(.horizontal, SidebarInset.content)
+                    .frame(height: Tokens.Size.rowSidebar)
+                }
+                // Identified by the arrow keys' scroll id (folders flattened into the visible rows).
+                ForEach(visibleRows, id: \.node.sidebarScrollID) { item in
+                    switch item.node {
+                    case .branch(let row): branchRow(row, depth: item.depth)
+                    case .folder(let id, let name, let count, _):
+                        folderRow(id: id, name: name, count: count, depth: item.depth)
                     }
                 }
             }
         } header: {
             SidebarSectionHeader(title: displayTitle, count: count, isExpanded: isExpanded)
         }
+    }
+
+    private var visibleRows: [(node: BranchNode, depth: Int)] {
+        BranchListModel.visibleRows(
+            nodes, open: isFiltered ? SidebarFilter.folderIDs(nodes) : openFolders.wrappedValue)
+    }
+
+    @ViewBuilder
+    private func branchRow(_ row: BranchRow, depth: Int) -> some View {
+        let isSelected = Self.isHighlighted(row, chosenID: chosenID, selectedCommit: selectedCommit)
+        Group {
+            if title == "REMOTE" {
+                // Remote rows show the tip's relative date; one timer per built row, and the stack builds only the
+                // rows on screen.
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    BranchRowView(
+                        row: row, depth: depth, now: context.date, isSelected: isSelected, isListFocused: isListFocused)
+                }
+            } else {
+                BranchRowView(row: row, depth: depth, now: nil, isSelected: isSelected, isListFocused: isListFocused)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { choose(row) }
+        .accessibilityAction { choose(row) }
     }
 
     /// A row is highlighted while it is the one chosen last and its tip is still the selected commit: several
@@ -230,5 +240,15 @@ private struct BranchRowMenu: View {
         let url = row.gitHubTarget.flatMap { actions.gitHubBranchURL($0) }
         Button("Open on GitHub") { if let url { actions.openInBrowser(url) } }
             .disabled(url == nil)
+    }
+}
+
+extension BranchNode {
+    /// The id `ForEach` and `scrollTo` share: a branch row with a tip uses its `SidebarItem` scroll id.
+    var sidebarScrollID: String {
+        switch self {
+        case .branch(let row): row.tip.map { SidebarItem.branch(id: row.id, tip: $0).scrollID } ?? id
+        case .folder: id
+        }
     }
 }

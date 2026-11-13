@@ -19,33 +19,29 @@ struct IssueListSection: View {
 
     var body: some View {
         Section {
-            VStack(alignment: .leading, spacing: 0) {
-                if isExpanded.wrappedValue {
-                    if let account = model.account {
-                        IssueAccountRow(account: account)
-                    }
-                    if let notice = model.notice {
-                        SidebarNotice(symbol: notice.symbol, text: notice.text)
-                            .help(notice.detail ?? notice.text)
-                    }
-                    if !model.setupCommands.isEmpty || model.canCheckAgain {
-                        IssueSetupHint(
-                            message: model.setupMessage, commands: model.setupCommands,
-                            canCheckAgain: model.canCheckAgain,
-                            isChecking: model.isLoading, onCheckAgain: onCheckAgain)
-                    }
-                    // Lazy: up to 200 rows (`--limit 200`).
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(model.rows) { row in
-                            IssueRowView(row: row, isSelected: row.id == selectedNumber, isListFocused: isListFocused)
-                                .id(SidebarItem.issue(row.id).scrollID)
-                                .contentShape(Rectangle())
-                                .onTapGesture { onSelect(row.id) }
-                                .accessibilityAction { onSelect(row.id) }
-                                .contextMenu { IssueRowMenu(row: row) }
-                        }
-                    }
-                    // Keyboard focus, `↑`/`↓`, and `⌘4` belong to the whole sidebar (`SidebarPanel`, #592).
+            // Rows are direct children of the sidebar's lazy stack so `scrollTo` finds them (review of #598). Keyboard
+            // focus, `↑`/`↓`, and `⌘4` belong to the whole sidebar (`SidebarPanel`, #592).
+            if isExpanded.wrappedValue {
+                if let account = model.account {
+                    IssueAccountRow(account: account)
+                }
+                if let notice = model.notice {
+                    SidebarNotice(symbol: notice.symbol, text: notice.text)
+                        .help(notice.detail ?? notice.text)
+                }
+                if !model.setupCommands.isEmpty || model.canCheckAgain {
+                    IssueSetupHint(
+                        message: model.setupMessage, commands: model.setupCommands,
+                        canCheckAgain: model.canCheckAgain,
+                        isChecking: model.isLoading, onCheckAgain: onCheckAgain)
+                }
+                // Up to 200 rows (`--limit 200`).
+                ForEach(model.rows, id: \.sidebarScrollID) { row in
+                    IssueRowView(row: row, isSelected: row.id == selectedNumber, isListFocused: isListFocused)
+                        .contentShape(Rectangle())
+                        .onTapGesture { onSelect(row.id) }
+                        .accessibilityAction { onSelect(row.id) }
+                        .contextMenu { IssueRowMenu(row: row) }
                 }
             }
         } header: {
@@ -437,4 +433,9 @@ private struct IssueRowMenu: View {
         Button("Copy URL") { actions.copy(row.urlText) }
         Button("Copy Number") { actions.copy(row.number) }
     }
+}
+
+extension IssueRow {
+    /// The id `ForEach` and `scrollTo` share (#592).
+    var sidebarScrollID: String { SidebarItem.issue(id).scrollID }
 }
