@@ -49,10 +49,11 @@ final class FileChangeClassifierTests: XCTestCase {
         XCTAssertEqual(classify("/dev/api/.git/config"), classifier.everything)
     }
 
-    /// Ignore rules, sparse checkout, and per-worktree configuration change what status reports (#426).
+    /// Ignore rules, attributes, sparse checkout, and per-worktree configuration change what status reports (#426, #568).
     func testFilesThatChangeWhatStatusReports() {
         let all = FileChangeSet(worktrees: [main, lane, nested])
         XCTAssertEqual(classify("/dev/api/.git/info/exclude"), all, "ignore rules of every worktree")
+        XCTAssertEqual(classify("/dev/api/.git/info/attributes"), all, "attributes of every worktree (#568)")
         XCTAssertEqual(classify("/dev/api/.git/info/sparse-checkout"), FileChangeSet(worktrees: [main]))
         XCTAssertEqual(classify("/dev/api/.git/config.worktree"), FileChangeSet(worktrees: [main]))
         XCTAssertEqual(classify("/dev/api/.git/worktrees/lane/config.worktree"), FileChangeSet(worktrees: [lane]))
@@ -60,7 +61,8 @@ final class FileChangeClassifierTests: XCTestCase {
             classify("/dev/api/.git/worktrees/lane/info/sparse-checkout"), FileChangeSet(worktrees: [lane]))
         for path in [
             "/dev/api/.git/info/attributes-not", "/dev/api/.git/info", "/dev/api/.git/info/exclude/x",
-            "/dev/api/.git/worktrees/lane/info/exclude", "/dev/api/.git/worktrees/unknown/config.worktree",
+            "/dev/api/.git/worktrees/lane/info/exclude", "/dev/api/.git/worktrees/lane/info/attributes",
+            "/dev/api/.git/info/attributes/x", "/dev/api/.git/worktrees/unknown/config.worktree",
             "/dev/api/.git/config.worktree/x",
         ] {
             XCTAssertEqual(classify(path), FileChangeSet(), path)

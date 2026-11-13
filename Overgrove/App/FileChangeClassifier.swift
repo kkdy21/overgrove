@@ -35,8 +35,8 @@ struct FileEvent: Equatable, Sendable {
 /// In the shared git directory only what changes a status or the lists counts (#163): `HEAD` and `index` (the main
 /// worktree), `refs/` and `packed-refs`, `worktrees/<id>/HEAD|index` (that linked worktree; `HEAD` also the list,
 /// #416), `worktrees/<id>` itself and its `gitdir`/`locked` (the list), `config` (everything, it can change how
-/// queries run), and what changes what status reports (#426): `info/exclude` (every worktree), `info/sparse-checkout`
-/// and `config.worktree` (the main worktree), `worktrees/<id>/info/sparse-checkout` and
+/// queries run), and what changes what status reports (#426): `info/exclude` and `info/attributes` (every worktree,
+/// #568), `info/sparse-checkout` and `config.worktree` (the main worktree), `worktrees/<id>/info/sparse-checkout` and
 /// `worktrees/<id>/config.worktree` (that linked worktree). Objects, logs, `FETCH_HEAD`, `ORIG_HEAD`, hooks and the
 /// rest are ignored, so a fetch or gc does not re-run every status. A worktree folder inside the shared git directory
 /// (a bare repository's `repo.git/main`, #421) is that worktree's files, not the git directory's.
@@ -144,11 +144,13 @@ struct FileChangeClassifier: Equatable, Sendable {
             else { return FileChangeSet() }
             return FileChangeSet(worktrees: [main.path])
         case "info":
-            // Ignore rules are shared by every worktree; `info/sparse-checkout` here is the main worktree's (git keeps
-            // it per worktree) (#426).
+            // Ignore rules and attributes are shared by every worktree: git reads `$GIT_COMMON_DIR/info`, never
+            // `worktrees/<id>/info/attributes` (gitrepository-layout(5)). Attributes (`text`, `eol`, `filter`) change
+            // what status reports (#568). `info/sparse-checkout` here is the main worktree's (git keeps it per
+            // worktree) (#426).
             guard relative.count == 2 else { return FileChangeSet() }
             switch relative[1] {
-            case "exclude":
+            case "exclude", "attributes":
                 return FileChangeSet(worktrees: Set(worktrees.map(\.path)))
             case "sparse-checkout":
                 guard let main = worktrees.first(where: { $0.gitDirectory == commonDirectory }) else {
