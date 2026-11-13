@@ -13,9 +13,16 @@ struct BranchListSection: View {
     var folderHelp: [String: String] = [:]
     /// The sidebar filter is on (#74): every folder shows its matches, and an empty list says so.
     var isFiltered = false
+    /// The commit the detail panel shows, to keep the chosen row highlighted only while it is still selected (#572).
+    var selectedCommit: ObjectID?
 
     @State private var isExpanded = true
     @State private var openFolders: Set<String> = []
+    /// The row chosen last: several branches can share a tip, and only the chosen one is highlighted (as in TAGS).
+    @State private var chosenID: String?
+    @FocusState private var hasFocus: Bool
+    @Environment(\.rowMenu) private var actions
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// `title` stays `LOCAL` or `REMOTE` (it picks the empty text and the relative dates); only the header is localized.
     private var displayTitle: String {
@@ -56,12 +63,27 @@ struct BranchListSection: View {
                                 switch item.node {
                                 case .branch(let row):
                                     BranchRowView(
-                                        row: row, depth: item.depth, now: title == "REMOTE" ? context.date : nil)
+                                        row: row, depth: item.depth, now: title == "REMOTE" ? context.date : nil,
+                                        isSelected: Self.isHighlighted(
+                                            row, chosenID: chosenID, selectedCommit: selectedCommit),
+                                        isListFocused: hasFocus
+                                    )
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        hasFocus = true
+                                        choose(row)
+                                    }
+                                    .accessibilityAction { choose(row) }
                                 case .folder(let id, let name, let count, _):
                                     folderRow(id: id, name: name, count: count, depth: item.depth)
                                 }
                             }
                         }
+                        // Takes keyboard focus when a row is clicked, so the selection shows as focused like WORKTREES
+                        // and ISSUES (interaction.md §1.2, #572).
+                        .focusable(!rows.isEmpty)
+                        .focused($hasFocus)
+                        .focusEffectDisabled()
                     }
                 }
             }
@@ -70,10 +92,27 @@ struct BranchListSection: View {
         }
     }
 
+    /// A row is highlighted while it is the one chosen last and its tip is still the selected commit: several
+    /// branches can share a tip, and choosing something else in the graph drops the highlight.
+    nonisolated static func isHighlighted(_ row: BranchRow, chosenID: String?, selectedCommit: ObjectID?) -> Bool {
+        row.id == chosenID && row.tip != nil && row.tip == selectedCommit
+    }
+
+    /// Clicking a branch row selects its tip commit, like Show in Graph (interaction.md §2, #572). A branch of a tree
+    /// or blob has no tip in the graph, so it selects nothing.
+    private func choose(_ row: BranchRow) {
+        guard let tip = row.tip else { return }
+        chosenID = row.id
+        actions.showCommit(tip)
+    }
+
     private func folderRow(id: String, name: String, count: Int, depth: Int) -> some View {
         let isOpen = openFolders.contains(id)
         return Button {
-            if isOpen { openFolders.remove(id) } else { openFolders.insert(id) }
+            // `motion.duration-standard` for disclosures, at once under Reduce Motion (#572).
+            withMotion(.standard, reduceMotion: reduceMotion) {
+                if isOpen { openFolders.remove(id) } else { openFolders.insert(id) }
+            }
         } label: {
             HStack(spacing: Tokens.Spacing.xs) {
                 Image(systemName: "chevron.right")
@@ -88,9 +127,11 @@ struct BranchListSection: View {
                     .font(Tokens.Font.caption)
                     .foregroundStyle(Tokens.Color.textTertiary)
             }
-            .padding(.leading, SidebarInset.content + CGFloat(depth) * Tokens.Spacing.lg)
-            .padding(.trailing, SidebarInset.content)
+            .padding(.leading, Tokens.Spacing.sm + CGFloat(depth) * Tokens.Spacing.lg)
+            .padding(.trailing, Tokens.Spacing.sm)
             .frame(height: Tokens.Size.rowSidebar)
+            .hoverHighlight(.inset)
+            .padding(.horizontal, SidebarInset.row)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -105,6 +146,8 @@ private struct BranchRowView: View {
     let depth: Int
     /// Set for remote rows, which show the tip's relative date.
     let now: Date?
+    var isSelected = false
+    var isListFocused = false
 
     @Environment(\.pullRequestBadges) private var pullRequests
 
@@ -144,13 +187,20 @@ private struct BranchRowView: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(.leading, SidebarInset.content + CGFloat(depth) * Tokens.Spacing.lg)
-        .padding(.trailing, SidebarInset.content)
+        .padding(.leading, Tokens.Spacing.sm + CGFloat(depth) * Tokens.Spacing.lg)
+        .padding(.trailing, Tokens.Spacing.sm)
         .frame(height: Tokens.Size.rowSidebar)
+        // The same selection and hover as every sidebar row (#572).
+        .background {
+            if isSelected { SidebarSelectionBackground(isFocused: isListFocused) }
+        }
+        .hoverHighlight(.inset, isEnabled: !isSelected)
+        .padding(.horizontal, SidebarInset.row)
         .help(row.help)
         .contextMenu { BranchRowMenu(row: row) }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel + (pullRequest.map { ", " + $0.accessibilityText } ?? ""))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
         .issueBadgeAction(row.issueNumber)
     }
 }

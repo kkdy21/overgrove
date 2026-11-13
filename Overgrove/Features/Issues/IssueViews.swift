@@ -37,7 +37,7 @@ struct IssueListSection: View {
                     // Lazy: up to 200 rows (`--limit 200`).
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(model.rows) { row in
-                            IssueRowView(row: row, isSelected: row.id == selectedNumber)
+                            IssueRowView(row: row, isSelected: row.id == selectedNumber, isListFocused: hasFocus)
                                 .contentShape(Rectangle())
                                 .onTapGesture { onSelect(row.id) }
                                 .accessibilityAction { onSelect(row.id) }
@@ -188,6 +188,8 @@ private struct IssueSetupHint: View {
 private struct IssueRowView: View {
     let row: IssueRow
     let isSelected: Bool
+    /// The list has keyboard focus: the selection is `surface.selection`, otherwise `selection-inactive`.
+    var isListFocused = false
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.sm) {
@@ -207,11 +209,11 @@ private struct IssueRowView: View {
         }
         .padding(.horizontal, Tokens.Spacing.sm)
         .frame(height: Tokens.Size.rowSidebar)
+        // One selection style for every sidebar row, and hover feedback on the others (#572).
         .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous).fill(Tokens.Color.surfaceSelection)
-            }
+            if isSelected { SidebarSelectionBackground(isFocused: isListFocused) }
         }
+        .hoverHighlight(.inset, isEnabled: !isSelected)
         .padding(.horizontal, SidebarInset.row)
         .help(row.title)
         .accessibilityElement(children: .ignore)
