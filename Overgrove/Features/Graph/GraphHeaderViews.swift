@@ -133,15 +133,16 @@ private struct GraphChipBody: View {
             .frame(height: GraphChipButtonStyle.height)
             .background {
                 Capsule().fill(isSelected ? Tokens.Color.accent : Tokens.Color.surfaceControl)
-                    .overlay { Capsule().fill(isHovering && !isSelected ? Tokens.Color.surfaceHover : Color.clear) }
+                    .overlay {
+                        Capsule().fill(isHovering && !isSelected ? Tokens.Color.surfaceHover : Color.clear)
+                            .motion(.fast, value: isHovering)
+                    }
             }
             // No outline normally; `border.strong` 1.5pt under Increase Contrast (#304).
             .controlOutline(Capsule(), normal: nil)
-            .opacity(configuration.isPressed ? Tokens.Opacity.pressed : 1)
+            .pressedOpacity(configuration.isPressed)
             .contentShape(Capsule())
             .onHover { isHovering = $0 }
-            .motion(.fast, value: isHovering)
-            .motion(.fast, value: configuration.isPressed)
     }
 }
 

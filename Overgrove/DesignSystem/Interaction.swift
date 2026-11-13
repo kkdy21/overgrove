@@ -43,9 +43,30 @@ private struct MotionModifier<Value: Equatable>: ViewModifier {
 }
 
 extension View {
-    /// Animates changes of `value` with `animation`, or not at all under Reduce Motion.
+    /// Animates changes of `value` with `animation`, or not at all under Reduce Motion. Put it on the layer that
+    /// changes (a fill, a grip), not on a whole row or divider: everything else that changes in the same transaction
+    /// would follow it, such as row content or a divider dragged under the pointer.
     func motion<Value: Equatable>(_ animation: Animation, value: Value) -> some View {
         modifier(MotionModifier(animation: animation, value: value))
+    }
+}
+
+private struct PressedOpacity: ViewModifier {
+    let isPressed: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        // Scoped to the opacity alone, so nothing else in the button animates with the press.
+        content.animation(.respectingReduceMotion(.fast, reduceMotion: reduceMotion)) {
+            $0.opacity(isPressed ? Tokens.Opacity.pressed : 1)
+        }
+    }
+}
+
+extension View {
+    /// `opacity.pressed` while a button is held down, fading in `motion.duration-fast`.
+    func pressedOpacity(_ isPressed: Bool) -> some View {
+        modifier(PressedOpacity(isPressed: isPressed))
     }
 }
 
@@ -80,9 +101,10 @@ private struct HoverHighlight: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background { HoverFill(shape: shape, isHovering: isHovering && isEnabled) }
+            .background {
+                HoverFill(shape: shape, isHovering: isHovering && isEnabled).motion(.fast, value: isHovering)
+            }
             .onHover { isHovering = $0 }
-            .motion(.fast, value: isHovering)
     }
 }
 
@@ -111,17 +133,16 @@ private struct HoverButtonBody: View {
 
     var body: some View {
         configuration.label
+            .pressedOpacity(configuration.isPressed)
             .padding(.horizontal, Tokens.Spacing.xs)
             .padding(.vertical, Tokens.Spacing.xxs)
             .background {
                 RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
                     .fill(isHovering && isEnabled ? Tokens.Color.surfaceHover : Color.clear)
+                    .motion(.fast, value: isHovering)
             }
-            .opacity(configuration.isPressed ? Tokens.Opacity.pressed : 1)
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
             .onHover { isHovering = $0 }
-            .motion(.fast, value: isHovering)
-            .motion(.fast, value: configuration.isPressed)
     }
 }
 

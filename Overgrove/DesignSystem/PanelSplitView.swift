@@ -207,16 +207,18 @@ private struct PanelDivider: View {
 
     var body: some View {
         ZStack {
+            // Only the colours fade in `motion.duration-fast` (#571); the divider itself follows the pointer with no
+            // animation, including on the frame where a drag starts or ends.
             Rectangle()
                 .fill(isActive ? Tokens.Color.accent.opacity(Self.gutterHighlightOpacity) : Color.clear)
+                .motion(.fast, value: isActive)
             Capsule()
                 .fill(isActive ? Tokens.Color.surfaceSplitterGripActive : Tokens.Color.surfaceSplitterGrip)
+                .motion(.fast, value: isActive)
                 .frame(width: Tokens.Size.splitterGrip.width, height: Tokens.Size.splitterGrip.height)
         }
         .frame(width: PanelLayout.gap)
         .frame(maxHeight: .infinity)
-        // Hover and drag highlight fade in `motion.duration-fast`, at once under Reduce Motion (#571).
-        .motion(.fast, value: isActive)
         .contentShape(Rectangle())
         // AppKit cursor rects (as NSSplitView does): AppKit owns hover, key/inactive windows, and drag end.
         .background(CursorArea(cursor: cursor))
