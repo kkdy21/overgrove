@@ -43,10 +43,15 @@ final class StashRenderTests: XCTestCase {
                 StashListSection(rows: rows, isPartial: false, selectedID: stash.oid, onSelect: { _ in })
                     .frame(maxHeight: .infinity, alignment: .top),
                 size: CGSize(width: 256, height: 120), appearance: appearance)
+            // The detail panel's minimum width (#579): the info values fold instead of being cut.
+            let narrowBitmap = try render(
+                StashDetailView(model: model, selectedFile: nil, onSelectFile: { _ in }),
+                size: CGSize(width: 300, height: 480), appearance: appearance)
             XCTAssertGreaterThan(detailBitmap.pixelsWide, 0)
             XCTAssertGreaterThan(listBitmap.pixelsWide, 0)
+            XCTAssertGreaterThan(narrowBitmap.pixelsWide, 0)
             if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"] {
-                for (part, bitmap) in [("detail", detailBitmap), ("list", listBitmap)] {
+                for (part, bitmap) in [("detail", detailBitmap), ("detail-300", narrowBitmap), ("list", listBitmap)] {
                     if let png = bitmap.representation(using: .png, properties: [:]) {
                         try png.write(
                             to: URL(fileURLWithPath: directory).appendingPathComponent("stash-\(part)-\(name).png"))

@@ -377,8 +377,9 @@ struct DetailPanel: View {
 }
 
 extension SidebarPanel {
-    /// REMOTE folder ids are `remote:<name>` (`BranchListModel`); the tooltip is `origin — github.com/acme/api`.
+    /// REMOTE folder ids are `remote:<key>` with the name's byte key (`BranchListModel`, `BranchNode.key`, #565); the
+    /// tooltip is `origin — github.com/acme/api`. Distinct names give distinct keys, so the keys stay unique.
     static func remoteFolderHelp(_ urls: [String: String]) -> [String: String] {
-        Dictionary(uniqueKeysWithValues: urls.map { ("remote:\($0.key)", "\($0.key) — \($0.value)") })
+        Dictionary(uniqueKeysWithValues: urls.map { ("remote:\(BranchNode.key($0.key))", "\($0.key) — \($0.value)") })
     }
 }

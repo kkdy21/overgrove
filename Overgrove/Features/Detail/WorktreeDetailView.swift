@@ -55,11 +55,11 @@ struct DetailCard<Content: View>: View {
             .padding(Tokens.Spacing.sm + Tokens.Spacing.xxs)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: WipGroupCard.cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                     .fill(Tokens.Color.surfaceRaised)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: WipGroupCard.cornerRadius, style: .continuous)
+                RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                     .strokeBorder(Tokens.Color.borderSeparator, lineWidth: 1))
     }
 }
@@ -127,25 +127,22 @@ private struct SecurityCard: View {
 
     var body: some View {
         DetailCard {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Security").font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textPrimary)
-                Spacer()
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    Text(header(now: context.date))
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.textTertiary)
+            // One line when it fits; in a narrow panel the check time moves under the title instead of folding beside
+            // the copy button (#579).
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: Tokens.Spacing.sm) {
+                    title
+                    Spacer(minLength: 0)
+                    checked.fixedSize()
+                    copyButton
                 }
-                if let report {
-                    Button {
-                        // Line breaks kept; every other control character escaped (`RowActions.clipboardText`).
-                        actions.copyMessage(SecurityReport.text(report))
-                    } label: {
-                        Image(systemName: "doc.on.doc")
+                VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
+                    HStack(alignment: .center, spacing: Tokens.Spacing.sm) {
+                        title
+                        Spacer(minLength: 0)
+                        copyButton
                     }
-                    .buttonStyle(.hover)
-                    .hitTarget()
-                    .help("Copy Report: key names and results only, without values, paths, or remote URLs")
-                    .accessibilityLabel("Copy security report")
+                    checked
                 }
             }
             if let reason = model.blockingReason {
@@ -216,6 +213,34 @@ private struct SecurityCard: View {
     }
 
     /// `Inspected 2 min ago · local and worktree scopes · git 2.50.1` (security-review.md §6).
+    private var title: some View {
+        Text("Security").font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textPrimary)
+    }
+
+    private var checked: some View {
+        TimelineView(.periodic(from: .now, by: 30)) { context in
+            Text(header(now: context.date))
+                .font(Tokens.Font.caption)
+                .foregroundStyle(Tokens.Color.textTertiary)
+        }
+    }
+
+    @ViewBuilder
+    private var copyButton: some View {
+        if let report {
+            Button {
+                // Line breaks kept; every other control character escaped (`RowActions.clipboardText`).
+                actions.copyMessage(SecurityReport.text(report))
+            } label: {
+                Image(systemName: "doc.on.doc")
+            }
+            .buttonStyle(.hover)
+            .hitTarget()
+            .help("Copy Report: key names and results only, without values, paths, or remote URLs")
+            .accessibilityLabel("Copy security report")
+        }
+    }
+
     private func header(now: Date) -> String {
         var parts = [
             String(localized: "Inspected \(StatusBarItem.relative(model.inspectedAt, now: now))"),

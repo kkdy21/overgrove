@@ -6,7 +6,10 @@ extension AppState {
     /// ends, so a refresh the user asked for is never replaced by an automatic one.
     func requestAutoRefresh(_ change: FileChangeSet) -> Bool {
         guard repository != nil, runningTrigger == nil, hasVerifiedListing else { return false }
-        refresh(.filesChanged(worktrees: change.worktrees, refs: change.refs, worktreeList: change.worktreeList))
+        refresh(
+            .filesChanged(
+                worktrees: change.worktrees, refs: change.refs, worktreeList: change.worktreeList,
+                stashes: change.stashes))
         return true
     }
 }

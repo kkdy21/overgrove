@@ -337,6 +337,50 @@ final class AutoRefreshControllerTests: XCTestCase {
         XCTAssertEqual(h.requests.sent, [classifier.everything], "six reappearances, one request")
     }
 
+    /// #425: a window reported hidden before it was ever shown (launched on another Space or behind other windows)
+    /// catches up when it appears, like one hidden later. A window simply not reported yet does not (the test above).
+    func testAWindowThatStartsHiddenCatchesUpWhenShown() {
+        let h = make()
+        h.controller.setVisible(false)
+        h.controller.update(classifier)
+        h.controller.handle(event("/dev/api/a"))
+        XCTAssertTrue(h.controller.pending.isEmpty, "nothing is watched while hidden")
+        h.controller.setVisible(true)
+        XCTAssertEqual(h.controller.pending, classifier.everything, "what changed while hidden is queued once")
+    }
+
+    /// #425: opening another repository while the window is hidden keeps the catch-up for when it appears.
+    func testARepositoryOpenedWhileHiddenCatchesUpWhenShown() {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        h.controller.setVisible(false)
+        h.controller.update(nil)
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        XCTAssertEqual(h.controller.pending, classifier.everything)
+    }
+
+    /// A window not reported yet is not hidden: switching repositories before it first appears queues nothing extra.
+    func testARepositoryOpenedBeforeTheWindowIsReportedQueuesNothing() {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.update(nil)
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        XCTAssertTrue(h.controller.pending.isEmpty, "the first appearance follows the first load")
+    }
+
+    /// Opening another repository while the window is shown needs no catch-up: its own first load reads everything.
+    func testARepositoryOpenedWhileShownQueuesNothing() {
+        let h = make()
+        h.controller.update(classifier)
+        h.controller.setVisible(true)
+        h.controller.update(nil)
+        h.controller.update(classifier)
+        XCTAssertTrue(h.controller.pending.isEmpty)
+    }
+
     /// Security review of #119: closing the repository while a request runs must not leave it in flight forever (its
     /// load never reports back once the generation moved on).
     func testClosingTheRepositoryClearsTheRequestInFlight() async {

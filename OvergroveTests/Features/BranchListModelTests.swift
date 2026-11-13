@@ -187,6 +187,58 @@ final class BranchListModelTests: XCTestCase {
         }
     }
 
+    /// #565: remotes, folders, and branches whose names differ only in Unicode normalization or by KELVIN SIGN get
+    /// distinct ids, so each opens on its own and SwiftUI never sees one identity twice.
+    func testCanonicallyEquivalentNamesGetDistinctIds() {
+        let model = BranchListModel(
+            refs: refs([
+                remote("my/K/a", guess: "my"), remote("my/\u{212A}/b", guess: "my"),
+                local("caf\u{E9}/x"), local("cafe\u{301}/y"), local("\u{E9}t\u{E9}"), local("e\u{301}te\u{301}"),
+            ]), checkedOut: [], remoteNames: ["my/K", "my/\u{212A}"])
+        let remoteIDs = model.remote.map(\.id)
+        XCTAssertEqual(remoteIDs.count, 2)
+        XCTAssertEqual(Set(remoteIDs).count, 2, "\(remoteIDs)")
+        XCTAssertEqual(remoteIDs, remoteIDs.map { String($0.unicodeScalars.filter(\.isASCII).map(Character.init)) })
+
+        // Opening one remote folder leaves the other closed.
+        let open = BranchListModel.visibleRows(model.remote, open: [remoteIDs[0]])
+        XCTAssertEqual(open.count, 3, "the opened folder, its one row, and the other folder")
+
+        // Local: `café/` in NFC and NFD are two folders; `été` in NFC and NFD are two rows with distinct ids.
+        let folders = model.local.filter {
+            guard case .folder = $0 else { return false }
+            return true
+        }
+        XCTAssertEqual(folders.count, 2)
+        XCTAssertEqual(Set(folders.map(\.id)).count, 2)
+        let rows = model.local.filter {
+            guard case .branch = $0 else { return false }
+            return true
+        }
+        XCTAssertEqual(rows.count, 2)
+        XCTAssertEqual(Set(rows.map(\.id)).count, 2)
+        XCTAssertEqual(BranchNode.key("origin/main"), "origin/main", "ASCII ids are unchanged")
+        XCTAssertEqual(BranchNode.key("50%"), "50%25", "a literal % cannot stand in for an encoded byte")
+    }
+
+    /// #565 (review): the REMOTE folder tooltip is looked up by the folder's id, so its key is built the same way, also
+    /// for a name with non-ASCII bytes or `%`.
+    @MainActor
+    func testRemoteFolderTooltipKeysMatchTheFolderIds() {
+        // `remoteURLTooltips` is a `String`-keyed dictionary built with `uniquingKeysWith`, so it never holds two
+        // canonically equivalent names; each name here is distinct under `String` equality too.
+        let names = ["origin", "caf\u{E9}", "50%"]
+        let model = BranchListModel(
+            refs: refs(names.map { remote("\($0)/main", guess: $0) }), checkedOut: [], remoteNames: names)
+        let help = SidebarPanel.remoteFolderHelp(Dictionary(uniqueKeysWithValues: names.map { ($0, "url-\($0)") }))
+        XCTAssertEqual(help.count, names.count)
+        XCTAssertEqual(Set(help.keys), Set(model.remote.map(\.id)))
+        for node in model.remote {
+            guard case .folder(let id, _, _, _) = node else { return XCTFail("\(node)") }
+            XCTAssertNotNil(help[id], id)
+        }
+    }
+
     /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
     /// (`origin/x`); an empty remainder shows the whole name (security review of #72).
     func testRemoteSplitIsByteExact() {

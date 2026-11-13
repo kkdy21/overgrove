@@ -168,7 +168,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | 창이 다시 보임 (가려짐·최소화 뒤) | 창 활성화와 같음 | 한 번 |
 
 **자동 새로고침 (#119, #163 결정 B).** 창이 화면에 보이는 동안(`NSWindow.occlusionState`)만 FSEvents로 감시한다.
-- **감시 범위**: #226으로 검증된 워크트리 폴더들과 공통 git 디렉터리. 공통 디렉터리 안에서는 `HEAD`·`index`(메인 워크트리), `refs/`·`packed-refs`(refs), `worktrees/<id>/HEAD|index`(그 연결 워크트리. `HEAD`는 워크트리 목록도: switch나 detached commit은 `HEAD`만 바꾸고, 목록의 브랜치·head가 사이드바와 그래프의 기준이다, #416), `worktrees/<id>` 자체와 `gitdir`·`locked`(워크트리 목록), `config`(전부), status가 보고하는 내용을 바꾸는 파일(#426)만 반영한다. 그 파일은 `info/exclude`·`info/attributes`(모든 워크트리. git은 연결 워크트리에서도 공통 디렉터리의 `info/`만 읽는다, #568), `info/sparse-checkout`·`config.worktree`(메인 워크트리), `worktrees/<id>/info/sparse-checkout`·`worktrees/<id>/config.worktree`(그 연결 워크트리)다. `objects/`, `logs/`, `FETCH_HEAD`, `ORIG_HEAD`, hooks 등은 무시한다. 그래서 fetch나 gc가 모든 status를 다시 돌리지 않는다. 다만 bare 저장소 폴더 안에 만든 워크트리(`git -C repo.git worktree add main`)처럼 워크트리 폴더가 공통 디렉터리 안에 있으면, 그 폴더 아래의 변경은 그 워크트리의 파일로 본다(#421). 시스템이 세부를 잃었다고 알리면(rescan) 전부 다시 조회한다. 감시할 워크트리가 바뀌어 스트림을 다시 시작해도 이벤트를 잃지 않는다. 멈추기 전에 이벤트 ID를 기록하고, 이전 스트림이 아직 넘기지 않은 이벤트를 flush해서 반영한다. 새 스트림은 기록한 ID부터 다시 받는다(#422).
+- **감시 범위**: #226으로 검증된 워크트리 폴더들과 공통 git 디렉터리. 공통 디렉터리 안에서는 `HEAD`·`index`(메인 워크트리), `refs/`·`packed-refs`(refs. 단 `refs/stash`는 stash 목록만, #417), `worktrees/<id>/HEAD|index`(그 연결 워크트리. `HEAD`는 워크트리 목록도: switch나 detached commit은 `HEAD`만 바꾸고, 목록의 브랜치·head가 사이드바와 그래프의 기준이다, #416), `worktrees/<id>` 자체와 `gitdir`·`locked`(워크트리 목록), `config`(전부), status가 보고하는 내용을 바꾸는 파일(#426)만 반영한다. 그 파일은 `info/exclude`·`info/attributes`(모든 워크트리. git은 연결 워크트리에서도 공통 디렉터리의 `info/`만 읽는다, #568), `info/sparse-checkout`·`config.worktree`(메인 워크트리), `worktrees/<id>/info/sparse-checkout`·`worktrees/<id>/config.worktree`(그 연결 워크트리)다. `logs/` 중에는 `logs/refs/stash`만 stash 목록으로 반영한다(`git stash drop stash@{1}`은 reflog만 바꿀 수 있다). `objects/`, 나머지 `logs/`, `FETCH_HEAD`, `ORIG_HEAD`, hooks 등은 무시한다. 그래서 fetch나 gc가 모든 status를 다시 돌리지 않는다. 다만 bare 저장소 폴더 안에 만든 워크트리(`git -C repo.git worktree add main`)처럼 워크트리 폴더가 공통 디렉터리 안에 있으면, 그 폴더 아래의 변경은 그 워크트리의 파일로 본다(#421). 시스템이 세부를 잃었다고 알리면(rescan) 전부 다시 조회한다. 감시할 워크트리가 바뀌어 스트림을 다시 시작해도 이벤트를 잃지 않는다. 멈추기 전에 이벤트 ID를 기록하고, 이전 스트림이 아직 넘기지 않은 이벤트를 flush해서 반영한다. 새 스트림은 기록한 ID부터 다시 받는다(#422).
 - **경로**: 이벤트 경로는 신뢰하지 않는 문자열이다. 검증된 폴더와 경로 구성 요소로만 비교하고, 디스크에서 읽지 않는다. 폴더 밖의 경로는 버린다. 워크트리가 다른 워크트리 안에 있으면 가장 깊은 폴더에 속한다.
 - **묶음과 상한**:
   - 이벤트 지연 1초. 마지막 이벤트 후 1초 디바운스한다. 이벤트가 계속 오더라도 첫 변경 후 최대 5초 안에는 요청한다(쉬지 않고 쓰는 에이전트를 지켜볼 때도 화면이 따라온다).
@@ -177,7 +177,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
   - 요청은 `.filesChanged` 트리거 하나로, 바뀐 워크트리들의 status만 다시 조회한다(필요하면 refs·목록도).
   - 분류는 스트림 큐에서 하고 메인 액터로는 묶은 변경만 넘긴다. 한 묶음이 10,000개를 넘으면 경로를 보지 않고 rescan으로 친다(SEC-T15-17).
 - **되먹임 없음**: 앱의 git 조회는 index도 `HEAD`도 쓰지 않으므로(#211) 자기 이벤트로 다시 새로고침하지 않는다. 실제 FSEvents로 검증한다.
-- 가려지거나 최소화되면 스트림을 멈춘다(비용 0). 다시 보이면 모든 워크트리·refs·목록을 한 번 대기열에 넣는다. 같은 디바운스와 재실행 간격을 거치므로, Spaces를 오가며 여러 번 보였다 가려져도 요청은 하나다.
+- 가려지거나 최소화되면 스트림을 멈춘다(비용 0). 다시 보이면 모든 워크트리·refs·목록을 한 번 대기열에 넣는다. 가려진 채로 시작한 창이 처음 보일 때와, 가려진 동안 다른 저장소를 연 뒤 보일 때도 같다(#425). 같은 디바운스와 재실행 간격을 거치므로, Spaces를 오가며 여러 번 보였다 가려져도 요청은 하나다.
 - 다른 로드(⌘R, 선택, 다른 창의 로드)가 도는 동안이나 디바운스를 기다리는 동안에는 보내지 않고, 끝나면 보낸다(#424). 대체된 요청은 다시 보내고, 실패한 요청은 버린다(오류는 화면에 남고, 다음 변경이나 ⌘R이 다시 시도한다).
 - 측정: PERF-10(파일 6,000개를 8초 동안 쓰는 동안 새로고침 3회, status 3회, git CPU 약 0.7%, [결과](../performance/results/2026-11-07-perf10-auto-refresh-storm.md)).
 - **화면을 막지 않는다.** 새로고침 중에도 이전 데이터를 그대로 보여 주고 상태바에 `Refreshing…`과 작은 스피너만 둔다. 워크트리 하나의 status가 500ms를 넘기면 그 행에만 작은 스피너를 붙인다.
