@@ -16,11 +16,25 @@ struct BranchListSection: View {
     /// The commit the detail panel shows, to keep the chosen row highlighted only while it is still selected (#572).
     var selectedCommit: ObjectID?
 
-    @State private var isExpanded = true
-    @State private var openFolders: Set<String> = []
+    /// Open or closed, and the open folders, owned by the sidebar so the arrow keys know which rows show (#592);
+    /// `nil` keeps them here (previews, render tests).
+    var expansion: Binding<Bool>?
+    var folders: Binding<Set<String>>?
+    /// The sidebar has keyboard focus (#592): the selected row is `surface.selection`, otherwise inactive.
+    var isListFocused = false
+    /// Owned by the sidebar (#592): the row chosen last, and what choosing a row does. Without `onChoose` the section
+    /// keeps the choice itself and shows the tip (previews, render tests).
+    var chosenRef: String?
+    var onChoose: ((BranchRow) -> Void)?
+
+    @State private var ownExpanded = true
+    @State private var ownFolders: Set<String> = []
     /// The row chosen last: several branches can share a tip, and only the chosen one is highlighted (as in TAGS).
-    @State private var chosenID: String?
-    @FocusState private var hasFocus: Bool
+    @State private var ownChosenID: String?
+
+    private var isExpanded: Binding<Bool> { expansion ?? $ownExpanded }
+    private var openFolders: Binding<Set<String>> { folders ?? $ownFolders }
+    private var chosenID: String? { onChoose == nil ? ownChosenID : chosenRef }
     @Environment(\.rowMenu) private var actions
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -35,61 +49,64 @@ struct BranchListSection: View {
 
     var body: some View {
         Section {
-            VStack(alignment: .leading, spacing: 0) {
-                if isExpanded {
-                    if let warning {
-                        SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
-                    }
-                    if nodes.isEmpty {
-                        Text(
-                            isFiltered
-                                ? "No matching branches"
-                                : title == "LOCAL"
-                                    ? "No local branches"
-                                    : "No remote branches"
-                                        as LocalizedStringKey
-                        )
-                        .font(Tokens.Font.callout)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                        .padding(.horizontal, SidebarInset.content)
-                        .frame(height: Tokens.Size.rowSidebar)
-                    }
-                    // One lazy stack over the visible rows (folders flattened), one timer for every relative date.
-                    TimelineView(.periodic(from: .now, by: 60)) { context in
-                        let rows = BranchListModel.visibleRows(
-                            nodes, open: isFiltered ? SidebarFilter.folderIDs(nodes) : openFolders)
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(rows, id: \.node.id) { item in
-                                switch item.node {
-                                case .branch(let row):
-                                    BranchRowView(
-                                        row: row, depth: item.depth, now: title == "REMOTE" ? context.date : nil,
-                                        isSelected: Self.isHighlighted(
-                                            row, chosenID: chosenID, selectedCommit: selectedCommit),
-                                        isListFocused: hasFocus
-                                    )
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        hasFocus = true
-                                        choose(row)
-                                    }
-                                    .accessibilityAction { choose(row) }
-                                case .folder(let id, let name, let count, _):
-                                    folderRow(id: id, name: name, count: count, depth: item.depth)
-                                }
-                            }
-                        }
-                        // Takes keyboard focus when a row is clicked, so the selection shows as focused like WORKTREES
-                        // and ISSUES (interaction.md §1.2, #572).
-                        .focusable(!rows.isEmpty)
-                        .focused($hasFocus)
-                        .focusEffectDisabled()
+            // The rows are direct children of the sidebar's lazy stack, not a stack of their own: `scrollTo` can only
+            // find a row the outer stack knows, even one it has not built yet (`⌘↓` past hundreds of rows, review of
+            // #598).
+            if isExpanded.wrappedValue {
+                if let warning {
+                    SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
+                }
+                if nodes.isEmpty {
+                    Text(
+                        isFiltered
+                            ? "No matching branches"
+                            : title == "LOCAL"
+                                ? "No local branches"
+                                : "No remote branches"
+                                    as LocalizedStringKey
+                    )
+                    .font(Tokens.Font.callout)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .padding(.horizontal, SidebarInset.content)
+                    .frame(height: Tokens.Size.rowSidebar)
+                }
+                // Identified by the arrow keys' scroll id (folders flattened into the visible rows).
+                ForEach(visibleRows, id: \.node.sidebarScrollID) { item in
+                    switch item.node {
+                    case .branch(let row): branchRow(row, depth: item.depth)
+                    case .folder(let id, let name, let count, _):
+                        folderRow(id: id, name: name, count: count, depth: item.depth)
                     }
                 }
             }
         } header: {
-            SidebarSectionHeader(title: displayTitle, count: count, isExpanded: $isExpanded)
+            SidebarSectionHeader(title: displayTitle, count: count, isExpanded: isExpanded)
         }
+    }
+
+    private var visibleRows: [(node: BranchNode, depth: Int)] {
+        BranchListModel.visibleRows(
+            nodes, open: isFiltered ? SidebarFilter.folderIDs(nodes) : openFolders.wrappedValue)
+    }
+
+    @ViewBuilder
+    private func branchRow(_ row: BranchRow, depth: Int) -> some View {
+        let isSelected = Self.isHighlighted(row, chosenID: chosenID, selectedCommit: selectedCommit)
+        Group {
+            if title == "REMOTE" {
+                // Remote rows show the tip's relative date; one timer per built row, and the stack builds only the
+                // rows on screen.
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    BranchRowView(
+                        row: row, depth: depth, now: context.date, isSelected: isSelected, isListFocused: isListFocused)
+                }
+            } else {
+                BranchRowView(row: row, depth: depth, now: nil, isSelected: isSelected, isListFocused: isListFocused)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { choose(row) }
+        .accessibilityAction { choose(row) }
     }
 
     /// A row is highlighted while it is the one chosen last and its tip is still the selected commit: several
@@ -102,16 +119,17 @@ struct BranchListSection: View {
     /// or blob has no tip in the graph, so it selects nothing.
     private func choose(_ row: BranchRow) {
         guard let tip = row.tip else { return }
-        chosenID = row.id
+        if let onChoose { return onChoose(row) }
+        ownChosenID = row.id
         actions.showCommit(tip)
     }
 
     private func folderRow(id: String, name: String, count: Int, depth: Int) -> some View {
-        let isOpen = openFolders.contains(id)
+        let isOpen = openFolders.wrappedValue.contains(id)
         return Button {
             // `motion.duration-standard` for disclosures, at once under Reduce Motion (#572).
             withMotion(.standard, reduceMotion: reduceMotion) {
-                if isOpen { openFolders.remove(id) } else { openFolders.insert(id) }
+                if isOpen { openFolders.wrappedValue.remove(id) } else { openFolders.wrappedValue.insert(id) }
             }
         } label: {
             HStack(spacing: Tokens.Spacing.xs) {
@@ -222,5 +240,15 @@ private struct BranchRowMenu: View {
         let url = row.gitHubTarget.flatMap { actions.gitHubBranchURL($0) }
         Button("Open on GitHub") { if let url { actions.openInBrowser(url) } }
             .disabled(url == nil)
+    }
+}
+
+extension BranchNode {
+    /// The id `ForEach` and `scrollTo` share: a branch row with a tip uses its `SidebarItem` scroll id.
+    var sidebarScrollID: String {
+        switch self {
+        case .branch(let row): row.tip.map { SidebarItem.branch(id: row.id, tip: $0).scrollID } ?? id
+        case .folder: id
+        }
     }
 }

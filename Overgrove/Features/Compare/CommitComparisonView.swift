@@ -127,7 +127,12 @@ struct CommitComparisonListView: View {
                 Text("Not in the graph").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
             }
         }
-        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: row.isInGraph)
+        // Starts where the file rows' badges start, and its hover sits where theirs does (#577).
+        .padding(.horizontal, FileRowView.horizontalPadding)
+        .padding(.vertical, Tokens.Spacing.xxs)
+        .hoverHighlight(
+            .rounded(radius: Tokens.Radius.md), isEnabled: row.isInGraph, horizontalInset: FileRowView.selectionInset
+        )
         .contentShape(Rectangle())
         .onTapGesture { if row.isInGraph { onShowCommit(row.oid) } }
         .help(row.subject + "\n" + row.author)
@@ -183,23 +188,10 @@ struct CommitComparisonListView: View {
 
     private func fileRow(_ row: CommitDetailModel.FileRow) -> some View {
         let isSelected = session.selectedFile == row.stat.path
-        return HStack(spacing: Tokens.Spacing.sm) {
-            Text(row.kindLetter).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
-                .frame(width: 14)
-            (Text(row.directory).foregroundStyle(Tokens.Color.textTertiary)
-                + Text(row.fileName).foregroundStyle(Tokens.Color.textPrimary).fontWeight(.medium))
-                .font(Tokens.Font.callout)
-                .lineLimit(1)
-                .truncationMode(.head)
-            Spacer(minLength: Tokens.Spacing.xs)
-            Text(row.lineChange).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
-        }
-        .padding(.vertical, Tokens.Spacing.xxs)
-        .padding(.horizontal, Tokens.Spacing.xs)
-        .background {
-            if isSelected { RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection) }
-        }
-        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable)
+        return FileRowView(
+            badge: .neutral(letter: row.kindLetter), directory: row.directory, fileName: row.fileName,
+            lineCount: row.stat.lineCount, isSelectable: row.isSelectable, isSelected: isSelected
+        )
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelectFile(row.stat) } }
         .accessibilityElement(children: .ignore)

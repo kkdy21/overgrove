@@ -62,10 +62,12 @@ final class ComparisonModelTests: XCTestCase {
             model.files.map(\.fileName), ["middleware.go", "{noop.go → pass.go}", "limiter.go", "logo.png"],
             "sorted by path")
         XCTAssertEqual(model.files.map(\.kindLetter), ["M", "R", "A", "M"])
-        XCTAssertEqual(model.files.map(\.lineChange), ["+30 −4", "+2 −1", "+120", nil])
+        XCTAssertEqual(
+            model.files.map(\.lineCount),
+            [.lines(added: 30, deleted: 4), .lines(added: 2, deleted: 1), .lines(added: 120, deleted: 0), .binary])
         XCTAssertEqual(model.totalLineChange, "+152 −5")
         XCTAssertEqual(model.untracked.map(\.fileName), ["rate-limit.md"])
-        XCTAssertEqual(model.untracked.first?.lineChange, nil, "untracked line counts are not shown")
+        XCTAssertNil(model.untracked.first?.lineCount, "untracked line counts are not shown")
         XCTAssertEqual(model.commits.map(\.shortSHA), ["bbbbbbb", "ccccccc"])
         XCTAssertEqual(model.commits.first?.subject, "feat(ratelimit): add limiter\\u{202E}")
         XCTAssertNil(model.uncommittedFileCount)

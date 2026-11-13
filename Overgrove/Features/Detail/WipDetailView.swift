@@ -249,62 +249,16 @@ struct WipFileRowView: View {
     let isListFocused: Bool
 
     var body: some View {
-        HStack(spacing: Tokens.Spacing.sm) {
-            Text(row.kindLetter)
-                .font(Tokens.Font.monoSmall)
-                .foregroundStyle(row.group.onTint)
-                .frame(width: Self.badgeSize, height: Self.badgeSize)
-                .background(RoundedRectangle(cornerRadius: Tokens.Radius.sm).fill(row.group.tint))
-                .accessibilityHidden(true)
-            (Text(row.directory).foregroundStyle(Tokens.Color.textTertiary)
-                + Text(row.fileName).foregroundStyle(
-                    row.isSelectable ? Tokens.Color.textPrimary : Tokens.Color.textTertiary
-                ).fontWeight(.medium))
-                .font(Tokens.Font.callout)
-                .lineLimit(1)
-                .truncationMode(.head)
-            if row.isSubmodule {
-                Text("submodule")
-                    .font(Tokens.Font.pill)
-                    .foregroundStyle(Tokens.Color.textSecondary)
-                    .padding(.horizontal, Tokens.Spacing.xs)
-                    .controlOutline(Capsule())
-            }
-            Spacer(minLength: 0)
-            switch row.lineCount {
-            case .lines(let added, let deleted):
-                LineCountText(added: added, deleted: deleted).font(Tokens.Font.monoSmall).layoutPriority(1)
-            case .binary:
-                Text("binary").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary).layoutPriority(1)
-            case nil:
-                EmptyView()
-            }
-        }
-        .padding(.horizontal, Tokens.Spacing.sm + Tokens.Spacing.xxs)
-        .frame(height: Tokens.Size.rowFile)
-        .background {
-            if isSelected {
-                let shape = RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous)
-                // `surface.selection-inactive` equals `surface.raised` in light mode, so on a card the inactive
-                // selection also gets an outline to stay visible.
-                shape
-                    .fill(isListFocused ? Tokens.Color.surfaceSelection : Tokens.Color.surfaceSelectionInactive)
-                    .overlay(shape.strokeBorder(isListFocused ? Color.clear : Tokens.Color.borderStrong))
-                    .padding(.horizontal, Tokens.Spacing.xs)
-            }
-        }
-        .hoverHighlight(
-            .rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable,
-            horizontalInset: Tokens.Spacing.xs
+        FileRowView(
+            badge: .status(letter: row.kindLetter, group: row.group), directory: row.directory, fileName: row.fileName,
+            lineCount: row.lineCount, pill: row.isSubmodule ? "submodule" : nil, isSelectable: row.isSelectable,
+            isSelected: isSelected, isListFocused: isListFocused
         )
         .help(row.help)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
         .accessibilityAddTraits(row.isSelectable ? (isSelected ? [.isButton, .isSelected] : .isButton) : [])
     }
-
-    /// screens.md S-02: a 16pt square badge. No size token for it.
-    static let badgeSize: CGFloat = 16
 }
 
 /// `+40 −8` in the diff colours; a zero side is left out (screens.md S-02). The `+`/`−` glyphs carry the meaning,
