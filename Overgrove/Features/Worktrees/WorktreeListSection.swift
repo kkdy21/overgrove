@@ -20,18 +20,31 @@ struct WorktreeListSection: View {
 
     @State private var ownExpanded = true
     private var isExpanded: Binding<Bool> { expansion ?? $ownExpanded }
-    @Namespace private var rotor
 
     var body: some View {
         Section {
-            VStack(alignment: .leading, spacing: 0) {
-                if isExpanded.wrappedValue { content }
-            }
+            // Rows are direct children of the sidebar's lazy stack, as in the other sections: one stack of 80 rows
+            // made the stack guess every unbuilt row that tall, so `⌘↓` scrolled far past the end and left the
+            // sidebar empty (#647).
+            if isExpanded.wrappedValue { content }
         } header: {
             SidebarSectionHeader(
                 title: String(localized: "WORKTREES", comment: "Sidebar section"), count: model?.rows.count,
-                isExpanded: isExpanded)
+                isExpanded: isExpanded
+            )
+            // VoiceOver's rotor jumps between worktrees (interaction.md §6.1); by scroll id, so it reaches rows the
+            // lazy stack has not built.
+            .accessibilityRotor("Worktrees") {
+                ForEach(rotorRows) { row in
+                    AccessibilityRotorEntry(Text(row.title), id: SidebarItem.worktree(row.id).scrollID)
+                }
+            }
         }
+    }
+
+    private var rotorRows: [WorktreeRow] {
+        guard isExpanded.wrappedValue, case .loaded = status else { return [] }
+        return model?.rows ?? []
     }
 
     @ViewBuilder
@@ -59,49 +72,45 @@ struct WorktreeListSection: View {
 
     /// The last session's rows while the first load runs (ADR-0018 §5): an `Updating…` line, then the rows without
     /// selection, menus, or actions.
+    @ViewBuilder
     private func snapshotRows(_ snapshot: WorktreeListModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: Tokens.Spacing.sm) {
-                ProgressView().controlSize(.small)
-                Text("Updating…")
-            }
-            .font(Tokens.Font.callout)
-            .foregroundStyle(Tokens.Color.textSecondary)
-            .padding(.horizontal, SidebarInset.content)
-            .frame(height: Tokens.Size.rowSidebar)
-            .accessibilityElement(children: .combine)
-            ForEach((model ?? snapshot).rows) { row in
-                WorktreeRowView(row: row, isSelected: false, isListFocused: false)
-                    .opacity(Tokens.Opacity.stale)
-            }
+        HStack(spacing: Tokens.Spacing.sm) {
+            ProgressView().controlSize(.small)
+            Text("Updating…")
         }
+        .font(Tokens.Font.callout)
+        .foregroundStyle(Tokens.Color.textSecondary)
+        .padding(.horizontal, SidebarInset.content)
+        .frame(height: Tokens.Size.rowSidebar)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
         .sidebarOpaque()
         .allowsHitTesting(false)
+        ForEach((model ?? snapshot).rows) { row in
+            WorktreeRowView(row: row, isSelected: false, isListFocused: false)
+                .opacity(Tokens.Opacity.stale)
+                .sidebarOpaque()
+                .allowsHitTesting(false)
+        }
     }
 
+    @ViewBuilder
     private func rows(_ model: WorktreeListModel) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if let warning = model.warning {
-                SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
-            }
-            ForEach(model.rows) { row in
-                WorktreeRowView(row: row, isSelected: row.id == selectedPath, isListFocused: isListFocused)
-                    .id(SidebarItem.worktree(row.id).scrollID)
-                    .sidebarRowFrame(SidebarItem.worktree(row.id).scrollID)
-                    .contentShape(Rectangle())
-                    .onTapGesture { onSelect(row.id) }
-                    .contextMenu {
-                        WorktreeRowMenu(
-                            row: row, canCompare: canCompare(row.id), onCompare: { onCompare(row.id) })
-                    }
-                    .accessibilityAction { onSelect(row.id) }
-                    .accessibilityRotorEntry(id: row.id, in: rotor)
-            }
+        if let warning = model.warning {
+            SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
         }
-        .sidebarOpaque()
-        // VoiceOver's rotor jumps between worktrees (interaction.md §6.1).
-        .accessibilityRotor("Worktrees") {
-            ForEach(model.rows) { row in AccessibilityRotorEntry(Text(row.title), id: row.id, in: rotor) }
+        // Identified by the arrow keys' scroll id, like the other sections' rows.
+        ForEach(model.rows, id: \.sidebarScrollID) { row in
+            WorktreeRowView(row: row, isSelected: row.id == selectedPath, isListFocused: isListFocused)
+                .sidebarRowFrame(row.sidebarScrollID)
+                .contentShape(Rectangle())
+                .onTapGesture { onSelect(row.id) }
+                .contextMenu {
+                    WorktreeRowMenu(
+                        row: row, canCompare: canCompare(row.id), onCompare: { onCompare(row.id) })
+                }
+                .accessibilityAction { onSelect(row.id) }
+                .sidebarOpaque()
         }
         // Keyboard focus and `↑`/`↓` belong to the whole sidebar (`SidebarPanel`, #592).
     }
@@ -119,6 +128,11 @@ extension View {
 /// One start line for every sidebar header, notice, and row (#573). A row with a selection background insets the
 /// background by `row` and its content by `Tokens.Spacing.sm` more; everything else starts at `content` directly, so
 /// the WORKTREES tile, a LOCAL branch icon, and a TAGS tag icon line up.
+extension WorktreeRow {
+    /// The row's id in the sidebar's lazy stack and for the arrow keys (`SidebarItem.scrollID`).
+    var sidebarScrollID: String { SidebarItem.worktree(id).scrollID }
+}
+
 enum SidebarInset {
     static let row = Tokens.Spacing.xs + Tokens.Spacing.xxs
     static let content = row + Tokens.Spacing.sm

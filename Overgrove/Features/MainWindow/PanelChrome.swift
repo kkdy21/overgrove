@@ -506,20 +506,30 @@ struct DetailPanel: View {
 
     /// The header follows the content's order (#578): a comparison names what it compares instead of the WIP or
     /// commit behind it.
-    private var header: DetailHeader {
+    /// `commit` is the commit the panel shows, which can lag the selection for up to 150 ms (#637, #649).
+    private func header(commit: ShownCommit?) -> DetailHeader {
         DetailHeader(
             DetailHeader.Subject(
                 comparisonBase: comparisonList?.model.baseName,
                 commitComparisonTitle: commitComparisonList?.model.title,
-                commit: commitModel.map { ($0.shortSHA, $0.author, commitLane) },
+                commit: commit.map { ($0.model.shortSHA, $0.model.author, $0.lane) },
                 issueNumber: issueModel?.number, stashRef: stashModel?.refName,
                 worktreeTitle: wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title,
                 worktreeLane: worktreeLane))
     }
 
     var body: some View {
-        let header = header
-        PanelSection {
+        // Stepping through commits keeps the last one for up to 150 ms instead of flashing a loading state (#637).
+        // The header and the body read the same shown commit and lane (#649).
+        LaggingCommitDetail(selected: commitModel.map { ShownCommit(model: $0, lane: commitLane) }) {
+            commit, isSelected in
+            panel(commit: commit, isSelected: isSelected)
+        }
+    }
+
+    private func panel(commit: ShownCommit?, isSelected: Bool) -> some View {
+        let header = header(commit: commit)
+        return PanelSection {
             DetailHeaderMark(mark: header.mark)
             // The title keeps its room before the segment does and is cut at its end (#578).
             Text(header.title)
@@ -540,7 +550,7 @@ struct DetailPanel: View {
                 .controlSize(width < Self.compactWidth ? .small : .regular)
             }
         } content: {
-            detailContent.fadeIn(on: content)
+            detailContent(commit: commit, isSelected: isSelected).fadeIn(on: content)
         }
         .onGeometryChange(for: CGFloat.self) {
             $0.size.width
@@ -567,20 +577,20 @@ struct DetailPanel: View {
     }
 
     @ViewBuilder
-    private var detailContent: some View {
+    private func detailContent(commit: ShownCommit?, isSelected: Bool) -> some View {
         Group {
             if let comparisonList {
                 comparisonList
             } else if let commitComparisonList {
                 commitComparisonList
-            } else if let commitModel {
-                // Stepping through commits keeps the last one for up to 150 ms instead of flashing a loading state (#637).
-                LaggingCommitDetail(model: commitModel) { shown in
-                    CommitDetailView(
-                        model: shown, laneIndex: commitLane, selectedFile: selectedCommitFile,
-                        onSelectFile: onSelectCommitFile, onSelectParent: onSelectParent,
-                        onShowAllFiles: onShowAllCommitFiles)
-                }
+            } else if let commit {
+                CommitDetailView(
+                    model: commit.model, laneIndex: commit.lane, selectedFile: selectedCommitFile,
+                    onSelectFile: onSelectCommitFile, onSelectParent: onSelectParent,
+                    onShowAllFiles: onShowAllCommitFiles
+                )
+                // The commit kept for a moment is not the selected one: its files and parents do not take clicks.
+                .allowsHitTesting(isSelected)
             } else if let issueModel {
                 IssueDetailView(
                     model: issueModel, onSelectWorktree: onSelectLinkedWorktree,
