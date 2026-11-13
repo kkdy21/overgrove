@@ -41,6 +41,15 @@ struct WorktreeDetailView: View {
     }
 }
 
+extension View {
+    /// Draws this item of a `DetailCard` on the card's colour, over the half gaps around it (#638). Items below a
+    /// disclosure in the card come later in its stack, so they are drawn over the rows it inserts: opaque, they slide
+    /// down over them and uncover them instead of showing both while the card is still growing.
+    func cardOpaque() -> some View {
+        background(Tokens.Color.surfaceRaised.padding(.vertical, -Tokens.Spacing.sm / 2))
+    }
+}
+
 /// A card on the detail panel (art-direction.md §7): `surface.raised`, radius 8, 1px `border.separator`.
 struct DetailCard<Content: View>: View {
     @ViewBuilder let content: Content
@@ -189,10 +198,13 @@ private struct SecurityCard: View {
                         if expanded.contains(row.id) { expanded.remove(row.id) } else { expanded.insert(row.id) }
                     }
                 }
+                .cardOpaque()
             }
             if !model.others.isEmpty {
-                Divider()
+                Divider().cardOpaque()
                 Text("Other repository settings").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .cardOpaque()
                 ForEach(model.others) { finding in
                     HStack(spacing: Tokens.Spacing.xs) {
                         Text(finding.key).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textPrimary)
@@ -204,12 +216,15 @@ private struct SecurityCard: View {
                         finding.threat.map { String(localized: "Threat \($0) in docs/design/security-review.md") } ?? ""
                     )
                     .accessibilityElement(children: .combine)
+                    .cardOpaque()
                 }
             }
             Text("Values are never shown. Each setting is overridden where git would use it.")
                 .font(Tokens.Font.caption)
                 .foregroundStyle(Tokens.Color.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .cardOpaque()
         }
     }
 

@@ -27,6 +27,8 @@ struct StashListSection: View {
                         .foregroundStyle(Tokens.Color.textTertiary)
                         .padding(.horizontal, SidebarInset.content)
                         .frame(height: Tokens.Size.rowSidebar)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .sidebarOpaque()
                 } else {
                     if isPartial {
                         SidebarNotice(
@@ -39,6 +41,7 @@ struct StashListSection: View {
                             .onTapGesture { onSelect(row.id) }
                             .accessibilityAction { onSelect(row.id) }
                             .contextMenu { StashRowMenu(row: row, onShowChanges: { onSelect(row.id) }) }
+                            .sidebarOpaque()
                     }
                 }
             }

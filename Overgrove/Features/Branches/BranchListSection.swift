@@ -69,13 +69,15 @@ struct BranchListSection: View {
                     .foregroundStyle(Tokens.Color.textTertiary)
                     .padding(.horizontal, SidebarInset.content)
                     .frame(height: Tokens.Size.rowSidebar)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .sidebarOpaque()
                 }
                 // Identified by the arrow keys' scroll id (folders flattened into the visible rows).
                 ForEach(visibleRows, id: \.node.sidebarScrollID) { item in
                     switch item.node {
-                    case .branch(let row): branchRow(row, depth: item.depth)
+                    case .branch(let row): branchRow(row, depth: item.depth).sidebarOpaque()
                     case .folder(let id, let name, let count, _):
-                        folderRow(id: id, name: name, count: count, depth: item.depth)
+                        folderRow(id: id, name: name, count: count, depth: item.depth).sidebarOpaque()
                     }
                 }
             }
