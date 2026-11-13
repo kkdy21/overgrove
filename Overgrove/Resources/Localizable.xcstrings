@@ -6803,6 +6803,16 @@
         }
       }
     },
+    "Use the copy button to copy this command." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 명령은 복사 버튼으로 복사합니다."
+          }
+        }
+      }
+    },
     "Values are never shown. Each setting is overridden where git would use it." : {
       "localizations" : {
         "ko" : {

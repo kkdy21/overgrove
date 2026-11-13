@@ -36,6 +36,31 @@ enum FileHistoryText {
         String(localized: "History of \(PathValidator.displayable(path.display))")
     }
 
+    /// The title cut where the header lays it out (#614): the words around the path (`History of `, or `의 이력` after
+    /// it in Korean) never shorten, the directory gives way first from its start, and the file name stays whole as
+    /// long as it fits.
+    struct TitleParts: Equatable {
+        let prefix: String
+        let directory: String
+        let name: String
+        let suffix: String
+    }
+
+    static let pathMarker = "\u{FFFC}"
+
+    /// - Parameter format: The localized title with `pathMarker` where the path goes (tests pass other languages').
+    static func titleParts(_ path: GitPath, format: String = String(localized: "History of \(pathMarker)"))
+        -> TitleParts
+    {
+        let around = format.components(separatedBy: pathMarker)
+        let shown = PathValidator.displayable(path.display)
+        let slash = shown.lastIndex(of: "/")
+        return TitleParts(
+            prefix: around.first ?? "", directory: slash.map { String(shown[...$0]) } ?? "",
+            name: slash.map { String(shown[shown.index(after: $0)...]) } ?? shown,
+            suffix: around.count > 1 ? around[1] : "")
+    }
+
     static var empty: String { String(localized: "This file has no history yet") }
 
     /// Shown instead of the beginning when the output limit cut the history.

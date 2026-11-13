@@ -206,6 +206,21 @@ final class FileHistoryModelTests: XCTestCase {
         XCTAssertEqual(FileHistoryRow(entry, now: now).stat, "")
     }
 
+    /// #614: the words around the path never shorten, wherever the language puts them, and the path splits at its last
+    /// `/` so only the directory gives way.
+    func testTitlePartsKeepTheWordsAndTheFileName() {
+        let path = GitPath("internal/http/middleware.go")
+        XCTAssertEqual(
+            FileHistoryText.titleParts(path),
+            .init(prefix: "History of ", directory: "internal/http/", name: "middleware.go", suffix: ""))
+        XCTAssertEqual(
+            FileHistoryText.titleParts(path, format: "\(FileHistoryText.pathMarker)의 이력"),
+            .init(prefix: "", directory: "internal/http/", name: "middleware.go", suffix: "의 이력"), "Korean")
+        XCTAssertEqual(FileHistoryText.titleParts(GitPath("README.md")).directory, "")
+        XCTAssertEqual(
+            FileHistoryText.titleParts(GitPath("a/\u{2028}b.swift")).name, "\\u{2028}b.swift", "escaped like the title")
+    }
+
     func testTitleAndBeginningOfHistory() {
         XCTAssertEqual(FileHistoryText.title(GitPath("a/\u{2028}b.swift")), "History of a/\\u{2028}b.swift")
         let entries = [FileHistoryStoreTests.entry(0), FileHistoryStoreTests.entry(1, path: "Parser.swift")]

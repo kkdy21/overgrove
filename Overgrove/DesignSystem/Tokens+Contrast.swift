@@ -53,7 +53,7 @@ extension View {
     /// The outline of a chip or control inside a panel: `normal` at 1pt (none when `nil`), and `increased`
     /// (`border.strong` by default) at 1.5pt under Increase Contrast.
     func controlOutline(
-        _ shape: some InsettableShape, normal: Color? = Tokens.Color.borderSeparator,
+        _ shape: some InsettableShape, normal: Color? = Tokens.Color.borderChip,
         increased: Color = Tokens.Color.borderStrong
     ) -> some View {
         modifier(ControlOutlineModifier(shape: shape, normal: normal, increased: increased))

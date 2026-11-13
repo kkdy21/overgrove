@@ -80,15 +80,21 @@ private struct InfoCard: View {
                                     .foregroundStyle(Tokens.Color.statusPrunable)
                                     .accessibilityHidden(true)
                             }
-                            Text(row.value)
-                                .font(row.kind == .head ? Tokens.Font.monoSmall : Tokens.Font.callout)
-                                .foregroundStyle(
-                                    row.isDimmed
-                                        ? Tokens.Color.textTertiary
-                                        : (row.isWarning ? Tokens.Color.statusPrunable : Tokens.Color.textPrimary)
-                                )
-                                .lineLimit(2)
-                                .truncationMode(.middle)
+                            Group {
+                                if let items = row.items {
+                                    // Folds between items, never inside one, and no line starts or ends with `·` (#612).
+                                    JoinedText(items: items, separator: row.itemSeparator)
+                                } else {
+                                    Text(row.value).lineLimit(2).truncationMode(.middle)
+                                }
+                            }
+                            .font(row.kind == .head ? Tokens.Font.monoSmall : Tokens.Font.callout)
+                            .foregroundStyle(
+                                row.isDimmed
+                                    ? Tokens.Color.textTertiary
+                                    : (row.isWarning ? Tokens.Color.statusPrunable : Tokens.Color.textPrimary)
+                            )
+                            .accessibilityLabel(row.value)
                             if row.kind == .path, let path = model.copyablePath {
                                 Button {
                                     // Copying to the clipboard is not a repository write (ADR-0011).
@@ -342,6 +348,9 @@ struct DetailSegmentPicker: View {
     let isWorktree: Bool
     let onChanges: () -> Void
     let onWorktree: () -> Void
+    /// Icons only (`list.bullet` / `info.circle`), for a detail panel narrower than `DetailPanel.compactWidth`, so the
+    /// header title keeps its room (#618). VoiceOver and the tooltips still say `Changes` and `Worktree`.
+    var iconsOnly = false
 
     var body: some View {
         Picker(
@@ -350,14 +359,23 @@ struct DetailSegmentPicker: View {
                 get: { isWorktree },
                 set: { $0 ? onWorktree() : onChanges() })
         ) {
-            Text("Changes").tag(false)
-            Text("Worktree").tag(true)
+            segment("Changes", symbol: "list.bullet").tag(false)
+            segment("Worktree", symbol: "info.circle").tag(true)
         }
         .pickerStyle(.segmented)
         .labelsHidden()
         .fixedSize()
         // The panel theme's outline under Increase Contrast (#304); AppKit draws the rest of the control.
         .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.sm), normal: nil)
+    }
+
+    @ViewBuilder
+    private func segment(_ title: LocalizedStringKey, symbol: String) -> some View {
+        if iconsOnly {
+            Image(systemName: symbol).accessibilityLabel(Text(title)).help(Text(title))
+        } else {
+            Text(title)
+        }
     }
 }
 

@@ -26,17 +26,34 @@ struct FileHistoryView: View {
         .background(Tokens.Color.surfaceCanvas)
     }
 
+    /// `History of internal/http/middleware.go`: only the directory shortens, from its start (#614, screens.md S-02).
+    private func title(_ parts: FileHistoryText.TitleParts) -> some View {
+        HStack(spacing: 0) {
+            Text(parts.prefix).fixedSize()
+            if !parts.directory.isEmpty {
+                Text(parts.directory).truncationMode(.head).layoutPriority(0)
+            }
+            Text(parts.name).truncationMode(.middle).layoutPriority(1)
+            Text(parts.suffix).fixedSize()
+        }
+        .font(Tokens.Font.headline)
+        .foregroundStyle(Tokens.Color.textPrimary)
+        .lineLimit(1)
+    }
+
     private var header: some View {
         PanelHeader {
             Button(action: onBack) { Label("Graph", systemImage: "chevron.left") }
                 .buttonStyle(.hover)
                 .keyboardShortcut(.cancelAction)
                 .help("Back to the graph (⎋)")
-            Text(store.target.map { FileHistoryText.title($0.path) } ?? "")
-                .font(Tokens.Font.headline)
-                .foregroundStyle(Tokens.Color.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.head)
+            if let target = store.target {
+                title(FileHistoryText.titleParts(target.path))
+                    .help(FileHistoryText.title(target.path))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(FileHistoryText.title(target.path))
+                    .accessibilityAddTraits(.isHeader)
+            }
             Spacer(minLength: Tokens.Spacing.sm)
             Toggle(
                 "Follow renames",

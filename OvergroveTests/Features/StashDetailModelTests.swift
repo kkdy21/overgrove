@@ -18,10 +18,33 @@ final class StashDetailModelTests: XCTestCase {
             branch: branch, message: message, date: Date(timeIntervalSince1970: 1_793_853_652), parents: parents)
     }
 
-    static func file(_ path: String, _ added: Int?, _ deleted: Int?, untracked: Bool = false) -> FileStat {
+    static func file(
+        _ path: String, _ added: Int?, _ deleted: Int?, untracked: Bool = false,
+        status: FileChange.Status? = nil, from original: String? = nil
+    ) -> FileStat {
         FileStat(
-            path: GitPath(path), originalPath: nil, status: nil, added: added, deleted: deleted,
-            isFromUntracked: untracked)
+            path: GitPath(path), originalPath: original.map { GitPath($0) },
+            status: status ?? (untracked ? .added : nil),
+            added: added, deleted: deleted, isFromUntracked: untracked)
+    }
+
+    /// #602: each row carries its change kind for the badge, as S-03 does; a stash file without one has none.
+    func testRowsCarryTheirChangeKind() {
+        let stash = Self.stash(parents: [Self.base, Self.index, Self.untracked])
+        let detail = StashDetail(
+            stash: stash,
+            files: [
+                Self.file("a.swift", 1, 0, status: .modified),
+                Self.file("new.swift", 2, 0, status: .renamed(score: 90), from: "old.swift"),
+                Self.file("gone.swift", 0, 3, status: .deleted),
+                Self.file("u.txt", 1, 0, untracked: true),
+                Self.file("unknown.txt", 1, 0),
+            ],
+            isPartial: false)
+        let rows = StashDetailModel(stash: stash, state: .loaded(detail)).files ?? []
+        XCTAssertEqual(rows.map(\.kindLetter), ["M", "R", "D", "A", nil])
+        XCTAssertEqual(rows.map(\.isFromUntracked), [false, false, false, true, false])
+        XCTAssertTrue(rows[1].accessibilityLabel.contains("renamed to"), rows[1].accessibilityLabel)
     }
 
     func testHeaderAndInfo() {

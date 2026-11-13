@@ -30,6 +30,8 @@ enum StashDetailState: Equatable {
 struct StashDetailModel: Equatable {
     struct FileRow: Equatable, Identifiable {
         let file: FileStat
+        /// `M`, `A`, `D`, `R`…: the S-04 badge, as in S-03 (#602). `nil` only if git gave no kind.
+        let kindLetter: String?
         let directory: String
         let fileName: String
         /// From the stash's untracked-files commit (shown with a `?` badge and a legend line with the same badge).
@@ -56,6 +58,8 @@ struct StashDetailModel: Equatable {
     let branch: String?
     /// `index · working tree · untracked`.
     let includes: String
+    /// The parts of `includes`, which fold between them in a narrow panel (#612).
+    let includesItems: [String]
     let files: [FileRow]?
     let filesUnavailable: String?
     let isFileListPartial: Bool
@@ -71,7 +75,8 @@ struct StashDetailModel: Equatable {
         if stash.includesIndex { parts.append(String(localized: "index", comment: "Stash includes")) }
         parts.append(String(localized: "working tree", comment: "Stash includes"))
         if stash.includesUntracked { parts.append(String(localized: "untracked", comment: "Stash includes")) }
-        includes = parts.joined(separator: " · ")
+        includesItems = parts
+        includes = JoinedText.joined(parts)
         switch state {
         case .loading:
             files = nil
@@ -105,7 +110,7 @@ struct StashDetailModel: Equatable {
         let change = FileChange(path: file.path, originalPath: file.originalPath, status: file.status ?? .modified)
         let (directory, fileName) = WipDetailModel.displayParts(change)
         return FileRow(
-            file: file, directory: directory, fileName: fileName,
+            file: file, kindLetter: file.status.map { String($0.code) }, directory: directory, fileName: fileName,
             isFromUntracked: file.isFromUntracked,
             isSelectable: file.path.isRepresentable && (file.originalPath?.isRepresentable ?? true))
     }

@@ -48,6 +48,11 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- In the sidebar LOCAL and REMOTE trees, branch and folder rows of one depth line up their icons and names.
+- Chip outlines (the main worktree tag, an issue number not in the list) stay visible on a selected row in dark mode,
+  and the pull request pill leaves room between its symbol and its rounded edge.
+- Narrow detail panels fold joined values between items: the upstream's counts stay together and no line starts or
+  ends with `·`. The issue panel's setup commands wrap instead of being cut, and add no hyphens of their own.
 - The status bar no longer leaves a gap after a short ahead/behind or fetch field; the fields still shorten in a
   narrow window.
 - The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every

@@ -32,12 +32,15 @@ final class HistoryIntegrationTests: XCTestCase {
                 Summary(path: "branches/feat-ahead.txt", added: 1, deleted: 0, isFromUntracked: false),
                 Summary(path: "stash-untracked.txt", added: 1, deleted: 0, isFromUntracked: true),
             ])
+        // #602: real `stash show --raw --numstat` gives each file its kind (the untracked part reads as added).
+        XCTAssertEqual(files.map(\.status), [.modified, .added])
 
         // INT-06: stash@{1} changes one tracked file.
         let tracked = try NumstatParser.parseStashFiles(try await context.run(.stashFiles(stashes[1].oid))).files
         XCTAssertEqual(
             tracked.map { Summary($0) },
             [Summary(path: "src/stash-target.txt", added: 1, deleted: 0, isFromUntracked: false)])
+        XCTAssertEqual(tracked.map(\.status), [.modified])
     }
 
     /// INT-07, INT-08, INT-09: the first graph page excludes stash commits; commit details show binary and renamed
