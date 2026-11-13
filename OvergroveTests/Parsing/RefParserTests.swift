@@ -403,4 +403,22 @@ final class RefParserTests: XCTestCase {
             XCTAssertEqual((error as? ParseError)?.reason, "invalid object name")
         }
     }
+
+    /// PAR-REF-08 (#559): a branch keeps `%(objecttype)` too. A local or remote branch a hand-edited packed-refs
+    /// points at a tree, blob, or tag object has no commit; its target stays the object git listed.
+    func testPARREF08_BranchObjectTypes() throws {
+        let tree = String(repeating: "cd", count: 20)
+        let listing = try parse(
+            record("refs/heads/tree", tree, type: "tree"),
+            record("refs/remotes/origin/blob", tree, type: "blob"),
+            record("refs/heads/tagged", oid, peeled: tree),
+            record("refs/heads/main", tree))
+        let types = Dictionary(uniqueKeysWithValues: listing.branches.map { ($0.shortName, $0.objectType) })
+        XCTAssertEqual(types, ["tree": .tree, "origin/blob": .blob, "tagged": .tag, "main": .commit])
+        for branch in listing.branches where branch.shortName != "main" {
+            XCTAssertNil(branch.commit, branch.shortName)
+        }
+        XCTAssertEqual(listing.branches.first { $0.shortName == "tagged" }?.target, ObjectID(oid))
+        XCTAssertEqual(listing.branches.first { $0.shortName == "main" }?.commit, ObjectID(tree))
+    }
 }

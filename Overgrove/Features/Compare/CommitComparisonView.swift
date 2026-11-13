@@ -123,14 +123,17 @@ struct CommitComparisonListView: View {
                 .lineLimit(1).truncationMode(.tail)
             if row.isAIAssisted { AIBadge() }
             Spacer(minLength: 0)
+            if !row.isInGraph {
+                Text("Not in the graph").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
+            }
         }
         .contentShape(Rectangle())
-        .onTapGesture { onShowCommit(row.oid) }
+        .onTapGesture { if row.isInGraph { onShowCommit(row.oid) } }
         .help(row.subject + "\n" + row.author)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityAction { onShowCommit(row.oid) }
+        .accessibilityAddTraits(row.isInGraph ? .isButton : [])
+        .accessibilityAction { if row.isInGraph { onShowCommit(row.oid) } }
     }
 
     /// What the target has that the base does not, newest first; a row opens that commit's S-03 like BASE/TARGET.

@@ -108,7 +108,8 @@ extension RepositoryService {
         guard let base = base ?? WorktreeComparison.defaultBase(in: overview.refs) else {
             return .failure(.noBaseBranch)
         }
-        guard let tip = overview.refs.branches.first(where: { $0.fullName == base.value })?.target else {
+        // A branch of a tree or blob is no base (#559).
+        guard let tip = overview.refs.branches.first(where: { $0.fullName == base.value })?.commit else {
             return .failure(.baseNotFound(base))
         }
         return .success(

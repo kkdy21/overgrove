@@ -117,6 +117,65 @@ final class AppStateCommitComparisonTests: XCTestCase {
         XCTAssertNil(state.commitComparison, "S-11 and S-12 are never open together")
     }
 
+    /// #428: opening keeps the two commits as the graph had them, ⇄ swaps them with the ends, and a row the graph no
+    /// longer has leaves S-12 open instead of closing it onto nothing.
+    func testOpeningKeepsTheCommitsAndARowOutsideTheGraphKeepsItOpen() async throws {
+        let state = try await loadedState()
+        state.selectCommit(base)
+        state.showCommitComparison(with: target)
+        XCTAssertEqual(state.commitComparison?.baseNode?.oid, base)
+        XCTAssertEqual(state.commitComparison?.targetNode?.subject, "feat(ratelimit): add sliding window limiter")
+        state.swapCommitComparison()
+        XCTAssertEqual(state.commitComparison?.baseNode?.oid, target)
+        XCTAssertEqual(state.commitComparison?.targetNode?.oid, base)
+
+        let gone = ObjectID(String(repeating: "9", count: 40))!
+        state.showCommitFromComparison(gone)
+        XCTAssertNotNil(state.commitComparison, "nothing to open: S-12 stays")
+        XCTAssertEqual(state.selection, .commit(base))
+    }
+
+    /// #428 (review): S-12 on two commits past the first page; the refs move and the refresh reads only the first page
+    /// again. The commits are still in the history, so the rows are not marked "Not in the graph" and keep their texts.
+    func testDeepCommitsAreNotMarkedAfterARefreshReadsTheFirstPageAgain() async throws {
+        let graphLoader = FakeGraphLoader(count: 1_500)
+        let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
+            loader: StubRepositoryLoader(result: .success(WorktreeListing.mockup)), graphLoader: graphLoader,
+            commitLoader: StubCommitLoader())
+        state.open(
+            RepositoryContext(
+                repository: Repository(
+                    rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false),
+                owner: nil))
+        state.reload()
+        await state.loadTask?.value
+        let deadline = ContinuousClock.now + .seconds(5)
+        func wait(_ condition: () -> Bool) async throws {
+            while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+            XCTAssertTrue(condition())
+        }
+        try await wait { state.graph.status == .loaded }
+        state.graph.rowAppeared(450)
+        try await wait { state.graph.rows.count == 1_000 }
+        let (deepBase, deepTarget) = (FakeGraphLoader.oid(700), FakeGraphLoader.oid(600))
+        state.selectCommit(deepBase)
+        state.showCommitComparison(with: deepTarget)
+        XCTAssertNotNil(state.commitComparison)
+
+        graphLoader.moveRefs()
+        state.graph.refresh(focus: nil)
+        try await wait { state.graph.status == .loaded && state.graph.rows.count == 500 }
+        XCTAssertNil(state.graph.index(of: deepBase), "precondition: only the first page is loaded again")
+        XCTAssertFalse(state.graph.hasEveryCommit)
+        let model = try XCTUnwrap(state.commitComparisonModel)
+        for row in [model.base, model.target] {
+            XCTAssertTrue(row.isInGraph, row.shortSHA)
+            XCTAssertEqual(row.subject, row.oid == deepBase ? "commit 700" : "commit 600")
+        }
+    }
+
     /// #414: choosing the already focused worktree closes S-12 too, by every route that shows its changes or info:
     /// the sidebar row, `⌘↑`, `⌘I`, and the row menu's Show Changes / Show Info.
     func testChoosingTheFocusedWorktreeClosesIt() async throws {
@@ -258,6 +317,36 @@ final class CommitComparisonModelTests: XCTestCase {
 
         session.showsAllFiles = true
         XCTAssertEqual(CommitComparisonModel(session: session) { _ in nil }.rows.count, files.count)
+    }
+
+    /// #428: BASE and TARGET dropped from the graph after S-12 opened keep what they showed then, marked as not in the
+    /// graph; a snapshot of another commit is never used.
+    func testRowsDroppedFromTheGraphKeepTheirOpeningTexts() {
+        func node(_ character: Character, _ subject: String) -> CommitNode {
+            CommitNode(
+                oid: oid(character), parents: [], authorName: "Ann", authorEmail: "a@example.com",
+                authorDate: Date(timeIntervalSince1970: 0), subject: subject)
+        }
+        let session = CommitComparisonSession(
+            base: oid("a"), target: oid("b"), baseNode: node("a", "base subject"), targetNode: node("c", "other"))
+        // The graph has every commit and lacks it: marked.
+        let gone = CommitComparisonModel(session: session, graphHasEveryCommit: true) { _ in nil }
+        XCTAssertEqual(gone.base.subject, "base subject")
+        XCTAssertEqual(gone.base.author, "Ann")
+        XCTAssertFalse(gone.base.isInGraph)
+        XCTAssertTrue(gone.base.accessibilityLabel.hasSuffix(", Not in the graph"), gone.base.accessibilityLabel)
+        XCTAssertEqual(gone.target.subject, "", "a snapshot of another commit is not used")
+        XCTAssertFalse(gone.target.isInGraph)
+
+        // Not every page is loaded: the commit may be on one not read yet, so it is not marked.
+        let unread = CommitComparisonModel(session: session) { _ in nil }
+        XCTAssertEqual(unread.base.subject, "base subject")
+        XCTAssertTrue(unread.base.isInGraph)
+        XCTAssertFalse(unread.base.accessibilityLabel.contains("Not in the graph"))
+
+        let loaded = CommitComparisonModel(session: session) { $0 == oid("a") ? node("a", "rewritten") : nil }
+        XCTAssertEqual(loaded.base.subject, "rewritten", "the graph's row wins while it is loaded")
+        XCTAssertTrue(loaded.base.isInGraph)
     }
 
     func testLoadingText() {

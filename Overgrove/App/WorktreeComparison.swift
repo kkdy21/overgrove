@@ -30,9 +30,10 @@ struct WorktreeComparison: Sendable, Equatable {
     let counts: RevListParser.Counts?
 
     /// The base to compare with when the user has not picked one: the target of `refs/remotes/origin/HEAD`, else
-    /// `refs/heads/main`, else `refs/heads/master`. Only branches that exist in `refs` count.
+    /// `refs/heads/main`, else `refs/heads/master`. Only branches that exist in `refs` and point to a commit count
+    /// (#559).
     static func defaultBase(in refs: RefParser.Listing) -> FullRefName? {
-        let names = Set(refs.branches.map(\.fullName))
+        let names = Set(refs.branches.filter { $0.commit != nil }.map(\.fullName))
         if let target = refs.branches.first(where: { $0.fullName == "refs/remotes/origin/HEAD" })?.symbolicTarget,
             names.contains(target), let base = FullRefName(target)
         {

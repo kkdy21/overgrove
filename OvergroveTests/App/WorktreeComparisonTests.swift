@@ -288,4 +288,17 @@ final class WorktreeComparisonTests: XCTestCase {
             WorktreeComparison.defaultBase(in: listing([hostile, branch(hostile.symbolicTarget!)]))?.value, nil,
             "a target that FullRefName rejects is never used")
     }
+
+    /// #559: a branch of a tree or blob is no base: the default skips it.
+    func testDefaultBaseSkipsABranchOfSomethingElseThanACommit() {
+        var main = branch("refs/heads/main")
+        main.objectType = .tree
+        XCTAssertEqual(
+            WorktreeComparison.defaultBase(in: listing([main, branch("refs/heads/master")]))?.value, "refs/heads/master"
+        )
+        var trunk = branch("refs/remotes/origin/trunk")
+        trunk.objectType = .blob
+        let originHead = branch("refs/remotes/origin/HEAD", symbolicTarget: "refs/remotes/origin/trunk")
+        XCTAssertNil(WorktreeComparison.defaultBase(in: listing([originHead, trunk, main])))
+    }
 }

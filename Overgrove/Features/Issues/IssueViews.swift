@@ -343,7 +343,7 @@ struct IssueDetailView: View {
             }
             ForEach(model.linkedBranches, id: \.fullName) { link in
                 linkRow(symbol: link.isRemote ? "network" : "arrow.triangle.branch", text: link.title, note: nil) {
-                    onSelectCommit(link.target)
+                    if let target = link.target { onSelectCommit(target) }
                 }
             }
             if model.hiddenLinkCount > 0 {

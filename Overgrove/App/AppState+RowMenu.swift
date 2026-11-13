@@ -229,7 +229,8 @@ extension AppState {
 
     /// Show Linked Branch on an issue row: the first linked local branch's tip, else a remote one.
     func linkedBranchTip(of number: Int) -> ObjectID? {
-        let branches = issueLinks.links(number).branches
+        // Only branches of a commit (#559).
+        let branches = issueLinks.links(number).branches.filter { $0.target != nil }
         return (branches.first { !$0.isRemote } ?? branches.first)?.target
     }
 

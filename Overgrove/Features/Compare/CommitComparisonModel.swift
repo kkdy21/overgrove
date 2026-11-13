@@ -18,6 +18,10 @@ struct CommitComparisonSession: Equatable {
     var base: ObjectID
     /// The row whose menu opened it.
     var target: ObjectID
+    /// The two commits as the graph had them when S-12 opened (#428): a rebase or reset may drop them from the graph
+    /// while S-12 is open, and the rows still name them.
+    var baseNode: CommitNode?
+    var targetNode: CommitNode?
     var files: Files = .loading
     /// The commits between them (#389): what `target` has that `base` does not.
     var commits: Commits = .loading
@@ -35,9 +39,14 @@ struct CommitComparisonModel: Equatable {
         let subject: String
         let author: String
         let isAIAssisted: Bool
+        /// `false` only when BASE or TARGET is missing from a graph that has every commit loaded (#428): the row says
+        /// "Not in the graph". A commit on a page not read yet (a refresh reads the first page again) is not marked.
+        /// Choosing a commit the graph has not loaded does nothing either way. Always `true` for COMMITS rows.
+        let isInGraph: Bool
         var accessibilityLabel: String {
             String(localized: "Commit \(shortSHA), \(subject), by \(author)")
                 + (isAIAssisted ? ", " + String(localized: "AI-assisted") : "")
+                + (isInGraph ? "" : ", " + String(localized: "Not in the graph"))
         }
     }
 
@@ -68,16 +77,23 @@ struct CommitComparisonModel: Equatable {
     /// Instead of the rows while they load, when they failed, or when there are none.
     let commitsNotice: String?
 
-    init(session: CommitComparisonSession, commit: (ObjectID) -> CommitNode?, rule: AIAgentRule = .builtIn) {
-        func row(_ oid: ObjectID) -> CommitRow {
-            let node = commit(oid)
+    /// - Parameter graphHasEveryCommit: `GraphStore.hasEveryCommit`; without it no row is marked "Not in the graph".
+    init(
+        session: CommitComparisonSession, graphHasEveryCommit: Bool = false, commit: (ObjectID) -> CommitNode?,
+        rule: AIAgentRule = .builtIn
+    ) {
+        func row(_ oid: ObjectID, opened: CommitNode?) -> CommitRow {
+            let loaded = commit(oid)
+            // Out of the graph since S-12 opened: what it showed then (#428).
+            let node = loaded ?? (opened?.oid == oid ? opened : nil)
             return CommitRow(
                 oid: oid, shortSHA: oid.short, subject: PathValidator.displayable(node?.subject ?? ""),
                 author: PathValidator.displayable(node?.authorName ?? ""),
-                isAIAssisted: node?.coAuthors.contains(where: rule.isAgent) ?? false)
+                isAIAssisted: node?.coAuthors.contains(where: rule.isAgent) ?? false,
+                isInGraph: loaded != nil || !graphHasEveryCommit)
         }
-        base = row(session.base)
-        target = row(session.target)
+        base = row(session.base, opened: session.baseNode)
+        target = row(session.target, opened: session.targetNode)
         title = "\(base.shortSHA) → \(target.shortSHA)"
         switch session.commits {
         case .loading:
@@ -94,7 +110,9 @@ struct CommitComparisonModel: Equatable {
                 CommitRow(
                     oid: node.oid, shortSHA: node.oid.short, subject: PathValidator.displayable(node.subject),
                     author: PathValidator.displayable(node.authorName),
-                    isAIAssisted: node.coAuthors.contains(where: rule.isAgent))
+                    // Not marked: a commit between may only be on a graph page not loaded yet. Choosing one the graph
+                    // lacks does nothing (`AppState.showCommitFromComparison`).
+                    isAIAssisted: node.coAuthors.contains(where: rule.isAgent), isInGraph: true)
             }
             hasMoreCommits = page.isPartial
             // The target may be behind the base (picked in either order); ⇄ shows the other direction.
