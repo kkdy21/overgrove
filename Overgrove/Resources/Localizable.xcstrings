@@ -4524,6 +4524,16 @@
         }
       }
     },
+    "Points to a tag, not a commit (%@)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋이 아닌 태그를 가리킴 (%@)"
+          }
+        }
+      }
+    },
     "Points to a tree, not a commit (%@)" : {
       "localizations" : {
         "ko" : {

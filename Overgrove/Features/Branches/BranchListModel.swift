@@ -207,7 +207,11 @@ struct BranchListModel: Equatable {
             if branch.kind == .local { help.append(Text.noUpstream) }
         }
         if isCheckedOut { help.append(Text.checkedOutInWorktree) }
+        // A branch of a tree or blob (#559): said like a tag of one; Show in Graph has no row to go to.
+        let nonCommit = branch.commit == nil ? TagListModel.target(branch.objectType, branch.target, isTag: false) : nil
+        if let nonCommit { help.append(nonCommit) }
         var label = [full, branch.kind == .local ? Text.localBranch : Text.remoteBranch]
+        if let nonCommit { label.append(nonCommit) }
         if isDefault { label.append(Text.defaultBranch) }
         if isCheckedOut { label.append(Text.checkedOut) }
         if upstream.ahead > 0 { label.append(String(localized: "\(upstream.ahead) ahead")) }
@@ -218,7 +222,7 @@ struct BranchListModel: Equatable {
             id: branch.fullName, name: display, fullDisplayName: full, isCheckedOut: isCheckedOut, isDefault: isDefault,
             ahead: upstream.ahead, behind: upstream.behind, isUpstreamGone: isGone, date: branch.committerDate,
             issueNumber: issueNumber, help: help.joined(separator: "\n"),
-            accessibilityLabel: label.joined(separator: ", "), tip: branch.target,
+            accessibilityLabel: label.joined(separator: ", "), tip: branch.commit,
             upstreamName: branch.upstream.map { PathValidator.displayable(Self.short($0)) },
             upstreamRef: branch.upstream, gitHubTarget: gitHub)
     }

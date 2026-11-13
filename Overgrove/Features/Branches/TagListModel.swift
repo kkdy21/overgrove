@@ -38,7 +38,7 @@ struct TagListModel: Equatable {
             let hasDetachedWorktree = tag.commit.map(detachedHeads.contains) ?? false
             let kind =
                 isAnnotated ? String(localized: "Annotated tag \(name)") : String(localized: "Lightweight tag \(name)")
-            let target = Self.target(tag)
+            let target = Self.target(tag.objectType, tag.object)
             var help = [kind, target]
             if hasDetachedWorktree { help.append(String(localized: "A worktree is checked out at this commit")) }
             var label = [kind]
@@ -61,14 +61,19 @@ struct TagListModel: Equatable {
         }
     }
 
-    /// What the tag names, for the tooltip: a commit, or a tree, blob, or tag the graph does not show (#432).
-    private static func target(_ tag: Tag) -> String {
-        let short = tag.object.short
-        return switch tag.objectType {
+    /// What a tag (or a branch, #559) names, for the tooltip: a commit, or a tree, blob, or tag the graph does not
+    /// show (#432).
+    /// - Parameter isTag: `false` for a branch, whose tag object is "a tag", not "another tag".
+    static func target(_ type: GitObjectType, _ object: ObjectID, isTag: Bool = true) -> String {
+        let short = object.short
+        return switch type {
         case .commit: String(localized: "Commit \(short)")
         case .tree: String(localized: "Points to a tree, not a commit (\(short))")
         case .blob: String(localized: "Points to a file, not a commit (\(short))")
-        case .tag: String(localized: "Points to another tag, not a commit (\(short))")
+        case .tag:
+            isTag
+                ? String(localized: "Points to another tag, not a commit (\(short))")
+                : String(localized: "Points to a tag, not a commit (\(short))")
         }
     }
 
