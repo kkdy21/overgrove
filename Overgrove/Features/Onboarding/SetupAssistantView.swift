@@ -167,6 +167,8 @@ private struct SetupStepCard<Content: View, Accessory: View>: View {
     @ViewBuilder let content: Content
     @ViewBuilder let accessory: Accessory
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(alignment: .top, spacing: Tokens.Spacing.md) {
             Group {
@@ -177,6 +179,7 @@ private struct SetupStepCard<Content: View, Accessory: View>: View {
                 }
             }
             .font(Tokens.Font.title)
+            .transition(stepTransition)
             .accessibilityLabel(isDone ? Text("Step \(number), done") : Text("Step \(number)"))
             VStack(alignment: .leading, spacing: Tokens.Spacing.xs) {
                 HStack(alignment: .firstTextBaseline) {
@@ -187,13 +190,25 @@ private struct SetupStepCard<Content: View, Accessory: View>: View {
                     Spacer()
                     accessory
                 }
-                content
+                // A new identity when the step is done, so the problem and the result cross over rather than swap.
+                content.id(isDone).transition(stepTransition)
             }
         }
+        // `motion.duration-slow` ("Onboarding step transitions", #575), scoped to the step turning done: the mark and
+        // the step's content. The card's frame and the cards below move at once.
+        .animation(.easeInOut(duration: Tokens.Motion.durationSlow), value: isDone)
         .padding(Tokens.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Self.cornerRadius).fill(Tokens.Color.surfaceRaised))
         .overlay(RoundedRectangle(cornerRadius: Self.cornerRadius).strokeBorder(Tokens.Color.borderSeparator))
+    }
+
+    /// The content and the mark fade and settle in; under Reduce Motion they only cross-fade.
+    private var stepTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .asymmetric(
+                insertion: .opacity.combined(with: .scale(scale: 0.96, anchor: .topLeading)), removal: .opacity)
     }
 
     /// Same radius as the detail cards (art-direction.md §7).

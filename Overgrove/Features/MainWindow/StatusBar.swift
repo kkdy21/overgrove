@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// One field of the main window's status bar (art-direction.md §3.5, interaction.md §4.2).
@@ -31,6 +32,18 @@ struct StatusBarItem: Equatable, Identifiable {
     var id: Kind { kind }
     /// The gh status sits at the trailing end; everything else is on the leading side.
     var isTrailing: Bool { kind == .gh }
+
+    /// Who keeps their text when the window narrows (#575): Read-only and gh stay whole, then the short fields
+    /// (`6 worktrees`, `Refreshing…`); the branch's ahead/behind is cut next (`fix/…h ↑12 ↓3` keeps the counts), and
+    /// the fetch field, the longest, gives way first. Every field stays on one line and is cut in the middle.
+    var layoutPriority: Double {
+        switch kind {
+        case .readOnly, .gh: 3
+        case .refreshing, .slowStatus, .worktrees, .prunable: 2
+        case .aheadBehind: 1
+        case .fetch: 0
+        }
+    }
 
     /// The fields in display order. Repository fields appear only once their data exists; gh only once checked.
     static func items(
@@ -193,22 +206,33 @@ struct StatusBar: View {
                     .frame(width: Self.separatorDiameter, height: Self.separatorDiameter)
                     .accessibilityHidden(true)
             }
-            if item.kind == .fetch, let onFetchDetails {
-                Button(action: onFetchDetails) { field(item) }
-                    .buttonStyle(.plain)
-                    .help("Show why the fetch failed")
-                    .accessibilityHint("Shows why the fetch failed and what to do")
-            } else if item.kind == .gh, let onGitHubSetup {
-                Button(action: onGitHubSetup) { field(item) }
-                    .buttonStyle(.plain)
-                    .help("GitHub CLI setup")
-                    .accessibilityHint("Opens the setup assistant")
-            } else if let help = item.help {
-                field(item).help(help).accessibilityHint(help)
-            } else {
-                field(item)
+            Group {
+                if item.kind == .fetch, let onFetchDetails {
+                    clickable(item, action: onFetchDetails)
+                        .help("Show why the fetch failed")
+                        .accessibilityHint("Shows why the fetch failed and what to do")
+                } else if item.kind == .gh, let onGitHubSetup {
+                    clickable(item, action: onGitHubSetup)
+                        .help("GitHub CLI setup")
+                        .accessibilityHint("Opens the setup assistant")
+                } else if let help = item.help {
+                    field(item).help(help).accessibilityHint(help)
+                } else {
+                    field(item)
+                }
             }
+            .layoutPriority(item.layoutPriority)
         }
+    }
+
+    /// A field that opens something (interaction.md §2): the shared hover button (a rounded `surface.hover` under the
+    /// pointer) and the pointing hand, so it no longer looks like the static text beside it (#575). The style's inset
+    /// is taken back so the text stays where the other fields' text is.
+    private func clickable(_ item: StatusBarItem, action: @escaping () -> Void) -> some View {
+        Button(action: action) { field(item) }
+            .buttonStyle(.hover)
+            .padding(.horizontal, -Tokens.Spacing.xs)
+            .pointingHandCursor()
     }
 
     /// Leading fields put the icon first; the trailing gh status puts it last (`gh: @login ✓`, §3.5).
@@ -219,7 +243,11 @@ struct StatusBar: View {
             } else if !item.isTrailing {
                 icon(item)
             }
-            Text(item.text)
+            Text(item.text).lineLimit(1).truncationMode(.middle)
+                // The fields that give way keep enough to read their start and end (`Last…ails`, `fix…↓3`); the
+                // others never shorten.
+                .frame(minWidth: Self.minimumTextWidth(item.kind), alignment: .leading)
+                .fixedSize(horizontal: Self.minimumTextWidth(item.kind) == nil, vertical: false)
             if item.isTrailing { icon(item) }
         }
         .foregroundStyle(item.tone == .warning ? color(for: .warning) : Tokens.Color.textSecondary)
@@ -235,6 +263,14 @@ struct StatusBar: View {
 
     /// No size token for the separator dot; the value comes from art-direction.md §3.5.
     static let separatorDiameter: CGFloat = 3
+    /// The narrowest text of the fields that give way (#575); `nil` for the others, which keep their text. No token.
+    static func minimumTextWidth(_ kind: StatusBarItem.Kind) -> CGFloat? {
+        switch kind {
+        case .fetch: 56
+        case .aheadBehind: 56
+        default: nil
+        }
+    }
 
     private func color(for tone: StatusBarItem.Tone) -> Color {
         switch tone {
@@ -242,5 +278,36 @@ struct StatusBar: View {
         case .neutral: Tokens.Color.textSecondary
         case .warning: Tokens.Color.statusPrunable
         }
+    }
+}
+
+/// The pointing hand while the pointer is over the view (macOS 14 has no `pointerStyle`). Pops what it pushed when the
+/// view goes away under the pointer, so the cursor never stays a hand.
+private struct PointingHandCursor: ViewModifier {
+    @State private var isPushed = false
+
+    func body(content: Content) -> some View {
+        content
+            .onHover { inside in
+                if inside, !isPushed {
+                    NSCursor.pointingHand.push()
+                    isPushed = true
+                } else if !inside, isPushed {
+                    NSCursor.pop()
+                    isPushed = false
+                }
+            }
+            .onDisappear {
+                if isPushed {
+                    NSCursor.pop()
+                    isPushed = false
+                }
+            }
+    }
+}
+
+extension View {
+    fileprivate func pointingHandCursor() -> some View {
+        modifier(PointingHandCursor())
     }
 }

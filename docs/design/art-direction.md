@@ -118,6 +118,9 @@ Overgrove 메인 창이 어떻게 보여야 하는지를 수치로 정한다. �
 
 왼쪽부터 `🛡 Read-only`(`status.ok`) · 마지막 fetch · 포커스 워크트리의 `↑n ↓n` · 워크트리 수 · `⚠ n prunable`(있을 때)를 두고, 오른쪽 끝에 gh 상태를 둔다. 구분점은 `text.quaternary` 지름 3pt 점이다.
 
+- 모든 필드는 한 줄이고, 줄일 때는 가운데를 자른다(#575). 창이 좁아지면 마지막 fetch가 먼저, 그다음 `↑n ↓n`이 줄어든다. 각각 앞뒤를 읽을 만큼(56pt, 56pt)은 남긴다. Read-only, 워크트리 수, prunable, gh는 줄이지 않는다.
+- 눌러서 여는 필드(`Fetch failed — Details`, gh)는 공용 호버 버튼(둥근 `surface.hover`)과 손가락 커서로 정적인 글자와 구별한다. 글자 위치는 다른 필드와 같다.
+
 ---
 
 ## 4. 색
