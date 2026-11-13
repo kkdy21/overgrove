@@ -28,10 +28,11 @@ struct LiveComparisonLoader: ComparisonLoading {
 
     func bases(of repository: Repository) async -> ComparisonBases {
         guard let (_, service) = try? await services(),
-            let refs = await service.cachedOverview(of: repository)?.refs
+            let refs = await service.comparisonRefs(repository)
         else { return ComparisonBases(all: [], preferred: nil) }
         return ComparisonBases(
-            all: refs.branches.compactMap { FullRefName($0.fullName) },
+            // A branch of a tree or blob cannot be a base (#559).
+            all: refs.branches.filter { $0.commit != nil }.compactMap { FullRefName($0.fullName) },
             preferred: WorktreeComparison.defaultBase(in: refs))
     }
 

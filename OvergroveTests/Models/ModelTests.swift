@@ -112,7 +112,7 @@ final class ModelBehaviorTests: XCTestCase {
         XCTAssertNil(remote.upstream)
         XCTAssertEqual(remote.shortName, "origin/main")
         let peeled = ObjectID(String(repeating: "cd", count: 20))!
-        let tag = Tag(fullName: "refs/tags/v1.0", target: oid, peeledTarget: peeled, date: nil)
+        let tag = Tag(fullName: "refs/tags/v1.0", target: oid, peeledTarget: peeled, date: nil, objectType: .commit)
         XCTAssertEqual(tag.shortName, "v1.0")
         XCTAssertEqual(tag.commit, peeled)
     }

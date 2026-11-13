@@ -100,7 +100,8 @@ final class BranchListModelTests: XCTestCase {
         let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
         let model = BranchListModel(
             refs: refs([remote("my/fork/topic", guess: "my"), remote("my/main", guess: "my")]), checkedOut: [],
-            remoteNames: ["my", "my/fork"], githubRemotes: ["my": repository])
+            remoteNames: ["my", "my/fork"], githubRemotes: ["my": repository],
+            fetchRefspecs: standardFetchRefspecs(["my", "my/fork"]))
         func rows(_ nodes: [BranchNode]) -> [BranchRow] {
             nodes.flatMap { node -> [BranchRow] in
                 switch node {
@@ -113,6 +114,77 @@ final class BranchListModelTests: XCTestCase {
         XCTAssertNil(all.first { $0.name == "topic" }?.gitHubTarget)
         XCTAssertEqual(
             all.first { $0.name == "main" }?.gitHubTarget, GitHubBranchTarget(repository: repository, branch: "main"))
+    }
+
+    /// #489: a remote whose name `RemoteName` refuses (`gh/fork+1`) still owns its rows: they are not grouped under,
+    /// and do not open, the GitHub remote `gh`.
+    func testARowOfARemoteWithARefusedNameStaysItsOwn() throws {
+        let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
+        let model = BranchListModel(
+            refs: refs([remote("gh/fork+1/topic", guess: "gh"), remote("gh/main", guess: "gh")]), checkedOut: [],
+            remoteNames: ["gh", "gh/fork+1"], githubRemotes: ["gh": repository])
+        XCTAssertEqual(names(model.remote), ["gh[main]", "gh/fork+1[topic]"])
+        guard case .folder(_, _, _, let children) = model.remote.last, case .branch(let row) = children.first else {
+            return XCTFail("\(model.remote)")
+        }
+        XCTAssertNil(row.gitHubTarget)
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/gh/fork+1/topic", remotes: ["gh": repository], configuredRemotes: ["gh", "gh/fork+1"],
+                fetchRefspecs: standardFetchRefspecs(Array(["gh": repository].keys) + ["gh", "gh/fork+1"])))
+    }
+
+    /// #489: remotes spelled in NFC and NFD are two remotes. The NFD one's rows are not merged into the NFC folder,
+    /// and neither opens the GitHub remote `gh` whose name is a prefix of both.
+    func testRemotesInNFCAndNFDStaySeparate() throws {
+        let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
+        let nfc = "gh/caf\u{E9}"
+        let nfd = "gh/cafe\u{301}"
+        let model = BranchListModel(
+            refs: refs([remote("\(nfc)/a", guess: "gh"), remote("\(nfd)/b", guess: "gh")]), checkedOut: [],
+            remoteNames: ["gh", nfc, nfd], githubRemotes: ["gh": repository])
+        XCTAssertEqual(model.remote.count, 2, "two folders")
+        for node in model.remote {
+            guard case .folder(_, _, _, let children) = node, case .branch(let row) = children.first else {
+                return XCTFail("\(model.remote)")
+            }
+            XCTAssertNil(row.gitHubTarget, row.name)
+        }
+        XCTAssertNil(
+            GitHubBranchTarget.forRemoteRef(
+                "refs/remotes/\(nfd)/b", remotes: ["gh": repository], configuredRemotes: ["gh", nfc, nfd],
+                fetchRefspecs: standardFetchRefspecs(Array(["gh": repository].keys) + ["gh", nfc, nfd])))
+    }
+
+    /// SEC-T9-554-1 (#554): `my/K` and `my/\u{212A}` (KELVIN SIGN) are two remotes that `String` equality takes for
+    /// one. Neither is folded into the other, so no ref of either falls back to the shorter GitHub remote `my`, and
+    /// both keep their own folder.
+    func testSECT9_554_1_KelvinSignRemoteIsNotFoldedIntoTheASCIIOne() throws {
+        let repository = try XCTUnwrap(GitHubRepository(owner: "me", name: "app"))
+        let names = ["my", "my/K", "my/\u{212A}"]
+        for order in [names, names.reversed()] {
+            let model = BranchListModel(
+                refs: refs([remote("my/K/a", guess: "my"), remote("my/\u{212A}/b", guess: "my")]), checkedOut: [],
+                remoteNames: order, githubRemotes: ["my": repository], fetchRefspecs: standardFetchRefspecs(["my"]))
+            XCTAssertEqual(model.remote.count, 2, "two folders")
+            for node in model.remote {
+                guard case .folder(_, _, _, let children) = node, case .branch(let row) = children.first else {
+                    return XCTFail("\(model.remote)")
+                }
+                XCTAssertNil(row.gitHubTarget, row.name)
+            }
+            for ref in ["refs/remotes/my/K/a", "refs/remotes/my/\u{212A}/b"] {
+                XCTAssertNil(
+                    GitHubBranchTarget.forRemoteRef(
+                        ref, remotes: ["my": repository], configuredRemotes: order,
+                        fetchRefspecs: standardFetchRefspecs(["my"])), ref)
+            }
+            XCTAssertEqual(
+                GitHubBranchTarget.forRemoteRef(
+                    "refs/remotes/my/z", remotes: ["my": repository], configuredRemotes: order,
+                    fetchRefspecs: standardFetchRefspecs(["my"]))?
+                    .branch, "z")
+        }
     }
 
     /// A combining mark right after `/` cannot hide the remote match and make a branch read like another
@@ -148,5 +220,40 @@ final class BranchListModelTests: XCTestCase {
         XCTAssertEqual(
             BranchListModel(refs: refs([], partial: true), checkedOut: [], remoteNames: []).warning,
             "Some branches could not be listed because git's output was too large.")
+    }
+
+    /// #559: a local or remote branch of a tree, blob, or tag object says so, like a tag of one, and has no tip, so
+    /// Show in Graph is off (the graph has no row for it).
+    func testABranchOfSomethingElseThanACommitHasNoTip() throws {
+        var tree = local("tree")
+        tree.objectType = .tree
+        var tagged = local("tagged")
+        tagged.objectType = .tag
+        var blob = remote("origin/blob")
+        blob.objectType = .blob
+        let model = BranchListModel(
+            refs: refs([tree, tagged, local("main"), blob]), checkedOut: [], remoteNames: ["origin"])
+        let rows = model.local.compactMap { node -> BranchRow? in
+            if case .branch(let row) = node { row } else { nil }
+        }
+        let short = tip.short
+        let byName = Dictionary(uniqueKeysWithValues: rows.map { ($0.name, $0) })
+        let treeRow = try XCTUnwrap(byName["tree"])
+        XCTAssertNil(treeRow.tip)
+        XCTAssertEqual(treeRow.help, "tree\nNo upstream\nPoints to a tree, not a commit (\(short))")
+        XCTAssertEqual(treeRow.accessibilityLabel, "tree, local branch, Points to a tree, not a commit (\(short))")
+        let taggedRow = try XCTUnwrap(byName["tagged"])
+        XCTAssertNil(taggedRow.tip)
+        XCTAssertTrue(taggedRow.help.hasSuffix("Points to a tag, not a commit (\(short))"), taggedRow.help)
+        XCTAssertEqual(byName["main"]?.tip, tip, "a branch of a commit keeps its tip")
+        XCTAssertFalse(byName["main"]?.help.contains("not a commit") ?? true)
+
+        guard case .folder(_, _, _, let children) = try XCTUnwrap(model.remote.first),
+            case .branch(let blobRow) = try XCTUnwrap(children.first)
+        else { return XCTFail("\(model.remote)") }
+        XCTAssertNil(blobRow.tip)
+        XCTAssertTrue(blobRow.help.hasSuffix("Points to a file, not a commit (\(short))"), blobRow.help)
+        XCTAssertTrue(
+            blobRow.accessibilityLabel.contains("remote branch, Points to a file"), blobRow.accessibilityLabel)
     }
 }

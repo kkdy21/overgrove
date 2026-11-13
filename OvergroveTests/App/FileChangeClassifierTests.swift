@@ -65,6 +65,26 @@ final class FileChangeClassifierTests: XCTestCase {
         XCTAssertEqual(merged, FileChangeSet(refs: true, stashes: true))
     }
 
+    /// Ignore rules, attributes, sparse checkout, and per-worktree configuration change what status reports (#426, #568).
+    func testFilesThatChangeWhatStatusReports() {
+        let all = FileChangeSet(worktrees: [main, lane, nested])
+        XCTAssertEqual(classify("/dev/api/.git/info/exclude"), all, "ignore rules of every worktree")
+        XCTAssertEqual(classify("/dev/api/.git/info/attributes"), all, "attributes of every worktree (#568)")
+        XCTAssertEqual(classify("/dev/api/.git/info/sparse-checkout"), FileChangeSet(worktrees: [main]))
+        XCTAssertEqual(classify("/dev/api/.git/config.worktree"), FileChangeSet(worktrees: [main]))
+        XCTAssertEqual(classify("/dev/api/.git/worktrees/lane/config.worktree"), FileChangeSet(worktrees: [lane]))
+        XCTAssertEqual(
+            classify("/dev/api/.git/worktrees/lane/info/sparse-checkout"), FileChangeSet(worktrees: [lane]))
+        for path in [
+            "/dev/api/.git/info/attributes-not", "/dev/api/.git/info", "/dev/api/.git/info/exclude/x",
+            "/dev/api/.git/worktrees/lane/info/exclude", "/dev/api/.git/worktrees/lane/info/attributes",
+            "/dev/api/.git/info/attributes/x", "/dev/api/.git/worktrees/unknown/config.worktree",
+            "/dev/api/.git/config.worktree/x",
+        ] {
+            XCTAssertEqual(classify(path), FileChangeSet(), path)
+        }
+    }
+
     /// Objects, logs, FETCH_HEAD and the like change on fetch and gc without changing any status (#163).
     func testIgnoredGitFiles() {
         for path in [
@@ -114,6 +134,34 @@ final class FileChangeClassifierTests: XCTestCase {
             reversed.classify([FileEvent(path: "/dev/api/.claude/worktrees/agent/x")]),
             FileChangeSet(worktrees: [nested]))
         XCTAssertEqual(reversed.classify([FileEvent(path: "/dev/api/.claude/x")]), FileChangeSet(worktrees: [main]))
+    }
+
+    /// `git clone --bare … repo.git` then `git -C repo.git worktree add main`: the worktree sits inside the shared git
+    /// directory (#421). Its files are its own; the git directory's files still classify as before.
+    func testWorktreeInsideABareRepositoryFolder() {
+        let inner = GitPath("/dev/repo.git/main")
+        let deeper = GitPath("/dev/repo.git/lanes/feature")
+        let bare = FileChangeClassifier(
+            commonDirectory: "/dev/repo.git",
+            worktrees: [
+                .init(path: inner, folder: "/dev/repo.git/main", gitDirectory: "/dev/repo.git/worktrees/main"),
+                .init(
+                    path: deeper, folder: "/dev/repo.git/lanes/feature",
+                    gitDirectory: "/dev/repo.git/worktrees/feature"),
+            ])
+        func classify(_ path: String) -> FileChangeSet { bare.classify([FileEvent(path: path)]) }
+
+        XCTAssertEqual(classify("/dev/repo.git/main/src/a.swift"), FileChangeSet(worktrees: [inner]))
+        XCTAssertEqual(classify("/dev/repo.git/main"), FileChangeSet(worktrees: [inner]))
+        XCTAssertEqual(classify("/dev/repo.git/lanes/feature/b.txt"), FileChangeSet(worktrees: [deeper]))
+        XCTAssertEqual(
+            classify("/dev/repo.git/main/.git"), FileChangeSet(), "the linked worktree's .git file is not its files")
+        XCTAssertEqual(
+            classify("/dev/repo.git/worktrees/main/index"), FileChangeSet(worktrees: [inner]),
+            "the git directory still classifies as before")
+        XCTAssertEqual(classify("/dev/repo.git/refs/heads/main"), FileChangeSet(refs: true))
+        XCTAssertEqual(classify("/dev/repo.git/lanes/other"), FileChangeSet(), "not inside a worktree folder")
+        XCTAssertEqual(classify("/dev/repo.git/objects/ab/cdef"), FileChangeSet())
     }
 
     func testWatchedPaths() {

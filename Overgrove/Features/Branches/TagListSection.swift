@@ -45,7 +45,7 @@ struct TagListSection: View {
                         ForEach(visible.rows) { row in
                             TagRowView(
                                 row: row, now: context.date,
-                                isSelected: row.id == chosenID && row.commit == selectedCommit
+                                isSelected: row.id == chosenID && row.commit != nil && row.commit == selectedCommit
                             )
                             .contentShape(Rectangle())
                             .onTapGesture { choose(row) }
@@ -65,9 +65,12 @@ struct TagListSection: View {
         }
     }
 
+    /// A tag of a tree or blob selects nothing: the graph has no row for it, and the detail panel keeps what it shows
+    /// (#432).
     private func choose(_ row: TagRow) {
+        guard let commit = row.commit else { return }
         chosenID = row.id
-        actions.showCommit(row.commit)
+        actions.showCommit(commit)
     }
 }
 
@@ -120,9 +123,9 @@ private struct TagRowMenu: View {
     @Environment(\.rowMenu) private var actions
 
     var body: some View {
-        Button("Show in Graph", action: onShow)
+        Button("Show in Graph", action: onShow).disabled(row.commit == nil)
         Divider()
         Button("Copy Tag Name") { actions.copy(row.name) }
-        Button("Copy SHA") { actions.copy(row.commit.hex) }
+        Button("Copy SHA") { actions.copy(row.object.hex) }
     }
 }

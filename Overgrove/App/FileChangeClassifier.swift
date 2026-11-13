@@ -38,10 +38,13 @@ struct FileEvent: Equatable, Sendable {
 ///
 /// In the shared git directory only what changes a status or the lists counts (#163): `HEAD` and `index` (the main
 /// worktree), `refs/` and `packed-refs` (`refs/stash` and `logs/refs/stash` re-read only the stash list, #417),
-/// `worktrees/<id>/HEAD|index` (that linked worktree; `HEAD` also the list,
-/// #416), `worktrees/<id>` itself and its `gitdir`/`locked` (the list), and `config` (everything, it can change how
-/// queries run). Objects, the other logs, `FETCH_HEAD`, `ORIG_HEAD`, hooks and the rest are ignored, so a fetch or gc does not
-/// re-run every status.
+/// `worktrees/<id>/HEAD|index` (that linked worktree; `HEAD` also the list, #416), `worktrees/<id>` itself and its
+/// `gitdir`/`locked` (the list), `config` (everything, it can change how queries run), and what changes what status
+/// reports (#426): `info/exclude` and `info/attributes` (every worktree, #568), `info/sparse-checkout` and
+/// `config.worktree` (the main worktree), `worktrees/<id>/info/sparse-checkout` and `worktrees/<id>/config.worktree`
+/// (that linked worktree). Objects, the other logs, `FETCH_HEAD`, `ORIG_HEAD`, hooks and the rest are ignored, so a
+/// fetch or gc does not re-run every status. A worktree folder inside the shared git directory (a bare repository's
+/// `repo.git/main`, #421) is that worktree's files, not the git directory's.
 struct FileChangeClassifier: Equatable, Sendable {
     struct WatchedWorktree: Equatable, Sendable {
         let path: GitPath
@@ -105,14 +108,22 @@ struct FileChangeClassifier: Equatable, Sendable {
     private func classify(path: String) -> FileChangeSet {
         let components = Self.components(path)
         guard !components.isEmpty else { return FileChangeSet() }
+        let innermost = byDepth.lazy.compactMap { worktree in
+            Self.relative(components, to: worktree.folderComponents).map { (worktree, $0) }
+        }.first
         if let relative = Self.relative(components, to: commonComponents) {
+            // A worktree folder inside the shared git directory (`git -C repo.git worktree add main` in a bare
+            // repository, #421) holds that worktree's files. It is deeper than the git directory, so it wins.
+            if let (worktree, below) = innermost, worktree.folderComponents.count > commonComponents.count {
+                return worktreeChange(worktree, below)
+            }
             return classifyGitDirectory(Array(relative))
         }
-        guard
-            let (worktree, relative) = byDepth.lazy.compactMap({ worktree in
-                Self.relative(components, to: worktree.folderComponents).map { (worktree, $0) }
-            }).first
-        else { return FileChangeSet() }
+        guard let (worktree, relative) = innermost else { return FileChangeSet() }
+        return worktreeChange(worktree, relative)
+    }
+
+    private func worktreeChange(_ worktree: WatchedWorktree, _ relative: ArraySlice<Substring>) -> FileChangeSet {
         // A linked worktree's `.git` file, or a nested repository's git directory: not this worktree's files.
         if relative.first == ".git" { return FileChangeSet() }
         return FileChangeSet(worktrees: [worktree.path])
@@ -137,17 +148,44 @@ struct FileChangeClassifier: Equatable, Sendable {
             return relative == ["logs", "refs", "stash"] ? FileChangeSet(stashes: true) : FileChangeSet()
         case "config":
             return relative.count == 1 ? everything : FileChangeSet()
+        case "config.worktree":
+            // The main worktree's own configuration (`extensions.worktreeConfig`, #426).
+            guard relative.count == 1, let main = worktrees.first(where: { $0.gitDirectory == commonDirectory })
+            else { return FileChangeSet() }
+            return FileChangeSet(worktrees: [main.path])
+        case "info":
+            // Ignore rules and attributes are shared by every worktree: git reads `$GIT_COMMON_DIR/info`, never
+            // `worktrees/<id>/info/attributes` (gitrepository-layout(5)). Attributes (`text`, `eol`, `filter`) change
+            // what status reports (#568). `info/sparse-checkout` here is the main worktree's (git keeps it per
+            // worktree) (#426).
+            guard relative.count == 2 else { return FileChangeSet() }
+            switch relative[1] {
+            case "exclude", "attributes":
+                return FileChangeSet(worktrees: Set(worktrees.map(\.path)))
+            case "sparse-checkout":
+                guard let main = worktrees.first(where: { $0.gitDirectory == commonDirectory }) else {
+                    return FileChangeSet()
+                }
+                return FileChangeSet(worktrees: [main.path])
+            default:
+                return FileChangeSet()
+            }
         case "worktrees":
             guard relative.count >= 2 else { return FileChangeSet(worktreeList: true) }
             if relative.count == 2 { return FileChangeSet(worktreeList: true) }
+            let gitDirectory = commonDirectory + "/worktrees/" + relative[1]
+            let linked = worktrees.first(where: { $0.gitDirectory == gitDirectory })
             switch relative[2] {
             case "HEAD", "index":
-                guard relative.count == 3 else { return FileChangeSet() }
-                let gitDirectory = commonDirectory + "/worktrees/" + relative[1]
-                guard let linked = worktrees.first(where: { $0.gitDirectory == gitDirectory }) else {
-                    return FileChangeSet()
-                }
+                guard relative.count == 3, let linked else { return FileChangeSet() }
                 return FileChangeSet(worktrees: [linked.path], worktreeList: relative[2] == "HEAD")
+            case "config.worktree":
+                // That worktree's own configuration (#426).
+                guard relative.count == 3, let linked else { return FileChangeSet() }
+                return FileChangeSet(worktrees: [linked.path])
+            case "info":
+                guard relative.count == 4, relative[3] == "sparse-checkout", let linked else { return FileChangeSet() }
+                return FileChangeSet(worktrees: [linked.path])
             case "gitdir", "locked":
                 return FileChangeSet(worktreeList: true)
             default:

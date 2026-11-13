@@ -229,6 +229,71 @@ final class RepositoryServiceCacheTests: XCTestCase {
         XCTAssertEqual(tip.target, try state(try entry(selected, lane: 2)).headCommit)
     }
 
+    /// lane/1 tracks `origin/lane/1`, which points at the commit before lane/1's tip: ahead 1.
+    private func trackRemoteBranchOneCommitBehind() async throws {
+        try await repository.git(["config", "remote.origin.url", "https://example.invalid/repo.git"])
+        try await repository.git(["config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"])
+        try await repository.git(["update-ref", "refs/remotes/origin/lane/1", "lane/1"])
+        try await repository.git(["config", "branch.lane/1.remote", "origin"])
+        try await repository.git(["config", "branch.lane/1.merge", "refs/heads/lane/1"])
+        try "next\n".write(to: worktree(1).appendingPathComponent("b.txt"), atomically: true, encoding: .utf8)
+        try await repository.git(["-C", worktree(1).path, "add", "b.txt"])
+        try await repository.git(["-C", worktree(1).path, "commit", "-q", "-m", "two"])
+    }
+
+    /// A push or fetch from outside the app changes only `refs/remotes/` (#420): the worktrees that track a moved
+    /// remote branch get a fresh status, so their ahead/behind follows.
+    func testRemoteBranchMoveRequeriesTheStatusOfWorktreesTrackingIt() async throws {
+        try await trackRemoteBranchOneCommitBehind()
+        let service = try makeService()
+        let first = try overview(await service.refresh(model, trigger: .user))
+        XCTAssertEqual(try state(try entry(first, lane: 1)).upstream.ahead, 1, "control: one commit not pushed")
+        // What `git push` writes: the remote-tracking ref, nothing in any worktree.
+        try await repository.git(["update-ref", "refs/remotes/origin/lane/1", "lane/1"])
+        resetCalls()
+
+        let changed = try overview(
+            await service.refresh(model, trigger: .filesChanged(worktrees: [], refs: true, worktreeList: false)))
+
+        XCTAssertEqual(calls()["status"], 1, "only lane/1 tracks the moved remote branch")
+        XCTAssertEqual(try state(try entry(changed, lane: 1)).upstream.ahead, 0)
+        XCTAssertEqual(try state(try entry(changed, lane: 1)).upstream.behind, 0)
+    }
+
+    func testRefsChangeThatMovesNoUpstreamRequeriesNoStatus() async throws {
+        try await trackRemoteBranchOneCommitBehind()
+        let service = try makeService()
+        _ = try overview(await service.refresh(model, trigger: .user))
+        try await repository.git(["tag", "v1"])
+        try await repository.git(["update-ref", "refs/remotes/origin/elsewhere", "lane/0"])
+        resetCalls()
+
+        _ = try overview(
+            await service.refresh(model, trigger: .filesChanged(worktrees: [], refs: true, worktreeList: false)))
+
+        XCTAssertEqual(calls()["for-each-ref"], 1)
+        XCTAssertNil(calls()["status"], "no worktree's ahead/behind changed")
+    }
+
+    /// With a local branch named like the upstream, status shortens the upstream to `remotes/origin/lane/1` while refs
+    /// say `refs/remotes/origin/lane/1` (review of #518): that is not a change, so no status is re-run for it.
+    func testUpstreamNamedLikeALocalBranchIsNotAChange() async throws {
+        try await trackRemoteBranchOneCommitBehind()
+        try await repository.git(["branch", "origin/lane/1", "lane/0"])
+        let service = try makeService()
+        let first = try overview(await service.refresh(model, trigger: .user))
+        XCTAssertEqual(
+            try state(try entry(first, lane: 1)).upstream.upstreamName, "remotes/origin/lane/1",
+            "control: status shortens the upstream unambiguously")
+        try await repository.git(["tag", "v1"])
+        resetCalls()
+
+        _ = try overview(
+            await service.refresh(model, trigger: .filesChanged(worktrees: [], refs: true, worktreeList: false)))
+
+        XCTAssertNil(calls()["status"], "the same upstream and counts, only named differently")
+    }
+
     // MARK: - Inspections are never served stale (security)
 
     private func canaries(_ directory: URL) -> [String] {

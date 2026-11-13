@@ -15,10 +15,11 @@ import Foundation
 struct PullRequestLinkIndex: Equatable {
     static let empty = PullRequestLinkIndex(byBranch: [:])
 
-    /// Local branch full ref name → its pull request.
-    private let byBranch: [String: PullRequest]
+    /// Local branch full ref name, in bytes → its pull request. Bytes, because a `String` key folds canonical
+    /// equivalence: `refs/heads/café` in NFC and in NFD are two branches to git, and each gets only its own PR (#548).
+    private let byBranch: [[UInt8]: PullRequest]
 
-    private init(byBranch: [String: PullRequest]) {
+    private init(byBranch: [[UInt8]: PullRequest]) {
         self.byBranch = byBranch
     }
 
@@ -39,22 +40,24 @@ struct PullRequestLinkIndex: Equatable {
             if let current = candidates[key], !Self.isPreferred(pullRequest, over: current) { continue }
             candidates[key] = pullRequest
         }
-        var byBranch: [String: PullRequest] = [:]
+        var byBranch: [[UInt8]: PullRequest] = [:]
         let headsPrefix = Array("refs/heads/".utf8)
         for branch in branches where branch.kind == .local {
-            guard let remote = branch.upstreamRemote, let repository = remotes[remote],
+            // The remote name matches byte for byte, like the branch (#546).
+            guard let remote = branch.upstreamRemote,
+                let repository = GitHubRemote.repository(named: remote, in: remotes),
                 let ref = branch.upstreamRemoteRef.map({ Array($0.utf8) }), ref.starts(with: headsPrefix),
                 ref.count > headsPrefix.count
             else { continue }
             let key = Self.key(
                 owner: repository.owner, name: repository.name, branch: Array(ref.dropFirst(headsPrefix.count)))
-            if let pullRequest = candidates[key] { byBranch[branch.fullName] = pullRequest }
+            if let pullRequest = candidates[key] { byBranch[Array(branch.fullName.utf8)] = pullRequest }
         }
         self.byBranch = byBranch
     }
 
     func pullRequest(forBranch fullName: String) -> PullRequest? {
-        byBranch[fullName]
+        byBranch[Array(fullName.utf8)]
     }
 
     var isEmpty: Bool { byBranch.isEmpty }

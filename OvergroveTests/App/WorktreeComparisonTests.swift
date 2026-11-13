@@ -156,6 +156,21 @@ final class WorktreeComparisonTests: XCTestCase {
         XCTAssertEqual(comparison.commits.map(\.subject), ["feature work"])
     }
 
+    /// #427: detached HEAD and a branch at the same commit are different comparisons. Ahead/behind is counted only on
+    /// a branch, so the cached result of one is not reused for the other.
+    func testDetachingAtTheSameCommitIsANewComparison() async throws {
+        let onBranch = try await compare(base: main, includeWorkingTree: false)
+        XCTAssertNotNil(onBranch.counts)
+
+        try await repository.git(["-C", feature.path, "switch", "-q", "--detach"])
+        let detached = try await compare(base: main, includeWorkingTree: false)
+        XCTAssertNil(detached.counts, "detached at the same commit: no ahead/behind")
+
+        try await repository.git(["-C", feature.path, "switch", "-q", "feature"])
+        let back = try await compare(base: main, includeWorkingTree: false)
+        XCTAssertEqual(back.counts, onBranch.counts, "on the branch again: ahead/behind again")
+    }
+
     func testPatchOfOneFile() async throws {
         let path = try await featurePath()
         let result = await service.comparePatch(
@@ -272,5 +287,18 @@ final class WorktreeComparisonTests: XCTestCase {
         XCTAssertEqual(
             WorktreeComparison.defaultBase(in: listing([hostile, branch(hostile.symbolicTarget!)]))?.value, nil,
             "a target that FullRefName rejects is never used")
+    }
+
+    /// #559: a branch of a tree or blob is no base: the default skips it.
+    func testDefaultBaseSkipsABranchOfSomethingElseThanACommit() {
+        var main = branch("refs/heads/main")
+        main.objectType = .tree
+        XCTAssertEqual(
+            WorktreeComparison.defaultBase(in: listing([main, branch("refs/heads/master")]))?.value, "refs/heads/master"
+        )
+        var trunk = branch("refs/remotes/origin/trunk")
+        trunk.objectType = .blob
+        let originHead = branch("refs/remotes/origin/HEAD", symbolicTarget: "refs/remotes/origin/trunk")
+        XCTAssertNil(WorktreeComparison.defaultBase(in: listing([originHead, trunk, main])))
     }
 }

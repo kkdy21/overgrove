@@ -261,13 +261,15 @@ struct WipDetailModel: Equatable {
 
         var help = original.map { "\($0) → \(path)" } ?? path
         help += "\n\(group.title): \(kind)"
-        if change.isSubmodule { help += " (submodule)" }
+        if change.isSubmodule { help += " (" + String(localized: "submodule") + ")" }
         if let lineCount { help += "\n\(lineCountDescription(lineCount))" }
-        if !isSelectable { help += "\nThis path is not valid UTF-8, so Overgrove cannot show its diff." }
+        if !isSelectable {
+            help += "\n" + String(localized: "This path is not valid UTF-8, so Overgrove cannot show its diff.")
+        }
 
         let label = fileAccessibilityLabel(
             leading: [group.title, kind], path: path, original: original,
-            extras: change.isSubmodule ? ["submodule"] : [], lineCount: lineCount)
+            extras: change.isSubmodule ? [String(localized: "submodule")] : [], lineCount: lineCount)
 
         return WipFileRow(
             id: index, group: group, path: change.path, kindLetter: String(change.status.code), kindName: kind,
@@ -282,7 +284,7 @@ struct WipDetailModel: Equatable {
         leading: [String], path: String, original: String?, extras: [String] = [], lineCount: WipLineCount?
     ) -> String {
         var parts = leading
-        parts.append(original.map { "\($0) renamed to \(path)" } ?? path)
+        parts.append(original.map { String(localized: "\($0) renamed to \(path)") } ?? path)
         parts += extras
         if let lineCount { parts.append(lineCountDescription(lineCount)) }
         let text = parts.joined(separator: ", ")
@@ -394,9 +396,10 @@ struct WipDetailModel: Equatable {
         return path.hasPrefix(prefix) ? "~/" + path.dropFirst(prefix.count) : path
     }
 
-    /// `3 changed files` for the WIP header, plural in the catalog (#499).
+    /// `5,000 changed files` for the WIP header (#499, #543).
     static func changedFilesText(_ count: Int) -> String {
-        String(localized: "\(count) changed files")
+        let number = formatted(count)
+        return count == 1 ? String(localized: "\(number) changed file") : String(localized: "\(number) changed files")
     }
 
     /// `5,000`: the screens use English UI text (information-architecture.md §5).

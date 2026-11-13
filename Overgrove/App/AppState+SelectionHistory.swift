@@ -30,14 +30,22 @@ extension AppState {
     /// For VoiceOver after a move (interaction.md §1.4): what is selected now.
     var selectionAnnouncement: String? {
         switch selection {
-        case .wip(let path): "Changes in \(worktreeName(path))"
-        case .worktreeInfo(let path): "Worktree \(worktreeName(path))"
+        case .wip(let path):
+            let name = worktreeName(path)
+            return String(localized: "Changes in \(name)")
+        case .worktreeInfo(let path):
+            let name = worktreeName(path)
+            return String(localized: "Worktree \(name)")
         case .commit(let oid):
-            graph.index(of: oid).map { "Commit \(oid.short), \(PathValidator.displayable(graph.commits[$0].subject))" }
-                ?? "Commit \(oid.short)"
-        case .stash(let oid): stashes.first { $0.oid == oid }.map { "Stash \($0.refName)" } ?? "Stash"
-        case .issue(let number): "Issue \(number)"
-        case nil: nil
+            let short = oid.short
+            guard let index = graph.index(of: oid) else { return String(localized: "Commit \(short)") }
+            let subject = PathValidator.displayable(graph.commits[index].subject)
+            return String(localized: "Commit \(short), \(subject)")
+        case .stash(let oid):
+            guard let ref = stashes.first(where: { $0.oid == oid })?.refName else { return String(localized: "Stash") }
+            return String(localized: "Stash \(ref)")
+        case .issue(let number): return String(localized: "Issue \(number)")
+        case nil: return nil
         }
     }
 
