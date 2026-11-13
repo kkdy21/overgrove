@@ -95,10 +95,11 @@ struct GraphColumnLayout: Codable, Equatable, Sendable {
         return resizing(column, by: min(delta, room))
     }
 
-    /// The layout to draw in a panel `panelWidth` wide (#574). The stored widths can leave Message under its minimum
-    /// once the panel narrows (only a divider drag enforces it), so this shrinks Refs, then Author, toward their
-    /// minimums and, if Message is still short, hides Date, then SHA. Nothing here is saved: widening the panel brings
-    /// the stored layout back, and the `⋯` menu keeps showing the stored visibility.
+    /// The layout to draw in a panel `panelWidth` wide (#574, #603). The stored widths can leave Message under its
+    /// minimum once the panel narrows (only a divider drag enforces it), so this shrinks Refs, then Author, toward their
+    /// minimums and, if Message is still short, hides Date, then SHA, then Author. If even that is not enough, the
+    /// Graph column shows fewer lanes (`visibleLanes`) and the rest scroll inside it. Nothing here is saved: widening
+    /// the panel brings the stored layout back, and the `⋯` menu keeps showing the stored visibility.
     func fitting(panelWidth: CGFloat, graphWidth: CGFloat) -> GraphColumnLayout {
         var copy = self
         func shortfall() -> CGFloat {
@@ -108,10 +109,44 @@ struct GraphColumnLayout: Codable, Equatable, Sendable {
             let width = copy.width(of: column)
             copy.widths[column] = max(column.limits.minimum, width - shortfall())
         }
-        for column in [Column.date, .sha] where copy.isVisible(column) && shortfall() > 0 {
+        for column in [Column.date, .sha, .author] where copy.isVisible(column) && shortfall() > 0 {
             copy.hidden.insert(column)
         }
         return copy
+    }
+
+    /// How many lanes the Graph column shows in a panel `panelWidth` wide once `self` (already `fitting`) has given
+    /// up everything else: as many as leave Message its minimum, between `minimumVisibleLanes` and
+    /// `size.graph-max-lanes-visible` (#603). Widths at 100 %.
+    func visibleLanes(panelWidth: CGFloat, lanes: Int, geometry: GraphGeometry = .standard) -> Int {
+        let most = min(max(lanes, 1), Tokens.Size.graphMaxLanesVisible)
+        let room = panelWidth - fixedWidth(graphWidth: 0) - Self.messageMinimum - geometry.inset * 2
+        let fit = Int((room / geometry.lane).rounded(.down))
+        return min(most, max(Self.minimumVisibleLanes, fit))
+    }
+
+    /// The Graph column never shows fewer lanes than this; narrower than that, Message gives way (#603).
+    static let minimumVisibleLanes = 3
+
+    /// The stored layout with the widths drawn on screen: a divider drag starts from what the user sees, so the divider
+    /// follows the pointer at once even while `fitting` has narrowed the column (#603). Visibility stays the stored one.
+    /// Commit the drag with `committing(_:from:)`, which saves only the column that was dragged.
+    func adoptingWidths(from shown: GraphColumnLayout) -> GraphColumnLayout {
+        var copy = self
+        for column in Column.allCases { copy.widths[column] = shown.width(of: column) }
+        return copy
+    }
+
+    /// The stored layout with only `column` taken from a finished drag (#603): the other columns keep their stored
+    /// widths, so widening the panel afterwards still brings them back even though the drag started from the narrower
+    /// widths `fitting` drew.
+    func committing(_ column: Column, from dragged: GraphColumnLayout) -> GraphColumnLayout {
+        setting(column, to: dragged.width(of: column))
+    }
+
+    /// `fitting` against the Graph column at its widest (`size.graph-max-lanes-visible` lanes), at 100 %.
+    func fitting(panel: CGFloat, lanes: Int) -> GraphColumnLayout {
+        fitting(panelWidth: panel, graphWidth: GraphGeometry.standard.width(lanes: lanes))
     }
 
     /// The `⋯` menu: shows or hides Author, Date, or SHA. Refs stays.

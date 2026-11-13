@@ -99,6 +99,8 @@ extension AppState {
         // S-11 and S-12 are never open together (screens.md S-12).
         closeCommitComparison()
         comparison = ComparisonSession(worktree: path, base: comparisonBases[path])
+        // S-11 covers the card and runs the same comparison (#581).
+        pauseBaseSummary()
         runComparison()
     }
 
@@ -113,6 +115,8 @@ extension AppState {
         isComparisonRunning = false
         isComparisonRerunPending = false
         comparison = nil
+        // The card shows again: S-11's comparison is in the shared cache, so this is usually free (#581).
+        refreshBaseSummary()
     }
 
     func chooseComparisonBase(_ base: FullRefName) {

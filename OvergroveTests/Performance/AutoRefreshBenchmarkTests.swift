@@ -105,6 +105,128 @@ final class AutoRefreshBenchmarkTests: XCTestCase {
         XCTAssertEqual(statuses, requests, "one status per request: only the changed worktree")
     }
 
+    /// The same storm with #581's compare card: how many comparisons the card adds and what they cost.
+    func testPERF10_CompareCardDuringTheStorm() async throws {
+        try PerfRun.requireSynthetic()
+        let executables = try TestExecutables()
+        defer { executables.remove() }
+        let markers = executables.directory.appendingPathComponent("markers", isDirectory: true)
+        let fixture = try await FixtureRepo.make(malicious: false)
+        defer { fixture.remove() }
+        let context = try await IntegrationContext.make(fixture: fixture)
+        let gated = try executables.gatedGit(forwardingTo: context.environment.executable, markers: markers)
+        FileManager.default.createFile(atPath: markers.appendingPathComponent("release").path, contents: nil)
+        let service = RepositoryService(
+            client: GitClient(
+                environment: GitEnvironment(executable: gated, version: context.environment.version),
+                parentEnvironment: fixture.environment),
+            sleep: { _ in })
+        guard case .success(let loaded) = await service.refresh(context.repository, trigger: .user)?.result else {
+            return XCTFail("the first load failed")
+        }
+        let classifier = try XCTUnwrap(
+            FileChangeClassifier(listing: WorktreeListing(overview: loaded), repository: context.repository))
+        let statusRuns = { () -> Int in
+            let log =
+                (try? String(contentsOf: markers.appendingPathComponent("invocations.log"), encoding: .utf8)) ?? ""
+            return log.split(separator: "\n").filter { $0 == "status" }.count
+        }
+        let invocations = { () -> [Substring] in
+            let log =
+                (try? String(contentsOf: markers.appendingPathComponent("invocations.log"), encoding: .utf8)) ?? ""
+            return log.split(separator: "\n")
+        }
+        let baseline = statusRuns()
+        let baselineInvocations = invocations().count
+        let mainWorktree = try XCTUnwrap(loaded.entries.first { $0.worktree.isMain }?.worktree.path)
+        var compareDurations: [Duration] = []
+        var compareTasks: [Task<Void, Never>] = []
+
+        let controller = AutoRefreshController()
+        var durations: [Duration] = []
+        controller.request = { [weak controller] change in
+            let started = ContinuousClock.now
+            Task { @MainActor in
+                let result = await service.refresh(
+                    context.repository,
+                    trigger: .filesChanged(
+                        worktrees: change.worktrees, refs: change.refs, worktreeList: change.worktreeList))
+                durations.append(ContinuousClock.now - started)
+                let outcome: AutoRefreshController.LoadOutcome =
+                    switch result?.result {
+                    case .success: .succeeded
+                    case .failure: .failed
+                    case nil: .superseded
+                    }
+                controller?.loadFinished(
+                    .filesChanged(worktrees: change.worktrees, refs: change.refs, worktreeList: change.worktreeList),
+                    outcome: outcome)
+                // #581's card without its debounce: one comparison after every verified load (the upper bound).
+                if outcome == .succeeded {
+                    compareTasks.append(
+                        Task { @MainActor in
+                            let started = ContinuousClock.now
+                            _ = await service.compare(
+                                context.repository, worktree: mainWorktree, includeWorkingTree: true)
+                            compareDurations.append(ContinuousClock.now - started)
+                        })
+                }
+            }
+            return true
+        }
+        controller.update(classifier)
+        controller.setVisible(true)
+        try await Task.sleep(for: .seconds(1))
+
+        let childCPUBefore = Self.childCPUSeconds()
+        let start = ContinuousClock.now
+        let storm = fixture.repository.appendingPathComponent("node_modules", isDirectory: true)
+        try FileManager.default.createDirectory(at: storm, withIntermediateDirectories: true)
+        let batches = 40
+        for batch in 0..<batches {
+            for index in 0..<(Self.files / batches) {
+                try Data("x\(batch)-\(index)\n".utf8).write(
+                    to: storm.appendingPathComponent("f\(batch)-\(index).js"))
+            }
+            try await Task.sleep(for: .milliseconds(Int(Self.stormSeconds * 1000) / batches))
+        }
+        // Let the last batch settle and the final refresh run.
+        try await Task.sleep(for: .seconds(6))
+        controller.setVisible(false)
+        for task in compareTasks { await task.value }
+        let elapsed = ContinuousClock.now - start
+        let childCPU = Self.childCPUSeconds() - childCPUBefore
+
+        let requests = controller.requestCount
+        let statuses = statusRuns() - baseline
+        let elapsedSeconds = Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+        // Debounce 1 s, gap at least 2 s: at most one request per 2 s, plus the one after the storm.
+        let bound = Int((elapsedSeconds / 2).rounded(.up)) + 1
+        let gitCommands = invocations().dropFirst(baselineInvocations)
+        let commandCounts = Dictionary(grouping: gitCommands, by: { String($0) }).mapValues(\.count)
+            .sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: ", ")
+        func ms(_ duration: Duration) -> String {
+            "\(duration.components.attoseconds / 1_000_000_000_000_000 + duration.components.seconds * 1000) ms"
+        }
+        let report = """
+            PERF-10 + compare card (#581) (\(Self.files) files over \(Self.stormSeconds) s)
+            elapsed \(String(format: "%.1f", elapsedSeconds)) s, requests \(requests), status runs \(statuses), \
+            card comparisons \(compareDurations.count)
+            git commands: \(commandCounts)
+            refresh durations: \(durations.map(ms).joined(separator: ", "))
+            comparison durations: \(compareDurations.map(ms).joined(separator: ", "))
+            git CPU (children, status + comparisons): \(String(format: "%.2f", childCPU)) s = \(String(format: "%.1f", childCPU / elapsedSeconds * 100)) % of one core
+            """
+        print(report)
+        if let directory = PerfRun.reportDirectory {
+            try report.write(
+                to: directory.appendingPathComponent("PERF-10-compare-card.md"), atomically: true, encoding: .utf8)
+        }
+        XCTAssertGreaterThan(requests, 0, "the storm was seen")
+        XCTAssertLessThanOrEqual(compareDurations.count, requests, "at most one comparison per refresh")
+        XCTAssertLessThanOrEqual(requests, bound)
+    }
+
     /// User and system CPU time of finished child processes (the git runs).
     private static func childCPUSeconds() -> Double {
         var usage = rusage()

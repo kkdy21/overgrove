@@ -10,6 +10,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Added
 
+- WIP and worktree details: a compare card pinned at the bottom shows the focused worktree against its base branch
+  (commits ahead and behind, files, line totals, base commit), with the base menu and Compare with Base…. It reuses
+  S-11's comparison and cache and waits for the selection to settle before running git.
 - Issue panel: GitLab issues through `glab` for a repository without a GitHub remote, read only after glab reports the
   remote's host logged in (ADR-0026). A remote on a host no CLI is logged in to shows "Not logged in to HOST" with the
   gh and glab login commands to copy.
@@ -48,6 +51,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
   section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
   issue.
+- A selected sidebar row in an unfocused list is outlined, so it no longer looks like the row under the pointer, and
+  the light hover fill is easier to see.
 - The `main worktree` pill stays on one line in a narrow sidebar; the path beside it shortens instead.
 - Sidebar rows respond to the pointer, select the same way everywhere (grey when the list does not have keyboard
   focus), and sections and folders open and close with the standard disclosure motion (at once under Reduce Motion).

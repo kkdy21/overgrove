@@ -31,6 +31,9 @@ enum Tokens {
         /// Initials text on every avatar fill.
         /// Light `#ffffff` · Dark `#ffffff`
         static let avatarInitials = SwiftUI.Color("Tokens/avatarInitials", bundle: nil)
+        /// Outline of the base compare card: accent at 35% (art-direction.md §7, #581).
+        /// Light `#0e764a59` · Dark `#43d59a59`
+        static let borderCompareCard = SwiftUI.Color("Tokens/borderCompareCard", bundle: nil)
         /// Keyboard focus ring.
         /// The system keyboard focus color (follows the accent). Mockup value: Light `#0e764a` · Dark `#43d59a`.
         static let borderFocus = SwiftUI.Color(nsColor: .keyboardFocusIndicatorColor)
@@ -144,12 +147,16 @@ enum Tokens {
         /// Graph panel body and the diff viewer. Lane, status, and pill contrast is validated against this.
         /// Light `#ffffff` · Dark `#14181e`
         static let surfaceCanvas = SwiftUI.Color("Tokens/surfaceCanvas", bundle: nil)
+        /// Base compare card under S-02 and S-05: accent at 7% (art-direction.md §7, #581). Alpha baked in like
+        /// wip-row.
+        /// Light `#0e764a12` · Dark `#43d59a12`
+        static let surfaceCompareCard = SwiftUI.Color("Tokens/surfaceCompareCard", bundle: nil)
         /// Chips, segmented controls, and toolbar fields drawn inside panels. Light mode adds a border.separator
         /// outline.
         /// Light `#ffffff` · Dark `#ffffff0f`
         static let surfaceControl = SwiftUI.Color("Tokens/surfaceControl", bundle: nil)
         /// Row under the pointer. Blended over whatever surface is below.
-        /// Light `#1a1f2a0a` · Dark `#ffffff0b`
+        /// Light `#1a1f2a14` · Dark `#ffffff0b`
         static let surfaceHover = SwiftUI.Color("Tokens/surfaceHover", bundle: nil)
         /// Sidebar and detail panel bodies.
         /// Light `#f9fafc` · Dark `#191d24`
