@@ -15,8 +15,13 @@ struct FileHistoryView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            columns
-            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            GeometryReader { proxy in
+                let layout = FileHistoryColumns(width: proxy.size.width)
+                VStack(spacing: 0) {
+                    columns(layout)
+                    content(layout).frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
         }
         .background(Tokens.Color.surfaceCanvas)
     }
@@ -42,21 +47,28 @@ struct FileHistoryView: View {
         }
     }
 
-    /// `Commit | Message | Author | Date | This file` (mockup #176).
-    private var columns: some View {
+    /// `Commit | Message | Author | Date | This file` (mockup #176), less what a narrow centre hides (#579).
+    private func columns(_ layout: FileHistoryColumns) -> some View {
         HStack(spacing: 0) {
-            column("Commit").frame(width: Self.commitWidth, alignment: .leading)
+            column("Commit").frame(width: FileHistoryColumns.commitWidth, alignment: .leading)
             column("Message").frame(maxWidth: .infinity, alignment: .leading)
-            column("Author").frame(width: Tokens.Size.columnAuthorIdeal, alignment: .leading)
-            column("Date").frame(width: Tokens.Size.columnDateIdeal, alignment: .leading)
-            column("This file").frame(width: Self.statWidth, alignment: .leading)
+            if layout.shows(.author) {
+                column("Author").frame(width: FileHistoryColumns.Column.author.width, alignment: .leading)
+            }
+            if layout.shows(.date) {
+                column("Date").frame(width: FileHistoryColumns.Column.date.width, alignment: .leading)
+            }
+            if layout.shows(.stat) {
+                column("This file").frame(width: FileHistoryColumns.Column.stat.width, alignment: .leading)
+            }
         }
         .frame(height: Tokens.Size.columnHeader)
         .background(Tokens.Color.surfacePanelHeader)
+        .overlay(alignment: .bottom) { Tokens.Color.borderSeparator.frame(height: 1) }
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(_ layout: FileHistoryColumns) -> some View {
         switch store.status {
         case .loading:
             ProgressView("Loading history…").controlSize(.small)
@@ -66,17 +78,18 @@ struct FileHistoryView: View {
         case .loaded where store.entries.isEmpty:
             PanelEmptyState(symbol: "clock", title: FileHistoryText.empty, message: "")
         case .loaded:
-            list
+            list(layout)
         }
     }
 
-    private var list: some View {
+    private func list(_ layout: FileHistoryColumns) -> some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical) {
                 LazyVStack(spacing: 0) {
                     ForEach(Array(store.entries.enumerated()), id: \.element.id) { index, entry in
                         FileHistoryRowView(
-                            row: FileHistoryRow(entry, now: now), isSelected: entry.id == store.selected,
+                            row: FileHistoryRow(entry, now: now), layout: layout,
+                            isSelected: entry.id == store.selected,
                             isFirst: index == 0, isLast: index == store.entries.count - 1
                         )
                         .id(entry.id)
@@ -141,18 +154,17 @@ struct FileHistoryView: View {
     }
 
     private func column(_ text: LocalizedStringKey) -> some View {
-        Text(text).font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textSecondary)
+        // screens.md: column headers are `text.tertiary`, as in the graph.
+        Text(text).font(Tokens.Font.columnHeader).foregroundStyle(Tokens.Color.textTertiary).lineLimit(1)
             .padding(.horizontal, Tokens.Spacing.sm)
     }
-
-    static let commitWidth: CGFloat = 120
-    static let statWidth: CGFloat = 96
 }
 
 /// One commit of the history: avatar node on one line (the file has one lane), SHA, subject with `renamed from …`,
 /// author, date, and this file's change.
 private struct FileHistoryRowView: View {
     let row: FileHistoryRow
+    let layout: FileHistoryColumns
     let isSelected: Bool
     let isFirst: Bool
     let isLast: Bool
@@ -164,9 +176,11 @@ private struct FileHistoryRowView: View {
                 Text(row.text.shortSHA).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
             }
             .padding(.horizontal, Tokens.Spacing.sm)
-            .frame(width: FileHistoryView.commitWidth, alignment: .leading)
+            .frame(width: FileHistoryColumns.commitWidth, alignment: .leading)
             HStack(spacing: Tokens.Spacing.xs) {
+                // The subject keeps its room before the pill does (#579).
                 Text(row.text.subject).font(Tokens.Font.body).foregroundStyle(Tokens.Color.textPrimary).lineLimit(1)
+                    .layoutPriority(1)
                 if let renamedFrom = row.renamedFrom {
                     Text("renamed from \(renamedFrom)")
                         .font(Tokens.Font.pill)
@@ -181,9 +195,16 @@ private struct FileHistoryRowView: View {
             }
             .padding(.horizontal, Tokens.Spacing.sm)
             .frame(maxWidth: .infinity, alignment: .leading)
-            cell(row.text.author, width: Tokens.Size.columnAuthorIdeal, color: Tokens.Color.textSecondary)
-            cell(row.text.date, width: Tokens.Size.columnDateIdeal, color: tertiary).help(row.text.absoluteDate)
-            cell(row.stat, width: FileHistoryView.statWidth, color: Tokens.Color.textSecondary)
+            if layout.shows(.author) {
+                cell(row.text.author, width: FileHistoryColumns.Column.author.width, color: Tokens.Color.textSecondary)
+            }
+            if layout.shows(.date) {
+                cell(row.text.date, width: FileHistoryColumns.Column.date.width, color: tertiary)
+                    .help(row.text.absoluteDate)
+            }
+            if layout.shows(.stat) {
+                cell(row.stat, width: FileHistoryColumns.Column.stat.width, color: Tokens.Color.textSecondary)
+            }
         }
         .frame(height: GraphGeometry.standard.rowHeight)
         .background(isSelected ? Tokens.Color.surfaceSelection : Color.clear)
@@ -193,20 +214,24 @@ private struct FileHistoryRowView: View {
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
-    /// The avatar on a vertical line that joins the rows (the line stops at the newest and the oldest commit).
+    /// The graph's avatar node (screens.md S-09): the avatar inside a ring of the lane colour, on a vertical line that
+    /// joins the rows (the line stops at the newest and the oldest commit). The file has one lane, the first.
     private var node: some View {
-        ZStack {
+        let geometry = GraphGeometry.standard
+        return ZStack {
             VStack(spacing: 0) {
                 Rectangle().fill(isFirst ? Color.clear : Tokens.Color.borderStrong).frame(width: 2)
                 Rectangle().fill(isLast ? Color.clear : Tokens.Color.borderStrong).frame(width: 2)
             }
+            Circle().fill(Tokens.Color.graphNodeRing).frame(width: geometry.node + 4, height: geometry.node + 4)
+            Circle().fill(Tokens.Color.graphLanes[0]).frame(width: geometry.node, height: geometry.node)
             Text(row.text.initials)
                 .font(Tokens.Font.pill)
                 .foregroundStyle(Tokens.Color.avatarInitials)
-                .frame(width: Self.avatar, height: Self.avatar)
+                .frame(width: geometry.node - geometry.nodeRing * 2, height: geometry.node - geometry.nodeRing * 2)
                 .background(Circle().fill(Tokens.Color.avatars[row.text.avatarIndex % Tokens.Color.avatars.count]))
         }
-        .frame(width: Self.avatar, height: GraphGeometry.standard.rowHeight)
+        .frame(width: geometry.node + 4, height: geometry.rowHeight)
         .accessibilityHidden(true)
     }
 
@@ -218,5 +243,4 @@ private struct FileHistoryRowView: View {
             .frame(width: width, alignment: .leading)
     }
 
-    static let avatar: CGFloat = 18
 }

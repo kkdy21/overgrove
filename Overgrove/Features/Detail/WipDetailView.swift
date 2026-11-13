@@ -221,10 +221,10 @@ struct WipGroupCard: View {
         }
         .padding(.bottom, Tokens.Spacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous).fill(Tokens.Color.surfaceRaised)
+            RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous).fill(Tokens.Color.surfaceRaised)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                 .strokeBorder(Tokens.Color.borderSeparator, lineWidth: 1))
     }
 
@@ -238,9 +238,8 @@ struct WipGroupCard: View {
         return label
     }
 
-    /// art-direction.md §7: card head 32, radius 8. No tokens for them.
+    /// art-direction.md §7: card head 32; no token. The radius is `Tokens.Radius.card`.
     static let headerHeight: CGFloat = 32
-    static let cornerRadius: CGFloat = 8
 }
 
 /// A file row: the change-kind badge, the path (directory dimmed, name emphasized), and a `submodule` tag.
