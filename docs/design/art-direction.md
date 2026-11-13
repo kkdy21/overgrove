@@ -251,13 +251,14 @@ Overgrove 메인 창이 어떻게 보여야 하는지를 수치로 정한다. �
   - **포커스 표시:** 타일 오른쪽 위 지름 8pt 액센트 점(패널 색 테두리 2pt).
   - **선택:** `surface.selection` + 레인 색 55% 테두리, 반경 8, 좌우 6pt 안쪽.
 - **나머지 섹션.** 한 줄, 높이 28. 체크아웃된 로컬 브랜치 오른쪽 끝에 레인 색 `tree`. REMOTE 브랜치 행 오른쪽에 마지막 커미터 아바타 16pt와 상대 시각.
+- **LOCAL·REMOTE 트리(#615).** 행 앞은 [들여쓰기][펼침 칸 12pt][아이콘 칸 16pt][이름] 순서다. 폴더 행은 펼침 칸에 쉐브론을 그리고, 브랜치 행은 그 칸을 비워 둔다. 그래서 같은 깊이의 폴더와 브랜치는 아이콘과 이름이 같은 x에 선다. 한 단계 들여쓰기는 펼침 칸과 그 뒤 간격(4pt)을 더한 16pt다. 그래서 자식의 펼침 칸이 부모 아이콘 아래에서 시작한다(Finder·Xcode 아웃라인 관례).
 
 ## 7. 상세 패널
 
 - **머리.** 높이 40. 대상 표시 + 제목 13pt Semibold + 오른쪽 세그먼트(`Changes | Worktree`) 또는 `⋯`.
   - 대상 표시는 선택에 따른다(#578). 워크트리는 레인 색 타일, 커밋은 커밋 노드와 같은 아바타 링, stash는 `archivebox`, 이슈는 `number.circle`이다. 비교(S-11·S-12)는 `arrow.left.arrow.right`, 선택 없음은 `doc.text.magnifyingglass`다.
   - 비교가 열려 있으면 제목도 비교 대상을 말한다. S-11은 `Changes vs main`, S-12는 `3c5d6f1 → a91f3c2`다.
-  - 제목은 세그먼트보다 먼저 자리를 잡고 끝에서 자른다. 패널이 340pt보다 좁으면 세그먼트를 작은 크기로 그린다.
+  - 제목은 세그먼트보다 먼저 자리를 잡고 끝에서 자른다. 패널이 340pt보다 좁으면 세그먼트를 작은 크기에 아이콘만(`list.bullet` / `info.circle`)으로 그린다(#618).
 - **하단 버튼 영역.** S-03 `Copy SHA`, S-04 `Copy Ref`, S-06 `Open in Browser`·`Copy URL`은 `PanelFooter`(`surface.panel-header`, 위 1px 구분선)에 둔다.
 - **카드.** `surface.raised`, 반경 8, 1px `border.separator`, 좌우 10pt 안쪽. 카드 머리 32(상태 심볼 + 이름 12pt Semibold + 개수 칩 + 오른쪽 `+n −m`), 파일 행 26.
 - **변경 막대.** WIP 상세 위쪽에 `n changed files`와 추가·삭제 비율 막대(높이 6, 초록·빨강).

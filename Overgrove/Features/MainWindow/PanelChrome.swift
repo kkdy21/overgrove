@@ -484,8 +484,13 @@ struct DetailPanel: View {
                 .help(header.title)
             if let isWorktree = showsWorktreeSegment {
                 Spacer(minLength: Tokens.Spacing.sm)
-                DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
-                    .controlSize(width < Self.compactWidth ? .small : .regular)
+                // Below `compactWidth` the segment is small and shows icons only, so the title keeps its room (#578,
+                // #618).
+                DetailSegmentPicker(
+                    isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree,
+                    iconsOnly: width < Self.compactWidth
+                )
+                .controlSize(width < Self.compactWidth ? .small : .regular)
             }
         } content: {
             detailContent.fadeIn(on: content)
@@ -566,8 +571,8 @@ struct DetailPanel: View {
         }
     }
 
-    /// Below this width the `Changes | Worktree` segment is small, so the title keeps room at the panel's 300pt
-    /// minimum (#578). No token.
+    /// Below this width the `Changes | Worktree` segment is small and shows icons only, so the title keeps room at the
+    /// panel's 300pt minimum (#578, #618). No token.
     static let compactWidth: CGFloat = 340
 }
 

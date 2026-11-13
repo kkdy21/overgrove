@@ -40,6 +40,21 @@ final class DetailHeaderRenderTests: XCTestCase {
             name: "detail-header-worktree-300")
     }
 
+    /// #618: at 300–339 pt the `Changes | Worktree` segment shows icons only, so it is narrower than the small text
+    /// segment and the title gets that much more room.
+    func testIconSegmentLeavesTheTitleMoreRoom() {
+        func width(iconsOnly: Bool) -> CGFloat {
+            let host = NSHostingView(
+                rootView: DetailSegmentPicker(isWorktree: false, onChanges: {}, onWorktree: {}, iconsOnly: iconsOnly)
+                    .controlSize(.small))
+            host.layoutSubtreeIfNeeded()
+            return host.fittingSize.width
+        }
+        let text = width(iconsOnly: false)
+        let icons = width(iconsOnly: true)
+        XCTAssertGreaterThan(text - icons, 20, "icons \(icons) pt vs text \(text) pt")
+    }
+
     func testEmptyHeader() throws {
         try render(DetailPanel(focusedWorktree: nil), name: "detail-header-empty-300")
     }
