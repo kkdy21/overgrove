@@ -207,7 +207,7 @@ struct WorktreeRowView: View {
 
     /// The row's tooltip with the PR line: whatever a narrow sidebar hides (PR pill, `#n`, status badges) stays in
     /// the tooltip and the VoiceOver label (information-architecture.md §4.3, #573).
-    static func help(_ row: WorktreeRow, pullRequest: PullRequestBadge?) -> String {
+    nonisolated static func help(_ row: WorktreeRow, pullRequest: PullRequestBadge?) -> String {
         row.help + (pullRequest.map { "\n" + $0.help } ?? "")
     }
 
