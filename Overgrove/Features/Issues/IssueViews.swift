@@ -9,18 +9,18 @@ struct IssueListSection: View {
     let onSelect: (Int) -> Void
     /// Check Again in the degraded states (#83).
     var onCheckAgain: () -> Void = {}
-    /// A `⌘4` request the sidebar has scrolled to but this section has not handled yet (#573). The sidebar is lazy,
-    /// so the section may only now be appearing: it opens, takes keyboard focus, and reports the request handled.
-    var pendingFocus: UUID?
-    var onFocusHandled: () -> Void = {}
+    /// Open or closed, owned by the sidebar so the arrow keys and `⌘4` can open it (#592); `nil` keeps it here.
+    var expansion: Binding<Bool>?
+    /// The sidebar has keyboard focus (#592): the selected row is `surface.selection`, otherwise inactive.
+    var isListFocused = false
 
-    @State private var isExpanded = true
-    @FocusState private var hasFocus: Bool
+    @State private var ownExpanded = true
+    private var isExpanded: Binding<Bool> { expansion ?? $ownExpanded }
 
     var body: some View {
         Section {
             VStack(alignment: .leading, spacing: 0) {
-                if isExpanded {
+                if isExpanded.wrappedValue {
                     if let account = model.account {
                         IssueAccountRow(account: account)
                     }
@@ -37,52 +37,22 @@ struct IssueListSection: View {
                     // Lazy: up to 200 rows (`--limit 200`).
                     LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(model.rows) { row in
-                            IssueRowView(row: row, isSelected: row.id == selectedNumber, isListFocused: hasFocus)
+                            IssueRowView(row: row, isSelected: row.id == selectedNumber, isListFocused: isListFocused)
+                                .id(SidebarItem.issue(row.id).scrollID)
                                 .contentShape(Rectangle())
                                 .onTapGesture { onSelect(row.id) }
                                 .accessibilityAction { onSelect(row.id) }
                                 .contextMenu { IssueRowMenu(row: row) }
                         }
                     }
-                    .focusable(!model.rows.isEmpty)
-                    .focused($hasFocus)
-                    .focusEffectDisabled()
-                    .onKeyPress(keys: [.upArrow, .downArrow]) { press in
-                        move(down: press.key == .downArrow, toEnd: press.modifiers.contains(.command))
-                    }
+                    // Keyboard focus, `↑`/`↓`, and `⌘4` belong to the whole sidebar (`SidebarPanel`, #592).
                 }
             }
-            // `⌘4` opens the section and moves keyboard focus to it (interaction.md §3.1).
-            .onAppear(perform: takePendingFocus)
-            .onChange(of: pendingFocus) { _, _ in takePendingFocus() }
         } header: {
             SidebarSectionHeader(
                 title: String(localized: "ISSUES", comment: "Sidebar section"), count: model.count,
-                isExpanded: $isExpanded, isLoading: model.isLoading)
+                isExpanded: isExpanded, isLoading: model.isLoading)
         }
-    }
-
-    private func takePendingFocus() {
-        guard pendingFocus != nil else { return }
-        isExpanded = true
-        onFocusHandled()
-        // After this pass, so the rows the expansion adds exist to take focus.
-        Task { @MainActor in hasFocus = true }
-    }
-
-    private func move(down: Bool, toEnd: Bool) -> KeyPress.Result {
-        let ids = model.rows.map(\.id)
-        guard !ids.isEmpty else { return .ignored }
-        let target: Int
-        if toEnd {
-            target = down ? ids[ids.count - 1] : ids[0]
-        } else if let current = selectedNumber, let index = ids.firstIndex(of: current) {
-            target = ids[min(max(index + (down ? 1 : -1), 0), ids.count - 1)]
-        } else {
-            target = ids[0]
-        }
-        if target != selectedNumber { onSelect(target) }
-        return .handled
     }
 }
 

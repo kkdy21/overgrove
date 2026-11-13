@@ -10,26 +10,44 @@ struct TagListSection: View {
     /// The commit the detail panel shows, to keep the chosen row highlighted only while it is still selected.
     var selectedCommit: ObjectID?
 
+    /// Open or closed, owned by the sidebar so the arrow keys know which rows show (#592); `nil` keeps it here.
+    var expansion: Binding<Bool>?
+    /// The sidebar has keyboard focus (#592): the selected row is `surface.selection`, otherwise inactive.
+    var isListFocused = false
+    /// Owned by the sidebar (#592): the row chosen last, and what choosing a row does. Without `onChoose` the section
+    /// keeps the choice itself and shows the commit (previews, render tests).
+    var chosenRef: String?
+    var onChoose: ((TagRow) -> Void)?
+
     @Environment(\.rowMenu) private var actions
     /// Repositories often have hundreds of tags, so the section starts closed (§4.1).
-    @State private var isExpanded: Bool
-    @FocusState private var hasFocus: Bool
+    @State private var ownExpanded: Bool
     /// The row chosen last: several tags can name one commit, and only the chosen one is highlighted.
-    @State private var chosenID: String?
+    @State private var ownChosenID: String?
+
+    private var isExpanded: Binding<Bool> { expansion ?? $ownExpanded }
+    private var chosenID: String? { onChoose == nil ? ownChosenID : chosenRef }
 
     /// - Parameter isInitiallyExpanded: `false` in the app (§4.1); previews and render tests open it.
-    init(model: TagListModel, query: String? = nil, selectedCommit: ObjectID? = nil, isInitiallyExpanded: Bool = false)
-    {
+    init(
+        model: TagListModel, query: String? = nil, selectedCommit: ObjectID? = nil, isInitiallyExpanded: Bool = false,
+        expansion: Binding<Bool>? = nil, isListFocused: Bool = false, chosenRef: String? = nil,
+        onChoose: ((TagRow) -> Void)? = nil
+    ) {
         self.model = model
         self.query = query
         self.selectedCommit = selectedCommit
-        _isExpanded = State(initialValue: isInitiallyExpanded)
+        self.expansion = expansion
+        self.isListFocused = isListFocused
+        self.chosenRef = chosenRef
+        self.onChoose = onChoose
+        _ownExpanded = State(initialValue: isInitiallyExpanded)
     }
 
     var body: some View {
         Section {
             VStack(alignment: .leading, spacing: 0) {
-                if isExpanded || query != nil {
+                if isExpanded.wrappedValue || query != nil {
                     let visible = model.visible(query: query)
                     if visible.rows.isEmpty {
                         Text(query == nil ? "No tags" : "No matching tags" as LocalizedStringKey)
@@ -45,22 +63,15 @@ struct TagListSection: View {
                                 TagRowView(
                                     row: row, now: context.date,
                                     isSelected: row.id == chosenID && row.commit != nil && row.commit == selectedCommit,
-                                    isListFocused: hasFocus
+                                    isListFocused: isListFocused
                                 )
+                                .id(row.commit.map { SidebarItem.tag(id: row.id, commit: $0).scrollID } ?? row.id)
                                 .contentShape(Rectangle())
-                                .onTapGesture {
-                                    hasFocus = true
-                                    choose(row)
-                                }
+                                .onTapGesture { choose(row) }
                                 .accessibilityAction { choose(row) }
                                 .contextMenu { TagRowMenu(row: row, onShow: { choose(row) }) }
                             }
                         }
-                        // Takes keyboard focus when a row is clicked, so the selection shows as focused like WORKTREES
-                        // and ISSUES (interaction.md §1.2, #572).
-                        .focusable(!visible.rows.isEmpty)
-                        .focused($hasFocus)
-                        .focusEffectDisabled()
                     }
                     if visible.hidden > 0 {
                         Text("\(WorktreeListModel.badgeText(visible.hidden)) more tags — filter to find one")
@@ -74,7 +85,7 @@ struct TagListSection: View {
         } header: {
             SidebarSectionHeader(
                 title: String(localized: "TAGS", comment: "Sidebar section"), count: model.count,
-                isExpanded: $isExpanded)
+                isExpanded: isExpanded)
         }
     }
 
@@ -82,7 +93,8 @@ struct TagListSection: View {
     /// (#432).
     private func choose(_ row: TagRow) {
         guard let commit = row.commit else { return }
-        chosenID = row.id
+        if let onChoose { return onChoose(row) }
+        ownChosenID = row.id
         actions.showCommit(commit)
     }
 }
