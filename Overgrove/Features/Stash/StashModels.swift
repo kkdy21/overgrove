@@ -30,6 +30,8 @@ enum StashDetailState: Equatable {
 struct StashDetailModel: Equatable {
     struct FileRow: Equatable, Identifiable {
         let file: FileStat
+        /// `M`, `A`, `D`, `R`…: the S-04 badge, as in S-03 (#602). `nil` only if git gave no kind.
+        let kindLetter: String?
         let directory: String
         let fileName: String
         /// From the stash's untracked-files commit (shown with a `?` badge and a legend line with the same badge).
@@ -105,7 +107,7 @@ struct StashDetailModel: Equatable {
         let change = FileChange(path: file.path, originalPath: file.originalPath, status: file.status ?? .modified)
         let (directory, fileName) = WipDetailModel.displayParts(change)
         return FileRow(
-            file: file, directory: directory, fileName: fileName,
+            file: file, kindLetter: file.status.map { String($0.code) }, directory: directory, fileName: fileName,
             isFromUntracked: file.isFromUntracked,
             isSelectable: file.path.isRepresentable && (file.originalPath?.isRepresentable ?? true))
     }

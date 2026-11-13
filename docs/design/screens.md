@@ -377,7 +377,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | Base commit | stash의 첫 번째 부모. 누르면 그래프에서 그 커밋 선택 |
 | Branch | 메시지 `WIP on <branch>` / `On <branch>`에서 추정. 추정임을 `(from message)`로 밝힌다 |
 | Includes | index 커밋(두 번째 부모), untracked 커밋(세 번째 부모) 존재 여부 |
-| 파일 | S-02와 같은 파일 행 + 경로 + `+n −m`. stash 파일 목록은 numstat만 읽어 변경 종류를 모르므로 배지를 빈 칸으로 두고, untracked 커밋에서 온 파일은 `?` 배지(`status.untracked`)로 표시하고(범례도 같은 배지), 파일 카드 아래에 범례 한 줄(`From the stash’s untracked-files commit`)을 둔다 |
+| 파일 | S-02와 같은 파일 행 + 경로 + `+n −m`. 변경 종류는 S-03과 같은 중립색 배지(M/A/D/R/C/T)로 보인다(#602). untracked 커밋에서 온 파일은 `?` 배지(`status.untracked`)로 표시하고(범례도 같은 배지), 파일 카드 아래에 범례 한 줄(`From the stash’s untracked-files commit`)을 둔다 |
 | 버튼 | `Copy Ref`만 둔다 |
 
 **데이터.** `Stash`, `StashDetail`.

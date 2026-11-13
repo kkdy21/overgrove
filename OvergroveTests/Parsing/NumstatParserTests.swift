@@ -167,11 +167,12 @@ final class NumstatParserTests: XCTestCase {
         XCTAssertEqual(files.map(\.originalPath), [GitPath("src.txt"), GitPath("old.txt")])
     }
 
-    func testPARNUMSTAT02_StashRenameHasPathsButNoStatus() throws {
+    /// #602: the stash's raw records give each file its change kind; a rename keeps both paths and its score.
+    func testPARNUMSTAT02_StashRenameHasPathsAndStatus() throws {
         let stat = try XCTUnwrap(try NumstatParser.parseStashFiles(Fixtures.stash).files.first)
         XCTAssertEqual(stat.path, GitPath("docs/handbook.md"))
         XCTAssertEqual(stat.originalPath, GitPath("docs/manual.md"))
-        XCTAssertNil(stat.status)
+        XCTAssertEqual(stat.status, .renamed(score: 91))
         XCTAssertEqual(stat.added, 1)
     }
 
@@ -306,7 +307,7 @@ final class NumstatParserTests: XCTestCase {
     func testPARNUMSTAT04_DuplicatePathFails() {
         let input = data(raw("M", "a") + raw("M", "a") + numstat("1", "0", "a") + numstat("1", "0", "a"))
         assertCommitFails(input, reason: "duplicate path", offset: raw("M", "a").utf8.count)
-        assertStashFails(data(numstat("1", "0", "a") + numstat("1", "0", "a")), reason: "duplicate path")
+        assertStashFails(input, reason: "duplicate path", offset: raw("M", "a").utf8.count)
     }
 
     func testPARNUMSTAT04_RawRecordAfterNumstatFails() {
@@ -378,12 +379,16 @@ final class NumstatParserTests: XCTestCase {
                 FileStat(
                     path: GitPath("docs/handbook.md"),
                     originalPath: GitPath("docs/manual.md"),
+                    status: .renamed(score: 91),
                     added: 1,
                     deleted: 0
                 ),
-                FileStat(path: GitPath("keep.txt"), added: 1, deleted: 0),
-                FileStat(path: GitPath("stash-untracked.txt"), added: 1, deleted: 0, isFromUntracked: true),
-                FileStat(path: GitPath("ud/untracked.bin"), added: nil, deleted: nil, isFromUntracked: true),
+                FileStat(path: GitPath("keep.txt"), status: .modified, added: 1, deleted: 0),
+                // git reports the untracked part as added; S-04 shows these with `?`.
+                FileStat(
+                    path: GitPath("stash-untracked.txt"), status: .added, added: 1, deleted: 0, isFromUntracked: true),
+                FileStat(
+                    path: GitPath("ud/untracked.bin"), status: .added, added: nil, deleted: nil, isFromUntracked: true),
             ]
         )
     }
@@ -392,19 +397,38 @@ final class NumstatParserTests: XCTestCase {
         let files = try NumstatParser.parseStashFiles(Fixtures.stash).files
         XCTAssertEqual(paths(files), ["docs/handbook.md", "keep.txt", "stash-untracked.txt", "ud/untracked.bin"])
         XCTAssertFalse(files.contains { $0.isFromUntracked })
-        XCTAssertTrue(files.allSatisfy { $0.status == nil })
+        XCTAssertEqual(files.map(\.status), [.renamed(score: 91), .modified, .added, .added])
     }
 
     func testPARNUMSTAT05_UntrackedMatchIsByRawBytes() throws {
         let nfc = "\u{00E9}.txt"
         let nfd = "e\u{0301}.txt"
-        let input = data(numstat("1", "0", nfc) + numstat("1", "0", nfd))
+        let input = data(raw("A", nfc) + raw("A", nfd) + numstat("1", "0", nfc) + numstat("1", "0", nfd))
         let files = try NumstatParser.parseStashFiles(input, untrackedPaths: [GitPath(nfd)]).files
         XCTAssertEqual(files.map(\.isFromUntracked), [false, true])
     }
 
-    func testPARNUMSTAT05_StashOutputWithRawRecordFails() {
-        assertStashFails(data(raw("M", "a") + numstat("1", "0", "a")), reason: "invalid added count", offset: 0)
+    /// #602: stash output now carries raw records, so numstat alone (the old `stashFiles` output) is rejected, and the
+    /// raw–numstat pairing is checked as for a commit.
+    func testPARNUMSTAT05_StashNumstatWithoutRawFails() {
+        assertStashFails(data(numstat("1", "0", "a")), reason: "numstat record without raw record", offset: 0)
+        assertStashFails(
+            data(raw("M", "a") + numstat("1", "0", "b")), reason: "numstat record does not match raw record")
+        assertStashFails(
+            data(raw("M", "a") + raw("M", "b") + numstat("1", "0", "a")), reason: "raw record without numstat record")
+        assertStashFails(data(raw("M", "a") + raw("M", "a")), reason: "duplicate path")
+    }
+
+    /// #602: a stash can hold renames and copies (`-M`); each keeps its pair, its score, and its counts.
+    func testPARNUMSTAT05_StashRenameAndCopyPairs() throws {
+        let input = data(
+            raw("C075", "src.txt", "copy.txt") + raw("R100", "old name.txt", "new\nname.txt")
+                + "3\t1\t\u{0}src.txt\u{0}copy.txt\u{0}" + "0\t0\t\u{0}old name.txt\u{0}new\nname.txt\u{0}")
+        let files = try NumstatParser.parseStashFiles(input).files
+        XCTAssertEqual(files.map(\.status), [.copied(score: 75), .renamed(score: 100)])
+        XCTAssertEqual(files.map(\.originalPath), [GitPath("src.txt"), GitPath("old name.txt")])
+        XCTAssertEqual(files.map(\.path), [GitPath("copy.txt"), GitPath("new\nname.txt")])
+        XCTAssertEqual(files.map(\.added), [3, 0])
     }
 
     // MARK: - Truncated output
@@ -431,7 +455,7 @@ final class NumstatParserTests: XCTestCase {
         XCTAssertEqual(try NumstatParser.parseCommitFiles(cutRaw, truncated: true).files, [])
         let cutNumstat = data(prefix + "0\t0\t\u{0}b\u{0}")
         XCTAssertEqual(paths(try NumstatParser.parseCommitFiles(cutNumstat, truncated: true).files), ["a"])
-        let cutStash = data(numstat("1", "0", "a") + "0\t0\t\u{0}b\u{0}c")
+        let cutStash = data(prefix + "0\t0\t\u{0}b\u{0}c")
         XCTAssertEqual(paths(try NumstatParser.parseStashFiles(cutStash, truncated: true).files), ["a"])
     }
 
