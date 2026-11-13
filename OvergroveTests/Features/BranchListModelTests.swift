@@ -223,6 +223,7 @@ final class BranchListModelTests: XCTestCase {
 
     /// #565 (review): the REMOTE folder tooltip is looked up by the folder's id, so its key is built the same way, also
     /// for a name with non-ASCII bytes or `%`.
+    @MainActor
     func testRemoteFolderTooltipKeysMatchTheFolderIds() {
         // `remoteURLTooltips` is a `String`-keyed dictionary built with `uniquingKeysWith`, so it never holds two
         // canonically equivalent names; each name here is distinct under `String` equality too.
