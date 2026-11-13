@@ -106,6 +106,7 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | `border.separator` | `#e3e6ec` | `#21252e` | 패널 안 구분선 |
 | `border.compare-card` | 액센트 35% | 액센트 35% | 비교 카드 테두리(#581) |
 | `border.strong` | `#b0b6c0` | `#3d434c` | 컨트롤 테두리, Increase Contrast의 패널 테두리 |
+| `border.chip` | = `border.strong` | = `border.strong` | 동작하지 않는 칩의 테두리(`main worktree`, 목록에 없는 이슈 번호, 파일·이력 칩). 패널·raised·선택·비활성 선택 위에서 두 모드 모두 1.3:1 이상이어야 한다. 이를 만족하는 가장 옅은 값이 `border.strong`이다. `border.separator`는 다크 선택 행 위에서 보이지 않았다(#617). 칩 안쪽 좌우 여백은 글자만 있으면 4pt, 앞에 기호가 있으면 6pt(ref 알약·PR 알약)다 |
 | `accent` | `#0e764a` | `#43d59a` | 포커스 링, HEAD 링, 고른 칩, 주 버튼, 활성 손잡이, 토글 |
 
 `primitive.color.system-fallback.window-close` / `window-minimize` / `window-zoom`은 시스템이 그리는 창 버튼을 목업에 그리기 위한 값이다. 앱 코드는 참조하지 않는다.
