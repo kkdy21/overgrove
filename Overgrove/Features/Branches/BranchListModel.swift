@@ -42,11 +42,26 @@ enum BranchNode: Identifiable, Equatable {
     /// `id` is unique per section; `rows` may themselves be folders (a remote's `feat/`).
     case folder(id: String, name: String, count: Int, children: [BranchNode])
 
+    /// Unique per section in bytes, not only by `String` equality (#565): `café` in NFC and NFD, or `K` and KELVIN
+    /// SIGN, are two remotes, branches, or folders to git, so they must not share a SwiftUI identity or an open state.
     var id: String {
         switch self {
-        case .branch(let row): row.id
+        case .branch(let row): Self.key(row.id)
         case .folder(let id, _, _, _): id
         }
+    }
+
+    /// `name` with `%` and every non-ASCII byte percent-encoded: equal only when the bytes are equal.
+    static func key(_ name: String) -> String {
+        var key = ""
+        for byte in name.utf8 {
+            if byte < 0x80, byte != UInt8(ascii: "%") {
+                key.unicodeScalars.append(Unicode.Scalar(byte))
+            } else {
+                key += String(format: "%%%02X", byte)
+            }
+        }
+        return key
     }
 }
 
@@ -135,8 +150,8 @@ struct BranchListModel: Equatable {
         }
         remote = order.map { name, rows in
             return .folder(
-                id: "remote:\(name)", name: PathValidator.displayable(name), count: rows.count,
-                children: Self.folders(rows, idPrefix: "remote:\(name)"))
+                id: "remote:\(BranchNode.key(name))", name: PathValidator.displayable(name), count: rows.count,
+                children: Self.folders(rows, idPrefix: "remote:\(BranchNode.key(name))"))
         }
 
         var notes: [String] = []
@@ -164,24 +179,28 @@ struct BranchListModel: Equatable {
         return ["refs/heads/main", "refs/heads/master"].first(where: names.contains)
     }
 
-    /// Groups rows by the part before the first `/` (`feat/`); folders and names each sorted by name.
+    /// Groups rows by the part before the first `/` (`feat/`); folders and names each sorted by name. Folders are
+    /// keyed by bytes (#565): `café/` in NFC and NFD are two folders, as git keeps them two branches.
     private static func folders(_ rows: [BranchRow], idPrefix: String) -> [BranchNode] {
         var loose: [BranchRow] = []
-        var grouped: [String: [BranchRow]] = [:]
+        var grouped: [String: (name: String, rows: [BranchRow])] = [:]
         for row in rows {
             if let slash = row.name.firstIndex(of: "/"), slash != row.name.startIndex {
                 let folder = String(row.name[..<slash])
                 let rest = String(row.name[row.name.index(after: slash)...])
-                grouped[folder, default: []].append(row.renamed(rest))
+                grouped[BranchNode.key(folder), default: (folder, [])].rows.append(row.renamed(rest))
             } else {
                 loose.append(row)
             }
         }
         let byName: (BranchRow, BranchRow) -> Bool = { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        let folderNodes = grouped.keys.sorted { $0.localizedStandardCompare($1) == .orderedAscending }.map { name in
+        let folderNodes = grouped.sorted { lhs, rhs in
+            let order = lhs.value.name.localizedStandardCompare(rhs.value.name)
+            return order == .orderedSame ? lhs.key < rhs.key : order == .orderedAscending
+        }.map { key, folder in
             BranchNode.folder(
-                id: "\(idPrefix)/\(name)", name: name + "/", count: grouped[name]?.count ?? 0,
-                children: (grouped[name] ?? []).sorted(by: byName).map(BranchNode.branch))
+                id: "\(idPrefix)/\(key)", name: folder.name + "/", count: folder.rows.count,
+                children: folder.rows.sorted(by: byName).map(BranchNode.branch))
         }
         // Folders first (as in the mockup), then loose branches.
         return folderNodes + loose.sorted(by: byName).map(BranchNode.branch)
