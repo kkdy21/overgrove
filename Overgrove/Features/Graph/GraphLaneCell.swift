@@ -7,6 +7,9 @@ struct GraphGeometry: Equatable, Sendable {
 
     let scale: CGFloat
     let rowHeight: CGFloat
+    /// At most this many lanes are drawn side by side; the rest scroll. `size.graph-max-lanes-visible`, or fewer in a
+    /// narrow panel (#603).
+    var visibleLanes = Tokens.Size.graphMaxLanesVisible
 
     var inset: CGFloat { 7 * scale }
     var lane: CGFloat { Tokens.Size.graphLaneWidth * scale }
@@ -16,10 +19,17 @@ struct GraphGeometry: Equatable, Sendable {
     var nodeHead: CGFloat { Tokens.Size.graphNodeHead * scale }
     var nodeRing: CGFloat { Tokens.Size.graphNodeRing * scale }
 
-    /// The Graph column as drawn: lane count × lane + 2 insets, at most `size.graph-max-lanes-visible` lanes. Wider
-    /// graphs scroll sideways inside it (interaction.md §2.1, #255).
+    /// The Graph column as drawn: lane count × lane + 2 insets, at most `visibleLanes` lanes. Wider graphs scroll
+    /// sideways inside it (interaction.md §2.1, #255).
     func width(lanes: Int) -> CGFloat {
-        CGFloat(min(max(lanes, 1), Tokens.Size.graphMaxLanesVisible)) * lane + inset * 2
+        CGFloat(min(max(lanes, 1), visibleLanes)) * lane + inset * 2
+    }
+
+    /// The same geometry showing at most `lanes` lanes side by side.
+    func showing(lanes: Int) -> GraphGeometry {
+        var copy = self
+        copy.visibleLanes = lanes
+        return copy
     }
 
     /// Every lane: what the column would need to show them all.
@@ -27,7 +37,7 @@ struct GraphGeometry: Equatable, Sendable {
         CGFloat(max(lanes, 1)) * lane + inset * 2
     }
 
-    /// How far the lanes can scroll sideways: 0 up to `size.graph-max-lanes-visible` lanes.
+    /// How far the lanes can scroll sideways: 0 up to `visibleLanes` lanes.
     func maxOffset(lanes: Int) -> CGFloat {
         contentWidth(lanes: lanes) - width(lanes: lanes)
     }
@@ -50,6 +60,14 @@ struct GraphGeometry: Equatable, Sendable {
             next = right - visible
         }
         return clampOffset(next, lanes: lanes)
+    }
+
+    /// The lane offset after the visible lane count or the zoom changed (#603): kept in range, and moved so the selected
+    /// commit's lane (`selectedColumn`) stays in view. A wider column shrinks the range, a narrower one can leave the
+    /// selection outside.
+    func adjustedOffset(_ offset: CGFloat, lanes: Int, selectedColumn: Int?) -> CGFloat {
+        guard let selectedColumn else { return clampOffset(offset, lanes: lanes) }
+        return revealing(selectedColumn, offset: offset, lanes: lanes)
     }
 
     func x(_ column: Int) -> CGFloat {
