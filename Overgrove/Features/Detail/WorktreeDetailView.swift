@@ -433,6 +433,8 @@ struct DetailIconSegments: View {
                     RoundedRectangle(cornerRadius: Tokens.Radius.sm - 1, style: .continuous)
                         .fill(isSelected ? Tokens.Color.surfaceSelection : Color.clear)
                 }
+                // The other segment answers the pointer like the panels' icon buttons (#571).
+                .hoverHighlight(.rounded(radius: Tokens.Radius.sm - 1), isEnabled: !isSelected)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
