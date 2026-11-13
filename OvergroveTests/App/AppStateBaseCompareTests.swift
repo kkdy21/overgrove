@@ -130,6 +130,40 @@ final class AppStateBaseCompareTests: XCTestCase {
         XCTAssertTrue(state.baseCompareCardModel?.canCompare == true, "the button stays")
     }
 
+    /// Auto refresh drives the card at most every max(5 s, 10 × the last comparison), PERF-10b.
+    func testThrottleGapFollowsTheLastComparison() async {
+        let state = await loadedState(card: StubComparisonLoader())
+        XCTAssertEqual(state.baseSummaryThrottleGap, .seconds(5))
+        state.baseSummaryLastDuration = .milliseconds(200)
+        XCTAssertEqual(state.baseSummaryThrottleGap, .seconds(5))
+        state.baseSummaryLastDuration = .milliseconds(800)
+        XCTAssertEqual(state.baseSummaryThrottleGap, .seconds(8))
+    }
+
+    /// Right after a comparison, an auto-refresh request waits out the gap; a user request does not, and it takes the
+    /// waiting one's place.
+    func testAutoRefreshWaitsButTheUserDoesNot() async throws {
+        let card = StubComparisonLoader()
+        let state = await loadedState(card: card)
+        state.selectWorktree(feature)
+        await settle(state)
+        let before = card.compareRequests.count
+
+        state.refreshBaseSummary(throttled: true)
+        try await Task.sleep(for: .milliseconds(700))
+        XCTAssertEqual(card.compareRequests.count, before, "auto refresh waits for the gap, not just the debounce")
+        XCTAssertNotNil(state.baseSummaryTask)
+
+        state.refreshBaseSummary()
+        await state.baseSummaryTask?.value
+        XCTAssertEqual(card.compareRequests.count, before + 1, "the user's request runs after the debounce")
+
+        state.refreshBaseSummary()
+        state.refreshBaseSummary(throttled: true)
+        await state.baseSummaryTask?.value
+        XCTAssertEqual(card.compareRequests.count, before + 2, "auto refresh does not slow a waiting user request")
+    }
+
     /// Without a card loader (the default) nothing runs, so tests that count S-11's requests stay exact.
     func testNoLoaderRunsNothing() async {
         let s11 = StubComparisonLoader()

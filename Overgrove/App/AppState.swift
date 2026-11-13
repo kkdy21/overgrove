@@ -80,6 +80,13 @@ final class AppState {
     var isBaseSummaryComparing = false
     /// A new basis arrived while they ran: compare once more when they end.
     var isBaseSummaryRerunPending = false
+    /// Every request behind that one came from auto refresh, so it waits out the throttle gap.
+    var isBaseSummaryRerunThrottled = false
+    /// The waiting request came from auto refresh.
+    var isBaseSummaryWaitThrottled = false
+    /// When the card's last comparison ended and how long it took: the auto-refresh throttle gap (PERF-10b).
+    var baseSummaryLastEnded: ContinuousClock.Instant?
+    var baseSummaryLastDuration: Duration?
     /// S-12 (#388): the open comparison of two commits, `nil` when the center shows something else.
     var commitComparison: CommitComparisonSession?
     /// Its file list and patch in flight; tests await them.

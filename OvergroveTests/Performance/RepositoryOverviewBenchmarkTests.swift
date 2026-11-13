@@ -79,4 +79,44 @@ final class RepositoryOverviewBenchmarkTests: XCTestCase {
         report.record("background selection refresh", refreshes, budgetLabel: "35 ms (status, reference)")
         report.finish()
     }
+
+    /// The compare card under S-02 and S-05 (#581) against the status it follows: after each selection refresh the
+    /// status time is new, so the card's comparison (uncommitted changes included) misses the cache every time. This
+    /// is the worst case the card adds per refresh of a worktree with WIP changes. Reported, not enforced.
+    func test_PERF_10b_compareCardVersusStatus() async throws {
+        let root = try PerfRun.benchRepository()
+        let parent = PerfRun.isolatedParentEnvironment
+        let environment = try await GitEnvironment.discoverForTesting(parentEnvironment: parent)
+        let service = RepositoryService(client: GitClient(environment: environment, parentEnvironment: parent))
+        let repository = Repository(
+            rootURL: root, commonGitDirectoryURL: root.appendingPathComponent(".git"), isBare: false)
+        guard case .success(let loaded) = await service.refresh(repository, trigger: .user)?.result else {
+            return XCTFail("the first load failed")
+        }
+        // A linked worktree: a lane branch with WIP changes, like an agent's worktree.
+        let path = try XCTUnwrap(loaded.entries.first { !$0.worktree.isMain }?.worktree.path)
+
+        var statusSamples: [Duration] = []
+        var compareSamples: [Duration] = []
+        var failed = false
+        for run in 0..<Self.runs {
+            let started = ContinuousClock.now
+            let refresh = await service.refresh(repository, trigger: .worktreeSelected(path))
+            let refreshed = ContinuousClock.now
+            let comparison = await service.compare(repository, worktree: path, includeWorkingTree: true)
+            let compared = ContinuousClock.now
+            if case .success = refresh?.result {} else { failed = true }
+            if case .failure = comparison { failed = true }
+            guard run > 0 else { continue }  // warm-up
+            statusSamples.append(refreshed - started)
+            compareSamples.append(compared - refreshed)
+        }
+        XCTAssertFalse(failed, "a refresh or comparison failed")
+
+        var report = PerfReport(id: "PERF-10b", title: "Compare card per refresh (#581)")
+        report.note("git \(environment.version), \(ProcessInfo.processInfo.activeProcessorCount) cores")
+        report.record("selection refresh (status)", PerfSamples(statusSamples), budgetLabel: "reference")
+        report.record("card comparison, cache miss", PerfSamples(compareSamples), budgetLabel: "reference")
+        report.finish()
+    }
 }

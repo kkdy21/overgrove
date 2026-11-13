@@ -174,8 +174,13 @@ extension AppState {
         // A verified load is the new basis: an open S-11 compares again (#412). A cached paint is not.
         if isVerified {
             comparisonListSucceeded()
-            // The card under S-02 and S-05 compares again on the new basis, like S-11 (#581).
-            refreshBaseSummary()
+            // The card under S-02 and S-05 compares again on the new basis, like S-11 (#581); at a slower pace when
+            // auto refresh brought it, since each comparison can cost far more than the status (PERF-10b).
+            if case .filesChanged = trigger {
+                refreshBaseSummary(throttled: true)
+            } else {
+                refreshBaseSummary()
+            }
         }
         // A stash that is gone (dropped or applied elsewhere) falls back to the focused worktree.
         if case .stash(let oid) = selection, !listing.stashes.contains(where: { $0.oid == oid }) {
