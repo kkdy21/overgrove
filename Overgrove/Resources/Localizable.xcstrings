@@ -3604,6 +3604,16 @@
         }
       }
     },
+    "No base branch to compare with." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "비교할 기준 브랜치가 없습니다."
+          }
+        }
+      }
+    },
     "No base branch was found (origin/HEAD, main, or master). Choose one to compare with." : {
       "localizations" : {
         "ko" : {
@@ -5740,6 +5750,16 @@
         }
       }
     },
+    "The base branch's commit this comparison used" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 비교에 쓴 기준 브랜치의 커밋"
+          }
+        }
+      }
+    },
     "The configuration listing was truncated, so it could not be inspected completely." : {
       "localizations" : {
         "ko" : {
@@ -6824,6 +6844,16 @@
         }
       }
     },
+    "Waiting for this worktree's status." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 워크트리의 상태를 기다리는 중입니다."
+          }
+        }
+      }
+    },
     "Web pages and SVG images from a repository are not previewed: they could load content from the internet." : {
       "localizations" : {
         "ko" : {
@@ -6990,6 +7020,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "적용됨"
+          }
+        }
+      }
+    },
+    "base %@" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기준 %@"
           }
         }
       }

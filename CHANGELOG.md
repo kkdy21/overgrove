@@ -10,6 +10,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Added
 
+- WIP and worktree details: a compare card pinned at the bottom shows the focused worktree against its base branch
+  (commits ahead and behind, files, line totals, base commit), with the base menu and Compare with Base…. It reuses
+  S-11's comparison and cache and waits for the selection to settle before running git.
 - Issue panel: GitLab issues through `glab` for a repository without a GitHub remote, read only after glab reports the
   remote's host logged in (ADR-0026). A remote on a host no CLI is logged in to shows "Not logged in to HOST" with the
   gh and glab login commands to copy.

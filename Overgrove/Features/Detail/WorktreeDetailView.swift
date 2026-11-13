@@ -7,8 +7,6 @@ import SwiftUI
 /// repository (ADR-0011).
 struct WorktreeDetailView: View {
     let model: WorktreeDetailModel
-    /// `Compare with Base…` (`⌘⇧B`, S-11); `nil` disables it.
-    var onCompare: (() -> Void)?
     /// The Security card's "Treat as untrusted" toggle (#107); `nil` hides it.
     var onSetUntrusted: ((Bool) -> Void)?
 
@@ -17,9 +15,6 @@ struct WorktreeDetailView: View {
             VStack(alignment: .leading, spacing: Tokens.Spacing.md) {
                 InfoCard(model: model)
                 if let pullRequest = model.pullRequest { PullRequestCard(model: pullRequest) }
-                Button("Compare with Base…") { onCompare?() }
-                    .disabled(onCompare == nil)
-                    .help("See what this worktree changed compared with its base branch (⌘⇧B)")
                 if let slow = model.slowStatus {
                     SlowStatusCard(hint: slow)
                 }

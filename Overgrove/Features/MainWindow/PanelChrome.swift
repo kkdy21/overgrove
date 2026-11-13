@@ -347,8 +347,11 @@ struct DetailPanel: View {
     var comparisonList: ComparisonListView?
     /// S-12's commits and files (#388).
     var commitComparisonList: CommitComparisonListView?
-    /// S-05's `Compare with Base…` (#158); `nil` disables it.
-    var onCompare: (() -> Void)?
+    /// The base compare card pinned under S-02 and S-05 (#581); `nil` hides it.
+    var compareCard: BaseCompareCardModel?
+    var onChooseCompareBase: (FullRefName) -> Void = { _ in }
+    /// The card's `Compare with Base…` (`⌘⇧B`, S-11, #158).
+    var onCompare: () -> Void = {}
     /// S-05 "Treat as untrusted" (#107).
     var onSetUntrusted: ((Bool) -> Void)?
     /// The focused worktree's lane (`WorktreeRow.laneIndex`): the header's worktree tile (#578).
@@ -432,10 +435,15 @@ struct DetailPanel: View {
             } else if let stashModel {
                 StashDetailView(model: stashModel, selectedFile: selectedStashFile, onSelectFile: onSelectStashFile)
             } else if let worktreeModel {
-                WorktreeDetailView(model: worktreeModel, onCompare: onCompare, onSetUntrusted: onSetUntrusted)
+                pinningCompareCard {
+                    WorktreeDetailView(model: worktreeModel, onSetUntrusted: onSetUntrusted)
+                }
             } else if let wipModel {
-                WipDetailView(
-                    model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile, submodules: submoduleSection)
+                pinningCompareCard {
+                    WipDetailView(
+                        model: wipModel, selectedFile: selectedFile, onSelect: onSelectFile,
+                        submodules: submoduleSection)
+                }
             } else if worktreeStatus.isAwaitingLoad {
                 ProgressView().controlSize(.small)
             } else {
@@ -445,6 +453,19 @@ struct DetailPanel: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// S-02 and S-05 scroll above the base compare card, which stays at the bottom (interaction.md, #581).
+    @ViewBuilder
+    private func pinningCompareCard(@ViewBuilder _ content: () -> some View) -> some View {
+        VStack(spacing: 0) {
+            content().frame(maxHeight: .infinity)
+            if let compareCard {
+                BaseCompareCard(model: compareCard, onChooseBase: onChooseCompareBase, onCompare: onCompare)
+                    .padding(Tokens.Spacing.md)
+                    .overlay(alignment: .top) { Tokens.Color.borderSeparator.frame(height: 1) }
+            }
+        }
     }
 
     /// Below this width the `Changes | Worktree` segment is small, so the title keeps room at the panel's 300pt

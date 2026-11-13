@@ -68,6 +68,18 @@ final class AppState {
     var isComparisonRerunPending = false
     /// The base the user picked per worktree, for the session (screens.md S-11: remembered per worktree).
     var comparisonBases: [GitPath: FullRefName] = [:]
+    /// The card pinned under S-02 and S-05 (#581): the focused worktree compared with its base, `nil` before the first
+    /// comparison or without `baseSummaryLoader`.
+    var baseSummary: BaseCompareSummary?
+    /// Compares for that card; `nil` turns the card's own comparisons off (tests that count S-11's requests).
+    let baseSummaryLoader: (any ComparisonLoading)?
+    /// The card's comparison in flight (also while it waits out its debounce); tests await it.
+    var baseSummaryTask: Task<Void, Never>?
+    var baseSummaryGeneration = 0
+    /// The card's git commands are running (past the debounce).
+    var isBaseSummaryComparing = false
+    /// A new basis arrived while they ran: compare once more when they end.
+    var isBaseSummaryRerunPending = false
     /// S-12 (#388): the open comparison of two commits, `nil` when the center shows something else.
     var commitComparison: CommitComparisonSession?
     /// Its file list and patch in flight; tests await them.
@@ -254,6 +266,8 @@ final class AppState {
     ///   - issueLoader: Reads the open issues through gh for S-06.
     ///   - pullRequestLoader: Reads the pull requests through gh for PR status (#115).
     ///   - comparisonLoader: Compares a worktree with its base branch for S-11.
+    ///   - baseSummaryLoader: Compares the focused worktree with its base for the card under S-02 and S-05 (#581);
+    ///     `nil` (the default) leaves the card without a result. The app passes the live loader.
     ///   - graphLoader: Reads commit graph pages for the center panel (#68).
     ///   - lineCountLoader: Queries the WIP detail's line counts for the selected worktree. Defaults to `loader` when
     ///     it can (the live loader can); without one, the detail shows no line counts.
@@ -275,6 +289,7 @@ final class AppState {
         issueLoader: any IssueLoading = LiveIssueLoader.live,
         pullRequestLoader: any PullRequestLoading = LivePullRequestLoader.live,
         comparisonLoader: any ComparisonLoading = LiveComparisonLoader.live,
+        baseSummaryLoader: (any ComparisonLoading)? = nil,
         lineCountLoader: (any LineCountLoading)? = nil,
         submoduleLoader: (any SubmoduleLoading)? = nil,
         graphLoader: any GraphLoading = LiveGraphLoader.live,
@@ -322,6 +337,7 @@ final class AppState {
                 await LiveGitClient.shared.reset()
             })
         self.comparisonLoader = comparisonLoader
+        self.baseSummaryLoader = baseSummaryLoader
         self.lineCountLoader = lineCountLoader ?? (loader as? any LineCountLoading)
         submodules = SubmodulePanel(loader: submoduleLoader ?? (loader as? any SubmoduleLoading))
         fetch = FetchController(fetcher: fetcher ?? (loader as? any RepositoryFetching), store: fetchRecords)
