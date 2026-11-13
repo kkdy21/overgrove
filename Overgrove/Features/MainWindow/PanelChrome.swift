@@ -128,11 +128,13 @@ struct SidebarPanel: View {
                                 BranchListSection(
                                     title: "LOCAL", count: branchModel.localCount,
                                     nodes: SidebarFilter.branches(branchModel.local, query: query),
-                                    warning: branchModel.warning, isFiltered: query != nil)
+                                    warning: branchModel.warning, isFiltered: query != nil,
+                                    selectedCommit: selectedCommit)
                                 BranchListSection(
                                     title: "REMOTE", count: branchModel.remoteCount,
                                     nodes: SidebarFilter.branches(branchModel.remote, query: query),
-                                    folderHelp: Self.remoteFolderHelp(remoteURLTooltips), isFiltered: query != nil)
+                                    folderHelp: Self.remoteFolderHelp(remoteURLTooltips), isFiltered: query != nil,
+                                    selectedCommit: selectedCommit)
                                 TagListSection(model: branchModel.tags, query: query, selectedCommit: selectedCommit)
                             }
                             if case .loaded = worktreeStatus {
