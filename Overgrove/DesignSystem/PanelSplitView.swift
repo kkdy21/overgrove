@@ -197,9 +197,9 @@ struct PanelDivider: View {
     let onStep: (Int) -> Void
     let onEdge: (PanelLayout.Edge) -> Void
 
-    /// Whether the pointer is over the gutter and whether its pointer style is on (#656).
-    @State private var pointer = DividerPointer()
-    /// The gutter in the drag's (global) coordinates, to tell whether a released drag ends over it (#648).
+    /// The pointer is over the gutter, as the window's `WindowCursorArbiter` decided (#656).
+    @State private var isPointerOver = false
+    /// The gutter's frame in the window, so the arbiter decides again when the layout moved it.
     @State private var gutterFrame: CGRect = .zero
     /// True while the drag gesture runs; SwiftUI resets it on end *and* on cancel, unlike `onEnded`.
     @GestureState private var isGestureActive = false
@@ -208,7 +208,7 @@ struct PanelDivider: View {
     /// `splitter-grip-active`; kept here so the value has one home.
     static let gutterHighlightOpacity = 0.10
 
-    private var isActive: Bool { pointer.isOver || isDragging }
+    private var isActive: Bool { isPointerOver || isDragging }
 
     var body: some View {
         ZStack {
@@ -225,19 +225,19 @@ struct PanelDivider: View {
         .frame(width: PanelLayout.gap)
         .frame(maxHeight: .infinity)
         .contentShape(Rectangle())
-        // The resize cursor (`View.cursor`, #634), as NSSplitView shows: only in the key window, gone when the pointer
-        // leaves; a drag keeps it below. The style stays on so that it is there for the event the pointer enters on;
-        // it is off only after the pointer was found gone behind hover's back (#656, `DividerPointer`).
-        .cursor(cursor, isActive: pointer.isStyleOn || isDragging)
-        .onHover { inside in
-            apply(pointer.hover(inside, cursor: cursor))
-        }
         .onGeometryChange(for: CGRect.self) {
             $0.frame(in: .global)
         } action: {
             gutterFrame = $0
         }
-        .background(PointerProbe(layoutKey: gutterFrame, onCheck: pointerChecked))
+        // The resize cursor, as NSSplitView shows: only in the key window, gone when the pointer leaves; a drag keeps
+        // it. The window's one `WindowCursorArbiter` decides it from the real pointer, not SwiftUI hover and
+        // `pointerStyle`, whose state went stale across key changes and collapses (#656).
+        .background(
+            DividerCursorRegion(
+                cursor: cursor, isDragging: isDragging, layoutKey: gutterFrame,
+                onPointerOver: { isPointerOver = $0 })
+        )
         .gesture(
             // 3pt so a slightly jittery double-click on a trackpad is not taken for a drag.
             DragGesture(minimumDistance: 3, coordinateSpace: .global)
@@ -247,21 +247,15 @@ struct PanelDivider: View {
                     cursor.set()  // keep the resize cursor while the pointer leaves the 8pt gutter
                 }
                 .onEnded { value in
+                    // The arbiter then sets the cursor for where the pointer was released (#648).
                     onDragEnded(value.translation.width)
-                    // The resize cursor while the pointer is still over the gutter, the arrow once it is not: the
-                    // `pointerStyle` path only sets it again when the pointer enters (#648).
-                    let inside = Self.cursorAfterDrag(cursor, pointer: value.location, gutter: gutterFrame) != .arrow
-                    apply(pointer.dragEnded(inside: inside, cursor: cursor))
                 }
         )
         .onChange(of: isGestureActive) { _, active in
             guard !active else { return }
             // After a normal end `onEnded` has already cleared the session, so this is a no-op; after a cancel
             // (e.g. the divider disappeared mid-drag) it is the only signal. Deferred so it never races `onEnded`.
-            Task { @MainActor in
-                onDragCancelled()
-                if !pointer.isOver { NSCursor.arrow.set() }
-            }
+            Task { @MainActor in onDragCancelled() }
         }
         .onTapGesture(count: 2, perform: onReset)
         // Focus only through keyboard navigation; a click on the gutter must not steal focus from the panels.
@@ -295,38 +289,6 @@ struct PanelDivider: View {
         return .handled
     }
 
-    /// The real pointer was checked (window key change or layout change).
-    private func pointerChecked(_ inside: Bool) {
-        apply(pointer.check(inside, cursor: cursor, isDragging: isDragging))
-    }
-
-    /// Sets the cursor an event asked for. An enter also sets it again shortly after: SwiftUI's own cursor update for
-    /// that event can come after `onHover` and put the arrow back, and nothing else sets it while the pointer rests.
-    private func apply(_ effect: DividerPointer.Effect) {
-        switch effect {
-        case .none:
-            break
-        case .set(let new):
-            new.set()
-        case .enter(let new):
-            new.set()
-            Task { @MainActor in
-                var waited: TimeInterval = 0
-                for delay in DividerPointer.reassertDelays {
-                    try? await Task.sleep(for: .seconds(delay - waited))
-                    waited = delay
-                    if pointer.isOver, !isDragging { cursor.set() }
-                }
-            }
-        }
-    }
-
-    /// The cursor when a drag is released at `pointer`: `cursor` over the gutter, the arrow elsewhere (#648). The
-    /// gutter follows the pointer, so it is over it unless a panel limit stopped the gutter.
-    static func cursorAfterDrag(_ cursor: NSCursor, pointer: CGPoint, gutter: CGRect) -> NSCursor {
-        gutter.contains(pointer) ? cursor : .arrow
-    }
-
     /// `resizeLeftRight`, or the one direction that still moves at a limit.
     private var cursor: NSCursor {
         switch (side, limitState) {
@@ -338,64 +300,6 @@ struct PanelDivider: View {
         case (.detail, .atMinimum): .resizeLeft
         case (.detail, .atMaximum): .resizeRight
         }
-    }
-}
-
-/// What a divider knows about the pointer, and whether its pointer style is on (#656).
-///
-/// SwiftUI's hover misses an exit while the window is not key and when a collapse moves the gutter away from a still
-/// pointer, and its pointer style then comes back on a gutter the pointer has left (when the window becomes key again or
-/// the collapse ends). Turning the style off whenever the pointer is not over the gutter fixed that but lost the event
-/// the pointer enters on: the style was not on yet, so SwiftUI showed the arrow. So the style stays on, and is off only
-/// while hover may be stale: from a check or a released drag that found the pointer gone, until hover reports again.
-struct DividerPointer: Equatable {
-    /// The pointer is over the gutter (drives the highlight).
-    private(set) var isOver = false
-    private(set) var isStyleSuppressed = false
-
-    var isStyleOn: Bool { !isStyleSuppressed }
-
-    /// After an enter, the cursor is set again at these delays (seconds) while the pointer stays.
-    static let reassertDelays: [TimeInterval] = [0, 0.1, 0.3]
-
-    enum Effect: Equatable {
-        case none
-        case set(NSCursor)
-        /// Set now and again at `reassertDelays`.
-        case enter(NSCursor)
-    }
-
-    /// Hover reported: it is current again, so the style comes back on.
-    mutating func hover(_ inside: Bool, cursor: NSCursor) -> Effect {
-        isOver = inside
-        isStyleSuppressed = false
-        return inside ? .enter(cursor) : .none
-    }
-
-    /// A check of the real pointer: after the window became or stopped being key, or the layout moved the gutter.
-    /// - Over the gutter: the cursor every time, since no enter comes for a pointer that was already there, and an enter
-    ///   that came while the window was not key set nothing.
-    /// - Gone while hover still said over: hover missed the exit, so the arrow, and the style off until hover reports.
-    /// - A drag keeps its own cursor.
-    mutating func check(_ inside: Bool, cursor: NSCursor, isDragging: Bool) -> Effect {
-        guard !isDragging else { return .none }
-        if inside {
-            isOver = true
-            isStyleSuppressed = false
-            return .set(cursor)
-        }
-        guard isOver else { return .none }
-        isOver = false
-        isStyleSuppressed = true
-        return .set(.arrow)
-    }
-
-    /// A drag was released with the pointer `inside` the gutter or not (#648). Hover did not follow the drag, so a
-    /// pointer that ended elsewhere turns the style off like a missed exit.
-    mutating func dragEnded(inside: Bool, cursor: NSCursor) -> Effect {
-        isOver = inside
-        isStyleSuppressed = !inside
-        return .set(inside ? cursor : .arrow)
     }
 }
 
@@ -419,8 +323,8 @@ private struct CollapsiblePanel: ViewModifier {
     }
 }
 
-/// A pointer cursor over a view (#634): the resize cursors on the panel dividers and graph column dividers, the
-/// pointing hand on clickable status bar fields.
+/// A pointer cursor over a view (#634): the resize cursors on the graph column dividers, the pointing hand on clickable
+/// status bar fields. The panel dividers use `WindowCursorArbiter` instead (#656).
 ///
 /// macOS 15 and later: SwiftUI's `pointerStyle`, which follows the window's key state and the pointer leaving.
 /// macOS 14: `CursorArea`. An `NSView` cursor rect alone lost to the hosting view: AppKit sends cursor updates to the
@@ -428,21 +332,19 @@ private struct CollapsiblePanel: ViewModifier {
 /// SwiftUI hosting view set the arrow back. `CursorArea` also tracks the pointer itself and sets its cursor on enter
 /// and move, the arrow on exit.
 extension View {
-    /// `isActive: false` shows the arrow instead, for a caller that knows the pointer is not there (#656).
-    func cursor(_ cursor: NSCursor, isActive: Bool = true) -> some View {
-        modifier(CursorModifier(cursor: cursor, isActive: isActive))
+    func cursor(_ cursor: NSCursor) -> some View {
+        modifier(CursorModifier(cursor: cursor))
     }
 }
 
 struct CursorModifier: ViewModifier {
     let cursor: NSCursor
-    var isActive = true
 
     func body(content: Content) -> some View {
         if #available(macOS 15, *), let style = Self.pointerStyle(for: cursor) {
-            content.pointerStyle(isActive ? style : nil)
+            content.pointerStyle(style)
         } else {
-            content.background(CursorArea(cursor: isActive ? cursor : .arrow))
+            content.background(CursorArea(cursor: cursor))
         }
     }
 
@@ -540,8 +442,8 @@ struct KeyWindowCursorReset: NSViewRepresentable {
 
     final class ResetView: NSView {
         private var observer: NSObjectProtocol?
-        /// Windows that keep their own cursors right (they host a `ResetView` and `PointerProbe`s): another main
-        /// window becoming key is left to its own checks, which would lose to this arrow (#656).
+        /// Windows that keep their own cursors right (they host a `ResetView` and a `WindowCursorArbiter`): another
+        /// main window becoming key is left to its arbiter, which would lose to this arrow (#656).
         static let managedWindows = NSHashTable<NSWindow>.weakObjects()
 
         override func viewDidMoveToWindow() {
@@ -570,91 +472,190 @@ struct KeyWindowCursorReset: NSViewRepresentable {
     }
 }
 
-/// Tells its owner whether the real pointer is over it (#656), when its window becomes or stops being key and after a
-/// layout change (`layoutKey`). Hover alone misses an exit while the window is not key, and sees no enter for a pointer
-/// that was already there; this checks `mouseLocationOutsideOfEventStream` instead. Takes no hits.
-struct PointerProbe: NSViewRepresentable {
-    /// Changes when the layout may have moved the view under a still pointer (the gutter's frame).
+/// A panel divider's area, for its window's `WindowCursorArbiter` (#656). Takes no hits.
+struct DividerCursorRegion: NSViewRepresentable {
+    let cursor: NSCursor
+    let isDragging: Bool
+    /// Changes when the layout may have moved the gutter under a still pointer (the gutter's frame).
     let layoutKey: CGRect
-    let onCheck: (Bool) -> Void
+    let onPointerOver: (Bool) -> Void
 
-    func makeNSView(context: Context) -> ProbeView {
-        let view = ProbeView()
-        view.onCheck = onCheck
-        return view
-    }
+    func makeNSView(context: Context) -> RegionView { RegionView() }
 
-    func updateNSView(_ view: ProbeView, context: Context) {
-        view.onCheck = onCheck
-        // Only when the gutter moved: a check on every update (a hover re-render) could disagree with hover on the edge
-        // pixel and take the cursor away from a pointer that just entered.
-        if view.layoutKey != layoutKey {
+    func updateNSView(_ view: RegionView, context: Context) {
+        view.onPointerOver = onPointerOver
+        view.cursor = cursor
+        let dragEnded = view.isDragging && !isDragging
+        view.isDragging = isDragging
+        // Not on every update: only a moved gutter or a finished drag can change what is under the pointer.
+        if dragEnded || view.layoutKey != layoutKey {
             view.layoutKey = layoutKey
-            view.scheduleCheck()
+            view.arbiter?.scheduleEvaluation()
         }
     }
 
-    final class ProbeView: NSView {
-        var onCheck: (Bool) -> Void = { _ in }
-        /// The pointer in window coordinates; a test hands in its own.
-        var pointerLocation: (() -> NSPoint?)?
-        /// The window is key and the app active; a test hands in its own.
-        var isWindowKey: (() -> Bool)?
-        /// The layout key of the last check.
+    final class RegionView: NSView {
+        var cursor: NSCursor = .resizeLeftRight
+        var isDragging = false
         var layoutKey: CGRect?
-        private var observers: [NSObjectProtocol] = []
+        var onPointerOver: (Bool) -> Void = { _ in }
+        private(set) var isPointerOver = false
+        private(set) weak var arbiter: WindowCursorArbiter?
 
-        /// After the window becomes key, checked again at these delays (seconds): SwiftUI applies its own cursor for the
-        /// newly key window some 60ms later, and shows the arrow when its hover missed an enter while the window was
-        /// not key.
-        static let followUpDelays: [TimeInterval] = [0.1, 0.3]
+        func setPointerOver(_ over: Bool) {
+            guard over != isPointerOver else { return }
+            isPointerOver = over
+            onPointerOver(over)
+        }
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            observers.forEach(NotificationCenter.default.removeObserver)
-            observers = []
-            guard let window else { return }
-            observers.append(
-                NotificationCenter.default.addObserver(
-                    forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
-                ) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.scheduleCheck(followUps: Self.followUpDelays) }
-                })
-            observers.append(
-                NotificationCenter.default.addObserver(
-                    forName: NSWindow.didResignKeyNotification, object: window, queue: .main
-                ) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.scheduleCheck() }
-                })
-            scheduleCheck()
+            arbiter?.remove(self)
+            arbiter = window.map(WindowCursorArbiter.arbiter(for:))
+            arbiter?.add(self)
         }
 
-        /// After the current event and layout pass, so the frame is the new one and a `ResetView` arrow for another
-        /// window has already been set; then again at each of `followUps`.
-        func scheduleCheck(followUps: [TimeInterval] = []) {
-            for delay in [0] + followUps {
-                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                    MainActor.assumeIsolated { self?.check() }
-                }
-            }
+        /// Enter, move, and exit come to the area's owner whatever is under the pointer, so they work although this
+        /// view takes no hits. Only in the key window.
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            for area in trackingAreas where area.owner === self { removeTrackingArea(area) }
+            addTrackingArea(
+                NSTrackingArea(
+                    rect: .zero, options: [.mouseEnteredAndExited, .mouseMoved, .activeInKeyWindow, .inVisibleRect],
+                    owner: self))
         }
 
-        func check() {
-            guard window != nil else { return }
-            onCheck(isPointerInside())
-        }
-
-        /// Over this view in a key window of the active app; never in another window.
-        func isPointerInside() -> Bool {
-            guard let window else { return false }
-            let isKey = isWindowKey?() ?? (window.isKeyWindow && NSApp.isActive)
-            guard isKey, let location = pointerLocation?() ?? Optional(window.mouseLocationOutsideOfEventStream) else {
-                return false
-            }
-            return bounds.contains(convert(location, from: nil))
-        }
+        override func mouseEntered(with event: NSEvent) { arbiter?.scheduleEvaluation() }
+        override func mouseMoved(with event: NSEvent) { arbiter?.scheduleEvaluation() }
+        override func mouseExited(with event: NSEvent) { arbiter?.scheduleEvaluation() }
 
         override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+}
+
+/// The one judge of the panel dividers' cursor in a window (#656).
+///
+/// Each divider deciding its own cursor from SwiftUI hover and `pointerStyle` lost in turn: hover misses an exit while
+/// the window is not key and when a collapse moves the gutter away, a style left on came back after Settings closed or
+/// a collapse ended, a style turned off missed the event the pointer entered on, and a newly key window got SwiftUI's
+/// arrow about half a second later. The arbiter knows every divider in the window and sets one cursor from the real
+/// pointer (`mouseLocationOutsideOfEventStream`):
+/// - over a divider, or during a divider drag: that divider's cursor, set every time, so it wins over a late arrow;
+/// - elsewhere: the arrow, but only while the divider cursor it last set is still showing, so a cursor someone else set
+///   (a text view's I-beam, a graph column divider) is left alone.
+///
+/// It decides after each event that can change the answer, once the event has been handled: the pointer entering,
+/// moving over, or leaving a divider, a cursor update (the hosting view's arrow), the mouse button going up, a divider
+/// moved by the layout or removed, and the window becoming key (again over the next second) or resigning.
+@MainActor
+final class WindowCursorArbiter {
+    private static let arbiters = NSMapTable<NSWindow, WindowCursorArbiter>.weakToStrongObjects()
+    /// The divider cursor an arbiter last set, app-wide: a cursor set in one main window is still showing when another
+    /// becomes key.
+    private static var shownCursor: NSCursor?
+    private static var eventMonitor: Any?
+
+    /// After the window becomes key, decided again at these delays (seconds): SwiftUI sets the arrow for a newly key
+    /// window as late as half a second after.
+    static let keyFollowUps: [TimeInterval] = [0.1, 0.3, 0.6, 1.0]
+
+    static func arbiter(for window: NSWindow) -> WindowCursorArbiter {
+        if let arbiter = arbiters.object(forKey: window) { return arbiter }
+        let arbiter = WindowCursorArbiter(window: window)
+        arbiters.setObject(arbiter, forKey: window)
+        installEventMonitor()
+        return arbiter
+    }
+
+    /// The pointer in window coordinates; a test hands in its own.
+    var pointerLocation: (() -> NSPoint)?
+    /// The window is key and the app active; a test hands in its own.
+    var isWindowKey: (() -> Bool)?
+    /// The left mouse button is down, so a divider drag is still running; a test hands in its own.
+    var isMouseDown: (() -> Bool)?
+
+    private weak var window: NSWindow?
+    private let regions = NSHashTable<DividerCursorRegion.RegionView>.weakObjects()
+    nonisolated(unsafe) private var observers: [NSObjectProtocol] = []
+
+    private init(window: NSWindow) {
+        self.window = window
+        observers.append(
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.scheduleEvaluation(followUps: Self.keyFollowUps) }
+            })
+        observers.append(
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didResignKeyNotification, object: window, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.scheduleEvaluation() }
+            })
+    }
+
+    deinit {
+        observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    /// Cursor updates (the hosting view setting the arrow) and the mouse button going up, for the window they happen in.
+    private static func installEventMonitor() {
+        guard eventMonitor == nil else { return }
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: [.cursorUpdate, .leftMouseUp]) { event in
+            MainActor.assumeIsolated { handle(event, in: event.window ?? NSApp.keyWindow) }
+            return event
+        }
+    }
+
+    /// A cursor update or mouse up in `window`: its arbiter decides again once the event has been handled.
+    static func handle(_ event: NSEvent, in window: NSWindow?) {
+        guard let window else { return }
+        arbiters.object(forKey: window)?.scheduleEvaluation()
+    }
+
+    func add(_ region: DividerCursorRegion.RegionView) {
+        regions.add(region)
+        scheduleEvaluation()
+    }
+
+    func remove(_ region: DividerCursorRegion.RegionView) {
+        regions.remove(region)
+        region.setPointerOver(false)
+        scheduleEvaluation()
+    }
+
+    /// Decides once the current event and layout pass are done, then again at each of `followUps`.
+    func scheduleEvaluation(followUps: [TimeInterval] = []) {
+        for delay in [0] + followUps {
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                MainActor.assumeIsolated { self?.evaluate() }
+            }
+        }
+    }
+
+    func evaluate() {
+        let all = regions.allObjects.filter { $0.window != nil && $0.window === window }
+        guard let window, isWindowKey?() ?? (window.isKeyWindow && NSApp.isActive) else {
+            // Not key: no highlight, and the cursor belongs to the window that is (Settings gets the arrow from
+            // `KeyWindowCursorReset`).
+            for region in all { region.setPointerOver(false) }
+            return
+        }
+        let location = pointerLocation?() ?? window.mouseLocationOutsideOfEventStream
+        let hit = all.first { !$0.isHiddenOrHasHiddenAncestor && $0.bounds.contains($0.convert(location, from: nil)) }
+        let isMouseDown = isMouseDown?() ?? (NSEvent.pressedMouseButtons & 1 != 0)
+        // A drag whose divider was removed by a collapse never reports its end, so a drag counts only while the button
+        // is down.
+        let dragging = isMouseDown ? all.first(where: \.isDragging) : nil
+        for region in all { region.setPointerOver(region === hit) }
+        if let cursor = (dragging ?? hit)?.cursor {
+            Self.shownCursor = cursor
+            cursor.set()
+        } else if let shown = Self.shownCursor {
+            Self.shownCursor = nil
+            if NSCursor.current == shown { NSCursor.arrow.set() }
+        }
     }
 }
 
