@@ -574,10 +574,13 @@ struct DetailPanel: View {
             } else if let commitComparisonList {
                 commitComparisonList
             } else if let commitModel {
-                CommitDetailView(
-                    model: commitModel, laneIndex: commitLane, selectedFile: selectedCommitFile,
-                    onSelectFile: onSelectCommitFile, onSelectParent: onSelectParent,
-                    onShowAllFiles: onShowAllCommitFiles)
+                // Stepping through commits keeps the last one for up to 150 ms instead of flashing a loading state (#637).
+                LaggingCommitDetail(model: commitModel) { shown in
+                    CommitDetailView(
+                        model: shown, laneIndex: commitLane, selectedFile: selectedCommitFile,
+                        onSelectFile: onSelectCommitFile, onSelectParent: onSelectParent,
+                        onShowAllFiles: onShowAllCommitFiles)
+                }
             } else if let issueModel {
                 IssueDetailView(
                     model: issueModel, onSelectWorktree: onSelectLinkedWorktree,

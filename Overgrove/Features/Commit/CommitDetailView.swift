@@ -181,7 +181,8 @@ struct CommitDetailView: View {
             // No fade (#576): stepping through commits with ↑/↓ passes loading → loaded on every commit.
             switch model.files {
             case .loading:
-                ProgressView().controlSize(.small)
+                // Only after 150 ms (interaction.md §4, #637), e.g. right after leaving the WIP row.
+                DelayedProgressView()
             case .failed(let reason):
                 Text(reason).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
             case .loaded(let rows, let hidden):

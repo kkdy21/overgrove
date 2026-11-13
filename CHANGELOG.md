@@ -50,6 +50,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 - The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show
   the pointing hand.
+- Stepping through commits no longer flashes a loading state: the commit detail keeps the previous commit for up to
+  150 ms while the next one loads. The comparison screens fade in instead of popping in after a blank frame.
 - In a long sidebar, ⌘↑ and ⌘↓ always scroll the selected row into view, and moving up never leaves it under the
   pinned section header.
 - In the sidebar LOCAL and REMOTE trees, branch and folder rows of one depth line up their icons and names.

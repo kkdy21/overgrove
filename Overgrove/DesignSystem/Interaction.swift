@@ -144,14 +144,48 @@ enum LoadPhase: Hashable, Sendable {
 
 private struct FadeIn<Key: Hashable>: ViewModifier {
     let key: Key
+    /// The first content shows at once: only a change of `key` fades.
+    @State private var hasAppeared = false
 
     func body(content: Content) -> some View {
-        // The old content leaves at once and only the new one fades in, so the two never overlap: a view on its way
-        // out keeps no focus request handler, keyboard shortcut, or heavy rows alive during the fade (#576).
-        ZStack {
-            content.id(key).transition(.asymmetric(insertion: .opacity, removal: .identity))
-        }
-        .motion(.standard, value: key)
+        // The old content leaves at once (a new identity, no transition) and only the new one fades in, so the two
+        // never overlap: a view on its way out keeps no focus request handler, keyboard shortcut, or heavy rows
+        // alive during the fade (#576).
+        content
+            .modifier(FadeInOnAppear(fades: hasAppeared))
+            .id(key)
+            .onAppear { hasAppeared = true }
+    }
+}
+
+/// Starts at 0 and fades to 1 on the run loop turn after it appears (#637). A heavy screen (S-11, S-12) takes its
+/// first layout in the frame it is inserted; a fade started in that frame has run its course by the time the next
+/// frame draws, so the screen popped in at full opacity after a blank frame or two. Starting after that layout
+/// keeps every frame of the fade.
+private struct FadeInOnAppear: ViewModifier {
+    /// Taken once, when this content is created: the container's first content never fades, even after the
+    /// container has appeared.
+    @State private var startsHidden: Bool
+    @State private var isShown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(fades: Bool) {
+        _startsHidden = State(initialValue: fades)
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(startsHidden && !isShown ? 0 : 1)
+            .onAppear {
+                guard startsHidden, !isShown else { return }
+                if reduceMotion {
+                    isShown = true
+                    return
+                }
+                DispatchQueue.main.async {
+                    withAnimation(.standard) { isShown = true }
+                }
+            }
     }
 }
 
@@ -161,6 +195,30 @@ extension View {
     /// changes under the same key updates in place.
     func fadeIn<Key: Hashable>(on key: Key) -> some View {
         modifier(FadeIn(key: key))
+    }
+}
+
+// MARK: - Loading indicators
+
+/// interaction.md §4: a loading indicator shows only once a result has not arrived for 150 ms, so a short load
+/// does not flash one. No token: the value comes from the document.
+let loadingIndicatorDelay: Duration = .milliseconds(150)
+
+/// A small spinner that appears only after `loadingIndicatorDelay` (#637). Until then it takes its place, empty, so
+/// nothing moves when it appears.
+struct DelayedProgressView: View {
+    @State private var isVisible = false
+
+    var body: some View {
+        ProgressView()
+            .controlSize(.small)
+            .opacity(isVisible ? 1 : 0)
+            .task {
+                try? await Task.sleep(for: loadingIndicatorDelay)
+                guard !Task.isCancelled else { return }
+                isVisible = true
+            }
+            .accessibilityHidden(!isVisible)
     }
 }
 
