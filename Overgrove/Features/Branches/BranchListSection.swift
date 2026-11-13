@@ -27,42 +27,46 @@ struct BranchListSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SidebarSectionHeader(title: displayTitle, count: count, isExpanded: $isExpanded)
-            if isExpanded {
-                if let warning {
-                    SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
-                }
-                if nodes.isEmpty {
-                    Text(
-                        isFiltered
-                            ? "No matching branches"
-                            : title == "LOCAL"
-                                ? "No local branches"
-                                : "No remote branches"
-                                    as LocalizedStringKey
-                    )
-                    .font(Tokens.Font.callout)
-                    .foregroundStyle(Tokens.Color.textTertiary)
-                    .padding(.horizontal, Tokens.Spacing.md)
-                    .frame(height: Tokens.Size.rowSidebar)
-                }
-                // One lazy stack over the visible rows (folders flattened), one timer for every relative date.
-                TimelineView(.periodic(from: .now, by: 60)) { context in
-                    let rows = BranchListModel.visibleRows(
-                        nodes, open: isFiltered ? SidebarFilter.folderIDs(nodes) : openFolders)
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(rows, id: \.node.id) { item in
-                            switch item.node {
-                            case .branch(let row):
-                                BranchRowView(row: row, depth: item.depth, now: title == "REMOTE" ? context.date : nil)
-                            case .folder(let id, let name, let count, _):
-                                folderRow(id: id, name: name, count: count, depth: item.depth)
+        Section {
+            VStack(alignment: .leading, spacing: 0) {
+                if isExpanded {
+                    if let warning {
+                        SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
+                    }
+                    if nodes.isEmpty {
+                        Text(
+                            isFiltered
+                                ? "No matching branches"
+                                : title == "LOCAL"
+                                    ? "No local branches"
+                                    : "No remote branches"
+                                        as LocalizedStringKey
+                        )
+                        .font(Tokens.Font.callout)
+                        .foregroundStyle(Tokens.Color.textTertiary)
+                        .padding(.horizontal, SidebarInset.content)
+                        .frame(height: Tokens.Size.rowSidebar)
+                    }
+                    // One lazy stack over the visible rows (folders flattened), one timer for every relative date.
+                    TimelineView(.periodic(from: .now, by: 60)) { context in
+                        let rows = BranchListModel.visibleRows(
+                            nodes, open: isFiltered ? SidebarFilter.folderIDs(nodes) : openFolders)
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(rows, id: \.node.id) { item in
+                                switch item.node {
+                                case .branch(let row):
+                                    BranchRowView(
+                                        row: row, depth: item.depth, now: title == "REMOTE" ? context.date : nil)
+                                case .folder(let id, let name, let count, _):
+                                    folderRow(id: id, name: name, count: count, depth: item.depth)
+                                }
                             }
                         }
                     }
                 }
             }
+        } header: {
+            SidebarSectionHeader(title: displayTitle, count: count, isExpanded: $isExpanded)
         }
     }
 
@@ -84,8 +88,8 @@ struct BranchListSection: View {
                     .font(Tokens.Font.caption)
                     .foregroundStyle(Tokens.Color.textTertiary)
             }
-            .padding(.leading, Tokens.Spacing.md + CGFloat(depth) * Tokens.Spacing.lg)
-            .padding(.trailing, Tokens.Spacing.md)
+            .padding(.leading, SidebarInset.content + CGFloat(depth) * Tokens.Spacing.lg)
+            .padding(.trailing, SidebarInset.content)
             .frame(height: Tokens.Size.rowSidebar)
             .contentShape(Rectangle())
         }
@@ -140,8 +144,8 @@ private struct BranchRowView: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(.leading, Tokens.Spacing.md + CGFloat(depth) * Tokens.Spacing.lg)
-        .padding(.trailing, Tokens.Spacing.md)
+        .padding(.leading, SidebarInset.content + CGFloat(depth) * Tokens.Spacing.lg)
+        .padding(.trailing, SidebarInset.content)
         .frame(height: Tokens.Size.rowSidebar)
         .help(row.help)
         .contextMenu { BranchRowMenu(row: row) }

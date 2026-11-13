@@ -11,35 +11,38 @@ struct StashListSection: View {
     @State private var isExpanded = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            SidebarSectionHeader(
-                title: String(localized: "STASHES", comment: "Sidebar section"), count: rows.count,
-                isExpanded: $isExpanded)
-            if isExpanded {
-                if rows.isEmpty {
-                    Text("No stashes")
-                        .font(Tokens.Font.callout)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                        .padding(.horizontal, Tokens.Spacing.md)
-                        .frame(height: Tokens.Size.rowSidebar)
-                } else {
-                    if isPartial {
-                        SidebarNotice(
-                            symbol: "exclamationmark.triangle",
-                            text: String(localized: "Some stashes could not be listed."))
-                    }
-                    // Lazy: a crafted reflog can list tens of thousands of entries (security review of #71, T15).
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(rows) { row in
-                            StashRowView(row: row, isSelected: row.id == selectedID)
-                                .contentShape(Rectangle())
-                                .onTapGesture { onSelect(row.id) }
-                                .accessibilityAction { onSelect(row.id) }
-                                .contextMenu { StashRowMenu(row: row, onShowChanges: { onSelect(row.id) }) }
+        Section {
+            VStack(alignment: .leading, spacing: 0) {
+                if isExpanded {
+                    if rows.isEmpty {
+                        Text("No stashes")
+                            .font(Tokens.Font.callout)
+                            .foregroundStyle(Tokens.Color.textTertiary)
+                            .padding(.horizontal, SidebarInset.content)
+                            .frame(height: Tokens.Size.rowSidebar)
+                    } else {
+                        if isPartial {
+                            SidebarNotice(
+                                symbol: "exclamationmark.triangle",
+                                text: String(localized: "Some stashes could not be listed."))
+                        }
+                        // Lazy: a crafted reflog can list tens of thousands of entries (security review of #71, T15).
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(rows) { row in
+                                StashRowView(row: row, isSelected: row.id == selectedID)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture { onSelect(row.id) }
+                                    .accessibilityAction { onSelect(row.id) }
+                                    .contextMenu { StashRowMenu(row: row, onShowChanges: { onSelect(row.id) }) }
+                            }
                         }
                     }
                 }
             }
+        } header: {
+            SidebarSectionHeader(
+                title: String(localized: "STASHES", comment: "Sidebar section"), count: rows.count,
+                isExpanded: $isExpanded)
         }
     }
 }
@@ -63,7 +66,7 @@ private struct StashRowView: View {
                 RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous).fill(Tokens.Color.surfaceSelection)
             }
         }
-        .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
+        .padding(.horizontal, SidebarInset.row)
         .help(row.message)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)
