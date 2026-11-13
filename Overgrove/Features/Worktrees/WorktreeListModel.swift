@@ -209,7 +209,9 @@ struct WorktreeListModel: Equatable {
             isFocused: isFocused,
             badges: badges,
             issueNumber: issueNumber,
-            help: help(worktree: worktree, path: path, state: state, note: noteHelp),
+            // The issue too: a narrow sidebar hides `#n` first (§4.3, #573), and the tooltip keeps what is hidden.
+            help: help(worktree: worktree, path: path, state: state, note: noteHelp)
+                + (issueNumber.map { "\n" + String(localized: "Issue \($0)") } ?? ""),
             accessibilityLabel: accessibilityLabel(
                 title: title, worktree: worktree, isFocused: isFocused, missing: missing, note: note, state: state)
                 + (issueNumber.map { ", issue \($0)" } ?? ""),

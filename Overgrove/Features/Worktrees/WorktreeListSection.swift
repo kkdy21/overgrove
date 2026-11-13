@@ -205,6 +205,12 @@ struct WorktreeRowView: View {
     /// The narrowest the name gets before status badges start to give way (#573).
     static let titleMinWidth: CGFloat = 64
 
+    /// The row's tooltip with the PR line: whatever a narrow sidebar hides (PR pill, `#n`, status badges) stays in
+    /// the tooltip and the VoiceOver label (information-architecture.md §4.3, #573).
+    static func help(_ row: WorktreeRow, pullRequest: PullRequestBadge?) -> String {
+        row.help + (pullRequest.map { "\n" + $0.help } ?? "")
+    }
+
     private func firstLine(_ step: WorktreeRow.BadgeStep) -> some View {
         HStack(spacing: Tokens.Spacing.xs) {
             Text(row.title)
@@ -261,7 +267,7 @@ struct WorktreeRowView: View {
             }
         }
         .padding(.horizontal, SidebarInset.row)
-        .help(row.help)
+        .help(Self.help(row, pullRequest: pullRequest))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel + (pullRequest.map { ", " + $0.accessibilityText } ?? ""))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)

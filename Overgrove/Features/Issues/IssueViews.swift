@@ -9,10 +9,13 @@ struct IssueListSection: View {
     let onSelect: (Int) -> Void
     /// Check Again in the degraded states (#83).
     var onCheckAgain: () -> Void = {}
+    /// A `⌘4` request the sidebar has scrolled to but this section has not handled yet (#573). The sidebar is lazy,
+    /// so the section may only now be appearing: it opens, takes keyboard focus, and reports the request handled.
+    var pendingFocus: UUID?
+    var onFocusHandled: () -> Void = {}
 
     @State private var isExpanded = true
     @FocusState private var hasFocus: Bool
-    @Environment(\.panelFocusRequest) private var focusRequest
 
     var body: some View {
         Section {
@@ -50,16 +53,21 @@ struct IssueListSection: View {
                 }
             }
             // `⌘4` opens the section and moves keyboard focus to it (interaction.md §3.1).
-            .onChange(of: focusRequest) { _, request in
-                guard request?.panel == .issues else { return }
-                isExpanded = true
-                hasFocus = true
-            }
+            .onAppear(perform: takePendingFocus)
+            .onChange(of: pendingFocus) { _, _ in takePendingFocus() }
         } header: {
             SidebarSectionHeader(
                 title: String(localized: "ISSUES", comment: "Sidebar section"), count: model.count,
                 isExpanded: $isExpanded, isLoading: model.isLoading)
         }
+    }
+
+    private func takePendingFocus() {
+        guard pendingFocus != nil else { return }
+        isExpanded = true
+        onFocusHandled()
+        // After this pass, so the rows the expansion adds exist to take focus.
+        Task { @MainActor in hasFocus = true }
     }
 
     private func move(down: Bool, toEnd: Bool) -> KeyPress.Result {

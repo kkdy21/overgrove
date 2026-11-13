@@ -123,6 +123,62 @@ final class SidebarLayoutRenderTests: XCTestCase {
         }
     }
 
+    /// Review of #573: the sidebar list is lazy, so with ISSUES below the visible rows its section may not exist yet
+    /// when `⌘4` arrives. The sidebar scrolls to it, and the section opens and handles the request once it appears.
+    func testCommandFourReachesIssuesBelowTheVisibleRows() async throws {
+        let state = AppState.mockup(layoutStore: store)
+        let issues = try XCTUnwrap(state.issueListModel, "the mockup has issues")
+        let size = CGSize(width: 220, height: 300)
+        func view(_ request: PanelFocusRequest?) -> AnyView {
+            AnyView(
+                sidebar(state).environment(\.panelFocusRequest, request)
+                    .frame(width: size.width, height: size.height).background(Tokens.Color.surfacePanel))
+        }
+        let host = NSHostingView(rootView: view(nil))
+        host.frame = NSRect(origin: .zero, size: size)
+        // An offscreen window that is never ordered in: scrolling needs one, and nothing on screen changes.
+        let window = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: size.width, height: size.height),
+            styleMask: [.borderless], backing: .buffered, defer: true)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.layoutSubtreeIfNeeded()
+        let scrollView = try XCTUnwrap(Self.scrollView(in: host))
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 0)
+        _ = issues
+
+        host.rootView = view(PanelFocusRequest(panel: .issues))
+        let deadline = ContinuousClock.now + .seconds(3)
+        while scrollView.contentView.bounds.origin.y == 0, ContinuousClock.now < deadline {
+            host.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertGreaterThan(scrollView.contentView.bounds.origin.y, 0, "scrolled down to ISSUES")
+
+        // Another panel's request leaves a sidebar at the top where it is.
+        host.rootView = view(nil)
+        scrollView.contentView.scroll(to: .zero)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
+        host.layoutSubtreeIfNeeded()
+        host.rootView = view(PanelFocusRequest(panel: .detail))
+        for _ in 0..<5 {
+            host.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertEqual(scrollView.contentView.bounds.origin.y, 0)
+    }
+
+    /// The section takes a pending request when it appears and reports it handled, so it is used once.
+    func testIssuesSectionTakesAPendingRequestWhenItAppears() throws {
+        let issues = try XCTUnwrap(AppState.mockup(layoutStore: store).issueListModel)
+        var handled = 0
+        let section = IssueListSection(
+            model: issues, selectedNumber: nil, onSelect: { _ in }, pendingFocus: UUID(),
+            onFocusHandled: { handled += 1 })
+        try render(LazyVStack { section }, size: CGSize(width: 220, height: 300), name: "sidebar-573-issues-pending")
+        XCTAssertGreaterThanOrEqual(handled, 1)
+    }
+
     /// The empty sidebar offers `Add Repository…` (screens.md, next step).
     func testEmptySidebarOffersAddRepository() throws {
         var added = 0
@@ -163,5 +219,23 @@ final class WorktreeBadgeStepTests: XCTestCase {
         XCTAssertEqual(
             WorktreeRow.badgeSteps(badgeCount: 1, hasPullRequest: false, hasIssue: true).map(\.showsIssue),
             [true, false, false, false])
+    }
+
+    /// Review of #573: what a narrow row hides stays in its tooltip (information-architecture.md §4.3): the status
+    /// badges' facts, `#n`, and the PR.
+    func testHiddenBadgesStayInTheTooltip() throws {
+        let model = WorktreeListModel(listing: .mockup, focused: nil, home: "/tmp/dev")
+        let row = try XCTUnwrap(model.rows.first { $0.issueNumber != nil })
+        XCTAssertTrue(row.help.contains("Issue \(row.issueNumber ?? 0)"), row.help)
+        XCTAssertTrue(row.help.contains("↑"), "ahead/behind: \(row.help)")
+        let pullRequest = PullRequestBadge(
+            PullRequest(
+                number: 7, title: "Rate limit", state: .open, isDraft: false,
+                head: PullRequest.Head(owner: "team", name: "app", branch: "feat/42-rate-limit"), baseRefName: "main",
+                reviewDecision: .none, updatedAt: nil, url: URL(string: "https://github.com/team/app/pull/7")!))
+        let help = WorktreeRowView.help(row, pullRequest: pullRequest)
+        XCTAssertTrue(help.hasPrefix(row.help))
+        XCTAssertTrue(help.contains("Pull request #7"), help)
+        XCTAssertEqual(WorktreeRowView.help(row, pullRequest: nil), row.help)
     }
 }

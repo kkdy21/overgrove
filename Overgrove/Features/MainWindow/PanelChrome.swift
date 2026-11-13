@@ -101,6 +101,13 @@ struct SidebarPanel: View {
     /// `Add Repository…` in the empty sidebar (#573); `nil` hides the button.
     var onAddRepository: (() -> Void)?
 
+    @Environment(\.panelFocusRequest) private var focusRequest
+    /// A `⌘4` request ISSUES has not handled yet: the lazy list may not have built the section when it arrives.
+    @State private var pendingIssuesFocus: UUID?
+
+    /// Scroll target just before ISSUES.
+    static let issuesAnchor = "sidebar.issues"
+
     private var query: String? { SidebarFilter.query(filter.wrappedValue) }
 
     var body: some View {
@@ -108,37 +115,48 @@ struct SidebarPanel: View {
             SidebarFilterField(text: filter, focusRequest: filterFocusRequest)
         } content: {
             if hasRepository {
-                ScrollView {
-                    // Each section's header stays at the top while its rows scroll (interaction.md §2.1, #573).
-                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
-                        WorktreeListSection(
-                            status: worktreeStatus, model: worktreeModel?.filtered(query),
-                            selectedPath: selectedWorktree,
-                            onSelect: onSelectWorktree, canCompare: canCompareWorktree,
-                            onCompare: onCompareWorktree)
-                        if let branchModel {
-                            BranchListSection(
-                                title: "LOCAL", count: branchModel.localCount,
-                                nodes: SidebarFilter.branches(branchModel.local, query: query),
-                                warning: branchModel.warning, isFiltered: query != nil)
-                            BranchListSection(
-                                title: "REMOTE", count: branchModel.remoteCount,
-                                nodes: SidebarFilter.branches(branchModel.remote, query: query),
-                                folderHelp: Self.remoteFolderHelp(remoteURLTooltips), isFiltered: query != nil)
-                            TagListSection(model: branchModel.tags, query: query, selectedCommit: selectedCommit)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        // Each section's header stays at the top while its rows scroll (interaction.md §2.1, #573).
+                        LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
+                            WorktreeListSection(
+                                status: worktreeStatus, model: worktreeModel?.filtered(query),
+                                selectedPath: selectedWorktree,
+                                onSelect: onSelectWorktree, canCompare: canCompareWorktree,
+                                onCompare: onCompareWorktree)
+                            if let branchModel {
+                                BranchListSection(
+                                    title: "LOCAL", count: branchModel.localCount,
+                                    nodes: SidebarFilter.branches(branchModel.local, query: query),
+                                    warning: branchModel.warning, isFiltered: query != nil)
+                                BranchListSection(
+                                    title: "REMOTE", count: branchModel.remoteCount,
+                                    nodes: SidebarFilter.branches(branchModel.remote, query: query),
+                                    folderHelp: Self.remoteFolderHelp(remoteURLTooltips), isFiltered: query != nil)
+                                TagListSection(model: branchModel.tags, query: query, selectedCommit: selectedCommit)
+                            }
+                            if case .loaded = worktreeStatus {
+                                StashListSection(
+                                    rows: stashRows.filter { SidebarFilter.matches(query, $0.refName, $0.message) },
+                                    isPartial: isStashListPartial, selectedID: selectedStash,
+                                    onSelect: onSelectStash)
+                            }
+                            if let issueModel {
+                                Color.clear.frame(height: 0).id(Self.issuesAnchor)
+                                IssueListSection(
+                                    model: issueModel.filtered(query), selectedNumber: selectedIssue,
+                                    onSelect: onSelectIssue,
+                                    onCheckAgain: onCheckIssuesAgain, pendingFocus: pendingIssuesFocus,
+                                    onFocusHandled: { pendingIssuesFocus = nil })
+                            }
                         }
-                        if case .loaded = worktreeStatus {
-                            StashListSection(
-                                rows: stashRows.filter { SidebarFilter.matches(query, $0.refName, $0.message) },
-                                isPartial: isStashListPartial, selectedID: selectedStash,
-                                onSelect: onSelectStash)
-                        }
-                        if let issueModel {
-                            IssueListSection(
-                                model: issueModel.filtered(query), selectedNumber: selectedIssue,
-                                onSelect: onSelectIssue,
-                                onCheckAgain: onCheckIssuesAgain)
-                        }
+                    }
+                    // `⌘4` (interaction.md §3.1): bring ISSUES into view first, so the lazy list builds it, then let it
+                    // open and take focus.
+                    .onChange(of: focusRequest) { _, request in
+                        guard let request, request.panel == .issues, issueModel != nil else { return }
+                        proxy.scrollTo(Self.issuesAnchor, anchor: .top)
+                        pendingIssuesFocus = request.token
                     }
                 }
             } else {
