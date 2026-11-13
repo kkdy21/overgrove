@@ -113,7 +113,7 @@ private struct InfoCard: View {
                                     Image(systemName: "doc.on.doc").hitTarget()
                                 }
                                 .hoverButtonStyle()
-                                .help("Copy Path")
+                                .toolTip(String(localized: "Copy Path"))
                                 .accessibilityLabel("Copy path")
                             }
                         }
@@ -252,7 +252,9 @@ private struct SecurityCard: View {
             }
             .hoverButtonStyle()
             .hitTarget()
-            .help("Copy Report: key names and results only, without values, paths, or remote URLs")
+            .toolTip(
+                String(localized: "Copy Report: key names and results only, without values, paths, or remote URLs")
+            )
             .accessibilityLabel("Copy security report")
         }
     }
@@ -404,8 +406,8 @@ struct DetailIconSegments: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous)
         HStack(spacing: 0) {
-            segment("Changes", symbol: "list.bullet", isSelected: !isWorktree, action: onChanges)
-            segment("Worktree", symbol: "info.circle", isSelected: isWorktree, action: onWorktree)
+            segment(String(localized: "Changes"), symbol: "list.bullet", isSelected: !isWorktree, action: onChanges)
+            segment(String(localized: "Worktree"), symbol: "info.circle", isSelected: isWorktree, action: onWorktree)
         }
         .padding(1)
         .background(shape.fill(Tokens.Color.surfaceControl))
@@ -418,7 +420,7 @@ struct DetailIconSegments: View {
     }
 
     func segment(
-        _ title: LocalizedStringKey, symbol: String, isSelected: Bool, action: @escaping () -> Void
+        _ title: String, symbol: String, isSelected: Bool, action: @escaping () -> Void
     ) -> some View {
         Button {
             if !isSelected { action() }
@@ -436,10 +438,10 @@ struct DetailIconSegments: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // The other segment answers the pointer like the panels' icon buttons (#571). The pointer is tracked outside
-        // the `Button` and the tooltip wraps that directly, as on a file row (#658).
+        // The other segment answers the pointer like the panels' icon buttons (#571).
         .hoverHighlight(.rounded(radius: Tokens.Radius.sm - 1), isEnabled: !isSelected)
-        .help(Text(title))
+        // An AppKit tooltip: `.help` here stayed up or stopped appearing (#658, `toolTip(_:)`).
+        .toolTip(title)
         .accessibilityLabel(Text(title))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }

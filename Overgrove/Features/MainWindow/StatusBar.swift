@@ -209,14 +209,16 @@ struct StatusBar: View {
             Group {
                 if item.kind == .fetch, let onFetchDetails {
                     clickable(item, action: onFetchDetails)
-                        .help("Show why the fetch failed")
-                        .accessibilityHint("Shows why the fetch failed and what to do")
+                        .toolTip(
+                            String(localized: "Show why the fetch failed"),
+                            accessibilityHint: String(localized: "Shows why the fetch failed and what to do"))
                 } else if item.kind == .gh, let onGitHubSetup {
                     clickable(item, action: onGitHubSetup)
-                        .help("GitHub CLI setup")
-                        .accessibilityHint("Opens the setup assistant")
+                        .toolTip(
+                            String(localized: "GitHub CLI setup"),
+                            accessibilityHint: String(localized: "Opens the setup assistant"))
                 } else if let help = item.help {
-                    field(item).help(help).accessibilityHint(help)
+                    field(item).toolTip(help)
                 } else {
                     field(item)
                 }

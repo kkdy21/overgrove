@@ -70,7 +70,7 @@ private struct FetchFailureSection: View {
                     }
                     // Pointer feedback like the other icon buttons in panels (#571, #616).
                     .hoverButtonStyle()
-                    .help("Copy Command")
+                    .toolTip(String(localized: "Copy Command"))
                     .accessibilityLabel("Copy command \(command)")
                 }
             }

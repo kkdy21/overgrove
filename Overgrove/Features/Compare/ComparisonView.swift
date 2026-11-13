@@ -17,7 +17,7 @@ struct ComparisonCenterView: View {
                 }
                 .hoverButtonStyle()
                 // `⎋` is handled once, by the window (`AppState.escape`, #633).
-                .help("Back to the graph (⎋)")
+                .toolTip(String(localized: "Back to the graph (⎋)"))
                 Text("Changes vs").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
                 basePicker
                 Spacer(minLength: Tokens.Spacing.sm)

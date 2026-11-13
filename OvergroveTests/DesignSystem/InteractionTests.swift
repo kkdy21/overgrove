@@ -115,59 +115,59 @@ final class InteractionTests: XCTestCase {
         }
     }
 
-    // MARK: - Tooltips over hover buttons (#658)
+    // MARK: - AppKit tooltips (#658)
 
-    /// The type of a view, as SwiftUI nests its modifiers: `ModifiedContent<Inner, Modifier>` lists the modifier
-    /// applied last on the outside.
-    private func typeName(_ view: some View) -> String { String(describing: type(of: view)) }
-
-    /// Checks that `tracker` sits right outside the button's style and that `.help` wraps it. SwiftUI names the help
-    /// wrapper `HelpView<…>` in current SDKs; a `ModifiedContent<…, Help…>` form would come
-    /// after the tracker instead. Either way the tracker must not be inside the button's label.
-    private func assertTooltipWrapsTracking(
-        _ name: String, style: String, tracker: String, file: StaticString = #filePath, line: UInt = #line
-    ) {
-        guard let styleEnd = name.range(of: style + ">>, " + tracker)?.upperBound else {
-            return XCTFail("\(tracker) is not right outside the button's style: \(name)", file: file, line: line)
-        }
-        // `HelpView<ModifiedContent<…Button…, Style>, Tracker>>`: the help wrapper opens right before the button and
-        // closes right after the tracker.
-        let helpWraps =
-            name.contains("HelpView<ModifiedContent<ModifiedContent<Button<")
-            && name.contains(style + ">>, " + tracker + ">>")
-        let helpIsAfter = name[styleEnd...].contains("Help")
-        XCTAssertTrue(helpWraps || helpIsAfter, "help does not wrap the tracking: \(name)", file: file, line: line)
-        XCTAssertEqual(
-            name.components(separatedBy: tracker).count, 2, "tracked only once, outside the label: \(name)",
-            file: file, line: line)
+    /// An offscreen window that is never ordered in: nothing shows on screen and the real pointer is not used.
+    private func window(_ view: some View) -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 200, height: 80), styleMask: [.borderless], backing: .buffered,
+            defer: false)
+        window.contentView = NSHostingView(rootView: view.frame(width: 200, height: 80))
+        window.contentView?.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        return window
     }
 
-    /// Tooltips on buttons stayed up or stopped appearing when the pointer was tracked inside the `Button` and `.help`
-    /// was put outside it. File rows, whose tooltip directly wraps the hover tracking, behaved. Hover buttons now track
-    /// the pointer outside the `Button`, so `.help` wraps the tracking directly.
-    func testHoverButtonTracksThePointerOutsideTheButton() {
-        assertTooltipWrapsTracking(
-            typeName(Button("Copy") {}.hoverButtonStyle().help("Copy Path")),
-            style: "ButtonStyleContainerModifier<HoverButtonStyle", tracker: "ButtonHoverTracking")
+    private func toolTipViews(in view: NSView) -> [NSView] {
+        (view is ToolTipArea.ToolTipView ? [view] : []) + view.subviews.flatMap(toolTipViews)
     }
 
-    func testDetailIconSegmentTracksThePointerOutsideTheButton() {
+    func testHoverButtonGetsAnAppKitTooltipOverItsWholeFrame() throws {
+        let window = window(Button("Copy") {}.hoverButtonStyle().toolTip("Copy Path"))
+        let views = toolTipViews(in: try XCTUnwrap(window.contentView))
+        XCTAssertEqual(views.count, 1)
+        let view = try XCTUnwrap(views.first)
+        XCTAssertEqual(view.toolTip, "Copy Path")
+        XCTAssertGreaterThan(view.frame.width, 20, "covers the button, padding included")
+        XCTAssertGreaterThan(view.frame.height, 10)
+    }
+
+    func testAnEmptyTooltipShowsNone() throws {
+        let window = window(Text("folder").toolTip(""))
+        XCTAssertNil(try XCTUnwrap(toolTipViews(in: try XCTUnwrap(window.contentView)).first).toolTip)
+    }
+
+    func testDetailIconSegmentHasAnAppKitTooltip() throws {
         let segments = DetailIconSegments(isWorktree: false, onChanges: {}, onWorktree: {})
-        let segment = segments.segment("Changes", symbol: "list.bullet", isSelected: false, action: {})
-        assertTooltipWrapsTracking(
-            typeName(segment), style: "PrimitiveButtonStyleContainerModifier<PlainButtonStyle",
-            tracker: "HoverHighlight")
+        let window = window(segments.segment("Changes", symbol: "list.bullet", isSelected: false, action: {}))
+        XCTAssertEqual(toolTipViews(in: try XCTUnwrap(window.contentView)).map(\.toolTip), ["Changes"])
     }
 
-    /// The style only draws the hover state handed to it from outside the button.
-    func testHoverButtonStyleDrawsTheHoverStateItIsGiven() throws {
-        let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
-        func button(hovered: Bool) -> some View {
-            Button("Copy") {}.buttonStyle(HoverButtonStyle()).environment(\.isButtonHovered, hovered)
-        }
-        let size = CGSize(width: 80, height: 30)
-        let idle = try render(button(hovered: false), size: size, appearance: appearance).tiffRepresentation
-        let hovered = try render(button(hovered: true), size: size, appearance: appearance).tiffRepresentation
-        XCTAssertNotEqual(idle, hovered)
+    /// The tooltip view lies under the whole button and never takes a hit, so clicks, hover, and the cursor stay with
+    /// the button.
+    func testTheTooltipViewNeverTakesAHit() throws {
+        let window = window(
+            Button {
+            } label: {
+                Text("Copy").frame(width: 120, height: 40)
+            }
+            .hoverButtonStyle()
+            .toolTip("Copy Path"))
+        let hosting = try XCTUnwrap(window.contentView)
+        let view = try XCTUnwrap(toolTipViews(in: hosting).first)
+        let center = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: hosting.superview)
+        XCTAssertNotNil(hosting.hitTest(center))
+        XCTAssertFalse(hosting.hitTest(center) === view)
+        XCTAssertNil(view.hitTest(NSPoint(x: view.bounds.midX, y: view.bounds.midY)))
     }
 }

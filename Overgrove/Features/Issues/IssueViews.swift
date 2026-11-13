@@ -96,7 +96,7 @@ private struct IssueAccountRow: View {
                         Image(systemName: "doc.on.doc").hitTarget()
                     }
                     .hoverButtonStyle()
-                    .help("Copy the command to switch accounts in Terminal")
+                    .toolTip(String(localized: "Copy the command to switch accounts in Terminal"))
                     .accessibilityLabel("Copy command \(command)")
                 }
             }
@@ -147,7 +147,7 @@ private struct IssueSetupHint: View {
                         Image(systemName: "doc.on.doc").hitTarget()
                     }
                     .hoverButtonStyle()
-                    .help("Copy")
+                    .toolTip(String(localized: "Copy"))
                     .accessibilityLabel("Copy command \(command)")
                 }
             }

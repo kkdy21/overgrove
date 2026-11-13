@@ -46,7 +46,7 @@ struct FileHistoryView: View {
             Button(action: onBack) { Label("Graph", systemImage: "chevron.left") }
                 .hoverButtonStyle()
                 // `⎋` is handled once, by the window (`AppState.escape`, #633).
-                .help("Back to the graph (⎋)")
+                .toolTip(String(localized: "Back to the graph (⎋)"))
             if let target = store.target {
                 title(FileHistoryText.titleParts(target.path))
                     .help(FileHistoryText.title(target.path))

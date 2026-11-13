@@ -296,10 +296,10 @@ struct GraphSearchBar: View {
                 .help(result.summary)
             Spacer(minLength: Tokens.Spacing.sm)
             Button(action: onPrevious) { Image(systemName: "chevron.up") }
-                .help("Find Previous (⌘⇧G)")
+                .toolTip(String(localized: "Find Previous (⌘⇧G)"))
                 .accessibilityLabel("Previous match")
             Button(action: onNext) { Image(systemName: "chevron.down") }
-                .help("Find Next (⌘G)")
+                .toolTip(String(localized: "Find Next (⌘G)"))
                 .accessibilityLabel("Next match")
                 // The hover style pads the label; keep the chevron where it was at the trailing edge (#616).
                 .padding(.trailing, -Tokens.Spacing.xs)

@@ -59,7 +59,7 @@ struct DiffViewerView: View {
                 }
                 .hoverButtonStyle()
                 // `⎋` is handled once, by the window (`AppState.escape`, #633).
-                .help(String(localized: "Back to the \(backTitle.lowercased()) (⎋)"))
+                .toolTip(String(localized: "Back to the \(backTitle.lowercased()) (⎋)"))
             }
             Text(title)
                 .font(Tokens.Font.headline)

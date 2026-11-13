@@ -16,14 +16,14 @@ struct CommitComparisonCenterView: View {
                 }
                 .hoverButtonStyle()
                 // `⎋` is handled once, by the window (`AppState.escape`, #633).
-                .help("Back to the graph (⎋)")
+                .toolTip(String(localized: "Back to the graph (⎋)"))
                 Text("Compare").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
                 Text(model.title).font(Tokens.Font.mono).foregroundStyle(Tokens.Color.textSecondary)
                 Button(action: onSwap) {
                     Image(systemName: "arrow.left.arrow.right")
                 }
                 .hoverButtonStyle()
-                .help("Swap base and target")
+                .toolTip(String(localized: "Swap base and target"))
                 .accessibilityLabel("Swap base and target")
                 Spacer(minLength: Tokens.Spacing.sm)
             }
