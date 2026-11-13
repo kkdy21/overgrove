@@ -118,6 +118,8 @@ struct CommitComparisonListView: View {
 
     private func commitRow(_ row: CommitComparisonModel.CommitRow) -> some View {
         HStack(spacing: Tokens.Spacing.sm) {
+            // Avatar, short SHA, subject, AI badge (screens.md S-12, #660), as S-03 and S-09 show the author.
+            GraphChipAvatar(initials: row.initials, avatarIndex: row.avatarIndex)
             Text(row.shortSHA).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textTertiary)
             Text(row.subject).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
                 .lineLimit(1).truncationMode(.tail)
