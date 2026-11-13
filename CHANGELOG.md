@@ -48,6 +48,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Narrow detail panels fold joined values between items: the upstream's counts stay together and no line starts or
+  ends with `·`. The issue panel's setup commands wrap instead of being cut, and add no hyphens of their own.
 - The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
   section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
   issue.
