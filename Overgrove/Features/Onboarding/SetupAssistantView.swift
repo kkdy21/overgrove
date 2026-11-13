@@ -10,6 +10,8 @@ struct SetupAssistantView: View {
     let isAddingRepository: Bool
     let onChooseFolder: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         VStack(spacing: Tokens.Spacing.lg) {
             header
@@ -45,7 +47,17 @@ struct SetupAssistantView: View {
             }
         }
         .padding(Tokens.Spacing.xl)
+        // A step turning done swaps its content in `motion.duration-slow` (#575). The animation covers the whole
+        // assistant, so a card that gets shorter, its background, and the cards and buttons below it all move in the
+        // same transaction rather than the content leaving its card. Reduce Motion: a `motion.duration-fast`
+        // cross-fade (interaction.md §6.5).
+        .animation(reduceMotion ? .fast : .slow, value: stepsDone)
         .frame(width: Self.width)
+    }
+
+    /// Which steps are done, the value the step transition follows.
+    private var stepsDone: [Bool] {
+        [repositoryPath != nil, setup.git?.isReady ?? false, gitHubDone]
     }
 
     private var header: some View {
@@ -194,9 +206,6 @@ private struct SetupStepCard<Content: View, Accessory: View>: View {
                 content.id(isDone).transition(stepTransition)
             }
         }
-        // `motion.duration-slow` ("Onboarding step transitions", #575), scoped to the step turning done: the mark and
-        // the step's content. The card's frame and the cards below move at once.
-        .animation(.easeInOut(duration: Tokens.Motion.durationSlow), value: isDone)
         .padding(Tokens.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: Self.cornerRadius).fill(Tokens.Color.surfaceRaised))

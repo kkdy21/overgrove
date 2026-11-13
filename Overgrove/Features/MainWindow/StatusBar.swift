@@ -232,7 +232,9 @@ struct StatusBar: View {
         Button(action: action) { field(item) }
             .buttonStyle(.hover)
             .padding(.horizontal, -Tokens.Spacing.xs)
-            .pointingHandCursor()
+            // An AppKit cursor rect, like the dividers: AppKit owns hover, so the hand never outlives the field in an
+            // inactive window or after a redraw.
+            .background(CursorArea(cursor: .pointingHand))
     }
 
     /// Leading fields put the icon first; the trailing gh status puts it last (`gh: @login ✓`, §3.5).
@@ -278,36 +280,5 @@ struct StatusBar: View {
         case .neutral: Tokens.Color.textSecondary
         case .warning: Tokens.Color.statusPrunable
         }
-    }
-}
-
-/// The pointing hand while the pointer is over the view (macOS 14 has no `pointerStyle`). Pops what it pushed when the
-/// view goes away under the pointer, so the cursor never stays a hand.
-private struct PointingHandCursor: ViewModifier {
-    @State private var isPushed = false
-
-    func body(content: Content) -> some View {
-        content
-            .onHover { inside in
-                if inside, !isPushed {
-                    NSCursor.pointingHand.push()
-                    isPushed = true
-                } else if !inside, isPushed {
-                    NSCursor.pop()
-                    isPushed = false
-                }
-            }
-            .onDisappear {
-                if isPushed {
-                    NSCursor.pop()
-                    isPushed = false
-                }
-            }
-    }
-}
-
-extension View {
-    fileprivate func pointingHandCursor() -> some View {
-        modifier(PointingHandCursor())
     }
 }
