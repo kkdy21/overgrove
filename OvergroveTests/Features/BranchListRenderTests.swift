@@ -48,3 +48,55 @@ final class BranchListRenderTests: XCTestCase {
         }
     }
 }
+
+/// #615: folder and branch rows of one depth start their icons and names on the same x, and one level of indent is
+/// the disclosure slot and its gap.
+@MainActor
+final class BranchTreeLeadTests: XCTestCase {
+    private func width(_ lead: BranchTreeLead) -> CGFloat {
+        NSHostingView(rootView: lead.fixedSize()).fittingSize.width
+    }
+
+    func testFolderAndBranchRowsLineUpAtEveryDepth() throws {
+        for depth in 0..<3 {
+            let branch = width(BranchTreeLead(depth: depth, disclosure: .none, symbol: "arrow.triangle.branch"))
+            let closed = width(BranchTreeLead(depth: depth, disclosure: .closed, symbol: "folder"))
+            let open = width(BranchTreeLead(depth: depth, disclosure: .open, symbol: "folder"))
+            XCTAssertEqual(branch, closed, accuracy: 0.5, "depth \(depth): the name starts on the same x")
+            XCTAssertEqual(open, closed, accuracy: 0.5, "depth \(depth): opening does not move the name")
+            let next = width(BranchTreeLead(depth: depth + 1, disclosure: .none, symbol: "arrow.triangle.branch"))
+            XCTAssertEqual(next - branch, BranchTreeLead.levelIndent, accuracy: 0.5, "one level")
+        }
+        XCTAssertEqual(BranchTreeLead.levelIndent, BranchTreeLead.disclosureWidth + Tokens.Spacing.xs)
+    }
+
+    /// A filtered tree opens its folders: `feat/` and its child, with `main` and `old-spike` beside it.
+    func testAnOpenFolderRenders() throws {
+        let tip = ObjectID(String(repeating: "a", count: 40))!
+        let refs = RefParser.Listing(
+            branches: ["refs/heads/main", "refs/heads/feat/42-rate-limit", "refs/heads/old-spike"].map {
+                Branch(
+                    fullName: $0, kind: .local, target: tip, upstreamStatus: .none, isHead: false, committerDate: nil,
+                    symbolicTarget: nil)
+            }, tags: [], isPartial: false, skippedRecords: 0)
+        let model = BranchListModel(refs: refs, checkedOut: [], remoteNames: [])
+        let view = VStack(spacing: 0) {
+            BranchListSection(title: "LOCAL", count: model.localCount, nodes: model.local, isFiltered: true)
+            Spacer()
+        }
+        for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let host = NSHostingView(
+                rootView: view.frame(width: 220, height: 160).background(Tokens.Color.surfacePanel))
+            host.appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
+            host.frame = NSRect(x: 0, y: 0, width: 220, height: 160)
+            host.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+                let png = bitmap.representation(using: .png, properties: [:])
+            {
+                try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("branches-615-\(name).png"))
+            }
+        }
+    }
+}

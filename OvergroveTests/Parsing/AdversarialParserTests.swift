@@ -115,13 +115,14 @@ final class AdversarialParserTests: XCTestCase {
         let stash = try NumstatParser.parseStashFiles(Fixtures.stashShow).files
         XCTAssertEqual(stash.map(\.path.raw), [data("-dash.txt"), invalidName, data("new\nname.txt")])
         XCTAssertEqual(stash.map(\.originalPath), [nil, nil, path("old name.txt")])
+        XCTAssertEqual(stash.map(\.status), [.modified, .added, .renamed(score: 100)], "#602")
     }
 
     /// Counts are read by position: a path made of `-` and tabs is still the path, not a binary marker.
     func test_PAR_NUMSTAT_01_countLookalikePathsStayPaths() throws {
         let input = data("-\t-\t-\u{0}1\t2\t-\t-\u{0}0\t0\t--\u{0}")
         XCTAssertEqual(
-            try NumstatParser.parseStashFiles(input).files,
+            try NumstatParser.parseWorktreeFiles(input).files,
             [
                 FileStat(path: path("-"), added: nil, deleted: nil),
                 FileStat(path: path("-\t-"), added: 1, deleted: 2),

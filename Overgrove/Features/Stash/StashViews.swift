@@ -202,9 +202,12 @@ struct StashDetailView: View {
 
     private func fileRow(_ row: StashDetailModel.FileRow) -> some View {
         let isSelected = selectedFile == row.file.path
-        // A stash's tracked files come from numstat only, so their kind is unknown (#577); untracked files are `?`.
+        // The change kind in the neutral badge, as in S-03 (#602); files from the untracked part keep `?`.
+        let badge: FileRowView.Badge =
+            row.isFromUntracked
+            ? .status(letter: "?", group: .untracked) : row.kindLetter.map { .neutral(letter: $0) } ?? .unknown
         return FileRowView(
-            badge: row.isFromUntracked ? .status(letter: "?", group: .untracked) : .unknown, directory: row.directory,
+            badge: badge, directory: row.directory,
             fileName: row.fileName, lineCount: row.file.lineCount, isSelectable: row.isSelectable,
             isSelected: isSelected
         )
