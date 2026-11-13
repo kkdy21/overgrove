@@ -197,10 +197,8 @@ struct PanelDivider: View {
     let onStep: (Int) -> Void
     let onEdge: (PanelLayout.Edge) -> Void
 
-    /// The pointer is over the gutter: from hover, and checked again against the real pointer when the window becomes
-    /// or stops being key and after the layout moved the gutter (#656), since hover misses an exit while the window is
-    /// not key and sees no enter when the pointer was already there.
-    @State private var isPointerOver = false
+    /// Whether the pointer is over the gutter and whether its pointer style is on (#656).
+    @State private var pointer = DividerPointer()
     /// The gutter in the drag's (global) coordinates, to tell whether a released drag ends over it (#648).
     @State private var gutterFrame: CGRect = .zero
     /// True while the drag gesture runs; SwiftUI resets it on end *and* on cancel, unlike `onEnded`.
@@ -210,7 +208,7 @@ struct PanelDivider: View {
     /// `splitter-grip-active`; kept here so the value has one home.
     static let gutterHighlightOpacity = 0.10
 
-    private var isActive: Bool { isPointerOver || isDragging }
+    private var isActive: Bool { pointer.isOver || isDragging }
 
     var body: some View {
         ZStack {
@@ -228,13 +226,11 @@ struct PanelDivider: View {
         .frame(maxHeight: .infinity)
         .contentShape(Rectangle())
         // The resize cursor (`View.cursor`, #634), as NSSplitView shows: only in the key window, gone when the pointer
-        // leaves; a drag keeps it below.
-        // Only while the pointer is over it (or a drag runs): a style left on a gutter the pointer has left came back
-        // when the window became key again or a collapse finished (#656).
-        .cursor(cursor, isActive: isActive)
+        // leaves; a drag keeps it below. The style stays on so that it is there for the event the pointer enters on;
+        // it is off only after the pointer was found gone behind hover's back (#656, `DividerPointer`).
+        .cursor(cursor, isActive: pointer.isStyleOn || isDragging)
         .onHover { inside in
-            isPointerOver = inside
-            if inside { cursor.set() }
+            apply(pointer.hover(inside, cursor: cursor))
         }
         .onGeometryChange(for: CGRect.self) {
             $0.frame(in: .global)
@@ -254,9 +250,8 @@ struct PanelDivider: View {
                     onDragEnded(value.translation.width)
                     // The resize cursor while the pointer is still over the gutter, the arrow once it is not: the
                     // `pointerStyle` path only sets it again when the pointer enters (#648).
-                    let after = Self.cursorAfterDrag(cursor, pointer: value.location, gutter: gutterFrame)
-                    isPointerOver = after != .arrow
-                    after.set()
+                    let inside = Self.cursorAfterDrag(cursor, pointer: value.location, gutter: gutterFrame) != .arrow
+                    apply(pointer.dragEnded(inside: inside, cursor: cursor))
                 }
         )
         .onChange(of: isGestureActive) { _, active in
@@ -265,7 +260,7 @@ struct PanelDivider: View {
             // (e.g. the divider disappeared mid-drag) it is the only signal. Deferred so it never races `onEnded`.
             Task { @MainActor in
                 onDragCancelled()
-                if !isPointerOver { NSCursor.arrow.set() }
+                if !pointer.isOver { NSCursor.arrow.set() }
             }
         }
         .onTapGesture(count: 2, perform: onReset)
@@ -300,21 +295,30 @@ struct PanelDivider: View {
         return .handled
     }
 
-    /// The real pointer was checked (window key change or layout change): follow it, and set the cursor at once, since no
-    /// enter or exit comes for a pointer that did not move. A drag keeps its own cursor.
+    /// The real pointer was checked (window key change or layout change).
     private func pointerChecked(_ inside: Bool) {
-        guard let new = Self.cursorAfterCheck(cursor, inside: inside, wasOver: isPointerOver, isDragging: isDragging)
-        else { return }
-        isPointerOver = inside
-        new.set()
+        apply(pointer.check(inside, cursor: cursor, isDragging: isDragging))
     }
 
-    /// The cursor to set when a check finds the pointer `inside` the gutter or not, or `nil` to leave it: during a drag,
-    /// or when nothing changed. Leaving the gutter sets the arrow; the window becoming key with the pointer already
-    /// over the gutter sets `cursor`.
-    static func cursorAfterCheck(_ cursor: NSCursor, inside: Bool, wasOver: Bool, isDragging: Bool) -> NSCursor? {
-        guard !isDragging, inside != wasOver else { return nil }
-        return inside ? cursor : .arrow
+    /// Sets the cursor an event asked for. An enter also sets it again shortly after: SwiftUI's own cursor update for
+    /// that event can come after `onHover` and put the arrow back, and nothing else sets it while the pointer rests.
+    private func apply(_ effect: DividerPointer.Effect) {
+        switch effect {
+        case .none:
+            break
+        case .set(let new):
+            new.set()
+        case .enter(let new):
+            new.set()
+            Task { @MainActor in
+                var waited: TimeInterval = 0
+                for delay in DividerPointer.reassertDelays {
+                    try? await Task.sleep(for: .seconds(delay - waited))
+                    waited = delay
+                    if pointer.isOver, !isDragging { cursor.set() }
+                }
+            }
+        }
     }
 
     /// The cursor when a drag is released at `pointer`: `cursor` over the gutter, the arrow elsewhere (#648). The
@@ -334,6 +338,64 @@ struct PanelDivider: View {
         case (.detail, .atMinimum): .resizeLeft
         case (.detail, .atMaximum): .resizeRight
         }
+    }
+}
+
+/// What a divider knows about the pointer, and whether its pointer style is on (#656).
+///
+/// SwiftUI's hover misses an exit while the window is not key and when a collapse moves the gutter away from a still
+/// pointer, and its pointer style then comes back on a gutter the pointer has left (when the window becomes key again or
+/// the collapse ends). Turning the style off whenever the pointer is not over the gutter fixed that but lost the event
+/// the pointer enters on: the style was not on yet, so SwiftUI showed the arrow. So the style stays on, and is off only
+/// while hover may be stale: from a check or a released drag that found the pointer gone, until hover reports again.
+struct DividerPointer: Equatable {
+    /// The pointer is over the gutter (drives the highlight).
+    private(set) var isOver = false
+    private(set) var isStyleSuppressed = false
+
+    var isStyleOn: Bool { !isStyleSuppressed }
+
+    /// After an enter, the cursor is set again at these delays (seconds) while the pointer stays.
+    static let reassertDelays: [TimeInterval] = [0, 0.1, 0.3]
+
+    enum Effect: Equatable {
+        case none
+        case set(NSCursor)
+        /// Set now and again at `reassertDelays`.
+        case enter(NSCursor)
+    }
+
+    /// Hover reported: it is current again, so the style comes back on.
+    mutating func hover(_ inside: Bool, cursor: NSCursor) -> Effect {
+        isOver = inside
+        isStyleSuppressed = false
+        return inside ? .enter(cursor) : .none
+    }
+
+    /// A check of the real pointer: after the window became or stopped being key, or the layout moved the gutter.
+    /// - Over the gutter: the cursor every time, since no enter comes for a pointer that was already there, and an enter
+    ///   that came while the window was not key set nothing.
+    /// - Gone while hover still said over: hover missed the exit, so the arrow, and the style off until hover reports.
+    /// - A drag keeps its own cursor.
+    mutating func check(_ inside: Bool, cursor: NSCursor, isDragging: Bool) -> Effect {
+        guard !isDragging else { return .none }
+        if inside {
+            isOver = true
+            isStyleSuppressed = false
+            return .set(cursor)
+        }
+        guard isOver else { return .none }
+        isOver = false
+        isStyleSuppressed = true
+        return .set(.arrow)
+    }
+
+    /// A drag was released with the pointer `inside` the gutter or not (#648). Hover did not follow the drag, so a
+    /// pointer that ended elsewhere turns the style off like a missed exit.
+    mutating func dragEnded(inside: Bool, cursor: NSCursor) -> Effect {
+        isOver = inside
+        isStyleSuppressed = !inside
+        return .set(inside ? cursor : .arrow)
     }
 }
 
@@ -524,7 +586,12 @@ struct PointerProbe: NSViewRepresentable {
 
     func updateNSView(_ view: ProbeView, context: Context) {
         view.onCheck = onCheck
-        view.scheduleCheck()
+        // Only when the gutter moved: a check on every update (a hover re-render) could disagree with hover on the edge
+        // pixel and take the cursor away from a pointer that just entered.
+        if view.layoutKey != layoutKey {
+            view.layoutKey = layoutKey
+            view.scheduleCheck()
+        }
     }
 
     final class ProbeView: NSView {
@@ -533,28 +600,42 @@ struct PointerProbe: NSViewRepresentable {
         var pointerLocation: (() -> NSPoint?)?
         /// The window is key and the app active; a test hands in its own.
         var isWindowKey: (() -> Bool)?
+        /// The layout key of the last check.
+        var layoutKey: CGRect?
         private var observers: [NSObjectProtocol] = []
+
+        /// After the window becomes key, checked again at these delays (seconds): SwiftUI applies its own cursor for the
+        /// newly key window some 60ms later, and shows the arrow when its hover missed an enter while the window was
+        /// not key.
+        static let followUpDelays: [TimeInterval] = [0.1, 0.3]
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             observers.forEach(NotificationCenter.default.removeObserver)
             observers = []
             guard let window else { return }
-            for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
-                observers.append(
-                    NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) {
-                        [weak self] _ in
-                        MainActor.assumeIsolated { self?.scheduleCheck() }
-                    })
-            }
+            observers.append(
+                NotificationCenter.default.addObserver(
+                    forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
+                ) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.scheduleCheck(followUps: Self.followUpDelays) }
+                })
+            observers.append(
+                NotificationCenter.default.addObserver(
+                    forName: NSWindow.didResignKeyNotification, object: window, queue: .main
+                ) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.scheduleCheck() }
+                })
             scheduleCheck()
         }
 
         /// After the current event and layout pass, so the frame is the new one and a `ResetView` arrow for another
-        /// window has already been set.
-        func scheduleCheck() {
-            DispatchQueue.main.async { [weak self] in
-                MainActor.assumeIsolated { self?.check() }
+        /// window has already been set; then again at each of `followUps`.
+        func scheduleCheck(followUps: [TimeInterval] = []) {
+            for delay in [0] + followUps {
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    MainActor.assumeIsolated { self?.check() }
+                }
             }
         }
 
