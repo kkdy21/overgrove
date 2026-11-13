@@ -354,6 +354,8 @@ enum Tokens {
     /// Opacities applied to other colors.
     enum Opacity {
         static let disabled = 0.4
+        /// Button content while the pointer holds it down.
+        static let pressed = 0.8
         /// Data older than the last refresh while a refresh is running.
         static let stale = 0.6
     }

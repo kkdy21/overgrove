@@ -386,7 +386,12 @@ final class TokensTests: XCTestCase {
             try node("semantic.motion.easing-standard")["$value"] as? [Double],
             [curve.x1, curve.y1, curve.x2, curve.y2]
         )
-        try assertTable("opacity", ["disabled": Tokens.Opacity.disabled, "stale": Tokens.Opacity.stale])
+        try assertTable(
+            "opacity",
+            [
+                "disabled": Tokens.Opacity.disabled, "pressed": Tokens.Opacity.pressed,
+                "stale": Tokens.Opacity.stale,
+            ])
         let graph = try leaves("semantic.color.graph").compactMapValues { $0["$value"] as? Double }
         XCTAssertEqual(
             graph,
