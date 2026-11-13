@@ -300,7 +300,7 @@ struct IssueDetailView: View {
         DetailCard {
             Grid(
                 alignment: .leadingFirstTextBaseline, horizontalSpacing: Tokens.Spacing.md,
-                verticalSpacing: Tokens.Spacing.sm
+                verticalSpacing: Tokens.Spacing.xs
             ) {
                 GridRow {
                     label("Labels")
@@ -382,8 +382,9 @@ struct IssueDetailView: View {
                 if let sha {
                     Text(sha).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
                 }
+                // A commit subject or title is cut at its end, like every other row (#579).
                 Text(text).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
-                    .lineLimit(1).truncationMode(.middle)
+                    .lineLimit(1).truncationMode(.tail)
                 if let note {
                     Text("(\(note))").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
                 }

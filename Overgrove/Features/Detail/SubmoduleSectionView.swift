@@ -34,11 +34,11 @@ struct SubmoduleSectionView: View {
         }
         .padding(.bottom, Tokens.Spacing.xs)
         .background(
-            RoundedRectangle(cornerRadius: WipGroupCard.cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                 .fill(Tokens.Color.surfaceRaised)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: WipGroupCard.cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
                 .strokeBorder(Tokens.Color.borderSeparator, lineWidth: 1))
     }
 

@@ -353,8 +353,9 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 ```
 ┌──────────────────────────────────────────────────┐
-│ stash@{0}                              3 days ago │
-│ WIP on feat/12: 9c8d7e6 docs: add ADR-0008        │
+│ stash@{0}                                         │
+├──────────────────────────────────────────────────┤
+│ WIP on feat/12: 9c8d7e6 docs: add ADR-0008  3d ago│
 ├──────────────────────────────────────────────────┤
 │ Base commit  9c8d7e6  docs: add ADR-0008          │
 │ Branch       feat/12  (from message)              │
@@ -372,7 +373,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 | 요소 | 내용 |
 |---|---|
-| 제목 | `stash@{n}` + 상대 시각. 메시지 전체를 다음 줄에 |
+| 제목 | `stash@{n}`은 패널 머리에 둔다. 본문 첫 줄은 메시지 전체와 상대 시각이다(#579) |
 | Base commit | stash의 첫 번째 부모. 누르면 그래프에서 그 커밋 선택 |
 | Branch | 메시지 `WIP on <branch>` / `On <branch>`에서 추정. 추정임을 `(from message)`로 밝힌다 |
 | Includes | index 커밋(두 번째 부모), untracked 커밋(세 번째 부모) 존재 여부 |
@@ -646,6 +647,7 @@ Advanced
 |---|---|
 | Follow renames | 기본 켬 (`--follow`). rename이 일어난 행에 `renamed from …` |
 | 행 | SHA, 제목, 작성자, 날짜, 그 파일의 `+n −m` |
+| 좁은 폭 | Message가 200pt보다 좁아지면 Author, This file, Date 열을 이 순서로 숨긴다. 가운데 최소 폭(480pt)에서는 Author만 숨는다. VoiceOver는 숨은 값도 읽는다(#579) |
 | 선택 | 상세 패널에 S-03. 행을 두 번 누르거나 `⏎`이면 S-10에 그 커밋의 해당 파일 diff |
 
 | 상태 | 표현 |
@@ -686,7 +688,7 @@ Advanced
 | 요소 | 내용 |
 |---|---|
 | 머리 | 경로, 출처(Staged / Unstaged / 커밋 SHA / stash), 변경 종류 |
-| 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다 |
+| 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다. Unified는 긴 줄을 한 줄로 두고 가로로 스크롤한다. Split은 두 칸이 가운데 폭을 반씩 나눠 쓰고 긴 줄을 칸 안에서 접는다. 그래서 기본 폭에서도 두 칸이 모두 보인다(#579) |
 | 줄 | 이전·이후 줄 번호, `+`/`−` 기호(색만으로 구분하지 않음), 본문은 `typography.mono` |
 | 배경 | `color.diff.added-bg`, `removed-bg`. 단어 단위 강조는 `added-word-bg` / `removed-word-bg` (v0.2.0, #122. 아래 "단어 단위 강조") |
 | hunk 헤더 | `color.diff.hunk-header-bg` |

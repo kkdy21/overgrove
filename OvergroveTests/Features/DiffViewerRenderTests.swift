@@ -32,13 +32,13 @@ final class DiffViewerRenderTests: XCTestCase {
 
     /// Renders, letting the run loop turn until `ready` holds (rows are built off the main thread) or 3 s pass.
     private func render(
-        _ view: some View, appearance: NSAppearance, until ready: (NSBitmapImageRep) -> Bool
+        _ view: some View, appearance: NSAppearance, size: CGSize = DiffViewerRenderTests.size,
+        until ready: (NSBitmapImageRep) -> Bool
     ) throws -> NSBitmapImageRep {
         let host = NSHostingView(
-            rootView: view.frame(width: Self.size.width, height: Self.size.height).background(
-                Tokens.Color.surfaceCanvas))
+            rootView: view.frame(width: size.width, height: size.height).background(Tokens.Color.surfaceCanvas))
         host.appearance = appearance
-        host.frame = NSRect(origin: .zero, size: Self.size)
+        host.frame = NSRect(origin: .zero, size: size)
         let deadline = Date().addingTimeInterval(3)
         while true {
             host.layoutSubtreeIfNeeded()
@@ -138,6 +138,46 @@ final class DiffViewerRenderTests: XCTestCase {
             {
                 try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("diff-words-\(name).png"))
             }
+        }
+    }
+
+    /// Split fits the default centre width (#579): each side takes half of it, so the "after" side starts just right
+    /// of the middle instead of past a 520 pt "before" side, and a line longer than its side wraps rather than
+    /// running off the edge.
+    func testSplitFitsTheDefaultCentreWidth() throws {
+        let size = CGSize(width: 808, height: 420)
+        let long = String(repeating: "abcdefgh ", count: 20)
+        let patch =
+            "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,1 +1,1 @@\n-old \(long)\n+new \(long)\n"
+        let document = DiffDocument(
+            listing: TestFixtures.patch(patch), path: GitPath("a.go"),
+            source: DiffDocument.Source(label: "Unstaged", kindLetter: "M"))
+        let key = "diffViewMode"
+        let previous = UserDefaults.standard.object(forKey: key)
+        UserDefaults.standard.set(true, forKey: key)
+        defer { UserDefaults.standard.set(previous, forKey: key) }
+        let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        let added = try color("Tokens/diffAddedBg", in: appearance)
+        func isAdded(_ bitmap: NSBitmapImageRep, x: CGFloat, y: Int) -> Bool {
+            let column = Int(x * CGFloat(bitmap.pixelsWide) / size.width)
+            guard let pixel = bitmap.colorAt(x: column, y: y)?.usingColorSpace(.sRGB) else { return false }
+            return abs(pixel.redComponent - added.redComponent) < 0.03
+                && abs(pixel.greenComponent - added.greenComponent) < 0.03
+                && abs(pixel.blueComponent - added.blueComponent) < 0.03
+        }
+        func addedHeight(_ bitmap: NSBitmapImageRep, x: CGFloat) -> CGFloat {
+            let rows = (0..<bitmap.pixelsHigh).filter { isAdded(bitmap, x: x, y: $0) }.count
+            return CGFloat(rows) * size.height / CGFloat(bitmap.pixelsHigh)
+        }
+        let view = DiffViewerView(
+            title: document.title, sourceLabel: "Unstaged · M", state: .loaded(document), onBack: {})
+        let bitmap = try render(view, appearance: appearance, size: size) { addedHeight($0, x: size.width - 20) > 0 }
+        XCTAssertGreaterThan(addedHeight(bitmap, x: size.width / 2 + 12), 0, "the after side starts at the middle")
+        XCTAssertGreaterThan(addedHeight(bitmap, x: size.width - 20), 30, "the long line wraps within its side")
+        if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+            let png = bitmap.representation(using: .png, properties: [:])
+        {
+            try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("diff-split-808.png"))
         }
     }
 

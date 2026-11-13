@@ -12,9 +12,12 @@ on:
 permissions:
   contents: read
 
+# A new commit cancels a pull request's running check. A push to main never cancels the main run in progress: back-to-back
+# merges would otherwise keep main from ever finishing (#585). GitHub keeps one running and one pending run per group,
+# and the pending one is replaced by the newest push, so runs do not pile up and the latest main is still checked.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-test:
