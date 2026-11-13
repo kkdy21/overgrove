@@ -15,7 +15,7 @@ struct ComparisonCenterView: View {
                 Button(action: onBack) {
                     Label("Graph", systemImage: "chevron.left")
                 }
-                .buttonStyle(.hover)
+                .hoverButtonStyle()
                 // `⎋` is handled once, by the window (`AppState.escape`, #633).
                 .help("Back to the graph (⎋)")
                 Text("Changes vs").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)

@@ -226,6 +226,11 @@ struct DelayedProgressView: View {
 
 /// Icon and text buttons in panels (`‹ Graph`, `⇄`, copy): a rounded `surface.hover` fill under the pointer and
 /// `opacity.pressed` while held down. Replaces `.borderless` and `.plain`, which give no hover feedback.
+///
+/// Apply it with `hoverButtonStyle()`, not `.buttonStyle(_:)`: the style only draws the hover state, and the pointer is
+/// tracked outside the `Button` (#658). A tooltip (`.help`) put after it then wraps the hover tracking directly, as on a
+/// file row. With `onHover` inside the button's body, tooltips on these buttons stayed up long after the pointer left
+/// and stopped appearing after a drag or a menu, while file rows and toolbar buttons behaved.
 struct HoverButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         HoverButtonBody(configuration: configuration)
@@ -234,7 +239,7 @@ struct HoverButtonStyle: ButtonStyle {
 
 private struct HoverButtonBody: View {
     let configuration: ButtonStyleConfiguration
-    @State private var isHovering = false
+    @Environment(\.isButtonHovered) private var isHovering
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
@@ -248,12 +253,30 @@ private struct HoverButtonBody: View {
                     .motion(.fast, value: isHovering)
             }
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether the pointer is over the button `hoverButtonStyle()` styles; set from outside the `Button` (#658).
+    @Entry var isButtonHovered = false
+}
+
+/// Tracks the pointer outside the `Button` and hands it to `HoverButtonStyle` (#658).
+struct ButtonHoverTracking: ViewModifier {
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.isButtonHovered, isHovering)
             .onHover { isHovering = $0 }
     }
 }
 
-extension ButtonStyle where Self == HoverButtonStyle {
-    static var hover: HoverButtonStyle { HoverButtonStyle() }
+extension View {
+    /// `HoverButtonStyle` with the pointer tracked outside the button. Put `.help` after it (#658).
+    func hoverButtonStyle() -> some View {
+        buttonStyle(HoverButtonStyle()).modifier(ButtonHoverTracking())
+    }
 }
 
 // MARK: - Sidebar selection

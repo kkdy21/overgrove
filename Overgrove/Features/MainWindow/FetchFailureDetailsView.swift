@@ -69,7 +69,7 @@ private struct FetchFailureSection: View {
                         Image(systemName: "doc.on.doc").hitTarget()
                     }
                     // Pointer feedback like the other icon buttons in panels (#571, #616).
-                    .buttonStyle(.hover)
+                    .hoverButtonStyle()
                     .help("Copy Command")
                     .accessibilityLabel("Copy command \(command)")
                 }

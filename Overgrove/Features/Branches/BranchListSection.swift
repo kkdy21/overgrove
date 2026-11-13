@@ -148,11 +148,12 @@ struct BranchListSection: View {
             .padding(.leading, Tokens.Spacing.sm)
             .padding(.trailing, Tokens.Spacing.sm)
             .frame(height: Tokens.Size.rowSidebar)
-            .hoverHighlight(.inset)
             .padding(.horizontal, SidebarInset.row)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // Tracked outside the `Button`, with the tooltip wrapping it directly (#658).
+        .hoverHighlight(.inset, horizontalInset: SidebarInset.row)
         .help(folderHelp[id] ?? "")
         .accessibilityLabel(name + ", \(count) branches")
         .accessibilityValue(isOpen ? "expanded" : "collapsed")

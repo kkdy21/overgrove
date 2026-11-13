@@ -57,7 +57,7 @@ struct DiffViewerView: View {
                 Button(action: onBack) {
                     Label(backTitle, systemImage: "chevron.left")
                 }
-                .buttonStyle(.hover)
+                .hoverButtonStyle()
                 // `⎋` is handled once, by the window (`AppState.escape`, #633).
                 .help(String(localized: "Back to the \(backTitle.lowercased()) (⎋)"))
             }
