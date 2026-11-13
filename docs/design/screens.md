@@ -253,7 +253,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 요소 | 내용 |
 |---|---|
 | 머리 | 워크트리 타일(레인 색) + `<브랜치>` 또는 `detached @ <sha>`(`typography.body-emphasized`). 그 아래 본문 첫 줄에 경로와 복사 버튼, 둘째 줄에 `n changed files`, 추가·삭제 비율 막대, 합계 `+n −m` |
-| 세그먼트 | `Changes`(S-02) / `Worktree`(S-05). 워크트리 행에서 들어왔을 때만 보인다 |
+| 세그먼트 | `Changes`(S-02) / `Worktree`(S-05). 워크트리 행에서 들어왔을 때만 보인다. 상세 패널이 340pt보다 좁으면(300~339pt) 작은 크기에 아이콘만 보인다(`list.bullet` / `info.circle`). 툴팁과 VoiceOver는 `Changes`·`Worktree` 그대로라, 제목이 그만큼 넓어진다(#618) |
 | 그룹 순서 | **CONFLICTED → STAGED → UNSTAGED → UNTRACKED.** 충돌을 가장 먼저 본다. 빈 그룹은 숨긴다 |
 | 그룹 | 그룹마다 카드(`surface.raised`) 하나. 카드 머리는 상태 심볼, 이름, 개수 칩, 그룹 합계 `+n −m` (untracked는 합계 없음) |
 | 파일 행 | 변경 종류 배지(M/A/D/R/C/T/U/?, 상태 색으로 채운 16pt 사각형 + `on-status.*` 글자) + 경로 + `+n −m`(0인 쪽은 숨김). 경로는 디렉터리를 `text.tertiary`, 파일 이름을 `text.primary` Medium으로 쓴다. 길면 디렉터리 앞부분만 줄이고 파일 이름은 끝까지 보인다. 높이 26(`size.row-file`). S-03·S-04·S-11·S-12의 파일 행도 같은 행(`FileRowView`, #577)을 쓰고, 커밋된 변경에는 staged·unstaged 구분이 없으므로 배지를 같은 모양의 중립색(`surface.control` + `text.secondary`)으로 채운다 |
