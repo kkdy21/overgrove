@@ -149,7 +149,7 @@ enum Tokens {
         /// Light `#ffffff` · Dark `#ffffff0f`
         static let surfaceControl = SwiftUI.Color("Tokens/surfaceControl", bundle: nil)
         /// Row under the pointer. Blended over whatever surface is below.
-        /// Light `#1a1f2a0a` · Dark `#ffffff0b`
+        /// Light `#1a1f2a14` · Dark `#ffffff0b`
         static let surfaceHover = SwiftUI.Color("Tokens/surfaceHover", bundle: nil)
         /// Sidebar and detail panel bodies.
         /// Light `#f9fafc` · Dark `#191d24`

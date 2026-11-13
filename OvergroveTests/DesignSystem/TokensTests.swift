@@ -260,6 +260,23 @@ final class TokensTests: XCTestCase {
         }
     }
 
+    /// #605: the light hover fill is visible: blended over the canvas and the panel it reaches 1.15:1 (at 4% it was
+    /// about 1.08:1).
+    func testLightHoverIsVisibleOnTheCanvasAndPanel() throws {
+        for mode in [Mode.light, .highContrast] {
+            let hover = try asset("Tokens/surfaceHover", mode)
+            for surface in ["surfaceCanvas", "surfacePanel"] {
+                let below = try asset("Tokens/\(surface)", mode)
+                func blend(_ top: Double, _ bottom: Double) -> Double { top * hover.alpha + bottom * (1 - hover.alpha) }
+                let blended = RGBA(
+                    red: blend(hover.red, below.red), green: blend(hover.green, below.green),
+                    blue: blend(hover.blue, below.blue), alpha: 1)
+                XCTAssertGreaterThanOrEqual(
+                    blended.contrast(with: below), 1.15, "hover on \(surface) [\(mode.rawValue)]")
+            }
+        }
+    }
+
     /// Status and lane colours held to 4.5:1 in the Increase Contrast modes.
     private static let increaseContrastForegrounds =
         ["statusStaged", "statusUnstaged", "statusUntracked", "statusConflicted", "statusAhead", "statusBehind"]

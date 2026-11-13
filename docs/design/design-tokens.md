@@ -87,8 +87,8 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | `surface.panel-header` | `#f3f5f9` | `#1d2229` | 패널 머리, 열 머리, 하단 고정 영역 |
 | `surface.raised` | `#eef0f4` | `#21252e` | 패널 안의 카드 |
 | `surface.selection` | `#dee7f4` | `#252f3c` | 사이드바·상세 목록의 선택 행 |
-| `surface.selection-inactive` | `#eef0f4` | `#21252e` | 포커스가 없는 패널의 선택 행 |
-| `surface.hover` | 검정 4% | 흰색 4.3% | 포인터 아래 행 |
+| `surface.selection-inactive` | `#eef0f4` | `#21252e` | 포커스가 없는 패널의 선택 행. `border.strong` 1px 외곽선과 함께 칠한다. 색만으로는 `surface.hover`와 거의 같아서 모양으로 구분한다(#605) |
+| `surface.hover` | 검정 7.8% (`#1a1f2a14`) | 흰색 4.3% | 포인터 아래 행. 라이트는 캔버스·패널 위에서 대비 1.15:1 이상이어야 알아볼 수 있다(4%일 때 1.08:1, #605) |
 | `surface.control` | `#ffffff` + 테두리 | 흰색 6% | 칩, 세그먼트, 필드 |
 | `surface.wip-row` | 액센트 7% | 액센트 9% | 그래프 WIP 행 |
 | `surface.splitter-grip` | `#666c78` | `#666c78` | 분할선 손잡이(홈 대비 4.2 / 3.6) |
