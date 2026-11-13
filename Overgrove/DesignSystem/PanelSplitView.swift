@@ -151,10 +151,7 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
 extension Animation {
     /// Panel collapse and reopen: `motion.duration-standard` with `motion.easing-standard`. Callers skip it under
     /// Reduce Motion.
-    static var panelCollapse: Animation {
-        let curve = Tokens.Motion.easingStandardControlPoints
-        return .timingCurve(curve.x1, curve.y1, curve.x2, curve.y2, duration: Tokens.Motion.durationStandard)
-    }
+    static var panelCollapse: Animation { .standard }
 }
 
 // MARK: - Panel box
@@ -218,6 +215,8 @@ private struct PanelDivider: View {
         }
         .frame(width: PanelLayout.gap)
         .frame(maxHeight: .infinity)
+        // Hover and drag highlight fade in `motion.duration-fast`, at once under Reduce Motion (#571).
+        .motion(.fast, value: isActive)
         .contentShape(Rectangle())
         // AppKit cursor rects (as NSSplitView does): AppKit owns hover, key/inactive windows, and drag end.
         .background(CursorArea(cursor: cursor))
