@@ -168,9 +168,7 @@ struct ComparisonModel: Equatable {
             let uncommittedInList =
                 comparison.includesWorkingTree ? all.filter { uncommitted.contains($0.path) }.count : 0
             uncommittedFileCount = comparison.includesWorkingTree && uncommittedInList > 0 ? uncommittedInList : nil
-            let added = all.compactMap(\.added).reduce(0, +)
-            let deleted = all.compactMap(\.deleted).reduce(0, +)
-            totalLineChange = "+\(WipDetailModel.formatted(added)) −\(WipDetailModel.formatted(deleted))"
+            totalLineChange = Self.lineTotals(comparison).text
             summary = Self.summary(comparison, uncommittedFiles: uncommittedInList, totalLineChange: totalLineChange)
             state =
                 all.isEmpty && comparison.untracked.isEmpty && comparison.commits.isEmpty
@@ -189,29 +187,45 @@ struct ComparisonModel: Equatable {
     private static func summary(_ comparison: WorktreeComparison, uncommittedFiles: Int, totalLineChange: String)
         -> String
     {
-        var parts: [String] = []
-        if let counts = comparison.counts {
-            let ahead = counts.ahead
-            parts.append(
-                (ahead == 1 ? String(localized: "\(ahead) commit ahead") : String(localized: "\(ahead) commits ahead"))
-                    + " · " + String(localized: "\(counts.behind) behind"))
-        } else {
-            let count = comparison.commits.count
-            let shown = "\(count)\(comparison.isCommitListPartial ? "+" : "")"
-            parts.append(
-                count == 1 ? String(localized: "\(shown) commit ahead") : String(localized: "\(shown) commits ahead"))
-        }
+        var parts = [aheadBehind(comparison)]
         if comparison.includesWorkingTree {
             parts.append(
                 uncommittedFiles == 1
                     ? String(localized: "uncommitted: \(uncommittedFiles) file")
                     : String(localized: "uncommitted: \(uncommittedFiles) files"))
         }
-        let files = comparison.files.count
-        let fileCount = WipDetailModel.formatted(files)
-        parts.append(files == 1 ? String(localized: "\(fileCount) file") : String(localized: "\(fileCount) files"))
+        parts.append(fileCount(comparison))
         parts.append(totalLineChange)
         return parts.joined(separator: " · ")
+    }
+
+    // The summary's parts, shared with the base compare card under S-02 and S-05 so both show the same values (#581).
+
+    /// `2 commits ahead · 0 behind`, or `3 commits ahead` when detached (no counts).
+    static func aheadBehind(_ comparison: WorktreeComparison) -> String {
+        if let counts = comparison.counts {
+            let ahead = counts.ahead
+            return
+                (ahead == 1 ? String(localized: "\(ahead) commit ahead") : String(localized: "\(ahead) commits ahead"))
+                + " · " + String(localized: "\(counts.behind) behind")
+        }
+        let count = comparison.commits.count
+        let shown = "\(count)\(comparison.isCommitListPartial ? "+" : "")"
+        return count == 1 ? String(localized: "\(shown) commit ahead") : String(localized: "\(shown) commits ahead")
+    }
+
+    /// `8 files`.
+    static func fileCount(_ comparison: WorktreeComparison) -> String {
+        let files = comparison.files.count
+        let count = WipDetailModel.formatted(files)
+        return files == 1 ? String(localized: "\(count) file") : String(localized: "\(count) files")
+    }
+
+    /// Added and deleted lines over every changed file, and `+272 −85`.
+    static func lineTotals(_ comparison: WorktreeComparison) -> (added: Int, deleted: Int, text: String) {
+        let added = comparison.files.compactMap(\.added).reduce(0, +)
+        let deleted = comparison.files.compactMap(\.deleted).reduce(0, +)
+        return (added, deleted, "+\(WipDetailModel.formatted(added)) −\(WipDetailModel.formatted(deleted))")
     }
 
     private static func fileRow(_ stat: FileStat, uncommitted: Set<GitPath>) -> FileRow {

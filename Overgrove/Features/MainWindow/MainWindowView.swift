@@ -152,7 +152,8 @@ struct MainWindowView: View {
                     onSelectLinkedWorktree: state.selectWorktree, onSelectLinkedCommit: state.selectLinkedCommit,
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
                     comparisonList: comparisonList, commitComparisonList: commitComparisonList,
-                    onCompare: state.canCompare() ? { state.showComparison() } : nil,
+                    compareCard: state.baseCompareCardModel, onChooseCompareBase: state.chooseBaseSummaryBase,
+                    onCompare: { state.showComparison() },
                     onSetUntrusted: { state.setRepositoryUntrusted($0) },
                     worktreeLane: state.worktreeListModel?.rows.first(where: \.isFocused)?.laneIndex)
             }

@@ -69,7 +69,7 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | 키는 kebab-case | `selection-inactive`, `row-graph` |
 | primitive는 `색상군-단계`. 단계가 클수록 어둡다 | `green-600`, `slate.850` |
 | semantic은 역할 이름. 색상 이름을 쓰지 않는다 | `status.conflicted` (O), `status.red` (X) |
-| semantic 색은 원칙적으로 별칭(`{…}`)만 쓴다. 예외는 알파를 섞어 다른 표면 위에 겹치는 `surface.hover`, `surface.control`(다크), `surface.wip-row`, `surface.scrollbar-thumb`, `surface.panel-highlight`, `surface.panel-shadow`와 `surface.selection` | |
+| semantic 색은 원칙적으로 별칭(`{…}`)만 쓴다. 예외는 알파를 섞어 다른 표면 위에 겹치는 `surface.hover`, `surface.control`(다크), `surface.wip-row`, `surface.compare-card`, `border.compare-card`, `surface.scrollbar-thumb`, `surface.panel-highlight`, `surface.panel-shadow`와 `surface.selection` | |
 | 그래프 레인은 숫자 인덱스 | `graph.lane.0` ~ `graph.lane.7` |
 | 앱 코드는 semantic만 참조한다 | `Tokens.Color.statusStaged` (생성 이름은 §4) |
 
@@ -91,6 +91,7 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | `surface.hover` | 검정 7.8% (`#1a1f2a14`) | 흰색 4.3% | 포인터 아래 행. 라이트는 캔버스·패널 위에서 대비 1.15:1 이상이어야 알아볼 수 있다(4%일 때 1.08:1, #605) |
 | `surface.control` | `#ffffff` + 테두리 | 흰색 6% | 칩, 세그먼트, 필드 |
 | `surface.wip-row` | 액센트 7% | 액센트 9% | 그래프 WIP 행 |
+| `surface.compare-card` | 액센트 7% | 액센트 7% | S-02·S-05 아래 비교 카드(#581) |
 | `surface.splitter-grip` | `#666c78` | `#666c78` | 분할선 손잡이(홈 대비 4.2 / 3.6) |
 | `surface.splitter-grip-active` | 액센트 | 액센트 | 손잡이 hover·drag. 홈에는 액센트 10%를 칠한다 |
 | `surface.panel-highlight` | 투명 | 흰색 3.5% | 패널 위쪽 안쪽 1px 하이라이트(다크, #64) |
@@ -103,6 +104,7 @@ DTCG 형식에는 아직 모드 개념이 없다. 그래서 아래처럼 표기�
 | `text.on-accent` | `#ffffff` | `#0e1116` | 액센트 채움 위 |
 | `border.panel` | `#d5d9e1` | `#2b303a` | 패널 테두리 |
 | `border.separator` | `#e3e6ec` | `#21252e` | 패널 안 구분선 |
+| `border.compare-card` | 액센트 35% | 액센트 35% | 비교 카드 테두리(#581) |
 | `border.strong` | `#b0b6c0` | `#3d434c` | 컨트롤 테두리, Increase Contrast의 패널 테두리 |
 | `accent` | `#0e764a` | `#43d59a` | 포커스 링, HEAD 링, 고른 칩, 주 버튼, 활성 손잡이, 토글 |
 

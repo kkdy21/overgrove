@@ -52,8 +52,8 @@ struct MainWindowScene: View {
     init(layoutStore: PanelLayoutStore, registry: RepositoryRegistry, settings: AppSettings) {
         _state = State(
             initialValue: AppState(
-                layoutStore: layoutStore, registry: registry, settings: settings,
-                launchSnapshots: LaunchSnapshotStore.live))
+                layoutStore: layoutStore, registry: registry, baseSummaryLoader: LiveComparisonLoader.live,
+                settings: settings, launchSnapshots: LaunchSnapshotStore.live))
     }
 
     var body: some View {
