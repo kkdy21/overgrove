@@ -15,7 +15,7 @@ struct CommitComparisonCenterView: View {
                     Label("Graph", systemImage: "chevron.left")
                 }
                 .buttonStyle(.hover)
-                .keyboardShortcut(.cancelAction)
+                // `⎋` is handled once, by the window (`AppState.escape`, #633).
                 .help("Back to the graph (⎋)")
                 Text("Compare").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
                 Text(model.title).font(Tokens.Font.mono).foregroundStyle(Tokens.Color.textSecondary)
