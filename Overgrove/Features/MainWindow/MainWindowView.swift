@@ -153,7 +153,8 @@ struct MainWindowView: View {
                     onShowChanges: state.showChanges, onShowWorktree: state.showWorktreeDetail,
                     comparisonList: comparisonList, commitComparisonList: commitComparisonList,
                     onCompare: state.canCompare() ? { state.showComparison() } : nil,
-                    onSetUntrusted: { state.setRepositoryUntrusted($0) })
+                    onSetUntrusted: { state.setRepositoryUntrusted($0) },
+                    worktreeLane: state.worktreeListModel?.rows.first(where: \.isFocused)?.laneIndex)
             }
             statusBar
         }

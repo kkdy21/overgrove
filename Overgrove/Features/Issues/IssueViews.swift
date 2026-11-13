@@ -243,8 +243,8 @@ struct IssueDetailView: View {
                 }
                 .padding(Tokens.Spacing.md)
             }
-            Tokens.Color.borderSeparator.frame(height: 1)
-            HStack(spacing: Tokens.Spacing.sm) {
+            // Pinned on `surface.panel-header` like the panel's head (#578).
+            PanelFooter {
                 Button("Open in Browser") {
                     if let url = model.browserURL { NSWorkspace.shared.open(url) }
                 }
@@ -258,9 +258,7 @@ struct IssueDetailView: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(model.urlText, forType: .string)
                 }
-                Spacer()
             }
-            .padding(Tokens.Spacing.sm + Tokens.Spacing.xxs)
         }
     }
 

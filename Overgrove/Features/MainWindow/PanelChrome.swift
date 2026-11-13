@@ -331,25 +331,40 @@ struct DetailPanel: View {
     var onCompare: (() -> Void)?
     /// S-05 "Treat as untrusted" (#107).
     var onSetUntrusted: ((Bool) -> Void)?
+    /// The focused worktree's lane (`WorktreeRow.laneIndex`): the header's worktree tile (#578).
+    var worktreeLane: Int?
 
-    private var title: String {
-        if let commitModel { return String(localized: "Commit \(commitModel.shortSHA)") }
-        if let issueModel { return issueModel.number }
-        if let stashModel { return stashModel.refName }
-        return wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title ?? String(localized: "No selection")
+    @State private var width: CGFloat = 0
+
+    /// The header follows the content's order (#578): a comparison names what it compares instead of the WIP or
+    /// commit behind it.
+    private var header: DetailHeader {
+        DetailHeader(
+            DetailHeader.Subject(
+                comparisonBase: comparisonList?.model.baseName,
+                commitComparisonTitle: commitComparisonList?.model.title,
+                commit: commitModel.map { ($0.shortSHA, $0.author, commitLane) },
+                issueNumber: issueModel?.number, stashRef: stashModel?.refName,
+                worktreeTitle: wipModel?.title ?? worktreeModel?.title ?? focusedWorktree?.title,
+                worktreeLane: worktreeLane))
     }
 
     var body: some View {
+        let header = header
         PanelSection {
-            Image(systemName: "tree.fill").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
-            Text(title)
+            DetailHeaderMark(mark: header.mark)
+            // The title keeps its room before the segment does and is cut at its end (#578).
+            Text(header.title)
                 .font(Tokens.Font.headline)
                 .foregroundStyle(Tokens.Color.textPrimary)
                 .lineLimit(1)
-                .truncationMode(.middle)
+                .truncationMode(.tail)
+                .layoutPriority(1)
+                .help(header.title)
             if let isWorktree = showsWorktreeSegment {
                 Spacer(minLength: Tokens.Spacing.sm)
                 DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
+                    .controlSize(width < Self.compactWidth ? .small : .regular)
             }
         } content: {
             if let comparisonList {
@@ -380,7 +395,16 @@ struct DetailPanel: View {
                     message: String(localized: "Changes in the focused worktree or the selected commit appear here."))
             }
         }
+        .onGeometryChange(for: CGFloat.self) {
+            $0.size.width
+        } action: {
+            width = $0
+        }
     }
+
+    /// Below this width the `Changes | Worktree` segment is small, so the title keeps room at the panel's 300pt
+    /// minimum (#578). No token.
+    static let compactWidth: CGFloat = 340
 }
 
 extension SidebarPanel {
