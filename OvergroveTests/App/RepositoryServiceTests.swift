@@ -348,4 +348,31 @@ final class RepositoryServiceTests: XCTestCase {
         let stale = await automatic.value
         XCTAssertNil(stale, "the older automatic request is superseded")
     }
+
+    /// #424: a file-change request is refused while another load waits out its debounce, not only while one runs, so it
+    /// cannot supersede another window's fetch refresh before that refresh starts.
+    func testFileChangeDoesNotSupersedeAWaitingRefresh() async throws {
+        let gate = DebounceGate()
+        let client = try gatedClient(maximumConcurrency: 8)
+        release()  // status calls pass straight through; the gated client logs every git it runs
+        let service = RepositoryService(client: client, sleep: { try await gate.sleep($0) })
+        let target = model
+        let fileChange = RepositoryService.Trigger.filesChanged(worktrees: [], refs: true, worktreeList: false)
+
+        let fetched = Task { await service.refresh(target, trigger: .fetchCompleted) }
+        try await waitUntil("the fetch refresh to wait") { await gate.waiting == 1 }
+
+        let refused = await service.refresh(target, trigger: fileChange)
+        XCTAssertNil(refused?.generation, "refused like a superseded request; the watcher sends it again later")
+        XCTAssertEqual(invocations(), [], "the refused request ran no git")
+
+        await gate.releaseAll()
+        let waited = await fetched.value
+        let delivered = try XCTUnwrap(waited, "the waiting refresh was not superseded")
+        XCTAssertEqual(delivered.generation, 1)
+        guard case .success = delivered.result else { return XCTFail("\(delivered.result)") }
+
+        let resent = await service.refresh(target, trigger: fileChange)
+        XCTAssertEqual(resent?.generation, 2, "once nothing is waiting or running, the file change goes through")
+    }
 }
