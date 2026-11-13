@@ -408,11 +408,17 @@ final class StatusParserTests: XCTestCase {
 
         let records = (0..<100_000).map { ordinary("MM", "src/file-\($0).swift") }.joined()
         let input = data(header + records)
-        let start = Date()
-        let state = try StatusParser.parse(input)
-        let elapsed = Date().timeIntervalSince(start)
-        XCTAssertEqual(state.staged.count, 100_000)
-        XCTAssertEqual(state.unstaged.count, 100_000)
-        XCTAssertLessThan(elapsed, 1.0, "100k records must parse within 1 s (test-strategy.md §4.1)")
+        // The fastest of three parses (#600): a shared CI runner's speed swings about threefold, and one busy moment
+        // pushed a single parse past the budget. A parser that really got slower is slow all three times.
+        var fastest = Duration.seconds(3_600)
+        for _ in 0..<3 {
+            let start = ContinuousClock.now
+            let state = try StatusParser.parse(input)
+            fastest = min(fastest, ContinuousClock.now - start)
+            XCTAssertEqual(state.staged.count, 100_000)
+            XCTAssertEqual(state.unstaged.count, 100_000)
+        }
+        XCTAssertLessThan(
+            fastest, .seconds(1), "100k records must parse within 1 s (test-strategy.md §4.1), took \(fastest)")
     }
 }
