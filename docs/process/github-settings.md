@@ -86,11 +86,15 @@
 
 - 규칙은 [development-workflow.md §2.1](development-workflow.md#21-보드-자동화), 로직은 `scripts/github/board-sync.sh`에 있다.
 - 선점 봇의 담당자 변경은 `GITHUB_TOKEN`으로 만든 이벤트라 `board-sync.yml`을 실행하지 않는다. 그래서 두 봇이 스크립트를 직접 부른다.
-- `PROJECT_TOKEN`이 없으면 세 곳 모두 경고만 남기고 성공한다. 그동안은 메인테이너가 로컬에서 맞춘다.
+- `PROJECT_TOKEN`이 없으면 세 곳 모두 경고(`::warning`)와 실행 요약(`$GITHUB_STEP_SUMMARY`)만 남기고 성공한다. 그동안은 메인테이너가 로컬에서 맞춘다.
   ```sh
   scripts/github/board-sync.sh reconcile --dry-run   # 바뀔 내용만 보기
   scripts/github/board-sync.sh reconcile             # 적용 (gh에 project scope 필요)
   ```
+- 2026-11-13 기준 이 토큰이 아직 등록되지 않아, 머지로 닫힌 이슈가 Done으로 가지 않았다(#595). 등록과 실제 머지 확인은 #596에서 한다.
+- GitHub Actions의 `schedule`은 지연되거나 건너뛸 수 있다. 2026-11-12~13에는 30분 주기의 `claim-expiry`가 하루 서너 번만 돌았다. 그래서 30분 정리는 보조 수단이고, 머지 직후의 `issues`·`pull_request_target` 이벤트만으로 Done이 되어야 한다.
+- 머지는 이슈와 PR을 함께 닫는다. 그래서 `pr` 모드는 머지된 PR이 닫는 이슈가 아직 열린 것으로 읽히면 몇 초 뒤 한 번 더 읽는다. 열린 채로 계산하면 담당자 때문에 `In progress`가 되어 Done을 덮을 수 있기 때문이다(#595).
+- `board-sync.sh`는 이슈마다 읽은 값(상태, 담당자, 열린 PR, 의존성), 계산한 Status, 바꿨는지를 한 줄씩 남긴다. 실행 로그만 보고 보드가 왜 그렇게 됐는지 알 수 있다.
 - `pull_request_target`에서도 기본 브랜치만 체크아웃하고 PR 코드는 실행하지 않는다. 이벤트에서는 이슈·PR 번호만 쓴다.
 
 세 워크플로우는 PR 코드를 체크아웃하거나 실행하지 않는다. 댓글 본문은 `env`로만 받아 첫 단어를 고정 문자열과 비교한다. `dependency-closed.yml`은 PR·이슈 본문을 API로 읽어 이슈 번호만 뽑는다.
