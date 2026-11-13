@@ -32,7 +32,7 @@ struct StashDetailModel: Equatable {
         let file: FileStat
         let directory: String
         let fileName: String
-        /// From the stash's untracked-files commit (shown with a `questionmark` symbol and a legend line).
+        /// From the stash's untracked-files commit (shown with a `?` badge and a legend line with the same badge).
         let isFromUntracked: Bool
         let isSelectable: Bool
         /// `src/a.swift, 2 lines added, 1 removed, from untracked files` (interaction.md §6.1).
