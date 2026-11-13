@@ -379,15 +379,21 @@ struct DetailSegmentPicker: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        // Icon segments are Labels drawn `.iconOnly`: the symbol shows and the title stays for VoiceOver (#635). The text
+        // segments are plain Text, which a label style leaves alone.
+        .labelStyle(.iconOnly)
         .fixedSize()
         // The panel theme's outline under Increase Contrast (#304); AppKit draws the rest of the control.
         .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.sm), normal: nil)
     }
 
+    /// Icons only: a `Label` drawn `.iconOnly`, whose title is the segment's name for VoiceOver, with the same name as
+    /// its tooltip. An `Image` with an `accessibilityLabel` looked right offscreen, but the real segmented control drew
+    /// that label as text beside the icon (#635).
     @ViewBuilder
     private func segment(_ title: LocalizedStringKey, symbol: String) -> some View {
         if iconsOnly {
-            Image(systemName: symbol).accessibilityLabel(Text(title)).help(Text(title))
+            Label(title, systemImage: symbol).labelStyle(.iconOnly).help(Text(title))
         } else {
             Text(title)
         }

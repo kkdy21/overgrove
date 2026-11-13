@@ -16,7 +16,7 @@ struct ComparisonCenterView: View {
                     Label("Graph", systemImage: "chevron.left")
                 }
                 .buttonStyle(.hover)
-                .keyboardShortcut(.cancelAction)
+                // `⎋` is handled once, by the window (`AppState.escape`, #633).
                 .help("Back to the graph (⎋)")
                 Text("Changes vs").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
                 basePicker

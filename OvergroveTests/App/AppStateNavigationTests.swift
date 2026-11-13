@@ -137,6 +137,94 @@ final class AppStateNavigationTests: XCTestCase {
         XCTAssertEqual(state.selection, .wip(focused), "nothing left to clear")
     }
 
+    // MARK: ⎋ ① closes the covering screen and keeps the selection (#633)
+
+    /// S-09: ⎋ closes the history like `‹ Graph`; the commit stays selected.
+    func testEscapeClosesTheFileHistoryAndKeepsTheCommit() async throws {
+        let state = try await loadedState()
+        state.selectCommit(SampleGraphLoader.oid("3"))
+        state.showHistory(of: GitPath("README.md"))
+        XCTAssertTrue(state.history.isOpen)
+        let selected = state.selection
+
+        state.escape()
+        XCTAssertFalse(state.history.isOpen)
+        XCTAssertEqual(state.selection, selected, "① only closes the screen")
+        XCTAssertEqual(state.graph.selected, SampleGraphLoader.oid("3"))
+    }
+
+    /// S-10 of a commit's file: ⎋ closes the diff; the commit stays selected.
+    func testEscapeClosesTheDiffAndKeepsTheCommit() async throws {
+        let state = try await loadedState()
+        let commit = SampleGraphLoader.commits[1]
+        state.selectCommit(commit.oid)
+        await state.commitDetail.task?.value
+        guard case .loaded(let rows, _) = state.commitDetailModel?.files else { return XCTFail("files") }
+        state.selectCommitFile(rows[0].stat)
+        await state.commitDetail.fileTask?.value
+        XCTAssertNotNil(state.diffViewer)
+
+        state.escape()
+        XCTAssertNil(state.diffViewer)
+        XCTAssertEqual(state.selection, .commit(commit.oid))
+    }
+
+    /// A diff opened from S-09 covers it: the first ⎋ closes the diff only, the second the history, and only the
+    /// third goes on to ③.
+    func testEscapeClosesTheTopmostScreenFirst() async throws {
+        let state = try await loadedState()
+        let focused = try XCTUnwrap(state.focusedWorktreePath)
+        let commit = SampleGraphLoader.commits[1]
+        state.showHistory(of: GitPath("a.go"))
+        state.selectCommit(commit.oid)
+        await state.commitDetail.task?.value
+        guard case .loaded(let rows, _) = state.commitDetailModel?.files else { return XCTFail("files") }
+        state.selectCommitFile(rows[0].stat)
+        await state.commitDetail.fileTask?.value
+        XCTAssertNotNil(state.diffViewer)
+        XCTAssertTrue(state.history.isOpen)
+
+        state.escape()
+        XCTAssertNil(state.diffViewer)
+        XCTAssertTrue(state.history.isOpen, "the history under the diff shows again")
+        XCTAssertEqual(state.selection, .commit(commit.oid))
+
+        state.escape()
+        XCTAssertFalse(state.history.isOpen)
+        XCTAssertEqual(state.selection, .commit(commit.oid))
+
+        state.escape()
+        XCTAssertEqual(state.selection, .wip(focused), "③ once nothing covers the graph")
+    }
+
+    /// S-12: ⎋ closes the comparison; the base commit stays selected.
+    func testEscapeClosesTheCommitComparisonAndKeepsTheCommit() async throws {
+        let state = try await loadedState()
+        state.selectCommit(SampleGraphLoader.oid("3"))
+        state.showCommitComparison(with: SampleGraphLoader.oid("4"))
+        XCTAssertNotNil(state.commitComparison)
+
+        state.escape()
+        XCTAssertNil(state.commitComparison)
+        XCTAssertEqual(state.selection, .commit(SampleGraphLoader.oid("3")))
+    }
+
+    /// A covering screen comes before the search (① before ②): the search text stays for the next ⎋.
+    func testEscapeClosesAScreenBeforeClearingTheSearch() async throws {
+        let state = try await loadedState()
+        state.selectCommit(SampleGraphLoader.oid("3"))
+        state.showHistory(of: GitPath("README.md"))
+        state.searchText = "limiter"
+
+        state.escape()
+        XCTAssertFalse(state.history.isOpen)
+        XCTAssertEqual(state.searchText, "limiter")
+
+        state.escape()
+        XCTAssertEqual(state.searchText, "")
+        XCTAssertEqual(state.selection, .commit(SampleGraphLoader.oid("3")))
+    }
+
     func testShowWorktreeInfoTogglesTheSegment() async throws {
         let state = try await loadedState()
         let focused = try XCTUnwrap(state.focusedWorktreePath)

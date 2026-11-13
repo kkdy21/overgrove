@@ -48,6 +48,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show
+  the pointing hand.
 - Opening a sidebar section or a Security card's keys no longer draws the new rows over the rows below while they
   slide down: the rows below cover them until they move out of the way.
 - In the sidebar LOCAL and REMOTE trees, branch and folder rows of one depth line up their icons and names.
@@ -55,6 +57,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   and the pull request pill leaves room between its symbol and its rounded edge.
 - Narrow detail panels fold joined values between items: the upstream's counts stay together and no line starts or
   ends with `·`. The issue panel's setup commands wrap instead of being cut, and add no hyphens of their own.
+- The graph search’s previous and next buttons and the fetch failure details’ Copy Command button respond to the
+  pointer like the other icon buttons.
 - The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
   section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
   issue.
