@@ -29,8 +29,6 @@ struct CommitDetailModel: Equatable {
         let kindLetter: String
         let directory: String
         let fileName: String
-        /// `+12 −3`, or `binary`.
-        let lineChange: String
         let isSelectable: Bool
         /// `Modified, src/a.swift, 2 lines added, 1 removed` (interaction.md §6.1).
         var accessibilityLabel: String { WipDetailModel.fileAccessibilityLabel(stat) }
@@ -166,14 +164,8 @@ struct CommitDetailModel: Equatable {
     static func fileRow(_ stat: FileStat) -> FileRow {
         let change = FileChange(path: stat.path, originalPath: stat.originalPath, status: stat.status ?? .modified)
         let (directory, fileName) = WipDetailModel.displayParts(change)
-        let parts = [
-            (stat.added ?? 0) > 0 ? "+\(stat.added ?? 0)" : nil,
-            (stat.deleted ?? 0) > 0 ? "−\(stat.deleted ?? 0)" : nil,
-        ].compactMap { $0 }
-        let lineChange = stat.isBinary ? "binary" : (parts.isEmpty ? "±0" : parts.joined(separator: " "))
         return FileRow(
             stat: stat, kindLetter: String((stat.status ?? .modified).code), directory: directory, fileName: fileName,
-            lineChange: lineChange,
             isSelectable: stat.path.isRepresentable && (stat.originalPath?.isRepresentable ?? true))
     }
 }

@@ -153,6 +153,7 @@ struct ComparisonListView: View {
                     )
                     .foregroundStyle(Tokens.Color.textSecondary)
                 }
+                .padding(.horizontal, FileRowView.horizontalPadding)
             }
             // TODO(#69): picking a commit opens its detail (S-03).
             ForEach(model.commits) { commit in
@@ -161,6 +162,8 @@ struct ComparisonListView: View {
                     Text(commit.subject).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
                         .lineLimit(1).truncationMode(.tail)
                 }
+                // Starts where the file rows' badges start (#577).
+                .padding(.horizontal, FileRowView.horizontalPadding)
                 .help(commit.subject + "\n" + commit.author)
                 .accessibilityElement(children: .combine)
             }
@@ -175,8 +178,11 @@ struct ComparisonListView: View {
                 Spacer()
                 Text(model.totalLineChange).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
             }
-            ForEach(model.files) { row in
-                fileRow(row, isUntracked: false)
+            // No card spacing between rows: they are 26pt each, like every detail file list (#577).
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(model.files) { row in
+                    fileRow(row, isUntracked: false)
+                }
             }
             if let title = model.showAllTitle {
                 Button(title, action: onShowAll).buttonStyle(.link)
@@ -187,7 +193,9 @@ struct ComparisonListView: View {
     private var untracked: some View {
         DetailCard {
             sectionTitle(String(localized: "UNTRACKED"), count: model.untracked.count, more: false)
-            ForEach(model.untracked) { row in fileRow(row, isUntracked: true) }
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(model.untracked) { row in fileRow(row, isUntracked: true) }
+            }
         }
     }
 
@@ -200,32 +208,11 @@ struct ComparisonListView: View {
 
     private func fileRow(_ row: ComparisonModel.FileRow, isUntracked: Bool) -> some View {
         let isSelected = session.selectedFile?.path == row.path && session.selectedFile?.isUntracked == isUntracked
-        return HStack(spacing: Tokens.Spacing.sm) {
-            Text(row.kindLetter).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
-                .frame(width: Tokens.Spacing.md)
-            (Text(row.directory).foregroundStyle(Tokens.Color.textTertiary)
-                + Text(row.fileName).foregroundStyle(Tokens.Color.textPrimary).fontWeight(.medium))
-                .font(Tokens.Font.callout)
-                .lineLimit(1)
-                .truncationMode(.head)
-            if row.hasUncommittedChanges {
-                Text("WIP").font(Tokens.Font.pill).foregroundStyle(Tokens.Color.textSecondary)
-                    .padding(.horizontal, Tokens.Spacing.xs)
-                    .controlOutline(Capsule())
-            }
-            Spacer(minLength: Tokens.Spacing.xs)
-            if let change = row.lineChange {
-                Text(change).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
-            }
-        }
-        .padding(.vertical, Tokens.Spacing.xxs)
-        .padding(.horizontal, Tokens.Spacing.xs)
-        .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection)
-            }
-        }
-        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable)
+        return FileRowView(
+            badge: isUntracked ? .status(letter: "?", group: .untracked) : .neutral(letter: row.kindLetter),
+            directory: row.directory, fileName: row.fileName, lineCount: row.lineCount,
+            pill: row.hasUncommittedChanges ? "WIP" : nil, isSelectable: row.isSelectable, isSelected: isSelected
+        )
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelect(ComparisonFile(path: row.path, isUntracked: isUntracked)) } }
         .accessibilityElement(children: .ignore)

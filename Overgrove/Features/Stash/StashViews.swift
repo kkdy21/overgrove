@@ -171,9 +171,14 @@ struct StashDetailView: View {
                     ForEach(rows) { row in fileRow(row) }
                 }
                 if model.hasUntrackedFiles {
-                    Label("From the stash’s untracked-files commit", systemImage: "questionmark.circle")
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.textTertiary)
+                    // The same `?` badge as the rows it explains (#577).
+                    Label {
+                        Text("From the stash’s untracked-files commit")
+                    } icon: {
+                        FileKindBadge(badge: .status(letter: "?", group: .untracked))
+                    }
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
                 }
             } else if let reason = model.filesUnavailable {
                 Text(reason).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
@@ -185,29 +190,12 @@ struct StashDetailView: View {
 
     private func fileRow(_ row: StashDetailModel.FileRow) -> some View {
         let isSelected = selectedFile == row.file.path
-        return HStack(spacing: Tokens.Spacing.sm) {
-            (Text(row.directory).foregroundStyle(Tokens.Color.textTertiary)
-                + Text(row.fileName).foregroundStyle(Tokens.Color.textPrimary).fontWeight(.medium))
-                .font(Tokens.Font.callout)
-                .lineLimit(1)
-                .truncationMode(.head)
-            if row.isFromUntracked {
-                Image(systemName: "questionmark.circle").foregroundStyle(Tokens.Color.statusUntracked)
-                    .accessibilityLabel("from untracked files")
-            }
-            Spacer(minLength: Tokens.Spacing.xs)
-            if let change = row.lineChange {
-                Text(change).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
-            }
-        }
-        .padding(.vertical, Tokens.Spacing.xxs)
-        .padding(.horizontal, Tokens.Spacing.xs)
-        .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection)
-            }
-        }
-        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable)
+        // A stash's tracked files come from numstat only, so their kind is unknown (#577); untracked files are `?`.
+        return FileRowView(
+            badge: row.isFromUntracked ? .status(letter: "?", group: .untracked) : .unknown, directory: row.directory,
+            fileName: row.fileName, lineCount: row.file.lineCount, isSelectable: row.isSelectable,
+            isSelected: isSelected
+        )
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelectFile(row.file) } }
         .contextMenu {
