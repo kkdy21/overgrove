@@ -253,4 +253,53 @@ final class GraphColumnLayoutTests: XCTestCase {
         XCTAssertTrue(base.isVisible(.author))
         XCTAssertEqual(base.width(of: .refs), shown.width(of: .refs))
     }
+
+    /// Dragging one divider in a narrow panel saves that column only: Refs and Author, narrowed by `fitting` when the
+    /// drag began, keep their stored widths, so widening the panel brings them back.
+    func testCommittingADragSavesOnlyTheDraggedColumn() {
+        let stored = GraphColumnLayout.default
+        let narrow: CGFloat = 560
+        let shown = stored.fitting(panelWidth: narrow, graphWidth: 80)
+        XCTAssertLessThan(shown.width(of: .refs), stored.width(of: .refs), "fitting narrowed Refs")
+        XCTAssertLessThan(shown.width(of: .author), stored.width(of: .author), "and Author")
+        XCTAssertTrue(shown.isVisible(.sha))
+
+        let dragged = stored.adoptingWidths(from: shown).resizing(.sha, by: -4, panelWidth: narrow, graphWidth: 80)
+        let committed = stored.committing(.sha, from: dragged)
+        XCTAssertEqual(committed.width(of: .sha), stored.width(of: .sha) - 4)
+        XCTAssertEqual(committed.width(of: .refs), stored.width(of: .refs))
+        XCTAssertEqual(committed.width(of: .author), stored.width(of: .author))
+        XCTAssertEqual(committed.width(of: .date), stored.width(of: .date))
+        XCTAssertEqual(committed.hidden, stored.hidden)
+        XCTAssertEqual(
+            committed.fitting(panelWidth: 1_400, graphWidth: 80).width(of: .refs), stored.width(of: .refs),
+            "a wider panel shows the stored Refs again")
+    }
+
+    // MARK: Lane offset when the visible lanes change (#603)
+
+    /// A wider panel shows more lanes, so less can scroll: an offset past the new range comes back into it.
+    func testOffsetComesBackInRangeWhenMoreLanesShow() {
+        let narrow = GraphGeometry.standard.showing(lanes: 4)
+        let wide = GraphGeometry.standard.showing(lanes: 10)
+        let offset = narrow.maxOffset(lanes: 12)
+        XCTAssertGreaterThan(offset, wide.maxOffset(lanes: 12))
+        XCTAssertEqual(wide.adjustedOffset(offset, lanes: 12, selectedColumn: nil), wide.maxOffset(lanes: 12))
+    }
+
+    /// A narrower panel shows fewer lanes: the selected commit's lane is moved back into view.
+    func testSelectedLaneStaysInViewWhenFewerLanesShow() {
+        let wide = GraphGeometry.standard
+        let narrow = GraphGeometry.standard.showing(lanes: 4)
+        let selected = 9
+        func inView(_ geometry: GraphGeometry, _ offset: CGFloat) -> Bool {
+            let x = geometry.x(selected) - offset
+            return x - geometry.lane / 2 >= 0 && x + geometry.lane / 2 <= geometry.width(lanes: 12)
+        }
+        XCTAssertTrue(inView(wide, 0))
+        XCTAssertFalse(inView(narrow, 0), "lane 9 is out of a four-lane column at offset 0")
+        let adjusted = narrow.adjustedOffset(0, lanes: 12, selectedColumn: selected)
+        XCTAssertTrue(inView(narrow, adjusted))
+        XCTAssertLessThanOrEqual(adjusted, narrow.maxOffset(lanes: 12))
+    }
 }

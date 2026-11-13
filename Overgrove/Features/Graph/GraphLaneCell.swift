@@ -62,6 +62,14 @@ struct GraphGeometry: Equatable, Sendable {
         return clampOffset(next, lanes: lanes)
     }
 
+    /// The lane offset after the visible lane count or the zoom changed (#603): kept in range, and moved so the selected
+    /// commit's lane (`selectedColumn`) stays in view. A wider column shrinks the range, a narrower one can leave the
+    /// selection outside.
+    func adjustedOffset(_ offset: CGFloat, lanes: Int, selectedColumn: Int?) -> CGFloat {
+        guard let selectedColumn else { return clampOffset(offset, lanes: lanes) }
+        return revealing(selectedColumn, offset: offset, lanes: lanes)
+    }
+
     func x(_ column: Int) -> CGFloat {
         inset + lane / 2 + CGFloat(column) * lane
     }

@@ -129,12 +129,19 @@ struct GraphColumnLayout: Codable, Equatable, Sendable {
     static let minimumVisibleLanes = 3
 
     /// The stored layout with the widths drawn on screen: a divider drag starts from what the user sees, so the divider
-    /// follows the pointer at once even while `fitting` has narrowed the column (#603). Visibility stays the stored one,
-    /// so committing the drag never saves a column `fitting` hid.
+    /// follows the pointer at once even while `fitting` has narrowed the column (#603). Visibility stays the stored one.
+    /// Commit the drag with `committing(_:from:)`, which saves only the column that was dragged.
     func adoptingWidths(from shown: GraphColumnLayout) -> GraphColumnLayout {
         var copy = self
         for column in Column.allCases { copy.widths[column] = shown.width(of: column) }
         return copy
+    }
+
+    /// The stored layout with only `column` taken from a finished drag (#603): the other columns keep their stored
+    /// widths, so widening the panel afterwards still brings them back even though the drag started from the narrower
+    /// widths `fitting` drew.
+    func committing(_ column: Column, from dragged: GraphColumnLayout) -> GraphColumnLayout {
+        setting(column, to: dragged.width(of: column))
     }
 
     /// `fitting` against the Graph column at its widest (`size.graph-max-lanes-visible` lanes), at 100 %.

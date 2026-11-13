@@ -39,6 +39,8 @@ struct GraphView: View {
     /// The layout while a column divider is dragged; committed on release.
     @State private var dragColumns: GraphColumnLayout?
     @State private var dragBase: GraphColumnLayout?
+    /// The column being dragged: only its width is saved when the drag ends (#603).
+    @State private var dragColumn: GraphColumnLayout.Column?
     @State private var panelWidth: CGFloat = 0
     /// How far the lanes are scrolled sideways (more than `size.graph-max-lanes-visible` lanes).
     @State private var laneOffset: CGFloat = 0
@@ -116,9 +118,11 @@ struct GraphView: View {
                     proxy.scrollTo(index, anchor: .center)
                 }
                 // Zooming keeps the selected commit in view (#121): every row changes height.
+                // A wider or narrower panel shows more or fewer lanes (#603): the offset stays in range and the
+                // selected commit's lane stays in view.
+                .onChange(of: geometry.visibleLanes) { adjustLaneOffset() }
                 .onChange(of: zoom) {
-                    laneOffset = geometry.clampOffset(laneOffset, lanes: store.laneCount)
-                    reveal(store.selected)
+                    adjustLaneOffset()
                     guard let selected = store.selected, let index = store.index(of: selected) else { return }
                     proxy.scrollTo(index, anchor: .center)
                 }
@@ -167,21 +171,29 @@ struct GraphView: View {
         // From the widths on screen, so the divider follows the pointer at once (#603).
         let base = dragBase ?? columns.adoptingWidths(from: shownColumns)
         dragBase = base
+        dragColumn = column
         // Widths are stored at 100 %; the panel and the graph column are measured at the zoom (#121).
         dragColumns = base.resizing(
             column, by: delta, panelWidth: panelWidth / zoom.scale, graphWidth: graphWidth / zoom.scale)
     }
 
     private func endResize() {
-        guard let final = dragColumns else { return }
+        guard let final = dragColumns, let column = dragColumn else { return }
         dragColumns = nil
         dragBase = nil
-        onCommitColumns(final)
+        dragColumn = nil
+        // Only the dragged column: the others keep their stored widths, not the narrower ones `fitting` drew (#603).
+        onCommitColumns(columns.committing(column, from: final))
     }
 
     private func fit(_ column: GraphColumnLayout.Column) {
         let widths = GraphColumnFit.contentWidths(column, commits: store.commits[...], pills: store.pills, now: now)
         onCommitColumns(columns.setting(column, to: GraphColumnLayout.fittedWidth(column, contentWidths: widths)))
+    }
+
+    private func adjustLaneOffset() {
+        let column = store.selected.flatMap(store.index(of:)).map { store.rows[$0].column }
+        laneOffset = geometry.adjustedOffset(laneOffset, lanes: store.laneCount, selectedColumn: column)
     }
 
     private func reveal(_ oid: ObjectID?) {
