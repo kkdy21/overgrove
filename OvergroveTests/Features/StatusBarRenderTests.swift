@@ -73,3 +73,28 @@ final class StatusBarRenderTests: XCTestCase {
         }
     }
 }
+
+/// #613: a field that gives way takes only its text's width when there is room; it shrinks to the floor and no
+/// further. `frame(minWidth: 56)` widened `↑2 ↓0` to 56pt and left a gap after it.
+@MainActor
+final class ShrinkFloorTests: XCTestCase {
+    private func text(_ string: String) -> some View { Text(string).font(Tokens.Font.caption).lineLimit(1) }
+
+    func testAShortTextTakesItsOwnWidth() {
+        let plain = NSHostingView(rootView: text("↑2 ↓0").fixedSize()).fittingSize.width
+        let floored = NSHostingView(rootView: ShrinkFloor(floor: 56) { text("↑2 ↓0") }).fittingSize.width
+        XCTAssertLessThan(plain, 56, "precondition: shorter than the floor")
+        XCTAssertEqual(floored, plain, accuracy: 0.5, "no gap after a short text")
+    }
+
+    func testALongTextShrinksToTheFloorAndNoFurther() {
+        let long = "Last fetched 3 h ago · last attempt failed — Details"
+        let host = NSHostingController(rootView: ShrinkFloor(floor: 56) { text(long) })
+        func width(_ proposed: CGFloat) -> CGFloat { host.sizeThatFits(in: CGSize(width: proposed, height: 40)).width }
+        let ideal = width(.greatestFiniteMagnitude)
+        XCTAssertGreaterThan(ideal, 200)
+        XCTAssertEqual(width(120), 120, accuracy: 0.5, "gives way")
+        XCTAssertEqual(width(20), 56, accuracy: 0.5, "the floor")
+        XCTAssertEqual(width(1_000), ideal, accuracy: 0.5, "no wider than the text")
+    }
+}

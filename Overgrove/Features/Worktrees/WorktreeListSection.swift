@@ -87,6 +87,7 @@ struct WorktreeListSection: View {
             ForEach(model.rows) { row in
                 WorktreeRowView(row: row, isSelected: row.id == selectedPath, isListFocused: isListFocused)
                     .id(SidebarItem.worktree(row.id).scrollID)
+                    .sidebarRowFrame(SidebarItem.worktree(row.id).scrollID)
                     .contentShape(Rectangle())
                     .onTapGesture { onSelect(row.id) }
                     .contextMenu {

@@ -42,6 +42,7 @@ struct StashListSection: View {
                             .accessibilityAction { onSelect(row.id) }
                             .contextMenu { StashRowMenu(row: row, onShowChanges: { onSelect(row.id) }) }
                             .sidebarOpaque()
+                            .sidebarRowFrame(row.sidebarScrollID)
                     }
                 }
             }

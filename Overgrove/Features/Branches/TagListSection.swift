@@ -71,6 +71,7 @@ struct TagListSection: View {
                     .accessibilityAction { choose(row) }
                     .contextMenu { TagRowMenu(row: row, onShow: { choose(row) }) }
                     .sidebarOpaque()
+                    .sidebarRowFrame(row.sidebarScrollID)
                 }
                 if visible.hidden > 0 {
                     Text("\(WorktreeListModel.badgeText(visible.hidden)) more tags — filter to find one")

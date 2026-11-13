@@ -52,6 +52,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   the pointing hand.
 - Stepping through commits no longer flashes a loading state: the commit detail keeps the previous commit for up to
   150 ms while the next one loads. The comparison screens fade in instead of popping in after a blank frame.
+- In a long sidebar, ⌘↑ and ⌘↓ always scroll the selected row into view, and moving up never leaves it under the
+  pinned section header.
 - Opening a sidebar section or a Security card's keys no longer draws the new rows over the rows below while they
   slide down: the rows below cover them until they move out of the way.
 - In the sidebar LOCAL and REMOTE trees, branch and folder rows of one depth line up their icons and names.
@@ -61,6 +63,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   ends with `·`. The issue panel's setup commands wrap instead of being cut, and add no hyphens of their own.
 - The graph search’s previous and next buttons and the fetch failure details’ Copy Command button respond to the
   pointer like the other icon buttons.
+- The status bar no longer leaves a gap after a short ahead/behind or fetch field; the fields still shorten in a
+  narrow window.
 - The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
   section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
   issue.
