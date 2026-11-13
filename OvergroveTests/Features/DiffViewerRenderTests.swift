@@ -10,6 +10,21 @@ import XCTest
 final class DiffViewerRenderTests: XCTestCase {
     private static let size = CGSize(width: 900, height: 420)
 
+    /// The view's `@AppStorage` (`diffViewMode`, `diffShowsWhitespace`) reads this suite, not the app's own defaults:
+    /// tests run inside the app, and a Split view mode saved there made the Unified checks fail on that Mac (#601).
+    /// Tests that need Split or whitespace set it here, so they never touch the user's settings either.
+    private var defaults: UserDefaults!
+    private var suite: String!
+
+    override func setUp() async throws {
+        suite = "overgrove-diff-render-\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suite)
+    }
+
+    override func tearDown() async throws {
+        defaults.removePersistentDomain(forName: suite)
+    }
+
     /// The screens.md S-10 example.
     private var document: DiffDocument {
         let patch = """
@@ -36,7 +51,8 @@ final class DiffViewerRenderTests: XCTestCase {
         until ready: (NSBitmapImageRep) -> Bool
     ) throws -> NSBitmapImageRep {
         let host = NSHostingView(
-            rootView: view.frame(width: size.width, height: size.height).background(Tokens.Color.surfaceCanvas))
+            rootView: view.frame(width: size.width, height: size.height).background(Tokens.Color.surfaceCanvas)
+                .defaultAppStorage(defaults))
         host.appearance = appearance
         host.frame = NSRect(origin: .zero, size: size)
         let deadline = Date().addingTimeInterval(3)
@@ -52,7 +68,8 @@ final class DiffViewerRenderTests: XCTestCase {
     private func render(_ view: some View, appearance: NSAppearance) throws -> NSBitmapImageRep {
         let host = NSHostingView(
             rootView: view.frame(width: Self.size.width, height: Self.size.height).background(
-                Tokens.Color.surfaceCanvas))
+                Tokens.Color.surfaceCanvas
+            ).defaultAppStorage(defaults))
         host.appearance = appearance
         host.frame = NSRect(origin: .zero, size: Self.size)
         host.layoutSubtreeIfNeeded()
@@ -105,9 +122,7 @@ final class DiffViewerRenderTests: XCTestCase {
             listing: TestFixtures.patch(patch), path: GitPath("a.go"),
             source: DiffDocument.Source(label: "Unstaged", kindLetter: "M"))
         let key = "diffShowsWhitespace"
-        let previous = UserDefaults.standard.object(forKey: key)
-        UserDefaults.standard.set(true, forKey: key)
-        defer { UserDefaults.standard.set(previous, forKey: key) }
+        defaults.set(true, forKey: key)
         for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
             let view = DiffViewerView(
@@ -153,9 +168,7 @@ final class DiffViewerRenderTests: XCTestCase {
             listing: TestFixtures.patch(patch), path: GitPath("a.go"),
             source: DiffDocument.Source(label: "Unstaged", kindLetter: "M"))
         let key = "diffViewMode"
-        let previous = UserDefaults.standard.object(forKey: key)
-        UserDefaults.standard.set(true, forKey: key)
-        defer { UserDefaults.standard.set(previous, forKey: key) }
+        defaults.set(true, forKey: key)
         let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
         let added = try color("Tokens/diffAddedBg", in: appearance)
         func isAdded(_ bitmap: NSBitmapImageRep, x: CGFloat, y: Int) -> Bool {

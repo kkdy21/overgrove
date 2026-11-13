@@ -102,8 +102,18 @@ struct SidebarPanel: View {
     var onAddRepository: (() -> Void)?
 
     @Environment(\.panelFocusRequest) private var focusRequest
-    /// A `⌘4` request ISSUES has not handled yet: the lazy list may not have built the section when it arrives.
-    @State private var pendingIssuesFocus: UUID?
+    @Environment(\.rowMenu) private var actions
+    /// The sidebar is one keyboard focus unit (interaction.md §1.2, #592): `Tab` stops here once, and `↑`/`↓` move
+    /// across sections.
+    @FocusState private var isFocused: Bool
+    /// Open sections (TAGS starts closed, information-architecture.md §4.1) and open branch folders, here so the
+    /// arrow keys know which rows show.
+    @State private var expanded: Set<SidebarSection> = Set(SidebarSection.allCases).subtracting([.tags])
+    @State private var openFolders: [SidebarSection: Set<String>] = [:]
+    /// The branch or tag row chosen last: several can share a tip, and only this one is highlighted.
+    @State private var chosenRef: String?
+    /// Where `↑`/`↓` start: the item opened last, or the anchor `⌘4` leaves before the first issue.
+    @State private var cursor: SidebarCursor?
 
     /// Scroll target just before ISSUES.
     static let issuesAnchor = "sidebar.issues"
@@ -122,43 +132,62 @@ struct SidebarPanel: View {
                             WorktreeListSection(
                                 status: worktreeStatus, model: worktreeModel?.filtered(query),
                                 selectedPath: selectedWorktree,
-                                onSelect: onSelectWorktree, canCompare: canCompareWorktree,
-                                onCompare: onCompareWorktree)
+                                onSelect: { activate(.worktree($0)) }, canCompare: canCompareWorktree,
+                                onCompare: onCompareWorktree, expansion: expansion(.worktrees),
+                                isListFocused: isFocused)
                             if let branchModel {
                                 BranchListSection(
                                     title: "LOCAL", count: branchModel.localCount,
                                     nodes: SidebarFilter.branches(branchModel.local, query: query),
                                     warning: branchModel.warning, isFiltered: query != nil,
-                                    selectedCommit: selectedCommit)
+                                    selectedCommit: selectedCommit, expansion: expansion(.local),
+                                    folders: folders(.local), isListFocused: isFocused, chosenRef: chosenRef,
+                                    onChoose: choose)
                                 BranchListSection(
                                     title: "REMOTE", count: branchModel.remoteCount,
                                     nodes: SidebarFilter.branches(branchModel.remote, query: query),
                                     folderHelp: Self.remoteFolderHelp(remoteURLTooltips), isFiltered: query != nil,
-                                    selectedCommit: selectedCommit)
-                                TagListSection(model: branchModel.tags, query: query, selectedCommit: selectedCommit)
+                                    selectedCommit: selectedCommit, expansion: expansion(.remote),
+                                    folders: folders(.remote), isListFocused: isFocused, chosenRef: chosenRef,
+                                    onChoose: choose)
+                                TagListSection(
+                                    model: branchModel.tags, query: query, selectedCommit: selectedCommit,
+                                    expansion: expansion(.tags), isListFocused: isFocused, chosenRef: chosenRef,
+                                    onChoose: { row in row.commit.map { activate(.tag(id: row.id, commit: $0)) } })
                             }
                             if case .loaded = worktreeStatus {
                                 StashListSection(
-                                    rows: stashRows.filter { SidebarFilter.matches(query, $0.refName, $0.message) },
-                                    isPartial: isStashListPartial, selectedID: selectedStash,
-                                    onSelect: onSelectStash)
+                                    rows: filteredStashes, isPartial: isStashListPartial, selectedID: selectedStash,
+                                    onSelect: { activate(.stash($0)) }, expansion: expansion(.stashes),
+                                    isListFocused: isFocused)
                             }
                             if let issueModel {
                                 Color.clear.frame(height: 0).id(Self.issuesAnchor)
                                 IssueListSection(
                                     model: issueModel.filtered(query), selectedNumber: selectedIssue,
-                                    onSelect: onSelectIssue,
-                                    onCheckAgain: onCheckIssuesAgain, pendingFocus: pendingIssuesFocus,
-                                    onFocusHandled: { pendingIssuesFocus = nil })
+                                    onSelect: { activate(.issue($0)) },
+                                    onCheckAgain: onCheckIssuesAgain, expansion: expansion(.issues),
+                                    isListFocused: isFocused)
                             }
                         }
+                        // One focus for the whole sidebar (interaction.md §1.2, #592): `⌘1` lands here, and `↑`/`↓`
+                        // follow the visible rows across sections.
+                        .focusable()
+                        .focused($isFocused)
+                        .focusEffectDisabled()
+                        .focusOnRequest([.sidebar], $isFocused)
+                        .onKeyPress(keys: [.upArrow, .downArrow]) { press in
+                            move(down: press.key == .downArrow, toEnd: press.modifiers.contains(.command), proxy: proxy)
+                        }
                     }
-                    // `⌘4` (interaction.md §3.1): bring ISSUES into view first, so the lazy list builds it, then let it
-                    // open and take focus.
+                    // `⌘4` (interaction.md §3.1): open ISSUES, scroll to it, and focus the sidebar. The next `↓` picks the
+                    // first issue unless one is selected (`.issuesStart`).
                     .onChange(of: focusRequest) { _, request in
                         guard let request, request.panel == .issues, issueModel != nil else { return }
+                        expanded.insert(.issues)
+                        cursor = .issuesStart
+                        isFocused = true
                         proxy.scrollTo(Self.issuesAnchor, anchor: .top)
-                        pendingIssuesFocus = request.token
                     }
                 }
             } else {
@@ -168,6 +197,75 @@ struct SidebarPanel: View {
                     action: onAddRepository.map { (String(localized: "Add Repository…"), $0) })
             }
         }
+    }
+}
+
+extension SidebarPanel {
+    private var filteredStashes: [StashRow] {
+        stashRows.filter { SidebarFilter.matches(query, $0.refName, $0.message) }
+    }
+
+    private func expansion(_ section: SidebarSection) -> Binding<Bool> {
+        Binding(
+            get: { expanded.contains(section) },
+            set: { isOpen in
+                if isOpen { expanded.insert(section) } else { expanded.remove(section) }
+            })
+    }
+
+    private func folders(_ section: SidebarSection) -> Binding<Set<String>> {
+        Binding(get: { openFolders[section] ?? [] }, set: { openFolders[section] = $0 })
+    }
+
+    private func choose(_ row: BranchRow) {
+        if let tip = row.tip { activate(.branch(id: row.id, tip: tip)) }
+    }
+
+    /// The rows `↑`/`↓` visit now, as the sidebar shows them (after the filter; the filter also opens TAGS).
+    var navigationItems: [SidebarItem] {
+        var content = SidebarNavigation.Content(
+            expanded: query == nil ? expanded : expanded.union([.tags]), openFolders: openFolders,
+            isFiltered: query != nil)
+        if case .loaded = worktreeStatus, let worktreeModel {
+            content.worktrees = worktreeModel.filtered(query).rows.map(\.id)
+            content.stashes = filteredStashes.map(\.id)
+        }
+        if let branchModel {
+            content.local = SidebarFilter.branches(branchModel.local, query: query)
+            content.remote = SidebarFilter.branches(branchModel.remote, query: query)
+            content.tags = branchModel.tags.visible(query: query).rows
+        }
+        if let issueModel { content.issues = issueModel.filtered(query).rows.map(\.id) }
+        return SidebarNavigation.items(content)
+    }
+
+    /// Opens `item` as a click on its row does, and makes it where the arrow keys continue from.
+    private func activate(_ item: SidebarItem) {
+        cursor = .item(item)
+        isFocused = true
+        switch item {
+        case .worktree(let path): onSelectWorktree(path)
+        case .branch(let id, let tip), .tag(let id, let tip):
+            chosenRef = id
+            actions.showCommit(tip)
+        case .stash(let oid): onSelectStash(oid)
+        case .issue(let number): onSelectIssue(number)
+        }
+    }
+
+    private func move(down: Bool, toEnd: Bool, proxy: ScrollViewProxy) -> KeyPress.Result {
+        let items = navigationItems
+        let selection = SidebarNavigation.Selection(
+            focusedWorktree: selectedWorktree, selectedCommit: selectedCommit, selectedStash: selectedStash,
+            selectedIssue: selectedIssue)
+        let position = SidebarNavigation.position(
+            in: items, cursor: cursor, chosenRef: chosenRef, selection: selection)
+        guard let target = SidebarNavigation.move(in: items, from: position, down: down, toEnd: toEnd) else {
+            return items.isEmpty ? .ignored : .handled
+        }
+        activate(target)
+        proxy.scrollTo(target.scrollID)
+        return .handled
     }
 }
 

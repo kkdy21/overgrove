@@ -45,6 +45,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
+  section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
+  issue.
 - A selected sidebar row in an unfocused list is outlined, so it no longer looks like the row under the pointer, and
   the light hover fill is easier to see.
 - Sidebar rows respond to the pointer, select the same way everywhere (grey when the list does not have keyboard
