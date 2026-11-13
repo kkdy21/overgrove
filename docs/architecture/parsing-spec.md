@@ -317,6 +317,7 @@ raw 레코드가 모두 나온 뒤 numstat 레코드가 나온다 (확인).
 
 - `stash show`는 porcelain이라 `--no-abbrev`가 없으면 raw의 객체 이름을 줄여 쓴다(확인). `-M`은 `diff.renames` 설정과 상관없이 이름 변경을 찾게 한다(`-c diff.renames=false`에서 확인). `stashPatch`도 `-M`을 쓴다.
 - untracked 부분의 파일은 raw에서 `A`(추가)로 나온다. 화면에서는 `isFromUntracked`로 `?` 배지를 그린다.
+- `--include-untracked`와 이름 변경 찾기가 함께 있으면, 추적 파일 삭제와 같은 내용의 untracked 추가가 `R` 하나로 짝지어진다. 예: `tracked.txt`를 지우고 같은 내용으로 untracked `moved-untracked.txt`를 만든 stash는 `R100 tracked.txt → moved-untracked.txt`다(Apple Git 2.54.0 확인). 새 경로가 untracked 부분에 있으므로 S-04에는 `?` 배지로 보이고, 이전 경로의 삭제는 따로 나오지 않는다. `-M` 이전의 인자도 `diff.renames` 기본값으로 같은 짝을 냈으므로 #602에서 생긴 동작은 아니다.
 
 `--include-untracked`가 있으면 untracked 부분 파일도 포함된다 (git 2.32+, 확인). untracked 출신 파일인지는 stash 커밋의 세 번째 부모(`%P`)에 있는지로 구분한다. 세 번째 부모는 untracked 트리만 담은 루트 커밋이라서 `commitFiles(<stash>^3)`의 파일 목록이 곧 untracked 파일 목록이다. 이 경로 집합을 `parseStashFiles(untrackedPaths:)`에 넘기고 raw 바이트로 비교한다 (PAR-NUMSTAT-05, Apple Git 2.50.1 확인).
 
