@@ -325,7 +325,7 @@ final class WorktreeDetailModelTests: XCTestCase {
             inspection: nil, fetchStatus: .never, now: now, home: "/tmp/dev")
         let values = info(detached)
         XCTAssertEqual(values["Branch"], "detached")
-        XCTAssertEqual(values["Upstream"], "origin/x (gone)")
+        XCTAssertEqual(values["Upstream"], "origin/x  (gone)")
         XCTAssertEqual(values["Lock"], "Locked: release\\u{A}\\u{202E}")
         XCTAssertEqual(values["Last fetch"], "Never fetched (repository)")
         XCTAssertNil(detached.security, "still loading")
