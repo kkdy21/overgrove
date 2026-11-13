@@ -16,6 +16,8 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
     var comparedFiles: [FileStat] = [CommitDetailModelTests.stat("a.go", .modified, 2, 1)]
     /// What `commits(from:to:)` answers (S-12, #389).
     var commitsBetween = LogParser.GraphPage(commits: [], isPartial: false)
+    /// The patch `patch(...)` answers (a modified `a.go` unless set).
+    var patchText = "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1 +1 @@\n-x\n+y\n"
     /// A failure for the commits between only.
     var commitsFailure: GitError?
     private var commitRanges: [(base: ObjectID, target: ObjectID)] = []
@@ -63,9 +65,7 @@ final class StubCommitLoader: CommitLoading, @unchecked Sendable {
             originalPaths.append(originalPath)
             patchPairs.append((commit, parent))
         }
-        return .success(
-            TestFixtures.patch("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1 +1 @@\n-x\n+y\n")
-        )
+        return .success(TestFixtures.patch(patchText))
     }
 }
 
@@ -137,6 +137,30 @@ final class CommitDetailFlowTests: XCTestCase {
         await store.fileTask?.value
         XCTAssertEqual(loader.patchRequests, [GitPath("new.go")])
         XCTAssertEqual(loader.originalPathRequests, [GitPath("old.go")])
+    }
+
+    /// #659: a file without a known status takes its kind from the patch.
+    func testKindLetterComesFromThePatch() {
+        func letter(_ text: String) -> String { CommitDetailStore.kindLetter(of: TestFixtures.patch(text)) }
+        XCTAssertEqual(
+            letter("diff --git a/n.go b/n.go\nnew file mode 100644\n--- /dev/null\n+++ b/n.go\n@@ -0,0 +1 @@\n+x\n"),
+            "A")
+        XCTAssertEqual(
+            letter(
+                "diff --git a/d.go b/d.go\ndeleted file mode 100644\n--- a/d.go\n+++ /dev/null\n@@ -1 +0,0 @@\n-x\n"),
+            "D")
+        XCTAssertEqual(
+            letter("diff --git a/o.go b/n.go\nsimilarity index 100%\nrename from o.go\nrename to n.go\n"), "R")
+        XCTAssertEqual(
+            letter("diff --git a/o.go b/n.go\nsimilarity index 100%\ncopy from o.go\ncopy to n.go\n"), "C")
+        XCTAssertEqual(letter("diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1 +1 @@\n-x\n+y\n"), "M")
+        XCTAssertEqual(
+            letter(
+                "diff --git a/l b/l\ndeleted file mode 120000\n--- a/l\n+++ /dev/null\n@@ -1 +0,0 @@\n-t\n"
+                    + "\\ No newline at end of file\n"
+                    + "diff --git a/l b/l\nnew file mode 100644\n--- /dev/null\n+++ b/l\n@@ -0,0 +1 @@\n+x\n"),
+            "T", "git prints a type change as a delete and an add")
+        XCTAssertEqual(CommitDetailStore.kindLetter(of: PatchParser.Listing(files: [], isPartial: false)), "M")
     }
 
     private func loadedState(_ loader: StubCommitLoader) async throws -> AppState {

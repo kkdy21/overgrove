@@ -127,9 +127,7 @@ final class CommitDetailStore {
         fileDiff = .loading
         let generation = fileGeneration
         let loader = loader
-        let source = DiffDocument.Source(
-            label: commit.oid.short + (commit.isMerge ? " · " + String(localized: "vs first parent") : ""),
-            kindLetter: String((file.status ?? .modified).code))
+        let label = commit.oid.short + (commit.isMerge ? " · " + String(localized: "vs first parent") : "")
         fileTask = Task { [weak self] in
             let result = await loader.patch(
                 repository, of: commit.oid, parent: commit.parents.first, path: file.path,
@@ -137,6 +135,9 @@ final class CommitDetailStore {
             guard let self, generation == self.fileGeneration, !Task.isCancelled else { return }
             switch result {
             case .success(let patch):
+                // A file without a known status (a history row, #659) takes its kind from the patch git printed.
+                let letter = file.status.map { String($0.code) } ?? Self.kindLetter(of: patch)
+                let source = DiffDocument.Source(label: label, kindLetter: letter)
                 self.fileDiff = .loaded(DiffDocument(listing: patch, path: file.path, source: source))
             case .failure(.cancelled):
                 break
@@ -144,6 +145,19 @@ final class CommitDetailStore {
                 self.fileDiff = .unavailable(PathValidator.displayable(error.message))
             }
         }
+    }
+
+    /// The change kind a patch shows: `A` for a new file, `D` for a deleted one, `R` and `C` for a rename or copy,
+    /// `T` when git printed a type change as two blocks, `M` otherwise (#659).
+    nonisolated static func kindLetter(of listing: PatchParser.Listing) -> String {
+        guard listing.files.count == 1, let patch = listing.files.first else {
+            return listing.files.count > 1 ? "T" : "M"
+        }
+        if patch.isNewFile { return "A" }
+        if patch.isDeletedFile { return "D" }
+        if patch.renameFrom != nil { return "R" }
+        if patch.copyFrom != nil { return "C" }
+        return "M"
     }
 
     /// Back to the graph (`⎋`).
