@@ -45,6 +45,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Sidebar: section headers stay at the top while their rows scroll; every header and row starts on one line; a
+  narrow sidebar keeps the worktree name and hides the PR pill, then `#n`, then the lowest status badges first; the
+  Filter field is 24pt high; with no repository open, the sidebar offers Add Repository….
 - Open on GitHub for a remote-tracking branch uses the remote its row is grouped under: a branch of a non-GitHub
   remote whose name starts with a GitHub remote's name no longer opens the GitHub remote's page.
 - GitHub hosts are trusted only when gh has a working login there, not just any account entry.

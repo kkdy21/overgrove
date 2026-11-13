@@ -49,6 +49,36 @@ struct WorktreeRow: Identifiable, Equatable {
     let hasNeutralTile: Bool
     let isFocused: Bool
     let badges: [Badge]
+
+    /// What the first line shows as the sidebar narrows (information-architecture.md §4.3, #573), widest first: the
+    /// whole name with every badge, then without the PR pill, then without `#n`; then the name truncated to at least
+    /// `titleMinWidth` with the status badges, dropping the lowest priority first.
+    struct BadgeStep: Hashable {
+        let showsPullRequest: Bool
+        let showsIssue: Bool
+        /// How many of `badges` (highest priority first) are drawn.
+        let badgeCount: Int
+        /// The name gives way to the badges down to `titleMinWidth`; otherwise the whole name must fit.
+        let truncatesTitle: Bool
+    }
+
+    static func badgeSteps(badgeCount: Int, hasPullRequest: Bool, hasIssue: Bool) -> [BadgeStep] {
+        var steps: [BadgeStep] = []
+        if hasPullRequest {
+            steps.append(
+                BadgeStep(showsPullRequest: true, showsIssue: hasIssue, badgeCount: badgeCount, truncatesTitle: false))
+        }
+        if hasIssue {
+            steps.append(
+                BadgeStep(showsPullRequest: false, showsIssue: true, badgeCount: badgeCount, truncatesTitle: false))
+        }
+        steps.append(
+            BadgeStep(showsPullRequest: false, showsIssue: false, badgeCount: badgeCount, truncatesTitle: false))
+        for count in stride(from: badgeCount, through: 0, by: -1) {
+            steps.append(BadgeStep(showsPullRequest: false, showsIssue: false, badgeCount: count, truncatesTitle: true))
+        }
+        return steps
+    }
     /// The issue its branch names (`feat/12-x`, #82): the lowest-priority badge, drawn leftmost (§4.3).
     var issueNumber: Int?
     /// Tooltip: full path, the change breakdown, upstream, lock reason, and anything the badges leave out.

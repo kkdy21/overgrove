@@ -37,24 +37,34 @@ struct PanelEmptyState: View {
     let symbol: String
     let title: String
     let message: String
+    /// The next step, when there is one (screens.md: "(가능하면) 다음 행동", #573).
+    var action: (title: String, perform: () -> Void)?
 
     var body: some View {
         VStack(spacing: Tokens.Spacing.sm) {
-            Image(systemName: symbol)
-                .font(Tokens.Font.title)
-                .foregroundStyle(Tokens.Color.textTertiary)
-                .accessibilityHidden(true)
-            Text(title)
-                .font(Tokens.Font.headline)
-                .foregroundStyle(Tokens.Color.textSecondary)
-            Text(message)
-                .font(Tokens.Font.callout)
-                .foregroundStyle(Tokens.Color.textTertiary)
-                .multilineTextAlignment(.center)
+            VStack(spacing: Tokens.Spacing.sm) {
+                Image(systemName: symbol)
+                    .font(Tokens.Font.title)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(Tokens.Font.headline)
+                    .foregroundStyle(Tokens.Color.textSecondary)
+                Text(message)
+                    .font(Tokens.Font.callout)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .multilineTextAlignment(.center)
+            }
+            .accessibilityElement(children: .combine)
+            if let action {
+                Button(action.title, action: action.perform)
+                    .controlSize(.regular)
+                    .padding(.top, Tokens.Spacing.xs)
+            }
         }
         .padding(Tokens.Spacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -88,6 +98,8 @@ struct SidebarPanel: View {
     /// The Filter field (⌥⌘F, #74): worktrees, branches, stashes, and issues whose names contain it.
     var filter: Binding<String> = .constant("")
     var filterFocusRequest = 0
+    /// `Add Repository…` in the empty sidebar (#573); `nil` hides the button.
+    var onAddRepository: (() -> Void)?
 
     private var query: String? { SidebarFilter.query(filter.wrappedValue) }
 
@@ -97,7 +109,8 @@ struct SidebarPanel: View {
         } content: {
             if hasRepository {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
+                    // Each section's header stays at the top while its rows scroll (interaction.md §2.1, #573).
+                    LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
                         WorktreeListSection(
                             status: worktreeStatus, model: worktreeModel?.filtered(query),
                             selectedPath: selectedWorktree,
@@ -131,7 +144,8 @@ struct SidebarPanel: View {
             } else {
                 PanelEmptyState(
                     symbol: "folder", title: String(localized: "No repository open"),
-                    message: String(localized: "Add a repository to see its worktrees."))
+                    message: String(localized: "Add a repository to see its worktrees."),
+                    action: onAddRepository.map { (String(localized: "Add Repository…"), $0) })
             }
         }
     }

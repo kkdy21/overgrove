@@ -111,7 +111,7 @@ struct MainWindowView: View {
                     onCheckIssuesAgain: state.checkIssuesAgain,
                     canCompareWorktree: { state.canCompare($0) },
                     onCompareWorktree: { state.showComparison(of: $0) }, filter: $state.sidebarFilter,
-                    filterFocusRequest: state.sidebarFilterFocusRequest)
+                    filterFocusRequest: state.sidebarFilterFocusRequest, onAddRepository: addRepository)
             } center: {
                 GraphPanel(
                     hasRepository: state.repository != nil, graphStore: state.graph,

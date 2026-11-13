@@ -15,46 +15,50 @@ struct IssueListSection: View {
     @Environment(\.panelFocusRequest) private var focusRequest
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        Section {
+            VStack(alignment: .leading, spacing: 0) {
+                if isExpanded {
+                    if let account = model.account {
+                        IssueAccountRow(account: account)
+                    }
+                    if let notice = model.notice {
+                        SidebarNotice(symbol: notice.symbol, text: notice.text)
+                            .help(notice.detail ?? notice.text)
+                    }
+                    if !model.setupCommands.isEmpty || model.canCheckAgain {
+                        IssueSetupHint(
+                            message: model.setupMessage, commands: model.setupCommands,
+                            canCheckAgain: model.canCheckAgain,
+                            isChecking: model.isLoading, onCheckAgain: onCheckAgain)
+                    }
+                    // Lazy: up to 200 rows (`--limit 200`).
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(model.rows) { row in
+                            IssueRowView(row: row, isSelected: row.id == selectedNumber)
+                                .contentShape(Rectangle())
+                                .onTapGesture { onSelect(row.id) }
+                                .accessibilityAction { onSelect(row.id) }
+                                .contextMenu { IssueRowMenu(row: row) }
+                        }
+                    }
+                    .focusable(!model.rows.isEmpty)
+                    .focused($hasFocus)
+                    .focusEffectDisabled()
+                    .onKeyPress(keys: [.upArrow, .downArrow]) { press in
+                        move(down: press.key == .downArrow, toEnd: press.modifiers.contains(.command))
+                    }
+                }
+            }
+            // `⌘4` opens the section and moves keyboard focus to it (interaction.md §3.1).
+            .onChange(of: focusRequest) { _, request in
+                guard request?.panel == .issues else { return }
+                isExpanded = true
+                hasFocus = true
+            }
+        } header: {
             SidebarSectionHeader(
                 title: String(localized: "ISSUES", comment: "Sidebar section"), count: model.count,
                 isExpanded: $isExpanded, isLoading: model.isLoading)
-            if isExpanded {
-                if let account = model.account {
-                    IssueAccountRow(account: account)
-                }
-                if let notice = model.notice {
-                    SidebarNotice(symbol: notice.symbol, text: notice.text)
-                        .help(notice.detail ?? notice.text)
-                }
-                if !model.setupCommands.isEmpty || model.canCheckAgain {
-                    IssueSetupHint(
-                        message: model.setupMessage, commands: model.setupCommands, canCheckAgain: model.canCheckAgain,
-                        isChecking: model.isLoading, onCheckAgain: onCheckAgain)
-                }
-                // Lazy: up to 200 rows (`--limit 200`).
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(model.rows) { row in
-                        IssueRowView(row: row, isSelected: row.id == selectedNumber)
-                            .contentShape(Rectangle())
-                            .onTapGesture { onSelect(row.id) }
-                            .accessibilityAction { onSelect(row.id) }
-                            .contextMenu { IssueRowMenu(row: row) }
-                    }
-                }
-                .focusable(!model.rows.isEmpty)
-                .focused($hasFocus)
-                .focusEffectDisabled()
-                .onKeyPress(keys: [.upArrow, .downArrow]) { press in
-                    move(down: press.key == .downArrow, toEnd: press.modifiers.contains(.command))
-                }
-            }
-        }
-        // `⌘4` opens the section and moves keyboard focus to it (interaction.md §3.1).
-        .onChange(of: focusRequest) { _, request in
-            guard request?.panel == .issues else { return }
-            isExpanded = true
-            hasFocus = true
         }
     }
 
@@ -115,8 +119,8 @@ private struct IssueAccountRow: View {
                 }
             }
         }
-        .padding(.leading, Tokens.Spacing.md + Tokens.Spacing.lg)
-        .padding(.trailing, Tokens.Spacing.md)
+        .padding(.leading, SidebarInset.content + Tokens.Spacing.lg)
+        .padding(.trailing, SidebarInset.content)
         .padding(.bottom, Tokens.Spacing.xs)
     }
 }
@@ -167,8 +171,8 @@ private struct IssueSetupHint: View {
                     .disabled(isChecking)
             }
         }
-        .padding(.leading, Tokens.Spacing.md + Tokens.Spacing.lg)
-        .padding(.trailing, Tokens.Spacing.md)
+        .padding(.leading, SidebarInset.content + Tokens.Spacing.lg)
+        .padding(.trailing, SidebarInset.content)
         .padding(.bottom, Tokens.Spacing.xs)
     }
 }
@@ -200,7 +204,7 @@ private struct IssueRowView: View {
                 RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous).fill(Tokens.Color.surfaceSelection)
             }
         }
-        .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
+        .padding(.horizontal, SidebarInset.row)
         .help(row.title)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)

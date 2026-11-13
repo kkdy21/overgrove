@@ -18,11 +18,14 @@ struct WorktreeListSection: View {
     @Namespace private var rotor
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        Section {
+            VStack(alignment: .leading, spacing: 0) {
+                if isExpanded { content }
+            }
+        } header: {
             SidebarSectionHeader(
                 title: String(localized: "WORKTREES", comment: "Sidebar section"), count: model?.rows.count,
                 isExpanded: $isExpanded)
-            if isExpanded { content }
         }
     }
 
@@ -36,7 +39,7 @@ struct WorktreeListSection: View {
             }
             .font(Tokens.Font.callout)
             .foregroundStyle(Tokens.Color.textSecondary)
-            .padding(.horizontal, Tokens.Spacing.md)
+            .padding(.horizontal, SidebarInset.content)
             .frame(height: Tokens.Size.rowSidebar)
         case .failed(let message):
             SidebarNotice(symbol: "exclamationmark.triangle", text: message)
@@ -57,7 +60,7 @@ struct WorktreeListSection: View {
             }
             .font(Tokens.Font.callout)
             .foregroundStyle(Tokens.Color.textSecondary)
-            .padding(.horizontal, Tokens.Spacing.md)
+            .padding(.horizontal, SidebarInset.content)
             .frame(height: Tokens.Size.rowSidebar)
             .accessibilityElement(children: .combine)
             ForEach((model ?? snapshot).rows) { row in
@@ -115,6 +118,14 @@ struct WorktreeListSection: View {
     }
 }
 
+/// One start line for every sidebar header, notice, and row (#573). A row with a selection background insets the
+/// background by `row` and its content by `Tokens.Spacing.sm` more; everything else starts at `content` directly, so
+/// the WORKTREES tile, a LOCAL branch icon, and a TAGS tag icon line up.
+enum SidebarInset {
+    static let row = Tokens.Spacing.xs + Tokens.Spacing.xxs
+    static let content = row + Tokens.Spacing.sm
+}
+
 /// A collapsible section header: chevron, upper-case title, count chip (art-direction.md §6).
 struct SidebarSectionHeader: View {
     let title: String
@@ -148,8 +159,10 @@ struct SidebarSectionHeader: View {
                         .background(Capsule().fill(Tokens.Color.surfaceRaised))
                 }
             }
-            .padding(.horizontal, Tokens.Spacing.md)
+            .padding(.horizontal, SidebarInset.content)
             .frame(height: Self.height)
+            // Pinned at the top while its rows scroll under it (interaction.md §2.1, #573).
+            .background(Tokens.Color.surfacePanel)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -174,7 +187,7 @@ struct SidebarNotice: View {
         }
         .font(Tokens.Font.caption)
         .foregroundStyle(Tokens.Color.textSecondary)
-        .padding(.horizontal, Tokens.Spacing.md)
+        .padding(.horizontal, SidebarInset.content)
         .padding(.vertical, Tokens.Spacing.xs)
         .accessibilityElement(children: .combine)
     }
@@ -189,24 +202,41 @@ struct WorktreeRowView: View {
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.pullRequestBadges) private var pullRequests
 
+    /// The narrowest the name gets before status badges start to give way (#573).
+    static let titleMinWidth: CGFloat = 64
+
+    private func firstLine(_ step: WorktreeRow.BadgeStep) -> some View {
+        HStack(spacing: Tokens.Spacing.xs) {
+            Text(row.title)
+                .font(row.isFocused ? Tokens.Font.bodyEmphasized : Tokens.Font.body)
+                .foregroundStyle(row.isDimmed ? Tokens.Color.textTertiary : Tokens.Color.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(
+                    minWidth: step.truncatesTitle ? Self.titleMinWidth : nil,
+                    idealWidth: step.truncatesTitle ? Self.titleMinWidth : nil, maxWidth: .infinity,
+                    alignment: .leading)
+            // Lowest priority (§4.3, 7): leftmost, the first to give way.
+            if step.showsPullRequest, let pullRequest { PullRequestPill(badge: pullRequest) }
+            if step.showsIssue, let number = row.issueNumber { IssueNumberBadge(number: number) }
+            // Highest priority at the trailing edge; the leading (lowest) badges give way first.
+            ForEach(Array(row.badges.prefix(step.badgeCount).reversed().enumerated()), id: \.offset) { _, badge in
+                BadgeView(badge: badge)
+            }
+        }
+    }
+
     var body: some View {
         HStack(spacing: Tokens.Spacing.sm) {
             tile
             VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
-                HStack(spacing: Tokens.Spacing.xs) {
-                    Text(row.title)
-                        .font(row.isFocused ? Tokens.Font.bodyEmphasized : Tokens.Font.body)
-                        .foregroundStyle(row.isDimmed ? Tokens.Color.textTertiary : Tokens.Color.textPrimary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer(minLength: Tokens.Spacing.xs)
-                    // Lowest priority (§4.3, 7): leftmost, the first to give way.
-                    if let pullRequest { PullRequestPill(badge: pullRequest) }
-                    if let number = row.issueNumber { IssueNumberBadge(number: number) }
-                    // Highest priority at the trailing edge; the leading (lowest) badges give way first.
-                    ForEach(Array(row.badges.reversed().enumerated()), id: \.offset) { _, badge in
-                        BadgeView(badge: badge)
-                    }
+                // The first step that fits wins: the name first, then badges by priority (§4.3, #573).
+                ViewThatFits(in: .horizontal) {
+                    ForEach(
+                        WorktreeRow.badgeSteps(
+                            badgeCount: row.badges.count, hasPullRequest: pullRequest != nil,
+                            hasIssue: row.issueNumber != nil),
+                        id: \.self, content: firstLine)
                 }
                 secondLine
             }
@@ -230,7 +260,7 @@ struct WorktreeRowView: View {
                     }
             }
         }
-        .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
+        .padding(.horizontal, SidebarInset.row)
         .help(row.help)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel + (pullRequest.map { ", " + $0.accessibilityText } ?? ""))
