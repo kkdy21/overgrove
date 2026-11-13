@@ -76,10 +76,10 @@ private struct IssueAccountRow: View {
             if let command = account.switchCommand {
                 HStack(spacing: Tokens.Spacing.xs) {
                     // Wraps instead of truncating: the whole command must be readable before it is copied.
-                    Text("$ " + command)
+                    Text(CommandText.display("$ " + command))
                         .font(Tokens.Font.monoSmall)
-                        .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel("$ " + command)
                     Button {
                         // Copying to the clipboard is not a write (ADR-0011, ADR-0021 §3).
                         NSPasteboard.general.clearContents()
@@ -87,7 +87,7 @@ private struct IssueAccountRow: View {
                     } label: {
                         Image(systemName: "doc.on.doc").hitTarget()
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.hover)
                     .help("Copy the command to switch accounts in Terminal")
                     .accessibilityLabel("Copy command \(command)")
                 }
@@ -118,13 +118,15 @@ private struct IssueSetupHint: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(commands, id: \.self) { command in
-                HStack(spacing: Tokens.Spacing.xs) {
-                    Text("$ " + command)
+                HStack(alignment: .top, spacing: Tokens.Spacing.xs) {
+                    // Wraps instead of truncating: the whole command must be readable before it is copied (#612).
+                    Text(CommandText.display("$ " + command))
                         .font(Tokens.Font.monoSmall)
-                        .textSelection(.enabled)
-                        .lineLimit(1)
-                        .padding(.horizontal, Tokens.Spacing.xs)
-                        .padding(.vertical, Tokens.Spacing.xxs)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel("$ " + command)
+                        .padding(.horizontal, Tokens.Spacing.sm)
+                        .padding(.vertical, Tokens.Spacing.xs)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             RoundedRectangle(cornerRadius: Tokens.Radius.sm).strokeBorder(Tokens.Color.borderStrong))
                     Button {
@@ -134,7 +136,7 @@ private struct IssueSetupHint: View {
                     } label: {
                         Image(systemName: "doc.on.doc").hitTarget()
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.hover)
                     .help("Copy")
                     .accessibilityLabel("Copy command \(command)")
                 }
@@ -438,4 +440,23 @@ private struct IssueRowMenu: View {
 extension IssueRow {
     /// The id `ForEach` and `scrollTo` share (#592).
     var sidebarScrollID: String { SidebarItem.issue(id).scrollID }
+}
+
+/// A command as the narrow sidebar draws it (#612): it may fold after `.`, `/`, and `=` (a host name, a URL), but
+/// not after `-` (`--hostname` stays whole), and the text system adds no hyphens of its own, which would show
+/// characters that are not part of the command. The invisible marks are only in what is drawn: Copy copies the
+/// command itself, and the text is not selectable, so a selection cannot carry them into a shell.
+enum CommandText {
+    static func display(_ command: String) -> String {
+        var drawn = ""
+        for character in command {
+            drawn.append(character)
+            switch character {
+            case ".", "/", "=": drawn.append("\u{200B}")  // zero-width space: a break here is fine
+            case "-": drawn.append("\u{2060}")  // word joiner: no break after a dash
+            default: break
+            }
+        }
+        return drawn
+    }
 }

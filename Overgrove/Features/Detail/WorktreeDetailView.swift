@@ -80,15 +80,21 @@ private struct InfoCard: View {
                                     .foregroundStyle(Tokens.Color.statusPrunable)
                                     .accessibilityHidden(true)
                             }
-                            Text(row.value)
-                                .font(row.kind == .head ? Tokens.Font.monoSmall : Tokens.Font.callout)
-                                .foregroundStyle(
-                                    row.isDimmed
-                                        ? Tokens.Color.textTertiary
-                                        : (row.isWarning ? Tokens.Color.statusPrunable : Tokens.Color.textPrimary)
-                                )
-                                .lineLimit(2)
-                                .truncationMode(.middle)
+                            Group {
+                                if let items = row.items {
+                                    // Folds between items, never inside one, and no line starts or ends with `·` (#612).
+                                    JoinedText(items: items, separator: row.itemSeparator)
+                                } else {
+                                    Text(row.value).lineLimit(2).truncationMode(.middle)
+                                }
+                            }
+                            .font(row.kind == .head ? Tokens.Font.monoSmall : Tokens.Font.callout)
+                            .foregroundStyle(
+                                row.isDimmed
+                                    ? Tokens.Color.textTertiary
+                                    : (row.isWarning ? Tokens.Color.statusPrunable : Tokens.Color.textPrimary)
+                            )
+                            .accessibilityLabel(row.value)
                             if row.kind == .path, let path = model.copyablePath {
                                 Button {
                                     // Copying to the clipboard is not a repository write (ADR-0011).

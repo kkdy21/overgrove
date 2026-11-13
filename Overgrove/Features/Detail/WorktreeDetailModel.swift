@@ -24,6 +24,11 @@ struct WorktreeDetailModel: Equatable {
 
         let kind: Kind
         let value: String
+        /// The items `value` joins, when it folds between them and not inside one (#612): State's counts, a name and
+        /// its `↑n ↓m`. `nil` for a single value.
+        var items: [String]? = nil
+        /// What stands between `items` on a line; `nil` for two spaces (`JoinedText`).
+        var itemSeparator: String? = "·"
         /// The value is a warning (`status.prunable` colour): missing folder, symbolic link, gone upstream, locked.
         var isWarning = false
         /// Missing worktrees show their last known values dimmed.
@@ -88,7 +93,11 @@ struct WorktreeDetailModel: Equatable {
                 value: worktree.branchShortName.map(PathValidator.displayable)
                     ?? String(localized: "detached", comment: "S-05 branch")))
         rows.append(Self.upstreamRow(state?.upstream))
-        rows.append(InfoRow(kind: .state, value: state.map(Self.stateSummary) ?? Self.unknownState(entry.state)))
+        if let state {
+            rows.append(InfoRow(kind: .state, value: Self.stateSummary(state), items: Self.stateItems(state)))
+        } else {
+            rows.append(InfoRow(kind: .state, value: Self.unknownState(entry.state)))
+        }
         if case .locked(let reason) = worktree.lock {
             rows.append(
                 InfoRow(
@@ -153,11 +162,9 @@ struct WorktreeDetailModel: Equatable {
     private static func upstreamRow(_ upstream: UpstreamStatus?) -> InfoRow {
         switch upstream {
         case .some(.tracking(let name, let ahead, let behind)):
-            InfoRow(kind: .upstream, value: "\(PathValidator.displayable(name))  ↑\(ahead) ↓\(behind)")
+            upstreamRow([PathValidator.displayable(name), "↑\(ahead) ↓\(behind)"])
         case .some(.gone(let name)):
-            InfoRow(
-                kind: .upstream, value: "\(PathValidator.displayable(name)) " + String(localized: "(gone)"),
-                isWarning: true)
+            upstreamRow([PathValidator.displayable(name), String(localized: "(gone)")], isWarning: true)
         case .some(.none):
             InfoRow(kind: .upstream, value: String(localized: "No upstream"))
         case nil:
@@ -165,14 +172,26 @@ struct WorktreeDetailModel: Equatable {
         }
     }
 
+    /// `origin/main  ↑1 ↓0`: the name and its counts fold apart, the counts never (#612).
+    private static func upstreamRow(_ items: [String], isWarning: Bool = false) -> InfoRow {
+        InfoRow(
+            kind: .upstream, value: JoinedText.joined(items, separator: nil), items: items, itemSeparator: nil,
+            isWarning: isWarning)
+    }
+
     /// `6 changed · 1 untracked · 0 conflicts` (screens.md S-05).
     static func stateSummary(_ state: WorkingState) -> String {
+        JoinedText.joined(stateItems(state))
+    }
+
+    /// The parts of `stateSummary`, which fold between them in a narrow panel (#612).
+    static func stateItems(_ state: WorkingState) -> [String] {
         let changed = Set((state.staged + state.unstaged).map(\.path)).count
         let conflicts = state.conflicted.count
-        return String(localized: "\(changed) changed") + " · " + String(localized: "\(state.untracked.count) untracked")
-            + " · "
-            + (conflicts == 1
-                ? String(localized: "\(conflicts) conflict") : String(localized: "\(conflicts) conflicts"))
+        return [
+            String(localized: "\(changed) changed"), String(localized: "\(state.untracked.count) untracked"),
+            conflicts == 1 ? String(localized: "\(conflicts) conflict") : String(localized: "\(conflicts) conflicts"),
+        ]
     }
 
     private static func unknownState(_ state: WorktreeListing.State) -> String {

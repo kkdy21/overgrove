@@ -56,6 +56,8 @@ struct StashDetailModel: Equatable {
     let branch: String?
     /// `index · working tree · untracked`.
     let includes: String
+    /// The parts of `includes`, which fold between them in a narrow panel (#612).
+    let includesItems: [String]
     let files: [FileRow]?
     let filesUnavailable: String?
     let isFileListPartial: Bool
@@ -71,7 +73,8 @@ struct StashDetailModel: Equatable {
         if stash.includesIndex { parts.append(String(localized: "index", comment: "Stash includes")) }
         parts.append(String(localized: "working tree", comment: "Stash includes"))
         if stash.includesUntracked { parts.append(String(localized: "untracked", comment: "Stash includes")) }
-        includes = parts.joined(separator: " · ")
+        includesItems = parts
+        includes = JoinedText.joined(parts)
         switch state {
         case .loading:
             files = nil
