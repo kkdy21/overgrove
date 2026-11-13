@@ -12,6 +12,12 @@ extension Animation {
         return .timingCurve(curve.x1, curve.y1, curve.x2, curve.y2, duration: Tokens.Motion.durationStandard)
     }
 
+    /// Onboarding step transitions: `motion.duration-slow` with `motion.easing-standard`.
+    static var slow: Animation {
+        let curve = Tokens.Motion.easingStandardControlPoints
+        return .timingCurve(curve.x1, curve.y1, curve.x2, curve.y2, duration: Tokens.Motion.durationSlow)
+    }
+
     /// Hover and selection highlights: `motion.duration-fast` (art-direction.md §9 "포인터 반응은 120ms").
     static var fast: Animation { .easeOut(duration: Tokens.Motion.durationFast) }
 
