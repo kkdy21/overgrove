@@ -172,5 +172,6 @@ final class AppStateBaseCompareTests: XCTestCase {
         await settle(state)
         XCTAssertNil(state.baseSummaryTask)
         XCTAssertTrue(s11.compareRequests.isEmpty)
+        XCTAssertNil(state.baseCompareCardModel, "no card that would stay on Comparing… (#619)")
     }
 }
