@@ -46,6 +46,8 @@ struct IssueListSection: View {
                         .accessibilityAction { onSelect(row.id) }
                         .contextMenu { IssueRowMenu(row: row) }
                         .sidebarOpaque()
+                        // Where the row is, so the arrow keys scroll only when it is out of view (#645, #636).
+                        .sidebarRowFrame(row.sidebarScrollID)
                 }
             }
         } header: {
