@@ -52,10 +52,23 @@ extension AppState {
         return focusedWorktreePath?.display
     }
 
-    /// `⎋` after the center's own `‹ Graph` (S-09, S-10, S-11 close themselves): clears the search, then returns the
-    /// main selection to the focused worktree's changes (interaction.md §3.1).
+    /// `⎋`, the window's only Escape handler (interaction.md §3.1). ① A screen covering the graph closes, the topmost
+    /// one in the order the center draws them (S-11, S-12, S-10, S-09), as its `‹ Graph` button does, and the main
+    /// selection stays (#633). ② Otherwise the search clears. ③ Otherwise the main selection returns to the focused
+    /// worktree's changes.
+    ///
+    /// The screens' `‹ Graph` buttons have no `⎋` shortcut of their own: with one, the same key press closed the screen
+    /// there and then reached this handler with nothing covering the graph, which moved the selection to the WIP (#633).
     func escape() {
-        if !searchText.isEmpty {
+        if comparison != nil {
+            closeComparison()
+        } else if commitComparison != nil {
+            closeCommitComparison()
+        } else if diffViewer != nil {
+            clearSelectedFile()
+        } else if history.isOpen {
+            closeHistory()
+        } else if !searchText.isEmpty {
             searchText = ""
         } else if case .worktreeInfo = selection {
             // S-05 back to Changes (§3.1 ③); `selectWorktree` keeps the segment on purpose (#311).
