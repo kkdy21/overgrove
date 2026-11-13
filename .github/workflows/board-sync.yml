@@ -53,7 +53,10 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$GH_TOKEN" ]]; then
-            echo "::warning title=board-sync::PROJECT_TOKEN is not set, so the board was not updated (docs/process/github-settings.md §3)."
+            msg="PROJECT_TOKEN is not set, so the board was not updated (docs/process/github-settings.md §3)."
+            echo "::warning title=board-sync::$msg"
+            # The run still succeeds (ADR-0016), so say it on the run's summary page too, where a green run is read (#595).
+            echo "**board-sync skipped:** $msg" >>"$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           case "$EVENT" in

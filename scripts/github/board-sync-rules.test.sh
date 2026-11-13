@@ -56,6 +56,12 @@ check "status:needs-decision blocks Ready"           "Backlog"     1 true  "Back
 check "later milestone never auto-Ready"             "Backlog"     1 true  "Backlog"     "$(issue 17 OPEN '' $T later '')"
 check "reopened issue (Done) with done deps: Ready"  "Ready"       1 true  "Done"        "$(issue 18 OPEN '' $T '' '')"
 check "reopened issue (Done) without deps: Backlog"  "Backlog"     0 true  "Done"        "$(issue 18 OPEN '' $T '' '')"
+# A merge closes the issue and the PR at once (#595). Read after the merge, the issue is Done whatever its PR shows.
+check "closed by a merged PR: Done despite assignee" "Done"        0 true  "In review"   "$(issue 19 CLOSED alice $T '' 'MERGED:ready:feat/19-x:alice')"
+check "closed by a merged PR: Done, deps unfinished" "Done"        1 false "In review"   "$(issue 19 CLOSED alice $T '' 'MERGED:ready:feat/19-x:alice')"
+# Read in the instant before GitHub closes it, the same issue falls back to its assignee. That would overwrite Done,
+# so `board-sync.sh pr` reads an issue its merged PR closes once more when it still looks open.
+check "race: merged PR, issue still read open"       "In progress" 0 true  "Done"        "$(issue 19 OPEN alice $T '' 'MERGED:ready:feat/19-x:alice')"
 
 if ((fail)); then echo "board-sync rules: FAILED"; exit 1; fi
 echo "board-sync rules: all passed"

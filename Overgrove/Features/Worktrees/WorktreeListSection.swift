@@ -134,9 +134,12 @@ struct SidebarSectionHeader: View {
     /// A small spinner after the title (ISSUES while gh runs, screens.md S-06).
     var isLoading = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         Button {
-            isExpanded.toggle()
+            // The chevron turns and the rows come in over `motion.duration-standard`, at once under Reduce Motion (#572).
+            withMotion(.standard, reduceMotion: reduceMotion) { isExpanded.toggle() }
         } label: {
             HStack(spacing: Tokens.Spacing.xs) {
                 Image(systemName: "chevron.down")
@@ -252,8 +255,7 @@ struct WorktreeRowView: View {
         .background {
             if isSelected {
                 let shape = RoundedRectangle(cornerRadius: Tokens.Radius.card, style: .continuous)
-                shape
-                    .fill(isListFocused ? Tokens.Color.surfaceSelection : Tokens.Color.surfaceSelectionInactive)
+                SidebarSelectionBackground(isFocused: isListFocused)
                     .overlay {
                         // The branch's lane colour, so the selection reads as the same line in the graph (#300).
                         if let lane = laneColor {
@@ -266,6 +268,7 @@ struct WorktreeRowView: View {
                     }
             }
         }
+        .hoverHighlight(.inset, isEnabled: !isSelected)
         .padding(.horizontal, SidebarInset.row)
         .help(Self.help(row, pullRequest: pullRequest))
         .accessibilityElement(children: .ignore)

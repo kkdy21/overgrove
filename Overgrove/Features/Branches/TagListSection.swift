@@ -13,6 +13,7 @@ struct TagListSection: View {
     @Environment(\.rowMenu) private var actions
     /// Repositories often have hundreds of tags, so the section starts closed (§4.1).
     @State private var isExpanded: Bool
+    @FocusState private var hasFocus: Bool
     /// The row chosen last: several tags can name one commit, and only the chosen one is highlighted.
     @State private var chosenID: String?
 
@@ -43,14 +44,23 @@ struct TagListSection: View {
                             ForEach(visible.rows) { row in
                                 TagRowView(
                                     row: row, now: context.date,
-                                    isSelected: row.id == chosenID && row.commit != nil && row.commit == selectedCommit
+                                    isSelected: row.id == chosenID && row.commit != nil && row.commit == selectedCommit,
+                                    isListFocused: hasFocus
                                 )
                                 .contentShape(Rectangle())
-                                .onTapGesture { choose(row) }
+                                .onTapGesture {
+                                    hasFocus = true
+                                    choose(row)
+                                }
                                 .accessibilityAction { choose(row) }
                                 .contextMenu { TagRowMenu(row: row, onShow: { choose(row) }) }
                             }
                         }
+                        // Takes keyboard focus when a row is clicked, so the selection shows as focused like WORKTREES
+                        // and ISSUES (interaction.md §1.2, #572).
+                        .focusable(!visible.rows.isEmpty)
+                        .focused($hasFocus)
+                        .focusEffectDisabled()
                     }
                     if visible.hidden > 0 {
                         Text("\(WorktreeListModel.badgeText(visible.hidden)) more tags — filter to find one")
@@ -81,6 +91,8 @@ private struct TagRowView: View {
     let row: TagRow
     let now: Date
     let isSelected: Bool
+    /// The list has keyboard focus: the selection is `surface.selection`, otherwise `selection-inactive`.
+    var isListFocused = false
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {
@@ -102,11 +114,11 @@ private struct TagRowView: View {
         }
         .padding(.horizontal, Tokens.Spacing.sm)
         .frame(height: Tokens.Size.rowSidebar)
+        // One selection style for every sidebar row, and hover feedback on the others (#572).
         .background {
-            if isSelected {
-                RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous).fill(Tokens.Color.surfaceSelection)
-            }
+            if isSelected { SidebarSelectionBackground(isFocused: isListFocused) }
         }
+        .hoverHighlight(.inset, isEnabled: !isSelected)
         .padding(.horizontal, SidebarInset.row)
         .help(row.help)
         .accessibilityElement(children: .ignore)
