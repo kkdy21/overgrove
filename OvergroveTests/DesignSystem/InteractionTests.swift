@@ -61,7 +61,7 @@ final class InteractionTests: XCTestCase {
     /// The hover fill is `surface.hover` on the panel and clear otherwise, in both modes and both shapes.
     func testHoverFillShowsOnlyWhenHovering() throws {
         for (name, appearance) in try appearances() {
-            for shape in [HoverShape.fullWidth, .inset] {
+            for shape in [HoverShape.fullWidth, .inset, .rounded(radius: Tokens.Radius.md)] {
                 let size = CGSize(width: 80, height: 28)
                 let idle = try render(HoverFill(shape: shape, isHovering: false), size: size, appearance: appearance)
                 let hovered = try render(HoverFill(shape: shape, isHovering: true), size: size, appearance: appearance)
@@ -70,7 +70,7 @@ final class InteractionTests: XCTestCase {
                     idle.colorAt(x: center.x, y: center.y), hovered.colorAt(x: center.x, y: center.y),
                     "\(name) \(shape)")
                 let corner = (idle.colorAt(x: 0, y: 0), hovered.colorAt(x: 0, y: 0))
-                if shape == .inset {
+                if shape != .fullWidth {
                     XCTAssertEqual(corner.0, corner.1, "\(name): the inset fill is rounded")
                 } else {
                     XCTAssertNotEqual(corner.0, corner.1, "\(name): the full-width fill reaches the corner")

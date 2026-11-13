@@ -50,7 +50,7 @@ struct WipDetailView: View {
                     } label: {
                         Image(systemName: "doc.on.doc").hitTarget()
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.hover)
                     .help("Copy Path")
                     .accessibilityLabel("Copy path")
                 }
@@ -294,6 +294,10 @@ struct WipFileRowView: View {
                     .padding(.horizontal, Tokens.Spacing.xs)
             }
         }
+        .hoverHighlight(
+            .rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable,
+            horizontalInset: Tokens.Spacing.xs
+        )
         .help(row.help)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(row.accessibilityLabel)

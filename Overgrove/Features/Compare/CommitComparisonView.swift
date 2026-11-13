@@ -14,7 +14,7 @@ struct CommitComparisonCenterView: View {
                 Button(action: onBack) {
                     Label("Graph", systemImage: "chevron.left")
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover)
                 .keyboardShortcut(.cancelAction)
                 .help("Back to the graph (⎋)")
                 Text("Compare").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
@@ -22,14 +22,14 @@ struct CommitComparisonCenterView: View {
                 Button(action: onSwap) {
                     Image(systemName: "arrow.left.arrow.right")
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover)
                 .help("Swap base and target")
                 .accessibilityLabel("Swap base and target")
                 Spacer(minLength: Tokens.Spacing.sm)
             }
             summary
             Tokens.Color.borderSeparator.frame(height: 1)
-            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+            content.frame(maxWidth: .infinity, maxHeight: .infinity).fadeIn(on: model.state.phase)
         }
     }
 
@@ -127,6 +127,7 @@ struct CommitComparisonListView: View {
                 Text("Not in the graph").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
             }
         }
+        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: row.isInGraph)
         .contentShape(Rectangle())
         .onTapGesture { if row.isInGraph { onShowCommit(row.oid) } }
         .help(row.subject + "\n" + row.author)
@@ -198,6 +199,7 @@ struct CommitComparisonListView: View {
         .background {
             if isSelected { RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection) }
         }
+        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable)
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelectFile(row.stat) } }
         .accessibilityElement(children: .ignore)

@@ -181,7 +181,8 @@ struct StashDetailView: View {
     }
 
     private func fileRow(_ row: StashDetailModel.FileRow) -> some View {
-        HStack(spacing: Tokens.Spacing.sm) {
+        let isSelected = selectedFile == row.file.path
+        return HStack(spacing: Tokens.Spacing.sm) {
             (Text(row.directory).foregroundStyle(Tokens.Color.textTertiary)
                 + Text(row.fileName).foregroundStyle(Tokens.Color.textPrimary).fontWeight(.medium))
                 .font(Tokens.Font.callout)
@@ -199,10 +200,11 @@ struct StashDetailView: View {
         .padding(.vertical, Tokens.Spacing.xxs)
         .padding(.horizontal, Tokens.Spacing.xs)
         .background {
-            if selectedFile == row.file.path {
+            if isSelected {
                 RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection)
             }
         }
+        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable)
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelectFile(row.file) } }
         .contextMenu {

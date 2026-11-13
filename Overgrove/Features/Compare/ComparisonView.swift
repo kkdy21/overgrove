@@ -15,7 +15,7 @@ struct ComparisonCenterView: View {
                 Button(action: onBack) {
                     Label("Graph", systemImage: "chevron.left")
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.hover)
                 .keyboardShortcut(.cancelAction)
                 .help("Back to the graph (⎋)")
                 Text("Changes vs").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
@@ -33,7 +33,7 @@ struct ComparisonCenterView: View {
             Group {
                 summary
                 Tokens.Color.borderSeparator.frame(height: 1)
-                content.frame(maxWidth: .infinity, maxHeight: .infinity)
+                content.frame(maxWidth: .infinity, maxHeight: .infinity).fadeIn(on: model.state.phase)
             }
             .staleComparison(model.staleNotice != nil)
         }
@@ -225,6 +225,7 @@ struct ComparisonListView: View {
                 RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection)
             }
         }
+        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable)
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelect(ComparisonFile(path: row.path, isUntracked: isUntracked)) } }
         .accessibilityElement(children: .ignore)

@@ -180,28 +180,35 @@ struct CommitDetailView: View {
             if let note = model.filesNote {
                 Text(note).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
             }
-            switch model.files {
-            case .loading:
-                ProgressView().controlSize(.small)
-            case .failed(let reason):
-                Text(reason).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
-            case .loaded(let rows, let hidden):
-                if rows.isEmpty {
-                    Text("No file changes").font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
-                }
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(rows) { row in fileRow(row) }
-                }
-                if hidden > 0 {
-                    Button("Show all \(WipDetailModel.formatted(rows.count + hidden)) files", action: onShowAllFiles)
+            VStack(alignment: .leading, spacing: Tokens.Spacing.sm) {
+                switch model.files {
+                case .loading:
+                    ProgressView().controlSize(.small)
+                case .failed(let reason):
+                    Text(reason).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textSecondary)
+                case .loaded(let rows, let hidden):
+                    if rows.isEmpty {
+                        Text("No file changes").font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
+                    }
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(rows) { row in fileRow(row) }
+                    }
+                    if hidden > 0 {
+                        Button(
+                            "Show all \(WipDetailModel.formatted(rows.count + hidden)) files", action: onShowAllFiles
+                        )
                         .buttonStyle(.link)
+                    }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fadeIn(on: model.files.phase)
         }
     }
 
     private func fileRow(_ row: CommitDetailModel.FileRow) -> some View {
-        HStack(spacing: Tokens.Spacing.sm) {
+        let isSelected = selectedFile == row.stat.path
+        return HStack(spacing: Tokens.Spacing.sm) {
             Text(row.kindLetter).font(Tokens.Font.monoSmall).foregroundStyle(Tokens.Color.textSecondary)
                 .frame(width: 14)
             (Text(row.directory).foregroundStyle(Tokens.Color.textTertiary)
@@ -215,10 +222,11 @@ struct CommitDetailView: View {
         .padding(.vertical, Tokens.Spacing.xxs)
         .padding(.horizontal, Tokens.Spacing.xs)
         .background {
-            if selectedFile == row.stat.path {
+            if isSelected {
                 RoundedRectangle(cornerRadius: Tokens.Radius.md).fill(Tokens.Color.surfaceSelection)
             }
         }
+        .hoverHighlight(.rounded(radius: Tokens.Radius.md), isEnabled: !isSelected && row.isSelectable)
         .contentShape(Rectangle())
         .onTapGesture { if row.isSelectable { onSelectFile(row.stat) } }
         .contextMenu {

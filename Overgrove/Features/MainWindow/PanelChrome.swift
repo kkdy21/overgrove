@@ -177,7 +177,27 @@ struct GraphPanel: View {
     /// S-12 covers the graph while two commits are compared (#388).
     var commitComparison: CommitComparisonCenterView?
 
+    /// Which screen covers the center area, as the key the new screen fades in on (#576).
+    enum Screen: Hashable {
+        case graph, history, diff, comparison, commitComparison
+    }
+
+    var screen: Screen {
+        if comparison != nil { return .comparison }
+        if commitComparison != nil { return .commitComparison }
+        if diff != nil { return .diff }
+        if history != nil { return .history }
+        return .graph
+    }
+
     var body: some View {
+        // S-09 to S-12 fade in over the graph, and the graph fades back in; another file's diff replaces the shown one
+        // in place.
+        screenContent.fadeIn(on: screen)
+    }
+
+    @ViewBuilder
+    private var screenContent: some View {
         if let comparison {
             comparison
         } else if let commitComparison {
@@ -300,6 +320,30 @@ struct DetailPanel: View {
                 DetailSegmentPicker(isWorktree: isWorktree, onChanges: onShowChanges, onWorktree: onShowWorktree)
             }
         } content: {
+            detailContent.fadeIn(on: content)
+        }
+    }
+
+    /// What the panel shows, as the key new content fades in on (#576). Another commit or file under the same
+    /// kind updates in place.
+    enum Content: Hashable {
+        case comparison, commitComparison, commit, issue, stash, worktree, wip, loading, empty
+    }
+
+    var content: Content {
+        if comparisonList != nil { return .comparison }
+        if commitComparisonList != nil { return .commitComparison }
+        if commitModel != nil { return .commit }
+        if issueModel != nil { return .issue }
+        if stashModel != nil { return .stash }
+        if worktreeModel != nil { return .worktree }
+        if wipModel != nil { return .wip }
+        return worktreeStatus.isAwaitingLoad ? .loading : .empty
+    }
+
+    @ViewBuilder
+    private var detailContent: some View {
+        Group {
             if let comparisonList {
                 comparisonList
             } else if let commitComparisonList {
@@ -328,6 +372,7 @@ struct DetailPanel: View {
                     message: String(localized: "Changes in the focused worktree or the selected commit appear here."))
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
