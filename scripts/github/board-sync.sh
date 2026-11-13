@@ -51,6 +51,9 @@ for arg in "$@"; do
 done
 MODE="${POSITIONAL[0]:-}"
 TARGET="${POSITIONAL[1]:-}"
+RECHECK_SECONDS="${RECHECK_SECONDS:-5}"
+[[ "$RECHECK_SECONDS" =~ ^[0-9]{1,2}$ ]] || { echo "RECHECK_SECONDS must be 0-99" >&2; exit 2; }
+
 case "$MODE" in
   issue | pr | dependents)
     [[ "$TARGET" =~ ^[0-9]{1,9}$ ]] || { echo "usage: $0 $MODE <number> [--dry-run]" >&2; exit 2; } ;;
@@ -199,10 +202,12 @@ sync_with() {
     want=$(desired_status "$total" "${summary#* }" "$cur" <<<"$json")
   fi
   # What the rule saw: state, assignees, open PRs (draft or ready, by branch), dependencies (count, done or not looked up).
+  # Any open PR that names the issue is listed, counted or not, so its branch name is quoted: a fork's branch cannot
+  # pass for extra entries.
   inputs=$(jq -r --arg deps "$total:${summary#* }" '
     "state=\(.state) assignees=\([.assignees.nodes[].login] | join(",") | if . == "" then "-" else . end)"
     + " prs=\([(.closedByPullRequestsReferences.nodes // [])[] | select(.state == "OPEN")
-        | "\(.headRefName)(\(if .isDraft then "draft" else "ready" end))"] | join(",") | if . == "" then "-" else . end)"
+        | "\(.headRefName | @json)(\(if .isDraft then "draft" else "ready" end))"] | join(",") | if . == "" then "-" else . end)"
     + " deps=\($deps)"' <<<"$json")
   if [[ "$item" == "-" ]] && ! ((DRY_RUN)); then
     item=$(gh api graphql -f project="$PROJECT_ID" -f content="$(jq -r '.id' <<<"$json")" -f query='
@@ -220,8 +225,8 @@ sync_issue() {
   json=$(fetch_issue "$1") || { echo "could not read issue #$1" >&2; return 1; }
   [[ -n "$json" && "$json" != null ]] || { echo "issue #$1 not found" >&2; return 1; }
   if [[ -n "${2:-}" && "$(jq -r '.state' <<<"$json")" == OPEN ]]; then
-    echo "#$1: still open after PR #$2 merged; reading it again in ${RECHECK_SECONDS:-5} s"
-    sleep "${RECHECK_SECONDS:-5}"
+    echo "#$1: still open after PR #$2 merged; reading it again in $RECHECK_SECONDS s"
+    sleep "$RECHECK_SECONDS"
     json=$(fetch_issue "$1") || { echo "could not read issue #$1" >&2; return 1; }
   fi
   found=$(board_item "$(jq -r '.id' <<<"$json")") || { echo "could not read the board item of #$1" >&2; return 1; }
