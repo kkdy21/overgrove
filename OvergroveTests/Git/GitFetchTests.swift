@@ -177,19 +177,25 @@ final class GitFetchTests: XCTestCase {
     func testTimeoutStopsAStalledFetch() async throws {
         try await makeBareRemote("alpha")
         try await local.git(["remote", "add", "origin", "ssh://alpha/x"])
+        // Long enough for git to start the stand-in even on a busy machine: the fetch must stall before the timeout,
+        // or the test would only show that a slow start is stopped (#530).
         var limits = ProcessLimits.fetch
-        limits.timeout = .seconds(1)
+        limits.timeout = .seconds(3)
         let client = GitClient(environment: local.environment.fetchingLocalRemotesForTesting, fetchLimits: limits)
-        let started = ContinuousClock.now
+        let target = repository(local)
+        let safety = try sshSafety(gated: true)
+        let remote = origin
+        let fetch = Task { try await client.fetch(.fetch(remote: remote), in: target, safety: safety) }
+        try await waitFor(marker("alpha", "started"))
+
+        let stalled = ContinuousClock.now
         do {
-            _ = try await client.fetch(
-                .fetch(remote: origin), in: repository(local), safety: try sshSafety(gated: true))
+            _ = try await fetch.value
             XCTFail("a stalled fetch must time out")
         } catch let error as GitError {
-            XCTAssertEqual(error, .timeout(seconds: 1))
+            XCTAssertEqual(error, .timeout(seconds: 3))
         }
-        XCTAssertLessThan(ContinuousClock.now - started, .seconds(10), "SIGTERM, then SIGKILL after the grace period")
-        XCTAssertTrue(FileManager.default.fileExists(atPath: marker("alpha", "started").path))
+        XCTAssertLessThan(ContinuousClock.now - stalled, .seconds(12), "SIGTERM, then SIGKILL after the grace period")
     }
 
     func testCancellationStopsAFetchAndFreesTheRepository() async throws {
