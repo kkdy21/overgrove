@@ -63,6 +63,8 @@ final class IssuePanelRenderTests: XCTestCase {
                     [
                         IssueListContent.notLoggedIn, .notInstalled,
                         .failed(repository: .github(IssueModelsTests.repository), detail: "HTTP 404"), .noGitHubRemote,
+                        // #612: long `--hostname` commands wrap at 220pt instead of being cut.
+                        .notLoggedInToHost(RemoteHost("git.internal.example.com")!),
                     ].enumerated()), id: \.offset
             ) { _, content in
                 IssueListSection(
@@ -70,7 +72,7 @@ final class IssuePanelRenderTests: XCTestCase {
             }
             Spacer()
         }
-        try render(sections, width: Tokens.Size.sidebarWidthMin, height: 520, name: "issues-degraded")
+        try render(sections, width: Tokens.Size.sidebarWidthMin, height: 760, name: "issues-degraded")
     }
 
     private func render(_ view: some View, width: CGFloat, height: CGFloat, name: String) throws {

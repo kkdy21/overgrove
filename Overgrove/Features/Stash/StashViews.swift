@@ -145,7 +145,14 @@ struct StashDetailView: View {
                         }
                     }
                 }
-                infoRow("Includes", model.includes, mono: false)
+                GridRow {
+                    Text("Includes").font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
+                    // Folds between items, never inside one, and no line starts or ends with `·` (#612).
+                    JoinedText(items: model.includesItems)
+                        .font(Tokens.Font.callout)
+                        .foregroundStyle(Tokens.Color.textPrimary)
+                        .accessibilityLabel(model.includes)
+                }
             }
         }
     }
