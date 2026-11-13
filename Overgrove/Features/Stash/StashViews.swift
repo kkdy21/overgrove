@@ -9,6 +9,7 @@ struct StashListSection: View {
     let onSelect: (ObjectID) -> Void
 
     @State private var isExpanded = true
+    @FocusState private var hasFocus: Bool
 
     var body: some View {
         Section {
@@ -29,13 +30,21 @@ struct StashListSection: View {
                         // Lazy: a crafted reflog can list tens of thousands of entries (security review of #71, T15).
                         LazyVStack(alignment: .leading, spacing: 0) {
                             ForEach(rows) { row in
-                                StashRowView(row: row, isSelected: row.id == selectedID)
+                                StashRowView(row: row, isSelected: row.id == selectedID, isListFocused: hasFocus)
                                     .contentShape(Rectangle())
-                                    .onTapGesture { onSelect(row.id) }
+                                    .onTapGesture {
+                                        hasFocus = true
+                                        onSelect(row.id)
+                                    }
                                     .accessibilityAction { onSelect(row.id) }
                                     .contextMenu { StashRowMenu(row: row, onShowChanges: { onSelect(row.id) }) }
                             }
                         }
+                        // Takes keyboard focus when a row is clicked, so the selection shows as focused like WORKTREES
+                        // and ISSUES (interaction.md §1.2, #572).
+                        .focusable(!rows.isEmpty)
+                        .focused($hasFocus)
+                        .focusEffectDisabled()
                     }
                 }
             }

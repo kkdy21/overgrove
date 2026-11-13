@@ -20,6 +20,7 @@ struct BranchListSection: View {
     @State private var openFolders: Set<String> = []
     /// The row chosen last: several branches can share a tip, and only the chosen one is highlighted (as in TAGS).
     @State private var chosenID: String?
+    @FocusState private var hasFocus: Bool
     @Environment(\.rowMenu) private var actions
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -64,16 +65,25 @@ struct BranchListSection: View {
                                     BranchRowView(
                                         row: row, depth: item.depth, now: title == "REMOTE" ? context.date : nil,
                                         isSelected: Self.isHighlighted(
-                                            row, chosenID: chosenID, selectedCommit: selectedCommit)
+                                            row, chosenID: chosenID, selectedCommit: selectedCommit),
+                                        isListFocused: hasFocus
                                     )
                                     .contentShape(Rectangle())
-                                    .onTapGesture { choose(row) }
+                                    .onTapGesture {
+                                        hasFocus = true
+                                        choose(row)
+                                    }
                                     .accessibilityAction { choose(row) }
                                 case .folder(let id, let name, let count, _):
                                     folderRow(id: id, name: name, count: count, depth: item.depth)
                                 }
                             }
                         }
+                        // Takes keyboard focus when a row is clicked, so the selection shows as focused like WORKTREES
+                        // and ISSUES (interaction.md §1.2, #572).
+                        .focusable(!rows.isEmpty)
+                        .focused($hasFocus)
+                        .focusEffectDisabled()
                     }
                 }
             }
@@ -137,6 +147,7 @@ private struct BranchRowView: View {
     /// Set for remote rows, which show the tip's relative date.
     let now: Date?
     var isSelected = false
+    var isListFocused = false
 
     @Environment(\.pullRequestBadges) private var pullRequests
 
@@ -179,9 +190,9 @@ private struct BranchRowView: View {
         .padding(.leading, Tokens.Spacing.sm + CGFloat(depth) * Tokens.Spacing.lg)
         .padding(.trailing, Tokens.Spacing.sm)
         .frame(height: Tokens.Size.rowSidebar)
-        // The same selection and hover as every sidebar row (#572). Nothing in LOCAL or REMOTE takes keyboard focus.
+        // The same selection and hover as every sidebar row (#572).
         .background {
-            if isSelected { SidebarSelectionBackground(isFocused: false) }
+            if isSelected { SidebarSelectionBackground(isFocused: isListFocused) }
         }
         .hoverHighlight(.inset, isEnabled: !isSelected)
         .padding(.horizontal, SidebarInset.row)
