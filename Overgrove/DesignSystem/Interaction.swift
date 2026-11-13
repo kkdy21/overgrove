@@ -227,10 +227,8 @@ struct DelayedProgressView: View {
 /// Icon and text buttons in panels (`‹ Graph`, `⇄`, copy): a rounded `surface.hover` fill under the pointer and
 /// `opacity.pressed` while held down. Replaces `.borderless` and `.plain`, which give no hover feedback.
 ///
-/// Apply it with `hoverButtonStyle()`, not `.buttonStyle(_:)`: the style only draws the hover state, and the pointer is
-/// tracked outside the `Button` (#658). A tooltip (`.help`) put after it then wraps the hover tracking directly, as on a
-/// file row. With `onHover` inside the button's body, tooltips on these buttons stayed up long after the pointer left
-/// and stopped appearing after a drag or a menu, while file rows and toolbar buttons behaved.
+/// Each button tracks the pointer itself, so the style can be set once on a container of buttons (the graph search
+/// bar's chevrons). Give these buttons a tooltip with `toolTip(_:)`, not `.help` (#658).
 struct HoverButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         HoverButtonBody(configuration: configuration)
@@ -239,7 +237,7 @@ struct HoverButtonStyle: ButtonStyle {
 
 private struct HoverButtonBody: View {
     let configuration: ButtonStyleConfiguration
-    @Environment(\.isButtonHovered) private var isHovering
+    @State private var isHovering = false
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
@@ -253,29 +251,14 @@ private struct HoverButtonBody: View {
                     .motion(.fast, value: isHovering)
             }
             .contentShape(RoundedRectangle(cornerRadius: Tokens.Radius.sm, style: .continuous))
-    }
-}
-
-extension EnvironmentValues {
-    /// Whether the pointer is over the button `hoverButtonStyle()` styles; set from outside the `Button` (#658).
-    @Entry var isButtonHovered = false
-}
-
-/// Tracks the pointer outside the `Button` and hands it to `HoverButtonStyle` (#658).
-struct ButtonHoverTracking: ViewModifier {
-    @State private var isHovering = false
-
-    func body(content: Content) -> some View {
-        content
-            .environment(\.isButtonHovered, isHovering)
             .onHover { isHovering = $0 }
     }
 }
 
 extension View {
-    /// `HoverButtonStyle` with the pointer tracked outside the button. Put `.help` after it (#658).
+    /// `HoverButtonStyle`, on this button or on every button in this container.
     func hoverButtonStyle() -> some View {
-        buttonStyle(HoverButtonStyle()).modifier(ButtonHoverTracking())
+        buttonStyle(HoverButtonStyle())
     }
 }
 

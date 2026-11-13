@@ -48,8 +48,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
-- Tooltips on the detail copy buttons, the narrow detail view switch, and sidebar branch folders go away when the
-  pointer leaves and appear again after a drag or a menu.
+- Tooltips on the panel icon buttons (copy, back, swap), the narrow detail view switch, the clickable status bar
+  fields, and sidebar branch folders go away when the pointer leaves and appear again after a drag or a menu.
 - The panel dividers' resize cursor follows the pointer after Settings closes, after switching between main windows,
   and after a panel is collapsed by dragging, without waiting for the pointer to move.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.

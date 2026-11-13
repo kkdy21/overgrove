@@ -51,7 +51,7 @@ struct WipDetailView: View {
                         Image(systemName: "doc.on.doc").hitTarget()
                     }
                     .hoverButtonStyle()
-                    .help("Copy Path")
+                    .toolTip(String(localized: "Copy Path"))
                     .accessibilityLabel("Copy path")
                 }
             }
