@@ -300,6 +300,109 @@ final class SidebarLayoutRenderTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(afterKey, bottom - below - 4, "the last row is in view (bottom \(bottom))")
     }
 
+    /// #636: in a long sidebar, `⌘↓` and `⌘↑` (three times each) and `↑` steps past the top of the view always leave
+    /// the selected row fully in view and below the pinned section header, with real key events.
+    func testJumpsAndStepsKeepTheRowInViewBelowTheHeader() async throws {
+        let state = AppState.mockup(layoutStore: store)
+        func tip(_ index: Int) -> ObjectID { ObjectID(String(format: "%040x", index + 1))! }
+        let names = (0..<400).map { String(format: "refs/remotes/origin/b%03d", $0) }
+        let refs = RefParser.Listing(
+            branches: names.enumerated().map { index, name in
+                Branch(
+                    fullName: name, kind: .remote(remote: "origin"), target: tip(index), upstreamStatus: .none,
+                    isHead: false, committerDate: nil, symbolicTarget: nil)
+            }, tags: [], isPartial: false, skippedRecords: 0)
+        let model = BranchListModel(refs: refs, checkedOut: [], remoteNames: ["origin"])
+        final class Box {
+            var selected: GitPath?
+            var commit: ObjectID?
+            var worktree: GitPath?
+        }
+        let box = Box()
+        let frames = SidebarRowFrames()
+        let worktrees = try XCTUnwrap(state.worktreeListModel?.rows.map(\.id))
+        let size = CGSize(width: 220, height: 400)
+        func view(_ request: PanelFocusRequest?) -> AnyView {
+            AnyView(
+                SidebarPanel(
+                    hasRepository: true, worktreeStatus: state.worktreeList, worktreeModel: state.worktreeListModel,
+                    selectedWorktree: box.worktree ?? worktrees[0], onSelectWorktree: { box.worktree = $0 },
+                    branchModel: model, selectedCommit: box.commit, filter: .constant("b")
+                )
+                .environment(\.panelFocusRequest, request)
+                .environment(\.sidebarRowFrames, frames)
+                .environment(\.rowMenu, RowMenuActions(showCommit: { box.commit = $0 }))
+                .frame(width: size.width, height: size.height))
+        }
+        let host = NSHostingView(rootView: view(nil))
+        host.frame = NSRect(origin: .zero, size: size)
+        let window = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: size.width, height: size.height),
+            styleMask: [.borderless], backing: .buffered, defer: true)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.layoutSubtreeIfNeeded()
+        host.rootView = view(PanelFocusRequest(panel: .sidebar))
+        func settle(_ count: Int = 8) async throws {
+            for _ in 0..<count {
+                host.layoutSubtreeIfNeeded()
+                try await Task.sleep(for: .milliseconds(30))
+            }
+        }
+        try await settle()
+        let scrollView = try XCTUnwrap(Self.scrollView(in: host))
+        // The visible height of the list, below the 40pt filter header.
+        let visibleHeight = scrollView.contentView.bounds.height
+        func press(down: Bool, command: Bool) async throws {
+            let key = down ? NSDownArrowFunctionKey : NSUpArrowFunctionKey
+            let character = String(Character(Unicode.Scalar(key)!))
+            var flags: NSEvent.ModifierFlags = [.function, .numericPad]
+            if command { flags.insert(.command) }
+            let event = try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil, characters: character,
+                    charactersIgnoringModifiers: character, isARepeat: false, keyCode: down ? 125 : 126))
+            window.sendEvent(event)
+            // The selection lives in the box; hand it back as the app would.
+            host.rootView = view(nil)
+            try await settle()
+        }
+        func selectedID() -> String? {
+            if let commit = box.commit, let index = (0..<400).first(where: { tip($0) == commit }) {
+                return SidebarItem.branch(id: names[index], tip: commit).scrollID
+            }
+            return box.worktree.map { SidebarItem.worktree($0).scrollID }
+        }
+        func assertInView(_ label: String, file: StaticString = #filePath, line: UInt = #line) throws {
+            let id = try XCTUnwrap(selectedID(), label, file: file, line: line)
+            let frame = try XCTUnwrap(frames.frames[id], "\(label): the row is built", file: file, line: line)
+            XCTAssertGreaterThanOrEqual(
+                frame.minY, SidebarSectionHeader.height - 0.5, "\(label): below the header \(frame)", file: file,
+                line: line)
+            XCTAssertLessThanOrEqual(
+                frame.maxY, visibleHeight + 0.5, "\(label): above the bottom \(frame)", file: file,
+                line: line)
+        }
+        for round in 1...3 {
+            box.worktree = nil
+            try await press(down: true, command: true)
+            XCTAssertEqual(box.commit, tip(399), "⌘↓ \(round)")
+            try assertInView("⌘↓ \(round)")
+            box.commit = nil
+            try await press(down: false, command: true)
+            // The filter (`b`) leaves no worktree, so the first row is the first branch.
+            XCTAssertEqual(box.commit, tip(0), "⌘↑ \(round)")
+            try assertInView("⌘↑ \(round)")
+        }
+        // From the last row, `↑` twenty times: past the top of the view, the row above must not hide under the header.
+        try await press(down: true, command: true)
+        for step in 1...20 {
+            try await press(down: false, command: false)
+            try assertInView("↑ \(step)")
+        }
+    }
+
     /// The empty sidebar offers `Add Repository…` (screens.md, next step).
     func testEmptySidebarOffersAddRepository() throws {
         var added = 0

@@ -114,6 +114,13 @@ struct SidebarPanel: View {
     @State private var chosenRef: String?
     /// Where `↑`/`↓` start: the item opened last, or the anchor `⌘4` leaves before the first issue.
     @State private var cursor: SidebarCursor?
+    /// Where the built rows are and how tall the visible area is, so the arrow keys scroll only when needed and never
+    /// leave a row under the pinned section header (#636). A test can hand in its own `sidebarRowFrames`.
+    @State private var ownRowFrames = SidebarRowFrames()
+    @Environment(\.sidebarRowFrames) private var injectedRowFrames
+    @State private var viewportHeight: CGFloat = 0
+
+    private var rowFrames: SidebarRowFrames { injectedRowFrames ?? ownRowFrames }
 
     /// Scroll target just before ISSUES.
     static let issuesAnchor = "sidebar.issues"
@@ -179,6 +186,13 @@ struct SidebarPanel: View {
                         .onKeyPress(keys: [.upArrow, .downArrow]) { press in
                             move(down: press.key == .downArrow, toEnd: press.modifiers.contains(.command), proxy: proxy)
                         }
+                    }
+                    .environment(\.sidebarRowFrames, rowFrames)
+                    .coordinateSpace(name: SidebarRowFrameSpace.name)
+                    .onGeometryChange(for: CGFloat.self) {
+                        $0.size.height
+                    } action: {
+                        viewportHeight = $0
                     }
                     // `⌘4` (interaction.md §3.1): open ISSUES, scroll to it, and focus the sidebar. The next `↓` picks the
                     // first issue unless one is selected (`.issuesStart`).
@@ -264,8 +278,41 @@ extension SidebarPanel {
             return items.isEmpty ? .ignored : .handled
         }
         activate(target)
-        proxy.scrollTo(target.scrollID)
+        reveal(target.scrollID, down: down, proxy: proxy)
         return .handled
+    }
+
+    /// Brings a row the arrow keys moved to into view, unless it already is: fully below the pinned section header and
+    /// above the bottom (#636). Moving down lands it at the bottom; moving up, just under the header. A row the lazy
+    /// stack has not built is placed from estimated heights, so the check runs again over the next frames.
+    private func reveal(_ id: String, down: Bool, proxy: ScrollViewProxy) {
+        guard !isInView(id) else { return }
+        scroll(to: id, down: down, proxy: proxy)
+        Task { @MainActor in
+            for _ in 0..<3 {
+                try? await Task.sleep(for: .milliseconds(16))
+                if isInView(id) { return }
+                scroll(to: id, down: down, proxy: proxy)
+            }
+        }
+    }
+
+    private func isInView(_ id: String) -> Bool {
+        guard viewportHeight > 0, let frame = rowFrames.frames[id] else { return false }
+        return frame.minY >= SidebarSectionHeader.height - 0.5 && frame.maxY <= viewportHeight + 0.5
+    }
+
+    private func scroll(to id: String, down: Bool, proxy: ScrollViewProxy) {
+        if down {
+            proxy.scrollTo(id, anchor: .bottom)
+        } else {
+            // `anchor` lines up the same fraction of the row and of the visible area, so the row's top lands at the
+            // header's bottom when the fraction is header / (visible height − row height).
+            let rowHeight = rowFrames.frames[id]?.height ?? Tokens.Size.rowSidebar
+            let room = viewportHeight - rowHeight
+            let fraction = room > 0 ? min(1, SidebarSectionHeader.height / room) : 0
+            proxy.scrollTo(id, anchor: UnitPoint(x: 0.5, y: fraction))
+        }
     }
 }
 
