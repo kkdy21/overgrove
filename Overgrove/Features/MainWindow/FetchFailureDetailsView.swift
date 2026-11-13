@@ -68,7 +68,8 @@ private struct FetchFailureSection: View {
                     } label: {
                         Image(systemName: "doc.on.doc").hitTarget()
                     }
-                    .buttonStyle(.borderless)
+                    // Pointer feedback like the other icon buttons in panels (#571, #616).
+                    .buttonStyle(.hover)
                     .help("Copy Command")
                     .accessibilityLabel("Copy command \(command)")
                 }
