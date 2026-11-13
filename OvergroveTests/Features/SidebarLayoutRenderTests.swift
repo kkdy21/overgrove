@@ -403,6 +403,88 @@ final class SidebarLayoutRenderTests: XCTestCase {
         }
     }
 
+    /// ISSUES rows register their frames too (#645): `⌘↓`, `⌘↑`, and `↑` keep the selected issue below the pinned header
+    /// and above the bottom, as for the other sections (#636).
+    func testIssueRowsStayInViewBelowTheHeader() async throws {
+        let state = AppState.mockup(layoutStore: store)
+        let issues = (1...200).map {
+            IssueModelsTests.issue($0, String(format: "Issue %03d", $0), updated: TimeInterval(1_000 - $0))
+        }
+        let model = IssueListModel(
+            content: .loaded(repository: .github(IssueModelsTests.repository), issues: issues), isLoading: false)
+        final class Box { var selected: Int? }
+        let box = Box()
+        let frames = SidebarRowFrames()
+        let size = CGSize(width: 220, height: 400)
+        func view(_ request: PanelFocusRequest?) -> AnyView {
+            AnyView(
+                SidebarPanel(
+                    hasRepository: true, worktreeStatus: state.worktreeList, worktreeModel: state.worktreeListModel,
+                    issueModel: model, selectedIssue: box.selected, onSelectIssue: { box.selected = $0 },
+                    filter: .constant("Issue")
+                )
+                .environment(\.panelFocusRequest, request)
+                .environment(\.sidebarRowFrames, frames)
+                .frame(width: size.width, height: size.height))
+        }
+        let host = NSHostingView(rootView: view(nil))
+        host.frame = NSRect(origin: .zero, size: size)
+        let window = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: size.width, height: size.height),
+            styleMask: [.borderless], backing: .buffered, defer: true)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.layoutSubtreeIfNeeded()
+        host.rootView = view(PanelFocusRequest(panel: .sidebar))
+        func settle(_ count: Int = 8) async throws {
+            for _ in 0..<count {
+                host.layoutSubtreeIfNeeded()
+                try await Task.sleep(for: .milliseconds(30))
+            }
+        }
+        try await settle()
+        let scrollView = try XCTUnwrap(Self.scrollView(in: host))
+        let visibleHeight = scrollView.contentView.bounds.height
+        func press(down: Bool, command: Bool) async throws {
+            let key = down ? NSDownArrowFunctionKey : NSUpArrowFunctionKey
+            let character = String(Character(Unicode.Scalar(key)!))
+            var flags: NSEvent.ModifierFlags = [.function, .numericPad]
+            if command { flags.insert(.command) }
+            let event = try XCTUnwrap(
+                NSEvent.keyEvent(
+                    with: .keyDown, location: .zero, modifierFlags: flags, timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil, characters: character,
+                    charactersIgnoringModifiers: character, isARepeat: false, keyCode: down ? 125 : 126))
+            window.sendEvent(event)
+            host.rootView = view(nil)
+            try await settle()
+        }
+        func assertInView(_ label: String, file: StaticString = #filePath, line: UInt = #line) throws {
+            let number = try XCTUnwrap(box.selected, label, file: file, line: line)
+            let id = SidebarItem.issue(number).scrollID
+            let frame = try XCTUnwrap(frames.frames[id], "\(label): the row is built", file: file, line: line)
+            XCTAssertGreaterThanOrEqual(
+                frame.minY, SidebarSectionHeader.height - 0.5, "\(label): below the header \(frame)", file: file,
+                line: line)
+            XCTAssertLessThanOrEqual(
+                frame.maxY, visibleHeight + 0.5, "\(label): above the bottom \(frame)", file: file, line: line)
+        }
+        // The filter (`Issue`) leaves only the issues; the most recently updated (#1) is first, #200 last.
+        for round in 1...2 {
+            try await press(down: true, command: true)
+            XCTAssertEqual(box.selected, 200, "⌘↓ \(round)")
+            try assertInView("⌘↓ \(round)")
+            try await press(down: false, command: true)
+            XCTAssertEqual(box.selected, 1, "⌘↑ \(round)")
+            try assertInView("⌘↑ \(round)")
+        }
+        try await press(down: true, command: true)
+        for step in 1...20 {
+            try await press(down: false, command: false)
+            try assertInView("↑ \(step)")
+        }
+    }
+
     /// The empty sidebar offers `Add Repository…` (screens.md, next step).
     func testEmptySidebarOffersAddRepository() throws {
         var added = 0
