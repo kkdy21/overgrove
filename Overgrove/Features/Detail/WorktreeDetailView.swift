@@ -112,7 +112,7 @@ private struct InfoCard: View {
                                 } label: {
                                     Image(systemName: "doc.on.doc").hitTarget()
                                 }
-                                .buttonStyle(.hover)
+                                .hoverButtonStyle()
                                 .help("Copy Path")
                                 .accessibilityLabel("Copy path")
                             }
@@ -250,7 +250,7 @@ private struct SecurityCard: View {
             } label: {
                 Image(systemName: "doc.on.doc")
             }
-            .buttonStyle(.hover)
+            .hoverButtonStyle()
             .hitTarget()
             .help("Copy Report: key names and results only, without values, paths, or remote URLs")
             .accessibilityLabel("Copy security report")
@@ -301,7 +301,7 @@ private struct SecurityRowView: View {
                         .foregroundStyle(Tokens.Color.textSecondary)
                         .hitTarget()
                     }
-                    .buttonStyle(.hover)
+                    .hoverButtonStyle()
                     .accessibilityLabel(isExpanded ? "Hide keys" : "Show keys" as LocalizedStringKey)
                 }
             }
@@ -417,7 +417,7 @@ struct DetailIconSegments: View {
         .accessibilityLabel(Text("View"))
     }
 
-    private func segment(
+    func segment(
         _ title: LocalizedStringKey, symbol: String, isSelected: Bool, action: @escaping () -> Void
     ) -> some View {
         Button {
@@ -433,14 +433,15 @@ struct DetailIconSegments: View {
                     RoundedRectangle(cornerRadius: Tokens.Radius.sm - 1, style: .continuous)
                         .fill(isSelected ? Tokens.Color.surfaceSelection : Color.clear)
                 }
-                // The other segment answers the pointer like the panels' icon buttons (#571).
-                .hoverHighlight(.rounded(radius: Tokens.Radius.sm - 1), isEnabled: !isSelected)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // The other segment answers the pointer like the panels' icon buttons (#571). The pointer is tracked outside
+        // the `Button` and the tooltip wraps that directly, as on a file row (#658).
+        .hoverHighlight(.rounded(radius: Tokens.Radius.sm - 1), isEnabled: !isSelected)
+        .help(Text(title))
         .accessibilityLabel(Text(title))
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .help(Text(title))
     }
 }
 

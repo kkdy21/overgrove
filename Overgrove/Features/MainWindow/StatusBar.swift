@@ -230,7 +230,7 @@ struct StatusBar: View {
     /// is taken back so the text stays where the other fields' text is.
     private func clickable(_ item: StatusBarItem, action: @escaping () -> Void) -> some View {
         Button(action: action) { field(item) }
-            .buttonStyle(.hover)
+            .hoverButtonStyle()
             .padding(.horizontal, -Tokens.Spacing.xs)
             // The pointing hand, like the dividers' resize cursor (`View.cursor`, #634): it never outlives the field in an
             // inactive window or after the pointer leaves.

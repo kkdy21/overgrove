@@ -305,7 +305,7 @@ struct GraphSearchBar: View {
                 .padding(.trailing, -Tokens.Spacing.xs)
         }
         // Pointer feedback like the other icon buttons in panels (#571, #616).
-        .buttonStyle(.hover)
+        .hoverButtonStyle()
         .disabled(result.matches.isEmpty)
         .padding(.horizontal, Tokens.Spacing.md)
         .frame(height: Tokens.Size.columnHeader)

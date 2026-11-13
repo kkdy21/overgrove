@@ -14,7 +14,7 @@ struct CommitComparisonCenterView: View {
                 Button(action: onBack) {
                     Label("Graph", systemImage: "chevron.left")
                 }
-                .buttonStyle(.hover)
+                .hoverButtonStyle()
                 // `⎋` is handled once, by the window (`AppState.escape`, #633).
                 .help("Back to the graph (⎋)")
                 Text("Compare").font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
@@ -22,7 +22,7 @@ struct CommitComparisonCenterView: View {
                 Button(action: onSwap) {
                     Image(systemName: "arrow.left.arrow.right")
                 }
-                .buttonStyle(.hover)
+                .hoverButtonStyle()
                 .help("Swap base and target")
                 .accessibilityLabel("Swap base and target")
                 Spacer(minLength: Tokens.Spacing.sm)

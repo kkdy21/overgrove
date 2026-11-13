@@ -100,18 +100,74 @@ final class InteractionTests: XCTestCase {
                 }
                 .frame(maxHeight: .infinity)
                 PanelFooter {
-                    Button("‹ Graph") {}.buttonStyle(.hover)
+                    Button("‹ Graph") {}.hoverButtonStyle()
                     Spacer()
                     Button {
                     } label: {
                         Image(systemName: "doc.on.doc")
                     }
-                    .buttonStyle(.hover)
+                    .hoverButtonStyle()
                 }
             }
             let bitmap = try render(view, size: CGSize(width: 300, height: 120), appearance: appearance)
             XCTAssertGreaterThan(bitmap.pixelsWide, 0)
             try keep(bitmap, "footer-\(name)")
         }
+    }
+
+    // MARK: - Tooltips over hover buttons (#658)
+
+    /// The type of a view, as SwiftUI nests its modifiers: `ModifiedContent<Inner, Modifier>` lists the modifier
+    /// applied last on the outside.
+    private func typeName(_ view: some View) -> String { String(describing: type(of: view)) }
+
+    /// Checks that `tracker` sits right outside the button's style and that `.help` wraps it. SwiftUI names the help
+    /// wrapper `HelpView<…>` in current SDKs; a `ModifiedContent<…, Help…>` form would come
+    /// after the tracker instead. Either way the tracker must not be inside the button's label.
+    private func assertTooltipWrapsTracking(
+        _ name: String, style: String, tracker: String, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        guard let styleEnd = name.range(of: style + ">>, " + tracker)?.upperBound else {
+            return XCTFail("\(tracker) is not right outside the button's style: \(name)", file: file, line: line)
+        }
+        // `HelpView<ModifiedContent<…Button…, Style>, Tracker>>`: the help wrapper opens right before the button and
+        // closes right after the tracker.
+        let helpWraps =
+            name.contains("HelpView<ModifiedContent<ModifiedContent<Button<")
+            && name.contains(style + ">>, " + tracker + ">>")
+        let helpIsAfter = name[styleEnd...].contains("Help")
+        XCTAssertTrue(helpWraps || helpIsAfter, "help does not wrap the tracking: \(name)", file: file, line: line)
+        XCTAssertEqual(
+            name.components(separatedBy: tracker).count, 2, "tracked only once, outside the label: \(name)",
+            file: file, line: line)
+    }
+
+    /// Tooltips on buttons stayed up or stopped appearing when the pointer was tracked inside the `Button` and `.help`
+    /// was put outside it. File rows, whose tooltip directly wraps the hover tracking, behaved. Hover buttons now track
+    /// the pointer outside the `Button`, so `.help` wraps the tracking directly.
+    func testHoverButtonTracksThePointerOutsideTheButton() {
+        assertTooltipWrapsTracking(
+            typeName(Button("Copy") {}.hoverButtonStyle().help("Copy Path")),
+            style: "ButtonStyleContainerModifier<HoverButtonStyle", tracker: "ButtonHoverTracking")
+    }
+
+    func testDetailIconSegmentTracksThePointerOutsideTheButton() {
+        let segments = DetailIconSegments(isWorktree: false, onChanges: {}, onWorktree: {})
+        let segment = segments.segment("Changes", symbol: "list.bullet", isSelected: false, action: {})
+        assertTooltipWrapsTracking(
+            typeName(segment), style: "PrimitiveButtonStyleContainerModifier<PlainButtonStyle",
+            tracker: "HoverHighlight")
+    }
+
+    /// The style only draws the hover state handed to it from outside the button.
+    func testHoverButtonStyleDrawsTheHoverStateItIsGiven() throws {
+        let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        func button(hovered: Bool) -> some View {
+            Button("Copy") {}.buttonStyle(HoverButtonStyle()).environment(\.isButtonHovered, hovered)
+        }
+        let size = CGSize(width: 80, height: 30)
+        let idle = try render(button(hovered: false), size: size, appearance: appearance).tiffRepresentation
+        let hovered = try render(button(hovered: true), size: size, appearance: appearance).tiffRepresentation
+        XCTAssertNotEqual(idle, hovered)
     }
 }
