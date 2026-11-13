@@ -266,24 +266,7 @@ struct WorktreeRowView: View {
     private var pullRequest: PullRequestBadge? { pullRequests.badge(forBranch: row.branchRef) }
 
     @ViewBuilder
-    private var secondLine: some View {
-        HStack(spacing: Tokens.Spacing.xs) {
-            if row.isMain && !row.isSubtitleWarning {
-                Text("main worktree")
-                    .font(Tokens.Font.pill)
-                    .foregroundStyle(Tokens.Color.textSecondary)
-                    .padding(.horizontal, Tokens.Spacing.xs)
-                    .controlOutline(Capsule())
-            }
-            if let subtitle = row.subtitle {
-                Text(subtitle)
-                    .font(Tokens.Font.caption)
-                    .foregroundStyle(row.isSubtitleWarning ? Tokens.Color.statusPrunable : Tokens.Color.textTertiary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-            }
-        }
-    }
+    private var secondLine: some View { WorktreeRowSecondLine(row: row) }
 
     /// 22pt tile with the `tree` symbol: the branch tip's lane colour at 18% with a lane-coloured `tree`, so the row
     /// and its line in the graph read as one (art-direction.md §6, #255). Detached and missing worktrees, and tips
@@ -376,6 +359,35 @@ private struct WorktreeRowMenu: View {
         if actions.hasEditor {
             Button("Open in Editor") { actions.openEditor(row.id) }
                 .disabled(row.isDimmed || !row.id.isRepresentable)
+        }
+    }
+}
+
+/// A worktree row's second line: the `main worktree` pill and the folder or branch subtitle (#604).
+struct WorktreeRowSecondLine: View {
+    let row: WorktreeRow
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.xs) {
+            if row.isMain && !row.isSubtitleWarning {
+                // One line at any sidebar width: the pill keeps its size and the path beside it gives way
+                // (information-architecture.md §4.3, #604).
+                Text("main worktree")
+                    .font(Tokens.Font.pill)
+                    .foregroundStyle(Tokens.Color.textSecondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, Tokens.Spacing.xs)
+                    .controlOutline(Capsule())
+                    .fixedSize()
+                    .layoutPriority(1)
+            }
+            if let subtitle = row.subtitle {
+                Text(subtitle)
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(row.isSubtitleWarning ? Tokens.Color.statusPrunable : Tokens.Color.textTertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
         }
     }
 }

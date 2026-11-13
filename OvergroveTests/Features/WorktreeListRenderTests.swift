@@ -72,3 +72,37 @@ final class WorktreeListRenderTests: XCTestCase {
         }
     }
 }
+
+/// #604: at the sidebar's narrowest widths the `main worktree` pill stays on one line and the path beside it gives way.
+@MainActor
+final class WorktreeSecondLineTests: XCTestCase {
+    func testThePillStaysOnOneLineWhenNarrow() throws {
+        let model = WorktreeListModel(listing: .mockup, focused: nil, home: "/tmp/dev")
+        let main = try XCTUnwrap(model.rows.first { $0.isMain && !$0.isSubtitleWarning })
+        func height(_ width: CGFloat) -> CGFloat {
+            let host = NSHostingView(
+                rootView: WorktreeRowSecondLine(row: main).frame(width: width, alignment: .leading))
+            host.frame = NSRect(x: 0, y: 0, width: width, height: 100)
+            return host.fittingSize.height
+        }
+        // The row's second line at 220 and 228pt sidebars (row insets and the 22pt tile leave about 150pt) and
+        // narrower, against a width with room for everything.
+        let wide = height(400)
+        for width: CGFloat in [150, 130, 100] {
+            XCTAssertEqual(height(width), wide, accuracy: 0.5, "one line at \(width)pt")
+        }
+        // The pill keeps its full text (`fixedSize`) and the path truncates; `OVERGROVE_SNAPSHOT_DIR` keeps the PNG.
+        if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"] {
+            let host = NSHostingView(
+                rootView: WorktreeRowSecondLine(row: main).frame(width: 110, alignment: .leading)
+                    .background(Tokens.Color.surfacePanel))
+            host.frame = NSRect(x: 0, y: 0, width: 110, height: 24)
+            host.layoutSubtreeIfNeeded()
+            if let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: bitmap)
+                try bitmap.representation(using: .png, properties: [:])?
+                    .write(to: URL(fileURLWithPath: directory).appendingPathComponent("worktree-604-110.png"))
+            }
+        }
+    }
+}

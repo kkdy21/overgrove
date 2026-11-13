@@ -53,6 +53,7 @@ While the major version is `0`, minor versions may contain breaking changes.
   issue.
 - A selected sidebar row in an unfocused list is outlined, so it no longer looks like the row under the pointer, and
   the light hover fill is easier to see.
+- The `main worktree` pill stays on one line in a narrow sidebar; the path beside it shortens instead.
 - Sidebar rows respond to the pointer, select the same way everywhere (grey when the list does not have keyboard
   focus), and sections and folders open and close with the standard disclosure motion (at once under Reduce Motion).
   Clicking a LOCAL or REMOTE branch selects its tip commit.
