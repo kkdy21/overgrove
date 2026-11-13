@@ -189,7 +189,7 @@ struct IssueNumberBadge: View {
             .padding(.horizontal, Tokens.Spacing.xs)
             // A link keeps its text-coloured outline under Increase Contrast; an inert number gets `border.strong`.
             .controlOutline(
-                Capsule(), normal: isKnown ? Tokens.Color.textSecondary : Tokens.Color.borderSeparator,
+                Capsule(), normal: isKnown ? Tokens.Color.textSecondary : Tokens.Color.borderChip,
                 increased: isKnown ? Tokens.Color.textSecondary : Tokens.Color.borderStrong
             )
             .fixedSize()

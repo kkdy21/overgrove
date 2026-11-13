@@ -48,6 +48,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Chip outlines (the main worktree tag, an issue number not in the list) stay visible on a selected row in dark mode,
+  and the pull request pill leaves room between its symbol and its rounded edge.
 - The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
   section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
   issue.
