@@ -56,7 +56,9 @@ final class StashDetailModelTests: XCTestCase {
         let model = StashDetailModel(stash: stash, state: .loaded(detail))
         XCTAssertEqual(model.includes, "index · working tree · untracked")
         XCTAssertEqual(model.files?.map(\.fileName), ["Status.swift", "logo.png", "Untracked.swift"])
-        XCTAssertEqual(model.files?.map(\.lineChange), ["+42 −8", nil, "+20 −0"])
+        XCTAssertEqual(
+            model.files?.map(\.file.lineCount),
+            [.lines(added: 42, deleted: 8), .binary, .lines(added: 20, deleted: 0)])
         XCTAssertEqual(model.files?.map(\.isFromUntracked), [false, false, true])
         XCTAssertTrue(model.hasUntrackedFiles)
     }

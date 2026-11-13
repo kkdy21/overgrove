@@ -85,7 +85,8 @@ final class CommitDetailModelTests: XCTestCase {
         XCTAssertEqual(model.totalLineChange, "+115 −6")
         guard case .loaded(let rows, let hidden) = model.files else { return XCTFail("\(model.files)") }
         XCTAssertEqual(rows.map(\.kindLetter), ["A", "M", "M"])
-        XCTAssertEqual(rows.map(\.lineChange), ["+112", "+3 −6", "binary"], "zero parts are left out")
+        XCTAssertEqual(
+            rows.map(\.stat.lineCount), [.lines(added: 112, deleted: 0), .lines(added: 3, deleted: 6), .binary])
         XCTAssertEqual(rows.first?.fileName, "limiter.go")
         XCTAssertEqual(hidden, 0)
     }
