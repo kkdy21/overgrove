@@ -104,21 +104,20 @@ struct StashDetailView: View {
         }
     }
 
+    /// The whole message and when it was stashed. `stash@{n}` is the panel's title already, so it is not repeated (#579).
     private var header: some View {
-        VStack(alignment: .leading, spacing: Tokens.Spacing.xxs) {
-            HStack {
-                Text(model.refName).font(Tokens.Font.headline).foregroundStyle(Tokens.Color.textPrimary)
-                Spacer()
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    Text(StatusBarItem.relative(model.date, now: context.date))
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                }
-            }
+        HStack(alignment: .firstTextBaseline, spacing: Tokens.Spacing.sm) {
             Text(model.subject)
                 .font(Tokens.Font.callout)
-                .foregroundStyle(Tokens.Color.textSecondary)
+                .foregroundStyle(Tokens.Color.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                Text(StatusBarItem.relative(model.date, now: context.date))
+                    .font(Tokens.Font.caption)
+                    .foregroundStyle(Tokens.Color.textTertiary)
+                    .fixedSize()
+            }
         }
     }
 
@@ -134,6 +133,7 @@ struct StashDetailView: View {
                         Text("Branch").font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textTertiary)
                         HStack(spacing: Tokens.Spacing.xs) {
                             Text(branch).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
+                                .lineLimit(2)
                             Text("(from message)").font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textTertiary)
                         }
                     }
@@ -149,8 +149,10 @@ struct StashDetailView: View {
             Text(value)
                 .font(mono ? Tokens.Font.monoSmall : Tokens.Font.callout)
                 .foregroundStyle(Tokens.Color.textPrimary)
-                .lineLimit(1)
+                // Folds to a second line in a narrow panel, as S-05's rows do (#579).
+                .lineLimit(2)
                 .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

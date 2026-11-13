@@ -164,27 +164,31 @@ private struct DiffBody: View {
         case split([DiffDocument.SplitRow])
     }
 
-    /// Rows span at least the visible width so their backgrounds reach the edge; longer lines scroll.
+    /// Unified rows span at least the visible width so their backgrounds reach the edge; longer lines scroll
+    /// sideways. Split sides each take half the visible width and wrap a longer line, so both sides stay in view
+    /// at the default centre width (#579).
     private func rowsView(_ rows: AnyRows) -> some View {
         GeometryReader { proxy in
-            ScrollView([.vertical, .horizontal]) {
-                Group {
-                    switch rows {
-                    case .split(let rows):
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(rows.indices, id: \.self) { index in
-                                SplitRowView(row: rows[index]).frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                    case .unified(let rows):
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            ForEach(rows.indices, id: \.self) { index in
-                                UnifiedRowView(row: rows[index]).frame(maxWidth: .infinity, alignment: .leading)
-                            }
+            switch rows {
+            case .split(let rows):
+                let side = max((proxy.size.width - 1) / 2, 0)
+                ScrollView(.vertical) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(rows.indices, id: \.self) { index in
+                            SplitRowView(row: rows[index], sideWidth: side)
                         }
                     }
+                    .frame(width: proxy.size.width, alignment: .leading)
                 }
-                .frame(minWidth: proxy.size.width, alignment: .leading)
+            case .unified(let rows):
+                ScrollView([.vertical, .horizontal]) {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(rows.indices, id: \.self) { index in
+                            UnifiedRowView(row: rows[index]).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .frame(minWidth: proxy.size.width, alignment: .leading)
+                }
             }
         }
     }
@@ -233,6 +237,8 @@ private struct UnifiedRowView: View {
 
 private struct SplitRowView: View {
     let row: DiffDocument.SplitRow
+    /// Half the visible width less the separator.
+    let sideWidth: CGFloat
 
     var body: some View {
         switch row {
@@ -243,29 +249,30 @@ private struct SplitRowView: View {
         case .notice(let text):
             UnifiedRowView(row: .notice(text))
         case .pair(let left, let right):
+            // Both sides grow to the taller one's wrapped height so their backgrounds line up.
             HStack(spacing: 0) {
                 half(left)
                 Tokens.Color.borderSeparator.frame(width: 1)
                 half(right)
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private func half(_ side: DiffDocument.Side?) -> some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
             LineNumber(number: side?.number, kind: side?.kind ?? .context)
-            LineText(kind: side?.kind ?? .context, text: side?.text ?? "", marks: side?.marks ?? .none)
+            LineText(
+                kind: side?.kind ?? .context, text: side?.text ?? "", marks: side?.marks ?? .none, wraps: true)
         }
-        .frame(minWidth: Self.halfWidth, alignment: .leading)
+        .frame(width: sideWidth, alignment: .topLeading)
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(side?.kind.background ?? Tokens.Color.surfacePanel.opacity(0))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
             side.map { $0.kind.accessibilityPrefix + $0.text + DiffLineMarkup.changedSuffix($0.text, $0.marks) }
                 ?? "empty")
     }
-
-    /// Each side starts at least this wide so the two columns line up; no token.
-    static let halfWidth: CGFloat = 520
 }
 
 private struct LineNumber: View {
@@ -285,11 +292,13 @@ private struct LineText: View {
     let kind: DiffDocument.LineKind
     let text: String
     let marks: DiffDocument.LineMarks
+    /// Split wraps a line longer than its side; Unified keeps it on one line and scrolls sideways.
+    var wraps = false
 
     @Environment(\.diffShowsWhitespace) private var showsWhitespace
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
             // The sign, so additions and deletions do not rely on colour alone.
             Text(kind.sign)
                 .font(Tokens.Font.mono)
@@ -298,12 +307,13 @@ private struct LineText: View {
             Text(DiffLineMarkup.attributed(text, kind: kind, marks: marks, showsWhitespace: showsWhitespace))
                 .font(kind == .noNewline ? Tokens.Font.caption : Tokens.Font.mono)
                 .foregroundStyle(kind == .noNewline ? Tokens.Color.textTertiary : Tokens.Color.textPrimary)
-                .lineLimit(1)
-                .fixedSize(horizontal: true, vertical: false)
+                .lineLimit(wraps ? nil : 1)
+                .fixedSize(horizontal: !wraps, vertical: wraps)
+                .frame(minHeight: Self.rowHeight, alignment: .leading)
                 .textSelection(.enabled)
         }
         .padding(.trailing, Tokens.Spacing.md)
-        .frame(minHeight: Self.rowHeight, alignment: .leading)
+        .frame(minHeight: Self.rowHeight, alignment: .topLeading)
     }
 
     /// One code line; no token for diff rows.
