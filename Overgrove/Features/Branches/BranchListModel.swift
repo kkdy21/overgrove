@@ -78,9 +78,11 @@ struct BranchListModel: Equatable {
     ///   - remoteNames: Configured remotes, to split `refs/remotes/<remote>/<branch>` when a name has `/`.
     ///   - detachedHeads: Commits a worktree has checked out detached, for the TAGS `tree` mark.
     ///   - githubRemotes: The verified listing's github.com remotes by name, for Open on GitHub (#406).
+    ///   - fetchRefspecs: Each remote's fetch refspecs, by name: a remote-tracking row opens on GitHub only when they
+    ///     map it from a branch (#490).
     init(
         refs: RefParser.Listing, checkedOut: Set<String>, remoteNames: [String], detachedHeads: Set<ObjectID> = [],
-        githubRemotes: [String: GitHubRepository] = [:]
+        githubRemotes: [String: GitHubRepository] = [:], fetchRefspecs: [String: [String]] = [:]
     ) {
         tags = TagListModel(tags: refs.tags, detachedHeads: detachedHeads)
         let symbolic = refs.branches.filter { $0.symbolicTarget != nil }
@@ -102,34 +104,36 @@ struct BranchListModel: Equatable {
         local = pinned.map(BranchNode.branch) + Self.folders(localRows.filter { !$0.isDefault }, idPrefix: "local")
 
         remoteCount = remotes.count
-        // Longest configured remote first, so `team/a` wins over `team` for `refs/remotes/team/a/x`.
-        let configured = remoteNames.sorted { $0.count > $1.count }
-        var byRemote: [String: [BranchRow]] = [:]
+        // The longest configured remote wins, so `team/a` owns `refs/remotes/team/a/x`, not `team` (#466, #489).
+        let index = RemoteNameIndex(remoteNames + githubRemotes.keys)
+        // Parsed once per remote, not per row (T15).
+        let parsedRefspecs = fetchRefspecs.mapValues { $0.compactMap(FetchRefspec.init) }
+        // Grouped by the name's bytes: `String` keys would merge a remote spelled in NFC with one in NFD (#489).
+        var byRemote: [[UInt8]: (name: String, rows: [BranchRow])] = [:]
         for branch in remotes {
             let rest = String(branch.fullName.dropFirst("refs/remotes/".count))
             // Compared and cut in UTF-8 bytes: by characters, a combining mark after `/` would join it and hide the
             // match (security review of #72).
             let remote =
-                configured.first { rest.utf8.starts(with: ($0 + "/").utf8) }
+                index.remote(of: rest)
                 ?? {
                     guard case .remote(let guess) = branch.kind else { return "" }
                     return guess
                 }()
             let cut = String(decoding: rest.utf8.dropFirst(remote.utf8.count + 1), as: UTF8.self)
             let name = cut.isEmpty ? rest : cut
-            byRemote[remote, default: []].append(
+            byRemote[Array(remote.utf8), default: (remote, [])].rows.append(
                 Self.row(
                     branch, name: name, isCheckedOut: false, isDefault: false,
                     gitHub: GitHubBranchTarget.forRemoteRef(
-                        branch.fullName, remotes: githubRemotes, configuredRemotes: remoteNames)))
+                        branch.fullName, remotes: githubRemotes, index: index, fetchRefspecs: parsedRefspecs)))
         }
         // `origin` first, then the rest by name (information-architecture.md §4.2).
-        let order = byRemote.keys.sorted { lhs, rhs in
-            if (lhs == "origin") != (rhs == "origin") { return lhs == "origin" }
-            return lhs.localizedStandardCompare(rhs) == .orderedAscending
+        let order = byRemote.values.sorted { lhs, rhs in
+            if (lhs.name == "origin") != (rhs.name == "origin") { return lhs.name == "origin" }
+            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
-        remote = order.map { name in
-            let rows = byRemote[name] ?? []
+        remote = order.map { name, rows in
             return .folder(
                 id: "remote:\(name)", name: PathValidator.displayable(name), count: rows.count,
                 children: Self.folders(rows, idPrefix: "remote:\(name)"))
@@ -203,7 +207,11 @@ struct BranchListModel: Equatable {
             if branch.kind == .local { help.append(Text.noUpstream) }
         }
         if isCheckedOut { help.append(Text.checkedOutInWorktree) }
+        // A branch of a tree or blob (#559): said like a tag of one; Show in Graph has no row to go to.
+        let nonCommit = branch.commit == nil ? TagListModel.target(branch.objectType, branch.target, isTag: false) : nil
+        if let nonCommit { help.append(nonCommit) }
         var label = [full, branch.kind == .local ? Text.localBranch : Text.remoteBranch]
+        if let nonCommit { label.append(nonCommit) }
         if isDefault { label.append(Text.defaultBranch) }
         if isCheckedOut { label.append(Text.checkedOut) }
         if upstream.ahead > 0 { label.append(String(localized: "\(upstream.ahead) ahead")) }
@@ -214,7 +222,7 @@ struct BranchListModel: Equatable {
             id: branch.fullName, name: display, fullDisplayName: full, isCheckedOut: isCheckedOut, isDefault: isDefault,
             ahead: upstream.ahead, behind: upstream.behind, isUpstreamGone: isGone, date: branch.committerDate,
             issueNumber: issueNumber, help: help.joined(separator: "\n"),
-            accessibilityLabel: label.joined(separator: ", "), tip: branch.target,
+            accessibilityLabel: label.joined(separator: ", "), tip: branch.commit,
             upstreamName: branch.upstream.map { PathValidator.displayable(Self.short($0)) },
             upstreamRef: branch.upstream, gitHubTarget: gitHub)
     }

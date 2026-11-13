@@ -62,6 +62,29 @@ While the major version is `0`, minor versions may contain breaking changes.
   install since the last check shows the host's issues without restarting the app. Auto refresh still does not run gh.
 - Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
   that the app cannot read no longer drops the other hosts gh is logged in to.
+- A remote on GitHub's SSH-over-443 endpoint (`ssh://git@ssh.github.com:443/OWNER/NAME`) is read as github.com, so
+  its issues and pull requests show instead of "Not logged in to ssh.github.com".
+- Check Again in the setup assistant also updates the status bar's gh field, the gh accounts, and the trusted GitHub
+  hosts, so issue panels follow a `gh auth login` without another check.
+- Remote-tracking branches of a remote whose name Overgrove does not pass to git (one with `+`, `@`, or non-ASCII
+  from a hand-edited config) stay under their own remote, instead of being grouped under, and opening on GitHub as, a
+  GitHub remote whose name is a prefix of theirs.
+- Open on GitHub for a remote-tracking branch follows the remote's fetch refspecs: a ref fetched from somewhere other
+  than a branch (such as `origin/pr/123` from `refs/pull/123/head`) no longer opens a `tree/` page.
+- Open in Terminal and Open in Editor ask first while the worktree list is still drawn from the in-memory cache: the
+  cached settings check is the previous load's. This load's check decides once it arrives.
+- Open on GitHub and pull request links for a local branch match its upstream remote's name byte for byte, so a
+  hand-edited name that only looks like a GitHub remote's (KELVIN SIGN for `K`, or NFD for NFC) no longer reaches it.
+- Two local branches whose names differ only in Unicode normalization each show their own pull request, and two
+  remote names that differ only that way both go without GitHub links instead of one taking the other's place.
+- The graph's checked-out branch pill follows a switch to another branch on the same commit on the next refresh,
+  keeping the rows, selection, and scroll.
+- A tag of a tree or a file says so in TAGS instead of showing as a commit, and choosing it no longer clears the
+  graph selection while the detail panel keeps the old commit.
+- The graph draws a stash node only for a real stash commit that is not already a row: a plain commit written to
+  `refs/stash`, or a stash a branch points to, no longer appears twice.
+- Compare (S-12) keeps the subject and author of a base or target commit that a rebase or reset drops from the graph,
+  marks it "Not in the graph", and stays open when that row is chosen.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

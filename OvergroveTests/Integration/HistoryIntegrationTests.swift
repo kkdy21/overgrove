@@ -118,10 +118,10 @@ final class HistoryIntegrationTests: XCTestCase {
         XCTAssertEqual(Set(refs.tags.map(\.shortName)), ["v0.0.1", "light-tag"])
         let annotated = try XCTUnwrap(refs.tags.first { $0.shortName == "v0.0.1" })
         XCTAssertEqual(annotated.peeledTarget?.short, "337f477")
-        XCTAssertEqual(annotated.commit.short, "337f477")
+        XCTAssertEqual(annotated.commit?.short, "337f477")
         let lightweight = try XCTUnwrap(refs.tags.first { $0.shortName == "light-tag" })
         XCTAssertNil(lightweight.peeledTarget)
-        XCTAssertEqual(lightweight.commit.short, "4202323")
+        XCTAssertEqual(lightweight.commit?.short, "4202323")
     }
 
     /// INT-12, D4: fetch adds `origin/feat/remote-only`, and afterwards ahead/behind agrees across status

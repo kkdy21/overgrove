@@ -89,23 +89,27 @@ enum AdversarialParserFixtures {
     /// `(initial)`, `한글/🌳-name`, `refs/heads/-odd` and `refs/tags/-lead` (via `update-ref`), an annotated tag `v1-🌳`,
     /// `main` one commit ahead of `origin/main`, `feat/58-x` tracking a missing branch (`gone`), and `origin/HEAD`.
     /// Captured before `%(upstream:remotename)` and `%(upstream:remoteref)` joined the format (#115); those two fields are
-    /// appended as git prints them for this repository (`origin` and `refs/heads/<name>` for `main` and `feat/58-x`).
+    /// appended as git prints them for this repository (`origin` and `refs/heads/<name>` for `main` and `feat/58-x`),
+    /// and so are `%(objecttype)` and `%(*objecttype)` (#432: `tag` and `commit` for `v1-🌳`, `commit` and empty for
+    /// the rest).
     static let refs =
         Data(
             base64Encoded:
                 "cmVmcy9oZWFkcy8oZGV0YWNoZWQpADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAAAgADE3OTM4NTM2"
-                + "NTIAAAAACnJlZnMvaGVhZHMvKGluaXRpYWwpADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAAAgADE3"
-                + "OTM4NTM2NTIAAAAACnJlZnMvaGVhZHMvLW9kZAA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAAIAAx"
-                + "NzkzODUzNjUyAAAAAApyZWZzL2hlYWRzL2ZlYXQvNTgteAA3OTcyMmYyNTcwYzE4YTQzMTVjM2MzZDkwMzU1NzJjNmE1YTBmYzQ1"
-                + "AAByZWZzL3JlbW90ZXMvb3JpZ2luL21pc3NpbmcAIAAxNzkzODUzNjUyAABnb25lAG9yaWdpbgByZWZzL2hlYWRzL21pc3NpbmcK"
-                + "cmVmcy9oZWFkcy9tYWluADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4NGIxZmMAAHJlZnMvcmVtb3Rlcy9vcmln"
-                + "aW4vbWFpbgAqADE3OTM4NTM2NTIAAGFoZWFkIDEAb3JpZ2luAHJlZnMvaGVhZHMvbWFpbgpyZWZzL2hlYWRzL+2VnOq4gC/wn4yz"
-                + "LW5hbWUANGFiNDRiZDgxYTJmZDg4OGU3YWU4NjYwZmEzNTZjMjRhYzg0YjFmYwAAACAAMTc5Mzg1MzY1MgAAAAAKcmVmcy9yZW1v"
-                + "dGVzL29yaWdpbi9IRUFEADc5NzIyZjI1NzBjMThhNDMxNWMzYzNkOTAzNTU3MmM2YTVhMGZjNDUAAAAgADE3OTM4NTM2NTIAcmVm"
-                + "cy9yZW1vdGVzL29yaWdpbi9tYWluAAAACnJlZnMvcmVtb3Rlcy9vcmlnaW4vbWFpbgA3OTcyMmYyNTcwYzE4YTQzMTVjM2MzZDkw"
-                + "MzU1NzJjNmE1YTBmYzQ1AAAAIAAxNzkzODUzNjUyAAAAAApyZWZzL3RhZ3MvLWxlYWQANGFiNDRiZDgxYTJmZDg4OGU3YWU4NjYw"
-                + "ZmEzNTZjMjRhYzg0YjFmYwAAACAAMTc5Mzg1MzY1MgAAAAAKcmVmcy90YWdzL3YxLfCfjLMAM2JhYTc2NDU0ZDM3MzM2YzQzOTFl"
-                + "MWE0NDM2YjY4NDVkMmJkNDMyOQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAgAAAAAAAK"
+                + "NTIAAAAAAGNvbW1pdAAKcmVmcy9oZWFkcy8oaW5pdGlhbCkANGFiNDRiZDgxYTJmZDg4OGU3YWU4NjYwZmEzNTZjMjRhYzg0YjFm"
+                + "YwAAACAAMTc5Mzg1MzY1MgAAAAAAY29tbWl0AApyZWZzL2hlYWRzLy1vZGQANGFiNDRiZDgxYTJmZDg4OGU3YWU4NjYwZmEzNTZj"
+                + "MjRhYzg0YjFmYwAAACAAMTc5Mzg1MzY1MgAAAAAAY29tbWl0AApyZWZzL2hlYWRzL2ZlYXQvNTgteAA3OTcyMmYyNTcwYzE4YTQz"
+                + "MTVjM2MzZDkwMzU1NzJjNmE1YTBmYzQ1AAByZWZzL3JlbW90ZXMvb3JpZ2luL21pc3NpbmcAIAAxNzkzODUzNjUyAABnb25lAG9y"
+                + "aWdpbgByZWZzL2hlYWRzL21pc3NpbmcAY29tbWl0AApyZWZzL2hlYWRzL21haW4ANGFiNDRiZDgxYTJmZDg4OGU3YWU4NjYwZmEz"
+                + "NTZjMjRhYzg0YjFmYwAAcmVmcy9yZW1vdGVzL29yaWdpbi9tYWluACoAMTc5Mzg1MzY1MgAAYWhlYWQgMQBvcmlnaW4AcmVmcy9o"
+                + "ZWFkcy9tYWluAGNvbW1pdAAKcmVmcy9oZWFkcy/tlZzquIAv8J+Msy1uYW1lADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2"
+                + "YzI0YWM4NGIxZmMAAAAgADE3OTM4NTM2NTIAAAAAAGNvbW1pdAAKcmVmcy9yZW1vdGVzL29yaWdpbi9IRUFEADc5NzIyZjI1NzBj"
+                + "MThhNDMxNWMzYzNkOTAzNTU3MmM2YTVhMGZjNDUAAAAgADE3OTM4NTM2NTIAcmVmcy9yZW1vdGVzL29yaWdpbi9tYWluAAAAAGNv"
+                + "bW1pdAAKcmVmcy9yZW1vdGVzL29yaWdpbi9tYWluADc5NzIyZjI1NzBjMThhNDMxNWMzYzNkOTAzNTU3MmM2YTVhMGZjNDUAAAAg"
+                + "ADE3OTM4NTM2NTIAAAAAAGNvbW1pdAAKcmVmcy90YWdzLy1sZWFkADRhYjQ0YmQ4MWEyZmQ4ODhlN2FlODY2MGZhMzU2YzI0YWM4"
+                + "NGIxZmMAAAAgADE3OTM4NTM2NTIAAAAAAGNvbW1pdAAKcmVmcy90YWdzL3YxLfCfjLMAM2JhYTc2NDU0ZDM3MzM2YzQzOTFlMWE0"
+                + "NDM2YjY4NDVkMmJkNDMyOQA0YWI0NGJkODFhMmZkODg4ZTdhZTg2NjBmYTM1NmMyNGFjODRiMWZjAAAgAAAAAAAAdGFnAGNvbW1p"
+                + "dAo="
         ) ?? Data()
 
     /// `rev-list --left-right --count --end-of-options refs/remotes/origin/main...refs/heads/main`.

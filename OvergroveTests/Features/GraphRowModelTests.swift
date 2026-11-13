@@ -33,7 +33,7 @@ final class GraphRowModelTests: XCTestCase {
                 branch("refs/remotes/origin/HEAD", a, symbolic: "refs/remotes/origin/main"),
                 branch("refs/remotes/origin/only", a),
             ],
-            tags: [Tag(fullName: "refs/tags/v1", target: c, peeledTarget: a, date: nil)])
+            tags: [Tag(fullName: "refs/tags/v1", target: c, peeledTarget: a, date: nil, objectType: .commit)])
         let worktrees = [
             worktree("/tmp/dev/repo", branch: "refs/heads/main", head: a),
             worktree("/tmp/dev/wt-feature", branch: "refs/heads/feature", head: a),
@@ -52,6 +52,36 @@ final class GraphRowModelTests: XCTestCase {
         XCTAssertEqual(pills[b]?.map(\.title), ["origin/feature"])
         XCTAssertNil(pills[c], "an annotated tag decorates the commit it points to")
         XCTAssertFalse(pills.values.joined().contains { $0.title == "origin/HEAD" }, "symbolic refs are not drawn")
+    }
+
+    /// #432: a tag of a tree or blob has no row, so it draws no pill, not even on a commit with the same OID.
+    func testTagsOfATreeOrBlobDrawNoPill() {
+        let refs = listing(
+            branches: [],
+            tags: [
+                Tag(fullName: "refs/tags/tree", target: a, peeledTarget: nil, date: nil, objectType: .tree),
+                Tag(fullName: "refs/tags/blob", target: c, peeledTarget: b, date: nil, objectType: .blob),
+                Tag(fullName: "refs/tags/v1", target: a, peeledTarget: nil, date: nil, objectType: .commit),
+            ])
+        let pills = GraphRefDecorations.make(refs: refs, worktrees: [], focused: nil)
+        XCTAssertEqual(pills[a]?.map(\.title), ["v1"])
+        XCTAssertNil(pills[b])
+    }
+
+    /// #559: a local or remote branch of a tree or blob draws no pill either, and a local branch of a tree never
+    /// merges with an `origin/` branch that names the same object.
+    func testBranchesOfATreeOrBlobDrawNoPill() {
+        var tree = branch("refs/heads/tree", a)
+        tree.objectType = .tree
+        var remoteTree = branch("refs/remotes/origin/tree", a)
+        remoteTree.objectType = .tree
+        var blob = branch("refs/remotes/origin/blob", b)
+        blob.objectType = .blob
+        let refs = listing(branches: [tree, remoteTree, blob, branch("refs/heads/main", a)])
+        let pills = GraphRefDecorations.make(refs: refs, worktrees: [], focused: nil)
+        XCTAssertEqual(pills[a]?.map(\.title), ["main"])
+        XCTAssertEqual(pills[a]?.first?.hasMatchingRemote, false)
+        XCTAssertNil(pills[b])
     }
 
     func testFocusedDetachedWorktreeComesFirstAndHostileNamesAreEscaped() {

@@ -170,4 +170,15 @@ final class IssueLinkTests: XCTestCase {
         XCTAssertEqual(rows(model.local).map(\.issueNumber), [7])
         XCTAssertEqual(rows(model.remote).map(\.issueNumber), [nil], "remote rows show no issue badge")
     }
+
+    /// #559: a linked branch of a tree or blob is listed but has no commit to select or outline.
+    func testABranchOfATreeLinksWithoutACommit() {
+        var tree = Self.branch("refs/heads/feat/9-tree")
+        tree.objectType = .tree
+        let index = IssueLinkIndex(
+            listing: Self.listing([tree, Self.branch("refs/heads/fix/9-real", target: Self.other)]))
+        let links = index.links(9).branches
+        XCTAssertEqual(links.map(\.title), ["feat/9-tree", "fix/9-real"])
+        XCTAssertEqual(links.map(\.target), [nil, Self.other])
+    }
 }

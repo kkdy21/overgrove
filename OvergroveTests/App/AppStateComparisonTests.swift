@@ -337,9 +337,119 @@ final class AppStateComparisonStaleTests: XCTestCase {
         state.reload()
         await state.loadTask?.value
         XCTAssertNil(state.comparisonModel?.staleNotice, "a successful load clears it")
+        await state.comparisonTask?.value
+        XCTAssertEqual(loader.compareRequests.count, requests + 1, "the successful load compares again (#412)")
         state.setIncludeUncommitted(false)
         await state.comparisonTask?.value
-        XCTAssertEqual(loader.compareRequests.count, requests + 1)
+        XCTAssertEqual(loader.compareRequests.count, requests + 2)
+    }
+
+    /// #412 A: a comparison dropped by a failed list load does not keep spinning: the next successful load compares
+    /// again, and the base list fills so the base picker works.
+    func testSuccessfulLoadAfterAFailureFinishesTheDroppedComparison() async {
+        let loader = StubComparisonLoader()
+        let state = await comparedState(loader, answers: [.mockup])
+        state.comparison?.bases = []
+        state.setIncludeUncommitted(false)
+        state.comparisonListFailed(.git(.timeout(seconds: 15)))
+        XCTAssertEqual(state.comparison?.result, .loading, "dropped while running")
+        for _ in 0..<10 { await Task.yield() }
+        XCTAssertEqual(state.comparison?.result, .loading, "the dropped comparison never lands")
+
+        state.reload()
+        await state.loadTask?.value
+        await state.comparisonTask?.value
+        guard case .loaded(let comparison) = state.comparison?.result else { return XCTFail("still spinning") }
+        XCTAssertFalse(comparison.includesWorkingTree, "compared with the current options")
+        XCTAssertFalse(state.comparison?.bases.isEmpty ?? true, "the base picker has its branches")
+    }
+
+    /// #412: a list load that succeeds while a comparison runs does not restart it (files written all the time would
+    /// keep it from ever ending); one more comparison follows when it ends, however many loads came meanwhile.
+    func testLoadsDuringAComparisonAddOneMoreAfterIt() async {
+        let loader = StubComparisonLoader()
+        let state = await comparedState(loader, answers: [.mockup])
+        let requests = loader.compareRequests.count
+        state.setIncludeUncommitted(false)
+        let running = state.comparisonTask
+        state.comparisonListSucceeded()
+        state.comparisonListSucceeded()
+        XCTAssertFalse(running?.isCancelled ?? true, "the running comparison is not restarted")
+        await running?.value
+        await state.comparisonTask?.value
+        XCTAssertEqual(loader.compareRequests.count, requests + 2, "it, then one more")
+        XCTAssertFalse(state.isComparisonRunning)
+        guard case .loaded = state.comparison?.result else { return XCTFail("the comparison ends") }
+    }
+
+    /// #412 B: a successful load (a commit made in Terminal, then the automatic refresh) compares again, so the files
+    /// are not the result from before. The shown result and the picked file stay while it runs, and the file's
+    /// patch loads again.
+    func testSuccessfulLoadComparesAgainKeepingThePickedFile() async {
+        let loader = StubComparisonLoader()
+        let state = await comparedState(loader, answers: [.mockup])
+        let picked = ComparisonFile(path: GitPath("staged0.swift"), isUntracked: false)
+        state.selectComparisonFile(picked)
+        await state.comparisonPatchTask?.value
+        XCTAssertEqual(loader.patchRequests.count, 1)
+
+        let main = FullRefName("refs/heads/main")!
+        loader.result = .success(
+            ComparisonModelTests.comparison(
+                base: main,
+                files: [
+                    ComparisonModelTests.stat("staged0.swift", .modified, 2, 1),
+                    ComparisonModelTests.stat("committed.swift", .added, 5, 0),
+                ], untracked: [], includesWorkingTree: true))
+        state.comparisonListSucceeded()
+        guard case .loaded = state.comparison?.result else { return XCTFail("the shown result stays while it runs") }
+        XCTAssertEqual(state.comparison?.selectedFile, picked)
+        guard case .loaded = state.comparison?.patch else { return XCTFail("the patch stays shown while it runs") }
+        await state.comparisonTask?.value
+        guard case .loaded = state.comparison?.patch else { return XCTFail("no spinner while the patch is read again") }
+        await state.comparisonPatchTask?.value
+        XCTAssertEqual(
+            Set(state.comparisonModel?.files.map(\.path) ?? []), [GitPath("committed.swift"), GitPath("staged0.swift")])
+        XCTAssertEqual(state.comparison?.selectedFile, picked, "still listed, so still picked")
+        XCTAssertEqual(loader.patchRequests.count, 2, "its patch loads again")
+        guard case .loaded = state.comparison?.patch else { return XCTFail("the patch shows again") }
+
+        // The same result with uncommitted changes included: the same `+n −m` can hide new content (a line edited
+        // again), so the patch is read again, the old one shown meanwhile.
+        state.comparisonListSucceeded()
+        await state.comparisonTask?.value
+        guard case .loaded = state.comparison?.patch else { return XCTFail("the patch stays shown") }
+        await state.comparisonPatchTask?.value
+        XCTAssertEqual(loader.patchRequests.count, 3)
+
+        // Committed changes only: HEAD and the base tip fix the content, so the same result reads nothing again.
+        loader.result = nil  // the stub's own answer follows `Include uncommitted`
+        state.setIncludeUncommitted(false)
+        await state.comparisonTask?.value
+        state.selectComparisonFile(picked)
+        await state.comparisonPatchTask?.value
+        let committedOnly = loader.patchRequests.count
+        state.comparisonListSucceeded()
+        await state.comparisonTask?.value
+        await state.comparisonPatchTask?.value
+        XCTAssertEqual(loader.patchRequests.count, committedOnly)
+        guard case .loaded = state.comparison?.patch else { return XCTFail("the patch stays") }
+        state.setIncludeUncommitted(true)
+        await state.comparisonTask?.value
+        state.selectComparisonFile(picked)
+        await state.comparisonPatchTask?.value
+
+        // A file no longer listed is let go.
+        loader.result = .success(
+            ComparisonModelTests.comparison(
+                base: main, files: [ComparisonModelTests.stat("committed.swift", .added, 5, 0)], untracked: [],
+                includesWorkingTree: true))
+        state.reload()
+        await state.loadTask?.value
+        await state.comparisonTask?.value
+        XCTAssertNil(state.comparison?.selectedFile)
+        XCTAssertNil(state.comparison?.patch)
+        XCTAssertEqual(loader.patchRequests.count, committedOnly + 1, "nothing read for the file let go")
     }
 
     /// A patch asked before the list failed is dropped, not shown as new under the stale notice.
