@@ -133,19 +133,16 @@ struct BranchListSection: View {
             }
         } label: {
             HStack(spacing: Tokens.Spacing.xs) {
-                Image(systemName: "chevron.right")
-                    .rotationEffect(.degrees(isOpen ? 90 : 0))
-                    .font(Tokens.Font.caption)
-                    .foregroundStyle(Tokens.Color.textTertiary)
-                Image(systemName: depth == 0 && title == "REMOTE" ? "globe" : "folder")
-                    .foregroundStyle(Tokens.Color.textTertiary)
+                BranchTreeLead(
+                    depth: depth, disclosure: isOpen ? .open : .closed,
+                    symbol: depth == 0 && title == "REMOTE" ? "globe" : "folder")
                 Text(name).font(Tokens.Font.callout).foregroundStyle(Tokens.Color.textPrimary)
                 Spacer()
                 Text(WorktreeListModel.badgeText(count))
                     .font(Tokens.Font.caption)
                     .foregroundStyle(Tokens.Color.textTertiary)
             }
-            .padding(.leading, Tokens.Spacing.sm + CGFloat(depth) * Tokens.Spacing.lg)
+            .padding(.leading, Tokens.Spacing.sm)
             .padding(.trailing, Tokens.Spacing.sm)
             .frame(height: Tokens.Size.rowSidebar)
             .hoverHighlight(.inset)
@@ -156,6 +153,44 @@ struct BranchListSection: View {
         .help(folderHelp[id] ?? "")
         .accessibilityLabel(name + ", \(count) branches")
         .accessibilityValue(isOpen ? "expanded" : "collapsed")
+    }
+}
+
+/// The start of a LOCAL or REMOTE tree row (#615): the depth's indent, a disclosure slot (the chevron on a folder,
+/// empty on a branch), and an icon slot, all fixed widths. Folder and branch rows of one depth so put their icons and
+/// names on the same x, and one level is the disclosure slot and its gap, so a child's disclosure slot starts under
+/// its folder's icon, as in Finder and Xcode outlines.
+struct BranchTreeLead: View {
+    enum Disclosure { case none, closed, open }
+
+    let depth: Int
+    let disclosure: Disclosure
+    let symbol: String
+
+    static let disclosureWidth = Tokens.Spacing.md
+    static let iconWidth = Tokens.Spacing.lg
+    /// One level: the disclosure slot and the gap after it.
+    static let levelIndent = disclosureWidth + Tokens.Spacing.xs
+
+    var body: some View {
+        HStack(spacing: Tokens.Spacing.xs) {
+            // The slot keeps its width even when empty (a branch row): an empty `Group` would take none.
+            Color.clear
+                .frame(width: Self.disclosureWidth, height: 1)
+                .overlay {
+                    if disclosure != .none {
+                        Image(systemName: "chevron.right")
+                            .rotationEffect(.degrees(disclosure == .open ? 90 : 0))
+                            .font(Tokens.Font.caption)
+                            .foregroundStyle(Tokens.Color.textTertiary)
+                    }
+                }
+            Image(systemName: symbol)
+                .foregroundStyle(Tokens.Color.textTertiary)
+                .frame(width: Self.iconWidth)
+                .accessibilityHidden(true)
+        }
+        .padding(.leading, CGFloat(depth) * Self.levelIndent)
     }
 }
 
@@ -174,8 +209,7 @@ private struct BranchRowView: View {
 
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {
-            Image(systemName: "arrow.triangle.branch").foregroundStyle(Tokens.Color.textTertiary)
-                .accessibilityHidden(true)
+            BranchTreeLead(depth: depth, disclosure: .none, symbol: "arrow.triangle.branch")
             Text(row.name)
                 .font(row.isDefault ? Tokens.Font.bodyEmphasized : Tokens.Font.callout)
                 .foregroundStyle(Tokens.Color.textPrimary)
@@ -205,7 +239,7 @@ private struct BranchRowView: View {
                     .accessibilityHidden(true)
             }
         }
-        .padding(.leading, Tokens.Spacing.sm + CGFloat(depth) * Tokens.Spacing.lg)
+        .padding(.leading, Tokens.Spacing.sm)
         .padding(.trailing, Tokens.Spacing.sm)
         .frame(height: Tokens.Size.rowSidebar)
         // The same selection and hover as every sidebar row (#572).
