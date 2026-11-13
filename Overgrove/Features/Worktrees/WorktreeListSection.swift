@@ -13,19 +13,24 @@ struct WorktreeListSection: View {
     var canCompare: (GitPath) -> Bool = { _ in false }
     var onCompare: (GitPath) -> Void = { _ in }
 
-    @State private var isExpanded = true
-    @FocusState private var hasFocus: Bool
+    /// Open or closed, owned by the sidebar so the arrow keys know which rows show (#592); `nil` keeps it here.
+    var expansion: Binding<Bool>?
+    /// The sidebar has keyboard focus (#592): the selected row is `surface.selection`, otherwise inactive.
+    var isListFocused = false
+
+    @State private var ownExpanded = true
+    private var isExpanded: Binding<Bool> { expansion ?? $ownExpanded }
     @Namespace private var rotor
 
     var body: some View {
         Section {
             VStack(alignment: .leading, spacing: 0) {
-                if isExpanded { content }
+                if isExpanded.wrappedValue { content }
             }
         } header: {
             SidebarSectionHeader(
                 title: String(localized: "WORKTREES", comment: "Sidebar section"), count: model?.rows.count,
-                isExpanded: $isExpanded)
+                isExpanded: isExpanded)
         }
     }
 
@@ -77,7 +82,8 @@ struct WorktreeListSection: View {
                 SidebarNotice(symbol: "exclamationmark.triangle", text: warning)
             }
             ForEach(model.rows) { row in
-                WorktreeRowView(row: row, isSelected: row.id == selectedPath, isListFocused: hasFocus)
+                WorktreeRowView(row: row, isSelected: row.id == selectedPath, isListFocused: isListFocused)
+                    .id(SidebarItem.worktree(row.id).scrollID)
                     .contentShape(Rectangle())
                     .onTapGesture { onSelect(row.id) }
                     .contextMenu {
@@ -92,29 +98,7 @@ struct WorktreeListSection: View {
         .accessibilityRotor("Worktrees") {
             ForEach(model.rows) { row in AccessibilityRotorEntry(Text(row.title), id: row.id, in: rotor) }
         }
-        .focusable()
-        .focused($hasFocus)
-        .focusEffectDisabled()
-        .focusOnRequest([.sidebar], $hasFocus)
-        .onKeyPress(keys: [.upArrow, .downArrow]) { press in
-            move(in: model, press: press)
-        }
-    }
-
-    private func move(in model: WorktreeListModel, press: KeyPress) -> KeyPress.Result {
-        let ids = model.rows.map(\.id)
-        guard !ids.isEmpty else { return .ignored }
-        let down = press.key == .downArrow
-        let target: GitPath
-        if press.modifiers.contains(.command) {
-            target = down ? ids[ids.count - 1] : ids[0]
-        } else if let current = selectedPath, let index = ids.firstIndex(of: current) {
-            target = ids[min(max(index + (down ? 1 : -1), 0), ids.count - 1)]
-        } else {
-            target = ids[0]
-        }
-        if target != selectedPath { onSelect(target) }
-        return .handled
+        // Keyboard focus and `↑`/`↓` belong to the whole sidebar (`SidebarPanel`, #592).
     }
 }
 
