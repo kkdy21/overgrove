@@ -80,6 +80,8 @@ private struct IssueAccountRow: View {
                         .font(Tokens.Font.monoSmall)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityLabel("$ " + command)
+                        // Not selectable (the drawn text carries break marks): say how to take it (#612).
+                        .help("Use the copy button to copy this command.")
                     Button {
                         // Copying to the clipboard is not a write (ADR-0011, ADR-0021 §3).
                         NSPasteboard.general.clearContents()
@@ -124,6 +126,8 @@ private struct IssueSetupHint: View {
                         .font(Tokens.Font.monoSmall)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityLabel("$ " + command)
+                        // Not selectable (the drawn text carries break marks): say how to take it (#612).
+                        .help("Use the copy button to copy this command.")
                         .padding(.horizontal, Tokens.Spacing.sm)
                         .padding(.vertical, Tokens.Spacing.xs)
                         .frame(maxWidth: .infinity, alignment: .leading)
