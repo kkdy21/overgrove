@@ -209,4 +209,62 @@ final class AutoRefreshIntegrationTests: XCTestCase {
         }
         XCTAssertEqual(classifier.classify(log.all).worktrees, [main.path])
     }
+
+    /// A restart loses no event (#422): what happened before `stop()` reaches the old stream's handler (flushed) or
+    /// the new stream, which starts at the event ID read before the old one stopped and replays from there.
+    func testRestartingAStreamAtTheResumeIDLosesNoEvent() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "flush-422-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let watched = try XCTUnwrap(PathValidator.canonical(folder)).path
+
+        let log = EventLog()
+        let stream = LiveFileEventWatcher.live.watch([watched], latency: 30) { log.append($0) }
+        try await Task.sleep(for: .seconds(1))  // let the stream settle
+        let resume = LiveFileEventWatcher.live.currentEventID
+        try "1\n".write(to: folder.appendingPathComponent("held.txt"), atomically: false, encoding: .utf8)
+        try await Task.sleep(for: .milliseconds(300))  // far below the 30 s latency: still held
+        stream.stop()
+
+        let next = LiveFileEventWatcher.live.watch([watched], since: resume, latency: 0.2) { log.append($0) }
+        defer { next.stop() }
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !log.all.contains(where: { $0.path.hasSuffix("/held.txt") }), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertTrue(log.all.contains { $0.path.hasSuffix("/held.txt") }, "seen: \(log.all.map(\.path))")
+        XCTAssertFalse(log.all.contains { $0.path.isEmpty }, "the end-of-replay marker is not an event")
+    }
+
+    /// `stop()` on the stream's own queue (the last reference released inside a callback) returns instead of waiting
+    /// for its own flush (security review of #422).
+    func testStopInsideACallbackReturns() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "stop-422-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let watched = try XCTUnwrap(PathValidator.canonical(folder)).path
+
+        final class Holder: @unchecked Sendable {
+            let lock = NSLock()
+            var stream: (any FileEventSubscription)?
+            var returned = false
+        }
+        let holder = Holder()
+        let stream = LiveFileEventWatcher.live.watch([watched], latency: 0.1) { _ in
+            let current = holder.lock.withLock { holder.stream }
+            current?.stop()
+            holder.lock.withLock { holder.returned = true }
+        }
+        holder.lock.withLock { holder.stream = stream }
+        defer { stream.stop() }
+        try await Task.sleep(for: .seconds(1))  // let the stream settle
+        try "1\n".write(to: folder.appendingPathComponent("a.txt"), atomically: false, encoding: .utf8)
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !holder.lock.withLock({ holder.returned }), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertTrue(holder.lock.withLock { holder.returned }, "stop() inside the callback returned")
+    }
 }

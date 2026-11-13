@@ -22,10 +22,14 @@ final class FileHistoryRenderTests: XCTestCase {
         let view = FileHistoryView(
             store: store, onBack: {}, onSelect: { _ in }, onOpen: { _ in },
             now: Date(timeIntervalSince1970: 1_793_853_652 + 7_200))
-        for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
-            let host = NSHostingView(rootView: view.frame(width: 820, height: 300))
+        // 820 shows every column; 480, the centre's minimum, hides Author so the subject reads (#579).
+        for (name, appearanceName, width) in [
+            ("light", NSAppearance.Name.aqua, 820.0), ("dark", .darkAqua, 820), ("480-light", .aqua, 480),
+            ("480-dark", .darkAqua, 480),
+        ] {
+            let host = NSHostingView(rootView: view.frame(width: width, height: 300))
             host.appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
-            host.frame = NSRect(x: 0, y: 0, width: 820, height: 300)
+            host.frame = NSRect(x: 0, y: 0, width: width, height: 300)
             host.layoutSubtreeIfNeeded()
             let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
             host.cacheDisplay(in: host.bounds, to: bitmap)

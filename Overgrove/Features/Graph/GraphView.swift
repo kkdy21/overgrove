@@ -478,18 +478,22 @@ struct AIBadge: View {
     @Environment(\.graphZoom) private var zoom
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: Tokens.Spacing.xxs) {
             Image(systemName: "sparkles").font(zoom.typography.points(9, weight: .semibold))
             Text("AI").font(zoom.typography.points(10, weight: .semibold))
         }
         .foregroundStyle(Tokens.Color.textTertiary)
-        .padding(.horizontal, 4)
-        .frame(height: 15 * zoom.scale)
+        .padding(.horizontal, Tokens.Spacing.xs)
+        .frame(height: Self.height * zoom.scale)
         .controlOutline(
-            RoundedRectangle(cornerRadius: 4), normal: Tokens.Color.textTertiary, increased: Tokens.Color.textTertiary
+            RoundedRectangle(cornerRadius: Tokens.Radius.sm), normal: Tokens.Color.textTertiary,
+            increased: Tokens.Color.textTertiary
         )
         .accessibilityLabel("AI-assisted")
     }
+
+    /// Shorter than a ref pill so it reads as a tag on the subject; no token.
+    static let height: CGFloat = 15
 }
 
 /// The WIP row (screens.md S-01): `surface.wip-row`, a dashed folder pill, and the change summary.

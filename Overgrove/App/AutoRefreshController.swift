@@ -48,6 +48,8 @@ final class AutoRefreshController {
     private var inbox: ChangeInbox?
     private(set) var isVisible = false
     private var wasHidden = false
+    /// Whether the window reported its visibility yet: not yet reported is not hidden (#425).
+    private var hasReportedVisibility = false
     private(set) var pending = FileChangeSet()
     private var inFlight: FileChangeSet?
     private var lastStart: ContinuousClock.Instant?
@@ -90,15 +92,19 @@ final class AutoRefreshController {
         lastDuration = .zero
         lastEvent = nil
         firstPending = nil
-        wasHidden = false
+        // Kept while hidden: the next repository's first load also runs unwatched until the window appears (#425).
+        // A window not reported yet is not hidden: its first appearance follows the first load.
+        wasHidden = hasReportedVisibility && !isVisible
     }
 
     /// `NSWindow.occlusionState` changed (or the window closed: `false`).
     func setVisible(_ visible: Bool) {
+        // Before the guard: a window first reported hidden (it starts out not visible) catches up when shown (#425).
+        hasReportedVisibility = true
+        if !visible { wasHidden = true }
         guard visible != isVisible else { return }
         isVisible = visible
         if !visible {
-            wasHidden = true
             timer?.cancel()
             timer = nil
         }
@@ -152,14 +158,21 @@ final class AutoRefreshController {
         pending.merge(change)
     }
 
+    /// Replacing a running stream loses nothing (#422): the new one starts at the event ID read before the old one
+    /// stopped, and what the old one still held is flushed into its inbox and applied. A stream started after being
+    /// hidden starts now, since everything is pending then anyway.
     private func restartStream() {
+        let resume = subscription == nil ? nil : watcher.currentEventID
+        let previous = inbox
         subscription?.stop()
         subscription = nil
         inbox = nil
+        if let previous { apply(previous.take()) }
         guard isVisible, let classifier, !classifier.watchedPaths.isEmpty else { return }
         let inbox = ChangeInbox()
         self.inbox = inbox
-        subscription = watcher.watch(classifier.watchedPaths, latency: Self.latency) { [weak self] events in
+        subscription = watcher.watch(classifier.watchedPaths, since: resume, latency: Self.latency) {
+            [weak self] events in
             // On the stream's queue: classify here, and hop to the main actor only when the inbox was empty.
             let change = classifier.classify(events)
             guard !change.isEmpty, inbox.add(change), let self else { return }

@@ -151,10 +151,7 @@ struct PanelSplitView<Sidebar: View, Center: View, Detail: View>: View {
 extension Animation {
     /// Panel collapse and reopen: `motion.duration-standard` with `motion.easing-standard`. Callers skip it under
     /// Reduce Motion.
-    static var panelCollapse: Animation {
-        let curve = Tokens.Motion.easingStandardControlPoints
-        return .timingCurve(curve.x1, curve.y1, curve.x2, curve.y2, duration: Tokens.Motion.durationStandard)
-    }
+    static var panelCollapse: Animation { .standard }
 }
 
 // MARK: - Panel box
@@ -210,10 +207,14 @@ private struct PanelDivider: View {
 
     var body: some View {
         ZStack {
+            // Only the colours fade in `motion.duration-fast` (#571); the divider itself follows the pointer with no
+            // animation, including on the frame where a drag starts or ends.
             Rectangle()
                 .fill(isActive ? Tokens.Color.accent.opacity(Self.gutterHighlightOpacity) : Color.clear)
+                .motion(.fast, value: isActive)
             Capsule()
                 .fill(isActive ? Tokens.Color.surfaceSplitterGripActive : Tokens.Color.surfaceSplitterGrip)
+                .motion(.fast, value: isActive)
                 .frame(width: Tokens.Size.splitterGrip.width, height: Tokens.Size.splitterGrip.height)
         }
         .frame(width: PanelLayout.gap)

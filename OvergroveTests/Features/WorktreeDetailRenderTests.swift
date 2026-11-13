@@ -36,12 +36,13 @@ final class WorktreeDetailRenderTests: XCTestCase {
             home: "/tmp/dev")
     }
 
-    private func render(_ view: some View, appearance: NSAppearance) throws -> NSBitmapImageRep {
+    private func render(
+        _ view: some View, appearance: NSAppearance, size: CGSize = WorktreeDetailRenderTests.size
+    ) throws -> NSBitmapImageRep {
         let host = NSHostingView(
-            rootView: view.frame(width: Self.size.width, height: Self.size.height).background(Tokens.Color.surfacePanel)
-        )
+            rootView: view.frame(width: size.width, height: size.height).background(Tokens.Color.surfacePanel))
         host.appearance = appearance
-        host.frame = NSRect(origin: .zero, size: Self.size)
+        host.frame = NSRect(origin: .zero, size: size)
         host.layoutSubtreeIfNeeded()
         let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)
@@ -58,11 +59,19 @@ final class WorktreeDetailRenderTests: XCTestCase {
         for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
             let bitmap = try render(WorktreeDetailView(model: model), appearance: appearance)
+            // The panel's minimum width (#579): the Security head moves its check time under the title.
+            let narrow = try render(
+                WorktreeDetailView(model: model), appearance: appearance, size: CGSize(width: 300, height: 640))
             XCTAssertGreaterThan(bitmap.pixelsWide, 0)
-            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
-                let png = bitmap.representation(using: .png, properties: [:])
-            {
-                try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("worktree-detail-\(name).png"))
+            XCTAssertGreaterThan(narrow.pixelsWide, 0)
+            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"] {
+                for (suffix, image) in [("", bitmap), ("-300", narrow)] {
+                    if let png = image.representation(using: .png, properties: [:]) {
+                        try png.write(
+                            to: URL(fileURLWithPath: directory).appendingPathComponent(
+                                "worktree-detail\(suffix)-\(name).png"))
+                    }
+                }
             }
         }
     }
