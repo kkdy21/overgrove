@@ -36,20 +36,21 @@ struct JoinedText: View {
         items[range].map(Self.unbreakable).joined(separator: separator.map { " \($0) " } ?? "  ")
     }
 
-    /// The text as one line reads it: `items` joined, for VoiceOver, copying, and tests.
-    static func joined(_ items: [String], separator: String? = "·") -> String {
+    /// The text as one line reads it: `items` joined, for VoiceOver, copying, and tests. Non-isolated: the models
+    /// that build the plain value are not on the main actor.
+    nonisolated static func joined(_ items: [String], separator: String? = "·") -> String {
         items.joined(separator: separator.map { " \($0) " } ?? "  ")
     }
 
     /// An item's spaces become no-break spaces, so the item stays on one line.
-    static func unbreakable(_ item: String) -> String {
+    nonisolated static func unbreakable(_ item: String) -> String {
         item.replacingOccurrences(of: " ", with: "\u{00A0}")
     }
 
     /// Every way to cut `count` items into consecutive lines, fewest lines first (one line, then two, …), and within
     /// the same number of lines the ones that fill the first line most first. The all-separate grouping is left to
     /// the fallback.
-    static func groupings(count: Int) -> [[Range<Int>]] {
+    nonisolated static func groupings(count: Int) -> [[Range<Int>]] {
         guard count > 1 else { return count == 1 ? [[0..<1]] : [] }
         var result: [[Range<Int>]] = []
         // Each of the `count - 1` gaps between items either breaks the line or not.
