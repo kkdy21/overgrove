@@ -28,10 +28,12 @@ final class WorktreeListRenderTests: XCTestCase {
     func testSectionRendersInLightAndDark() throws {
         let model = WorktreeListModel(
             listing: .mockup, focused: GitPath("/tmp/dev/api-wt/42-rate-limit"), home: "/tmp/dev")
-        let section = WorktreeListSection(
-            status: .loaded(.mockup), model: model, selectedPath: GitPath("/tmp/dev/api-wt/42-rate-limit"),
-            onSelect: { _ in }
-        )
+        // In a stack, as the sidebar holds it: the section is a `Section` with a pinned header (#573).
+        let section = VStack(spacing: 0) {
+            WorktreeListSection(
+                status: .loaded(.mockup), model: model, selectedPath: GitPath("/tmp/dev/api-wt/42-rate-limit"),
+                onSelect: { _ in })
+        }
         .frame(maxHeight: .infinity, alignment: .top)
 
         for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {

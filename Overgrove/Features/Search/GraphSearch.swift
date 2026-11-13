@@ -211,6 +211,9 @@ struct SidebarFilterField: View {
 
     @FocusState private var isFocused: Bool
 
+    /// art-direction.md §6: the filter field is 24pt high with a 6pt radius (#573). No size token for it.
+    static let height: CGFloat = 24
+
     var body: some View {
         HStack(spacing: Tokens.Spacing.xs) {
             Image(systemName: "magnifyingglass").accessibilityHidden(true)
@@ -235,7 +238,7 @@ struct SidebarFilterField: View {
         .font(Tokens.Font.callout)
         .foregroundStyle(Tokens.Color.textTertiary)
         .padding(.horizontal, Tokens.Spacing.sm)
-        .frame(height: Tokens.Size.rowSidebar)
+        .frame(height: Self.height)
         .background(Tokens.Color.surfaceControl, in: RoundedRectangle(cornerRadius: Tokens.Radius.md))
         .controlOutline(RoundedRectangle(cornerRadius: Tokens.Radius.md), normal: nil)
         .onChange(of: focusRequest) { _, _ in isFocused = true }

@@ -45,6 +45,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- Sidebar: section headers stay at the top while their rows scroll; every header and row starts on one line; a
+  narrow sidebar keeps the worktree name and hides the PR pill, then `#n`, then the lowest status badges first; the
+  Filter field is 24pt high; with no repository open, the sidebar offers Add Repository….
 - Rows and buttons in the detail panel and the screens over the graph (history, diff, comparisons) respond to the
   pointer, and those screens, new detail content, and loaded content fade in. Everything changes at once under Reduce
   Motion.

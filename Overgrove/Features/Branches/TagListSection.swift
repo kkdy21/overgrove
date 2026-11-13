@@ -26,42 +26,45 @@ struct TagListSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        Section {
+            VStack(alignment: .leading, spacing: 0) {
+                if isExpanded || query != nil {
+                    let visible = model.visible(query: query)
+                    if visible.rows.isEmpty {
+                        Text(query == nil ? "No tags" : "No matching tags" as LocalizedStringKey)
+                            .font(Tokens.Font.callout)
+                            .foregroundStyle(Tokens.Color.textTertiary)
+                            .padding(.horizontal, SidebarInset.content)
+                            .frame(height: Tokens.Size.rowSidebar)
+                    }
+                    // One lazy stack and one timer for every relative date.
+                    TimelineView(.periodic(from: .now, by: 60)) { context in
+                        LazyVStack(alignment: .leading, spacing: 0) {
+                            ForEach(visible.rows) { row in
+                                TagRowView(
+                                    row: row, now: context.date,
+                                    isSelected: row.id == chosenID && row.commit != nil && row.commit == selectedCommit
+                                )
+                                .contentShape(Rectangle())
+                                .onTapGesture { choose(row) }
+                                .accessibilityAction { choose(row) }
+                                .contextMenu { TagRowMenu(row: row, onShow: { choose(row) }) }
+                            }
+                        }
+                    }
+                    if visible.hidden > 0 {
+                        Text("\(WorktreeListModel.badgeText(visible.hidden)) more tags — filter to find one")
+                            .font(Tokens.Font.caption)
+                            .foregroundStyle(Tokens.Color.textTertiary)
+                            .padding(.horizontal, SidebarInset.content)
+                            .frame(height: Tokens.Size.rowSidebar)
+                    }
+                }
+            }
+        } header: {
             SidebarSectionHeader(
                 title: String(localized: "TAGS", comment: "Sidebar section"), count: model.count,
                 isExpanded: $isExpanded)
-            if isExpanded || query != nil {
-                let visible = model.visible(query: query)
-                if visible.rows.isEmpty {
-                    Text(query == nil ? "No tags" : "No matching tags" as LocalizedStringKey)
-                        .font(Tokens.Font.callout)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                        .padding(.horizontal, Tokens.Spacing.md)
-                        .frame(height: Tokens.Size.rowSidebar)
-                }
-                // One lazy stack and one timer for every relative date.
-                TimelineView(.periodic(from: .now, by: 60)) { context in
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        ForEach(visible.rows) { row in
-                            TagRowView(
-                                row: row, now: context.date,
-                                isSelected: row.id == chosenID && row.commit != nil && row.commit == selectedCommit
-                            )
-                            .contentShape(Rectangle())
-                            .onTapGesture { choose(row) }
-                            .accessibilityAction { choose(row) }
-                            .contextMenu { TagRowMenu(row: row, onShow: { choose(row) }) }
-                        }
-                    }
-                }
-                if visible.hidden > 0 {
-                    Text("\(WorktreeListModel.badgeText(visible.hidden)) more tags — filter to find one")
-                        .font(Tokens.Font.caption)
-                        .foregroundStyle(Tokens.Color.textTertiary)
-                        .padding(.horizontal, Tokens.Spacing.md)
-                        .frame(height: Tokens.Size.rowSidebar)
-                }
-            }
         }
     }
 
@@ -104,7 +107,7 @@ private struct TagRowView: View {
                 RoundedRectangle(cornerRadius: Tokens.Radius.md, style: .continuous).fill(Tokens.Color.surfaceSelection)
             }
         }
-        .padding(.horizontal, Tokens.Spacing.xs + Tokens.Spacing.xxs)
+        .padding(.horizontal, SidebarInset.row)
         .help(row.help)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(
