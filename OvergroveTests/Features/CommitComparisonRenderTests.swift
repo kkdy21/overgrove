@@ -40,6 +40,9 @@ final class CommitComparisonRenderTests: XCTestCase {
             )
             .frame(width: 340)
         }
+        try assertAvatarsAtTheRowStarts(
+            CommitComparisonListView(
+                session: session, model: model, onSelectFile: { _ in }, onShowAll: {}, onShowCommit: { _ in }))
         for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let host = NSHostingView(
                 rootView: view.frame(width: 981, height: 480).background(Tokens.Color.surfacePanel))
@@ -60,5 +63,32 @@ final class CommitComparisonRenderTests: XCTestCase {
                 try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("s12-compare-\(name).png"))
             }
         }
+    }
+
+    /// #660: BASE, TARGET, and the COMMITS rows start with a coloured avatar. Everything else at the start of the list
+    /// (section titles, SHAs, the neutral file badges) is grey, so the coloured pixels there are the avatars: one run of
+    /// rows per commit row (five: BASE, TARGET, three between).
+    private func assertAvatarsAtTheRowStarts(_ list: CommitComparisonListView) throws {
+        let host = NSHostingView(rootView: list.frame(width: 340, height: 480).background(Tokens.Color.surfacePanel))
+        host.appearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        host.frame = NSRect(x: 0, y: 0, width: 340, height: 480)
+        host.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / host.bounds.width
+        let strip = 0..<Int(56 * scale)
+        var runs = 0
+        var inRun = false
+        for y in 0..<bitmap.pixelsHigh {
+            let coloured = strip.contains { x in
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { return false }
+                return color.saturationComponent > 0.3 && color.alphaComponent > 0.9
+            }
+            if coloured && !inRun { runs += 1 }
+            inRun = coloured
+        }
+        XCTAssertEqual(runs, 5, "one avatar per commit row")
     }
 }

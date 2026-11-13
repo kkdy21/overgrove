@@ -250,6 +250,8 @@ final class AppStateCommitComparisonTests: XCTestCase {
 
         let model = try XCTUnwrap(state.commitComparisonModel)
         XCTAssertEqual(model.commits.map(\.oid), [middle.oid])
+        XCTAssertEqual(model.commits.map(\.initials), ["B"])
+        XCTAssertEqual(model.commits.map(\.avatarIndex), [AuthorAvatar.colorIndex(email: "b@example.com")])
         XCTAssertTrue(model.hasMoreCommits)
         XCTAssertNil(model.commitsNotice)
         XCTAssertEqual(loader.commitRangeRequests.map(\.base), [base])
@@ -314,6 +316,10 @@ final class CommitComparisonModelTests: XCTestCase {
         XCTAssertFalse(model.target.author.unicodeScalars.contains("\u{202E}"))
         XCTAssertTrue(model.target.isAIAssisted)
         XCTAssertEqual(model.base.subject, "", "a commit the graph does not have shows its SHA only")
+        // #660: the author's initials avatar, as S-03 shows it.
+        XCTAssertEqual(model.target.initials, AuthorAvatar.initials(name: node.authorName))
+        XCTAssertEqual(model.target.avatarIndex, AuthorAvatar.colorIndex(email: "e@example.com"))
+        XCTAssertEqual(model.base.initials, "?", "no author for a commit the graph does not have")
 
         session.showsAllFiles = true
         XCTAssertEqual(CommitComparisonModel(session: session) { _ in nil }.rows.count, files.count)

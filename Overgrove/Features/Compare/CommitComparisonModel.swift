@@ -38,6 +38,9 @@ struct CommitComparisonModel: Equatable {
         let shortSHA: String
         let subject: String
         let author: String
+        /// The author's 16 pt initials avatar (screens.md S-12, "작성자 표현", #660).
+        let initials: String
+        let avatarIndex: Int
         let isAIAssisted: Bool
         /// `false` only when BASE or TARGET is missing from a graph that has every commit loaded (#428): the row says
         /// "Not in the graph". A commit on a page not read yet (a refresh reads the first page again) is not marked.
@@ -98,6 +101,8 @@ struct CommitComparisonModel: Equatable {
             return CommitRow(
                 oid: oid, shortSHA: oid.short, subject: PathValidator.displayable(node?.subject ?? ""),
                 author: PathValidator.displayable(node?.authorName ?? ""),
+                initials: AuthorAvatar.initials(name: node?.authorName ?? ""),
+                avatarIndex: AuthorAvatar.colorIndex(email: node?.authorEmail ?? ""),
                 isAIAssisted: node?.coAuthors.contains(where: rule.isAgent) ?? false,
                 isInGraph: loaded != nil || !graphHasEveryCommit)
         }
@@ -119,6 +124,8 @@ struct CommitComparisonModel: Equatable {
                 CommitRow(
                     oid: node.oid, shortSHA: node.oid.short, subject: PathValidator.displayable(node.subject),
                     author: PathValidator.displayable(node.authorName),
+                    initials: AuthorAvatar.initials(name: node.authorName),
+                    avatarIndex: AuthorAvatar.colorIndex(email: node.authorEmail),
                     // Not marked: a commit between may only be on a graph page not loaded yet. Choosing one the graph
                     // lacks does nothing (`AppState.showCommitFromComparison`).
                     isAIAssisted: node.coAuthors.contains(where: rule.isAgent), isInGraph: true)
