@@ -13,7 +13,8 @@ struct IssueLinkIndex: Equatable {
         let fullName: String
         /// `feat/12-x`, `origin/feat/12-x`, escaped.
         let title: String
-        let target: ObjectID
+        /// The branch's commit; `nil` when it names a tree or blob (#559), so choosing it selects nothing.
+        let target: ObjectID?
         let isRemote: Bool
     }
 
@@ -64,7 +65,7 @@ struct IssueLinkIndex: Equatable {
             byIssue[number, default: Links()].branches.append(
                 BranchLink(
                     fullName: branch.fullName, title: PathValidator.displayable(branch.shortName),
-                    target: branch.target, isRemote: isRemote))
+                    target: branch.commit, isRemote: isRemote))
         }
         kinds = byIssue.compactMapValues { links in
             if !links.worktrees.isEmpty { return .worktree }

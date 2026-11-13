@@ -45,10 +45,12 @@ enum GraphRefDecorations {
             uniquingKeysWith: { first, _ in first })
         var mergedRemotes: Set<String> = []
 
+        // A branch of a tree or blob has no row (#559), like a tag of one.
         for branch in refs.branches where branch.kind == .local {
+            guard let commit = branch.commit else { continue }
             let short = branch.shortName
             let originName = "refs/remotes/origin/\(short)"
-            let matchingRemote = remotes[originName].flatMap { $0.target == branch.target ? $0 : nil }
+            let matchingRemote = remotes[originName].flatMap { $0.commit == commit ? $0 : nil }
             if matchingRemote != nil { mergedRemotes.insert(originName) }
             let kind: GraphRefPill.Kind =
                 if let worktree = checkedOut[branch.fullName] {
@@ -61,7 +63,7 @@ enum GraphRefDecorations {
                 GraphRefPill(
                     kind: kind, title: PathValidator.displayable(short), hasMatchingRemote: matchingRemote != nil,
                     tooltip: names.map(PathValidator.displayable).joined(separator: "\n")),
-                at: branch.target)
+                at: commit)
         }
         for worktree in worktrees where worktree.branch == nil && !worktree.isBare {
             guard let head = worktree.head else { continue }
@@ -74,11 +76,12 @@ enum GraphRefDecorations {
                 at: head)
         }
         for (name, branch) in remotes where !mergedRemotes.contains(name) {
+            guard let commit = branch.commit else { continue }
             add(
                 GraphRefPill(
                     kind: .remoteBranch, title: PathValidator.displayable(branch.shortName), hasMatchingRemote: false,
                     tooltip: PathValidator.displayable(name)),
-                at: branch.target)
+                at: commit)
         }
         // A tag of a tree or blob has no row (#432).
         for tag in refs.tags {

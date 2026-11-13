@@ -221,4 +221,39 @@ final class BranchListModelTests: XCTestCase {
             BranchListModel(refs: refs([], partial: true), checkedOut: [], remoteNames: []).warning,
             "Some branches could not be listed because git's output was too large.")
     }
+
+    /// #559: a local or remote branch of a tree, blob, or tag object says so, like a tag of one, and has no tip, so
+    /// Show in Graph is off (the graph has no row for it).
+    func testABranchOfSomethingElseThanACommitHasNoTip() throws {
+        var tree = local("tree")
+        tree.objectType = .tree
+        var tagged = local("tagged")
+        tagged.objectType = .tag
+        var blob = remote("origin/blob")
+        blob.objectType = .blob
+        let model = BranchListModel(
+            refs: refs([tree, tagged, local("main"), blob]), checkedOut: [], remoteNames: ["origin"])
+        let rows = model.local.compactMap { node -> BranchRow? in
+            if case .branch(let row) = node { row } else { nil }
+        }
+        let short = tip.short
+        let byName = Dictionary(uniqueKeysWithValues: rows.map { ($0.name, $0) })
+        let treeRow = try XCTUnwrap(byName["tree"])
+        XCTAssertNil(treeRow.tip)
+        XCTAssertEqual(treeRow.help, "tree\nNo upstream\nPoints to a tree, not a commit (\(short))")
+        XCTAssertEqual(treeRow.accessibilityLabel, "tree, local branch, Points to a tree, not a commit (\(short))")
+        let taggedRow = try XCTUnwrap(byName["tagged"])
+        XCTAssertNil(taggedRow.tip)
+        XCTAssertTrue(taggedRow.help.hasSuffix("Points to a tag, not a commit (\(short))"), taggedRow.help)
+        XCTAssertEqual(byName["main"]?.tip, tip, "a branch of a commit keeps its tip")
+        XCTAssertFalse(byName["main"]?.help.contains("not a commit") ?? true)
+
+        guard case .folder(_, _, _, let children) = try XCTUnwrap(model.remote.first),
+            case .branch(let blobRow) = try XCTUnwrap(children.first)
+        else { return XCTFail("\(model.remote)") }
+        XCTAssertNil(blobRow.tip)
+        XCTAssertTrue(blobRow.help.hasSuffix("Points to a file, not a commit (\(short))"), blobRow.help)
+        XCTAssertTrue(
+            blobRow.accessibilityLabel.contains("remote branch, Points to a file"), blobRow.accessibilityLabel)
+    }
 }

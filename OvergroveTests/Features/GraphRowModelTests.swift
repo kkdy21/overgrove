@@ -68,6 +68,22 @@ final class GraphRowModelTests: XCTestCase {
         XCTAssertNil(pills[b])
     }
 
+    /// #559: a local or remote branch of a tree or blob draws no pill either, and a local branch of a tree never
+    /// merges with an `origin/` branch that names the same object.
+    func testBranchesOfATreeOrBlobDrawNoPill() {
+        var tree = branch("refs/heads/tree", a)
+        tree.objectType = .tree
+        var remoteTree = branch("refs/remotes/origin/tree", a)
+        remoteTree.objectType = .tree
+        var blob = branch("refs/remotes/origin/blob", b)
+        blob.objectType = .blob
+        let refs = listing(branches: [tree, remoteTree, blob, branch("refs/heads/main", a)])
+        let pills = GraphRefDecorations.make(refs: refs, worktrees: [], focused: nil)
+        XCTAssertEqual(pills[a]?.map(\.title), ["main"])
+        XCTAssertEqual(pills[a]?.first?.hasMatchingRemote, false)
+        XCTAssertNil(pills[b])
+    }
+
     func testFocusedDetachedWorktreeComesFirstAndHostileNamesAreEscaped() {
         let refs = listing(branches: [branch("refs/heads/main", a)])
         let worktrees = [worktree("/tmp/dev/wt\u{202E}evil", branch: nil, head: a)]

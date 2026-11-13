@@ -3864,6 +3864,16 @@
         }
       }
     },
+    "Not in the graph" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "그래프에 없음"
+          }
+        }
+      }
+    },
     "Not loaded" : {
       "localizations" : {
         "ko" : {
@@ -4510,6 +4520,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "커밋이 아닌 파일을 가리킴 (%@)"
+          }
+        }
+      }
+    },
+    "Points to a tag, not a commit (%@)" : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "커밋이 아닌 태그를 가리킴 (%@)"
           }
         }
       }
