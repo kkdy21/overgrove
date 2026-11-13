@@ -19,7 +19,8 @@ struct PullRequestPill: View {
         }
         .font(Tokens.Font.pill)
         .foregroundStyle(Tokens.Color.textSecondary)
-        .padding(.horizontal, Tokens.Spacing.xs)
+        // The leading symbol keeps clear of the capsule's curve: the ref pill's 6pt, not 4 (#617).
+        .padding(.horizontal, Self.horizontalPadding)
         .overlay {
             Capsule().strokeBorder(
                 Tokens.Color.textSecondary,
@@ -30,6 +31,8 @@ struct PullRequestPill: View {
         .help(badge.help)
         .accessibilityHidden(true)
     }
+
+    static let horizontalPadding = Tokens.Spacing.xs + Tokens.Spacing.xxs
 }
 
 /// S-05's "Pull request" card, under the info card (screens.md S-05).

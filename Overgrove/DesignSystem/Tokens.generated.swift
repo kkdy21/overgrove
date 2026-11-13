@@ -31,6 +31,11 @@ enum Tokens {
         /// Initials text on every avatar fill.
         /// Light `#ffffff` · Dark `#ffffff`
         static let avatarInitials = SwiftUI.Color("Tokens/avatarInitials", bundle: nil)
+        /// Outline of an inert chip (main worktree, an issue number not in the list, file and history chips).
+        /// border.strong because nothing lighter reaches 1.3:1 on panel, raised, selection, and selection-inactive in
+        /// both modes; border.separator vanished on a dark selected row (#617).
+        /// Light `#b0b6c0` · Dark `#3d434c`
+        static let borderChip = SwiftUI.Color("Tokens/borderChip", bundle: nil)
         /// Outline of the base compare card: accent at 35% (art-direction.md §7, #581).
         /// Light `#0e764a59` · Dark `#43d59a59`
         static let borderCompareCard = SwiftUI.Color("Tokens/borderCompareCard", bundle: nil)
