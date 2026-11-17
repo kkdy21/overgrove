@@ -76,6 +76,9 @@ While the major version is `0`, minor versions may contain breaking changes.
   registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
 - The setup assistant's first step also notes when the repository was added from somewhere other than the folder
   chosen, or was in Overgrove already, instead of an alert that appeared after the assistant was closed.
+- A registered repository's folder shows the home folder as `~` (`~/dev/api`) in the setup assistant's first step, the
+  registration notes and alerts, the repository menu, and Settings › Repositories, as the sidebar and the detail panel
+  do, instead of the full path that named the user. The stored path and the path git runs in stay absolute.
 - A new main window with no saved size opens at 1440×900, or at the screen's visible size when the screen is smaller,
   instead of 1040×450, and the window cannot be made shorter than 600pt below the toolbar. The setup assistant on
   first run fits inside the window.

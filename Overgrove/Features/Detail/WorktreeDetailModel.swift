@@ -69,18 +69,15 @@ struct WorktreeDetailModel: Equatable {
         copyablePath = worktree.path.isRepresentable && PathValidator.displayable(full) == full ? full : nil
 
         var rows: [InfoRow] = []
-        let path = PathValidator.displayable(Self.abbreviated(full, home: home))
+        let path = PathValidator.displayable(PathDisplay.abbreviated(full, home: home))
         if missing {
             rows.append(
                 InfoRow(kind: .path, value: "\(path) — " + String(localized: "Directory missing"), isWarning: true))
         } else if let real = inspection?.realPath {
+            let target = PathValidator.displayable(PathDisplay.abbreviated(real, home: home))
             rows.append(
                 InfoRow(
-                    kind: .path,
-                    value: "\(path) — "
-                        + String(
-                            localized: "Symlink to \(PathValidator.displayable(Self.abbreviated(real, home: home)))"),
-                    isWarning: true))
+                    kind: .path, value: "\(path) — " + String(localized: "Symlink to \(target)"), isWarning: true))
         } else {
             rows.append(InfoRow(kind: .path, value: path))
         }
@@ -217,12 +214,6 @@ struct WorktreeDetailModel: Equatable {
             last.map { StatusBarItem.relative($0, now: now) + ", " + String(localized: "last attempt failed") }
                 ?? String(localized: "Last attempt failed")
         }
-    }
-
-    private static func abbreviated(_ path: String, home: String) -> String {
-        let prefix = home.hasSuffix("/") ? home : home + "/"
-        if path == home { return "~" }
-        return path.hasPrefix(prefix) ? "~/" + path.dropFirst(prefix.count) : path
     }
 }
 

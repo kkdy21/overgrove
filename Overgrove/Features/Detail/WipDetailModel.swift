@@ -125,7 +125,7 @@ struct WipDetailModel: Equatable {
         title = PathValidator.displayable(
             worktree.branchShortName ?? "detached @ \(worktree.head?.short ?? "unknown")")
         worktreePath = worktree.path
-        displayPath = PathValidator.displayable(Self.abbreviated(worktree.path.display, home: home))
+        displayPath = PathValidator.displayable(PathDisplay.abbreviated(worktree.path.display, home: home))
         let full = worktree.path.display
         copyablePath = worktree.path.isRepresentable && PathValidator.displayable(full) == full ? full : nil
         switch entry.state {
@@ -388,12 +388,6 @@ struct WipDetailModel: Equatable {
                     "This repository lists more than \(RepositoryService.defaultMaximumQueriedWorktrees) worktrees. Overgrove loads the changes of the first \(RepositoryService.defaultMaximumQueriedWorktrees)."
             )
         }
-    }
-
-    private static func abbreviated(_ path: String, home: String) -> String {
-        let prefix = home.hasSuffix("/") ? home : home + "/"
-        if path == home { return "~" }
-        return path.hasPrefix(prefix) ? "~/" + path.dropFirst(prefix.count) : path
     }
 
     /// `5,000 changed files` for the WIP header (#499, #543).

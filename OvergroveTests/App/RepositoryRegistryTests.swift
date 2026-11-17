@@ -121,6 +121,34 @@ final class RepositoryRegistryTests: XCTestCase {
             registry.add(RegisteredRepository(rootPath: nil, commonDirectoryPath: "relative.git")), .rejected)
     }
 
+    /// #713: the registered folder is shown with the home folder as `~`, as the detail panel and the sidebar show a
+    /// worktree (S-07's step 1, the registration notices, the alerts, the repository menu, Settings). Only the shown
+    /// text changes: what is stored and what git runs in stay absolute.
+    func testDisplayRootPathShowsTheHomeFolderAsTilde() throws {
+        let home = NSHomeDirectory()
+        let api = RegisteredRepository(rootPath: home + "/dev/api", commonDirectoryPath: home + "/dev/api/.git")
+        XCTAssertEqual(api.displayRootPath, "~/dev/api")
+        XCTAssertEqual(api.locationPath, home + "/dev/api")
+        XCTAssertEqual(api.repository.rootURL?.path, home + "/dev/api")
+        XCTAssertEqual(api.repository.commonGitDirectoryURL.path, home + "/dev/api/.git")
+
+        let registry = RepositoryRegistry(defaults: defaults)
+        XCTAssertEqual(registry.add(api), .added)
+        let data = try XCTUnwrap(defaults.data(forKey: RepositoryRegistry.repositoriesKey))
+        let stored = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [[String: String]])
+        XCTAssertEqual(stored, [["rootPath": home + "/dev/api", "commonDirectoryPath": home + "/dev/api/.git"]])
+
+        let bare = RegisteredRepository(rootPath: nil, commonDirectoryPath: home + "/dev/api.git")
+        XCTAssertEqual(bare.displayRootPath, "~/dev/api.git")
+
+        // Shortened, then escaped: a bidi override in a folder name stays visible.
+        let crafted = RegisteredRepository(
+            rootPath: home + "/dev/evil\u{202E}gpj", commonDirectoryPath: home + "/dev/evil\u{202E}gpj/.git")
+        XCTAssertEqual(crafted.displayRootPath, "~/dev/evil\\u{202E}gpj")
+
+        XCTAssertEqual(entry("api").displayRootPath, "/tmp/dev/api", "a folder outside the home folder stays whole")
+    }
+
     func testRepositoryModelUsesTheCommonDirectoryAsIdentity() {
         let repository = entry("api").repository
         XCTAssertEqual(repository.id, entry("api").id)
