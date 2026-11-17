@@ -63,6 +63,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   as file history does, and ⌘2 focuses it while it covers the graph.
 - The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
   registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
+- The setup assistant's first step also notes when the repository was added from somewhere other than the folder
+  chosen, or was in Overgrove already, instead of an alert that appeared after the assistant was closed.
 - A new main window with no saved size opens at 1440×900, or at the screen's visible size when the screen is smaller,
   instead of 1040×450, and the window cannot be made shorter than 600pt below the toolbar. The setup assistant on
   first run fits inside the window.
