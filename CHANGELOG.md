@@ -48,6 +48,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ### Changed
 
+- VoiceOver reads a row's hint once: the worktree Path row, the Security card's other repository settings, submodule
+  rows, and S-11's commit rows no longer repeat their hint.
 - Tooltips on the panel icon buttons (copy, back, swap), the narrow detail view switch, the clickable status bar
   fields, and sidebar branch folders go away when the pointer leaves and appear again after a drag or a menu.
 - The panel dividers' resize cursor follows the pointer after Settings closes, after switching between main windows,
