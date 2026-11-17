@@ -58,6 +58,9 @@ While the major version is `0`, minor versions may contain breaking changes.
   still pointer, and no resize cursor stays over the graph after Settings closes or after a panel is collapsed by
   dragging.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
+- TAGS and REMOTE rows show short relative dates that go up to weeks, months, and years (`3d`, `2mo`, `3y`), as the
+  graph's Date column does, instead of `1,097 d ago`. S-04's head and the issue detail say `3y ago` and
+  `updated 3h ago`, and VoiceOver reads `3 years ago`. The status bar's fetch time is unchanged.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings
   no longer leaves a resize cursor over the main window.
 - The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show

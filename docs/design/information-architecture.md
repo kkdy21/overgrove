@@ -231,7 +231,7 @@ v0.1은 태그를 그래프의 ref 알약으로만 보였다. 릴리스 태그�
 |---|---|
 | 위치 | REMOTE와 STASHES 사이(§4.1). 처음에는 접힘 |
 | 데이터 | 이미 하는 refs 조회(`for-each-ref refs/tags`, [parsing-spec.md §6](../architecture/parsing-spec.md))를 쓴다. 새 git 명령이 없다. 날짜 필드는 `%(creatordate:unix)`다. `%(committerdate)`는 주석 태그에서 비어 있어 #377에서 바꿨다(커밋에서는 두 값이 같다) |
-| 행 | `tag` 심볼 + 짧은 이름(`refs/tags/` 제외). 오른쪽 끝에 만든 날짜의 상대 시각(`3d`, REMOTE 행과 같은 모양). 그 커밋에 detached HEAD로 서 있는 워크트리가 있으면 `tree` 심볼(§4.3). 주석 태그와 가벼운 태그는 모양을 나누지 않고 툴팁과 VoiceOver에만 적는다(`Annotated tag v1.4.0, 3 days ago` / `Lightweight tag v1.4.0`) |
+| 행 | `tag` 심볼 + 짧은 이름(`refs/tags/` 제외). 오른쪽 끝에 만든 날짜의 상대 시각(`3d`, `2mo`, `3y`. 그래프 Date 열과 같은 단계이고 REMOTE 행과 같은 모양, #686). 그 커밋에 detached HEAD로 서 있는 워크트리가 있으면 `tree` 심볼(§4.3). 주석 태그와 가벼운 태그는 모양을 나누지 않고 툴팁과 VoiceOver에만 적는다(`Annotated tag v1.4.0, 3 days ago` / `Lightweight tag v1.4.0`) |
 | 정렬 | §4.2 |
 | 표시 상한 | 처음 200개(정렬 순서)만 행으로 그린다. 나머지는 마지막에 `N more tags — filter to find one` 안내 행 하나로 줄인다. 사이드바 필터(`⌥⌘F`)는 상한과 관계없이 전체 태그 이름에서 찾는다. 섹션 머리의 수는 전체 개수다 |
 | 고르기 | 태그가 가리키는 커밋(주석 태그는 `%(*objectname)`으로 벗긴 커밋)을 주 선택으로 한다. 사이드바 브랜치를 고를 때와 같다: 그래프를 그 커밋으로 스크롤해 선택하고 S-03을 연다. 포커스 워크트리는 바뀌지 않는다. 그 커밋이 아직 불러온 그래프 페이지에 없으면 브랜치 선택과 같은 경로로 찾는다. 그래프에서 다른 커밋을 고르면 태그 행 강조가 사라진다 |

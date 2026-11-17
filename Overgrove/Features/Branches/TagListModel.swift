@@ -19,6 +19,16 @@ struct TagRow: Identifiable, Equatable {
     let help: String
     /// Without the relative date, which the view adds with the current time.
     let accessibilityLabel: String
+
+    /// `3d`, `2mo`, `3y` at the row's end (§4.5, #686).
+    func relativeDate(now: Date) -> String? {
+        date.map { RelativeTime.compact($0, now: now) }
+    }
+
+    /// `Annotated tag v1.4.0, 3 days ago` (§4.5, interaction.md §6).
+    func spokenLabel(now: Date) -> String {
+        date.map { accessibilityLabel + ", " + RelativeTime.spoken($0, now: now) } ?? accessibilityLabel
+    }
 }
 
 /// TAGS built from the cached refs (information-architecture.md §4.2, §4.5). Pure, so it is unit tested without
