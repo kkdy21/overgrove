@@ -214,9 +214,13 @@ If a check fails, it prints the command that fixes it. On a fresh Mac it is usua
 
 ```sh
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer   # the Command Line Tools were selected, not Xcode
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer   # the same without sudo, for this Terminal window only
 sudo xcodebuild -license accept                                    # the Xcode license was not accepted yet
 sudo xcodebuild -runFirstLaunch                                    # Xcode has not finished its first launch
 ```
+
+If you can't use `sudo`, run the `export` line instead of the first one, in the Terminal window you build from. The
+`xcodebuild` commands below then use Xcode, although `bootstrap.sh` keeps reporting the Command Line Tools item.
 
 **3. Build and run.** Open the project and press ⌘R:
 

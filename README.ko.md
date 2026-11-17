@@ -213,9 +213,13 @@ cd overgrove
 
 ```sh
 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer   # Xcode 대신 Command Line Tools가 선택된 경우
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer   # sudo 없이, 이 터미널 창에서만 같은 효과
 sudo xcodebuild -license accept                                    # Xcode 라이선스에 아직 동의하지 않은 경우
 sudo xcodebuild -runFirstLaunch                                    # Xcode 첫 실행 준비가 끝나지 않은 경우
 ```
+
+`sudo`를 쓸 수 없다면 첫 줄 대신 `export` 줄을 빌드할 터미널 창에서 실행하세요. 그러면 아래 `xcodebuild` 명령이
+Xcode를 씁니다. 다만 `bootstrap.sh`는 Command Line Tools 항목을 계속 표시합니다.
 
 **3. 빌드와 실행.** 프로젝트를 열고 ⌘R을 누릅니다.
 
