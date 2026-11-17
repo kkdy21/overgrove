@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Platform: macOS 14+" src="https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey.svg">
-  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-orange.svg">
+  <img alt="Status: pre-release" src="https://img.shields.io/badge/status-pre--release-orange.svg">
 </p>
 
 <p align="center">
@@ -21,11 +21,10 @@
 
 ---
 
-> **Status: pre-alpha, not usable yet.** The foundation that runs `git` safely is implemented and tested: process
-> execution, hardened git invocation, repository config inspection, credential masking, and path validation. Parsers
-> are in progress, and the app window is still a placeholder. The screen mockups below are the current design
-> ([#166](https://github.com/kkdy21/overgrove/issues/166)). Follow the [roadmap](docs/roadmap.md)
-> and the [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1).
+> **Status: preparing v0.1.0, build from source.** Everything under [Features](#features) works on real repositories,
+> but there is no tagged release yet, and the Homebrew tap opens with that release. Expect rough edges, and please
+> [report them](https://github.com/kkdy21/overgrove/issues/new/choose). The
+> [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1) shows what is left.
 
 ## Why
 
@@ -63,68 +62,200 @@ It is probably not for you yet if:
 - you want to stage, commit, push, pull, or rebase from a GUI. Overgrove stays read-only plus `git fetch`; commits,
   pushes, and cleanup are left to your terminal or your AI agents.
 - you need Windows or Linux.
-- you want a signed, notarized download. Overgrove is source-only for now.
+- you need an app signed with a Developer ID and notarized by Apple. There is no such build: install with Homebrew or
+  build it yourself.
 
 ## Screenshots
 
-> **Design mockups — the app is in development.** These images are drawn from the design tokens with sample data;
-> they are not screenshots of a running build. More screens are in [docs/design/mockups.md](docs/design/mockups.md).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/screenshots/main-window-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="design/screenshots/main-window-light.png">
+  <img alt="Overgrove main window: worktrees and branches in the sidebar, the commit graph in the middle, and the focused worktree's staged, unstaged, and untracked files on the right" src="design/screenshots/main-window-light.png">
+</picture>
 
-| Light | Dark |
-|---|---|
-| ![Overgrove main window mockup, light appearance](design/mockups/main-window-light.png) | ![Overgrove main window mockup, dark appearance](design/mockups/main-window-dark.png) |
+The main window on macOS 26, showing the test fixture repository from `scripts/make-fixture-repo.sh`. The image
+follows your light or dark appearance. You can also open the [light](design/screenshots/main-window-light.png) and
+[dark](design/screenshots/main-window-dark.png) versions directly.
 
-## Planned features (v0.1.0)
+## Features
 
-- **Worktrees:** every worktree with its branch, HEAD, path, and locked or prunable state
-- **Working state per worktree:** staged, unstaged, untracked, and conflicted files
+- **Worktrees:** every worktree of a repository, bare repositories included, with its branch, path, locked or
+  prunable state, change counts, ahead/behind, linked issue, and GitHub pull request status
+- **Working state per worktree:** staged, unstaged, untracked, and conflicted files with line counts, submodule
+  status, and a diff viewer (unified or split, changed words highlighted, whitespace shown on request)
 - **Changes against the base branch:** a PR-style view of what a worktree changed since it branched off `main`
-  (commits ahead, changed files, untracked files), so you can review an agent's work before opening the pull request
-- **Stashes:** the repository's stash list with a per-stash change summary
-- **Ahead/behind:** compared with each branch's upstream after `git fetch`, with the last fetch time
-- **Commit graph:** author, date, and message, with a *WIP* row on top for uncommitted changes; commits co-authored by
-  an AI agent (`Co-authored-by` trailer) are marked
-- **Commit details and file history**
-- **GitHub issues (optional):** listed through your existing `gh` login and linked to branches by issue number
+  (commits ahead, changed files, untracked files), so you can review an agent's work before opening the pull request.
+  You can also compare any two commits
+- **Commit graph:** branches, tags, stashes, and worktrees on their commits, a *WIP* row for the focused worktree, and
+  an *AI* mark on commits with an AI agent's `Co-authored-by` trailer. Search by message, author, SHA, ref, or
+  `#issue`, filter by author, and zoom
+- **Commit details and file history:** a commit's message and files, and a file's history across renames
+- **Branches, tags, and stashes:** local and remote branches with their upstream status, tags, and each stash's files
+- **Stays current without polling:** while the window is visible it watches the worktrees for file changes and
+  refreshes only the ones that changed. A covered or minimized window stops watching
+- **Fetch:** per remote, with progress, the last fetch time, and optional automatic fetch (off by default)
+- **Issues (optional):** open issues from GitHub (github.com and Enterprise hosts) through `gh`, from GitLab through
+  `glab`, or from Gitea through `gt`, using your existing CLI login. Issues are linked to branches, worktrees, and
+  commits by number
+- **Works with your tools:** open a worktree or file in the terminal or editor you choose, open commits, branches,
+  and files on GitHub, and preview files with Quick Look (macOS 15 and later)
+- **Native Mac app:** keyboard navigation and shortcuts, back and forward through selections, VoiceOver labels,
+  Increase Contrast, light and dark appearances, and English and Korean UI
 
 **Read-only by design.** The only operation that touches a remote is `git fetch`. Push, pull, merge, reset, and staging
 are intentionally left out: Overgrove sits next to your terminal or AI agents, which do the writing
-([scope](docs/scope-mvp.md)).
+([scope](docs/scope-mvp.md)). The full list of what v0.1.0 ships, and its known limitations, is in the
+[changelog](CHANGELOG.md).
 
 ## Security
 
-Opening an untrusted repository in a Git client can run code that the repository configures. Overgrove takes a
-defensive approach:
+Opening an untrusted repository in a Git client can run code that the repository configures: hooks, filters,
+fsmonitor, diff drivers, credential helpers, SSH commands, and more. Overgrove is built so that browsing a repository
+you do not trust does not run any of that:
 
-- `git` is invoked with argument arrays, never through a shell
+- `git` is invoked with argument arrays, never through a shell, and only read-only commands and `git fetch` exist in
+  the code
 - dangerous repository settings (fsmonitor, hooks, filters, external diff, credential helpers, custom SSH commands, …)
-  are forced off
-- a repository cannot route `git fetch` through its own proxy or TLS certificates
+  are forced off, and a setting that cannot be turned off safely stops the query
+- a repository cannot send `git fetch` through its own proxy, cookies, or TLS certificates, and only Git's built-in
+  transports are allowed
 - the child environment is built from an allowlist
 - every command has a timeout and an output limit
-- credentials in remote URLs are masked
-- tokens are never stored: GitHub access goes through `gh`
+- credentials in remote URLs and in git's error output are masked
+- tokens are never asked for or stored: issue and pull request access goes through your `gh`, `glab`, or `gt` login
+- each worktree's configuration is checked, and what Overgrove turned off is listed in the worktree's **Security** card
 
-Read [SECURITY.md](SECURITY.md) for details and for how to report a vulnerability privately.
+Things to keep in mind:
+
+- **Your terminal and editor are not protected.** *Open in Terminal*, *Open in Editor*, and the commands Overgrove
+  offers to copy run plain `git` and your own tools, which do use a repository's hooks and settings. Before opening a
+  worktree folder, Overgrove asks unless the worktree's settings were checked and found clean; a single file opens in
+  the editor without asking. What runs there is outside its protection. Use them only in repositories you trust.
+- **Fetch contacts the remote** with your credentials. A repository cannot change how those credentials are sent
+  (proxies, certificates, helpers), but it does choose the remote URL. Don't fetch from remotes you don't trust.
+- **Treat as untrusted** (in the Security card or **Settings › Repositories**) is there for repositories you are
+  unsure about. Overgrove then never fetches from remotes that are folders on this Mac, because that would run `git`
+  in the other repository, and it always asks before opening the repository in a terminal or editor.
+- Repository filters are turned off, so files that a filter such as Git LFS rewrites can show as changed.
+- Self-hosted or corporate servers may need a one-time setup for tokens, SSH host keys, private CAs, or proxies: see
+  [Self-hosted and corporate Git servers](docs/guides/self-hosted-git.md).
+
+Read [SECURITY.md](SECURITY.md) for details and for how to report a vulnerability privately. The threat model is in
+the [security review](docs/design/security-review.md).
 
 ## Requirements
 
-- macOS 14 Sonoma or later
-- Xcode 26 or later to build from source
-- Git 2.36 or later. Overgrove runs Apple's `git` from the developer directory selected with `xcode-select` (Xcode or
-  the Command Line Tools)
-- Optional: [GitHub CLI](https://cli.github.com/) (`gh`), logged in, for the issues panel
+- macOS 14 Sonoma or later to run Overgrove
+- Xcode 26 or later to build it yourself, or when Homebrew builds it from source. Xcode 26.0–26.3 run on macOS
+  Sequoia 15.6 or later, and Xcode 26.4 and later need macOS Tahoe 26.2 or later. The Homebrew bottle needs no Xcode
+- Git 2.36 or later. By default Overgrove runs the `git` of the developer directory that `xcode-select` points to
+  (Xcode or the Command Line Tools), not the first `git` on your `PATH`. You can choose another `git`, such as
+  Homebrew's, in **Settings › Advanced**. The setup assistant checks it on first launch
+- Optional, for the issues panel: [GitHub CLI](https://cli.github.com/) (`gh`, also used for pull request status),
+  [GitLab CLI](https://gitlab.com/gitlab-org/cli) (`glab`), or the Gitea CLI (`gt`, Gitea 28 or later), logged in
+  to the host of your remote
+
+## Install with Homebrew
+
+```sh
+brew install kkdy21/tap/overgrove
+```
+
+- On Apple silicon with macOS 14 or later and Homebrew in `/opt/homebrew` (its default location there), this pours a
+  prebuilt bottle. Xcode is not needed.
+- On an Intel Mac, with Homebrew somewhere other than `/opt/homebrew`, or with `--build-from-source`, Homebrew builds
+  the app from the tagged source. That needs Xcode 26, which runs on macOS 15.6 or later. Intel Macs are not tested.
+- Installing by the full name trusts only this formula, not the whole tap
+  ([tap trust](https://docs.brew.sh/Tap-Trust)).
+- The app is installed at `$(brew --prefix)/opt/overgrove/Overgrove.app`. The install message shows how to link or
+  copy it into `~/Applications`.
+
+The bottle is ad-hoc signed. It is not signed with a Developer ID or notarized by Apple. Homebrew does not mark
+formula downloads as quarantined, so macOS opens the app without a Gatekeeper prompt, as it does an app you build
+yourself.
+
+To check that a bottle was built by the tap's GitHub Actions workflow, check its build provenance attestation in one
+of these two ways. Both need the [GitHub CLI](https://cli.github.com/) logged in, and both apply only when a bottle is
+poured:
+
+```sh
+# Let Homebrew check the attestation before it pours the bottle
+HOMEBREW_VERIFY_ATTESTATIONS=1 brew install kkdy21/tap/overgrove
+
+# Or check the downloaded bottle yourself
+brew tap kkdy21/tap
+brew trust --formula kkdy21/tap/overgrove
+brew fetch kkdy21/tap/overgrove
+gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap \
+  --signer-workflow kkdy21/homebrew-tap/.github/workflows/bottle.yml
+```
+
+If Homebrew prints `Skipping attestation verification`, the bottle was not checked. If you would rather not use a
+prebuilt binary, `brew install --build-from-source kkdy21/tap/overgrove` builds the same formula from source.
 
 ## Build from source
 
-Overgrove is distributed **as source only**. No signed or notarized binaries are provided.
+Overgrove is distributed as source and as an ad-hoc signed Homebrew bottle. There is no build signed with a Developer
+ID or notarized by Apple. To build it yourself you don't need an Apple Developer account: the project signs the app to
+run on your own Mac ("Sign to Run Locally"). Once Xcode is installed, the steps below take a few minutes.
+
+**1. Install Xcode.** Get Xcode 26 or later from the App Store and open it once to accept the license and let it
+install its components.
+
+**2. Get the code and check your Mac.**
 
 ```sh
 git clone https://github.com/kkdy21/overgrove.git
 cd overgrove
-./scripts/bootstrap.sh     # installs the Git hooks and checks your toolchain
-open Overgrove.xcodeproj   # ⌘U runs the tests; ⌘R opens a placeholder window for now
+./scripts/bootstrap.sh --build   # checks macOS, Xcode, and the git Overgrove will run; changes nothing
 ```
+
+If a check fails, it prints the command that fixes it. On a fresh Mac it is usually one of these:
+
+```sh
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer   # the Command Line Tools were selected, not Xcode
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer   # the same without sudo, for this Terminal window only
+sudo xcodebuild -license accept                                    # the Xcode license was not accepted yet
+sudo xcodebuild -runFirstLaunch                                    # Xcode has not finished its first launch
+```
+
+If you can't use `sudo`, run the `export` line instead of the first one, in the Terminal window you build from. The
+`xcodebuild` commands below then use Xcode, although `bootstrap.sh` keeps reporting the Command Line Tools item.
+
+**3. Build and run.** Open the project and press ⌘R:
+
+```sh
+open Overgrove.xcodeproj
+```
+
+Or build from the command line to get an app you can keep in `/Applications`:
+
+```sh
+xcodebuild -project Overgrove.xcodeproj -scheme Overgrove -configuration Release \
+  -destination 'platform=macOS' -derivedDataPath build build
+ditto build/Build/Products/Release/Overgrove.app /Applications/Overgrove.app
+open /Applications/Overgrove.app
+```
+
+To sign with your own Apple Development certificate instead, copy `Config/Personal.xcconfig.local.example` to
+`Config/Personal.xcconfig.local` and fill it in. Git ignores that file.
+
+**4. First launch.** The setup assistant checks `git` and `gh` and asks you to add a repository. Overgrove reads only
+the folders you add; add more later with ⌘O. For the issues panel, log in once with `gh auth login` (or `glab` or
+`gt`; the panel shows the exact command for your remote's host) and press **Check Again**. You can reopen the
+assistant from **Help › Setup Assistant…**.
+
+**Run the tests** with ⌘U in Xcode, or:
+
+```sh
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
+```
+
+The full suite takes several minutes. Performance benchmarks are skipped unless you turn them on
+([benchmark plan](docs/performance/benchmark-plan.md), in Korean).
+
+Contributors: run `./scripts/bootstrap.sh` without `--build` to also install the Git hooks (it sets `core.hooksPath`
+in your clone and needs [gitleaks](https://github.com/gitleaks/gitleaks)), and read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## How we work
 
