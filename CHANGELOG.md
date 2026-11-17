@@ -69,6 +69,9 @@ While the major version is `0`, minor versions may contain breaking changes.
   as file history does, and ⌘2 focuses it while it covers the graph.
 - ⎋ also closes a base comparison (S-11) opened with the toolbar's Compare or ⌘⇧B while the graph has the focus:
   S-11 takes the focus when it opens, as S-12 does.
+- ⎋ closes any screen covering the graph (file history, diff, comparisons) wherever the keyboard focus is, unless
+  text is being typed, so a diff opened from a commit's files or from file history closes too. ⌘2 focuses the diff
+  while it covers the graph.
 - The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
   registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
 - The setup assistant's first step also notes when the repository was added from somewhere other than the folder

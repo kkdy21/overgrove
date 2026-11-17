@@ -52,6 +52,12 @@ extension AppState {
         return focusedWorktreePath?.display
     }
 
+    /// A screen covers the graph (S-09 to S-12): `⎋` closes it (① below) wherever the keyboard focus is, unless text is
+    /// being typed (`EscapeFocusMonitor`, #709).
+    var isGraphCovered: Bool {
+        comparison != nil || commitComparison != nil || diffViewer != nil || history.isOpen
+    }
+
     /// `⎋`, the window's only Escape handler (interaction.md §3.1). ① A screen covering the graph closes, the topmost
     /// one in the order the center draws them (S-11, S-12, S-10, S-09), as its `‹ Graph` button does, and the main
     /// selection stays (#633). ② Otherwise the search clears. ③ Otherwise the main selection returns to the focused

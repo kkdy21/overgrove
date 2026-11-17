@@ -347,6 +347,8 @@ struct GraphPanel: View {
     /// The author chips' width and the room they get: the row fades at its end only when it overflows.
     @State private var chipsWidth: CGFloat = 0
     @State private var chipsViewport: CGFloat = 0
+    /// `⌘2` focuses S-10 while it covers the graph (interaction.md §3.1, #709).
+    @FocusState private var isDiffFocused: Bool
     var onSetShowsStashes: ((Bool) -> Void)?
     /// A file picked in the detail panel covers the graph with its diff (S-10, #232).
     var diff: (title: String, source: String, state: DiffLoadState)?
@@ -392,7 +394,15 @@ struct GraphPanel: View {
                 backTitle: history == nil
                     ? String(localized: "Graph", comment: "Back button to the graph")
                     : String(localized: "History", comment: "Back button to file history"),
-                onShowHistory: onShowDiffHistory)
+                onShowHistory: onShowDiffHistory
+            )
+            // `⌘2` focuses S-10 while it covers the graph, as it does S-09 (interaction.md §3.1). It does not take the
+            // focus when it opens: a focused S-02 file list keeps it, so `↑`/`↓` go on through the files. `⎋` closes
+            // S-10 wherever the focus is (`EscapeFocusMonitor`, #709).
+            .focusable()
+            .focused($isDiffFocused)
+            .focusEffectDisabled()
+            .focusOnRequest([.center], $isDiffFocused)
         } else if let history {
             history
         } else {
