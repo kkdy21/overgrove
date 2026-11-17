@@ -124,9 +124,9 @@ you do not trust does not run any of that:
 Things to keep in mind:
 
 - **Your terminal and editor are not protected.** *Open in Terminal*, *Open in Editor*, and the commands Overgrove
-  offers to copy run plain `git` and your own tools, which do use a repository's hooks and settings. Overgrove asks
-  first unless the worktree's settings were checked and found clean, but what runs there is outside its protection.
-  Use them only in repositories you trust.
+  offers to copy run plain `git` and your own tools, which do use a repository's hooks and settings. Before opening a
+  worktree folder, Overgrove asks unless the worktree's settings were checked and found clean; a single file opens in
+  the editor without asking. What runs there is outside its protection. Use them only in repositories you trust.
 - **Fetch contacts the remote** with your credentials. A repository cannot change how those credentials are sent
   (proxies, certificates, helpers), but it does choose the remote URL. Don't fetch from remotes you don't trust.
 - **Treat as untrusted** (in the Security card or **Settings › Repositories**) is there for repositories you are
