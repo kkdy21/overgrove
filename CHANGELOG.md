@@ -59,6 +59,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   dragging.
 - Switching to another repository no longer quits the app when the graph shows stash rows.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
+- The compare card of a worktree whose folder is missing (prunable), or whose status could not be read, says it
+  cannot be compared instead of waiting for a status that never comes.
 - ⎋ closes a commit comparison (S-12) opened from a graph row's menu: S-12 takes the keyboard focus when it opens,
   as file history does, and ⌘2 focuses it while it covers the graph.
 - The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
