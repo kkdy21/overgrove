@@ -47,7 +47,7 @@
 - [ ] `git clone https://github.com/kkdy21/overgrove.git` → README의 요구 사항(macOS, Xcode 버전)을 확인했다.
 - [ ] Xcode에서 `Overgrove.xcodeproj`를 열고 Run 한 번으로 실행된다 (G10). 서명은 "Sign to Run Locally"로 충분하다.
 - [ ] `xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'`가 통과한다.
-- [ ] Hardened Runtime이 켜져 있다 (`codesign -d --entitlements - --verbose=2 <앱>`).
+- [ ] Release 구성으로 빌드한 앱에 Hardened Runtime이 켜져 있고(`flags=0x10000(runtime)`), entitlement에 `com.apple.security.get-task-allow`가 없다(#687). `xcodebuild -project Overgrove.xcodeproj -scheme Overgrove -configuration Release -derivedDataPath build/qa build` 뒤에 `codesign -d --entitlements - --verbose=2 build/qa/Build/Products/Release/Overgrove.app`으로 확인한다. Debug 빌드에는 디버거와 테스트 번들을 위해 `get-task-allow`가 들어 있는 것이 정상이다.
 - [ ] 외부 패키지가 없다. `Package.resolved`와 SPM 의존성이 없다 (SEC-T17-01).
 - [ ] 최소 지원 macOS(14)에서 실행을 확인했다. 장비가 없으면 그 사실을 릴리스 노트에 적는다.
 

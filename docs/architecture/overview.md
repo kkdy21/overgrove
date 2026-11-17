@@ -369,7 +369,7 @@ gh 실패는 `GHError`(`Overgrove/GitHub/GHError.swift`)로 따로 분류한다:
 | Deployment Target | macOS 14.0 |
 | Swift | Swift 6 언어 모드, strict concurrency complete |
 | App Sandbox | 끔 |
-| Hardened Runtime | 켬. 예외 entitlement 없음 |
+| Hardened Runtime | 켬. Release는 예외 entitlement 없음. Xcode가 기본으로 넣는 `get-task-allow`도 빼서(`CODE_SIGN_INJECT_BASE_ENTITLEMENTS[config=Release] = NO`) 같은 사용자의 다른 프로세스가 앱에 붙지 못한다. Debug는 디버거와 테스트 번들을 위해 `get-task-allow`를 둔다(#687) |
 | 서명 | 소스 빌드 사용자는 "Sign to Run Locally"(ad-hoc). 팀 ID를 저장소에 넣지 않는다 |
 | 사용자별 설정 | `*.xcconfig.local`(gitignore)로 덮어쓴다 |
 | 테스트 | `OvergroveTests` (XCTest, 필요하면 Swift Testing 병행) |
