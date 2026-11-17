@@ -689,7 +689,7 @@ Advanced
 | 요소 | 내용 |
 |---|---|
 | 머리 | 경로, 출처(Staged / Unstaged / 커밋 SHA / stash), 변경 종류 |
-| 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다. Unified는 긴 줄을 한 줄로 두고 가로로 스크롤한다. Split은 두 칸이 가운데 폭을 반씩 나눠 쓰고 긴 줄을 칸 안에서 접는다. 그래서 기본 폭에서도 두 칸이 모두 보인다(#579) |
+| 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다. Unified는 긴 줄을 한 줄로 두고 가로로 스크롤한다. Split은 두 칸이 가운데 폭을 반씩 나눠 쓰고 긴 줄을 칸 안에서 접는다. 그래서 기본 폭에서도 두 칸이 모두 보인다(#579). 패널보다 짧은 diff는 두 방식 모두 본문 맨 위에서 시작한다(#680) |
 | 줄 | 이전·이후 줄 번호, `+`/`−` 기호(색만으로 구분하지 않음), 본문은 `typography.mono` |
 | 배경 | `color.diff.added-bg`, `removed-bg`. 단어 단위 강조는 `added-word-bg` / `removed-word-bg` (v0.2.0, #122. 아래 "단어 단위 강조") |
 | hunk 헤더 | `color.diff.hunk-header-bg` |
