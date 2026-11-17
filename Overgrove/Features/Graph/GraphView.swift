@@ -56,7 +56,6 @@ struct GraphView: View {
     }
     private var geometry: GraphGeometry { zoom.geometry.showing(lanes: fit.lanes) }
     private var graphWidth: CGFloat { geometry.width(lanes: store.laneCount) }
-    private var headIndex: Int? { store.head.flatMap(store.index(of:)) }
     private var shownColumns: GraphColumnLayout { fit.columns }
     private var laneScroll: GraphLaneScroll {
         GraphLaneScroll(offset: laneOffset, lanes: store.laneCount, geometry: geometry)
@@ -79,10 +78,14 @@ struct GraphView: View {
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
                     LazyVStack(spacing: 0) {
-                        if let wip = store.wip {
+                        // Every row below reads this one copy, never the store with an index (#678).
+                        // Stashes are hidden while searching or filtering by author: the dimmed graph shows matches
+                        // only.
+                        let graph = GraphRowsSnapshot(store, stashes: isDimming ? [] : stashes)
+                        if let wip = graph.wip {
                             GraphWipRowView(
-                                wip: wip, column: headIndex.map { store.rows[$0].column } ?? 0,
-                                hasLine: headIndex != nil, isSelected: isWipSelected,
+                                wip: wip, column: graph.headIndex.map { graph.rows[$0].column } ?? 0,
+                                hasLine: graph.headIndex != nil, isSelected: isWipSelected,
                                 graphWidth: graphWidth, refsWidth: shownColumns.width(of: .refs) * zoom.scale,
                                 laneOffset: laneScroll.offset
                             )
@@ -95,17 +98,13 @@ struct GraphView: View {
                             .contextMenu { wipMenu }
                             .opacity(isDimming ? Tokens.Opacity.disabled : 1)
                         }
-                        // Hidden while searching or filtering by author: the dimmed graph shows matches only.
-                        let stashRows =
-                            isDimming
-                            ? [:] : GraphStashPlacement.byBaseRow(stashes, index: { store.index(of: $0) })
-                        ForEach(store.rows.indices, id: \.self) { index in
-                            if let above = stashRows[index] {
+                        ForEach(graph.rows.indices, id: \.self) { index in
+                            if let above = graph.stashesByRow[index] {
                                 ForEach(Array(above.enumerated()), id: \.element.oid) { position, stash in
-                                    stashRow(stash, baseIndex: index, hasStashAbove: position > 0)
+                                    stashRow(stash, baseIndex: index, in: graph, hasStashAbove: position > 0)
                                 }
                             }
-                            row(index, hasStashAbove: stashRows[index] != nil)
+                            row(index, in: graph, hasStashAbove: graph.stashesByRow[index] != nil)
                                 .onAppear { store.rowAppeared(index) }
                         }
                         if store.isLoadingMore {
@@ -241,29 +240,27 @@ struct GraphView: View {
         return .handled
     }
 
-    private func wipLine(at index: Int) -> GraphWipLine {
-        guard store.wip != nil, let head = headIndex else { return .none }
-        return index < head ? .through(store.rows[head].column) : (index == head ? .ends : .none)
-    }
-
-    /// A stash above the commit at `baseIndex` (#384): the lanes between that commit and the one above pass through.
-    private func stashRow(_ stash: Stash, baseIndex: Int, hasStashAbove: Bool) -> some View {
-        let base = store.rows[baseIndex]
-        let wipColumn: Int? = wipLine(at: baseIndex) == .none ? nil : headIndex.map { store.rows[$0].column }
+    /// A stash above the commit at `baseIndex` of `graph` (#384): the lanes between that commit and the one above pass
+    /// through.
+    private func stashRow(_ stash: Stash, baseIndex: Int, in graph: GraphRowsSnapshot, hasStashAbove: Bool)
+        -> some View
+    {
+        let base = graph.rows[baseIndex]
         return GraphStashRowView(
             stash: stash, column: base.column, colorIndex: base.colorIndex, through: base.incoming,
-            wipColumn: wipColumn, hasStashAbove: hasStashAbove, isSelected: stash.oid == selectedStash,
-            graphWidth: graphWidth, now: now, columns: shownColumns, laneOffset: laneScroll.offset
+            wipColumn: graph.wipColumn(aboveRow: baseIndex), hasStashAbove: hasStashAbove,
+            isSelected: stash.oid == selectedStash, graphWidth: graphWidth, now: now, columns: shownColumns,
+            laneOffset: laneScroll.offset
         ) {
             onSelectStash(stash.oid)
         }
     }
 
-    private func row(_ index: Int, hasStashAbove: Bool = false) -> some View {
-        let commit = store.commits[index]
-        let graphRow = store.rows[index]
-        let outgoing = index + 1 < store.rows.count ? store.rows[index + 1].incoming : store.pendingSegments
-        let wipLine = wipLine(at: index)
+    private func row(_ index: Int, in graph: GraphRowsSnapshot, hasStashAbove: Bool = false) -> some View {
+        let commit = graph.commits[index]
+        let graphRow = graph.rows[index]
+        let outgoing = graph.outgoing(at: index)
+        let wipLine = graph.wipLine(at: index)
         return GraphCommitRowView(
             commit: commit, row: graphRow, outgoing: outgoing, pills: store.pills[commit.oid] ?? [],
             isHead: commit.oid == store.head, isSelected: commit.oid == store.selected,
@@ -275,6 +272,51 @@ struct GraphView: View {
         }
         .contextMenu { CommitRowMenu(commit: commit, onShowChanges: { select(commit.oid) }) }
         .opacity(isBright(commit.oid) ? 1 : Tokens.Opacity.disabled)
+    }
+}
+
+/// The rows as one pass of `GraphView` draws them, copied from the store at once (#678).
+///
+/// The rows and the stash rows above them are built after that pass, and SwiftUI updates a row on its own when
+/// something it read changes. A stash row that read `GraphStore.rows` with the index from an earlier pass looked past
+/// the end once a repository switch had shrunk the rows, before the pass that drops the row. Rows read this copy
+/// instead, so the row indices, HEAD's row, and the stash placement come from the same rows, and no index outlives
+/// them.
+struct GraphRowsSnapshot {
+    let commits: [CommitNode]
+    let rows: [GraphRow]
+    /// Lines below the last loaded row (`GraphStore.pendingSegments`).
+    let pendingSegments: [GraphSegment]
+    let wip: GraphWipRow?
+    /// The focused worktree's HEAD row; `nil` while it is not loaded.
+    let headIndex: Int?
+    /// The stashes drawn above each row (`GraphStashPlacement.byBaseRow`).
+    let stashesByRow: [Int: [Stash]]
+
+    @MainActor
+    init(_ store: GraphStore, stashes: [Stash]) {
+        commits = store.commits
+        rows = store.rows
+        pendingSegments = store.pendingSegments
+        wip = store.wip
+        headIndex = store.head.flatMap { store.index(of: $0) }
+        stashesByRow = GraphStashPlacement.byBaseRow(stashes, index: { store.index(of: $0) })
+    }
+
+    /// The lines leaving row `index` at the bottom: the next row's incoming lines, or the ones below the last row.
+    func outgoing(at index: Int) -> [GraphSegment] {
+        index + 1 < rows.count ? rows[index + 1].incoming : pendingSegments
+    }
+
+    /// Where the dashed WIP line crosses row `index`.
+    func wipLine(at index: Int) -> GraphWipLine {
+        guard wip != nil, let head = headIndex else { return .none }
+        return index < head ? .through(rows[head].column) : (index == head ? .ends : .none)
+    }
+
+    /// The WIP line's column in the stash rows above row `index`; `nil` when it does not reach them.
+    func wipColumn(aboveRow index: Int) -> Int? {
+        wipLine(at: index) == .none ? nil : headIndex.map { rows[$0].column }
     }
 }
 
