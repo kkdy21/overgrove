@@ -41,7 +41,7 @@ macOS 14 or later.
 
 **Commit graph and history**
 
-- A commit graph with lane colours, pills for branches, tags, and worktrees, stash nodes, a WIP row for the focused
+- A commit graph with lane colors, pills for branches, tags, and worktrees, stash nodes, a WIP row for the focused
   worktree, and an AI mark on commits that carry an AI agent's `Co-authored-by` trailer. Pages load as you scroll,
   and repositories without a commit-graph file are streamed.
 - Search the loaded graph by message, author, SHA, ref name, or `#issue`; filter by author; resize and hide
@@ -51,7 +51,7 @@ macOS 14 or later.
 
 **Branches, tags, and stashes**
 
-- Local and remote branch trees with upstream status, a Tags section, and the stash list. Choosing an item
+- Local and remote branch trees with upstream status, a Tags section, and the stash list. Choosing a branch or tag
   selects its commit in the graph; a stash shows its files and how each one changed.
 
 **Fetch and refresh**
@@ -121,7 +121,7 @@ your credentials elsewhere, or write to the repository through the app. Threat I
 - The child environment is built from an allowlist instead of being inherited, credential prompts are turned off,
   and every command has a timeout and an output limit (T10, T12, T15).
 - Queries use no transport at all, so partial-clone settings cannot start a lazy fetch. Fetch allows only Git's
-  built-in transports, and remotes that would need another remote helper are refused before git runs (T5).
+  built-in transports, and remotes that would need a custom remote helper are refused before git runs (T5).
 - Fetch uses its own refspecs and turns off tag pruning and bundle URIs, so repository settings cannot rewrite local
   refs. Showing a diff never rewrites the index (T13).
 - The log output encoding is fixed, so repository settings cannot shift fields and forge commit records (T15).
@@ -154,7 +154,7 @@ your credentials elsewhere, or write to the repository through the app. Threat I
   GitHub only. Forgejo is not supported.
 - On git older than 2.45.1, fetch is refused for partial clones and for remotes that are folders on this Mac. In a
   partial clone, views that need missing objects show an error instead of downloading them.
-- Remotes that need another remote helper (`codecommit::` and the like) or `ftp://` cannot be fetched. Shell proxy
+- Remotes that need a custom remote helper (`codecommit::` and the like) or `ftp://` cannot be fetched. Shell proxy
   variables such as `HTTPS_PROXY` are not passed to git; set `http.proxy` in your global config instead
   ([guide](docs/guides/self-hosted-git.md)).
 - Search covers only the graph pages that are loaded. Untracked files are listed up to 5,000 per worktree.
