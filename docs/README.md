@@ -28,7 +28,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | 설계 | [design/iconography.md](design/iconography.md) | 앱 아이콘과 심볼 사용 원칙 (원본: `design/icon/`) |
 | 설계 | [design/references.md](design/references.md) | macOS Git 클라이언트·HIG 레퍼런스 패턴 조사 (브랜드 요소는 쓰지 않음) |
 | 설계 | [design/mockups.md](design/mockups.md) | 주요 화면 목업 갤러리 (라이트·다크, 원본 SVG와 생성 스크립트) |
-| 설계 원본 | [`design/`](../design/) | `tokens/tokens.json`(토큰 원본), `icon/`(아이콘 SVG 원본), `mockups/`(주요 화면 목업과 `generator/` 생성기·색 검증기) |
+| 설계 원본 | [`design/`](../design/) | `tokens/tokens.json`(토큰 원본), `icon/`(아이콘 SVG 원본), `mockups/`(주요 화면 목업과 `generator/` 생성기·색 검증기), `screenshots/`(README에 싣는 실제 앱 화면. macOS 14에서 픽스처 저장소로 찍음) |
 | 보안 | [design/security-review.md](design/security-review.md), [design/threats/](design/threats/) | 위협 모델의 범위·공통 규칙·체크리스트, 위협마다 파일 하나(T-xx 대응, 보안 테스트 매핑, #457) |
 | 테스트 | [testing/test-strategy.md](testing/test-strategy.md) | 테스트 피라미드, 테스트 ID 체계, CI 실행 범위 |
 | 테스트 | [testing/fixtures.md](testing/fixtures.md) | 임시 저장소 픽스처 명세 (`scripts/make-fixture-repo.sh`) |

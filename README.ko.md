@@ -67,12 +67,15 @@ Overgrove는 이런 질문에 화면 하나로 답합니다. 쓰기 기능은 �
 
 ## 스크린샷
 
-> 디자인 토큰과 예시 데이터로 그린 디자인 목업입니다. 앱을 실행해 캡처한 화면은 아닙니다. 다른 화면은
-> [docs/design/mockups.md](docs/design/mockups.md)에서 볼 수 있습니다.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/screenshots/main-window-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="design/screenshots/main-window-light.png">
+  <img alt="Overgrove 메인 창: 왼쪽 사이드바에 워크트리와 브랜치, 가운데에 커밋 그래프, 오른쪽에 포커스한 워크트리의 staged·unstaged·untracked 파일" src="design/screenshots/main-window-light.png">
+</picture>
 
-| 라이트 | 다크 |
-|---|---|
-| ![Overgrove 메인 창 목업, 라이트 모드](design/mockups/main-window-light.png) | ![Overgrove 메인 창 목업, 다크 모드](design/mockups/main-window-dark.png) |
+macOS 14에서 `scripts/make-fixture-repo.sh`로 만든 테스트용 픽스처 저장소를 연 메인 창입니다. 이미지는 라이트·다크
+모드 설정에 맞춰 바뀝니다. [라이트](design/screenshots/main-window-light.png)와
+[다크](design/screenshots/main-window-dark.png) 이미지를 따로 열어 볼 수도 있습니다.
 
 ## 기능
 

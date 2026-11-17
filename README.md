@@ -66,12 +66,15 @@ It is probably not for you yet if:
 
 ## Screenshots
 
-> These are design mockups drawn from the design tokens with sample data, not screenshots of the app. More screens
-> are in [docs/design/mockups.md](docs/design/mockups.md).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="design/screenshots/main-window-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="design/screenshots/main-window-light.png">
+  <img alt="Overgrove main window: worktrees and branches in the sidebar, the commit graph in the middle, and the focused worktree's staged, unstaged, and untracked files on the right" src="design/screenshots/main-window-light.png">
+</picture>
 
-| Light | Dark |
-|---|---|
-| ![Overgrove main window mockup, light appearance](design/mockups/main-window-light.png) | ![Overgrove main window mockup, dark appearance](design/mockups/main-window-dark.png) |
+The main window on macOS 14, showing the test fixture repository from `scripts/make-fixture-repo.sh`. The image
+follows your light or dark appearance. You can also open the [light](design/screenshots/main-window-light.png) and
+[dark](design/screenshots/main-window-dark.png) versions directly.
 
 ## Features
 
