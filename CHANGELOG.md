@@ -57,6 +57,7 @@ While the major version is `0`, minor versions may contain breaking changes.
 - One cursor decision per window for the panel dividers: a newly opened window keeps the resize cursor under a
   still pointer, and no resize cursor stays over the graph after Settings closes or after a panel is collapsed by
   dragging.
+- Switching to another repository no longer quits the app when the graph shows stash rows.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings
   no longer leaves a resize cursor over the main window.
