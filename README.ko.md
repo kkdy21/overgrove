@@ -22,8 +22,8 @@
 ---
 
 > **상태: v0.1.0 릴리스를 준비하고 있습니다. 지금은 소스에서 빌드해 씁니다.** [기능](#기능)에 적은 내용은 실제
-> 저장소에서 동작하지만, 태그를 단 릴리스도 미리 빌드한 앱도 아직 없습니다. 다듬어지지 않은 곳이 있을 수 있으니
-> 발견하면 [알려 주세요](https://github.com/kkdy21/overgrove/issues/new/choose). 남은 작업은
+> 저장소에서 동작하지만, 아직 태그를 단 릴리스가 없고 Homebrew tap도 그 릴리스와 함께 공개됩니다. 다듬어지지 않은
+> 곳이 있을 수 있으니 발견하면 [알려 주세요](https://github.com/kkdy21/overgrove/issues/new/choose). 남은 작업은
 > [v0.1.0 마일스톤](https://github.com/kkdy21/overgrove/milestone/1)에서 볼 수 있습니다.
 
 ## 왜 만들었나
@@ -63,7 +63,8 @@ Overgrove는 이런 질문에 화면 하나로 답합니다. 쓰기 기능은 �
 - GUI에서 stage, commit, push, pull, rebase까지 하고 싶은 경우. Overgrove는 조회와 `git fetch`만 합니다. 커밋,
   푸시, 정리 같은 쓰기 작업은 터미널이나 AI 에이전트에 맡깁니다.
 - Windows나 Linux에서 써야 하는 경우.
-- 서명·공증을 거친 앱을 내려받아 바로 쓰고 싶은 경우. 지금은 소스로만 배포합니다.
+- Developer ID로 서명하고 Apple 공증을 받은 앱이 꼭 필요한 경우. 그런 배포판은 없으니 Homebrew로 설치하거나 직접
+  빌드해야 합니다.
 
 ## 스크린샷
 
@@ -146,17 +147,55 @@ fsmonitor, diff 드라이버, credential helper, SSH 명령 같은 것들입니�
 ## 요구 사항
 
 - 실행: macOS 14 Sonoma 이상
-- 빌드: Xcode 26 이상. Xcode 26은 macOS Sequoia 15.6 이상에서 실행됩니다.
+- 빌드(직접 빌드하거나 Homebrew가 소스에서 빌드할 때): Xcode 26 이상. Xcode 26.0–26.3은 macOS Sequoia 15.6 이상,
+  26.4부터는 macOS Tahoe 26.2 이상에서 실행됩니다. Homebrew bottle에는 Xcode가 필요 없습니다.
 - Git 2.36 이상. Overgrove는 기본적으로 `xcode-select`가 가리키는 개발자 디렉터리(Xcode 또는 Command Line Tools)의
   `git`을 씁니다. 셸의 `PATH`에서 먼저 잡히는 `git`과는 다를 수 있습니다. Homebrew로 설치한 `git` 같은 다른 실행 파일은
   **설정 › 고급**에서 고를 수 있습니다. 처음 실행하면 설정 도우미가 버전을 확인합니다.
 - 선택: 이슈 패널을 쓰려면 원격 호스트에 로그인해 둔 [GitHub CLI](https://cli.github.com/)(`gh`, PR 상태 표시에도
   씀), [GitLab CLI](https://gitlab.com/gitlab-org/cli)(`glab`), Gitea CLI(`gt`, Gitea 28 이상) 중 하나가 필요합니다.
 
+## Homebrew로 설치하기
+
+```sh
+brew install kkdy21/tap/overgrove
+```
+
+- Apple silicon Mac에서 macOS 14 이상을 쓰고 Homebrew가 기본 위치인 `/opt/homebrew`에 있으면, 미리 빌드한 bottle을
+  설치합니다. Xcode는 필요 없습니다.
+- Intel Mac이거나, Homebrew를 `/opt/homebrew`가 아닌 곳에 두었거나, `--build-from-source`를 주면 Homebrew가 릴리스
+  태그의 소스에서 앱을 빌드합니다. 이때는 Xcode 26이 필요하고, Xcode 26은 macOS 15.6 이상에서 실행됩니다. Intel
+  Mac에서의 동작은 테스트하지 않았습니다.
+- 이름 전체로 설치하면 tap 전체가 아니라 이 formula 하나만 신뢰합니다([tap trust](https://docs.brew.sh/Tap-Trust)).
+- 앱은 `$(brew --prefix)/opt/overgrove/Overgrove.app`에 설치됩니다. `~/Applications`에 링크하거나 복사하는 방법은
+  설치가 끝날 때 나오는 안내에 있습니다.
+
+bottle은 ad-hoc 서명만 되어 있습니다. Developer ID 서명도, Apple 공증도 거치지 않았습니다. Homebrew는 formula로
+내려받은 파일에 격리 표시를 붙이지 않으므로, 직접 빌드한 앱과 마찬가지로 Gatekeeper 확인 창 없이 열립니다.
+
+bottle을 tap의 GitHub Actions 워크플로우가 만들었는지는 build provenance attestation으로 확인할 수 있습니다. 방법은
+두 가지이고, 둘 다 [GitHub CLI](https://cli.github.com/) 로그인이 필요하며 bottle을 설치할 때만 해당합니다.
+
+```sh
+# Homebrew가 bottle을 설치하기 전에 attestation을 확인하게 한다
+HOMEBREW_VERIFY_ATTESTATIONS=1 brew install kkdy21/tap/overgrove
+
+# 또는 내려받은 bottle을 직접 확인한다
+brew tap kkdy21/tap
+brew trust --formula kkdy21/tap/overgrove
+brew fetch kkdy21/tap/overgrove
+gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap \
+  --signer-workflow kkdy21/homebrew-tap/.github/workflows/bottle.yml
+```
+
+Homebrew가 `Skipping attestation verification`을 출력했다면 확인을 거치지 않은 것입니다. 미리 빌드한 바이너리를
+쓰고 싶지 않다면 `brew install --build-from-source kkdy21/tap/overgrove`로 같은 formula를 소스에서 빌드할 수 있습니다.
+
 ## 소스에서 빌드하기
 
-Overgrove는 **소스로만** 배포합니다. 서명·공증된 실행 파일은 제공하지 않습니다. Apple Developer 계정은 없어도
-됩니다. 프로젝트가 앱을 내 Mac에서 실행할 수 있게만 서명합니다("Sign to Run Locally"). Xcode가 설치되어 있다면
+Overgrove는 소스와 ad-hoc 서명된 Homebrew bottle로 배포합니다. Developer ID로 서명하고 공증받은 배포판은 없습니다.
+직접 빌드할 때 Apple Developer 계정은 없어도 됩니다. 프로젝트가 앱을 내 Mac에서 실행할 수 있게만 서명합니다
+("Sign to Run Locally"). Xcode가 설치되어 있다면
 아래 과정은 몇 분이면 끝납니다.
 
 **1. Xcode 설치.** App Store에서 Xcode 26 이상을 설치하고 한 번 실행해, 라이선스에 동의하고 추가 구성 요소를

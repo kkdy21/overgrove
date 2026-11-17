@@ -22,7 +22,7 @@
 ---
 
 > **Status: preparing v0.1.0, build from source.** Everything under [Features](#features) works on real repositories,
-> but there is no tagged release and no prebuilt app yet. Expect rough edges, and please
+> but there is no tagged release yet, and the Homebrew tap opens with that release. Expect rough edges, and please
 > [report them](https://github.com/kkdy21/overgrove/issues/new/choose). The
 > [v0.1.0 milestone](https://github.com/kkdy21/overgrove/milestone/1) shows what is left.
 
@@ -62,7 +62,8 @@ It is probably not for you yet if:
 - you want to stage, commit, push, pull, or rebase from a GUI. Overgrove stays read-only plus `git fetch`; commits,
   pushes, and cleanup are left to your terminal or your AI agents.
 - you need Windows or Linux.
-- you want a signed, notarized download. Overgrove is source-only for now.
+- you need an app signed with a Developer ID and notarized by Apple. There is no such build: install with Homebrew or
+  build it yourself.
 
 ## Screenshots
 
@@ -145,7 +146,8 @@ the [security review](docs/design/security-review.md).
 ## Requirements
 
 - macOS 14 Sonoma or later to run Overgrove
-- Xcode 26 or later to build it. Xcode 26 itself needs macOS Sequoia 15.6 or later
+- Xcode 26 or later to build it yourself, or when Homebrew builds it from source. Xcode 26.0–26.3 run on macOS
+  Sequoia 15.6 or later, and Xcode 26.4 and later need macOS Tahoe 26.2 or later. The Homebrew bottle needs no Xcode
 - Git 2.36 or later. By default Overgrove runs the `git` of the developer directory that `xcode-select` points to
   (Xcode or the Command Line Tools), not the first `git` on your `PATH`. You can choose another `git`, such as
   Homebrew's, in **Settings › Advanced**. The setup assistant checks it on first launch
@@ -153,11 +155,49 @@ the [security review](docs/design/security-review.md).
   [GitLab CLI](https://gitlab.com/gitlab-org/cli) (`glab`), or the Gitea CLI (`gt`, Gitea 28 or later), logged in
   to the host of your remote
 
+## Install with Homebrew
+
+```sh
+brew install kkdy21/tap/overgrove
+```
+
+- On Apple silicon with macOS 14 or later and Homebrew in `/opt/homebrew` (its default location there), this pours a
+  prebuilt bottle. Xcode is not needed.
+- On an Intel Mac, with Homebrew somewhere other than `/opt/homebrew`, or with `--build-from-source`, Homebrew builds
+  the app from the tagged source. That needs Xcode 26, which runs on macOS 15.6 or later. Intel Macs are not tested.
+- Installing by the full name trusts only this formula, not the whole tap
+  ([tap trust](https://docs.brew.sh/Tap-Trust)).
+- The app is installed at `$(brew --prefix)/opt/overgrove/Overgrove.app`. The install message shows how to link or
+  copy it into `~/Applications`.
+
+The bottle is ad-hoc signed. It is not signed with a Developer ID or notarized by Apple. Homebrew does not mark
+formula downloads as quarantined, so macOS opens the app without a Gatekeeper prompt, as it does an app you build
+yourself.
+
+To check that a bottle was built by the tap's GitHub Actions workflow, check its build provenance attestation in one
+of these two ways. Both need the [GitHub CLI](https://cli.github.com/) logged in, and both apply only when a bottle is
+poured:
+
+```sh
+# Let Homebrew check the attestation before it pours the bottle
+HOMEBREW_VERIFY_ATTESTATIONS=1 brew install kkdy21/tap/overgrove
+
+# Or check the downloaded bottle yourself
+brew tap kkdy21/tap
+brew trust --formula kkdy21/tap/overgrove
+brew fetch kkdy21/tap/overgrove
+gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap \
+  --signer-workflow kkdy21/homebrew-tap/.github/workflows/bottle.yml
+```
+
+If Homebrew prints `Skipping attestation verification`, the bottle was not checked. If you would rather not use a
+prebuilt binary, `brew install --build-from-source kkdy21/tap/overgrove` builds the same formula from source.
+
 ## Build from source
 
-Overgrove is distributed **as source only**. No signed or notarized binaries are provided. You don't need an Apple
-Developer account: the project signs the app to run on your own Mac ("Sign to Run Locally"). Once Xcode is installed,
-the steps below take a few minutes.
+Overgrove is distributed as source and as an ad-hoc signed Homebrew bottle. There is no build signed with a Developer
+ID or notarized by Apple. To build it yourself you don't need an Apple Developer account: the project signs the app to
+run on your own Mac ("Sign to Run Locally"). Once Xcode is installed, the steps below take a few minutes.
 
 **1. Install Xcode.** Get Xcode 26 or later from the App Store and open it once to accept the license and let it
 install its components.
