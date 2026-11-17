@@ -4,9 +4,9 @@ import XCTest
 
 @testable import Overgrove
 
-/// `⎋` and `⌘2` while a screen covers the graph (S-09 to S-12; #693, #709), in the real main window view. The window is
-/// offscreen and never ordered in, so it cannot be key. A key press goes the way the app sends it: the window's key
-/// monitor (`EscapeFocusMonitor`) first, then the window.
+/// `⎋` and `⌘2` while a screen covers the graph (S-09 to S-12; #693, #701, #709), in the real main window view. The
+/// window is offscreen and never ordered in, so it cannot be key. A key press goes the way the app sends it: the
+/// window's key monitor (`EscapeFocusMonitor`) first, then the window.
 @MainActor
 final class CoveringScreenEscapeTests: XCTestCase {
     private var defaults: UserDefaults!
@@ -131,7 +131,7 @@ final class CoveringScreenEscapeTests: XCTestCase {
     // - S-10 from S-02 (the file list has the focus): `testTheDetailFileListKeepsTheFocusWhenItOpensTheDiff`
     // - S-09 from S-10's Show History or a file row's menu: `testEscapeStillClosesFileHistory`
     // - S-11 from the sidebar's worktree row menu: `testEscapeClosesTheComparisonOpenedFromTheSidebar`; from the
-    //   toolbar or `⌘⇧B`: #701
+    //   toolbar or `⌘⇧B`: `testEscapeClosesTheComparisonOpenedOverTheFocusedGraph` (#701)
     // - S-12 from a graph row's menu: `testEscapeClosesTheCommitComparisonFocusedWithCommandTwo` (#693)
 
     /// #709: S-10 opened from S-03 over the focused graph closes on `⎋`, and the commit stays selected. `⌘2` focuses
@@ -231,6 +231,34 @@ final class CoveringScreenEscapeTests: XCTestCase {
         XCTAssertNotNil(state.comparison)
         try pressEscape(in: window)
         XCTAssertNil(state.comparison)
+    }
+
+    /// #701: S-11, opened over the focused graph as the toolbar's Compare and `⌘⇧B` do, takes `⌘2`, and `⎋` then
+    /// reaches the window's handler: S-11 closes and the selection stays. The next `⎋` goes on to ③.
+    func testEscapeClosesTheComparisonOpenedOverTheFocusedGraph() async throws {
+        let state = try await loadedState()
+        let focused = try XCTUnwrap(state.focusedWorktreePath)
+        let window = window(state)
+        defer { window.close() }
+        settle()
+        state.selectCommit(base)
+        state.focus(.center)
+        settle()
+
+        state.showComparison()
+        settle()
+        XCTAssertNotNil(state.comparison)
+        state.focus(.center)
+        settle()
+        XCTAssertFalse(
+            window.firstResponder === window, "⌘2 focuses S-11: \(String(describing: window.firstResponder))")
+
+        try pressEscape(in: window)
+        XCTAssertNil(state.comparison, "⎋ closes S-11")
+        XCTAssertEqual(state.selection, .commit(base), "the main selection stays")
+
+        try pressEscape(in: window)
+        XCTAssertEqual(state.selection, .wip(focused), "③ once nothing covers the graph")
     }
 
     /// S-09 is unchanged: `⌘2` focuses it while it covers the graph, and `⎋` closes it.
