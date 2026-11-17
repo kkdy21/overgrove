@@ -1,6 +1,6 @@
 # 제품 요구 사항 문서 (PRD)
 
-> 상태: Accepted (Phase 1 게이트, 2026-11-05) · 관련: ADR-0001~0008, ADR-0011, [scope-mvp.md](scope-mvp.md), [roadmap.md](roadmap.md)
+> 상태: Accepted (Phase 1 게이트, 2026-11-05) · 개정: 2026-11-17 N2와 §10 배포 제약을 Homebrew bottle에 맞춤(ADR-0027, #694) · 관련: ADR-0001~0008, ADR-0011, ADR-0027, [scope-mvp.md](scope-mvp.md), [roadmap.md](roadmap.md)
 
 ## 1. 요약
 
@@ -78,7 +78,7 @@ Overgrove는 **여러 Git 워크트리를 한 화면에서 내려다보는 macOS
 | ID | 비목표 | 이유 | 대체 수단 |
 |---|---|---|---|
 | N1 | Windows, Linux 지원 | 네이티브 macOS 경험에 집중 | — |
-| N2 | App Store 배포, 서명·공증된 바이너리 배포 | 1인 오픈소스 운영 부담, 소스 빌드로 충분 | 소스 빌드 (Sign to Run Locally) |
+| N2 | App Store 배포, Developer ID 서명·공증 바이너리 배포 | 1인 오픈소스 운영 부담. Apple Developer Program 가입이 필요하다 | 소스 빌드(Sign to Run Locally). Homebrew 개인 tap의 formula: Apple silicon에는 ad-hoc 서명 bottle, 그 밖에는 소스 빌드 (ADR-0027) |
 | N3 | push, PR 생성, 머지, 리뷰 작성 등 원격 쓰기. Pull 포함 (ADR-0011) | 조회 전용 원칙, 실행 경로 최소화 | 터미널, Claude Code 하네스 |
 | N4 | 인터랙티브 리베이스, 드래그 앤 드롭 커밋 정리, 스테이징 토글, stash apply/pop/drop | 쓰기 작업 | `later` 이슈로 보관 |
 | N5 | 자체 Git 엔진 구현 | 사용자 git 설정과 동일한 동작 보장 | 시스템 `git` 호출 (ADR-0008) |
@@ -147,7 +147,7 @@ Overgrove는 **여러 Git 워크트리를 한 화면에서 내려다보는 macOS
 | 가정 | GitHub 연동은 선택이다. `gh`가 없어도 Git 조회는 완전히 동작한다 |
 | 가정 | 원격 인증은 사용자의 기존 credential helper나 SSH 키로 이미 동작한다 |
 | 제약 | App Sandbox를 끈다. 임의 경로 접근과 git 자식 프로세스의 credential helper 접근 때문이다. 대신 Hardened Runtime과 실행 경로 통제로 보완한다 |
-| 제약 | 서명·공증 바이너리를 배포하지 않는다. 사용자는 소스에서 빌드한다 |
+| 제약 | Developer ID 서명·공증 바이너리를 배포하지 않는다. 사용자는 소스에서 빌드하거나 Homebrew 개인 tap으로 설치한다. tap의 bottle은 ad-hoc 서명이고 build provenance attestation을 붙인다(ADR-0027) |
 | 제약 | 외부 패키지를 쓰지 않는다. 파서, 그래프, diff 표시를 직접 구현한다 |
 | 제약 | GitKraken의 로고, 아이콘, 문구, 색상을 쓰지 않는다. 3단 레이아웃과 WIP 행 같은 패턴만 참고한다 |
 

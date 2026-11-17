@@ -72,6 +72,7 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 macOS �
 | Swift | Swift 6 언어 모드, strict concurrency |
 | 포맷·린트 | 툴체인 내장 `swift format` (ADR-0007), 설정 파일 `.swift-format` |
 | 외부 패키지 | 0개 (ADR-0006) |
+| Homebrew | 개인 tap `kkdy21/homebrew-tap`, 설치 `brew install kkdy21/tap/overgrove`. formula와 tap 워크플로우 원본은 `packaging/homebrew/` (ADR-0027) |
 
 ### 2.2 소스 구조 (Phase 3에서 생성)
 
@@ -159,6 +160,7 @@ OvergroveTests/
 | 0024 | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰 직접 사용 안 함) | Accepted |
 | 0025 | GitHub 호스트는 gh에 로그인된 것만 신뢰, 계정은 앱이 바꾸지 않음 (ADR-0004 §8 대체) | Accepted |
 | 0026 | GitLab·Gitea 이슈는 glab·gt에 위임, 그 CLI에 로그인된 호스트만 신뢰 (ADR-0004를 GitHub 밖 제공자로 확장) | Accepted |
+| 0027 | Homebrew는 개인 tap의 bottle 붙은 formula(소스 빌드 대체), Developer ID 서명·공증은 하지 않음 | Accepted |
 
 ### 2.6 테스트 ID
 

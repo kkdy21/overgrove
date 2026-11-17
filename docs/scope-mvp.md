@@ -37,7 +37,7 @@
 | 항목 | 근거 | 보관 위치 |
 |---|---|---|
 | Windows, Linux | N1 | 계획 없음 |
-| App Store, 서명·공증 바이너리 | N2 | 계획 없음 |
+| App Store, Developer ID 서명·공증 바이너리 | N2, ADR-0027 | 계획 없음. Homebrew bottle은 ad-hoc 서명으로 낸다 |
 | push, PR 생성, 머지, 리뷰 작성 | N3, ADR-0021 | 하네스에서 수행 |
 | Pull (버튼 포함) | N3, ADR-0011 | `later` |
 | 스테이징 토글, 인터랙티브 리베이스, 커밋 정리, stash apply/pop/drop | N4, ADR-0021 | `later` |
