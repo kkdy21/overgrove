@@ -52,6 +52,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   rows, and S-11's commit rows no longer repeat their hint.
 - Tooltips on the panel icon buttons (copy, back, swap), the narrow detail view switch, the clickable status bar
   fields, and sidebar branch folders go away when the pointer leaves and appear again after a drag or a menu.
+- Release builds no longer carry the `get-task-allow` debugging entitlement, so other processes of the same user cannot
+  attach to the app. Debug builds keep it for the debugger and the tests.
 - The panel dividers' resize cursor follows the pointer after Settings closes, after switching between main windows,
   and after a panel is collapsed by dragging, without waiting for the pointer to move.
 - The panel dividers show the resize cursor from the moment the pointer enters them again, also when the pointer
@@ -77,6 +79,9 @@ While the major version is `0`, minor versions may contain breaking changes.
 - A new main window with no saved size opens at 1440×900, or at the screen's visible size when the screen is smaller,
   instead of 1040×450, and the window cannot be made shorter than 600pt below the toolbar. The setup assistant on
   first run fits inside the window.
+- TAGS and REMOTE rows show short relative dates that go up to weeks, months, and years (`3d`, `2mo`, `3y`), as the
+  graph's Date column does, instead of `1,097 d ago`. S-04's head and the issue detail say `3y ago` and
+  `updated 3h ago`, and VoiceOver reads `3 years ago`. The status bar's fetch time is unchanged.
 - The graph's WIP row summary follows the app language: the counts (`3 staged`, `2 conflicted`) are translated with
   the same phrases VoiceOver reads, and the `WIP` badge stays as it is.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings

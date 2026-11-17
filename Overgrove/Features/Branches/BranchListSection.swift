@@ -232,8 +232,8 @@ private struct BranchRowView: View {
                 Text("↓" + WorktreeListModel.badgeText(row.behind)).font(Tokens.Font.pill)
                     .foregroundStyle(Tokens.Color.statusBehind)
             }
-            if let now, let date = row.date {
-                Text(StatusBarItem.relative(date, now: now))
+            if let now, let date = row.relativeDate(now: now) {
+                Text(date)
                     .font(Tokens.Font.caption)
                     .foregroundStyle(Tokens.Color.textTertiary)
             }

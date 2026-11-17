@@ -34,6 +34,11 @@ struct BranchRow: Identifiable, Equatable {
     /// Where Open on GitHub goes (#406): the repository of the remote this branch tracks (a remote row: its own remote),
     /// so a branch tracking a fork opens the fork. `nil` when that remote is not a github.com repository.
     var gitHubTarget: GitHubBranchTarget?
+
+    /// `3d`, `2mo`, `3y` at a remote row's end, as in TAGS (information-architecture.md §4.5, #686).
+    func relativeDate(now: Date) -> String? {
+        date.map { RelativeTime.compact($0, now: now) }
+    }
 }
 
 /// A row or a folder of rows (`feat/`, a remote) in the sidebar tree.

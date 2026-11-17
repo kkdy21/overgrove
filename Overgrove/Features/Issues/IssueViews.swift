@@ -259,14 +259,11 @@ struct IssueDetailView: View {
                     .background(Capsule().fill(Tokens.Color.surfaceRaised))
                     .controlOutline(Capsule())
                 TimelineView(.periodic(from: .now, by: 60)) { context in
-                    Text(
-                        ([model.repository].compactMap { $0 } + [
-                            "updated " + StatusBarItem.relative(model.updatedAt, now: context.date)
-                        ]).joined(separator: " · ")
-                    )
-                    .font(Tokens.Font.caption)
-                    .foregroundStyle(Tokens.Color.textTertiary)
-                    .lineLimit(1)
+                    Text(model.updatedLine(now: context.date))
+                        .font(Tokens.Font.caption)
+                        .foregroundStyle(Tokens.Color.textTertiary)
+                        .lineLimit(1)
+                        .accessibilityLabel(model.updatedLine(now: context.date, spoken: true))
                 }
             }
         }

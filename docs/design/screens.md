@@ -116,7 +116,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 ```
 │˅ TAGS            38  │
 │  ⌂ v1.4.0        3d  │   ⌂ = `tag` 심볼, 오른쪽은 만든 날짜의 상대 시각
-│  ⌂ v1.4.0-rc.2  12d  │
+│  ⌂ v1.4.0-rc.2   1w  │
 │  ⌂ v1.3.2  🌲   1mo  │   🌲 = 이 커밋에 detached HEAD로 선 워크트리가 있음(`tree` 심볼)
 │  ⌂ v1.3.1       2mo  │
 │  …                   │
@@ -124,6 +124,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 ```
 
 - 행 높이는 `size.row-sidebar`(28). 심볼과 글자 색은 REMOTE 브랜치 행과 같다(`text.secondary` 심볼, `text.primary` 이름, `text.tertiary` 시각).
+- 시각은 그래프 Date 열과 같은 단계로 쓴다(`now`, `5m`, `2h`, `3d`, `4w`, `5mo`, `2y`). REMOTE 브랜치 행도 같다. 상태바의 fetch 문구(`2 d ago`)는 일 단위에서 더 올라가지 않으므로 쓰지 않는다(#686).
 - 태그 행을 고르면 그래프가 그 커밋으로 스크롤해 선택하고 상세 패널에 S-03이 열린다.
 - 고충실도 목업: [mockups.md](mockups.md)의 "S-01 사이드바 TAGS" (#377).
 
@@ -373,7 +374,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 | 요소 | 내용 |
 |---|---|
-| 제목 | `stash@{n}`은 패널 머리에 둔다. 본문 첫 줄은 메시지 전체와 상대 시각이다(#579) |
+| 제목 | `stash@{n}`은 패널 머리에 둔다. 본문 첫 줄은 메시지 전체와 상대 시각(`3d ago`, `2y ago`)이다(#579, #686). VoiceOver는 `3 days ago`로 읽는다 |
 | Base commit | stash의 첫 번째 부모. 누르면 그래프에서 그 커밋 선택 |
 | Branch | 메시지 `WIP on <branch>` / `On <branch>`에서 추정. 추정임을 `(from message)`로 밝힌다 |
 | Includes | index 커밋(두 번째 부모), untracked 커밋(세 번째 부모) 존재 여부 |

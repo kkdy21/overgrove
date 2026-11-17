@@ -206,6 +206,25 @@ final class LocalizationTests: XCTestCase {
         XCTAssertEqual(ko.localizedString(forKey: "No Repository", value: nil, table: nil), "저장소 없음")
     }
 
+    /// The short relative times of S-04 and the issue detail (#686) are looked up in the catalog and have Korean:
+    /// `3d ago` is `3일 전`, `updated 3h ago` is `3시간 전 업데이트`.
+    func testShortRelativeTimesAreLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        for (source, key, korean) in [
+            ("RelativeTime", "%@ ago", "%@ 전"), ("RelativeTime", "just now", "방금"),
+            ("IssueModels", "updated %@", "%@ 업데이트"),
+        ] {
+            let file = try XCTUnwrap(
+                objects.map { $0.appendingPathComponent("\(source).stringsdata") }
+                    .first { FileManager.default.fileExists(atPath: $0.path) }, source)
+            XCTAssertTrue(try Self.extractedKeys(file).contains(key), "\(source): not extracted: \(key)")
+            XCTAssertEqual(ko.localizedString(forKey: key, value: nil, table: nil), korean, key)
+        }
+        let compact = String(format: ko.localizedString(forKey: "%lldd", value: nil, table: nil), 3)
+        XCTAssertEqual(String(format: ko.localizedString(forKey: "%@ ago", value: nil, table: nil), compact), "3일 전")
+    }
+
     /// The graph's WIP row summary (#683) is built from the catalog's count phrases, the ones the row's VoiceOver label
     /// reads, so it is Korean in Korean with the detail panel's terms. `WIP` and the glyphs stay as they are.
     func testGraphWipSummaryIsLocalized() throws {
