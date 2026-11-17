@@ -58,6 +58,9 @@ While the major version is `0`, minor versions may contain breaking changes.
   still pointer, and no resize cursor stays over the graph after Settings closes or after a panel is collapsed by
   dragging.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
+- A new main window with no saved size opens at 1440×900, or at the screen's visible size when the screen is smaller,
+  instead of 1040×450, and the window cannot be made shorter than 600pt below the toolbar. The setup assistant on
+  first run fits inside the window.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings
   no longer leaves a resize cursor over the main window.
 - The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show
