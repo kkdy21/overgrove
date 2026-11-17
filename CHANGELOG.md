@@ -57,7 +57,10 @@ While the major version is `0`, minor versions may contain breaking changes.
 - One cursor decision per window for the panel dividers: a newly opened window keeps the resize cursor under a
   still pointer, and no resize cursor stays over the graph after Settings closes or after a panel is collapsed by
   dragging.
+- Switching to another repository no longer quits the app when the graph shows stash rows.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
+- The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
+  registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
 - TAGS and REMOTE rows show short relative dates that go up to weeks, months, and years (`3d`, `2mo`, `3y`), as the
   graph's Date column does, instead of `1,097 d ago`. S-04's head and the issue detail say `3y ago` and
   `updated 3h ago`, and VoiceOver reads `3 years ago`. The status bar's fetch time is unchanged.
