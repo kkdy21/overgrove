@@ -130,9 +130,9 @@ your credentials elsewhere, or write to the repository through the app. Threat I
   before their state is read (T4, T14, T15).
 - Credentials are masked in remote URLs, git's error output, logs, and copied reports (T11, T16). Paths are
   validated before any file is read, and symbolic links cannot lead out of the worktree (T14).
-- Open in Terminal and Open in Editor ask first unless the worktree's settings were checked and hold no finding and
-  no hook, because a shell or an editor does use the repository's settings (T14). Quick Look refuses file types
-  whose preview renders web content.
+- Opening a worktree folder in a terminal or editor asks first unless the worktree's settings were checked and hold
+  no finding and no hook, because a shell or an editor does use the repository's settings (T14). Quick Look refuses
+  file types whose preview renders web content.
 - Untrusted repository mode: a repository marked untrusted never fetches from remotes that are folders on this Mac,
   since fetching one runs git in that other repository, and it always asks before opening a terminal or editor
   (T5, T14).
