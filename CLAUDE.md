@@ -4,13 +4,13 @@ Overgrove는 여러 Git 워크트리를 한 화면에서 내려다보는 **macOS
 
 ## 0. 지금 상태
 
-- Phase 1·2 게이트를 통과했고([phase-gates.md §4](docs/process/phase-gates.md)), **Phase 3(개발)이 진행 중이다.** 협업자 본격 모집 전에 로드맵을 정리하는 중이며, 하네스와 기여 절차는 이미 협업자 기준으로 동작한다.
+- Phase 1–3 게이트를 통과했고([phase-gates.md §4](docs/process/phase-gates.md)), **지금은 Phase 4(검증)와 v0.1.0 릴리스 준비가 진행 중이다.** 하네스와 기여 절차는 협업자 기준으로 동작한다.
 - 실행·보안 기반이 들어와 있다:
   - Xcode 프로젝트, CI
   - `ProcessRunner`, `GitEnvironment`, `GitCommand`·`GitClient`, `RepoConfigInspector`
   - `CredentialMasker`, `PathValidator`, `GitError`
   - 모델, 설정·버전·gh 파서
-- 파서·GraphEngine·픽스처·통합 테스트·디자인 시스템·보안 테스트(T1–T16)가 들어왔고, 화면은 #164 결정(B)에 따라 워크트리 검토 동선(저장소 등록 → 워크트리 목록 → WIP 상세 → Diff 뷰어 #232 → 기준 비교 #157·#158 → 보안 상태)을 먼저 만든다. 커밋 그래프(#68)는 그다음이다([roadmap.md §3](docs/roadmap.md)). 모양의 기준은 [art-direction.md](docs/design/art-direction.md)다.
+- 파서·GraphEngine·픽스처·통합 테스트·디자인 시스템·보안 테스트(T1–T19)와 v0.1.0 화면이 모두 들어왔다. 화면은 #164 결정(B)에 따라 워크트리 검토 동선을 먼저, 커밋 그래프(#68)를 그다음에 만들었다([roadmap.md §3](docs/roadmap.md)). 모양의 기준은 [art-direction.md](docs/design/art-direction.md)다.
 - 진행 상황은 GitHub 이슈, [보드](https://github.com/users/kkdy21/projects/4), 마일스톤이 기준이다. 선점 가능한 이슈는 보드의 "Ready to claim" 뷰에 있다.
 
 ## 0.1 "백로그 확인해서 진행해줘"
