@@ -81,6 +81,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   `updated 3h ago`, and VoiceOver reads `3 years ago`. The status bar's fetch time is unchanged.
 - VoiceOver reads a graph row's relative time in the app's language (`2시간 전` in Korean) like the rest of the row's
   label, instead of always in English.
+- The graph row's VoiceOver hint reads the commit's date in the app's language too (`2026년 11월 3일 오후 2:22` in
+  Korean).
 - The graph's WIP row summary follows the app language: the counts (`3 staged`, `2 conflicted`) are translated with
   the same phrases VoiceOver reads, and the `WIP` badge stays as it is.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings
