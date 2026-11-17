@@ -146,7 +146,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
   - 노드: 속이 빈 점선 노드(`color.graph.wip-node`)와 HEAD까지의 점선
   - 배경: `color.surface.wip-row`
   - Refs 열: 워크트리 폴더 이름을 쓴 점선 알약
-  - 요약 문구: `WIP 3 staged · 2 unstaged · 1 untracked`. 충돌이 있으면 맨 앞에 `⚠ 2 conflicted`
+  - 요약 문구: `WIP 3 staged · 2 unstaged · 1 untracked`. 충돌이 있으면 맨 앞에 `⚠ 2 conflicted`. 개수 문구는 VoiceOver 레이블과 같은 문구라서 한국어는 `WIP 3개 스테이징됨 · 2개 스테이징 안 됨 · 1개 추적 안 됨`, `⚠ 2개 충돌`이다. `WIP`는 번역하지 않는다(#683)
   - 변경이 없으면 WIP 행을 숨긴다.
 - **HEAD 링.** 포커스 워크트리의 HEAD 노드 바깥에 `color.graph.head-ring`(액센트) 링을 한 겹 더 두른다.
 - **ref 알약.** 종류별 모양은 [art-direction.md §5.5](art-direction.md#55-ref-알약)를 따른다. 요약:
