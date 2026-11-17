@@ -61,8 +61,15 @@ While the major version is `0`, minor versions may contain breaking changes.
   dragging.
 - Switching to another repository no longer quits the app when the graph shows stash rows.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
+- The compare card of a worktree whose folder is missing (prunable), or whose status could not be read, says it
+  cannot be compared instead of waiting for a status that never comes.
+- ⎋ closes a commit comparison (S-12) opened from a graph row's menu: S-12 takes the keyboard focus when it opens,
+  as file history does, and ⌘2 focuses it while it covers the graph.
 - The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
   registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
+- A new main window with no saved size opens at 1440×900, or at the screen's visible size when the screen is smaller,
+  instead of 1040×450, and the window cannot be made shorter than 600pt below the toolbar. The setup assistant on
+  first run fits inside the window.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings
   no longer leaves a resize cursor over the main window.
 - The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show
@@ -142,6 +149,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   `refs/stash`, or a stash a branch points to, no longer appears twice.
 - Compare (S-12) keeps the subject and author of a base or target commit that a rebase or reset drops from the graph,
   marks it "Not in the graph", and stays open when that row is chosen.
+- A Unified diff shorter than the viewer starts at the top, as Split does, instead of sitting in the middle of the
+  panel.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

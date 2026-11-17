@@ -31,7 +31,7 @@ extension AppState {
     var baseCompareCardModel: BaseCompareCardModel? {
         guard baseSummaryLoader != nil, let path = focusedWorktreePath else { return nil }
         let summary = baseSummary?.worktree == path ? baseSummary : nil
-        return BaseCompareCardModel(summary: summary, canCompare: canCompare(path))
+        return BaseCompareCardModel(summary: summary, status: .init(entry(at: path)))
     }
 
     /// How long after the last comparison ended an auto-refresh comparison may start: max(5 s, 10 × its duration).

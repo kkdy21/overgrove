@@ -22,6 +22,8 @@ struct OvergroveApp: App {
         WindowGroup("Overgrove") {
             MainWindowScene(layoutStore: layoutStore, registry: registry, settings: settings)
         }
+        // A first window big enough for the layout and the setup assistant (#685); a saved size still wins.
+        .defaultSize(MainWindowSize.initial(visibleScreen: NSScreen.main?.visibleFrame.size))
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands {
             // View › Show/Hide Sidebar (⌃⌘S) and Show/Hide Detail (⌥⌘0) for the panel split container (#174).
