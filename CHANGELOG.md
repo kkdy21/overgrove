@@ -57,7 +57,10 @@ While the major version is `0`, minor versions may contain breaking changes.
 - One cursor decision per window for the panel dividers: a newly opened window keeps the resize cursor under a
   still pointer, and no resize cursor stays over the graph after Settings closes or after a panel is collapsed by
   dragging.
+- Switching to another repository no longer quits the app when the graph shows stash rows.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
+- The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
+  registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
 - A new main window with no saved size opens at 1440×900, or at the screen's visible size when the screen is smaller,
   instead of 1040×450, and the window cannot be made shorter than 600pt below the toolbar. The setup assistant on
   first run fits inside the window.
