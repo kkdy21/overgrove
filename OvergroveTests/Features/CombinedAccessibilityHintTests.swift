@@ -125,6 +125,19 @@ final class CombinedAccessibilityHintTests: XCTestCase {
         XCTAssertEqual(row.help, "Copy Path")
     }
 
+    /// `.help` on the one control that has it, as in Manage Repositories' rows, is one hint in the combined row. Only a
+    /// hint over several elements repeats.
+    func testHelpOnOneButtonInACombinedRowIsReadOnce() throws {
+        let found = try elements(
+            HStack {
+                Text("api")
+                Button("Remove") {}.help("Remove “api” from Overgrove. The folder is not changed.")
+            }
+            .accessibilityElement(children: .combine))
+        let row = try XCTUnwrap(found.first { $0.text.contains("api") })
+        XCTAssertEqual(row.help, "Remove “api” from Overgrove. The folder is not changed.")
+    }
+
     // MARK: - Screens
 
     /// S-05: the Path row (path and copy button) and the Security card's "Other repository settings" rows.
