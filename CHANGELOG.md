@@ -147,6 +147,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   `refs/stash`, or a stash a branch points to, no longer appears twice.
 - Compare (S-12) keeps the subject and author of a base or target commit that a rebase or reset drops from the graph,
   marks it "Not in the graph", and stays open when that row is chosen.
+- A Unified diff shorter than the viewer starts at the top, as Split does, instead of sitting in the middle of the
+  panel.
 
 - `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
   finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and

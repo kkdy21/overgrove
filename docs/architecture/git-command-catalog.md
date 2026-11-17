@@ -216,6 +216,7 @@ diff를 만드는 서브커맨드(`diff`, `diff-tree`, `stash show`, `log -p`)�
 | `fetch(remote:)` | `["fetch", "--prune", "--no-recurse-submodules", "--progress", "--no-tags", "--upload-pack=git-upload-pack", "--refmap=", "--end-of-options", "<remote name>", "+refs/heads/*:refs/remotes/<remote name>/*"]` | 저장소 경로 | §2.3 인증 인자 뒤에 `-c fetch.pruneTags=false -c remote.<remote name>.pruneTags=false -c fetch.writeCommitGraph=false -c fetch.bundleURI= -c http.cookieFile= -c http.saveCookies=false -c http.delegation=none -c credential.protectProtocol=true -c credential.sanitizePrompt=true -c transfer.credentialsInUrl=die -c promisor.acceptFromServer=none`. 타임아웃 120초 | T2, T5, T6, T8, T11, T12, T13 |
 
 - 원격마다 따로 실행한다 (`--all`을 쓰지 않음). 원격별로 인증 실패를 구분해 보여 주려는 것이다. 참고로 `--all`도 `--upload-pack`을 원격별 하위 fetch에 전달하는 것은 확인했다.
+  - 원격 이름을 주고 실행하므로 `remote.<name>.skipFetchAll`을 따르지 않는다. git은 여러 원격을 한꺼번에 받을 때(`fetch --all`, `git remote update`, maintenance의 prefetch)만 이 키를 보고, 앱도 이 키를 읽지 않는다. 그래서 이 키가 켜진 원격도 Fetch 대상이다(표준 픽스처의 `mirror`, QA-SY-01, #681).
 - `--upload-pack=git-upload-pack`은 로컬 `remote.<n>.uploadpack`을 무력화한다. `-c remote.<n>.uploadpack=`로는 무력화되지 않는다 (확인).
 - **쓰는 범위를 명령줄에 고정한다(#209).** 앱의 fetch가 쓰는 ref는 `refs/remotes/<remote name>/*`뿐이다. 앱이 허용하는 쓰기는 이것과 `FETCH_HEAD`, 객체뿐이다. 저장소 설정으로는 이 범위를 넓힐 수 없다.
   - 고정하지 않으면 저장소 설정이 범위를 넓힌다(Apple Git 2.54.0 확인, security-review.md E40). 로컬 `remote.<n>.fetch=+refs/heads/*:refs/heads/*`가 있고 HEAD가 detached면 fetch가 로컬 전용 브랜치를 지우고 `main`을 강제로 되돌린다. 로컬 `fetch.pruneTags`·`remote.<n>.pruneTags`는 `--prune`과 함께 로컬 태그를 지운다.
