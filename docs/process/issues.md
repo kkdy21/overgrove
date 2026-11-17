@@ -30,7 +30,7 @@
 
 ## 3. 라벨
 
-원본은 [`.github/labels.json`](../../.github/labels.json)이고, `scripts/github/sync-labels.sh --prune`으로 저장소에 반영한다.
+원본은 [`.github/labels.json`](../../.github/labels.json)이고, `scripts/github/sync-labels.sh --prune`으로 저장소에 반영한다. `--prune`은 파일에 없는 라벨을 저장소에서 지우고, 그 라벨이 붙어 있던 이슈·PR에서도 떼어 낸다. 그래서 저장소에서 라벨을 새로 만들었으면 `labels.json`에도 같은 이름·색·설명으로 적는다.
 
 | 그룹 | 값 | 규칙 |
 |---|---|---|
@@ -41,6 +41,7 @@
 | `status:` | triage, blocked, needs-decision | 해당할 때만. `blocked`는 외부 요인을 기다릴 때만 쓴다. 다른 이슈를 기다리는 것은 `## 의존성` 절로 표시하고 선점을 막지 않는다 |
 | `resolution:` | duplicate, wontfix, invalid | 종료 사유가 있을 때 |
 | 기여 유도 | `good first issue`, `help wanted` | 외부 기여에 적합할 때 |
+| 세션 예약 | `local-session` | 메인테이너 세션을 여러 묶음(세션 그룹)으로 나눠 돌릴 때, 로컬 세션 그룹이 맡은 이슈·PR에 붙인다. 다른 세션 그룹은 이 라벨이 붙은 이슈를 고르지 않는다([development-workflow.md §5.1](development-workflow.md#51-같은-계정으로-여러-세션을-돌릴-때)) |
 
 `area:security`가 붙은 이슈의 PR은 보안 체크리스트와 `security-reviewer` 검토가 필수다.
 
