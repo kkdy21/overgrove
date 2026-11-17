@@ -164,8 +164,9 @@ struct ComparisonListView: View {
                 }
                 // Starts where the file rows' badges start (#577).
                 .padding(.horizontal, FileRowView.horizontalPadding)
-                .help(commit.subject + "\n" + commit.author)
+                // Combined first, so the help is one hint on the row, not one on each text (#682).
                 .accessibilityElement(children: .combine)
+                .help(commit.subject + "\n" + commit.author)
             }
         }
     }
