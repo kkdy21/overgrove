@@ -38,22 +38,25 @@
       ```sh
       curl -fsSL https://github.com/kkdy21/overgrove/archive/refs/tags/v0.1.0.tar.gz | shasum -a 256
       ```
-   2. tap의 `Formula/overgrove.rb`에서 `url`의 버전과 `sha256`을 바꾸고, 이전 버전의 bottle 블록을 지운다. 빌드 단계가 `packaging/homebrew/Formula/overgrove.rb`와 같은지 확인하고 tap의 `main`에 커밋한다.
-   3. tap의 `bottle` 워크플로우를 실행한다. Apple silicon 러너가 formula를 소스에서 빌드하고 `brew test`를 돌린 뒤, bottle에 build provenance attestation을 남기고 tap의 `overgrove-0.1.0` Release에 올린다.
+   2. tap에 브랜치(예: `update/overgrove-0.1.0`)를 만든다. `Formula/overgrove.rb`에서 `url`의 버전과 `sha256`을 바꾸고 이전 버전의 bottle 블록을 지운다. 빌드 단계가 `packaging/homebrew/Formula/overgrove.rb`와 같은지 확인하고 커밋해 push한다.
+   3. 그 브랜치에서 `bottle` 워크플로우를 실행한다. Apple silicon 러너가 formula를 소스에서 빌드하고 `brew test`를 돌린 뒤, bottle에 build provenance attestation을 남기고 tap의 `overgrove-0.1.0` Release에 올린다.
       ```sh
-      gh workflow run bottle.yml --repo kkdy21/homebrew-tap
-      gh run watch --repo kkdy21/homebrew-tap
+      gh workflow run bottle.yml --repo kkdy21/homebrew-tap --ref update/overgrove-0.1.0
+      gh run list --repo kkdy21/homebrew-tap --workflow bottle.yml --limit 1   # 실행 ID 확인
+      gh run watch <run-id> --repo kkdy21/homebrew-tap --exit-status
       ```
-   4. 실행 요약에 나온 bottle 블록을 formula에 넣고 tap의 `main`에 커밋한다. 공개한 bottle은 바꾸지 않는다. 다시 만들어야 하면 `rebuild`를 올린다.
+   4. 실행 요약에 나온 bottle 블록을 같은 브랜치에 커밋하고 tap의 `main`에 합친다. 이렇게 해야 bottle이 없는 새 버전 formula가 `main`에 먼저 올라가 사용자가 소스 빌드로 넘어가는 일이 없다. 공개한 bottle은 바꾸지 않는다. bottle을 고쳐야 하면 새 패치 버전을 낸다.
    5. Xcode가 없는 Apple silicon Mac에서 설치를 확인한다(가능하면 macOS 14). 결과는 릴리스 이슈에 남긴다.
       ```sh
       HOMEBREW_VERIFY_ATTESTATIONS=1 brew install kkdy21/tap/overgrove   # tap을 받고 이 formula만 신뢰한 뒤 bottle을 붓는다
       brew audit --strict --online --formula kkdy21/tap/overgrove
       brew style kkdy21/tap/overgrove
       brew test kkdy21/tap/overgrove
-      gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap
+      gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap \
+        --signer-workflow kkdy21/homebrew-tap/.github/workflows/bottle.yml
       app="$(brew --prefix)/opt/overgrove/Overgrove.app"
       codesign -dv --verbose=2 "$app"   # Signature=adhoc, flags=0x10002(adhoc,runtime)
+      codesign -d --entitlements - "$app"   # entitlement가 없어야 한다(get-task-allow 없음, #687)
       xattr "$app"                       # com.apple.quarantine이 없어야 한다
       open "$app"
       ```

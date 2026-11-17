@@ -2,8 +2,9 @@
 # copy it to the tap's .github/workflows/ and run it there.
 #
 # Builds the Overgrove bottle for Apple silicon from Formula/overgrove.rb at the checked-out commit, records where it
-# came from with a build provenance attestation, and attaches it to a release of the tap. Run it by hand after the
-# formula points at the new tag. It prints the bottle block to add to the formula (docs/process/release.md).
+# came from with a build provenance attestation, and attaches it to a release of the tap. Run it by hand on the
+# branch where the formula points at the new tag. It prints the bottle block to add to the formula on that branch
+# before merging (docs/process/release.md in kkdy21/overgrove).
 name: bottle
 
 on:
@@ -27,6 +28,7 @@ jobs:
     outputs:
       version: ${{ steps.bottle.outputs.version }}
       file: ${{ steps.bottle.outputs.file }}
+      sha256: ${{ steps.bottle.outputs.sha256 }}
     env:
       XCODE_MAJOR: "26"
       HOMEBREW_NO_AUTO_UPDATE: "1"
@@ -66,7 +68,9 @@ jobs:
           root_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/overgrove-${version}"
           mkdir out
           cd out
-          brew bottle --json --root-url="$root_url" kkdy21/tap/overgrove
+          # Each version gets one bottle (rebuild 0). Without --no-rebuild, brew bumps the rebuild number because the
+          # tapped checkout already has this version. A bottle that needs fixing ships as a new patch version.
+          brew bottle --json --no-rebuild --root-url="$root_url" kkdy21/tap/overgrove
           # brew names the bottle after this runner's macOS. Name it for macOS 14, the app's minimum: Homebrew uses a
           # bottle for an older macOS on every newer one (ADR-0027). The file content and sha256 stay the same.
           # Keep brew's local name (`name--version`) here: HOMEBREW_VERIFY_ATTESTATIONS matches the attestation
@@ -84,6 +88,7 @@ jobs:
           {
             echo "version=${version}"
             echo "file=${file}"
+            echo "sha256=${sha256}"
           } >> "$GITHUB_OUTPUT"
           {
             echo "### overgrove ${version}"
@@ -125,13 +130,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.build.outputs.version }}
           FILE: ${{ needs.build.outputs.file }}
+          SHA256: ${{ needs.build.outputs.sha256 }}
         run: |
           set -euo pipefail
+          # The file must be the one the build job attested.
+          echo "${SHA256}  ${FILE}" | sha256sum --strict -c -
           # Homebrew downloads `<root_url>/overgrove-<version>.<tag>.bottle.tar.gz` (one dash).
           asset="overgrove-${FILE#overgrove--}"
           mv "$FILE" "$asset"
-          # Fails if the release already exists: a published bottle is never replaced (bump `rebuild` instead).
+          # Tag the commit the bottle was built from. Fails if the release already exists: a published bottle is
+          # never replaced.
           gh release create "overgrove-${VERSION}" "$asset" \
             --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
             --title "overgrove ${VERSION}" \
-            --notes "Overgrove ${VERSION} bottle for Apple silicon, macOS 14 or later. Check where it came from: gh attestation verify ${asset} --repo ${GITHUB_REPOSITORY}"
+            --notes "Overgrove ${VERSION} bottle for Apple silicon, macOS 14 or later. Check where it came from: gh attestation verify ${asset} --repo ${GITHUB_REPOSITORY} --signer-workflow ${GITHUB_REPOSITORY}/.github/workflows/bottle.yml"

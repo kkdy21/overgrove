@@ -22,8 +22,9 @@ brew install kkdy21/tap/overgrove
 
 The bottle is ad-hoc signed. It is not signed with a Developer ID or notarized by Apple. Homebrew does not mark
 formula downloads as quarantined, so macOS opens the app without a Gatekeeper prompt. To check that a bottle was built
-by this tap's GitHub Actions workflow, use its build provenance attestation. Both ways need the
-[GitHub CLI](https://cli.github.com/) logged in:
+by this tap's GitHub Actions workflow, check its build provenance attestation in one of these two ways. Both need the
+[GitHub CLI](https://cli.github.com/) logged in, and both apply only where a bottle is poured (Apple silicon with
+Homebrew in `/opt/homebrew`):
 
 ```sh
 # Let Homebrew check the attestation before it pours the bottle
@@ -33,8 +34,12 @@ HOMEBREW_VERIFY_ATTESTATIONS=1 brew install kkdy21/tap/overgrove
 brew tap kkdy21/tap
 brew trust --formula kkdy21/tap/overgrove
 brew fetch kkdy21/tap/overgrove
-gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap
+gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap \
+  --signer-workflow kkdy21/homebrew-tap/.github/workflows/bottle.yml
 ```
+
+If Homebrew prints `Skipping attestation verification`, the bottle was not checked. That happens, for example, when
+the tap was added from a URL other than the default one.
 
 ## For maintainers
 
@@ -48,7 +53,8 @@ gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homeb
   §3 and [docs/qa/release-checklist.md](https://github.com/kkdy21/overgrove/blob/main/docs/qa/release-checklist.md).
 - Change the build steps here first, by pull request, then copy them to the tap. If the tap's copy changes (for
   example, a Dependabot pin bump), bring that change back here.
-- Never replace a published bottle. Rebuild with a higher `rebuild` number instead.
+- Never replace a published bottle. If a bottle needs fixing, release a new patch version. The workflow makes one
+  bottle per version (`rebuild` 0) and tags the release at the commit it built from.
 - Why the formula passes these build settings:
   - `DEVELOPER_DIR`: `depends_on xcode:` accepts an installed Xcode even when `xcode-select` points at the Command
     Line Tools, but `xcodebuild` then fails. The formula uses the Xcode that Homebrew found.

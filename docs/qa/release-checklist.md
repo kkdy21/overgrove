@@ -89,9 +89,10 @@
 
 - [ ] tap formula의 `url`과 `sha256`이 태그 아카이브와 맞고, 빌드 단계가 `packaging/homebrew/Formula/overgrove.rb`와 같다.
 - [ ] tap 워크플로우가 `packaging/homebrew/.github/workflows/bottle.yml`과 같다. 모든 `uses:`가 40자리 SHA로 고정되어 있고, `contents: write`는 Release를 만드는 job에만 있다.
-- [ ] `bottle` 워크플로우가 성공했다. tap의 Release에 `overgrove-<버전>.arm64_sonoma.bottle.tar.gz`가 있고, formula의 bottle 블록 sha256이 그 파일과 같다.
+- [ ] `bottle` 워크플로우가 성공했다. tap의 Release에 `overgrove-<버전>.arm64_sonoma.bottle.tar.gz`가 있고, Release 태그가 bottle을 빌드한 커밋을 가리키며, formula의 bottle 블록 sha256이 그 파일과 같다.
 - [ ] `brew audit --strict --online --formula kkdy21/tap/overgrove`와 `brew style kkdy21/tap/overgrove`가 깨끗하다.
 - [ ] Xcode가 없는 Apple silicon Mac(가능하면 macOS 14)에서 `HOMEBREW_VERIFY_ATTESTATIONS=1 brew install kkdy21/tap/overgrove`가 bottle을 붓고, `brew test`가 통과하고, 앱이 실행된다.
-- [ ] `gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap`이 통과한다.
+- [ ] `gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap --signer-workflow kkdy21/homebrew-tap/.github/workflows/bottle.yml`이 통과한다.
 - [ ] 설치된 앱의 `codesign -dv --verbose=2`가 `Signature=adhoc`, `flags=0x10002(adhoc,runtime)`이고, `xattr`에 `com.apple.quarantine`이 없다.
+- [ ] 설치된 앱의 `codesign -d --entitlements -`에 entitlement가 없다. 특히 `com.apple.security.get-task-allow`가 없어야 하므로, #687이 머지된 태그로 bottle을 만든다.
 - [ ] Xcode 26이 있는 Mac에서 `brew reinstall --build-from-source kkdy21/tap/overgrove`가 통과한다.

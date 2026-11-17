@@ -12,8 +12,8 @@ v0.1.0을 쓰려면 지금은 저장소를 받아 `scripts/bootstrap.sh`를 돌�
   - Homebrew 5.0.0(2025-11)은 `--no-quarantine`·`--quarantine`을 폐기 예정으로 바꿨다. macOS 보안 기능을 쉽게 우회하는 수단을 제공하지 않겠다는 이유다. 시험한 Homebrew 7.0.14는 `brew install --no-quarantine`을 `invalid option`으로 거절한다.
   - 같은 발표에서 homebrew/cask의 cask 중 Gatekeeper 검사에 실패하는 것은 2026년 9월부터 비활성화한다고 했다. 6.0.0(2026-06) 발표도 이 일정을 유지했다.
   - 이 변화는 cask에만 해당한다. Homebrew는 cask로 내려받은 앱에만 격리 표시(`com.apple.quarantine`)를 붙인다. formula의 소스와 bottle에는 붙이지 않는다(아래 시험의 `xattr`). 격리 표시가 없는 앱은 실행할 때 Gatekeeper 평가를 거치지 않는다.
-  - 6.0.0부터 공식 tap이 아닌 tap은 신뢰(tap trust)해야 그 코드를 읽는다. `brew install kkdy21/tap/overgrove`처럼 이름 전체로 설치하면 그 formula 하나만 신뢰한다.
-  - homebrew-core는 주 산출물이 `.app`인 formula를 받지 않는다([Acceptable Formulae](https://docs.brew.sh/Acceptable-Formulae)). 그래서 formula로 낸다면 개인 tap이다.
+  - 6.0.0부터 Homebrew는 공식이 아닌 tap의 코드를 사용자가 신뢰(tap trust)한 뒤에만 읽는다. `brew install kkdy21/tap/overgrove`처럼 이름 전체로 설치하면 tap을 받아 오고 그 formula 하나만 신뢰한다.
+  - homebrew-core는 주 산출물이 `.app`인 formula를 받지 않는다([Acceptable Formulae](https://docs.brew.sh/Acceptable-Formulae)). formula로 낸다면 개인 tap에 둘 수밖에 없다.
   - Homebrew 7.0.14는 `HOMEBREW_VERIFY_ATTESTATIONS=1`일 때, 서드파티 tap bottle도 그 tap 저장소(`kkdy21/homebrew-tap`)의 build provenance attestation으로 확인한다. attestation의 subject 이름이 Homebrew가 쓰는 bottle 파일 이름(`overgrove--0.1.0.arm64_sonoma.bottle.tar.gz`)과 같아야 한다(`Library/Homebrew/attestation.rb`). 이 경로는 실제 tap이 있어야 시험할 수 있어서 이번에는 코드로만 확인했다.
 - **Apple silicon의 서명 요구.** arm64 코드는 서명이 전혀 없으면 실행되지 않고, ad-hoc 서명이면 실행된다. 아래 시험에서 서명을 지운 arm64 실행 파일은 SIP가 켜진 macOS 26.5.2에서 `Killed: 9`(종료 코드 137)로 끝났고, `codesign -s -`로 ad-hoc 서명하자 실행됐다.
 - **빌드 조건.** 빌드에는 Xcode 26이 필요하다(macOS 26 SDK API를 쓰고, bootstrap과 CI가 26을 요구한다). Xcode 26.0–26.3은 macOS 15.6 이상에서, 26.4부터는 macOS 26.2 이상에서 돈다. 앱은 macOS 14 이상에서 돈다(ADR-0003). 그래서 소스 빌드만 있으면 macOS 14와 15.0–15.5 사용자는 Homebrew로 설치할 수 없다.
@@ -35,7 +35,7 @@ v0.1.0을 쓰려면 지금은 저장소를 받아 `scripts/bootstrap.sh`를 돌�
   1. `depends_on xcode:`는 통과했지만 `xcodebuild`가 "requires Xcode, but active developer directory … is a command line tools instance"로 실패했다. `ENV["DEVELOPER_DIR"] = ENV["HOMEBREW_DEVELOPER_DIR"]`로 Homebrew가 찾은 Xcode를 쓰게 했다. homebrew-core의 `v8`과 같은 방법이다.
   2. Swift 컴파일러가 매크로 플러그인(`@Observable`)을 `sandbox-exec`로 가두려다 `sandbox_apply: Operation not permitted`를 냈고, `ObservableMacro could not be found` 오류로 빌드가 멈췄다. Homebrew 샌드박스 안에서는 샌드박스를 겹쳐 걸 수 없다. `OTHER_SWIFT_FLAGS=$(inherited) -disable-sandbox`로 컴파일러의 샌드박스만 끈다. 빌드 전체는 여전히 Homebrew 샌드박스 안에 있다. homebrew-core의 SwiftPM formula들이 `--disable-sandbox`를 쓰는 것과 같은 이유다.
 - `brew style`: no offenses. `brew audit --strict`, `--strict --online --new`: 문제 없음(audit은 formula를 신뢰한 뒤에만 돈다). `brew test`: 통과.
-- 이름 전체로 설치하자 Homebrew가 `Trusted formula …`를 출력하고 그 formula만 신뢰 목록에 넣었다.
+- 이름 전체로 설치하자 Homebrew가 `Trusted formula …`를 출력하고 그 formula만 신뢰 목록에 넣었다. 받아 두지 않은 tap도 이름 전체로 설치하면 tap을 받아 온다는 것을 다른 공개 tap으로 확인했다.
 
 **bottle(장비 A에서 만들고 A·B에서 설치)**
 
@@ -73,13 +73,14 @@ v0.1.0부터 Homebrew 설치는 개인 tap `kkdy21/homebrew-tap`의 formula `ove
    - Apple silicon(arm64)용 하나를 `arm64_sonoma` 태그로 낸다. 빌드는 Xcode 26이 있는 GitHub 러너(`macos-26`)에서 하고, macOS 14 호환은 앱의 deployment target(14.0)이 맡는다. `brew bottle`은 러너의 macOS 태그를 붙이므로 파일 이름의 태그만 `arm64_sonoma`로 바꾼다.
    - Intel(x86_64) bottle은 내지 않는다. CI가 Intel을 검증하지 않고, Homebrew도 Intel을 Tier 3로 내렸다. Intel Mac과 기본 prefix가 아닌 Homebrew는 소스 빌드로 설치한다(macOS 15.6 이상, Xcode 26).
    - 빌드와 공개는 tap 저장소의 GitHub Actions 워크플로우가 한다([예시](../../packaging/homebrew/.github/workflows/bottle.yml)). 메인테이너의 Mac에서 만든 bottle은 올리지 않는다.
-   - 한 번 공개한 bottle 파일은 바꾸지 않는다. 다시 만들어야 하면 bottle 블록의 `rebuild`를 올린다.
+   - 한 번 공개한 bottle 파일은 바꾸지 않는다. bottle을 고쳐야 하면 새 패치 버전을 낸다. 워크플로우는 버전마다 bottle 하나(`rebuild` 0)만 만든다.
 5. **공급망 대책(T17).**
    - tap 워크플로우의 Action은 전체 커밋 SHA로 고정하고, tap 저장소의 Dependabot이 갱신한다.
    - 권한은 최소로 둔다. 최상위는 `contents: read`다. bottle을 빌드하는 job은 `id-token: write`와 `attestations: write`만 더하고, Release를 만드는 job만 `contents: write`를 갖는다. 트리거는 `workflow_dispatch` 하나다.
    - `actions/attest`로 bottle의 SLSA build provenance attestation을 남긴다. `actions/attest-build-provenance` v4는 이 액션을 감싼 것이고, 새로 쓰는 곳은 `actions/attest`를 쓰라는 것이 upstream 안내다. subject 이름은 Homebrew가 확인하는 이름(`name--version.tag.bottle.tar.gz`)으로 한다.
-   - README에 확인 방법을 적는다. `HOMEBREW_VERIFY_ATTESTATIONS=1 brew install …`로 Homebrew가 붓기 전에 확인하게 하거나, `gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap`으로 직접 확인한다. 둘 다 gh 로그인이 필요하다.
+   - README에 확인 방법을 적는다. `HOMEBREW_VERIFY_ATTESTATIONS=1 brew install …`로 Homebrew가 붓기 전에 확인하게 하거나, `gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap --signer-workflow kkdy21/homebrew-tap/.github/workflows/bottle.yml`으로 직접 확인한다. 둘 다 gh 로그인이 필요하다. Homebrew의 확인은 저장소 단위까지만 보므로, 직접 확인할 때는 `--signer-workflow`로 워크플로우까지 좁힌다.
    - 소스 tarball과 bottle의 sha256을 formula에 고정한다. Homebrew가 내려받을 때 검사한다.
+   - Release는 bottle을 빌드한 커밋에 태그를 붙여 만들고(`--target`), 공개 job은 빌드 job이 attest한 파일의 sha256을 다시 확인한 뒤 올린다.
    - bottle을 믿지 않는 사용자는 `brew install --build-from-source kkdy21/tap/overgrove`로 같은 formula를 소스에서 빌드할 수 있다.
 6. **빌드 설정.** formula는 `xcodebuild`(DSL 도우미)로 Release를 빌드한다.
    - `-derivedDataPath`는 빌드 디렉터리 안에 두고, 아키텍처는 빌드하는 Mac의 것 하나만 쓴다.
@@ -95,7 +96,7 @@ v0.1.0부터 Homebrew 설치는 개인 tap `kkdy21/homebrew-tap`의 formula `ove
 
 | 대안 | 장점 | 단점 | 기각 이유 |
 |---|---|---|---|
-| A — 개인 tap, bottle을 붙인 formula와 소스 빌드 대체 | macOS 14 이상 Apple silicon에서 Xcode 없이 몇 초 만에 설치된다. 격리 표시가 붙지 않아 Gatekeeper를 직접 풀 필요가 없다. 비용이 없다 | 메인테이너 쪽에서 만든 바이너리를 배포한다(공급망 위험). 릴리스 단계가 늘어난다 | **채택** |
+| A — 개인 tap, bottle을 붙인 formula와 소스 빌드 대체 | macOS 14 이상 Apple silicon에서 Xcode 없이 몇 초 만에 설치된다. 격리 표시가 붙지 않아 Gatekeeper를 직접 풀 필요가 없다. 비용이 없다 | tap의 CI가 만든 바이너리를 배포한다(공급망 위험). 릴리스 단계가 늘어난다 | **채택** |
 | B — 개인 tap, 소스 빌드만 하는 formula | 바이너리를 배포하지 않아 기존 N2를 그대로 지킨다 | macOS 14와 15.0–15.5 사용자는 설치할 수 없다. 모든 사용자에게 Xcode 26 전체가 필요하고, 설치마다 1분 넘게 빌드한다 | 앱이 지원하는 macOS 범위를 덮지 못한다 |
 | C — Developer ID 서명·공증 cask | Gatekeeper를 통과한다. homebrew/cask에도 낼 수 있고 Intel·macOS 14까지 한 번에 덮는다 | Apple Developer Program 연회비가 들고, 인증서와 공증 자격 증명을 CI 비밀로 관리해야 한다 | 메인테이너가 가입하지 않았다. 아래 조건에서 다시 본다 |
 | D — 서명하지 않은(ad-hoc) cask를 개인 tap에 | Xcode 없이 설치된다 | cask 다운로드에는 격리 표시가 붙어 사용자가 매번 Gatekeeper를 직접 풀어야 한다. `--no-quarantine`도 없어졌다. 보안 기능을 끄는 법을 안내하게 된다 | 사용자 경험과 보안 안내가 모두 나쁘다 |
@@ -123,6 +124,7 @@ v0.1.0부터 Homebrew 설치는 개인 tap `kkdy21/homebrew-tap`의 formula `ove
 ## 후속 작업
 
 - [ ] #105: `kkdy21/homebrew-tap` 저장소를 만들고 `packaging/homebrew/`를 옮긴 뒤 첫 bottle을 공개한다. `HOMEBREW_VERIFY_ATTESTATIONS=1` 설치와 `gh attestation verify`를 실제 bottle로 확인한다
-- [ ] #687: Release 빌드에서 `get-task-allow`를 뺀다. 머지 뒤 formula test에 entitlement가 없는지 확인하는 단계를 더할지 본다
+- [ ] #687: Release 빌드에서 `get-task-allow`를 뺀다. 첫 bottle은 이것이 머지된 태그로 만든다(release-checklist §8). 머지 뒤 formula test에 entitlement가 없는지 확인하는 단계를 더할지 본다
 - [ ] #675: README에 Homebrew 설치와 출처 확인 방법을 적는다. SECURITY.md의 "as source only" 문구는 첫 bottle을 공개하는 릴리스 PR에서 고친다
+- [ ] #703: `packaging/homebrew/.github/`의 워크플로우 예시도 `scripts/lint/check-workflows.sh`와 guard-edit hook이 검사하게 한다
 - [x] prd.md N2·제약, T17, release.md, release-checklist.md, `packaging/homebrew/` (#694, 이 PR)
