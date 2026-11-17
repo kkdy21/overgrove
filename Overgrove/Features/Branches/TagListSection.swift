@@ -119,8 +119,8 @@ private struct TagRowView: View {
             if row.hasDetachedWorktree {
                 Image(systemName: "tree").foregroundStyle(Tokens.Color.textSecondary).accessibilityHidden(true)
             }
-            if let date = row.date {
-                Text(StatusBarItem.relative(date, now: now))
+            if let date = row.relativeDate(now: now) {
+                Text(date)
                     .font(Tokens.Font.caption)
                     .foregroundStyle(Tokens.Color.textTertiary)
             }
@@ -135,10 +135,7 @@ private struct TagRowView: View {
         .padding(.horizontal, SidebarInset.row)
         .help(row.help)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
-            row.date.map { row.accessibilityLabel + ", " + StatusBarItem.relative($0, now: now) }
-                ?? row.accessibilityLabel
-        )
+        .accessibilityLabel(row.spokenLabel(now: now))
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

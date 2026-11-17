@@ -64,6 +64,11 @@ struct StashDetailModel: Equatable {
     let filesUnavailable: String?
     let isFileListPartial: Bool
 
+    /// `3d ago`, `3y ago` after the message (screens.md S-04, #686).
+    func relativeDate(now: Date) -> String {
+        RelativeTime.ago(date, now: now)
+    }
+
     init(stash: Stash, state: StashDetailState) {
         refName = stash.refName
         oid = stash.oid.hex

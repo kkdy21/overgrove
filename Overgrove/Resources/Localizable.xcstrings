@@ -41,6 +41,17 @@
         }
       }
     },
+    "%@ ago" : {
+      "comment" : "A short relative time (3d, 2h, 5mo) before now",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 전"
+          }
+        }
+      }
+    },
     "%@ and %@" : {
       "localizations" : {
         "ko" : {
@@ -7984,6 +7995,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "추적 안 됨"
+          }
+        }
+      }
+    },
+    "updated %@" : {
+      "comment" : "Issue detail: when the issue last changed",
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 업데이트"
           }
         }
       }
