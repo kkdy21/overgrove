@@ -50,8 +50,9 @@ struct RegisteredRepository: Codable, Equatable, Hashable, Identifiable, Sendabl
     var locationPath: String { rootPath ?? commonDirectoryPath }
     /// The folder name, safe to show (`PathValidator.displayable`).
     var name: String { PathValidator.displayable((locationPath as NSString).lastPathComponent) }
-    /// `locationPath`, safe to show.
-    var displayRootPath: String { PathValidator.displayable(locationPath) }
+    /// `locationPath` as the screens show it: the home folder as `~` (`~/dev/api`, #713), escaped. Display only: what
+    /// is stored and what git gets is `locationPath`.
+    var displayRootPath: String { PathValidator.displayable(PathDisplay.abbreviated(locationPath)) }
 
     var repository: Repository {
         Repository(

@@ -353,6 +353,25 @@ final class AppStateRegistrationTests: XCTestCase {
         XCTAssertEqual(state.alert?.title, "Repository Not Found")
     }
 
+    /// #713: the alert names the folder with the home folder as `~`, as the rest of the app does. Nothing is created
+    /// in the home folder: the folder is missing on purpose.
+    func testMissingFolderAlertShowsTheHomeFolderAsTilde() throws {
+        let name = "overgrove-missing-\(UUID().uuidString)"
+        let gone = NSHomeDirectory() + "/" + name
+        XCTAssertFalse(FileManager.default.fileExists(atPath: gone))
+        let registry = RepositoryRegistry(defaults: defaults)
+        registry.add(RegisteredRepository(rootPath: gone, commonDirectoryPath: gone + "/.git"))
+        let state = AppState(
+            layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, loader: StubRepositoryLoader())
+
+        state.openRegistered(registry.repositories[0].id)
+        XCTAssertEqual(state.alert?.title, "Repository Not Found")
+        XCTAssertEqual(
+            state.alert?.message,
+            "The folder of “\(name)” is missing or was replaced (~/\(name)). "
+                + "Restore it, or remove the repository from Overgrove.")
+    }
+
     /// #222: a bare repository is checked at its git directory, since it has no root folder.
     func testBareRepositoryOpensFromItsGitDirectory() throws {
         let bare = try folder("api.git")
@@ -398,6 +417,11 @@ final class AppStateRegistrationTests: XCTestCase {
         XCTAssertEqual(open.items.map(\.isOpen), [false, true])
         XCTAssertEqual(open.items[0].path, "/tmp/dev/api")
         XCTAssertEqual(open.removeTitle, "Remove “web” from Overgrove")
+
+        // #713: the item's help text shows the home folder as `~`.
+        let home = NSHomeDirectory()
+        let underHome = RegisteredRepository(rootPath: home + "/dev/api", commonDirectoryPath: home + "/dev/api/.git")
+        XCTAssertEqual(RepositoryMenuModel(repositories: [underHome], openID: nil).items[0].path, "~/dev/api")
 
         let none = RepositoryMenuModel(repositories: repositories, openID: nil)
         XCTAssertNil(none.removeTitle)

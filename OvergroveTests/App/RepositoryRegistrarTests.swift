@@ -93,6 +93,20 @@ final class RepositoryRegistrarTests: XCTestCase {
         XCTAssertEqual(registration.notice, "Overgrove added the repository at \(repository.root.path).")
     }
 
+    /// #713: S-07's step 1 and the `Repository Added` alert name the registered folder with the home folder as `~`,
+    /// as the detail panel does; the entry keeps the absolute path.
+    func testNoticeShowsTheHomeFolderAsTilde() {
+        let root = NSHomeDirectory() + "/dev/api"
+        let entry = RegisteredRepository(rootPath: root, commonDirectoryPath: root + "/.git")
+        let subfolder = RepositoryRegistration(entry: entry, chosenPath: root + "/src", isThroughSymlink: false)
+        XCTAssertEqual(subfolder.notice, "Overgrove added the repository at ~/dev/api.")
+        XCTAssertEqual(subfolder.entry.rootPath, root)
+
+        let link = RepositoryRegistration(entry: entry, chosenPath: NSHomeDirectory() + "/api", isThroughSymlink: true)
+        XCTAssertEqual(
+            link.notice, "The folder you chose is a symbolic link. Overgrove added the repository at ~/dev/api.")
+    }
+
     /// Worktrees of one repository share the common directory, so they dedupe to one registration.
     func testLinkedWorktreeResolvesToTheSameRepository() async throws {
         let repository = try await makeRepository()

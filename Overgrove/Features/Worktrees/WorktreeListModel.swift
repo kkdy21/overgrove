@@ -180,7 +180,7 @@ struct WorktreeListModel: Equatable {
         let worktree = entry.worktree
         let title = PathValidator.displayable(title(worktree))
         let folder = PathValidator.displayable(folderName(worktree))
-        let path = PathValidator.displayable(abbreviated(worktree.path.display, home: home))
+        let path = PathValidator.displayable(PathDisplay.abbreviated(worktree.path.display, home: home))
         let missing = isMissing(entry)
         let state: WorkingState? = if case .loaded(let state) = entry.state { state } else { nil }
         let (note, noteHelp) = note(for: entry)
@@ -230,12 +230,6 @@ struct WorktreeListModel: Equatable {
 
     private static func folderName(_ worktree: Worktree) -> String {
         (worktree.path.display as NSString).lastPathComponent
-    }
-
-    private static func abbreviated(_ path: String, home: String) -> String {
-        let prefix = home.hasSuffix("/") ? home : home + "/"
-        if path == home { return "~" }
-        return path.hasPrefix(prefix) ? "~/" + path.dropFirst(prefix.count) : path
     }
 
     /// A second line for a worktree whose status is not shown, and the longer text for its tooltip.
@@ -427,7 +421,7 @@ extension WorktreeListModel {
         let folder = PathValidator.displayable((row.path as NSString).lastPathComponent)
         let title = PathValidator.displayable(
             row.branch ?? (row.isDetached || row.head != nil ? "detached @ \(row.head ?? "unknown")" : folder))
-        let path = PathValidator.displayable(abbreviated(row.path, home: home))
+        let path = PathValidator.displayable(PathDisplay.abbreviated(row.path, home: home))
         let subtitle: String? =
             if row.isMissing { Text.pathMissing } else if row.isMain { path } else { folder == title ? nil : folder }
         var badges: [WorktreeRow.Badge] = []
