@@ -130,7 +130,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⌘I` | Show Worktree Info | Navigate | 워크트리 맥락에서 `Changes` ↔ `Worktree` 세그먼트 전환. Finder의 Get Info 관례 |
 | `⌘⇧B` | Compare with Base… | Repository | 포커스 워크트리를 기준 브랜치와 비교(S-11, #158). Xcode의 Build는 `⌘B`라 겹치지 않는다 |
 | `⌘1` | Focus Sidebar | Navigate | |
-| `⌘2` | Focus Graph | Navigate | S-09, S-10이 열려 있으면 그쪽 |
+| `⌘2` | Focus Graph | Navigate | S-09, S-10, S-12가 열려 있으면 그쪽 |
 | `⌘3` | Focus Detail | Navigate | |
 | `⌘4` | Focus Issues | Navigate | 사이드바 ISSUES 섹션으로 이동하고 펼친다 |
 | `⌃⌘S` | Show/Hide Sidebar | View | macOS 표준 단축키. 사용자 정의 분할 컨테이너에 직접 연결한다 (ADR-0014) |
@@ -145,7 +145,7 @@ HANDOFF §8.6 초안을 기준으로 macOS 표준 단축키와 겹치는지 확�
 | `⎋` | Back / Clear | — | 우선순위: ① 그래프를 덮은 화면 닫기(S-11, S-12, S-10, S-09 중 맨 위 하나. 주 선택은 그대로) ② 검색어 지우기 ③ 주 선택을 기본값으로. 툴바 검색 필드에서 누르면 검색을 끝내고 포커스가 그래프로 돌아가서, 다음 `⎋`가 이 순서를 이어 간다 |
 | `Tab` / `⇧Tab` | 다음 / 이전 패널 | — | 전체 키보드 접근 |
 
-**구현 상태 (#73)**: Navigate 메뉴(`⌘J`, `⌘I`, `⌘1`~`⌘4`)와 Edit › Copy Full Path(`⌥⌘C`), 선택에 따른 `⌘C`, 그래프·사이드바·상세 목록의 `↑`/`↓`·`⌘↑`/`⌘↓`, 그래프의 `⏎`(상세로 포커스), `⎋`의 ①②③이 들어왔다. `⎋`는 창 하나가 처리한다(`AppState.escape`). ①은 그래프를 덮은 화면 중 맨 위 하나를 `‹ Graph`처럼 닫고 주 선택을 그대로 둔다. S-10을 S-09에서 열었으면 첫 `⎋`는 S-10만 닫는다. 각 화면의 `‹ Graph` 버튼에는 `⎋` 단축키를 두지 않는다. 같은 키를 두 곳이 받으면 버튼이 화면을 닫은 뒤 창 처리기가 ③으로 주 선택을 WIP로 바꿨기 때문이다(#633). 툴바 검색 필드는 AppKit의 `NSSearchField`라서, 필드에서 `⎋`를 누르면 검색어가 지워지고 포커스가 창 자체로 간다. 그 상태에서는 SwiftUI의 `onExitCommand`가 다음 `⎋`를 받지 못했다. 그래서 창의 키 모니터(`EscapeFocusMonitor`)가 두 경우를 맡는다. 필드의 `⎋`는 그대로 AppKit에 넘기고, 필드가 포커스를 놓으면 그래프에 포커스를 준다. 창 안에 포커스를 가진 곳이 없을 때의 `⎋`는 모니터가 받아 `AppState.escape`를 실행하고 그래프에 포커스를 준다(#650). `⌘F`·`⌘G`·`⌘⇧G`·`⌥⌘F`는 검색(#74)이 넣었다(Edit › Find, `SearchCommands`). `⌘F`는 툴바 검색 필드로 포커스를 옮긴다. `.searchFocused`는 macOS 15부터라서, 14와 15 모두 AppKit의 `NSSearchToolbarItem`을 통해 포커스를 준다. `Tab`/`⇧Tab`은 시스템의 전체 키보드 접근을 따른다. 사이드바 섹션의 `←`/`→`는 아직 없다.
+**구현 상태 (#73)**: Navigate 메뉴(`⌘J`, `⌘I`, `⌘1`~`⌘4`)와 Edit › Copy Full Path(`⌥⌘C`), 선택에 따른 `⌘C`, 그래프·사이드바·상세 목록의 `↑`/`↓`·`⌘↑`/`⌘↓`, 그래프의 `⏎`(상세로 포커스), `⎋`의 ①②③이 들어왔다. `⎋`는 창 하나가 처리한다(`AppState.escape`). ①은 그래프를 덮은 화면 중 맨 위 하나를 `‹ Graph`처럼 닫고 주 선택을 그대로 둔다. S-10을 S-09에서 열었으면 첫 `⎋`는 S-10만 닫는다. 각 화면의 `‹ Graph` 버튼에는 `⎋` 단축키를 두지 않는다. 같은 키를 두 곳이 받으면 버튼이 화면을 닫은 뒤 창 처리기가 ③으로 주 선택을 WIP로 바꿨기 때문이다(#633). 툴바 검색 필드는 AppKit의 `NSSearchField`라서, 필드에서 `⎋`를 누르면 검색어가 지워지고 포커스가 창 자체로 간다. 그 상태에서는 SwiftUI의 `onExitCommand`가 다음 `⎋`를 받지 못했다. 그래서 창의 키 모니터(`EscapeFocusMonitor`)가 두 경우를 맡는다. 필드의 `⎋`는 그대로 AppKit에 넘기고, 필드가 포커스를 놓으면 그래프에 포커스를 준다. 창 안에 포커스를 가진 곳이 없을 때의 `⎋`는 모니터가 받아 `AppState.escape`를 실행하고 그래프에 포커스를 준다(#650). S-12는 그래프 행 메뉴에서 열리면서 포커스를 가진 그래프를 대신한다. 그 뒤 포커스를 가진 곳이 없어 `⎋`가 어느 처리기에도 닿지 않았다. 그래서 S-12는 S-09처럼 열릴 때 포커스를 가져오고, 덮고 있는 동안 `⌘2`의 대상이 된다(#693). `⌘F`·`⌘G`·`⌘⇧G`·`⌥⌘F`는 검색(#74)이 넣었다(Edit › Find, `SearchCommands`). `⌘F`는 툴바 검색 필드로 포커스를 옮긴다. `.searchFocused`는 macOS 15부터라서, 14와 15 모두 AppKit의 `NSSearchToolbarItem`을 통해 포커스를 준다. `Tab`/`⇧Tab`은 시스템의 전체 키보드 접근을 따른다. 사이드바 섹션의 `←`/`→`는 아직 없다.
 
 ### 3.2 바꾼 이유와 확인한 충돌
 
@@ -312,6 +312,7 @@ stateDiagram-v2
 - rotor 세 개를 넣었다. `Changes`는 그룹 헤더로 이동하고, 헤더는 기본 Headings rotor에도 나온다.
 - 선택 행은 `isSelected` trait를 가진다.
 - 인라인 아이콘 버튼은 `hitTarget()`(20pt)을 쓴다.
+- 자식을 한 요소로 합친 행(`.accessibilityElement(children: .combine)`)에는 힌트(`.help`, `accessibilityHint`)를 합친 뒤에 단다. 합치기 전에 달면 힌트가 안의 요소마다 붙고, 합칠 때 이어 붙어서 같은 말을 두 번 읽는다(#682). `toolTip(_:)`은 컨트롤과 툴팁 영역을 한 요소로 합친 뒤 힌트를 달기 때문에, 합친 행 안에 들어가도 힌트를 한 번만 읽는다. `CombinedAccessibilityHintTests`가 SwiftUI가 만든 접근성 트리를 읽어 이를 확인한다.
 - 대비 증가에서 컨트롤 테두리는 `Tokens.controlOutlineWidth`(1.5pt)와 `border.strong`을 쓴다. 패널 안 칩·컨트롤은 `controlOutline(_:normal:increased:)`로 그린다(#304). 대상은 툴바 워크트리 칩, 사이드바 Filter 필드, `Changes | Worktree` 세그먼트, 태그 캡슐(`main worktree`, `submodule`, `WIP`, `renamed from …`, 이슈 상태·라벨), 이슈 번호 배지, AI 배지, 그래프 작성자 칩이다. 평소에 테두리가 없던 것은 평소 화면이 그대로다. 링크인 이슈 번호와 AI 배지는 원래 글자색 테두리를 굵기만 올린다. 그래프 ref 알약 테두리와 ref 연결선은 레인 색 100%로 그린다(평소 75%·55%).
 - 툴바의 워크트리 칩(`⌘J`), Terminal, Finder 버튼은 #73의 동작에 연결했다. Terminal은 `TerminalGuard`를 거친다.
 - 실제 VoiceOver 동작(읽는 순서, rotor 이동, 알림)은 [qa/checklist.md](../qa/checklist.md) QA-A11Y-01–11에서 사람이 확인한다(#96).

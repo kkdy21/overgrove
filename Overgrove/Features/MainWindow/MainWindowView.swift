@@ -161,6 +161,9 @@ struct MainWindowView: View {
             }
             statusBar
         }
+        // `size.window-min-height` below the toolbar (art-direction.md §3, #685): the panels keep some rows, and the
+        // setup assistant's sheet fits however short the window is made.
+        .frame(minHeight: Tokens.Size.windowMinHeight)
         // Under the toolbar too, so the title bar area is `surface.window` like the status bar (art-direction §3).
         .background(Tokens.Color.surfaceWindow.ignoresSafeArea())
         // `#n` badges on worktree, branch, and graph rows (#82).
