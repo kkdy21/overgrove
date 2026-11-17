@@ -13,6 +13,13 @@ final class SetupAssistantState {
     }
 
     var isPresented = false
+    /// Why the folder last picked in step 1 was not added (#679). The window's alert sits behind this sheet until it
+    /// closes, so while the assistant is open the reason is shown in step 1 instead. `nil` before a pick, once another
+    /// folder is picked, and when the assistant opens again.
+    private(set) var repositoryProblem: String?
+    /// What step 1 notes about the folder last added (#702): the repository was registered somewhere other than the
+    /// folder picked, or was in Overgrove already (overview.md §9). Cleared as `repositoryProblem` is.
+    private(set) var repositoryNotice: String?
     /// `nil` while checking.
     private(set) var git: GitSetupStatus?
     private(set) var gitHub: GitHubCheck = .checking
@@ -57,12 +64,36 @@ final class SetupAssistantState {
     /// Opens the assistant and checks git and GitHub CLI again.
     func present() {
         isPresented = true
+        repositoryProblem = nil
+        repositoryNotice = nil
         checkGit()
         checkGitHub()
     }
 
     func dismiss() {
         isPresented = false
+    }
+
+    /// A folder was picked in step 1: the reason the previous one was refused goes away.
+    func repositoryPicked() {
+        repositoryProblem = nil
+        repositoryNotice = nil
+    }
+
+    /// Shows why the picked folder was not added in step 1. Returns `false`, showing nothing, when the assistant is
+    /// not open: the caller then uses the window's alert.
+    func showRepositoryProblem(_ message: String) -> Bool {
+        guard isPresented else { return false }
+        repositoryProblem = message
+        return true
+    }
+
+    /// Shows a note on the added folder in step 1 (#702). Returns `false`, showing nothing, when the assistant is not
+    /// open: the caller then uses the window's alert.
+    func showRepositoryNotice(_ message: String) -> Bool {
+        guard isPresented else { return false }
+        repositoryNotice = message
+        return true
     }
 
     /// Check Again for git (after `xcode-select --install`).

@@ -53,9 +53,11 @@ browsing an untrusted repository does not run that code. In short:
 - Credentials embedded in remote URLs are masked in the UI and in logs.
 - The only commands that exist in the code are read-only queries and `git fetch`. There is no code path for
   `push`, `reset`, `clean`, `checkout`, and similar.
-- Overgrove never asks for, stores, or transmits tokens. GitHub access is delegated to your `gh` CLI login;
-  Git remote authentication is delegated to your existing credential helper or SSH setup.
-- No telemetry. Network access is limited to `git fetch` and `gh`.
+- Overgrove never asks for, stores, or transmits tokens. Issue and pull request access is delegated to your `gh`,
+  `glab`, or `gt` login, and a host is used only when that tool reports a working login there. Git remote
+  authentication is delegated to your existing credential helper or SSH setup.
+- No telemetry. Network access is limited to `git fetch` and the tools behind the issues panel: `gh` (issues and
+  pull request status), `glab`, and `gt` (issues). Overgrove turns off their update checks and `glab`'s telemetry.
 
 ### Threat model at a glance
 
@@ -88,10 +90,12 @@ security tests on `main` with no failures and no skipped tests:
   above instead. Treat it like any other developer tool that runs `git`.
 - Git itself can have vulnerabilities. Keep the `git` binary that Overgrove uses up to date.
 - `git fetch` contacts the remotes configured in the repository. Do not fetch from repositories whose remotes you do not trust.
-- **Terminal is not protected.** *Open in Terminal* and the commands Overgrove offers to copy run plain `git`, which
-  does run a repository's hooks, pager, and other settings. Overgrove asks before opening Terminal in a repository
-  with risky settings and offers `git` commands only when the configuration report is clean, but what you run there is
-  outside its protection.
+- **Your terminal and editor are not protected.** *Open in Terminal*, *Open in Editor*, and the commands Overgrove
+  offers to copy run plain `git` and your own tools, which do use a repository's hooks, pager, and other settings.
+  Before opening a worktree folder, Overgrove asks unless the worktree's settings were checked and have no finding
+  and no hook. A single file opens in the editor without asking. For a repository marked untrusted, it always asks.
+  Overgrove offers `git` commands to copy only when the configuration report is clean. What you run there is outside
+  its protection, so use these only in repositories you trust.
 - Self-hosted and corporate Git setups (tokens, SSH, private CAs, proxies) are covered in
   [docs/guides/self-hosted-git.md](docs/guides/self-hosted-git.md).
 
@@ -99,5 +103,5 @@ security tests on `main` with no failures and no skipped tests:
 
 In scope: the Overgrove source in this repository, its build configuration, and its GitHub Actions workflows.
 
-Out of scope: vulnerabilities in `git`, `gh`, macOS, or Xcode themselves (please report those upstream), and issues
-that require an already-compromised user account.
+Out of scope: vulnerabilities in `git`, `gh`, `glab`, `gt`, macOS, or Xcode themselves (please report those
+upstream), and issues that require an already-compromised user account.

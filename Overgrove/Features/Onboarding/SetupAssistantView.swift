@@ -53,6 +53,13 @@ struct SetupAssistantView: View {
         // cross-fade (interaction.md §6.5).
         .animation(reduceMotion ? .fast : .slow, value: stepsDone)
         .frame(width: Self.width)
+        // An alert would have been read out; the reason or the note in step 1 is announced instead (interaction.md §6).
+        .onChange(of: setup.repositoryProblem) { _, problem in
+            if let problem { AccessibilityNotification.Announcement(problem).post() }
+        }
+        .onChange(of: setup.repositoryNotice) { _, notice in
+            if let notice { AccessibilityNotification.Announcement(notice).post() }
+        }
     }
 
     /// Which steps are done, the value the step transition follows.
@@ -87,6 +94,20 @@ struct SetupAssistantView: View {
             Label(repositoryPath, systemImage: "checkmark.circle")
                 .font(Tokens.Font.mono)
                 .foregroundStyle(Tokens.Color.textPrimary)
+        }
+        // What the window's alert would note about the added folder (#702), as step 2 notes an older git.
+        if let notice = setup.repositoryNotice {
+            Label(notice, systemImage: "info.circle")
+                .font(Tokens.Font.caption)
+                .foregroundStyle(Tokens.Color.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        // The picked folder was refused (#679): the reason the window's alert would give, here in step 1.
+        if let problem = setup.repositoryProblem {
+            Label(problem, systemImage: "exclamationmark.triangle")
+                .font(Tokens.Font.callout.weight(.medium))
+                .foregroundStyle(Tokens.Color.statusWarning)
+                .fixedSize(horizontal: false, vertical: true)
         }
         Text("Only folders you choose here are ever read.")
             .font(Tokens.Font.caption)

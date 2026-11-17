@@ -8,6 +8,8 @@ struct CommitComparisonCenterView: View {
     let onBack: () -> Void
     let onSwap: () -> Void
 
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
             PanelHeader {
@@ -31,6 +33,14 @@ struct CommitComparisonCenterView: View {
             Tokens.Color.borderSeparator.frame(height: 1)
             content.frame(maxWidth: .infinity, maxHeight: .infinity).fadeIn(on: model.state.phase)
         }
+        // S-12 opens from a graph row's menu and takes the graph's place, so the focused graph goes away with nothing
+        // focused after it, and `⎋` reached no handler (#693). S-12 takes the focus, as S-09 does, so `⎋` goes to the
+        // window's `onExitCommand`; `⌘2` focuses it while it covers the graph (interaction.md §3.1).
+        .focusable()
+        .focused($isFocused)
+        .focusEffectDisabled()
+        .focusOnRequest([.center], $isFocused)
+        .onAppear { isFocused = true }
     }
 
     @ViewBuilder

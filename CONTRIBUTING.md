@@ -202,8 +202,16 @@ swift format lint --strict --recursive --configuration .swift-format Overgrove O
 scripts/lint/check-forbidden-apis.sh
 scripts/lint/check-no-dependencies.sh
 scripts/lint/check-sec-ids.sh
-xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
+set -o pipefail
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS' 2>&1 | tee xcodebuild.log
+scripts/lint/check-actor-isolation-warnings.sh xcodebuild.log
 ```
+
+The last line reads the test log for `[#ActorIsolatedCall]` warnings (#630). A newer Xcode (27, Swift 6.4) only warns
+when nonisolated code calls a main-actor method, and treating warnings as errors does not change that. CI's Xcode 26
+(Swift 6.3) rejects the same call, so `build-test` fails. If the script lists a line, mark that helper
+`nonisolated static` or move it out of the `View`. `set -o pipefail` keeps `tee` from hiding a test failure, and git
+ignores `xcodebuild.log`.
 
 When you touch app code, fill the template's `Local toolchain` line with the Xcode and macOS you built and tested
 with (`xcodebuild -version`, `sw_vers -productVersion`), for example `Xcode 26.1 (17B55), macOS 26.1`. `/pr-open`

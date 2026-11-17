@@ -41,6 +41,72 @@ final class SetupAssistantRenderTests: XCTestCase {
         }
     }
 
+    /// #679: the first run with a refused folder; step 1 says why, in light and dark.
+    func testARefusedFolderIsExplainedInStepOne() async throws {
+        let setup = SetupAssistantState(
+            gitChecker: StubGitSetupChecker(
+                .ready(version: GitVersion(major: 2, minor: 50, patch: 1), path: "/usr/bin/git")),
+            ghChecker: StubGHAuthChecker(.notLoggedIn))
+        setup.present()
+        await setup.gitTask?.value
+        await setup.gitHubTask?.value
+        XCTAssertTrue(setup.showRepositoryProblem(RegistrationError.insideGitDirectory.message))
+        XCTAssertFalse(setup.canFinish(hasRepository: false))
+
+        let view = SetupAssistantView(setup: setup, repositoryPath: nil, isAddingRepository: false, onChooseFolder: {})
+        for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let host = NSHostingView(
+                rootView: view.frame(width: Self.size.width, height: Self.size.height)
+                    .background(Tokens.Color.surfacePanel))
+            host.appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
+            host.frame = NSRect(origin: .zero, size: Self.size)
+            host.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            XCTAssertGreaterThan(bitmap.pixelsWide, 0, name)
+            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+                let png = bitmap.representation(using: .png, properties: [:])
+            {
+                try png.write(
+                    to: URL(fileURLWithPath: directory).appendingPathComponent("setup-assistant-refused-\(name).png"))
+            }
+        }
+    }
+
+    /// #702: a subfolder was picked and the repository above it was added; step 1 says so under the path.
+    func testANoticeOnTheAddedFolderIsInStepOne() async throws {
+        let setup = SetupAssistantState(
+            gitChecker: StubGitSetupChecker(
+                .ready(version: GitVersion(major: 2, minor: 50, patch: 1), path: "/usr/bin/git")),
+            ghChecker: StubGHAuthChecker(.notLoggedIn))
+        setup.present()
+        await setup.gitTask?.value
+        await setup.gitHubTask?.value
+        XCTAssertTrue(
+            setup.showRepositoryNotice(
+                "The folder you chose is a symbolic link. Overgrove added the repository at ~/dev/api."))
+
+        let view = SetupAssistantView(
+            setup: setup, repositoryPath: "~/dev/api", isAddingRepository: false, onChooseFolder: {})
+        for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
+            let host = NSHostingView(
+                rootView: view.frame(width: Self.size.width, height: Self.size.height)
+                    .background(Tokens.Color.surfacePanel))
+            host.appearance = try XCTUnwrap(NSAppearance(named: appearanceName))
+            host.frame = NSRect(origin: .zero, size: Self.size)
+            host.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            XCTAssertGreaterThan(bitmap.pixelsWide, 0, name)
+            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+                let png = bitmap.representation(using: .png, properties: [:])
+            {
+                try png.write(
+                    to: URL(fileURLWithPath: directory).appendingPathComponent("setup-assistant-notice-\(name).png"))
+            }
+        }
+    }
+
     /// #383: a supported but older git is ready, with the note on what it does not fetch.
     func testOlderGitShowsTheNote() async throws {
         let setup = SetupAssistantState(

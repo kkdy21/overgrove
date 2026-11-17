@@ -1,8 +1,8 @@
 # 릴리스 체크리스트 (v0.1.0)
 
-> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [release.md](../process/release.md), [process.md](process.md), [scope-mvp.md](../scope-mvp.md), [security-review.md](../design/security-review.md)
+> 상태: Accepted (Phase 2 게이트, 2026-11-05) · 관련: [release.md](../process/release.md), [process.md](process.md), [scope-mvp.md](../scope-mvp.md), [security-review.md](../design/security-review.md), ADR-0027
 
-릴리스 이슈 `chore(release): v0.1.0`의 완료 조건으로 이 목록을 복사한다. 절차(브랜치, 태그, GitHub Release 생성)는 [release.md](../process/release.md)를 따른다. 이 문서는 "태그를 찍기 전에 무엇을 확인하는가"만 다룬다.
+릴리스 이슈 `chore(release): v0.1.0`의 완료 조건으로 이 목록을 복사한다. 절차(브랜치, 태그, GitHub Release 생성)는 [release.md](../process/release.md)를 따른다. 이 문서는 "태그를 찍기 전에 무엇을 확인하는가"를 다룬다. 태그 뒤에 확인할 Homebrew tap 항목만 §8에 따로 둔다.
 
 모든 항목에 증거(명령 출력, 링크, 스크린샷)를 릴리스 이슈 코멘트로 남긴다.
 
@@ -47,7 +47,7 @@
 - [ ] `git clone https://github.com/kkdy21/overgrove.git` → README의 요구 사항(macOS, Xcode 버전)을 확인했다.
 - [ ] Xcode에서 `Overgrove.xcodeproj`를 열고 Run 한 번으로 실행된다 (G10). 서명은 "Sign to Run Locally"로 충분하다.
 - [ ] `xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'`가 통과한다.
-- [ ] Hardened Runtime이 켜져 있다 (`codesign -d --entitlements - --verbose=2 <앱>`).
+- [ ] Release 구성으로 빌드한 앱에 Hardened Runtime이 켜져 있고 entitlement가 하나도 없다(#687). `xcodebuild -project Overgrove.xcodeproj -scheme Overgrove -configuration Release -derivedDataPath build/qa build` 뒤에 `codesign -d --entitlements - --verbose=2 build/qa/Build/Products/Release/Overgrove.app`으로 확인한다. `flags=`에 `runtime`이 있어야 하고(ad-hoc 서명이면 `flags=0x10002(adhoc,runtime)`), entitlement 목록(`[Dict]`)은 나오지 않아야 한다. 특히 `com.apple.security.get-task-allow`가 없어야 한다. Debug 빌드는 Hardened Runtime 없이 디버거와 테스트 번들을 위해 `get-task-allow`를 두는 것이 정상이다.
 - [ ] 외부 패키지가 없다. `Package.resolved`와 SPM 의존성이 없다 (SEC-T17-01).
 - [ ] 최소 지원 macOS(14)에서 실행을 확인했다. 장비가 없으면 그 사실을 릴리스 노트에 적는다.
 
@@ -71,12 +71,28 @@
 - [ ] `CHANGELOG.md`의 `[0.1.0]` 절에 날짜를 넣었고, `Unreleased`에 남은 항목이 없으며, 비교 링크가 맞다 (Keep a Changelog).
 - [ ] README의 스크린샷이 현재 UI다. 스크린샷은 픽스처 저장소로 찍었고 개인 정보가 없다.
 - [ ] README의 요구 사항이 실제 빌드 조건과 같다 (macOS, Xcode, git 최소 버전).
-- [ ] 릴리스 노트 초안에 다음이 있다: 주요 기능, 요구 사항, 소스 빌드 안내(서명·공증 바이너리 없음), 보안 주의 사항, Known issues, 감사 인사(기여자가 있으면).
+- [ ] 릴리스 노트 초안에 다음이 있다: 주요 기능, 요구 사항, 설치 안내(Homebrew, 소스 빌드, bottle 출처 확인. Developer ID 서명·공증 바이너리는 없음), 보안 주의 사항, Known issues, 감사 인사(기여자가 있으면).
+- [ ] README와 SECURITY.md의 배포 문구가 ADR-0027(소스 아카이브와 Homebrew bottle)과 맞다.
 - [ ] 문서의 상태 줄(`Proposed` → `Accepted`)을 실제 승인 상태와 맞췄다.
 
 ## 7. 태그 직전
 
 - [ ] 릴리스 PR이 머지되었고 `main`이 그 커밋이다.
+- [ ] `Config/Overgrove.xcconfig`의 `MARKETING_VERSION`이 태그 버전과 같다. Homebrew formula의 `test`가 이 값을 formula 버전과 비교한다.
 - [ ] 메인테이너가 서명된 annotated tag를 만든다 (`git tag -s v0.1.0`). 이 작업은 Claude Code가 하지 않는다.
 - [ ] GitHub Release는 내용을 메인테이너에게 보여 주고 승인받은 뒤 만든다 (공개 저장소 쓰기).
 - [ ] 릴리스 뒤 `v0.1.0` 마일스톤을 닫는다.
+
+## 8. 태그 뒤: Homebrew tap
+
+절차는 [release.md](../process/release.md) §3의 6단계, 근거는 [ADR-0027](../adr/0027-homebrew-bottles-in-personal-tap.md)이다.
+
+- [ ] tap formula의 `url`과 `sha256`이 태그 아카이브와 맞고, 빌드 단계가 `packaging/homebrew/Formula/overgrove.rb`와 같다.
+- [ ] tap 워크플로우가 `packaging/homebrew/.github/workflows/bottle.yml`과 같다. 모든 `uses:`가 40자리 SHA로 고정되어 있고, `contents: write`는 Release를 만드는 job에만 있다.
+- [ ] `bottle` 워크플로우가 성공했다. tap의 Release에 `overgrove-<버전>.arm64_sonoma.bottle.tar.gz`가 있고, Release 태그가 bottle을 빌드한 커밋을 가리키며, formula의 bottle 블록 sha256이 그 파일과 같다.
+- [ ] `brew audit --strict --online --formula kkdy21/tap/overgrove`와 `brew style kkdy21/tap/overgrove`가 깨끗하다.
+- [ ] Xcode가 없는 Apple silicon Mac(가능하면 macOS 14)에서 `HOMEBREW_VERIFY_ATTESTATIONS=1 brew install kkdy21/tap/overgrove`가 bottle을 붓고, `brew test`가 통과하고, 앱이 실행된다.
+- [ ] `gh attestation verify "$(brew --cache kkdy21/tap/overgrove)" --repo kkdy21/homebrew-tap --signer-workflow kkdy21/homebrew-tap/.github/workflows/bottle.yml`이 통과한다.
+- [ ] 설치된 앱의 `codesign -dv --verbose=2`가 `Signature=adhoc`, `flags=0x10002(adhoc,runtime)`이고, `xattr`에 `com.apple.quarantine`이 없다.
+- [ ] 설치된 앱의 `codesign -d --entitlements -`에 entitlement가 없다. 특히 `com.apple.security.get-task-allow`가 없어야 하므로, #687이 머지된 태그로 bottle을 만든다.
+- [ ] Xcode 26이 있는 Mac에서 `brew reinstall --build-from-source kkdy21/tap/overgrove`가 통과한다.

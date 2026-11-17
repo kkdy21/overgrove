@@ -57,7 +57,7 @@ Phase 4 QA 이슈 본문에 이 목록을 복사해서 쓴다. 항목마다 결�
 
 | ID | 확인 | 기대 결과 | 화면·이슈 | 자동화 |
 |---|---|---|---|---|
-| QA-SH-01 | 사이드바 STASHES | 2개, 최신(`stash@{0}`)이 위. 메시지와 상대 시간이 보인다 | S-01 | INT-05 |
+| QA-SH-01 | 사이드바 STASHES | 2개, 최신(`stash@{0}`)이 위. 메시지가 보인다(상대 시각은 S-04 머리에 있다, #579) | S-01 | INT-05 |
 | QA-SH-02 | `stash@{0}` 상세 | 파일 2개. 미추적에서 온 `stash-untracked.txt`가 구분 표시된다 | S-04 | PAR-NUMSTAT-05 |
 | QA-SH-03 | `Copy ref` | 클립보드에 `stash@{0}`이 들어간다 | S-04 | — |
 | QA-SH-04 | apply, pop, drop 메뉴 | 없다 (범위 밖, N3·ADR-0011과 같은 원칙) | S-04 | SEC-T13-01 |
@@ -66,7 +66,7 @@ Phase 4 QA 이슈 본문에 이 목록을 복사해서 쓴다. 항목마다 결�
 
 | ID | 확인 | 기대 결과 | 화면·이슈 | 자동화 |
 |---|---|---|---|---|
-| QA-TG-01 | 사이드바 TAGS 섹션 | REMOTE와 STASHES 사이에 있고 처음에는 접혀 있다. 펼치면 `v0.0.1`, `light-tag`가 만든 날짜 내림차순으로 보인다. 주석·가벼운 태그 구분은 툴팁에만 있다 | S-01, #377 | `TagListModelTests` |
+| QA-TG-01 | 사이드바 TAGS 섹션 | REMOTE와 STASHES 사이에 있고 처음에는 접혀 있다. 펼치면 `v0.0.1`, `light-tag`가 만든 날짜 내림차순으로 보이고, 행 끝에 짧은 상대 시각(`3y`처럼 달·해 단위까지)이 있다. 주석·가벼운 태그 구분은 툴팁에만 있다 | S-01, #377, #686 | `TagListModelTests`, `RelativeTimeTests` |
 | QA-TG-02 | 태그 행을 누른다. 행 메뉴의 Show in Graph, Copy Tag Name, Copy SHA | 그 커밋(주석 태그는 가리키는 커밋)이 그래프에서 선택되고 스크롤된다. 복사 값이 맞다 | S-01, #377 | — |
 | QA-TG-03 | 사이드바 필터에 태그 이름 일부를 입력한다 | 접혀 있어도 TAGS가 펼쳐지고 맞는 태그만 남는다 | S-01, #377 | — |
 
@@ -74,7 +74,7 @@ Phase 4 QA 이슈 본문에 이 목록을 복사해서 쓴다. 항목마다 결�
 
 | ID | 확인 | 기대 결과 | 화면·이슈 | 자동화 |
 |---|---|---|---|---|
-| QA-SY-01 | Fetch(⌘⇧R) 실행 | 진행 표시 → 완료. 사이드바 REMOTE에 `origin/feat/remote-only`가 나타난다. 상태바의 마지막 fetch 시각이 갱신된다 | S-01 | INT-12 |
+| QA-SY-01 | Fetch(⌘⇧R) 실행 | 진행 표시가 나왔다가 끝난다. 앱은 원격마다 따로 fetch하므로 `mirror`의 `skipFetchAll`은 적용되지 않고, URL에 비밀번호가 있는 `mirror`는 git을 실행하기 전에 거부된다(#356). 그래서 상태바는 `Fetch failed — Details`, S-05의 Last fetch는 `Last attempt failed`가 된다. 나머지는 git 버전에 따라 다르다. **git 2.45.1 이상**: 사이드바 REMOTE에 `origin/feat/remote-only`가 나타난다. Details에는 `Fetching mirror is turned off for this repository` 하나만 있고, 다른 원격의 오류는 없다. **git 2.45.1 미만**(macOS 14 기본 git 2.39.5): 이 Mac의 원격(로컬 경로)은 fetch하지 않으므로(#383) `origin/feat/remote-only`가 나타나지 않는다. Details에는 `mirror` 안내와 함께 `origin`·`upstream`마다 `Overgrove does not fetch <원격> with this git`이 나오고, git 2.45.1 이상이 필요하다고 안내한다 | S-01 | INT-12 |
 | QA-SY-02 | fetch 중 ⌘. | 취소되고 앱이 멈추지 않는다. 부분 결과로 화면이 깨지지 않는다 | S-01 | SEC-T15-02 |
 | QA-SY-03 | 인증이 필요한 원격(자격 증명이 없는 private https 저장소)을 fetch | 프롬프트 없이 빠르게 실패하고 인증 문제라는 안내가 나온다. stderr 원문은 마스킹된다 | S-01 | SEC-T12-02 |
 | QA-SY-04 | 네트워크를 끈 상태에서 fetch | 타임아웃 또는 즉시 실패. 안내 문구에 원격 URL 자격 증명이 없다 | S-01 | SEC-T11-02 |
@@ -221,7 +221,7 @@ Phase 4 QA 이슈 본문에 이 목록을 복사해서 쓴다. 항목마다 결�
 | ID | 확인 | 기대 결과 | 화면·이슈 | 자동화 |
 |---|---|---|---|---|
 | QA-KO-01 | 설정(S-08), 온보딩(S-07), 메뉴 막대의 Navigate·Find·보기(확대) 메뉴 | 한국어로 보인다. git 용어는 음차다(커밋, 브랜치, 스태시, 워크트리, 페치) | S-07, S-08, #120 | `LocalizationTests` (키 존재) |
-| QA-KO-02 | 그래프 작성자 필터, 열 머리, 열 메뉴, Diff 뷰어(S-10) 머리와 `⋯` 메뉴 | 한국어로 보이고 잘리거나 겹치지 않는다(영어보다 긴 문구 포함) | S-01, S-10, #120 | — |
+| QA-KO-02 | 그래프 작성자 필터, 열 머리, 열 메뉴, WIP 행 요약, Diff 뷰어(S-10) 머리와 `⋯` 메뉴 | 한국어로 보이고 잘리거나 겹치지 않는다(영어보다 긴 문구 포함) | S-01, S-10, #120 | `LocalizationTests` (WIP 행 요약, #683) |
 | QA-KO-03 | 번역하지 않는 것: 브랜치·ref 이름, SHA, 복사용 명령(`gh auth login` 등), 클립보드에 들어가는 값, git·gh 오류 원문, `WIP`·`AI-assisted` 배지, Copy Report 내용 | 원문 그대로다 | 전체, #120 | — |
 | QA-KO-04 | 한국어에서 VoiceOver로 QA-A11Y-01·07을 반복한다 | 번역된 화면의 레이블과 툴팁이 한국어로 읽힌다 | 전체, #120 | — |
 

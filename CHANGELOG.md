@@ -12,10 +12,17 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 The first release. Overgrove is a read-only Mac app that shows every worktree of a repository in one window: what
 each one has changed, how far it is from its upstream, the stashes, and the commit graph. The only operation that
-touches a remote is `git fetch`. It is distributed as source only: build it with Xcode 26 or later, and run it on
-macOS 14 or later.
+touches a remote is `git fetch`. It runs on macOS 14 or later. Install it with Homebrew, or build it from source with
+Xcode 26 or later.
 
 ### Added
+
+**Installation**
+
+- Install with Homebrew: `brew install kkdy21/tap/overgrove`. On Apple silicon with macOS 14 or later, this pours an
+  ad-hoc signed bottle with a build provenance attestation, so Xcode is not needed; other Macs build the app from
+  source. There is no build signed with a Developer ID or notarized by Apple
+  ([ADR-0027](docs/adr/0027-homebrew-bottles-in-personal-tap.md)).
 
 **Repositories and worktrees**
 
@@ -83,14 +90,16 @@ macOS 14 or later.
 
 - A three-panel window (sidebar, graph, detail) with resizable and collapsible panels, a toolbar, and a status
   bar, in light and dark appearances.
-- A setup assistant that checks `git` and the `gh` login, and Settings for automatic fetch, remote URL display, the
-  repository list, the `git` executable, and the terminal and editor.
+- A setup assistant that checks `git` and the `gh` login and says right there why a folder could not be added, and
+  Settings for automatic fetch, remote URL display, the repository list, the `git` executable, and the terminal and
+  editor.
 - Choose another `git`, such as Homebrew's, in Settings › Advanced. It is checked for ownership, permissions, and
   version (2.36 or later) when chosen and at every launch.
 - Keyboard use throughout: the sidebar is one Tab stop and the arrow keys move across all its sections, there are
-  shortcuts for the panels and common actions, and you can go back and forward through selections.
+  shortcuts for the panels and common actions, ⎋ closes any screen that covers the graph, and you can go back and
+  forward through selections.
 - VoiceOver labels and rotors, Increase Contrast, and Reduce Motion support.
-- English and Korean, following the system language.
+- English and Korean, following the system language, VoiceOver labels and relative dates included.
 
 **Project**
 
@@ -140,8 +149,12 @@ your credentials elsewhere, or write to the repository through the app. Threat I
   its tool reports a working login there. Overgrove never reads or stores tokens (T11).
 - The launch snapshot keeps only display values (no remote URLs, config values, file names, or commit contents),
   is read as untrusted input, and is never used for a security decision (T19).
+- Release builds use the Hardened Runtime without the `get-task-allow` debugging entitlement, so other processes of
+  the same user cannot attach to the app.
 - No third-party dependencies, GitHub Actions pinned to commit SHAs with minimal permissions, and gitleaks in the Git
-  hooks and CI (T17, T18).
+  hooks and CI (T17, T18). The Homebrew bottle is built by the tap's GitHub Actions workflow, pinned by sha256 in the
+  formula, and carries a build provenance attestation that `HOMEBREW_VERIFY_ATTESTATIONS=1` or
+  `gh attestation verify` can check (T17).
 
 ### Known limitations
 
@@ -161,6 +174,8 @@ your credentials elsewhere, or write to the repository through the app. Threat I
 - When many files have changed only their modification time, `git status` can be slow, because Overgrove never
   writes the index. Running `git status` once in Terminal, in a repository you trust, fixes it.
 - No multiple selection of commits or files.
+- The Homebrew bottle is used only on Apple silicon with Homebrew in `/opt/homebrew`. Intel Macs and other Homebrew
+  locations build from source, which needs Xcode 26 and macOS 15.6 or later. Intel Macs are not tested.
 
 [Unreleased]: https://github.com/kkdy21/overgrove/commits/main
 [0.1.0]: https://github.com/kkdy21/overgrove/releases/tag/v0.1.0

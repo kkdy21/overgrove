@@ -9,6 +9,8 @@ struct ComparisonCenterView: View {
     let onChooseBase: (FullRefName) -> Void
     let onIncludeUncommitted: (Bool) -> Void
 
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         VStack(spacing: 0) {
             PanelHeader {
@@ -37,6 +39,14 @@ struct ComparisonCenterView: View {
             }
             .staleComparison(model.staleNotice != nil)
         }
+        // The toolbar's Compare and `⌘⇧B` open S-11 over the focused graph, which goes away with nothing focused after
+        // it, so `⎋` reached no handler (#701, as S-12 in #693). S-11 takes the focus, as S-09 and S-12 do, so `⎋` goes
+        // to the window's `onExitCommand`; `⌘2` focuses it while it covers the graph (interaction.md §3.1).
+        .focusable()
+        .focused($isFocused)
+        .focusEffectDisabled()
+        .focusOnRequest([.center], $isFocused)
+        .onAppear { isFocused = true }
     }
 
     private var basePicker: some View {
@@ -164,8 +174,9 @@ struct ComparisonListView: View {
                 }
                 // Starts where the file rows' badges start (#577).
                 .padding(.horizontal, FileRowView.horizontalPadding)
-                .help(commit.subject + "\n" + commit.author)
+                // Combined first, so the help is one hint on the row, not one on each text (#682).
                 .accessibilityElement(children: .combine)
+                .help(commit.subject + "\n" + commit.author)
             }
         }
     }

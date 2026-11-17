@@ -123,10 +123,11 @@ struct StashDetailView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             TimelineView(.periodic(from: .now, by: 30)) { context in
-                Text(StatusBarItem.relative(model.date, now: context.date))
+                Text(model.relativeDate(now: context.date))
                     .font(Tokens.Font.caption)
                     .foregroundStyle(Tokens.Color.textTertiary)
                     .fixedSize()
+                    .accessibilityLabel(RelativeTime.spoken(model.date, now: context.date))
             }
         }
     }
