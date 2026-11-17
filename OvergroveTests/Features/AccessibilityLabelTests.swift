@@ -44,6 +44,17 @@ final class AccessibilityLabelTests: XCTestCase {
         XCTAssertFalse(GraphRowAccessibility.hint(merge).isEmpty, "the absolute date is the hint")
     }
 
+    /// #706: the row's relative time follows the app's language like the rest of the label; it was fixed to English.
+    func testGraphRowTimeIsReadInTheAppLanguage() {
+        let twoHoursAgo = now.addingTimeInterval(-7_200)
+        XCTAssertEqual(GraphRowAccessibility.relative(twoHoursAgo, now: now), "2 hours ago", "the tests' language")
+        XCTAssertEqual(
+            GraphRowAccessibility.relative(twoHoursAgo, now: now, locale: Locale(identifier: "ko")), "2시간 전")
+        XCTAssertEqual(
+            GraphRowAccessibility.relative(now.addingTimeInterval(-20), now: now), "just now",
+            "under a minute, as S-04 and the TAGS rows read it")
+    }
+
     func testRefListsGroupBranchesTagsAndDetachedWorktrees() {
         XCTAssertEqual(
             GraphRowAccessibility.refs([
