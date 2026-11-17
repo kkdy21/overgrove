@@ -184,6 +184,14 @@ struct IssueDetailModel: Equatable {
     /// Linked worktrees and branches past `IssueLinkIndex.limitPerKind` (`and N more`).
     let hiddenLinkCount: Int
 
+    /// `owner/repo · updated 3h ago` next to the state (screens.md S-06, #686). `spoken` writes the time out for
+    /// VoiceOver (`updated 3 hours ago`, interaction.md §6).
+    func updatedLine(now: Date, spoken: Bool = false) -> String {
+        let time = spoken ? RelativeTime.spoken(updatedAt, now: now) : RelativeTime.ago(updatedAt, now: now)
+        let updated = String(localized: "updated \(time)", comment: "Issue detail: when the issue last changed")
+        return ([repository].compactMap { $0 } + [updated]).joined(separator: " · ")
+    }
+
     init(
         _ issue: Issue, repository: GitHubRepository?, links: IssueLinkIndex.Links = .init(),
         commits: [CommitLink] = []

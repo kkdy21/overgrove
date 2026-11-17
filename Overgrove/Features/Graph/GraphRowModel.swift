@@ -108,19 +108,30 @@ struct GraphWipRow: Sendable, Equatable {
     /// `Uncommitted changes in api-wt: 3 staged, 2 unstaged` (interaction.md §6.1).
     var accessibilityLabel = ""
 
-    static func make(worktree: Worktree, state: WorkingState) -> GraphWipRow? {
+    /// - Parameter bundle: Where the count phrases are looked up; tests pass the Korean table.
+    static func make(worktree: Worktree, state: WorkingState, bundle: Bundle = .main) -> GraphWipRow? {
         guard !state.isClean else { return nil }
-        var parts: [String] = []
-        if !state.staged.isEmpty { parts.append("\(state.staged.count) staged") }
-        if !state.unstaged.isEmpty { parts.append("\(state.unstaged.count) unstaged") }
-        if !state.untracked.isEmpty { parts.append("\(state.untracked.count) untracked") }
-        var summary = "WIP" + (parts.isEmpty ? "" : " " + parts.joined(separator: " · "))
-        if !state.conflicted.isEmpty { summary = "⚠ \(state.conflicted.count) conflicted · " + summary }
         let folder = (worktree.path.display as NSString).lastPathComponent
         let folderName = PathValidator.displayable(folder)
         return GraphWipRow(
-            folderName: folderName, summary: summary, head: state.headCommit ?? worktree.head,
+            folderName: folderName, summary: summary(state, bundle: bundle), head: state.headCommit ?? worktree.head,
             accessibilityLabel: GraphRowAccessibility.wipLabel(folderName: folderName, state: state))
+    }
+
+    /// The counts use the phrases of the VoiceOver label (`3 staged`, Korean `3개 스테이징됨`, #683), the terms of the
+    /// detail panel's groups. `WIP` is a badge and stays as it is in every language (glossary.md).
+    private static func summary(_ state: WorkingState, bundle: Bundle) -> String {
+        var parts: [String] = []
+        if !state.staged.isEmpty { parts.append(String(localized: "\(state.staged.count) staged", bundle: bundle)) }
+        if !state.unstaged.isEmpty {
+            parts.append(String(localized: "\(state.unstaged.count) unstaged", bundle: bundle))
+        }
+        if !state.untracked.isEmpty {
+            parts.append(String(localized: "\(state.untracked.count) untracked", bundle: bundle))
+        }
+        let summary = "WIP" + (parts.isEmpty ? "" : " " + parts.joined(separator: " · "))
+        guard !state.conflicted.isEmpty else { return summary }
+        return "⚠ " + String(localized: "\(state.conflicted.count) conflicted", bundle: bundle) + " · " + summary
     }
 }
 
@@ -202,9 +213,11 @@ enum GraphRowAccessibility {
         return parts.joined(separator: ", ")
     }
 
-    /// The absolute date, read after a pause (`3 November 2026 at 14:22`).
-    static func hint(_ commit: CommitNode) -> String {
-        absolute.string(from: commit.authorDate)
+    /// The absolute date, read after a pause, in the app's language like the label (`November 3, 2026 at 2:22 PM`,
+    /// Korean `2026년 11월 3일 오후 2:22`, #710). It was fixed to English before the app was localized.
+    /// - Parameter locale: The language to speak; the app's own (`RelativeTime.appLocale`) if `nil`.
+    static func hint(_ commit: CommitNode, locale: Locale? = nil) -> String {
+        (locale.map(absoluteFormatter(for:)) ?? absolute).string(from: commit.authorDate)
     }
 
     /// `Uncommitted changes in api-wt: 3 staged, 2 unstaged, 1 untracked, 1 conflicted`.
@@ -250,23 +263,21 @@ enum GraphRowAccessibility {
         return many(String(localized: "\(first) and \(last)", comment: "VoiceOver: the last two names in a list"))
     }
 
-    /// `2 hours ago`, spelled out for speech.
-    static func relative(_ date: Date, now: Date) -> String {
-        relativeFormatter.localizedString(for: min(date, now), relativeTo: now)
+    /// `2 hours ago`, spelled out for speech in the app's language (`2시간 전` in Korean, #706), as the rest of the
+    /// label is. It was fixed to English before the app was localized.
+    /// - Parameter locale: The language to speak; the app's own if `nil` (`RelativeTime.spoken`).
+    static func relative(_ date: Date, now: Date, locale: Locale? = nil) -> String {
+        RelativeTime.spoken(date, now: now, locale: locale)
     }
 
-    nonisolated(unsafe) private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.unitsStyle = .full
-        return formatter
-    }()
+    private static let absolute = absoluteFormatter(for: RelativeTime.appLocale)
 
-    private static let absolute: DateFormatter = {
+    /// The date in words, for speech; not for parsing or sorting.
+    private static func absoluteFormatter(for locale: Locale) -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.locale = locale
         formatter.dateStyle = .long
         formatter.timeStyle = .short
         return formatter
-    }()
+    }
 }

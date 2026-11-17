@@ -29,7 +29,7 @@ final class BaseCompareCardTests: XCTestCase {
 
     /// The card shows S-11's ahead/behind, file count, and line totals for the same comparison.
     func testLoadedValuesMatchS11() {
-        let card = BaseCompareCardModel(summary: summary(.loaded(comparison)), canCompare: true)
+        let card = BaseCompareCardModel(summary: summary(.loaded(comparison)), status: .loaded)
         var session = ComparisonSession(worktree: worktree, base: main)
         session.result = .loaded(comparison)
         let s11 = ComparisonModel(session: session, workingState: nil)
@@ -47,21 +47,55 @@ final class BaseCompareCardTests: XCTestCase {
 
     func testStates() {
         XCTAssertEqual(
-            BaseCompareCardModel(summary: summary(.loading), canCompare: true).state, .loading("Comparing with main…"))
+            BaseCompareCardModel(summary: summary(.loading), status: .loaded).state, .loading("Comparing with main…"))
         XCTAssertEqual(
-            BaseCompareCardModel(summary: summary(.failed(.noBaseBranch), base: nil), canCompare: true).state,
+            BaseCompareCardModel(summary: summary(.failed(.noBaseBranch), base: nil), status: .loaded).state,
             .noBase("No base branch to compare with."))
         if case .failed(let text) = BaseCompareCardModel(
-            summary: summary(.failed(.baseNotFound(develop))), canCompare: true
+            summary: summary(.failed(.baseNotFound(develop))), status: .loaded
         ).state {
             XCTAssertFalse(text.isEmpty)
         } else {
             XCTFail("a failure shows its message")
         }
-        let waiting = BaseCompareCardModel(summary: nil, canCompare: false)
+        let waiting = BaseCompareCardModel(summary: nil, status: .pending)
         XCTAssertEqual(waiting.state, .failed("Waiting for this worktree's status."))
         XCTAssertFalse(waiting.canCompare, "Compare with Base… is off until the status loads")
-        XCTAssertEqual(BaseCompareCardModel(summary: nil, canCompare: true).baseName, "base branch")
+        XCTAssertEqual(BaseCompareCardModel(summary: nil, status: .loaded).baseName, "base branch")
+        // A list still loading may already hold this worktree's last comparison: it stays until the status is back.
+        XCTAssertEqual(
+            BaseCompareCardModel(summary: summary(.loading), status: .pending).state, .loading("Comparing with main…"))
+    }
+
+    /// A worktree whose folder is missing (prunable) is never queried, so its status never comes: the card says why
+    /// instead of waiting (#684). The same goes for a status that failed or was not queried in this load.
+    func testWorktreeWithoutStatusSaysWhyInsteadOfWaiting() {
+        let missing = BaseCompareCardModel(summary: nil, status: .missing)
+        XCTAssertEqual(missing.state, .failed("The worktree folder is missing, so it cannot be compared."))
+        XCTAssertFalse(missing.canCompare)
+        // An earlier comparison of the same path (the folder was deleted since) gives way to the reason.
+        let deleted = BaseCompareCardModel(summary: summary(.loaded(comparison)), status: .missing)
+        XCTAssertEqual(deleted.state, missing.state)
+        XCTAssertTrue(deleted.bases.isEmpty, "the base menu is off, as the button")
+        let unavailable = BaseCompareCardModel(summary: nil, status: .unavailable)
+        XCTAssertEqual(unavailable.state, .failed("This worktree's status is not available, so it cannot be compared."))
+        XCTAssertFalse(unavailable.canCompare)
+        for state in [missing.state, unavailable.state] {
+            XCTAssertNotEqual(state, .failed("Waiting for this worktree's status."))
+        }
+    }
+
+    /// Which listing states are worth waiting for.
+    func testStatusFromTheWorktreeEntry() {
+        func entry(_ state: WorktreeListing.State, isPrunable: Bool = false) -> WorktreeListing.Entry {
+            WorktreeListing.entry(worktree.display, branch: "spike/prunable", isPrunable: isPrunable, state: state)
+        }
+        typealias Status = BaseCompareCardModel.WorktreeStatus
+        XCTAssertEqual(Status(nil), .pending, "the list is still loading")
+        XCTAssertEqual(Status(entry(.loaded(WorktreeListing.state(branch: "spike/prunable")))), .loaded)
+        XCTAssertEqual(Status(entry(.missing, isPrunable: true)), .missing)
+        XCTAssertEqual(Status(entry(.failed(.timeout(seconds: 10)))), .unavailable)
+        XCTAssertEqual(Status(entry(.notQueried(.duplicate))), .unavailable)
     }
 
     /// Detached HEAD: no ahead/behind counts, only the commits ahead (as S-11).
@@ -70,7 +104,7 @@ final class BaseCompareCardTests: XCTestCase {
             files: [ComparisonModelTests.stat("a.swift", .modified, 1, 0)], counts: nil)
         guard
             case .loaded(let text, _, _, _) = BaseCompareCardModel(
-                summary: summary(.loaded(detached)), canCompare: true
+                summary: summary(.loaded(detached)), status: .loaded
             ).state
         else { return XCTFail() }
         XCTAssertEqual(text, "0 commits ahead · 1 file")
@@ -78,11 +112,12 @@ final class BaseCompareCardTests: XCTestCase {
 
     func testRendersEveryStateInLightAndDark() throws {
         let states: [(String, BaseCompareCardModel)] = [
-            ("loaded", BaseCompareCardModel(summary: summary(.loaded(comparison)), canCompare: true)),
-            ("loading", BaseCompareCardModel(summary: summary(.loading), canCompare: true)),
-            ("no-base", BaseCompareCardModel(summary: summary(.failed(.noBaseBranch), base: nil), canCompare: true)),
-            ("failed", BaseCompareCardModel(summary: summary(.failed(.baseNotFound(develop))), canCompare: true)),
-            ("waiting", BaseCompareCardModel(summary: nil, canCompare: false)),
+            ("loaded", BaseCompareCardModel(summary: summary(.loaded(comparison)), status: .loaded)),
+            ("loading", BaseCompareCardModel(summary: summary(.loading), status: .loaded)),
+            ("no-base", BaseCompareCardModel(summary: summary(.failed(.noBaseBranch), base: nil), status: .loaded)),
+            ("failed", BaseCompareCardModel(summary: summary(.failed(.baseNotFound(develop))), status: .loaded)),
+            ("waiting", BaseCompareCardModel(summary: nil, status: .pending)),
+            ("missing", BaseCompareCardModel(summary: nil, status: .missing)),
         ]
         let view = VStack(spacing: Tokens.Spacing.md) {
             ForEach(states.indices, id: \.self) { index in
@@ -115,7 +150,7 @@ final class BaseCompareCardTests: XCTestCase {
         let wip = WipDetailModel(
             entry: WorktreeListing.entry(worktree.display, branch: "agent/refactor-logging", state: .loaded(state)),
             home: "/tmp/dev")
-        let card = BaseCompareCardModel(summary: summary(.loaded(comparison)), canCompare: true)
+        let card = BaseCompareCardModel(summary: summary(.loaded(comparison)), status: .loaded)
         for (name, appearanceName) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             let panel = DetailPanel(focusedWorktree: nil, wipModel: wip, compareCard: card)
             let host = NSHostingView(

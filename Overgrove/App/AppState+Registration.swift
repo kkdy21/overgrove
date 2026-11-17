@@ -17,12 +17,12 @@ extension AppState {
             case .added:
                 openRegistered(registration.entry.id)
                 if let notice = registration.notice {
-                    alert = AppAlert(title: String(localized: "Repository Added"), message: notice)
+                    registrationNotice(title: String(localized: "Repository Added"), message: notice)
                 }
             case .alreadyRegistered:
                 guard let existing = registry.repository(withID: registration.entry.id) else { return }
                 openRegistered(existing.id)
-                alert = AppAlert(
+                registrationNotice(
                     title: String(localized: "Repository Already Added"),
                     message: String(
                         localized: "“\(existing.name)” is already in Overgrove, at \(existing.displayRootPath)."))
@@ -40,6 +40,13 @@ extension AppState {
     private func registrationFailed(_ message: String) {
         guard !setup.showRepositoryProblem(message) else { return }
         alert = AppAlert(title: String(localized: "Couldn’t Add Repository"), message: message)
+    }
+
+    /// A note on the added folder (overview.md §9): in S-07's step 1 while the assistant is open, as a refusal is
+    /// (#702); otherwise the alert.
+    private func registrationNotice(title: String, message: String) {
+        guard !setup.showRepositoryNotice(message) else { return }
+        alert = AppAlert(title: title, message: message)
     }
 
     /// Opens a registered repository. Its folder must still be where it was registered, not replaced by a symbolic

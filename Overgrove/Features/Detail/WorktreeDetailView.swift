@@ -212,10 +212,11 @@ private struct SecurityCard: View {
                         Spacer(minLength: Tokens.Spacing.xs)
                         Text(finding.handling).font(Tokens.Font.caption).foregroundStyle(Tokens.Color.textSecondary)
                     }
+                    // Combined first, so the help is one hint on the row, not one on each text (#682).
+                    .accessibilityElement(children: .combine)
                     .help(
                         finding.threat.map { String(localized: "Threat \($0) in docs/design/security-review.md") } ?? ""
                     )
-                    .accessibilityElement(children: .combine)
                     .cardOpaque()
                 }
             }
