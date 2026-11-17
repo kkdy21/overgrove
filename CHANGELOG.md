@@ -61,6 +61,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
 - ⎋ closes a commit comparison (S-12) opened from a graph row's menu: S-12 takes the keyboard focus when it opens,
   as file history does, and ⌘2 focuses it while it covers the graph.
+- ⎋ also closes a base comparison (S-11) opened with the toolbar's Compare or ⌘⇧B while the graph has the focus:
+  S-11 takes the focus when it opens, as S-12 does.
 - The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
   registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
 - A new main window with no saved size opens at 1440×900, or at the screen's visible size when the screen is smaller,
