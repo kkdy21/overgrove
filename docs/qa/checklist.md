@@ -74,7 +74,7 @@ Phase 4 QA 이슈 본문에 이 목록을 복사해서 쓴다. 항목마다 결�
 
 | ID | 확인 | 기대 결과 | 화면·이슈 | 자동화 |
 |---|---|---|---|---|
-| QA-SY-01 | Fetch(⌘⇧R) 실행 | 진행 표시 → 완료. 사이드바 REMOTE에 `origin/feat/remote-only`가 나타난다. 상태바의 마지막 fetch 시각이 갱신된다 | S-01 | INT-12 |
+| QA-SY-01 | Fetch(⌘⇧R) 실행 | 진행 표시가 나왔다가 끝난다. 앱은 원격마다 따로 fetch하므로 `mirror`의 `skipFetchAll`은 적용되지 않고, URL에 비밀번호가 있는 `mirror`는 git을 실행하기 전에 거부된다(#356). 그래서 상태바는 `Fetch failed — Details`, S-05의 Last fetch는 `Last attempt failed`가 된다. 나머지는 git 버전에 따라 다르다. **git 2.45.1 이상**: 사이드바 REMOTE에 `origin/feat/remote-only`가 나타난다. Details에는 `Fetching mirror is turned off for this repository` 하나만 있고, 다른 원격의 오류는 없다. **git 2.45.1 미만**(macOS 14 기본 git 2.39.5): 이 Mac의 원격(로컬 경로)은 fetch하지 않으므로(#383) `origin/feat/remote-only`가 나타나지 않는다. Details에는 `mirror` 안내와 함께 `origin`·`upstream`마다 `Overgrove does not fetch <원격> with this git`이 나오고, git 2.45.1 이상이 필요하다고 안내한다 | S-01 | INT-12 |
 | QA-SY-02 | fetch 중 ⌘. | 취소되고 앱이 멈추지 않는다. 부분 결과로 화면이 깨지지 않는다 | S-01 | SEC-T15-02 |
 | QA-SY-03 | 인증이 필요한 원격(자격 증명이 없는 private https 저장소)을 fetch | 프롬프트 없이 빠르게 실패하고 인증 문제라는 안내가 나온다. stderr 원문은 마스킹된다 | S-01 | SEC-T12-02 |
 | QA-SY-04 | 네트워크를 끈 상태에서 fetch | 타임아웃 또는 즉시 실패. 안내 문구에 원격 URL 자격 증명이 없다 | S-01 | SEC-T11-02 |
@@ -221,7 +221,7 @@ Phase 4 QA 이슈 본문에 이 목록을 복사해서 쓴다. 항목마다 결�
 | ID | 확인 | 기대 결과 | 화면·이슈 | 자동화 |
 |---|---|---|---|---|
 | QA-KO-01 | 설정(S-08), 온보딩(S-07), 메뉴 막대의 Navigate·Find·보기(확대) 메뉴 | 한국어로 보인다. git 용어는 음차다(커밋, 브랜치, 스태시, 워크트리, 페치) | S-07, S-08, #120 | `LocalizationTests` (키 존재) |
-| QA-KO-02 | 그래프 작성자 필터, 열 머리, 열 메뉴, Diff 뷰어(S-10) 머리와 `⋯` 메뉴 | 한국어로 보이고 잘리거나 겹치지 않는다(영어보다 긴 문구 포함) | S-01, S-10, #120 | — |
+| QA-KO-02 | 그래프 작성자 필터, 열 머리, 열 메뉴, WIP 행 요약, Diff 뷰어(S-10) 머리와 `⋯` 메뉴 | 한국어로 보이고 잘리거나 겹치지 않는다(영어보다 긴 문구 포함) | S-01, S-10, #120 | `LocalizationTests` (WIP 행 요약, #683) |
 | QA-KO-03 | 번역하지 않는 것: 브랜치·ref 이름, SHA, 복사용 명령(`gh auth login` 등), 클립보드에 들어가는 값, git·gh 오류 원문, `WIP`·`AI-assisted` 배지, Copy Report 내용 | 원문 그대로다 | 전체, #120 | — |
 | QA-KO-04 | 한국어에서 VoiceOver로 QA-A11Y-01·07을 반복한다 | 번역된 화면의 레이블과 툴팁이 한국어로 읽힌다 | 전체, #120 | — |
 

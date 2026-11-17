@@ -147,7 +147,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
   - 노드: 속이 빈 점선 노드(`color.graph.wip-node`)와 HEAD까지의 점선
   - 배경: `color.surface.wip-row`
   - Refs 열: 워크트리 폴더 이름을 쓴 점선 알약
-  - 요약 문구: `WIP 3 staged · 2 unstaged · 1 untracked`. 충돌이 있으면 맨 앞에 `⚠ 2 conflicted`
+  - 요약 문구: `WIP 3 staged · 2 unstaged · 1 untracked`. 충돌이 있으면 맨 앞에 `⚠ 2 conflicted`. 개수 문구는 VoiceOver 레이블과 같은 문구라서 한국어는 `WIP 3개 스테이징됨 · 2개 스테이징 안 됨 · 1개 추적 안 됨`, `⚠ 2개 충돌`이다. `WIP`는 번역하지 않는다(#683)
   - 변경이 없으면 WIP 행을 숨긴다.
 - **HEAD 링.** 포커스 워크트리의 HEAD 노드 바깥에 `color.graph.head-ring`(액센트) 링을 한 겹 더 두른다.
 - **ref 알약.** 종류별 모양은 [art-direction.md §5.5](art-direction.md#55-ref-알약)를 따른다. 요약:
@@ -262,7 +262,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 | 한 파일이 staged와 unstaged에 모두 있음 (`MM`) | 두 그룹에 각각 한 번씩 나타난다 |
 | 서브모듈 | 경로 옆에 `submodule` 태그. 내부 변경은 파일 목록에서 펼치지 않는다 |
 | Submodules 카드 (#108) | 그룹 카드 아래. 선택한 워크트리의 서브모듈마다 한 줄: 경로(`font.mono`, 이스케이프), `.gitmodules`에 없으면 `not in .gitmodules`, 오른쪽에 상태(`clean` / `n changed · n untracked` / `not checked out` / `git directory missing` / `not inspected` / `failed`). `not inspected`는 이유를 툴팁으로 보인다(경로가 워크트리 밖·심볼릭 링크, `.git`이 저장소의 `modules/` 밖, 서브모듈 자체 설정이 조회를 막음). `git directory missing`은 `.git` 파일이 가리키는 git 디렉터리가 없는 깨진 체크아웃이다(#430, 아무것도 실행하지 않음). 읽는 동안 `Checking submodules…`. 첫 읽기에서 답이 없으면(서비스가 그 status를 더 갖고 있지 않음) `Submodules could not be read.`로 끝낸다(#431). 32개까지만 검사하고 나머지는 `n more not inspected`. `.gitmodules`가 일반 파일이 아니면 읽지 않고 알린다. 서브모듈이 없으면 카드를 숨긴다. 행을 눌러도 아무 일도 없다 |
-| 비교 카드 (하단 고정) | `Changes vs [기준 ⌃]`, `n commits ahead · n behind · n files`, `+n −m`, 기준 커밋, `Compare with Base…`(`⌘⇧B`, S-11). 위 목록만 스크롤된다 (#166). 값은 S-11 기본 비교와 같다. 읽는 중·실패·기준 없음(버튼만 남김)·status 대기 상태가 있다. 실행 규칙은 [interaction.md §2.1](interaction.md#21-패널-크기-조절과-스크롤) (#581) |
+| 비교 카드 (하단 고정) | `Changes vs [기준 ⌃]`, `n commits ahead · n behind · n files`, `+n −m`, 기준 커밋, `Compare with Base…`(`⌘⇧B`, S-11). 위 목록만 스크롤된다 (#166). 값은 S-11 기본 비교와 같다. 읽는 중·실패·기준 없음(버튼만 남김)·status 대기 상태가 있다. status 대기는 워크트리 목록을 읽는 동안뿐이다. 폴더가 없는 워크트리(prunable)와 status를 읽지 못했거나 조회하지 않은 워크트리는 기다리지 않고 비교할 수 없는 이유를 보이며, 기준 메뉴와 버튼은 꺼진다(#684). 실행 규칙은 [interaction.md §2.1](interaction.md#21-패널-크기-조절과-스크롤) (#581) |
 
 **데이터.** `WorkingState`, `FileChange`. staged numstat은 `diff --cached --numstat`, unstaged는 `diff --numstat`에서 온다 ([git-command-catalog.md](../architecture/git-command-catalog.md)).
 
@@ -564,6 +564,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 - 앱은 `gh auth login`이나 `xcode-select --install`을 **직접 실행하지 않는다.** 명령을 복사할 수 있게만 한다 (HANDOFF §7.2).
 - `Open Repository`는 1, 2단계가 성공하면 활성화된다.
 - 1단계의 실패 이유는 1단계 카드 안에 보이고, 폴더를 다시 고르거나 S-07을 다시 열면 지워진다. 창의 경고는 S-07 시트에 가려 닫힌 뒤에야 뜨기 때문이다. S-07이 없을 때(`File > Add Repository…`)는 경고로 알린다(#679).
+- 등록 안내도 같다. 고른 폴더와 다른 곳을 등록했을 때(하위 폴더, 연결 워크트리, 심볼릭 링크, [overview.md §9](../architecture/overview.md#9-저장소-등록과-파일-시스템-범위))와 이미 등록된 저장소를 골랐을 때의 안내는 1단계의 경로 아래에 `info.circle`과 함께 보인다(#702).
 - 단계가 완료로 바뀌면 번호 표시와 단계 내용이 `motion.duration-slow`(350ms), `motion.easing-standard`로 겹쳐 바뀐다. 새 내용은 살짝 커지며 나타난다. 줄어든 카드와 그 아래 카드·버튼도 같은 전환으로 움직인다. Reduce Motion이면 `motion.duration-fast` 크로스페이드만 한다(interaction.md §6.5, #575).
 
 **목업.** 창 가운데의 패널 하나에 마크, 제목(`typography.large-title`), `Read-only` 배지, 단계 카드 3개를 둔다. 1, 2단계 성공, 3단계(GitHub) 미로그인. [mockups.md](mockups.md#s-07-온보딩)
@@ -691,7 +692,7 @@ Advanced
 | 요소 | 내용 |
 |---|---|
 | 머리 | 경로, 출처(Staged / Unstaged / 커밋 SHA / stash), 변경 종류 |
-| 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다. Unified는 긴 줄을 한 줄로 두고 가로로 스크롤한다. Split은 두 칸이 가운데 폭을 반씩 나눠 쓰고 긴 줄을 칸 안에서 접는다. 그래서 기본 폭에서도 두 칸이 모두 보인다(#579) |
+| 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다. Unified는 긴 줄을 한 줄로 두고 가로로 스크롤한다. Split은 두 칸이 가운데 폭을 반씩 나눠 쓰고 긴 줄을 칸 안에서 접는다. 그래서 기본 폭에서도 두 칸이 모두 보인다(#579). 패널보다 짧은 diff는 두 방식 모두 본문 맨 위에서 시작한다(#680) |
 | 줄 | 이전·이후 줄 번호, `+`/`−` 기호(색만으로 구분하지 않음), 본문은 `typography.mono` |
 | 배경 | `color.diff.added-bg`, `removed-bg`. 단어 단위 강조는 `added-word-bg` / `removed-word-bg` (v0.2.0, #122. 아래 "단어 단위 강조") |
 | hunk 헤더 | `color.diff.hunk-header-bg` |

@@ -99,6 +99,7 @@ final class AppStateRegistrationTests: XCTestCase {
         XCTAssertEqual(state.repository?.name, "api")
         XCTAssertEqual(state.alert?.title, "Repository Already Added")
         XCTAssertEqual(state.alert?.message, "“api” is already in Overgrove, at \(api.path).")
+        XCTAssertNil(state.setup.repositoryNotice)
     }
 
     func testRefusalShowsAnAlertAndRegistersNothing() async throws {
@@ -179,6 +180,58 @@ final class AppStateRegistrationTests: XCTestCase {
 
         XCTAssertEqual(state.alert?.title, "Repository Added")
         XCTAssertEqual(state.alert?.message, "Overgrove added the repository at \(api.path).")
+        XCTAssertNil(state.setup.repositoryNotice, "File › Add Repository… keeps the alert")
+    }
+
+    /// #702: S-07's sheet hides the window's alert until it closes, so while it is open the note on the added folder is
+    /// in its step 1: a repository registered somewhere other than the folder picked, or one in Overgrove already.
+    func testANoticeWhileTheSetupAssistantIsOpenIsShownInItsFirstStep() async throws {
+        let api = try repositoryFolder("api")
+        let subfolder = try folder("api/src")
+        let (state, _) = makeState(registrar: probe(root: api))
+        state.setup.present()
+
+        await state.addRepository(at: subfolder)
+        XCTAssertEqual(state.repository?.name, "api")
+        XCTAssertEqual(state.setup.repositoryNotice, "Overgrove added the repository at \(api.path).")
+        XCTAssertNil(state.setup.repositoryProblem)
+        XCTAssertNil(state.alert, "no alert waiting behind the sheet")
+
+        await state.addRepository(at: api)
+        XCTAssertEqual(state.registeredRepositories.count, 1)
+        XCTAssertEqual(state.setup.repositoryNotice, "“api” is already in Overgrove, at \(api.path).")
+        XCTAssertNil(state.alert)
+
+        // Closing the assistant leaves nothing to pop up afterwards.
+        state.setup.dismiss()
+        XCTAssertNil(state.alert)
+    }
+
+    /// #702: the next pick clears the note (a refusal replaces it), and so does opening the assistant again. Once the
+    /// assistant is closed, the note goes back to the alert.
+    func testTheNoticeClearsAndGoesBackToTheAlertWithoutTheAssistant() async throws {
+        let api = try repositoryFolder("api")
+        let subfolder = try folder("api/src")
+        let (state, _) = makeState(registrar: probeRefusing(api: api))
+        state.setup.present()
+        await state.addRepository(at: subfolder)
+        XCTAssertNotNil(state.setup.repositoryNotice)
+
+        await state.addRepository(at: try folder("plain"))
+        XCTAssertNil(state.setup.repositoryNotice, "a new pick clears the note")
+        XCTAssertEqual(state.setup.repositoryProblem, "This folder is not a Git repository.")
+
+        await state.addRepository(at: subfolder)
+        XCTAssertNil(state.setup.repositoryProblem)
+        XCTAssertNotNil(state.setup.repositoryNotice)
+        state.setup.dismiss()
+        state.setup.present()
+        XCTAssertNil(state.setup.repositoryNotice, "a reopened assistant starts clean")
+
+        state.setup.dismiss()
+        await state.addRepository(at: subfolder)
+        XCTAssertNil(state.setup.repositoryNotice)
+        XCTAssertEqual(state.alert?.title, "Repository Already Added")
     }
 
     /// L-3 of the #84 security review: a bidi override in a folder name is shown escaped, not obeyed.

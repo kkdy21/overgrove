@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import XCTest
 
 @testable import Overgrove
@@ -223,6 +223,47 @@ final class LocalizationTests: XCTestCase {
         }
         let compact = String(format: ko.localizedString(forKey: "%lldd", value: nil, table: nil), 3)
         XCTAssertEqual(String(format: ko.localizedString(forKey: "%@ ago", value: nil, table: nil), compact), "3일 전")
+    }
+
+    /// The graph's WIP row summary (#683) is built from the catalog's count phrases, the ones the row's VoiceOver label
+    /// reads, so it is Korean in Korean with the detail panel's terms. `WIP` and the glyphs stay as they are.
+    func testGraphWipSummaryIsLocalized() throws {
+        let objects = try XCTUnwrap(Self.objectDirectories(), "build intermediates not found next to the app")
+        let file = try XCTUnwrap(
+            objects.map { $0.appendingPathComponent("GraphRowModel.stringsdata") }
+                .first { FileManager.default.fileExists(atPath: $0.path) })
+        let extracted = Set(try Self.extractedKeys(file))
+        let strings = try catalogStrings()
+        for key in ["%lld staged", "%lld unstaged", "%lld untracked", "%lld conflicted"] {
+            XCTAssertTrue(extracted.contains(key), "not extracted: \(key)")
+            XCTAssertNotNil(strings[key].flatMap(korean), "no Korean: \(key)")
+        }
+
+        let ko = try XCTUnwrap(Bundle.main.path(forResource: "ko", ofType: "lproj").flatMap(Bundle.init(path:)))
+        let worktree = Worktree(
+            path: GitPath("/tmp/dev/api"), head: ObjectID(String(repeating: "a", count: 40)), branch: "refs/heads/main",
+            isMain: true, isDetached: false, isBare: false, lock: .unlocked, isPrunable: false, prunableReason: nil)
+        // The standard fixture's main worktree, as in the #683 report.
+        let state = WorktreeListing.state(branch: "main", staged: 6, unstaged: 8, untracked: 6)
+        XCTAssertEqual(
+            GraphWipRow.make(worktree: worktree, state: state, bundle: ko)?.summary,
+            "WIP 6개 스테이징됨 · 8개 스테이징 안 됨 · 6개 추적 안 됨")
+        XCTAssertEqual(
+            GraphWipRow.make(worktree: worktree, state: state)?.summary, "WIP 6 staged · 8 unstaged · 6 untracked",
+            "English in the tests' language")
+        let conflicted = WorktreeListing.state(branch: "main", staged: 6, unstaged: 8, untracked: 6, conflicted: 2)
+        let summary = try XCTUnwrap(GraphWipRow.make(worktree: worktree, state: conflicted, bundle: ko)?.summary)
+        XCTAssertEqual(summary, "⚠ 2개 충돌 · WIP 6개 스테이징됨 · 8개 스테이징 안 됨 · 6개 추적 안 됨")
+
+        // Not cut off at the reference window size (art-direction.md §3): the summary fits the graph panel next to
+        // the Refs column and eight lanes.
+        let graphPanel =
+            1440 - Tokens.Size.sidebarWidthIdeal - Tokens.Size.detailWidthIdeal - 4 * Tokens.Size.panelGap
+        let room = graphPanel - Tokens.Size.columnRefsIdeal - 8 * Tokens.Size.graphLaneWidth - 2 * Tokens.Spacing.sm
+        let width = NSAttributedString(
+            string: summary, attributes: [.font: NSFont.preferredFont(forTextStyle: .body)]
+        ).size().width
+        XCTAssertLessThanOrEqual(width, room, "Korean summary: \(width)pt in \(room)pt")
     }
 
     /// `…/Build/Products/<config>/Overgrove.app` → `…/Build/Intermediates.noindex/Overgrove.build/<config>/

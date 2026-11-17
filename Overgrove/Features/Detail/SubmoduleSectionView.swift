@@ -105,10 +105,10 @@ private struct SubmoduleRowView: View {
         }
         .padding(.horizontal, Tokens.Spacing.sm + Tokens.Spacing.xxs)
         .frame(height: Tokens.Size.rowFile)
-        .help(row.help ?? "")
+        // Combined first, so the help is one hint on the row, not one on each text (#682).
         .accessibilityElement(children: .combine)
         .accessibilityLabel(SubmoduleSectionModel.accessibilityLabel(row))
-        .accessibilityHint(row.help ?? "")
+        .help(row.help ?? "")
     }
 
     private var tint: Color {

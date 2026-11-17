@@ -176,6 +176,9 @@ private struct DiffBody: View {
     /// Unified rows span at least the visible width so their backgrounds reach the edge; longer lines scroll
     /// sideways. Split sides each take half the visible width and wrap a longer line, so both sides stay in view
     /// at the default centre width (#579).
+    ///
+    /// Unified also fills at least the visible height, top first: a ScrollView that scrolls both ways centres
+    /// content smaller than its viewport, so a short diff sat in the middle of the panel (#680).
     private func rowsView(_ rows: AnyRows) -> some View {
         GeometryReader { proxy in
             switch rows {
@@ -196,7 +199,7 @@ private struct DiffBody: View {
                             UnifiedRowView(row: rows[index]).frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
-                    .frame(minWidth: proxy.size.width, alignment: .leading)
+                    .frame(minWidth: proxy.size.width, minHeight: proxy.size.height, alignment: .topLeading)
                 }
             }
         }

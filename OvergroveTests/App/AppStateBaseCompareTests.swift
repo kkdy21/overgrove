@@ -130,6 +130,21 @@ final class AppStateBaseCompareTests: XCTestCase {
         XCTAssertTrue(state.baseCompareCardModel?.canCompare == true, "the button stays")
     }
 
+    /// A prunable worktree (its folder is missing) is never queried, so the card says it cannot be compared instead
+    /// of waiting for a status that never comes, and runs nothing (#684).
+    func testPrunableWorktreeSaysWhyInsteadOfWaiting() async {
+        let card = StubComparisonLoader()
+        let state = await loadedState(card: card)
+        let prunable = GitPath("/tmp/dev/api-wt/old-spike")
+        XCTAssertEqual(state.entry(at: prunable)?.state, .missing, "the mockup lists it with no folder")
+        state.selectWorktree(prunable)
+        await settle(state)
+        let model = state.baseCompareCardModel
+        XCTAssertEqual(model?.state, .failed("The worktree folder is missing, so it cannot be compared."))
+        XCTAssertEqual(model?.canCompare, false)
+        XCTAssertFalse(card.compareRequests.contains { $0.0 == prunable }, "nothing to compare, so nothing runs")
+    }
+
     /// Auto refresh drives the card at most every max(5 s, 10 × the last comparison), PERF-10b.
     func testThrottleGapFollowsTheLastComparison() async {
         let state = await loadedState(card: StubComparisonLoader())

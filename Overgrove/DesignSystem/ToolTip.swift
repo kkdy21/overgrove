@@ -15,8 +15,13 @@ import SwiftUI
 /// hover, and the pointer cursor all stay with the content in front.
 extension View {
     /// `accessibilityHint` defaults to the tooltip text, as `.help` gave VoiceOver.
+    ///
+    /// The view and its tooltip area are one accessibility element, and the hint goes on that element (#682). A hint on
+    /// the pair landed on the tooltip area too, so a row that combines its children read it twice (`Copy Path, Copy
+    /// Path`). Use it on one control or one field, not on a container of several.
     func toolTip(_ text: String, accessibilityHint: String? = nil) -> some View {
-        background(ToolTipArea(text: text))
+        background(ToolTipArea(text: text).accessibilityHidden(true))
+            .accessibilityElement(children: .combine)
             .accessibilityHint(Text(accessibilityHint ?? text))
     }
 }
