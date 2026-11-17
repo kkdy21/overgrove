@@ -79,6 +79,8 @@ While the major version is `0`, minor versions may contain breaking changes.
 - TAGS and REMOTE rows show short relative dates that go up to weeks, months, and years (`3d`, `2mo`, `3y`), as the
   graph's Date column does, instead of `1,097 d ago`. S-04's head and the issue detail say `3y ago` and
   `updated 3h ago`, and VoiceOver reads `3 years ago`. The status bar's fetch time is unchanged.
+- VoiceOver reads a graph row's relative time in the app's language (`2시간 전` in Korean) like the rest of the row's
+  label, instead of always in English.
 - The graph's WIP row summary follows the app language: the counts (`3 staged`, `2 conflicted`) are translated with
   the same phrases VoiceOver reads, and the `WIP` badge stays as it is.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings

@@ -261,17 +261,12 @@ enum GraphRowAccessibility {
         return many(String(localized: "\(first) and \(last)", comment: "VoiceOver: the last two names in a list"))
     }
 
-    /// `2 hours ago`, spelled out for speech.
-    static func relative(_ date: Date, now: Date) -> String {
-        relativeFormatter.localizedString(for: min(date, now), relativeTo: now)
+    /// `2 hours ago`, spelled out for speech in the app's language (`2시간 전` in Korean, #706), as the rest of the
+    /// label is. It was fixed to English before the app was localized.
+    /// - Parameter locale: The language to speak; the app's own if `nil` (`RelativeTime.spoken`).
+    static func relative(_ date: Date, now: Date, locale: Locale? = nil) -> String {
+        RelativeTime.spoken(date, now: now, locale: locale)
     }
-
-    nonisolated(unsafe) private static let relativeFormatter: RelativeDateTimeFormatter = {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.unitsStyle = .full
-        return formatter
-    }()
 
     private static let absolute: DateFormatter = {
         let formatter = DateFormatter()
