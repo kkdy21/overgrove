@@ -53,6 +53,10 @@ struct SetupAssistantView: View {
         // cross-fade (interaction.md §6.5).
         .animation(reduceMotion ? .fast : .slow, value: stepsDone)
         .frame(width: Self.width)
+        // An alert would have been read out; the reason in step 1 is announced instead (interaction.md §6).
+        .onChange(of: setup.repositoryProblem) { _, problem in
+            if let problem { AccessibilityNotification.Announcement(problem).post() }
+        }
     }
 
     /// Which steps are done, the value the step transition follows.
@@ -87,6 +91,13 @@ struct SetupAssistantView: View {
             Label(repositoryPath, systemImage: "checkmark.circle")
                 .font(Tokens.Font.mono)
                 .foregroundStyle(Tokens.Color.textPrimary)
+        }
+        // The picked folder was refused (#679): the reason the window's alert would give, here in step 1.
+        if let problem = setup.repositoryProblem {
+            Label(problem, systemImage: "exclamationmark.triangle")
+                .font(Tokens.Font.callout.weight(.medium))
+                .foregroundStyle(Tokens.Color.statusWarning)
+                .fixedSize(horizontal: false, vertical: true)
         }
         Text("Only folders you choose here are ever read.")
             .font(Tokens.Font.caption)

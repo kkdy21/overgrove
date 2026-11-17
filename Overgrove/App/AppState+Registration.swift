@@ -10,6 +10,7 @@ extension AppState {
         guard !isAddingRepository else { return }
         isAddingRepository = true
         defer { isAddingRepository = false }
+        setup.repositoryPicked()
         do {
             let registration = try await registrar.register(folder)
             switch registry.add(registration.entry) {
@@ -27,15 +28,18 @@ extension AppState {
                         localized: "“\(existing.name)” is already in Overgrove, at \(existing.displayRootPath)."))
             case .rejected:
                 // The registrar's checks make this unreachable; refuse rather than store a malformed path.
-                alert = AppAlert(
-                    title: String(localized: "Couldn’t Add Repository"),
-                    message: RegistrationError.invalidPath(.controlCharacters).message)
+                registrationFailed(RegistrationError.invalidPath(.controlCharacters).message)
             }
         } catch {
-            if error != .git(.cancelled) {
-                alert = AppAlert(title: String(localized: "Couldn’t Add Repository"), message: error.message)
-            }
+            if error != .git(.cancelled) { registrationFailed(error.message) }
         }
+    }
+
+    /// A refused folder: in S-07's step 1 while the assistant is open, since its sheet would hide the alert until it
+    /// closes (#679); otherwise the alert.
+    private func registrationFailed(_ message: String) {
+        guard !setup.showRepositoryProblem(message) else { return }
+        alert = AppAlert(title: String(localized: "Couldn’t Add Repository"), message: message)
     }
 
     /// Opens a registered repository. Its folder must still be where it was registered, not replaced by a symbolic

@@ -562,6 +562,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 - 앱은 `gh auth login`이나 `xcode-select --install`을 **직접 실행하지 않는다.** 명령을 복사할 수 있게만 한다 (HANDOFF §7.2).
 - `Open Repository`는 1, 2단계가 성공하면 활성화된다.
+- 1단계의 실패 이유는 1단계 카드 안에 보이고, 폴더를 다시 고르거나 S-07을 다시 열면 지워진다. 창의 경고는 S-07 시트에 가려 닫힌 뒤에야 뜨기 때문이다. S-07이 없을 때(`File > Add Repository…`)는 경고로 알린다(#679).
 - 단계가 완료로 바뀌면 번호 표시와 단계 내용이 `motion.duration-slow`(350ms), `motion.easing-standard`로 겹쳐 바뀐다. 새 내용은 살짝 커지며 나타난다. 줄어든 카드와 그 아래 카드·버튼도 같은 전환으로 움직인다. Reduce Motion이면 `motion.duration-fast` 크로스페이드만 한다(interaction.md §6.5, #575).
 
 **목업.** 창 가운데의 패널 하나에 마크, 제목(`typography.large-title`), `Read-only` 배지, 단계 카드 3개를 둔다. 1, 2단계 성공, 3단계(GitHub) 미로그인. [mockups.md](mockups.md#s-07-온보딩)
