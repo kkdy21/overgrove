@@ -225,6 +225,7 @@ git 계층 실측 기준선(이 표의 근거)은 [performance/benchmark-plan.md
   - `status:` triage, blocked, needs-decision
   - `resolution:` duplicate, wontfix, invalid
   - `good first issue`, `help wanted`
+  - 세션 예약: `local-session` (로컬 메인테이너 세션 그룹이 맡은 이슈·PR)
 - 필수 상태 검사(Required checks): `gitleaks`, `pr-policy`, `build-test`
 - 이슈 선점: 이슈 댓글 `/claim`·`/unclaim`, 기한 5시간(PR 없으면 해제), 1인당 2개, 담당자 없는 이슈는 PR 선착순 (ADR-0013)
 - 의존성: 이슈 본문 `## 의존성` 절, PR 본문 `Depends on #<n>` 줄, 임시 구현 표시 `STAND-IN(#<n>)` 주석. 의존 이슈가 모두 완료로 닫혀야 `pr-policy`가 통과한다 (ADR-0015)

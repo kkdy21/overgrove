@@ -35,5 +35,7 @@
   { "name": "resolution:invalid",   "color": "cfd3d7", "description": "Closed; not a valid report or request" },
 
   { "name": "good first issue",   "color": "7057ff", "description": "Small, well-scoped, good for newcomers" },
-  { "name": "help wanted",        "color": "008672", "description": "Extra attention or outside help is welcome" }
+  { "name": "help wanted",        "color": "008672", "description": "Extra attention or outside help is welcome" },
+
+  { "name": "local-session",      "color": "8250df", "description": "Reserved by the local maintainer session group (do not pick from another session group)" }
 ]
