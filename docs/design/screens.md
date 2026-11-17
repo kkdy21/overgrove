@@ -562,6 +562,7 @@ HANDOFF §8의 와이어프레임을 출발점으로 S-01부터 S-10까지 화�
 
 - 앱은 `gh auth login`이나 `xcode-select --install`을 **직접 실행하지 않는다.** 명령을 복사할 수 있게만 한다 (HANDOFF §7.2).
 - `Open Repository`는 1, 2단계가 성공하면 활성화된다.
+- 1단계의 실패 이유는 1단계 카드 안에 보이고, 폴더를 다시 고르거나 S-07을 다시 열면 지워진다. 창의 경고는 S-07 시트에 가려 닫힌 뒤에야 뜨기 때문이다. S-07이 없을 때(`File > Add Repository…`)는 경고로 알린다(#679).
 - 단계가 완료로 바뀌면 번호 표시와 단계 내용이 `motion.duration-slow`(350ms), `motion.easing-standard`로 겹쳐 바뀐다. 새 내용은 살짝 커지며 나타난다. 줄어든 카드와 그 아래 카드·버튼도 같은 전환으로 움직인다. Reduce Motion이면 `motion.duration-fast` 크로스페이드만 한다(interaction.md §6.5, #575).
 
 **목업.** 창 가운데의 패널 하나에 마크, 제목(`typography.large-title`), `Read-only` 배지, 단계 카드 3개를 둔다. 1, 2단계 성공, 3단계(GitHub) 미로그인. [mockups.md](mockups.md#s-07-온보딩)
@@ -689,7 +690,7 @@ Advanced
 | 요소 | 내용 |
 |---|---|
 | 머리 | 경로, 출처(Staged / Unstaged / 커밋 SHA / stash), 변경 종류 |
-| 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다. Unified는 긴 줄을 한 줄로 두고 가로로 스크롤한다. Split은 두 칸이 가운데 폭을 반씩 나눠 쓰고 긴 줄을 칸 안에서 접는다. 그래서 기본 폭에서도 두 칸이 모두 보인다(#579) |
+| 보기 방식 | `Unified`(기본) / `Split`. 선택을 기억한다. Unified는 긴 줄을 한 줄로 두고 가로로 스크롤한다. Split은 두 칸이 가운데 폭을 반씩 나눠 쓰고 긴 줄을 칸 안에서 접는다. 그래서 기본 폭에서도 두 칸이 모두 보인다(#579). 패널보다 짧은 diff는 두 방식 모두 본문 맨 위에서 시작한다(#680) |
 | 줄 | 이전·이후 줄 번호, `+`/`−` 기호(색만으로 구분하지 않음), 본문은 `typography.mono` |
 | 배경 | `color.diff.added-bg`, `removed-bg`. 단어 단위 강조는 `added-word-bg` / `removed-word-bg` (v0.2.0, #122. 아래 "단어 단위 강조") |
 | hunk 헤더 | `color.diff.hunk-header-bg` |

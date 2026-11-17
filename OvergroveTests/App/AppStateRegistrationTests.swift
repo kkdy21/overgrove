@@ -40,19 +40,38 @@ final class AppStateRegistrationTests: XCTestCase {
 
     /// Answers the probes as git would for a repository at `root`, whichever folder inside it is picked.
     private func probe(root: URL) -> RepositoryRegistrar {
-        RepositoryRegistrar(probe: { kind, _ in
-            switch kind {
-            case .gitDirectory: Data("\(root.path)/.git\n\(root.path)/.git\nfalse\ntrue\n".utf8)
-            case .worktree: Data("\(root.path)\n\(root.path)/.git\nfalse\n".utf8)
+        RepositoryRegistrar(probe: { kind, _ in Self.answer(kind, root: root) })
+    }
+
+    nonisolated private static func answer(_ kind: RegistrationProbe, root: URL) -> Data {
+        switch kind {
+        case .gitDirectory: Data("\(root.path)/.git\n\(root.path)/.git\nfalse\ntrue\n".utf8)
+        case .worktree: Data("\(root.path)\n\(root.path)/.git\nfalse\n".utf8)
+        }
+    }
+
+    /// Answers `api` as a repository and refuses `plain` (not a repository) and `others` (owned by another user) as
+    /// git does; every other folder fails the path check before git runs.
+    private func probeRefusing(api: URL) -> RepositoryRegistrar {
+        RepositoryRegistrar(probe: { kind, folder in
+            switch folder.lastPathComponent {
+            case "plain":
+                throw GitError.notARepository(detail: MaskedText(masking: "fatal: not a git repository"))
+            case "others":
+                throw GitError.dubiousOwnership(detail: MaskedText(masking: "fatal: detected dubious ownership"))
+            default:
+                return Self.answer(kind, root: api)
             }
         })
     }
 
+    /// The setup assistant's checks are stubbed, so presenting it runs no git or gh.
     private func makeState(registrar: RepositoryRegistrar) -> (AppState, RepositoryRegistry) {
         let registry = RepositoryRegistry(defaults: defaults)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: registry, registrar: registrar,
-            loader: StubRepositoryLoader())
+            loader: StubRepositoryLoader(), gitChecker: StubGitSetupChecker(.missing),
+            ghChecker: StubGHAuthChecker(nil))
         return (state, registry)
     }
 
@@ -91,6 +110,65 @@ final class AppStateRegistrationTests: XCTestCase {
         XCTAssertNil(state.repository)
         XCTAssertEqual(state.alert?.title, "Couldn’t Add Repository")
         XCTAssertEqual(state.alert?.message, RegistrationError.invalidPath(.controlCharacters).message)
+        XCTAssertNil(state.setup.repositoryProblem, "File › Add Repository… keeps the alert")
+    }
+
+    /// #679: S-07's sheet hides the window's alert until it closes, so while it is open a refused folder is explained
+    /// in its step 1: not a repository, refused for ownership, or any other registration error.
+    func testARefusalWhileTheSetupAssistantIsOpenIsShownInItsFirstStep() async throws {
+        let api = try repositoryFolder("api")
+        let (state, _) = makeState(registrar: probeRefusing(api: api))
+        state.setup.present()
+
+        await state.addRepository(at: try folder("plain"))
+        XCTAssertEqual(state.setup.repositoryProblem, "This folder is not a Git repository.")
+        XCTAssertNil(state.alert, "no alert waiting behind the sheet")
+
+        let ownership = GitError.dubiousOwnership(detail: MaskedText(masking: "")).message
+        await state.addRepository(at: try folder("others"))
+        XCTAssertEqual(state.setup.repositoryProblem, ownership)
+
+        await state.addRepository(at: try folder("bad\nname"))
+        XCTAssertEqual(state.setup.repositoryProblem, RegistrationError.invalidPath(.controlCharacters).message)
+
+        XCTAssertEqual(state.registeredRepositories, [])
+        XCTAssertNil(state.repository)
+        XCTAssertNil(state.alert)
+        // Closing the assistant leaves nothing to pop up afterwards.
+        state.setup.dismiss()
+        XCTAssertNil(state.alert)
+    }
+
+    /// #679: picking another folder in S-07 clears the previous reason, and so does opening the assistant again.
+    func testPickingAnotherFolderClearsTheProblem() async throws {
+        let api = try repositoryFolder("api")
+        let (state, _) = makeState(registrar: probeRefusing(api: api))
+        state.setup.present()
+        await state.addRepository(at: try folder("plain"))
+        XCTAssertNotNil(state.setup.repositoryProblem)
+
+        await state.addRepository(at: api)
+        XCTAssertNil(state.setup.repositoryProblem)
+        XCTAssertEqual(state.repository?.name, "api")
+        XCTAssertNil(state.alert)
+
+        await state.addRepository(at: try folder("plain"))
+        XCTAssertNotNil(state.setup.repositoryProblem)
+        state.setup.dismiss()
+        state.setup.present()
+        XCTAssertNil(state.setup.repositoryProblem, "a reopened assistant starts clean")
+    }
+
+    /// #679: once S-07 is closed, a refusal goes back to the window's alert.
+    func testARefusalAfterTheSetupAssistantClosesShowsTheAlert() async throws {
+        let api = try repositoryFolder("api")
+        let (state, _) = makeState(registrar: probeRefusing(api: api))
+        state.setup.present()
+        state.setup.dismiss()
+        await state.addRepository(at: try folder("plain"))
+        XCTAssertNil(state.setup.repositoryProblem)
+        XCTAssertEqual(state.alert?.title, "Couldn’t Add Repository")
+        XCTAssertEqual(state.alert?.message, "This folder is not a Git repository.")
     }
 
     func testNoticeWhenTheRegisteredPathDiffersFromThePickedOne() async throws {

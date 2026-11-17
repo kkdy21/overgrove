@@ -40,3 +40,4 @@
 | [0024](0024-keep-gh-delegation-over-github-app.md) | GitHub 인증은 gh 위임 유지 (GitHub App·fine-grained 토큰을 앱이 직접 다루지 않음) | Accepted |
 | [0025](0025-github-hosts-and-accounts.md) | GitHub 호스트는 gh에 로그인된 것만 신뢰, 계정은 앱이 바꾸지 않음 (ADR-0004 §8 대체) | Accepted |
 | [0026](0026-gitlab-and-gitea-issue-providers.md) | GitLab·Gitea 이슈는 glab·gt에 위임, 그 CLI에 로그인된 호스트만 신뢰 (ADR-0004를 GitHub 밖 제공자로 확장) | Accepted |
+| [0027](0027-homebrew-bottles-in-personal-tap.md) | Homebrew는 개인 tap의 bottle 붙은 formula(소스 빌드 대체), Developer ID 서명·공증은 하지 않음 | Accepted |

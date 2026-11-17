@@ -194,6 +194,123 @@ final class DiffViewerRenderTests: XCTestCase {
         }
     }
 
+    /// A diff shorter than the panel starts at the top in Unified as it does in Split (#680). A ScrollView that
+    /// scrolls both ways centres content smaller than its viewport, which left a five-line hunk in the middle of the
+    /// panel with blank space above it.
+    func testShortUnifiedDiffStartsAtTheTop() throws {
+        let document = document
+        let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        let hunk = try color("Tokens/diffHunkHeaderBg", in: appearance)
+        /// The top of the hunk header row in points, scanning the right edge (rows span the visible width).
+        func hunkTop(_ bitmap: NSBitmapImageRep) -> CGFloat? {
+            let column = Int((Self.size.width - 20) * CGFloat(bitmap.pixelsWide) / Self.size.width)
+            let row = (0..<bitmap.pixelsHigh).first { y in
+                guard let pixel = bitmap.colorAt(x: column, y: y)?.usingColorSpace(.sRGB) else { return false }
+                return abs(pixel.redComponent - hunk.redComponent) < 0.01
+                    && abs(pixel.greenComponent - hunk.greenComponent) < 0.01
+                    && abs(pixel.blueComponent - hunk.blueComponent) < 0.01
+            }
+            return row.map { CGFloat($0) * Self.size.height / CGFloat(bitmap.pixelsHigh) }
+        }
+        var tops: [Bool: CGFloat] = [:]
+        for isSplit in [false, true] {
+            defaults.set(isSplit, forKey: "diffViewMode")
+            let view = DiffViewerView(
+                title: document.title, sourceLabel: "Staged · M", state: .loaded(document), onBack: {})
+            let bitmap = try render(view, appearance: appearance) { hunkTop($0) != nil }
+            tops[isSplit] = try XCTUnwrap(hunkTop(bitmap), "split \(isSplit): the hunk header is drawn")
+            if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+                let png = bitmap.representation(using: .png, properties: [:])
+            {
+                let name = isSplit ? "diff-short-split.png" : "diff-short-unified.png"
+                try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent(name))
+            }
+        }
+        let unified = try XCTUnwrap(tops[false])
+        let split = try XCTUnwrap(tops[true])
+        XCTAssertEqual(unified, split, accuracy: 2, "Unified starts where Split does, under the header")
+        XCTAssertLessThan(unified, 80, "the first hunk sits at the top of the body, not in the middle of the panel")
+    }
+
+    /// The top alignment of #680 leaves scrolling alone: a diff taller than the panel still scrolls down, and a line
+    /// wider than the panel stays on one line and scrolls sideways.
+    func testLongUnifiedDiffStillScrollsBothWays() throws {
+        let long = String(repeating: "abcdefgh ", count: 40)
+        let added = (1...60).map { "+line \($0)" }.joined(separator: "\n")
+        let patch = "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,1 +1,60 @@\n-\(long)\n\(added)\n"
+        let document = DiffDocument(
+            listing: TestFixtures.patch(patch), path: GitPath("a.go"),
+            source: DiffDocument.Source(label: "Unstaged", kindLetter: "M"))
+        defaults.set(false, forKey: "diffViewMode")
+        let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
+        let host = NSHostingView(
+            rootView: DiffViewerView(
+                title: document.title, sourceLabel: "Unstaged · M", state: .loaded(document), onBack: {}
+            )
+            .frame(width: Self.size.width, height: Self.size.height).background(Tokens.Color.surfaceCanvas)
+            .defaultAppStorage(defaults))
+        host.appearance = appearance
+        // An offscreen window that is never ordered in: the scroll view sizes its document only in a window.
+        let window = NSWindow(
+            contentRect: NSRect(x: -10_000, y: -10_000, width: Self.size.width, height: Self.size.height),
+            styleMask: [.borderless], backing: .buffered, defer: true)
+        window.contentView = host
+        defer { window.contentView = nil }
+        func scrollView(in view: NSView) -> NSScrollView? {
+            if let scroll = view as? NSScrollView { return scroll }
+            return view.subviews.lazy.compactMap(scrollView(in:)).first
+        }
+        // Rows are built off the main thread; wait until the scroll view holds them.
+        let deadline = Date().addingTimeInterval(3)
+        var found: NSScrollView?
+        while Date() < deadline {
+            host.layoutSubtreeIfNeeded()
+            if let scroll = scrollView(in: host), let content = scroll.documentView,
+                content.frame.height > scroll.contentView.bounds.height
+            {
+                found = scroll
+                break
+            }
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
+        let scroll = try XCTUnwrap(found, "a long diff is taller than the panel, so it scrolls down")
+
+        // Scrolled 400 pt sideways, the removed line still has text at the panel's right edge: it runs on past the
+        // panel on one line instead of wrapping or stopping at the panel's width.
+        scroll.contentView.scroll(to: NSPoint(x: 400, y: 0))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let removed = try color("Tokens/diffRemovedBg", in: appearance)
+        let scale = CGFloat(bitmap.pixelsWide) / Self.size.width
+        let edge = Int((Self.size.width - 120) * scale)..<Int((Self.size.width - 10) * scale)
+        func isRemovedBackground(_ pixel: NSColor) -> Bool {
+            abs(pixel.redComponent - removed.redComponent) < 0.03
+                && abs(pixel.greenComponent - removed.greenComponent) < 0.03
+                && abs(pixel.blueComponent - removed.blueComponent) < 0.03
+        }
+        // The row's own background shows above and below the changed-word highlight; the text sits between.
+        let edges = (0..<bitmap.pixelsHigh).filter { y in
+            edge.contains { x in bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB).map(isRemovedBackground) ?? false }
+        }
+        let top = try XCTUnwrap(edges.first, "the removed row reaches past the panel's right edge")
+        let bottom = try XCTUnwrap(edges.last)
+        let glyphs = (top...bottom).reduce(0) { count, y in
+            count
+                + edge.filter { x in
+                    guard let pixel = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.sRGB) else { return false }
+                    return pixel.redComponent + pixel.greenComponent + pixel.blueComponent < 1.5
+                }.count
+        }
+        XCTAssertGreaterThan(glyphs, 0, "the long line's text is there after scrolling sideways")
+        if let directory = ProcessInfo.processInfo.environment["OVERGROVE_SNAPSHOT_DIR"],
+            let png = bitmap.representation(using: .png, properties: [:])
+        {
+            try png.write(to: URL(fileURLWithPath: directory).appendingPathComponent("diff-long-scrolled.png"))
+        }
+    }
+
     func testStatesRender() throws {
         let appearance = try XCTUnwrap(NSAppearance(named: .aqua))
         let large = (1...(DiffDocument.largeLineThreshold + 1)).map { "+\($0)" }.joined(separator: "\n")
