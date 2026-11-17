@@ -63,6 +63,9 @@ While the major version is `0`, minor versions may contain breaking changes.
   cannot be compared instead of waiting for a status that never comes.
 - ⎋ closes a commit comparison (S-12) opened from a graph row's menu: S-12 takes the keyboard focus when it opens,
   as file history does, and ⌘2 focuses it while it covers the graph.
+- ⎋ closes any screen covering the graph (file history, diff, comparisons) wherever the keyboard focus is, unless
+  text is being typed, so a diff opened from a commit's files or from file history closes too. ⌘2 focuses the diff
+  while it covers the graph.
 - The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
   registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
 - A new main window with no saved size opens at 1440×900, or at the screen's visible size when the screen is smaller,
