@@ -40,4 +40,5 @@ Local.xcconfig
 /.fixtures/
 /.bench/
 gitleaks-report.*
+xcodebuild.log
 *.sarif

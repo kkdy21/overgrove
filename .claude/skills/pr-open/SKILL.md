@@ -25,8 +25,11 @@ scripts/lint/check-forbidden-apis.sh
 gitleaks git --no-banner --redact --log-opts="$BASE/main..HEAD" .
 # Phase 3 이후
 swift format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
-xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
+set -o pipefail   # tee가 xcodebuild의 실패를 가리지 않게
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS' 2>&1 | tee xcodebuild.log
+scripts/lint/check-actor-isolation-warnings.sh xcodebuild.log
 ```
+- `check-actor-isolation-warnings.sh`가 실패하면(종료 코드 1) `xcodebuild test`가 통과했어도 Ready PR을 열지 않는다(#630). 새 Xcode(27, Swift 6.4)는 nonisolated 문맥에서 main actor 메서드를 부르는 코드를 `[#ActorIsolatedCall]` 경고로만 내고, 이 경고는 `SWIFT_TREAT_WARNINGS_AS_ERRORS`로도 오류가 되지 않는다. 하지만 CI의 Xcode 26(Swift 6.3)은 같은 코드를 오류로 보고 `build-test`를 막는다. 스크립트가 짚은 도우미를 `nonisolated static`으로 선언하거나 `View` 밖으로 옮긴 뒤 다시 돌린다. `xcodebuild.log`는 `.gitignore`에 있어 커밋되지 않는다.
 - `git diff $BASE/main...HEAD --stat`으로 변경 범위가 이슈 하나에 맞는지 확인한다.
 - 다음 경로를 건드렸으면 `security-reviewer` 에이전트를 돌린다: `Overgrove/Execution|Git|GitHub|Parsing|Security`, `.github/workflows`, `.githooks`, `.claude/hooks`, `scripts/github`
 - 범위가 의심되면 `scope-guard` 에이전트를 돌린다.
