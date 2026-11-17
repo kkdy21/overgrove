@@ -8,144 +8,159 @@ While the major version is `0`, minor versions may contain breaking changes.
 
 ## [Unreleased]
 
+## [0.1.0] - YYYY-MM-DD
+
+The first release. Overgrove is a read-only Mac app that shows every worktree of a repository in one window: what
+each one has changed, how far it is from its upstream, the stashes, and the commit graph. The only operation that
+touches a remote is `git fetch`. It is distributed as source only: build it with Xcode 26 or later, and run it on
+macOS 14 or later.
+
 ### Added
 
-- WIP and worktree details: a compare card pinned at the bottom shows the focused worktree against its base branch
-  (commits ahead and behind, files, line totals, base commit), with the base menu and Compare with Base…. It reuses
-  S-11's comparison and cache and waits for the selection to settle before running git.
-- Issue panel: GitLab issues through `glab` for a repository without a GitHub remote, read only after glab reports the
-  remote's host logged in (ADR-0026). A remote on a host no CLI is logged in to shows "Not logged in to HOST" with the
-  gh and glab login commands to copy.
+**Repositories and worktrees**
 
-- Project bootstrap: product requirements, MVP scope, glossary, roadmap, and architecture decision records.
-- Architecture, Git command catalog, parsing specification, and security review (threat model T1–T18).
-- Information architecture, screen specs, interaction design, design tokens, and app icon.
-- Test strategy, fixture and benchmark repository generators, performance budget, and QA process.
-- Contributor docs, issue/PR/discussion templates, labels, CI workflows (secret scan, PR policy, build, CodeQL),
-  Git hooks, and the Claude Code project harness.
-- README: development process diagram ("How we work") and a table of which control enforces each rule.
-- README: "Who is it for" section describing the problems Overgrove targets and when it is not a fit yet.
-- App skeleton: Xcode project (macOS 14+, Swift 6 with complete strict concurrency) and a CI job that builds and runs the tests.
-- Process execution: a `posix_spawn`-based runner with an explicit environment, timeouts, output limits, process-group
-  termination, and cancellation.
-- Hardened git invocation: allowlisted read-only commands, validated arguments (object IDs, full ref names, paths),
-  common safety flags, an environment allowlist, and a classified error model.
-- Repository config inspection: repository-local filters, credential helpers, proxies, and SSH commands are neutralized
-  before git runs, and fetch is blocked when a repository sets its own TLS certificates.
-- Credential masking for URLs, stderr, and logs; path validation for registration and symlink escapes.
-- Value models and parsers for `git config`, `git version`, and `gh` JSON output.
-- Korean README (`README.ko.md`) with an English/Korean switcher at the top of both files.
-- Pull request status (ADR-0023): worktree and local branch rows show the linked PR's state and number, and the
-  worktree detail shows a Pull request card. A PR is linked only when its head owner, repository, and branch match the
-  branch's upstream, so a same-named branch from a fork never attaches.
-- Commit comparison (S-12): a COMMITS section lists the commits the target has that the base does not, newest first
-  (up to 500), and each row opens that commit.
-- Korean localization, first part: Settings, the setup assistant, the graph header and columns, the diff viewer, and
-  the menu commands follow the system language through a String Catalog. Git names, commands, and copied values stay
-  as they are.
-- Open on GitHub for branches opens the repository of the remote each branch tracks, so in a fork flow a branch
-  tracking your fork opens the fork.
+- Add repositories with the folder picker (⌘O), switch between them in the toolbar, and manage the list in
+  Settings. Bare repositories that host linked worktrees can be added too.
+- A sidebar that lists every worktree with its branch or detached HEAD, path, change counts, ahead/behind, locked
+  and prunable state, the issue its branch names, and its pull request.
+- Worktree detail with the branch, upstream, last fetch, and a Security card that lists the repository settings
+  Overgrove turned off or that stopped a query. The card can copy a report with credentials masked.
+- On relaunch, the last worktree list is drawn at once from a small on-disk snapshot while the first real load
+  runs.
 
-### Changed
+**Changes and diffs**
 
-- Tooltips on the panel icon buttons (copy, back, swap), the narrow detail view switch, the clickable status bar
-  fields, and sidebar branch folders go away when the pointer leaves and appear again after a drag or a menu.
-- The panel dividers' resize cursor follows the pointer after Settings closes, after switching between main windows,
-  and after a panel is collapsed by dragging, without waiting for the pointer to move.
-- The panel dividers show the resize cursor from the moment the pointer enters them again, also when the pointer
-  stops right on a divider or was already there when its window becomes key.
-- One cursor decision per window for the panel dividers: a newly opened window keeps the resize cursor under a
-  still pointer, and no resize cursor stays over the graph after Settings closes or after a panel is collapsed by
-  dragging.
-- In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
-- Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings
-  no longer leaves a resize cursor over the main window.
-- The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show
-  the pointing hand.
-- Stepping through commits no longer flashes a loading state: the commit detail, header included, keeps the previous
-  commit for up to 150 ms while the next one loads. The comparison screens fade in instead of popping in after a
-  blank frame.
-- In a long sidebar, ⌘↑ and ⌘↓ always scroll the selected row into view, and moving up never leaves it under the
-  pinned section header. This includes ISSUES rows.
-- Opening a sidebar section or a Security card's keys no longer draws the new rows over the rows below while they
-  slide down: the rows below cover them until they move out of the way.
-- In the sidebar LOCAL and REMOTE trees, branch and folder rows of one depth line up their icons and names.
-- Chip outlines (the main worktree tag, an issue number not in the list) stay visible on a selected row in dark mode,
-  and the pull request pill leaves room between its symbol and its rounded edge.
-- Narrow detail panels fold joined values between items: the upstream's counts stay together and no line starts or
-  ends with `·`. The issue panel's setup commands wrap instead of being cut, and add no hyphens of their own.
-- The graph search’s previous and next buttons and the fetch failure details’ Copy Command button respond to the
-  pointer like the other icon buttons.
-- The status bar no longer leaves a gap after a short ahead/behind or fetch field; the fields still shorten in a
-  narrow window.
-- The sidebar is one keyboard stop: Tab stops there once, and the arrow keys move through the visible rows of every
-  section (worktrees, branches, tags, stashes, issues), opening each as a click would. After ⌘4, ↓ picks the first
-  issue.
-- A selected sidebar row in an unfocused list is outlined, so it no longer looks like the row under the pointer, and
-  the light hover fill is easier to see.
-- The `main worktree` pill stays on one line in a narrow sidebar; the path beside it shortens instead.
-- Sidebar rows respond to the pointer, select the same way everywhere (grey when the list does not have keyboard
-  focus), and sections and folders open and close with the standard disclosure motion (at once under Reduce Motion).
-  Clicking a LOCAL or REMOTE branch selects its tip commit.
-- Every detail file list (WIP, commit, stash, comparisons) uses one 26pt row with the same kind badge and coloured
-  line counts; a long path shortens its directory and keeps the file name whole.
-- Sidebar: section headers stay at the top while their rows scroll; every header and row starts on one line; a
-  narrow sidebar keeps the worktree name and hides the PR pill, then `#n`, then the lowest status badges first; the
-  Filter field is 24pt high; with no repository open, the sidebar offers Add Repository….
-- Rows and buttons in the detail panel and the screens over the graph (history, diff, comparisons) respond to the
-  pointer, and those screens, new detail content, and loaded content fade in. Everything changes at once under Reduce
-  Motion.
-- Open on GitHub for a remote-tracking branch uses the remote its row is grouped under: a branch of a non-GitHub
-  remote whose name starts with a GitHub remote's name no longer opens the GitHub remote's page.
-- GitHub hosts are trusted only when gh has a working login there, not just any account entry.
-- The setup assistant counts a gh login on any host, as the status bar does: a login only on a GitHub Enterprise host
-  shows as set up and names the host.
-- Graph Zoom In also answers ⌘= on keyboards where + needs Shift.
-- Quick Look refuses more file types whose preview renders web content or names a location, by extension and by
-  file type.
-- Open on GitHub for commits and files uses only the remotes the current load inspected, like branch rows.
-- Auto fetch catches up a repository newly opened in a window when the window becomes active, instead of waiting out
-  the previous repository's interval.
-- The repository switcher shows the remote owner next to the name: the GitHub or Gitea owner, or GitLab namespace, of
-  the repository whose issues the panel reads.
-- Check Again and ⌘R on a "Not logged in to HOST" issue panel read gh's login list again, so a `gh auth login` or a gh
-  install since the last check shows the host's issues without restarting the app. Auto refresh still does not run gh.
-- Enterprise Managed User logins and owners (`handle_shortcode`) are accepted on GitHub. A github.com login gh reports
-  that the app cannot read no longer drops the other hosts gh is logged in to.
-- Sidebar remotes, branch folders, and branches whose names differ only in Unicode normalization (or by KELVIN SIGN)
-  open and close on their own instead of sharing one row's state.
-- A remote on GitHub's SSH-over-443 endpoint (`ssh://git@ssh.github.com:443/OWNER/NAME`) is read as github.com, so
-  its issues and pull requests show instead of "Not logged in to ssh.github.com".
-- Check Again in the setup assistant also updates the status bar's gh field, the gh accounts, and the trusted GitHub
-  hosts, so issue panels follow a `gh auth login` without another check.
-- Remote-tracking branches of a remote whose name Overgrove does not pass to git (one with `+`, `@`, or non-ASCII
-  from a hand-edited config) stay under their own remote, instead of being grouped under, and opening on GitHub as, a
-  GitHub remote whose name is a prefix of theirs.
-- Open on GitHub for a remote-tracking branch follows the remote's fetch refspecs: a ref fetched from somewhere other
-  than a branch (such as `origin/pr/123` from `refs/pull/123/head`) no longer opens a `tree/` page.
-- Open in Terminal and Open in Editor ask first while the worktree list is still drawn from the in-memory cache: the
-  cached settings check is the previous load's. This load's check decides once it arrives.
-- Open on GitHub and pull request links for a local branch match its upstream remote's name byte for byte, so a
-  hand-edited name that only looks like a GitHub remote's (KELVIN SIGN for `K`, or NFD for NFC) no longer reaches it.
-- Two local branches whose names differ only in Unicode normalization each show their own pull request, and two
-  remote names that differ only that way both go without GitHub links instead of one taking the other's place.
-- The graph's checked-out branch pill follows a switch to another branch on the same commit on the next refresh,
-  keeping the rows, selection, and scroll.
-- A tag of a tree or a file says so in TAGS instead of showing as a commit, and choosing it no longer clears the
-  graph selection while the detail panel keeps the old commit.
-- The graph draws a stash node only for a real stash commit that is not already a row: a plain commit written to
-  `refs/stash`, or a stash a branch points to, no longer appears twice.
-- Compare (S-12) keeps the subject and author of a base or target commit that a rebase or reset drops from the graph,
-  marks it "Not in the graph", and stays open when that row is chosen.
+- The focused worktree's uncommitted changes, grouped as conflicted, staged, unstaged, and untracked, with line
+  counts per file, and a Submodules card that shows each submodule's own state.
+- A diff viewer for worktree changes, commits, stashes, and comparisons: unified or split, changed words
+  highlighted, whitespace shown on request, and a confirmation before a very large diff is drawn.
+- Compare with base: a pull-request-style view of the commits a worktree adds on top of its base branch and the
+  files it changed, with or without uncommitted changes. A card at the bottom of the worktree detail sums it up.
+- Compare any two commits, with the files and the commits between them.
+- When `git status` is slow because the index is stale, the status bar says why and how to make it fast again.
 
-- `scripts/bootstrap.sh`: `--build` checks only what building needs (macOS, Xcode readiness, the git that xcrun
-  finds) and changes nothing; the default contributor mode says it will set `core.hooksPath` before doing so, and
-  each problem comes with the command that fixes it.
-- Process: the project board follows issues, pull requests, and claims automatically (`board-sync`, ADR-0016), and
-  running several maintainer sessions in parallel has explicit rules (separate worktrees, assign before starting).
+**Commit graph and history**
 
-- Design: the main window uses its own panel theme — three rounded, resizable, independently scrolling panels with
-  grab handles, an original high-chroma lane palette, avatar graph nodes, and a Refs column. Adds the art direction
-  document and ADR-0014, re-validates every color token, and redraws all mockups (#166).
+- A commit graph with lane colours, pills for branches, tags, and worktrees, stash nodes, a WIP row for the focused
+  worktree, and an AI mark on commits that carry an AI agent's `Co-authored-by` trailer. Pages load as you scroll,
+  and repositories without a commit-graph file are streamed.
+- Search the loaded graph by message, author, SHA, ref name, or `#issue`; filter by author; resize and hide
+  columns; zoom with ⌘+ and ⌘−.
+- Commit detail with the message, parents, co-authors, and changed files.
+- File history that follows renames, with a switch to turn that off.
+
+**Branches, tags, and stashes**
+
+- Local and remote branch trees with upstream status, a Tags section, and the stash list. Choosing an item
+  selects its commit in the graph; a stash shows its files and how each one changed.
+
+**Fetch and refresh**
+
+- Fetch per remote with progress, cancel, and a timeout. Failures are explained with what to do next. The status
+  bar shows the last fetch time, and ahead/behind is updated afterwards.
+- Optional automatic fetch, off by default.
+- Automatic refresh while the window is visible: Overgrove watches the worktrees for file changes and re-reads only
+  the ones that changed. A covered or minimized window stops watching and catches up when it is shown again.
+
+**Issues and pull requests**
+
+- An issues panel that reads open issues through a command-line tool you are already logged in to: `gh` for
+  github.com and GitHub Enterprise hosts, `glab` for GitLab, and `gt` for Gitea. Issues are linked to the branches,
+  worktrees, and commits that mention their number. Without a login, the panel shows the command to run.
+- Pull request status from GitHub on worktree and branch rows, and a Pull request card in the worktree detail. A
+  pull request is attached only when its head repository and branch match the branch's upstream, so a fork's
+  branch with the same name never shows up.
+- The active `gh` account for the repository's host, in the status bar and the issues panel.
+
+**Working with other apps**
+
+- Open a worktree or a file in the terminal or editor you choose in Settings.
+- Open commits, branches, and files on GitHub. A branch opens in the repository of the remote it tracks.
+- Quick Look for working tree files on macOS 15 and later.
+- Context menus to copy SHAs, messages, and paths, and to reveal files in Finder.
+
+**App**
+
+- A three-panel window (sidebar, graph, detail) with resizable and collapsible panels, a toolbar, and a status
+  bar, in light and dark appearances.
+- A setup assistant that checks `git` and the `gh` login, and Settings for automatic fetch, remote URL display, the
+  repository list, the `git` executable, and the terminal and editor.
+- Choose another `git`, such as Homebrew's, in Settings › Advanced. It is checked for ownership, permissions, and
+  version (2.36 or later) when chosen and at every launch.
+- Keyboard use throughout: the sidebar is one Tab stop and the arrow keys move across all its sections, there are
+  shortcuts for the panels and common actions, and you can go back and forward through selections.
+- VoiceOver labels and rotors, Increase Contrast, and Reduce Motion support.
+- English and Korean, following the system language.
+
+**Project**
+
+- An Xcode project with no third-party dependencies that signs the app to run locally, so no Apple Developer
+  account is needed. `scripts/bootstrap.sh --build` checks that a Mac can build it and changes nothing; the default
+  mode also installs the contributor Git hooks.
+- Product, design, architecture, threat model (T1–T19), testing, performance, and process documents, with an ADR
+  for each decision. The README is in English and Korean.
+- CI that builds and tests every pull request, scans for secrets, checks the PR policy, workflows, and
+  dependencies, runs CodeQL, and runs a scheduled git compatibility matrix. Bots handle issue claims and keep the
+  project board up to date.
+
+### Security
+
+Overgrove assumes every repository it opens is untrusted. Settings a repository controls cannot run programs, send
+your credentials elsewhere, or write to the repository through the app. Threat IDs refer to the
+[security review](docs/design/security-review.md), which also lists the tests behind each item.
+
+- Processes are started from one module only, with argument arrays and never a shell. Only allowlisted read-only
+  git commands and `git fetch` exist in the code. Values from the user or the repository go after `--`, and refs
+  that start with `-` are refused (T9, T13).
+- Every git command turns off fsmonitor, hooks (including hooks defined in config), external diff and textconv,
+  signature programs, automatic gc and maintenance, the pager, and optional index locks (T1–T3, T7, T8).
+- Before git runs, the repository's own config is inspected. Filters, credential helpers, SSH and proxy commands,
+  `uploadpack`, proxies, proxy authentication, cookie files, and similar settings are overridden for Overgrove's
+  commands and listed in the Security card. A setting that cannot be overridden safely stops the query. Fetch is
+  refused when a repository sets its own TLS certificates or fixed host addresses (T4–T6, T11).
+- The child environment is built from an allowlist instead of being inherited, credential prompts are turned off,
+  and every command has a timeout and an output limit (T10, T12, T15).
+- Queries use no transport at all, so partial-clone settings cannot start a lazy fetch. Fetch allows only Git's
+  built-in transports, and remotes that would need another remote helper are refused before git runs (T5).
+- Fetch uses its own refspecs and turns off tag pruning and bundle URIs, so repository settings cannot rewrite local
+  refs. Showing a diff never rewrites the index (T13).
+- The log output encoding is fixed, so repository settings cannot shift fields and forge commit records (T15).
+- Each listed worktree is checked to belong to the repository and inspected with its own settings. At most 64
+  worktrees are queried and 16 remotes fetched per repository. Submodules are inspected with their own settings
+  before their state is read (T4, T14, T15).
+- Credentials are masked in remote URLs, git's error output, logs, and copied reports (T11, T16). Paths are
+  validated before any file is read, and symbolic links cannot lead out of the worktree (T14).
+- Open in Terminal and Open in Editor ask first unless the worktree's settings were checked and hold no finding and
+  no hook, because a shell or an editor does use the repository's settings (T14). Quick Look refuses file types
+  whose preview renders web content.
+- Untrusted repository mode: a repository marked untrusted never fetches from remotes that are folders on this Mac,
+  since fetching one runs git in that other repository, and it always asks before opening a terminal or editor
+  (T5, T14).
+- `gh`, `glab`, and `gt` run only a fixed set of commands in a hardened environment, and a host is used only when
+  its tool reports a working login there. Overgrove never reads or stores tokens (T11).
+- The launch snapshot keeps only display values (no remote URLs, config values, file names, or commit contents),
+  is read as untrusted input, and is never used for a security decision (T19).
+- No third-party dependencies, GitHub Actions pinned to commit SHAs with minimal permissions, and gitleaks in the Git
+  hooks and CI (T17, T18).
+
+### Known limitations
+
+- Read-only by design: no staging, commit, push, pull, merge, rebase, checkout, stash apply or drop, or worktree
+  removal. The terminal and your AI agents do the writing ([ADR-0011](docs/adr/0011-no-pull-in-v0-1.md),
+  [ADR-0021](docs/adr/0021-read-only-scope-after-v0-1.md)).
+- Repository filters are turned off, so files that a filter such as Git LFS rewrites can show as changed. The
+  Security card says when this applies.
+- The issues panel shows open issues only: up to 200 from GitHub or Gitea and 50 from GitLab. Pull request status is
+  GitHub only. Forgejo is not supported.
+- On git older than 2.45.1, fetch is refused for partial clones and for remotes that are folders on this Mac. In a
+  partial clone, views that need missing objects show an error instead of downloading them.
+- Remotes that need another remote helper (`codecommit::` and the like) or `ftp://` cannot be fetched. Shell proxy
+  variables such as `HTTPS_PROXY` are not passed to git; set `http.proxy` in your global config instead
+  ([guide](docs/guides/self-hosted-git.md)).
+- Search covers only the graph pages that are loaded. Untracked files are listed up to 5,000 per worktree.
+- When many files have changed only their modification time, `git status` can be slow, because Overgrove never
+  writes the index. Running `git status` once in Terminal, in a repository you trust, fixes it.
+- No multiple selection of commits or files.
 
 [Unreleased]: https://github.com/kkdy21/overgrove/commits/main
+[0.1.0]: https://github.com/kkdy21/overgrove/releases/tag/v0.1.0
