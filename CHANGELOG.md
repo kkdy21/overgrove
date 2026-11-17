@@ -52,6 +52,8 @@ While the major version is `0`, minor versions may contain breaking changes.
   rows, and S-11's commit rows no longer repeat their hint.
 - Tooltips on the panel icon buttons (copy, back, swap), the narrow detail view switch, the clickable status bar
   fields, and sidebar branch folders go away when the pointer leaves and appear again after a drag or a menu.
+- Release builds no longer carry the `get-task-allow` debugging entitlement, so other processes of the same user cannot
+  attach to the app. Debug builds keep it for the debugger and the tests.
 - The panel dividers' resize cursor follows the pointer after Settings closes, after switching between main windows,
   and after a panel is collapsed by dragging, without waiting for the pointer to move.
 - The panel dividers show the resize cursor from the moment the pointer enters them again, also when the pointer

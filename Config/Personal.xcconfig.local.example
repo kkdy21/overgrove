@@ -5,3 +5,7 @@
 // CODE_SIGN_STYLE = Automatic
 // DEVELOPMENT_TEAM = ABCDE12345
 // CODE_SIGN_IDENTITY = Apple Development
+//
+// Example: let a tool attach to your own Release build (some Instruments templates need it). Release builds leave out
+// `com.apple.security.get-task-allow` (#687); this puts it back on this machine only.
+// CODE_SIGN_INJECT_BASE_ENTITLEMENTS = YES
