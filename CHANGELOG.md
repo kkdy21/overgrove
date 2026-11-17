@@ -57,7 +57,10 @@ While the major version is `0`, minor versions may contain breaking changes.
 - One cursor decision per window for the panel dividers: a newly opened window keeps the resize cursor under a
   still pointer, and no resize cursor stays over the graph after Settings closes or after a panel is collapsed by
   dragging.
+- Switching to another repository no longer quits the app when the graph shows stash rows.
 - In a sidebar with many worktrees, ⌘↓ no longer leaves the sidebar empty and ⌘↑ scrolls back to the first row.
+- The setup assistant shows why a folder could not be added (not a Git repository, refused for ownership, or another
+  registration error) in its first step, instead of an alert that appeared only after the assistant was closed.
 - Releasing a panel divider keeps the resize cursor while the pointer is still on the divider, and closing Settings
   no longer leaves a resize cursor over the main window.
 - The panel dividers and graph column dividers show the resize cursor again, and clickable status bar fields show
