@@ -32,7 +32,9 @@ enum RelativeTime {
         return formatter
     }
 
-    /// The UI's language rather than the system's, so a label is never half in another language.
-    nonisolated(unsafe) private static let appFormatter = formatter(
-        for: Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en"))
+    /// The UI's language rather than the system's, so a label is never half in another language. Dates that are read
+    /// out or shown in words use it too (`GraphRowAccessibility.hint`, #710).
+    static let appLocale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
+
+    nonisolated(unsafe) private static let appFormatter = formatter(for: appLocale)
 }

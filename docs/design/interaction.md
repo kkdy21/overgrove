@@ -302,7 +302,7 @@ stateDiagram-v2
 | WIP 행 | `Uncommitted changes in feat/12: 3 staged, 2 unstaged, 1 untracked, 1 conflicted` | |
 | 파일 행 | `Staged, modified, Sources/Parsing/Status.swift, 42 lines added, 8 removed` | 상태와 종류를 단어로 읽는다 |
 | 상태 심볼 | `Staged`, `Conflicted` 등 | 심볼 단독으로 쓰일 때 |
-| 상대 시각 | `2 hours ago` + hint `3 November 2026, 14:22` | 상대 시각은 앱 언어로 읽는다(한국어 `2시간 전`, #706). 1분 안은 `just now` |
+| 상대 시각 | `2 hours ago` + hint `3 November 2026, 14:22` | 상대 시각과 hint의 절대 시각은 앱 언어로 읽는다(한국어 `2시간 전`, `2026년 11월 3일 오후 2:22`, #706, #710). 1분 안은 `just now` |
 | 상태바 | 요소별로 분리해 읽는다 | |
 
 - 사용자 지정 rotor: `Worktrees`, `Conflicted Files`, `Changes` 그룹(STAGED, UNSTAGED…).

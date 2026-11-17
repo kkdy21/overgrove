@@ -213,9 +213,11 @@ enum GraphRowAccessibility {
         return parts.joined(separator: ", ")
     }
 
-    /// The absolute date, read after a pause (`3 November 2026 at 14:22`).
-    static func hint(_ commit: CommitNode) -> String {
-        absolute.string(from: commit.authorDate)
+    /// The absolute date, read after a pause, in the app's language like the label (`November 3, 2026 at 2:22 PM`,
+    /// Korean `2026년 11월 3일 오후 2:22`, #710). It was fixed to English before the app was localized.
+    /// - Parameter locale: The language to speak; the app's own (`RelativeTime.appLocale`) if `nil`.
+    static func hint(_ commit: CommitNode, locale: Locale? = nil) -> String {
+        (locale.map(absoluteFormatter(for:)) ?? absolute).string(from: commit.authorDate)
     }
 
     /// `Uncommitted changes in api-wt: 3 staged, 2 unstaged, 1 untracked, 1 conflicted`.
@@ -268,11 +270,14 @@ enum GraphRowAccessibility {
         RelativeTime.spoken(date, now: now, locale: locale)
     }
 
-    private static let absolute: DateFormatter = {
+    private static let absolute = absoluteFormatter(for: RelativeTime.appLocale)
+
+    /// The date in words, for speech; not for parsing or sorting.
+    private static func absoluteFormatter(for locale: Locale) -> DateFormatter {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.locale = locale
         formatter.dateStyle = .long
         formatter.timeStyle = .short
         return formatter
-    }()
+    }
 }

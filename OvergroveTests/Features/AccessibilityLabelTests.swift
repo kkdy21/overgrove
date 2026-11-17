@@ -55,6 +55,18 @@ final class AccessibilityLabelTests: XCTestCase {
             "under a minute, as S-04 and the TAGS rows read it")
     }
 
+    /// #710: the absolute date in the hint follows the app's language too; it was fixed to English.
+    func testGraphRowHintIsReadInTheAppLanguage() {
+        let commit = commit()
+        let english = GraphRowAccessibility.hint(commit)
+        let korean = GraphRowAccessibility.hint(commit, locale: Locale(identifier: "ko"))
+        XCTAssertTrue(english.contains("2027"), english)
+        XCTAssertFalse(english.contains("년"), "the tests' language: \(english)")
+        XCTAssertTrue(korean.contains("2027년"), korean)
+        XCTAssertTrue(korean.contains("월"), korean)
+        XCTAssertNotEqual(korean, english)
+    }
+
     func testRefListsGroupBranchesTagsAndDetachedWorktrees() {
         XCTAssertEqual(
             GraphRowAccessibility.refs([
