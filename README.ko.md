@@ -74,7 +74,7 @@ Overgrove는 이런 질문에 화면 하나로 답합니다. 쓰기 기능은 �
   <img alt="Overgrove 메인 창: 왼쪽 사이드바에 워크트리와 브랜치, 가운데에 커밋 그래프, 오른쪽에 포커스한 워크트리의 staged·unstaged·untracked 파일" src="design/screenshots/main-window-light.png">
 </picture>
 
-macOS 14에서 `scripts/make-fixture-repo.sh`로 만든 테스트용 픽스처 저장소를 연 메인 창입니다. 이미지는 라이트·다크
+macOS 26에서 `scripts/make-fixture-repo.sh`로 만든 테스트용 픽스처 저장소를 연 메인 창입니다. 이미지는 라이트·다크
 모드 설정에 맞춰 바뀝니다. [라이트](design/screenshots/main-window-light.png)와
 [다크](design/screenshots/main-window-dark.png) 이미지를 따로 열어 볼 수도 있습니다.
 

@@ -73,7 +73,7 @@ It is probably not for you yet if:
   <img alt="Overgrove main window: worktrees and branches in the sidebar, the commit graph in the middle, and the focused worktree's staged, unstaged, and untracked files on the right" src="design/screenshots/main-window-light.png">
 </picture>
 
-The main window on macOS 14, showing the test fixture repository from `scripts/make-fixture-repo.sh`. The image
+The main window on macOS 26, showing the test fixture repository from `scripts/make-fixture-repo.sh`. The image
 follows your light or dark appearance. You can also open the [light](design/screenshots/main-window-light.png) and
 [dark](design/screenshots/main-window-dark.png) versions directly.
 
