@@ -57,6 +57,55 @@ final class EscapeFocusMonitorTests: XCTestCase {
             EscapeFocusMonitor.route(isEscape: true, firstResponder: window.contentView, window: window), .pass)
     }
 
+    /// #709: while a screen covers the graph, `⎋` closes it wherever the focus is, unless text is being typed. A text
+    /// view that only selects (a diff's lines) does not count as typing; the search field keeps its own route.
+    func testWhileAScreenCoversTheGraphEscapeClosesItUnlessTextIsTyped() {
+        let window = window()
+        let view = FocusableView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
+        let filter = NSTextField(frame: NSRect(x: 0, y: 40, width: 200, height: 22))
+        let search = NSSearchField(frame: NSRect(x: 0, y: 80, width: 200, height: 22))
+        let selectable = NSTextView(frame: NSRect(x: 0, y: 120, width: 200, height: 40))
+        selectable.isEditable = false
+        let editable = NSTextView(frame: NSRect(x: 0, y: 160, width: 200, height: 40))
+        for subview in [view, filter, search, selectable, editable] { window.contentView?.addSubview(subview) }
+
+        func route(_ responder: NSResponder?, covered: Bool = true) -> EscapeFocusMonitor.Route {
+            EscapeFocusMonitor.route(isEscape: true, firstResponder: responder, window: window, isGraphCovered: covered)
+        }
+        XCTAssertEqual(route(view), .closeScreen, "a view that holds the focus")
+        XCTAssertEqual(route(selectable), .closeScreen, "selectable text is not typing")
+        XCTAssertEqual(route(editable), .pass, "an editable text view keeps ⎋")
+        XCTAssertEqual(route(window), .handle, "nothing focused: the window's ⎋, then the graph")
+        XCTAssertTrue(window.makeFirstResponder(filter))
+        XCTAssertEqual(route(window.firstResponder), .pass, "the sidebar filter clears itself on ⎋")
+        XCTAssertTrue(window.makeFirstResponder(search))
+        XCTAssertEqual(route(window.firstResponder), .passThenFocusGraph)
+
+        XCTAssertEqual(route(view, covered: false), .pass, "nothing covers the graph: SwiftUI handles ⎋")
+        XCTAssertEqual(
+            EscapeFocusMonitor.route(isEscape: false, firstResponder: view, window: window, isGraphCovered: true), .pass
+        )
+    }
+
+    /// Closing a covering screen leaves the focus where it is: no move to the graph.
+    func testClosingAScreenKeepsTheFocus() throws {
+        let window = window()
+        let monitor = EscapeFocusMonitor.MonitorView(frame: .zero)
+        let list = FocusableView(frame: NSRect(x: 0, y: 0, width: 100, height: 100))
+        window.contentView?.addSubview(monitor)
+        window.contentView?.addSubview(list)
+        var calls: [String] = []
+        monitor.onEscape = { calls.append("escape") }
+        monitor.onFocusGraph = { calls.append("graph") }
+        monitor.isGraphCovered = { true }
+        XCTAssertTrue(window.makeFirstResponder(list))
+
+        XCTAssertTrue(monitor.consume(try key(53, "\u{1b}", in: window)))
+        XCTAssertEqual(calls, ["escape"])
+        XCTAssertFalse(monitor.consume(try key(0, "a", in: window)), "other keys pass")
+        monitor.stop()
+    }
+
     /// With nothing focused, `⎋` runs the window's handler, moves focus to the graph, and stops there.
     func testEscapeWithNothingFocusedIsHandled() throws {
         let window = window()
@@ -97,4 +146,9 @@ final class EscapeFocusMonitorTests: XCTestCase {
         XCTAssertEqual(calls, ["graph"], "the window's own ⎋ handler is not run for the field's ⎋")
         monitor.stop()
     }
+}
+
+/// A view that takes the keyboard focus, standing in for SwiftUI's hosting view.
+private final class FocusableView: NSView {
+    override var acceptsFirstResponder: Bool { true }
 }
