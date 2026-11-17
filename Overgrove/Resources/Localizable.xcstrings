@@ -6131,6 +6131,16 @@
         }
       }
     },
+    "The worktree folder is missing, so it cannot be compared." : {
+      "localizations" : {
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "워크트리 폴더가 없어 비교할 수 없습니다."
+          }
+        }
+      }
+    },
     "The worktree folder is missing, so its configuration cannot be inspected." : {
       "localizations" : {
         "ko" : {

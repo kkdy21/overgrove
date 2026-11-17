@@ -1,0 +1,8 @@
+# Example Dependabot config for kkdy21/homebrew-tap (ADR-0027 in kkdy21/overgrove). It keeps the pinned action SHAs
+# in the tap's workflows current. Bring pin changes back to packaging/homebrew/ in kkdy21/overgrove.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

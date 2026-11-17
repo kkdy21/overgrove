@@ -4,9 +4,9 @@ import XCTest
 
 @testable import Overgrove
 
-/// `⎋` reaching the window's handler while S-12 covers the graph (#693), in the real main window view. The window is
-/// offscreen and never ordered in, so it is not key: these tests send `⎋` straight to the window, past the app's key
-/// monitor (`EscapeFocusMonitorTests` covers that one).
+/// `⎋` reaching the window's handler while S-11 or S-12 covers the graph (#693, #701), in the real main window view.
+/// The window is offscreen and never ordered in, so it is not key: these tests send `⎋` straight to the window, past the
+/// app's key monitor (`EscapeFocusMonitorTests` covers that one).
 @MainActor
 final class CoveringScreenEscapeTests: XCTestCase {
     private var defaults: UserDefaults!
@@ -27,7 +27,8 @@ final class CoveringScreenEscapeTests: XCTestCase {
         let root = URL(fileURLWithPath: "/tmp/dev/api", isDirectory: true)
         let state = AppState(
             layoutStore: PanelLayoutStore(defaults: defaults), registry: RepositoryRegistry(defaults: defaults),
-            loader: StubRepositoryLoader(result: .success(WorktreeListing.mockup)), graphLoader: SampleGraphLoader(),
+            loader: StubRepositoryLoader(result: .success(WorktreeListing.mockup)),
+            comparisonLoader: StubComparisonLoader(), graphLoader: SampleGraphLoader(),
             commitLoader: StubCommitLoader(), historyLoader: StubFileHistoryLoader([FileHistoryStoreTests.page(0..<3)]))
         state.open(
             RepositoryContext(
@@ -91,6 +92,34 @@ final class CoveringScreenEscapeTests: XCTestCase {
 
         try pressEscape(in: window)
         XCTAssertNil(state.commitComparison, "⎋ closes S-12")
+        XCTAssertEqual(state.selection, .commit(base), "the main selection stays")
+
+        try pressEscape(in: window)
+        XCTAssertEqual(state.selection, .wip(focused), "③ once nothing covers the graph")
+    }
+
+    /// #701: S-11, opened over the focused graph as the toolbar's Compare and `⌘⇧B` do, takes `⌘2`, and `⎋` then
+    /// reaches the window's handler: S-11 closes and the selection stays. The next `⎋` goes on to ③.
+    func testEscapeClosesTheComparisonOpenedOverTheFocusedGraph() async throws {
+        let state = try await loadedState()
+        let focused = try XCTUnwrap(state.focusedWorktreePath)
+        let window = window(state)
+        defer { window.close() }
+        settle()
+        state.selectCommit(base)
+        state.focus(.center)
+        settle()
+
+        state.showComparison()
+        settle()
+        XCTAssertNotNil(state.comparison)
+        state.focus(.center)
+        settle()
+        XCTAssertFalse(
+            window.firstResponder === window, "⌘2 focuses S-11: \(String(describing: window.firstResponder))")
+
+        try pressEscape(in: window)
+        XCTAssertNil(state.comparison, "⎋ closes S-11")
         XCTAssertEqual(state.selection, .commit(base), "the main selection stays")
 
         try pressEscape(in: window)
