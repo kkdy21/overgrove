@@ -68,7 +68,7 @@
 
 ## 6. 문서와 릴리스 노트
 
-- [ ] `CHANGELOG.md`의 `Unreleased`를 `[0.1.0] - YYYY-MM-DD`로 바꿨고 비교 링크가 맞다 (Keep a Changelog).
+- [ ] `CHANGELOG.md`의 `[0.1.0]` 절에 날짜를 넣었고, `Unreleased`에 남은 항목이 없으며, 비교 링크가 맞다 (Keep a Changelog).
 - [ ] README의 스크린샷이 현재 UI다. 스크린샷은 픽스처 저장소로 찍었고 개인 정보가 없다.
 - [ ] README의 요구 사항이 실제 빌드 조건과 같다 (macOS, Xcode, git 최소 버전).
 - [ ] 릴리스 노트 초안에 다음이 있다: 주요 기능, 요구 사항, 설치 안내(Homebrew, 소스 빌드, bottle 출처 확인. Developer ID 서명·공증 바이너리는 없음), 보안 주의 사항, Known issues, 감사 인사(기여자가 있으면).

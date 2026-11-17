@@ -20,7 +20,7 @@
 1. 릴리스 이슈를 만든다: `chore(release): v0.1.0`(`phase:release`).
 2. [release-checklist.md](../qa/release-checklist.md)를 이슈의 완료 조건으로 복사해 하나씩 확인한다.
 3. 릴리스 PR(`chore/<n>-release-v0-1-0`)을 연다:
-   - `CHANGELOG.md`의 `Unreleased`를 `[0.1.0] - YYYY-MM-DD`로 바꾸고 비교 링크를 갱신한다.
+   - `CHANGELOG.md`의 `[0.1.0] - YYYY-MM-DD`에 날짜를 넣고, 그사이 `Unreleased`에 쌓인 항목을 이 절로 옮긴다. 맨 아래 `[Unreleased]` 링크는 `compare/v0.1.0...HEAD`로 바꾼다. 다음 버전부터는 `Unreleased`를 `[x.y.z] - YYYY-MM-DD`로 바꾸고 비교 링크를 갱신한다.
    - README의 상태 배지와 문구를 갱신한다.
 4. 머지 후 `main`에서 서명된 annotated tag를 만든다(메인테이너):
    ```sh
