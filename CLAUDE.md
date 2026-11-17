@@ -143,7 +143,9 @@ scripts/lint/check-no-dependencies.sh                    # 외부 의존성(SPM�
 gitleaks git --no-banner --redact -v .                   # 비밀 정보 검사 (전체 이력)
 swift format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
 # Phase 3 이후
-xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
+set -o pipefail                                          # tee가 xcodebuild의 실패를 가리지 않게
+xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS' 2>&1 | tee xcodebuild.log
+scripts/lint/check-actor-isolation-warnings.sh xcodebuild.log  # 새 Xcode(27)는 경고로만 내고 CI(Xcode 26)는 오류로 막는 [#ActorIsolatedCall] 검사 (#630)
 ```
 
 ## 7. 하네스 구성

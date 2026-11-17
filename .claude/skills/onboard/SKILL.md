@@ -83,7 +83,9 @@ gh issue comment <n> --repo kkdy21/overgrove --body "/claim"
   ```sh
   swift format lint --strict --recursive --configuration .swift-format Overgrove OvergroveTests
   scripts/lint/check-forbidden-apis.sh
-  xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS'
+  set -o pipefail   # tee가 xcodebuild의 실패를 가리지 않게
+  xcodebuild test -project Overgrove.xcodeproj -scheme Overgrove -destination 'platform=macOS' 2>&1 | tee xcodebuild.log
+  scripts/lint/check-actor-isolation-warnings.sh xcodebuild.log   # 실패하면 /pr-open 3단계를 따른다(#630)
   gitleaks git --no-banner --redact --log-opts="upstream/main..HEAD" .
   ```
 - 시간에 의존하는 테스트를 추가했다면 `-test-iterations 5 -run-tests-until-failure`로 불안정성을 확인한다.
